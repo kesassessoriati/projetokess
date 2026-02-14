@@ -1,0 +1,184 @@
+version: "3.7"
+
+services:
+
+  ## --------------------------- ATENDZAPPY BACKEND --------------------------- ##
+
+  atendzappy_backend:
+    image: ${DOCKER_REGISTRY:-}atendzappy-backend:${TAG:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    volumes:
+      - atendzappy_public:/app/public ## Arquivos de mídia/uploads
+      - atendzappy_logs:/app/logs ## Logs da aplicação
+
+    networks:
+      - waianet ## Nome da rede interna
+
+    environment:
+      ## ⚡ Ambiente
+      - NODE_ENV=production
+      - PORT=8080
+      - TZ=America/Sao_Paulo
+
+      ## 💬 URLs da aplicação
+      - APP_URL=https://apiatendzappy.waiasolutions.site
+      - BACKEND_URL=https://apiatendzappy.waiasolutions.site
+      - FRONTEND_URL=https://atendzappy.waiasolutions.site
+
+      ## 🗄️ Dados do Postgres (usando o pgvector compartilhado)
+      - DB_DIALECT=postgres
+      - DB_HOST=pgvector
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=ALTERE_SENHA_POSTGRES ## Mesma senha do seu postgres
+      - DB_NAME=atendzappy
+
+      ## 🔐 JWT Secrets
+      - JWT_SECRET=ALTERE_PARA_UM_HASH_SEGURO_AQUI
+      - JWT_REFRESH_SECRET=ALTERE_PARA_OUTRO_HASH_SEGURO
+
+      ## 🧑💻 Redis
+      - REDIS_URI=redis://:atendzappy123@atendzappy_redis:6379
+      - REDIS_OPT_LIMITER_MAX=1
+      - REGIS_OPT_LIMITER_DURATION=3000
+
+      ## 📊 Limites
+      - USER_LIMIT=999
+      - CONNECTIONS_LIMIT=999
+      - CLOSED_SEND_BY_ME=true
+
+      ## 🔑 Webhooks
+      - VERIFY_TOKEN=whaticket
+
+      ## 📱 Facebook / Meta
+      - FACEBOOK_APP_ID=SEU_FACEBOOK_APP_ID
+      - FACEBOOK_APP_SECRET=SEU_FACEBOOK_APP_SECRET
+
+      ## 🌐 Google
+      - GOOGLE_CLIENT_ID=SEU_GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET=SEU_GOOGLE_CLIENT_SECRET
+      - GOOGLE_REDIRECT_URI=https://apiatendzappy.waiasolutions.site/google-calendar/oauth/callback
+
+      ## 📡 UAZAPI
+      - UAZAPI_ADMIN_TOKEN=SEU_UAZAPI_TOKEN
+      - UAZAPI_BASE_URL=https://free.uazapi.com
+      - UAZAPI_WEBHOOK_URL=https://apiatendzappy.waiasolutions.site/webhook/uazapi
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_backend.rule=Host(`apiatendzappy.waiasolutions.site`)
+        - traefik.http.routers.atendzappy_backend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_backend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_backend.priority=1
+        - traefik.http.routers.atendzappy_backend.service=atendzappy_backend
+        - traefik.http.services.atendzappy_backend.loadbalancer.server.port=8080
+        - traefik.http.services.atendzappy_backend.loadbalancer.passHostHeader=true
+        - traefik.http.middlewares.atendzappy_sslheader.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.atendzappy_backend.middlewares=atendzappy_sslheader
+
+  ## --------------------------- ATENDZAPPY FRONTEND --------------------------- ##
+
+  atendzappy_frontend:
+    image: ${DOCKER_REGISTRY:-}atendzappy-frontend:${TAG:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: https://apiatendzappy.waiasolutions.site
+        REACT_APP_HOURS_CLOSE_TICKETS_AUTO: "24"
+        REACT_APP_FACEBOOK_APP_ID: "SEU_FACEBOOK_APP_ID"
+
+    networks:
+      - waianet ## Nome da rede interna
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_frontend.rule=Host(`atendzappy.waiasolutions.site`)
+        - traefik.http.routers.atendzappy_frontend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_frontend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_frontend.priority=1
+        - traefik.http.routers.atendzappy_frontend.service=atendzappy_frontend
+        - traefik.http.services.atendzappy_frontend.loadbalancer.server.port=80
+        - traefik.http.services.atendzappy_frontend.loadbalancer.passHostHeader=true
+
+  ## --------------------------- ATENDZAPPY REDIS --------------------------- ##
+
+  atendzappy_redis:
+    image: redis:7-alpine
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--port"
+      - "6379"
+      - "--maxmemory"
+      - "512mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--requirepass"
+      - "atendzappy123"
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "atendzappy123", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    volumes:
+      - atendzappy_redis:/data
+
+    networks:
+      - waianet ## Nome da rede interna
+
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+## --------------------------- VOLUMES --------------------------- ##
+
+volumes:
+  atendzappy_public:
+    external: true
+    name: atendzappy_public
+  atendzappy_logs:
+    external: true
+    name: atendzappy_logs
+  atendzappy_redis:
+    external: true
+    name: atendzappy_redis
+
+## --------------------------- NETWORK --------------------------- ##
+
+networks:
+  waianet:
+    ## Nome da rede interna
+    external: true
+    name: waianet ## Nome da rede interna
