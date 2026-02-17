@@ -21,7 +21,8 @@ const queryClient = new QueryClient();
 const App = () => {
   const [locale, setLocale] = useState();
   const appColorLocalStorage = localStorage.getItem("primaryColorLight") || localStorage.getItem("primaryColorDark") || "#065183";
-  const appNameLocalStorage = localStorage.getItem("appName") || "Fae Developer";
+  const appNameLocalStorage = localStorage.getItem("appName") || "TendZap";
+
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
   const preferredTheme = window.localStorage.getItem("preferredTheme");
   const [mode, setMode] = useState(preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light");
@@ -58,136 +59,136 @@ const App = () => {
   );
 
   const theme = useMemo(
-  () =>
-    createTheme(
-      {
-        typography: {
-          fontFamily: [
-            '"Inter"',
-            '"Roboto"',
-            '"Segoe UI"',
-            '"Helvetica Neue"',
-            'Arial',
-            'sans-serif'
-          ].join(','),
-          
-          // Configurações para diferentes elementos
-          h1: {
-            fontSize: '2.125rem',
-            fontWeight: 600,
-            letterSpacing: '-0.01562em'
+    () =>
+      createTheme(
+        {
+          typography: {
+            fontFamily: [
+              '"Inter"',
+              '"Roboto"',
+              '"Segoe UI"',
+              '"Helvetica Neue"',
+              'Arial',
+              'sans-serif'
+            ].join(','),
+
+            // Configurações para diferentes elementos
+            h1: {
+              fontSize: '2.125rem',
+              fontWeight: 600,
+              letterSpacing: '-0.01562em'
+            },
+            h2: {
+              fontSize: '1.5rem',
+              fontWeight: 600,
+              letterSpacing: '-0.00833em'
+            },
+            h3: {
+              fontSize: '1.25rem',
+              fontWeight: 500,
+              letterSpacing: '0em'
+            },
+            h4: {
+              fontSize: '1.125rem',
+              fontWeight: 500,
+              letterSpacing: '0.00735em'
+            },
+            h5: {
+              fontSize: '1rem',
+              fontWeight: 500,
+              letterSpacing: '0em'
+            },
+            h6: {
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              letterSpacing: '0.0075em'
+            },
+            body1: {
+              fontSize: '1rem',
+              fontWeight: 400,
+              letterSpacing: '0.00938em',
+              lineHeight: 1.5
+            },
+            body2: {
+              fontSize: '0.875rem',
+              fontWeight: 400,
+              letterSpacing: '0.01071em',
+              lineHeight: 1.43
+            },
+            button: {
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              letterSpacing: '0.02857em',
+              textTransform: 'none' // Remove o uppercase padrão dos botões
+            },
+            caption: {
+              fontSize: '0.75rem',
+              fontWeight: 400,
+              letterSpacing: '0.03333em'
+            },
+            overline: {
+              fontSize: '0.625rem',
+              fontWeight: 400,
+              letterSpacing: '0.08333em',
+              textTransform: 'uppercase'
+            }
           },
-          h2: {
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            letterSpacing: '-0.00833em'
+          scrollbarStyles: {
+            "&::-webkit-scrollbar": {
+              width: "8px",
+              height: "8px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              boxShadow: "inset 0 0 6px rgba(0, 0, 0, 0.3)",
+              backgroundColor: mode === "light" ? primaryColorLight : primaryColorDark,
+            },
           },
-          h3: {
-            fontSize: '1.25rem',
-            fontWeight: 500,
-            letterSpacing: '0em'
+          scrollbarStylesSoft: {
+            "&::-webkit-scrollbar": {
+              width: "8px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: mode === "light" ? "#F3F3F3" : "#333333",
+            },
           },
-          h4: {
-            fontSize: '1.125rem',
-            fontWeight: 500,
-            letterSpacing: '0.00735em'
+          palette: {
+            type: mode,
+            primary: { main: mode === "light" ? primaryColorLight : primaryColorDark },
+            textPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
+            borderPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
+            dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
+            light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
+            fontColor: mode === "light" ? primaryColorLight : primaryColorDark,
+            tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
+            optionsBackground: mode === "light" ? "#fafafa" : "#333",
+            fancyBackground: mode === "light" ? "#fafafa" : "#333",
+            total: mode === "light" ? "#fff" : "#222",
+            messageIcons: mode === "light" ? "grey" : "#F3F3F3",
+            inputBackground: mode === "light" ? "#FFFFFF" : "#333",
+            barraSuperior: mode === "light" ? primaryColorLight : "#666",
           },
-          h5: {
-            fontSize: '1rem',
-            fontWeight: 500,
-            letterSpacing: '0em'
-          },
-          h6: {
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            letterSpacing: '0.0075em'
-          },
-          body1: {
-            fontSize: '1rem',
-            fontWeight: 400,
-            letterSpacing: '0.00938em',
-            lineHeight: 1.5
-          },
-          body2: {
-            fontSize: '0.875rem',
-            fontWeight: 400,
-            letterSpacing: '0.01071em',
-            lineHeight: 1.43
-          },
-          button: {
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            letterSpacing: '0.02857em',
-            textTransform: 'none' // Remove o uppercase padrão dos botões
-          },
-          caption: {
-            fontSize: '0.75rem',
-            fontWeight: 400,
-            letterSpacing: '0.03333em'
-          },
-          overline: {
-            fontSize: '0.625rem',
-            fontWeight: 400,
-            letterSpacing: '0.08333em',
-            textTransform: 'uppercase'
-          }
-        },
-        scrollbarStyles: {
-          "&::-webkit-scrollbar": {
-            width: "8px",
-            height: "8px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            boxShadow: "inset 0 0 6px rgba(0, 0, 0, 0.3)",
-            backgroundColor: mode === "light" ? primaryColorLight : primaryColorDark,
-          },
-        },
-        scrollbarStylesSoft: {
-          "&::-webkit-scrollbar": {
-            width: "8px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            backgroundColor: mode === "light" ? "#F3F3F3" : "#333333",
-          },
-        },
-        palette: {
-          type: mode,
-          primary: { main: mode === "light" ? primaryColorLight : primaryColorDark },
-          textPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
-          borderPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
-          dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
-          light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
-          fontColor: mode === "light" ? primaryColorLight : primaryColorDark,
-          tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
-          optionsBackground: mode === "light" ? "#fafafa" : "#333",
-          fancyBackground: mode === "light" ? "#fafafa" : "#333",
-          total: mode === "light" ? "#fff" : "#222",
-          messageIcons: mode === "light" ? "grey" : "#F3F3F3",
-          inputBackground: mode === "light" ? "#FFFFFF" : "#333",
-          barraSuperior: mode === "light" ? primaryColorLight : "#666",
-        },
-        mode,
-        appLogoLight,
-        appLogoDark,
-        appLogoFavicon,
-        appName,
-        calculatedLogoDark: () => {
-          if (appLogoDark === defaultLogoDark && appLogoLight !== defaultLogoLight) {
-            return appLogoLight;
-          }
-          return appLogoDark;
-        },
-        calculatedLogoLight: () => {
-          if (appLogoDark !== defaultLogoDark && appLogoLight === defaultLogoLight) {
+          mode,
+          appLogoLight,
+          appLogoDark,
+          appLogoFavicon,
+          appName,
+          calculatedLogoDark: () => {
+            if (appLogoDark === defaultLogoDark && appLogoLight !== defaultLogoLight) {
+              return appLogoLight;
+            }
             return appLogoDark;
-          }
-          return appLogoLight;
+          },
+          calculatedLogoLight: () => {
+            if (appLogoDark !== defaultLogoDark && appLogoLight === defaultLogoLight) {
+              return appLogoDark;
+            }
+            return appLogoLight;
+          },
         },
-      },
-      locale
-    ),
-  [appLogoLight, appLogoDark, appLogoFavicon, appName, locale, mode, primaryColorDark, primaryColorLight]
-);
+        locale
+      ),
+    [appLogoLight, appLogoDark, appLogoFavicon, appName, locale, mode, primaryColorDark, primaryColorLight]
+  );
 
   useEffect(() => {
     window.localStorage.setItem("preferredTheme", mode);
@@ -197,8 +198,8 @@ const App = () => {
     console.log("|=========== handleSaveSetting ==========|")
     console.log("APP START")
     console.log("|========================================|")
-   
-    
+
+
     getPublicSetting("primaryColorLight")
       .then((color) => {
         setPrimaryColorLight(color || "#0000FF");
@@ -236,11 +237,11 @@ const App = () => {
       });
     getPublicSetting("appName")
       .then((name) => {
-        setAppName(name || "Atend Zappy");
+        setAppName(name || "TendZap");
       })
       .catch((error) => {
         console.log("!==== Erro ao carregar temas: ====!", error);
-        setAppName("Atend Zappy");
+        setAppName("CRM");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -273,7 +274,7 @@ const App = () => {
   return (
     <>
       <Favicon url={appLogoFavicon && appLogoFavicon !== defaultLogoFavicon ? appLogoFavicon : defaultLogoFavicon} />
-      <ColorModeContext.Provider value={{ colorMode }}>
+      <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
           <QueryClientProvider client={queryClient}>
             <SystemAlertProvider>

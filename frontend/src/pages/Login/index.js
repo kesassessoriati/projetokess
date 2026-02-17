@@ -19,8 +19,8 @@ import {
   LinearProgress
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import { 
-  Visibility, 
+import {
+  Visibility,
   VisibilityOff,
   Lock as LockIcon,
   Mail as MailIcon,
@@ -43,27 +43,18 @@ const handleRedirect = () => {
 };
 
 // Componente de Copyright
-function Copyright({ appName }) {
+function Copyright() {
   return (
-    <Typography variant="body2" style={{ 
-      color: "#9ca3af", 
-      fontSize: "0.75rem",
-      fontWeight: 300 
-    }}>
-      © {new Date().getFullYear()}
-      {" - "}
-      <Link 
-        color="inherit" 
-        href="#" 
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "#9ca3af" }}
-      >
-        CopyRight {appName || "Atend Zappy"}
-      </Link>
+    <Typography variant="body2" color="textSecondary" align="center">
+      {"Copyright © "}
+      <Link color="inherit" href="#">
+        {nomeEmpresa}
+      </Link>{" "}
+      {new Date().getFullYear()}
+      {"."}
     </Typography>
   );
-};
+}
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -252,16 +243,22 @@ const Login = () => {
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { colorMode, toggleColorMode } = useContext(ColorModeContext);
-  const { appLogoFavicon, appName, mode } = colorMode;
+  const { toggleColorMode, appLogoFavicon, appName: contextAppName } = useContext(ColorModeContext);
+  const [appName, setAppName] = useState(contextAppName || "TendZap");
   const [backgroundImage, setBackgroundImage] = useState(wallfundo);
   const classes = useStyles({ backgroundImage });
-  
+
+  useEffect(() => {
+    if (contextAppName) {
+      setAppName(contextAppName);
+    }
+  }, [contextAppName]);
+
   const [user, setUser] = useState({
     email: "",
     password: ""
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const { getPublicSetting } = useSettings();
@@ -341,18 +338,18 @@ const Login = () => {
   return (
     <div className={classes.root}>
       <Helmet>
-        <title>{appName || "Premium SaaS Platform"}</title>
+        <title>{appName}</title>
         <link rel="icon" href={appLogoFavicon || "/default-favicon.ico"} />
       </Helmet>
-      
+
       <CssBaseline />
 
       {/* Painel Esquerdo - somente desktop */}
       {!isMobile && (
-        <div 
+        <div
           className={classes.leftPanel}
-          style={{ 
-            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.85)), url(${backgroundImage})` 
+          style={{
+            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.85)), url(${backgroundImage})`
           }}
         >
           <div className={classes.card}>
@@ -387,7 +384,7 @@ const Login = () => {
             Digite seu e-mail e senha para acessar
           </Typography>
         </div>
-        
+
         <form className={classes.form} onSubmit={handleSubmit}>
           <TextField
             variant="outlined"
@@ -408,7 +405,7 @@ const Login = () => {
             }}
             required
           />
-          
+
           <TextField
             variant="outlined"
             fullWidth
@@ -445,9 +442,9 @@ const Login = () => {
           {/* Indicador de força da senha */}
           {user.password && (
             <Box width="100%" mb={2}>
-              <LinearProgress 
-                variant="determinate" 
-                value={(passwordStrength / 5) * 100} 
+              <LinearProgress
+                variant="determinate"
+                value={(passwordStrength / 5) * 100}
                 style={{
                   height: 4,
                   borderRadius: 2,
@@ -473,37 +470,37 @@ const Login = () => {
             </Link>
           </Box>
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              className={classes.button}
-              size="large"
-            >
-              Acessar
-            </Button>
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            className={classes.button}
+            size="large"
+          >
+            Acessar
+          </Button>
 
-            <Box mt={3} textAlign="center">
-              <Typography variant="body2" style={{ color: '#667085' }}>
-                Ainda não tem uma conta?{" "}
-                <Link
-                  component={RouterLink}
-                  to="/cadastro"
-                  style={{ 
-                    color: theme.palette.primary.main,
-                    fontWeight: 600,
-                    textDecoration: 'none'
-                  }}
-                >
-                  Cadastre-se
-                </Link>
-              </Typography>
-            </Box>
+          <Box mt={3} textAlign="center">
+            <Typography variant="body2" style={{ color: '#667085' }}>
+              Ainda não tem uma conta?{" "}
+              <Link
+                component={RouterLink}
+                to="/cadastro"
+                style={{
+                  color: theme.palette.primary.main,
+                  fontWeight: 600,
+                  textDecoration: 'none'
+                }}
+              >
+                Cadastre-se
+              </Link>
+            </Typography>
+          </Box>
         </form>
 
-        <div className={classes.footer}>
-          <Copyright appName={appName} />
-        </div>
+        <Box mt={8}>
+          <Copyright />
+        </Box>
       </div>
     </div>
   );

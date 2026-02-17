@@ -1,6 +1,6 @@
 import { createContext } from "react";
 import openSocket from "socket.io-client";
-// import config from "../../services/config";
+import { getBackendUrl } from "../../config";
 
 const socketManager = {
 	currentSocket: null,
@@ -14,7 +14,7 @@ const socketManager = {
 			}
 
 			this.currentToken = publicToken;
-			this.currentSocket = openSocket(process.env.REACT_APP_BACKEND_URL, {
+			this.currentSocket = openSocket(getBackendUrl(), {
 				transports: ["websocket"],
 				pingTimeout: 18000,
 				pingInterval: 18000,
@@ -24,6 +24,7 @@ const socketManager = {
 		}
 		return this.currentSocket;
 	},
+
 
 	onConnect: function (callbackConnect) {
 		if (this.currentSocket && this.currentSocket.connected) {

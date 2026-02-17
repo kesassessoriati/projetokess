@@ -69,7 +69,8 @@ const ApiUsuariosPage = () => {
     checkPermission();
   }, []);
 
-  const getUsersEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/users`;
+  const getUsersEndpoint = () => `${(window._env_?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL)}/api/external/users`;
+
 
   const postmanRequests = [
     {
@@ -808,7 +809,7 @@ const ApiUsuariosPage = () => {
   const renderServicesForm = () => (
     <Formik
       initialValues={{ token: "", userId: "", serviceIds: "" }}
-      onSubmit={() => {}}
+      onSubmit={() => { }}
     >
       {({ values }) => (
         <Form className={classes.formContainer}>
@@ -883,7 +884,7 @@ const ApiUsuariosPage = () => {
   const renderScheduleForm = () => (
     <Formik
       initialValues={{ token: "", userId: "", scheduleName: "", scheduleDescription: "" }}
-      onSubmit={() => {}}
+      onSubmit={() => { }}
     >
       {({ values }) => (
         <Form className={classes.formContainer}>
@@ -977,7 +978,7 @@ const ApiUsuariosPage = () => {
         clientId: "",
         status: ""
       }}
-      onSubmit={() => {}}
+      onSubmit={() => { }}
     >
       {({ values }) => (
         <Form className={classes.formContainer}>

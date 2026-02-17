@@ -1,0 +1,917 @@
+﻿diff --git a/DEPLOY.md b/DEPLOY.md
+index 4f11079..742cda2 100644
+--- a/DEPLOY.md
++++ b/DEPLOY.md
+@@ -184,10 +184,7 @@ docker build --no-cache -t atendzappy-backend:latest ./backend
+ #### 7.2 - Build do Frontend
+ 
+ ```bash
+-docker build --no-cache \
+-  --build-arg REACT_APP_BACKEND_URL=https://apiatendzappy.waiasolutions.site \
+-  --build-arg REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24 \
+-  -t atendzappy-frontend:latest ./frontend
++docker build --no-cache -t atendzappy-frontend:latest ./frontend
+ ```
+ 
+ ÔÅ▒´©Å **Tempo estimado:** 10-15 minutos (o build do React ├® pesado)
+@@ -200,8 +197,9 @@ docker build --no-cache \
+ > 4. Copia os arquivos est├íticos para `nginx:alpine`
+ > 5. Imagem final: ~65 MB
+ 
+-> ÔÜá´©Å **ATEN├ç├âO:** A `REACT_APP_BACKEND_URL` ├® embutida **no momento do build**.
+-> Se mudar o dom├¡nio do backend, ├® necess├írio **rebuildar** o frontend.
++> ­ƒÆí **NOTA:** Esta imagem ├® **agn├│stica de dom├¡nio**. As URLs e configura├º├Áes s├úo injetadas
++> via vari├íveis de ambiente no momento do deploy (veja o Passo 9). N├úo ├® necess├írio
++> rebuildar se mudar o dom├¡nio.
+ 
+ #### 7.3 - Verificar se as Imagens Foram Criadas
+ 
+@@ -613,17 +611,14 @@ docker images | grep atendzappy
+ 
+ ### Problema 6: Frontend mostra erro de conex├úo com a API
+ 
+-**Causa:** A `REACT_APP_BACKEND_URL` ├® embutida no build do React. Se a URL estiver errada, precisa rebuildar.
++**Causa:** A URL do backend na stack do Portainer est├í incorreta ou o DNS n├úo propagou.
+ 
+ **Solu├º├úo:**
+ 
+-```bash
+-docker build --no-cache \
+-  --build-arg REACT_APP_BACKEND_URL=https://apiatendzappy.waiasolutions.site \
+-  -t atendzappy-frontend:latest ./frontend
+-
+-docker service update --force atendzappy_atendzappy_frontend
+-```
++- Verifique a vari├ível `REACT_APP_BACKEND_URL` na stack do Portainer.
++- Certifique-se de que a URL comece com `https://` e n├úo tenha barra no final (opcional, dependendo da implementa├º├úo).
++- Reinicie o servi├ºo do frontend para aplicar a nova vari├ível: `docker service update --force atendzappy_atendzappy_frontend`.
++- **Dica:** N├úo ├® mais necess├írio rebuildar a imagem para mudar a URL!
+ 
+ ### Problema 7: SSL n├úo funciona / certificado inv├ílido
+ 
+diff --git a/backend/Dockerfile b/backend/Dockerfile
+index 14915d8..ce9127a 100644
+--- a/backend/Dockerfile
++++ b/backend/Dockerfile
+@@ -1,23 +1,18 @@
+-# ============================================
+-# Backend Dockerfile - AtendzAppy
+-# Otimizado para Docker Swarm + Portainer
+-# ============================================
+-
+ # --- Est├ígio 1: Instala├º├úo de depend├¬ncias ---
+-FROM node:18-alpine AS deps
++FROM node:20-alpine AS deps
+ 
+ WORKDIR /app
+ 
+-# Instalar depend├¬ncias de sistema necess├írias para compila├º├úo nativa
++# Instalar depend├¬ncias de sistema
+ RUN apk add --no-cache python3 make g++ git
+ 
+ COPY package.json package-lock.json* ./
+ 
+-# Instalar TODAS as depend├¬ncias (incluindo devDependencies para build)
+-RUN npm ci
++# Instalar TODAS as depend├¬ncias
++RUN npm install --legacy-peer-deps
+ 
+ # --- Est├ígio 2: Build ---
+-FROM node:18-alpine AS builder
++FROM node:20-alpine AS builder
+ 
+ WORKDIR /app
+ 
+@@ -27,11 +22,8 @@ COPY . .
+ # Compilar TypeScript
+ RUN npm run build
+ 
+-# Remover devDependencies ap├│s o build
+-RUN npm prune --production
+-
+ # --- Est├ígio 3: Produ├º├úo ---
+-FROM node:18-alpine AS production
++FROM node:20-alpine AS production
+ 
+ # Instalar depend├¬ncias de runtime
+ RUN apk add --no-cache \
+@@ -44,34 +36,26 @@ RUN apk add --no-cache \
+     ttf-freefont \
+     curl
+ 
+-# Configurar Puppeteer para usar Chromium do sistema
++# Configurar Puppeteer
+ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ 
+ WORKDIR /app
+ 
+-# Copiar depend├¬ncias de produ├º├úo
+-COPY --from=builder /app/node_modules ./node_modules
+-
+-# Copiar aplica├º├úo compilada
++# Copiar depend├¬ncias instaladas no est├ígio deps e podas no builder ou deps? 
++# Vou simplificar para garantir que n├úo falte nada.
++COPY --from=deps /app/node_modules ./node_modules
+ COPY --from=builder /app/dist ./dist
+-
+-# Copiar package.json e .sequelizerc (necess├írio para migrations)
+ COPY package.json .sequelizerc ./
+ 
+-# Copiar arquivos de treinamento OCR (Tesseract)
+-COPY *.traineddata ./
+-
+ # Criar diret├│rios necess├írios
+ RUN mkdir -p public logs
+ 
+-# Vari├íveis de ambiente padr├úo
++# Vari├íveis padr├úo
+ ENV NODE_ENV=production \
+     PORT=8080 \
+     TZ=America/Sao_Paulo
+ 
+-# Expor porta
+ EXPOSE 8080
+ 
+-# Comando de inicializa├º├úo
+ CMD ["node", "dist/server.js"]
+diff --git a/frontend/Dockerfile b/frontend/Dockerfile
+index 2c4de99..ca3ef04 100644
+--- a/frontend/Dockerfile
++++ b/frontend/Dockerfile
+@@ -1,31 +1,21 @@
+-# ============================================
+-# Frontend Dockerfile - Otimizado para Docker Swarm
+-# ============================================
+-
+ # --- Est├ígio 1: Build ---
+-FROM node:18-alpine AS builder
++FROM node:20-alpine AS builder
+ 
+ WORKDIR /app
+ 
+ # Instalar depend├¬ncias de sistema
+ RUN apk add --no-cache python3 make g++ git
+ 
++# Copiar arquivos de depend├¬ncias
+ COPY package.json package-lock.json* ./
+ 
+-# Instalar depend├¬ncias
+-RUN npm ci
++# Instalar depend├¬ncias (usando legacy-peer-deps para evitar conflitos de vers├úo)
++RUN npm install --legacy-peer-deps
+ 
+ COPY . .
+ 
+-# Build args para configura├º├úo din├ómica
+-ARG REACT_APP_BACKEND_URL=http://localhost:8080
+-ARG REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24
+-ARG REACT_APP_FACEBOOK_APP_ID=776874187723945
+-
+-ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL} \
+-    REACT_APP_HOURS_CLOSE_TICKETS_AUTO=${REACT_APP_HOURS_CLOSE_TICKETS_AUTO} \
+-    REACT_APP_FACEBOOK_APP_ID=${REACT_APP_FACEBOOK_APP_ID} \
+-    NODE_OPTIONS=--openssl-legacy-provider \
++# Vari├íveis para BUILD (ser├úo usadas apenas como fallback)
++ENV NODE_OPTIONS=--openssl-legacy-provider \
+     GENERATE_SOURCEMAP=false
+ 
+ # Build da aplica├º├úo
+@@ -34,7 +24,7 @@ RUN npm run build
+ # --- Est├ígio 2: Produ├º├úo com Nginx ---
+ FROM nginx:1.25-alpine AS production
+ 
+-# Instalar curl para healthcheck
++# Instalar depend├¬ncias para o script de runtime
+ RUN apk add --no-cache curl
+ 
+ # Remover configura├º├úo padr├úo do Nginx
+@@ -46,6 +36,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
+ # Copiar arquivos est├íticos do build
+ COPY --from=builder /app/build /usr/share/nginx/html
+ 
++# Copiar script de vari├íveis de ambiente
++COPY public/env.sh /usr/share/nginx/html/env.sh
++RUN chmod +x /usr/share/nginx/html/env.sh
++
+ # Expor porta
+ EXPOSE 80
+ 
+@@ -53,5 +47,5 @@ EXPOSE 80
+ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+     CMD curl -f http://localhost/ || exit 1
+ 
+-# Comando padr├úo
+-CMD ["nginx", "-g", "daemon off;"]
+\ No newline at end of file
++# Comando de inicializa├º├úo com inje├º├úo de vari├íveis em runtime
++CMD ["/bin/sh", "-c", "/usr/share/nginx/html/env.sh && nginx -g 'daemon off;'"]
+\ No newline at end of file
+diff --git a/frontend/public/index.html b/frontend/public/index.html
+index 83ec05b..abb0dff 100644
+--- a/frontend/public/index.html
++++ b/frontend/public/index.html
+@@ -1,6 +1,7 @@
+ <!DOCTYPE html>
+ <html lang="pt">
+   <head>
++    <script src="/env-config.js"></script>
+     <title id="page-title">Carregando...</title>
+     <link
+       rel="stylesheet"
+diff --git a/frontend/src/App.js b/frontend/src/App.js
+index 52c364f..8b5cbc8 100644
+--- a/frontend/src/App.js
++++ b/frontend/src/App.js
+@@ -21,7 +21,8 @@ const queryClient = new QueryClient();
+ const App = () => {
+   const [locale, setLocale] = useState();
+   const appColorLocalStorage = localStorage.getItem("primaryColorLight") || localStorage.getItem("primaryColorDark") || "#065183";
+-  const appNameLocalStorage = localStorage.getItem("appName") || "Fae Developer";
++  const appNameLocalStorage = localStorage.getItem("appName") || "CRM";
++
+   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+   const preferredTheme = window.localStorage.getItem("preferredTheme");
+   const [mode, setMode] = useState(preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light");
+@@ -58,136 +59,136 @@ const App = () => {
+   );
+ 
+   const theme = useMemo(
+-  () =>
+-    createTheme(
+-      {
+-        typography: {
+-          fontFamily: [
+-            '"Inter"',
+-            '"Roboto"',
+-            '"Segoe UI"',
+-            '"Helvetica Neue"',
+-            'Arial',
+-            'sans-serif'
+-          ].join(','),
+-          
+-          // Configura├º├Áes para diferentes elementos
+-          h1: {
+-            fontSize: '2.125rem',
+-            fontWeight: 600,
+-            letterSpacing: '-0.01562em'
+-          },
+-          h2: {
+-            fontSize: '1.5rem',
+-            fontWeight: 600,
+-            letterSpacing: '-0.00833em'
+-          },
+-          h3: {
+-            fontSize: '1.25rem',
+-            fontWeight: 500,
+-            letterSpacing: '0em'
+-          },
+-          h4: {
+-            fontSize: '1.125rem',
+-            fontWeight: 500,
+-            letterSpacing: '0.00735em'
+-          },
+-          h5: {
+-            fontSize: '1rem',
+-            fontWeight: 500,
+-            letterSpacing: '0em'
+-          },
+-          h6: {
+-            fontSize: '0.875rem',
+-            fontWeight: 500,
+-            letterSpacing: '0.0075em'
+-          },
+-          body1: {
+-            fontSize: '1rem',
+-            fontWeight: 400,
+-            letterSpacing: '0.00938em',
+-            lineHeight: 1.5
+-          },
+-          body2: {
+-            fontSize: '0.875rem',
+-            fontWeight: 400,
+-            letterSpacing: '0.01071em',
+-            lineHeight: 1.43
+-          },
+-          button: {
+-            fontSize: '0.875rem',
+-            fontWeight: 500,
+-            letterSpacing: '0.02857em',
+-            textTransform: 'none' // Remove o uppercase padr├úo dos bot├Áes
++    () =>
++      createTheme(
++        {
++          typography: {
++            fontFamily: [
++              '"Inter"',
++              '"Roboto"',
++              '"Segoe UI"',
++              '"Helvetica Neue"',
++              'Arial',
++              'sans-serif'
++            ].join(','),
++
++            // Configura├º├Áes para diferentes elementos
++            h1: {
++              fontSize: '2.125rem',
++              fontWeight: 600,
++              letterSpacing: '-0.01562em'
++            },
++            h2: {
++              fontSize: '1.5rem',
++              fontWeight: 600,
++              letterSpacing: '-0.00833em'
++            },
++            h3: {
++              fontSize: '1.25rem',
++              fontWeight: 500,
++              letterSpacing: '0em'
++            },
++            h4: {
++              fontSize: '1.125rem',
++              fontWeight: 500,
++              letterSpacing: '0.00735em'
++            },
++            h5: {
++              fontSize: '1rem',
++              fontWeight: 500,
++              letterSpacing: '0em'
++            },
++            h6: {
++              fontSize: '0.875rem',
++              fontWeight: 500,
++              letterSpacing: '0.0075em'
++            },
++            body1: {
++              fontSize: '1rem',
++              fontWeight: 400,
++              letterSpacing: '0.00938em',
++              lineHeight: 1.5
++            },
++            body2: {
++              fontSize: '0.875rem',
++              fontWeight: 400,
++              letterSpacing: '0.01071em',
++              lineHeight: 1.43
++            },
++            button: {
++              fontSize: '0.875rem',
++              fontWeight: 500,
++              letterSpacing: '0.02857em',
++              textTransform: 'none' // Remove o uppercase padr├úo dos bot├Áes
++            },
++            caption: {
++              fontSize: '0.75rem',
++              fontWeight: 400,
++              letterSpacing: '0.03333em'
++            },
++            overline: {
++              fontSize: '0.625rem',
++              fontWeight: 400,
++              letterSpacing: '0.08333em',
++              textTransform: 'uppercase'
++            }
+           },
+-          caption: {
+-            fontSize: '0.75rem',
+-            fontWeight: 400,
+-            letterSpacing: '0.03333em'
++          scrollbarStyles: {
++            "&::-webkit-scrollbar": {
++              width: "8px",
++              height: "8px",
++            },
++            "&::-webkit-scrollbar-thumb": {
++              boxShadow: "inset 0 0 6px rgba(0, 0, 0, 0.3)",
++              backgroundColor: mode === "light" ? primaryColorLight : primaryColorDark,
++            },
+           },
+-          overline: {
+-            fontSize: '0.625rem',
+-            fontWeight: 400,
+-            letterSpacing: '0.08333em',
+-            textTransform: 'uppercase'
+-          }
+-        },
+-        scrollbarStyles: {
+-          "&::-webkit-scrollbar": {
+-            width: "8px",
+-            height: "8px",
++          scrollbarStylesSoft: {
++            "&::-webkit-scrollbar": {
++              width: "8px",
++            },
++            "&::-webkit-scrollbar-thumb": {
++              backgroundColor: mode === "light" ? "#F3F3F3" : "#333333",
++            },
+           },
+-          "&::-webkit-scrollbar-thumb": {
+-            boxShadow: "inset 0 0 6px rgba(0, 0, 0, 0.3)",
+-            backgroundColor: mode === "light" ? primaryColorLight : primaryColorDark,
++          palette: {
++            type: mode,
++            primary: { main: mode === "light" ? primaryColorLight : primaryColorDark },
++            textPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
++            borderPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
++            dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
++            light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
++            fontColor: mode === "light" ? primaryColorLight : primaryColorDark,
++            tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
++            optionsBackground: mode === "light" ? "#fafafa" : "#333",
++            fancyBackground: mode === "light" ? "#fafafa" : "#333",
++            total: mode === "light" ? "#fff" : "#222",
++            messageIcons: mode === "light" ? "grey" : "#F3F3F3",
++            inputBackground: mode === "light" ? "#FFFFFF" : "#333",
++            barraSuperior: mode === "light" ? primaryColorLight : "#666",
+           },
+-        },
+-        scrollbarStylesSoft: {
+-          "&::-webkit-scrollbar": {
+-            width: "8px",
+-          },
+-          "&::-webkit-scrollbar-thumb": {
+-            backgroundColor: mode === "light" ? "#F3F3F3" : "#333333",
++          mode,
++          appLogoLight,
++          appLogoDark,
++          appLogoFavicon,
++          appName,
++          calculatedLogoDark: () => {
++            if (appLogoDark === defaultLogoDark && appLogoLight !== defaultLogoLight) {
++              return appLogoLight;
++            }
++            return appLogoDark;
+           },
+-        },
+-        palette: {
+-          type: mode,
+-          primary: { main: mode === "light" ? primaryColorLight : primaryColorDark },
+-          textPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
+-          borderPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
+-          dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
+-          light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
+-          fontColor: mode === "light" ? primaryColorLight : primaryColorDark,
+-          tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
+-          optionsBackground: mode === "light" ? "#fafafa" : "#333",
+-          fancyBackground: mode === "light" ? "#fafafa" : "#333",
+-          total: mode === "light" ? "#fff" : "#222",
+-          messageIcons: mode === "light" ? "grey" : "#F3F3F3",
+-          inputBackground: mode === "light" ? "#FFFFFF" : "#333",
+-          barraSuperior: mode === "light" ? primaryColorLight : "#666",
+-        },
+-        mode,
+-        appLogoLight,
+-        appLogoDark,
+-        appLogoFavicon,
+-        appName,
+-        calculatedLogoDark: () => {
+-          if (appLogoDark === defaultLogoDark && appLogoLight !== defaultLogoLight) {
++          calculatedLogoLight: () => {
++            if (appLogoDark !== defaultLogoDark && appLogoLight === defaultLogoLight) {
++              return appLogoDark;
++            }
+             return appLogoLight;
+-          }
+-          return appLogoDark;
+-        },
+-        calculatedLogoLight: () => {
+-          if (appLogoDark !== defaultLogoDark && appLogoLight === defaultLogoLight) {
+-            return appLogoDark;
+-          }
+-          return appLogoLight;
++          },
+         },
+-      },
+-      locale
+-    ),
+-  [appLogoLight, appLogoDark, appLogoFavicon, appName, locale, mode, primaryColorDark, primaryColorLight]
+-);
++        locale
++      ),
++    [appLogoLight, appLogoDark, appLogoFavicon, appName, locale, mode, primaryColorDark, primaryColorLight]
++  );
+ 
+   useEffect(() => {
+     window.localStorage.setItem("preferredTheme", mode);
+@@ -197,8 +198,8 @@ const App = () => {
+     console.log("|=========== handleSaveSetting ==========|")
+     console.log("APP START")
+     console.log("|========================================|")
+-   
+-    
++
++
+     getPublicSetting("primaryColorLight")
+       .then((color) => {
+         setPrimaryColorLight(color || "#0000FF");
+@@ -236,11 +237,11 @@ const App = () => {
+       });
+     getPublicSetting("appName")
+       .then((name) => {
+-        setAppName(name || "Atend Zappy");
++        setAppName(name || "CRM");
+       })
+       .catch((error) => {
+         console.log("!==== Erro ao carregar temas: ====!", error);
+-        setAppName("Atend Zappy");
++        setAppName("CRM");
+       });
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+diff --git a/frontend/src/config.js b/frontend/src/config.js
+index b4130ca..a7f07f7 100644
+--- a/frontend/src/config.js
++++ b/frontend/src/config.js
+@@ -1,16 +1,22 @@
+ function getConfig(name, defaultValue = null) {
+-    // If inside a docker container, use window.ENV
+-    if (window.ENV !== undefined) {
+-        return window.ENV[name] || defaultValue;
++    // runtime configuration from window._env_ (generated by env.sh in Docker)
++    if (window._env_ && window._env_[name] !== undefined) {
++        return window._env_[name];
+     }
+ 
++    // fallback to process.env (build time)
+     return process.env[name] || defaultValue;
+ }
+ 
++export function getEnvVariable(name, defaultValue = null) {
++    return getConfig(name, defaultValue);
++}
++
+ export function getBackendUrl() {
+     return getConfig('REACT_APP_BACKEND_URL');
+ }
+ 
++
+ export function getHoursCloseTicketsAuto() {
+     return getConfig('REACT_APP_HOURS_CLOSE_TICKETS_AUTO');
+ }
+diff --git a/frontend/src/context/Socket/SocketContext.js b/frontend/src/context/Socket/SocketContext.js
+index d4090b7..3c459c6 100644
+--- a/frontend/src/context/Socket/SocketContext.js
++++ b/frontend/src/context/Socket/SocketContext.js
+@@ -1,6 +1,6 @@
+ import { createContext } from "react";
+ import openSocket from "socket.io-client";
+-// import config from "../../services/config";
++import { getBackendUrl } from "../../config";
+ 
+ const socketManager = {
+ 	currentSocket: null,
+@@ -14,7 +14,7 @@ const socketManager = {
+ 			}
+ 
+ 			this.currentToken = publicToken;
+-			this.currentSocket = openSocket(process.env.REACT_APP_BACKEND_URL, {
++			this.currentSocket = openSocket(getBackendUrl(), {
+ 				transports: ["websocket"],
+ 				pingTimeout: 18000,
+ 				pingInterval: 18000,
+@@ -25,6 +25,7 @@ const socketManager = {
+ 		return this.currentSocket;
+ 	},
+ 
++
+ 	onConnect: function (callbackConnect) {
+ 		if (this.currentSocket && this.currentSocket.connected) {
+ 			callbackConnect();
+diff --git a/frontend/src/pages/Login/index.js b/frontend/src/pages/Login/index.js
+index f39c1f4..6fbec63 100644
+--- a/frontend/src/pages/Login/index.js
++++ b/frontend/src/pages/Login/index.js
+@@ -19,8 +19,8 @@ import {
+   LinearProgress
+ } from "@material-ui/core";
+ import { makeStyles } from "@material-ui/core/styles";
+-import { 
+-  Visibility, 
++import {
++  Visibility,
+   VisibilityOff,
+   Lock as LockIcon,
+   Mail as MailIcon,
+@@ -43,24 +43,14 @@ const handleRedirect = () => {
+ };
+ 
+ // Componente de Copyright
+-function Copyright({ appName }) {
++function Copyright() {
+   return (
+-    <Typography variant="body2" style={{ 
+-      color: "#9ca3af", 
++    <Typography variant="body2" style={{
++      color: "#9ca3af",
+       fontSize: "0.75rem",
+-      fontWeight: 300 
++      fontWeight: 300
+     }}>
+-      ┬® {new Date().getFullYear()}
+-      {" - "}
+-      <Link 
+-        color="inherit" 
+-        href="#" 
+-        target="_blank"
+-        rel="noopener noreferrer"
+-        style={{ color: "#9ca3af" }}
+-      >
+-        CopyRight {appName || "Atend Zappy"}
+-      </Link>
++      Copyright {new Date().getFullYear()}
+     </Typography>
+   );
+ };
+@@ -256,12 +246,12 @@ const Login = () => {
+   const { appLogoFavicon, appName, mode } = colorMode;
+   const [backgroundImage, setBackgroundImage] = useState(wallfundo);
+   const classes = useStyles({ backgroundImage });
+-  
++
+   const [user, setUser] = useState({
+     email: "",
+     password: ""
+   });
+-  
++
+   const [showPassword, setShowPassword] = useState(false);
+   const [passwordStrength, setPasswordStrength] = useState(0);
+   const { getPublicSetting } = useSettings();
+@@ -341,18 +331,19 @@ const Login = () => {
+   return (
+     <div className={classes.root}>
+       <Helmet>
+-        <title>{appName || "Premium SaaS Platform"}</title>
++        <title>Login</title>
++
+         <link rel="icon" href={appLogoFavicon || "/default-favicon.ico"} />
+       </Helmet>
+-      
++
+       <CssBaseline />
+ 
+       {/* Painel Esquerdo - somente desktop */}
+       {!isMobile && (
+-        <div 
++        <div
+           className={classes.leftPanel}
+-          style={{ 
+-            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.85)), url(${backgroundImage})` 
++          style={{
++            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.85)), url(${backgroundImage})`
+           }}
+         >
+           <div className={classes.card}>
+@@ -387,7 +378,7 @@ const Login = () => {
+             Digite seu e-mail e senha para acessar
+           </Typography>
+         </div>
+-        
++
+         <form className={classes.form} onSubmit={handleSubmit}>
+           <TextField
+             variant="outlined"
+@@ -408,7 +399,7 @@ const Login = () => {
+             }}
+             required
+           />
+-          
++
+           <TextField
+             variant="outlined"
+             fullWidth
+@@ -445,9 +436,9 @@ const Login = () => {
+           {/* Indicador de for├ºa da senha */}
+           {user.password && (
+             <Box width="100%" mb={2}>
+-              <LinearProgress 
+-                variant="determinate" 
+-                value={(passwordStrength / 5) * 100} 
++              <LinearProgress
++                variant="determinate"
++                value={(passwordStrength / 5) * 100}
+                 style={{
+                   height: 4,
+                   borderRadius: 2,
+@@ -473,36 +464,36 @@ const Login = () => {
+             </Link>
+           </Box>
+ 
+-            <Button
+-              type="submit"
+-              fullWidth
+-              variant="contained"
+-              className={classes.button}
+-              size="large"
+-            >
+-              Acessar
+-            </Button>
+-
+-            <Box mt={3} textAlign="center">
+-              <Typography variant="body2" style={{ color: '#667085' }}>
+-                Ainda n├úo tem uma conta?{" "}
+-                <Link
+-                  component={RouterLink}
+-                  to="/cadastro"
+-                  style={{ 
+-                    color: theme.palette.primary.main,
+-                    fontWeight: 600,
+-                    textDecoration: 'none'
+-                  }}
+-                >
+-                  Cadastre-se
+-                </Link>
+-              </Typography>
+-            </Box>
++          <Button
++            type="submit"
++            fullWidth
++            variant="contained"
++            className={classes.button}
++            size="large"
++          >
++            Acessar
++          </Button>
++
++          <Box mt={3} textAlign="center">
++            <Typography variant="body2" style={{ color: '#667085' }}>
++              Ainda n├úo tem uma conta?{" "}
++              <Link
++                component={RouterLink}
++                to="/cadastro"
++                style={{
++                  color: theme.palette.primary.main,
++                  fontWeight: 600,
++                  textDecoration: 'none'
++                }}
++              >
++                Cadastre-se
++              </Link>
++            </Typography>
++          </Box>
+         </form>
+ 
+         <div className={classes.footer}>
+-          <Copyright appName={appName} />
++          <Copyright />
+         </div>
+       </div>
+     </div>
+diff --git a/frontend/src/pages/Produtos/index.js b/frontend/src/pages/Produtos/index.js
+index 9572828..d5e9192 100644
+--- a/frontend/src/pages/Produtos/index.js
++++ b/frontend/src/pages/Produtos/index.js
+@@ -456,7 +456,8 @@ const ProdutosPage = () => {
+ 
+   const getImageUrl = (companyId, filename) => {
+     if (!filename) return null;
+-    const baseUrl = process.env.REACT_APP_BACKEND_URL || "";
++    const baseUrl = (window._env_?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL) || "";
++
+ 
+     // Novo formato: j├í vem com caminho completo relativo (ex.: company1/produtos/arquivo.png)
+     if (filename.includes("company")) {
+diff --git a/frontend/src/pages/PublicApiDocs/index.js b/frontend/src/pages/PublicApiDocs/index.js
+index 3acc418..0ce6379 100644
+--- a/frontend/src/pages/PublicApiDocs/index.js
++++ b/frontend/src/pages/PublicApiDocs/index.js
+@@ -10,6 +10,8 @@ import {
+   Typography
+ } from "@material-ui/core";
+ import { makeStyles } from "@material-ui/core/styles";
++import { getBackendUrl } from "../../config";
++
+ 
+ const useStyles = makeStyles(theme => ({
+   page: {
+@@ -153,7 +155,8 @@ const useStyles = makeStyles(theme => ({
+ 
+ const PublicApiDocs = () => {
+   const classes = useStyles();
+-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://api.seudominio.com";
++  const backendUrl = getBackendUrl() || "https://api.seudominio.com";
++
+ 
+   const apis = [
+     {
+diff --git a/frontend/src/pages/Settings/index.js b/frontend/src/pages/Settings/index.js
+index 4b1e594..4ea4ea3 100644
+--- a/frontend/src/pages/Settings/index.js
++++ b/frontend/src/pages/Settings/index.js
+@@ -23,6 +23,8 @@ import { i18n } from "../../translate/i18n.js";
+ import toastError from "../../errors/toastError";
+ import { AuthContext } from "../../context/Auth/AuthContext";
+ import ForbiddenPage from "../../components/ForbiddenPage";
++import { getBackendUrl } from "../../config";
++
+ 
+ const useStyles = makeStyles((theme) => ({
+   container: {
+@@ -320,8 +322,9 @@ const Settings = () => {
+               </Typography>
+               {loadingImage && (
+                 <Box mt={1} display="flex" alignItems="center" gap={1}>
+-                  <img 
+-                    src={`${process.env.REACT_APP_BACKEND_URL}/public/company1/${loadingImage}`}
++                  <img
++                    src={`${getBackendUrl()}/public/company1/${loadingImage}`}
++
+                     alt="Loading atual"
+                     style={{ width: 40, height: 40, objectFit: 'contain' }}
+                   />
+diff --git a/frontend/src/pages/api-usuarios/index.js b/frontend/src/pages/api-usuarios/index.js
+index c2c3821..b5cbf2f 100644
+--- a/frontend/src/pages/api-usuarios/index.js
++++ b/frontend/src/pages/api-usuarios/index.js
+@@ -69,7 +69,8 @@ const ApiUsuariosPage = () => {
+     checkPermission();
+   }, []);
+ 
+-  const getUsersEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/users`;
++  const getUsersEndpoint = () => `${(window._env_?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL)}/api/external/users`;
++
+ 
+   const postmanRequests = [
+     {
+@@ -808,7 +809,7 @@ const ApiUsuariosPage = () => {
+   const renderServicesForm = () => (
+     <Formik
+       initialValues={{ token: "", userId: "", serviceIds: "" }}
+-      onSubmit={() => {}}
++      onSubmit={() => { }}
+     >
+       {({ values }) => (
+         <Form className={classes.formContainer}>
+@@ -883,7 +884,7 @@ const ApiUsuariosPage = () => {
+   const renderScheduleForm = () => (
+     <Formik
+       initialValues={{ token: "", userId: "", scheduleName: "", scheduleDescription: "" }}
+-      onSubmit={() => {}}
++      onSubmit={() => { }}
+     >
+       {({ values }) => (
+         <Form className={classes.formContainer}>
+@@ -977,7 +978,7 @@ const ApiUsuariosPage = () => {
+         clientId: "",
+         status: ""
+       }}
+-      onSubmit={() => {}}
++      onSubmit={() => { }}
+     >
+       {({ values }) => (
+         <Form className={classes.formContainer}>
+diff --git a/frontend/src/services/SocketWorker.js b/frontend/src/services/SocketWorker.js
+index f15cb5d..831b0ea 100644
+--- a/frontend/src/services/SocketWorker.js
++++ b/frontend/src/services/SocketWorker.js
+@@ -1,7 +1,8 @@
+ import io from "socket.io-client";
++import { getBackendUrl } from "../config";
+ 
+ class SocketWorker {
+-  constructor(companyId , userId) {
++  constructor(companyId, userId) {
+     if (!SocketWorker.instance) {
+       this.companyId = companyId
+       this.userId = userId
+@@ -10,15 +11,16 @@ class SocketWorker {
+       this.eventListeners = {}; // Armazena os ouvintes de eventos registrados
+       SocketWorker.instance = this;
+ 
+-    } 
++    }
+ 
+     return SocketWorker.instance;
+   }
+ 
+   configureSocket() {
+-    this.socket = io(`${process.env.REACT_APP_BACKEND_URL}/${this?.companyId}` , {
++    this.socket = io(`${getBackendUrl()}/${this?.companyId}`, {
+       autoConnect: true,
+       reconnection: true,
++
+       reconnectionDelay: 1000,
+       reconnectionAttempts: Infinity,
+       query: { userId: this.userId }
+diff --git a/frontend/src/services/api.js b/frontend/src/services/api.js
+index 53867ec..f3fdd17 100644
+--- a/frontend/src/services/api.js
++++ b/frontend/src/services/api.js
+@@ -1,13 +1,15 @@
+ import axios from "axios";
++import { getBackendUrl } from "../config";
+ 
+ const api = axios.create({
+-  baseURL: process.env.REACT_APP_BACKEND_URL,
++  baseURL: getBackendUrl(),
+   withCredentials: true,
+ });
+ 
+ export const openApi = axios.create({
+-  baseURL: process.env.REACT_APP_BACKEND_URL
++  baseURL: getBackendUrl()
+   
+ });
+ 
+ export default api;
++

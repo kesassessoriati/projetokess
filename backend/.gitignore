@@ -1,0 +1,50 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (NUNCA commitar com senhas reais)
+.env
+.env.local
+backend/.env
+frontend/.env
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
+combined.log
+
+# OS
+.DS_Store
+*.swp
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Arquivos grandes (OCR)
+*.traineddata
+
+# Arquivos de vídeo e mídia pesados
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+
+# Diretórios privados
+backend/private/
+backend/public/
+
+# Package lock (opcional, se quiser manter remova estas linhas)
+# package-lock.json

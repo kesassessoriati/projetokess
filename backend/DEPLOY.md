@@ -15,8 +15,8 @@
 | **Redis** | `atendzappy_redis` (dedicado) |
 | **Traefik** | Já rodando com `letsencryptresolver` (SSL automático) |
 | **Gerenciador** | Portainer (`https://portainer.waiasolutions.site`) |
-| **Frontend URL** | `https://seufront.com` |
-| **Backend URL** | `https://seubacken` |
+| **Frontend URL** | `https://atendzappy.waiasolutions.site` |
+| **Backend URL** | `https://apiatendzappy.waiasolutions.site` |
 | **Node.js** | v20 (Alpine) nos Dockerfiles |
 
 ---
@@ -184,7 +184,10 @@ docker build --no-cache -t atendzappy-backend:latest ./backend
 #### 7.2 - Build do Frontend
 
 ```bash
-docker build --no-cache -t atendzappy-frontend:latest ./frontend
+docker build --no-cache \
+  --build-arg REACT_APP_BACKEND_URL=https://apiatendzappy.waiasolutions.site \
+  --build-arg REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24 \
+  -t atendzappy-frontend:latest ./frontend
 ```
 
 ⏱️ **Tempo estimado:** 10-15 minutos (o build do React é pesado)
@@ -197,9 +200,8 @@ docker build --no-cache -t atendzappy-frontend:latest ./frontend
 > 4. Copia os arquivos estáticos para `nginx:alpine`
 > 5. Imagem final: ~65 MB
 
-> 💡 **NOTA:** Esta imagem é **agnóstica de domínio**. As URLs e configurações são injetadas
-> via variáveis de ambiente no momento do deploy (veja o Passo 9). Não é necessário
-> rebuildar se mudar o domínio.
+> ⚠️ **ATENÇÃO:** A `REACT_APP_BACKEND_URL` é embutida **no momento do build**.
+> Se mudar o domínio do backend, é necessário **rebuildar** o frontend.
 
 #### 7.3 - Verificar se as Imagens Foram Criadas
 
@@ -611,14 +613,17 @@ docker images | grep atendzappy
 
 ### Problema 6: Frontend mostra erro de conexão com a API
 
-**Causa:** A URL do backend na stack do Portainer está incorreta ou o DNS não propagou.
+**Causa:** A `REACT_APP_BACKEND_URL` é embutida no build do React. Se a URL estiver errada, precisa rebuildar.
 
 **Solução:**
 
-- Verifique a variável `REACT_APP_BACKEND_URL` na stack do Portainer.
-- Certifique-se de que a URL comece com `https://` e não tenha barra no final (opcional, dependendo da implementação).
-- Reinicie o serviço do frontend para aplicar a nova variável: `docker service update --force atendzappy_atendzappy_frontend`.
-- **Dica:** Não é mais necessário rebuildar a imagem para mudar a URL!
+```bash
+docker build --no-cache \
+  --build-arg REACT_APP_BACKEND_URL=https://apiatendzappy.waiasolutions.site \
+  -t atendzappy-frontend:latest ./frontend
+
+docker service update --force atendzappy_atendzappy_frontend
+```
 
 ### Problema 7: SSL não funciona / certificado inválido
 

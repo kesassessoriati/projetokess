@@ -456,7 +456,8 @@ const ProdutosPage = () => {
 
   const getImageUrl = (companyId, filename) => {
     if (!filename) return null;
-    const baseUrl = process.env.REACT_APP_BACKEND_URL || "";
+    const baseUrl = (window._env_?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL) || "";
+
 
     // Novo formato: já vem com caminho completo relativo (ex.: company1/produtos/arquivo.png)
     if (filename.includes("company")) {

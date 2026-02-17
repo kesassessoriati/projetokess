@@ -10,6 +10,8 @@ import {
   Typography
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import { getBackendUrl } from "../../config";
+
 
 const useStyles = makeStyles(theme => ({
   page: {
@@ -153,7 +155,8 @@ const useStyles = makeStyles(theme => ({
 
 const PublicApiDocs = () => {
   const classes = useStyles();
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://api.seudominio.com";
+  const backendUrl = getBackendUrl() || "https://api.seudominio.com";
+
 
   const apis = [
     {

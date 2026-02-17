@@ -23,6 +23,8 @@ import { i18n } from "../../translate/i18n.js";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import ForbiddenPage from "../../components/ForbiddenPage";
+import { getBackendUrl } from "../../config";
+
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -320,8 +322,9 @@ const Settings = () => {
               </Typography>
               {loadingImage && (
                 <Box mt={1} display="flex" alignItems="center" gap={1}>
-                  <img 
-                    src={`${process.env.REACT_APP_BACKEND_URL}/public/company1/${loadingImage}`}
+                  <img
+                    src={`${getBackendUrl()}/public/company1/${loadingImage}`}
+
                     alt="Loading atual"
                     style={{ width: 40, height: 40, objectFit: 'contain' }}
                   />
