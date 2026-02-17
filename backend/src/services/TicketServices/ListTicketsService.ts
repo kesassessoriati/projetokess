@@ -82,7 +82,7 @@ const ListTicketsService = async ({
   const showNotificationPendingValue = showPendingNotification[0].showNotificationPending;
   const userQueueIds = user.queues.map(queue => queue.id);
   const effectiveQueueIds = queueIds && queueIds.length > 0 ? queueIds : userQueueIds;
-    let whereCondition: Filterable["where"];
+  let whereCondition: Filterable["where"];
 
   whereCondition = {
     [Op.or]: [{ userId }, { status: "pending" }],
@@ -147,83 +147,83 @@ const ListTicketsService = async ({
     };
     console.log("🔍 WhereCondition para grupos:", JSON.stringify(whereCondition, null, 2));
   }
-      else
-        if (user.profile === "user" && status === "pending" && showTicketWithoutQueue) {
-          const TicketsUserFilter: any[] | null = [];
+  else
+    if (user.profile === "user" && status === "pending" && showTicketWithoutQueue) {
+      const TicketsUserFilter: any[] | null = [];
 
-          let ticketsIds = [];
+      let ticketsIds = [];
 
-          if (!showTicketAllQueues) {
-            ticketsIds = await Ticket.findAll({
-              where: {
-                userId: { [Op.or]: [user.id, null] },
-                queueId: { [Op.or]: [effectiveQueueIds, null] },
-                status: "pending",
-                companyId
-              },
-            });
-          } else {
-            ticketsIds = await Ticket.findAll({
-              where: {
-                userId: { [Op.or]: [user.id, null] },
-                status: "pending",
-                companyId
-              },
-            });
-          }
+      if (!showTicketAllQueues) {
+        ticketsIds = await Ticket.findAll({
+          where: {
+            userId: { [Op.or]: [user.id, null] },
+            queueId: { [Op.or]: [effectiveQueueIds, null] },
+            status: "pending",
+            companyId
+          },
+        });
+      } else {
+        ticketsIds = await Ticket.findAll({
+          where: {
+            userId: { [Op.or]: [user.id, null] },
+            status: "pending",
+            companyId
+          },
+        });
+      }
 
-          if (ticketsIds) {
-            TicketsUserFilter.push(ticketsIds.map(t => t.id));
-          }
-          // }
+      if (ticketsIds) {
+        TicketsUserFilter.push(ticketsIds.map(t => t.id));
+      }
+      // }
 
-          const ticketsIntersection: number[] = intersection(...TicketsUserFilter);
+      const ticketsIntersection: number[] = intersection(...TicketsUserFilter);
 
-          whereCondition = {
-            ...whereCondition,
-            id: ticketsIntersection
-          };
+      whereCondition = {
+        ...whereCondition,
+        id: ticketsIntersection
+      };
+    }
+    else
+      if (user.profile === "user" && status === "pending" && !showTicketWithoutQueue) {
+        const TicketsUserFilter: any[] | null = [];
+
+        let ticketsIds = [];
+
+        if (!showTicketAllQueues) {
+          ticketsIds = await Ticket.findAll({
+            where: {
+              companyId,
+              userId:
+                { [Op.or]: [user.id, null] },
+              status: "pending",
+              queueId: { [Op.in]: effectiveQueueIds }
+            },
+          });
+        } else {
+          ticketsIds = await Ticket.findAll({
+            where: {
+              companyId,
+              userId:
+                { [Op.or]: [user.id, null] },
+              status: "pending"
+            },
+          });
         }
-        else
-          if (user.profile === "user" && status === "pending" && !showTicketWithoutQueue) {
-            const TicketsUserFilter: any[] | null = [];
+        if (ticketsIds) {
+          TicketsUserFilter.push(ticketsIds.map(t => t.id));
+        }
+        // }
 
-            let ticketsIds = [];
+        const ticketsIntersection: number[] = intersection(...TicketsUserFilter);
 
-            if (!showTicketAllQueues) {
-              ticketsIds = await Ticket.findAll({
-                where: {
-                  companyId,
-                  userId:
-                    { [Op.or]: [user.id, null] },
-                  status: "pending",
-                  queueId: { [Op.in]: effectiveQueueIds }
-                },
-              });
-            } else {
-              ticketsIds = await Ticket.findAll({
-                where: {
-                  companyId,
-                  userId:
-                    { [Op.or]: [user.id, null] },
-                  status: "pending"
-                },
-              });
-            }
-            if (ticketsIds) {
-              TicketsUserFilter.push(ticketsIds.map(t => t.id));
-            }
-            // }
+        whereCondition = {
+          ...whereCondition,
+          id: ticketsIntersection
+        };
+      }
 
-            const ticketsIntersection: number[] = intersection(...TicketsUserFilter);
-
-            whereCondition = {
-              ...whereCondition,
-              id: ticketsIntersection
-            };
-          }
-
-  if (showAll === "true" && (user.profile === "admin" || user.allUserChat === "enabled") && status !== "search") {
+  if (showAll === "true" && (user.profile === "admin" || user.allUserChat === "enabled") && status !== "search" && status !== "group") {
     if (user.allHistoric === "enabled" && showTicketWithoutQueue) {
       whereCondition = { companyId };
     } else if (user.allHistoric === "enabled" && !showTicketWithoutQueue) {
@@ -559,136 +559,136 @@ const ListTicketsService = async ({
     };
   }
 
-if (Array.isArray(users) && users.length > 0) {
-  whereCondition = {
-    ...whereCondition,
-    userId: users
-  };
-}
-
-const DEFAULT_TICKET_LIMIT = Number(process.env.TICKET_PAGE_LIMIT) || 80;
-
-const normalizedPage = (value?: string): number => {
-  const page = Number(value);
-  if (!page || page < 1) {
-    return 1;
+  if (Array.isArray(users) && users.length > 0) {
+    whereCondition = {
+      ...whereCondition,
+      userId: users
+    };
   }
-  return page;
-};
 
-// Adicionar filtro de busca se existir
-if (searchParam) {
-  const sanitizedSearchParam = removeAccents(searchParam.toLocaleLowerCase().trim());
-  
-  // Substituir o include 'messages' existente em vez de duplicar
-  includeCondition = includeCondition.map(inc => {
-    if ((inc as any).as === "messages") {
-      return {
-        model: Message,
-        as: "messages",
-        attributes: ["id", "body"],
-        where: {
-          body: where(
-            fn("LOWER", fn('unaccent', col("messages.body"))),
+  const DEFAULT_TICKET_LIMIT = Number(process.env.TICKET_PAGE_LIMIT) || 80;
+
+  const normalizedPage = (value?: string): number => {
+    const page = Number(value);
+    if (!page || page < 1) {
+      return 1;
+    }
+    return page;
+  };
+
+  // Adicionar filtro de busca se existir
+  if (searchParam) {
+    const sanitizedSearchParam = removeAccents(searchParam.toLocaleLowerCase().trim());
+
+    // Substituir o include 'messages' existente em vez de duplicar
+    includeCondition = includeCondition.map(inc => {
+      if ((inc as any).as === "messages") {
+        return {
+          model: Message,
+          as: "messages",
+          attributes: ["id", "body"],
+          where: {
+            body: where(
+              fn("LOWER", fn('unaccent', col("messages.body"))),
+              "LIKE",
+              `%${sanitizedSearchParam}%`
+            ),
+          },
+          required: false,
+          duplicating: false
+        };
+      }
+      return inc;
+    });
+
+    whereCondition = {
+      ...whereCondition,
+      [Op.or]: [
+        {
+          "$contact.name$": where(
+            fn("LOWER", fn("unaccent", col("contact.name"))),
             "LIKE",
             `%${sanitizedSearchParam}%`
-          ),
+          )
         },
-        required: false,
-        duplicating: false
-      };
-    }
-    return inc;
-  });
-  
-  whereCondition = {
-    ...whereCondition,
-    [Op.or]: [
-      {
-        "$contact.name$": where(
-          fn("LOWER", fn("unaccent", col("contact.name"))),
-          "LIKE",
-          `%${sanitizedSearchParam}%`
-        )
-      },
-      { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-      {
-        "$messages.body$": where(
-          fn("LOWER", fn("unaccent", col("messages.body"))),
-          "LIKE",
-          `%${sanitizedSearchParam}%`
-        )
-      }
-    ]
-  };
-}
+        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
+        {
+          "$messages.body$": where(
+            fn("LOWER", fn("unaccent", col("messages.body"))),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        }
+      ]
+    };
+  }
 
-// Filtros de status
-if (Array.isArray(statusFilters) && statusFilters.length > 0) {
-  whereCondition = {
-    ...whereCondition,
-    status: { [Op.in]: statusFilters }
-  };
-}
+  // Filtros de status
+  if (Array.isArray(statusFilters) && statusFilters.length > 0) {
+    whereCondition = {
+      ...whereCondition,
+      status: { [Op.in]: statusFilters }
+    };
+  }
 
   const currentPage = normalizedPage(pageNumber);
   const limit = DEFAULT_TICKET_LIMIT;
   const offset = limit * (currentPage - 1);
 
-const { count, rows: tickets } = await Ticket.findAndCountAll({
-  where: whereCondition,
-  include: includeCondition,
-  attributes: [
-    "id",
-    "status",
-    "contactId",
-    "userId",
-    "queueId",
-    "createdAt",
-    "updatedAt",
-    "lastMessage",
-    "unreadMessages",
-    "isGroup",
-    "fromMe",
-    "channel",
-    "useIntegration",
-    "integrationId",
-    "crmClientId"
-  ],
-  distinct: true,
-  limit,
-  offset,
-  order: [["updatedAt", sortTickets]],
-  subQuery: false
-});
+  const { count, rows: tickets } = await Ticket.findAndCountAll({
+    where: whereCondition,
+    include: includeCondition,
+    attributes: [
+      "id",
+      "status",
+      "contactId",
+      "userId",
+      "queueId",
+      "createdAt",
+      "updatedAt",
+      "lastMessage",
+      "unreadMessages",
+      "isGroup",
+      "fromMe",
+      "channel",
+      "useIntegration",
+      "integrationId",
+      "crmClientId"
+    ],
+    distinct: true,
+    limit,
+    offset,
+    order: [["updatedAt", sortTickets]],
+    subQuery: false
+  });
 
   const hasMore = count > offset + tickets.length;
 
   // Garantir que campos críticos nunca sejam null para evitar erros no frontend
   const safeTickets = tickets.map(ticket => {
     const ticketJSON = ticket.toJSON() as any;
-    
+
     // Se user for null, criar objeto placeholder
     if (!ticketJSON.user) {
       ticketJSON.user = { id: null, name: "Sem usuário" };
     }
-    
+
     // Se queue for null, criar objeto placeholder
     if (!ticketJSON.queue) {
       ticketJSON.queue = { id: null, name: "Sem fila", color: "#999" };
     }
-    
+
     // Se contact for null, criar objeto placeholder
     if (!ticketJSON.contact) {
-      ticketJSON.contact = { 
-        id: null, 
-        name: "Contato removido", 
+      ticketJSON.contact = {
+        id: null,
+        name: "Contato removido",
         number: "",
         profilePicUrl: null,
         email: null
       };
     }
-    
+
     // Garantir que tags seja sempre um array
     if (!ticketJSON.tags || !Array.isArray(ticketJSON.tags)) {
       ticketJSON.tags = [];
@@ -702,17 +702,17 @@ const { count, rows: tickets } = await Ticket.findAndCountAll({
           color: tag.color || "#999999"
         }));
     }
-    
+
     // Garantir que whatsapp não seja null
     if (!ticketJSON.whatsapp) {
-      ticketJSON.whatsapp = { 
-        id: null, 
+      ticketJSON.whatsapp = {
+        id: null,
         name: "WhatsApp desconectado",
         expiresTicket: null,
         groupAsTicket: null
       };
     }
-    
+
     // Adicionar campo lastMessageFromMe baseado na última mensagem
     if (ticketJSON.messages && ticketJSON.messages.length > 0) {
       ticketJSON.lastMessageFromMe = ticketJSON.messages[0].fromMe;
@@ -720,7 +720,7 @@ const { count, rows: tickets } = await Ticket.findAndCountAll({
     } else {
       ticketJSON.lastMessageFromMe = null;
     }
-    
+
     return ticketJSON;
   });
 

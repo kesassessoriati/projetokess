@@ -598,13 +598,13 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
 
   const isGroup = msg.key.remoteJid.includes("g.us");
   const isNewsletter = msg.key.remoteJid.includes("newsletter");
-  
+
   // Ignorar mensagens de newsletter
   if (isNewsletter) {
     logger.info(`[newsletter] Ignorando mensagem de newsletter: ${msg.key.remoteJid}`);
     return null;
   }
-  
+
   const baseNumber = resolveContactNumber({
     rawNumber: msg.key.remoteJidAlt || msg.key.remoteJid,
     remoteJid: msg.key.remoteJid,
@@ -851,7 +851,8 @@ const verifyContact = async (
   const number = resolveContactNumber({
     rawNumber: msgContact.remoteJidAlt || msgContact.id,
     remoteJid: msgContact.id,
-    remoteJidAlt: msgContact.remoteJidAlt
+    remoteJidAlt: msgContact.remoteJidAlt,
+    forGroup: isGroup
   });
 
   if (!number && !isGroup) {
@@ -903,9 +904,11 @@ const verifyContact = async (
   };
 
   if (contactData.isGroup) {
+    // Para grupos, extrair o ID diretamente do JID (não normalizar como telefone)
     contactData.number = resolveContactNumber({
       rawNumber: msgContact.id,
-      remoteJid: msgContact.id
+      remoteJid: msgContact.id,
+      forGroup: true
     });
   }
 
@@ -1208,7 +1211,7 @@ export const verifyMessage = async (
 
   // Se a mensagem é fromMe e não tem userId específico, usa o userId do ticket
   const messageUserId = userId || (msg.key.fromMe && !fromAgent ? ticket.userId : undefined);
-  
+
   const messageData = {
     wid: msg.key.id,
     ticketId: ticket.id,
@@ -3731,34 +3734,34 @@ const flowbuilderIntegration = async (
   // Verificar se ticket está aguardando resposta de waitQuestion
   if (ticket.waitingQuestion && !msg.key.fromMe) {
     console.log(`[WaitQuestion] Processando resposta do ticket ${ticket.id}: "${body}"`);
-    
+
     try {
       const response = await WaitQuestionService.processResponse(ticket.id, body);
-      
+
       if (response) {
         console.log(`[WaitQuestion] Resposta match encontrada: ${response.option}, ação: ${response.action}`);
-        
+
         // Executar ação baseada na resposta
         switch (response.action) {
           case "close":
             await ticket.update({ status: "closed" });
             console.log(`[WaitQuestion] Ticket ${ticket.id} fechado pela resposta`);
             break;
-            
+
           case "transfer":
             // Encontrar próxima conexão baseada na opção (X ou Y)
             const flow = await FlowBuilderModel.findOne({
               where: { id: ticket.flowStopped }
             });
-            
+
             if (flow && flow.flow) {
               const connections = flow.flow["connections"] || [];
               console.log(`[WaitQuestion/Transfer] nodeId=${response.nodeId}, option=${response.option}`);
-              const targetConnection = connections.find(conn => 
-                conn.source === response.nodeId && 
+              const targetConnection = connections.find(conn =>
+                conn.source === response.nodeId &&
                 conn.sourceHandle === response.option
               );
-              
+
               if (targetConnection) {
                 await ActionsWebhookService(
                   ticket.whatsappId,
@@ -3783,27 +3786,27 @@ const flowbuilderIntegration = async (
               }
             }
             break;
-            
+
           case "continue":
           default:
             // Continuar pelo handle correspondente (próximo nó no mesmo fluxo)
             const flowContinue = await FlowBuilderModel.findOne({
               where: { id: ticket.flowStopped }
             });
-            
+
             console.log(`[WaitQuestion] Continue: flowStopped=${ticket.flowStopped}, flowFound=${!!flowContinue}`);
             console.log(`[WaitQuestion] Continue: nodeId=${response.nodeId}, option=${response.option}`);
-            
+
             if (flowContinue && flowContinue.flow) {
               const connectionsContinue = flowContinue.flow["connections"] || [];
               const nodeConnections = connectionsContinue.filter(conn => conn.source === response.nodeId);
               console.log(`[WaitQuestion] Conexões do nó ${response.nodeId}:`, JSON.stringify(nodeConnections.map(c => ({ sourceHandle: c.sourceHandle, target: c.target }))));
-              
-              const targetConnectionContinue = connectionsContinue.find(conn => 
-                conn.source === response.nodeId && 
+
+              const targetConnectionContinue = connectionsContinue.find(conn =>
+                conn.source === response.nodeId &&
                 conn.sourceHandle === response.option
               );
-              
+
               if (targetConnectionContinue) {
                 console.log(`[WaitQuestion] Conexão encontrada! Target: ${targetConnectionContinue.target}`);
                 await ActionsWebhookService(
@@ -3841,7 +3844,7 @@ const flowbuilderIntegration = async (
     } catch (error) {
       console.error(`[WaitQuestion] Erro ao processar resposta:`, error);
     }
-    
+
     // Retornar para não continuar com o fluxo normal
     return;
   }
@@ -4127,7 +4130,7 @@ const flowbuilderIntegration = async (
 
   if (ticket.flowWebhook) {
     console.log(`🔄 FlowWebhook ativo - hashFlowId: ${ticket.hashFlowId}, flowStopped: ${ticket.flowStopped}, lastFlowId: ${ticket.lastFlowId}`);
-    
+
     // Se hashFlowId é undefined, usar flowStopped diretamente
     let webhook = null;
     if (ticket.hashFlowId) {
@@ -4141,7 +4144,7 @@ const flowbuilderIntegration = async (
 
     if (webhook && webhook.config["details"]) {
       console.log(`✅ Webhook encontrado - usando flow do webhook: ${webhook.config["details"].idFlow}`);
-      
+
       const flow = await FlowBuilderModel.findOne({
         where: {
           id: webhook.config["details"].idFlow
@@ -4190,18 +4193,18 @@ const flowbuilderIntegration = async (
       );
     } else {
       console.log(`⚠️ Webhook não encontrado - usando flowStopped: ${ticket.flowStopped}`);
-      
+
       const flow = await FlowBuilderModel.findOne({
         where: {
           id: ticket.flowStopped
         }
       });
-      
+
       if (!flow) {
         console.log(`❌ Fluxo ${ticket.flowStopped} não encontrado!`);
         return;
       }
-      
+
       console.log(`✅ Fluxo ${ticket.flowStopped} encontrado`);
 
       const nodes: INodes[] = flow.flow["nodes"];
@@ -4210,27 +4213,27 @@ const flowbuilderIntegration = async (
       // Se lastFlowId é null ou undefined, começar do nó start
       if (ticket.lastFlowId === null || ticket.lastFlowId === undefined) {
         console.log(`⚠️ lastFlowId é null/undefined, buscando nó start`);
-        
+
         const startNode = nodes.find((n: any) => n.type === "start");
         if (!startNode) {
           logger.error("Nó start não encontrado no fluxo");
           return;
         }
-        
+
         // Encontrar a conexão que sai do start
         const startConnection = connections.find((c: any) => c.source === startNode.id);
         if (!startConnection) {
           logger.error("Conexão do nó start não encontrada");
           return;
         }
-        
+
         console.log(`📍 Atualizando lastFlowId de null para: ${startConnection.target}`);
-        
+
         // Atualizar ticket com o primeiro nó
         await ticket.update({
           lastFlowId: startConnection.target
         });
-        
+
         // Executar o primeiro nó
         await ActionsWebhookService(
           whatsapp.id,
@@ -4253,7 +4256,7 @@ const flowbuilderIntegration = async (
         );
         return;
       }
-      
+
       console.log(`✅ Usando lastFlowId existente: ${ticket.lastFlowId}`);
 
       const mountDataContact = {
@@ -4436,32 +4439,32 @@ const flowBuilderQueue = async (
   if (ticket.waitingQuestion && !msg.key.fromMe) {
     console.log(`[WaitQuestion/Queue] Processando resposta do ticket ${ticket.id}: "${body}"`);
     console.log(`[WaitQuestion/Queue] questionNodeId=${ticket.questionNodeId}, questionOptions=`, JSON.stringify(ticket.questionOptions));
-    
+
     try {
       const response = await WaitQuestionService.processResponse(ticket.id, body);
-      
+
       if (response) {
         console.log(`[WaitQuestion/Queue] Match encontrado: opção=${response.option}, action=${response.action}, nodeId=${response.nodeId}`);
-        
+
         const flowWQ = await FlowBuilderModel.findOne({
           where: { id: ticket.flowStopped }
         });
-        
+
         console.log(`[WaitQuestion/Queue] flowStopped=${ticket.flowStopped}, flowFound=${!!flowWQ}`);
-        
+
         if (flowWQ && flowWQ.flow) {
           const connectionsWQ = flowWQ.flow["connections"] || [];
           const nodeConns = connectionsWQ.filter(conn => conn.source === response.nodeId);
           console.log(`[WaitQuestion/Queue] Conexões do nó ${response.nodeId}:`, JSON.stringify(nodeConns.map(c => ({ sourceHandle: c.sourceHandle, target: c.target }))));
-          
+
           const handleToFind = response.option;
           console.log(`[WaitQuestion/Queue] Buscando handle: "${handleToFind}"`);
-          
-          const targetConnection = connectionsWQ.find(conn => 
-            conn.source === response.nodeId && 
+
+          const targetConnection = connectionsWQ.find(conn =>
+            conn.source === response.nodeId &&
             conn.sourceHandle === handleToFind
           );
-          
+
           if (targetConnection) {
             console.log(`[WaitQuestion/Queue] Conexão encontrada! Target: ${targetConnection.target}`);
             const mountDataContact = {
@@ -4469,7 +4472,7 @@ const flowBuilderQueue = async (
               name: contact.name,
               email: contact.email
             };
-            
+
             await ActionsWebhookService(
               whatsapp.id,
               parseInt(ticket.flowStopped),
@@ -4496,7 +4499,7 @@ const flowBuilderQueue = async (
     } catch (error) {
       console.error(`[WaitQuestion/Queue] Erro ao processar resposta:`, error);
     }
-    
+
     return;
   }
 
@@ -4522,19 +4525,19 @@ const flowBuilderQueue = async (
       logger.error("Nó start não encontrado no fluxo");
       return;
     }
-    
+
     // Encontrar a conexão que sai do start
     const startConnection = connections.find((c: any) => c.source === startNode.id);
     if (!startConnection) {
       logger.error("Conexão do nó start não encontrada");
       return;
     }
-    
+
     // Atualizar ticket com o primeiro nó
     await ticket.update({
       lastFlowId: startConnection.target
     });
-    
+
     // Executar o primeiro nó
     await ActionsWebhookService(
       whatsapp.id,
@@ -4697,13 +4700,20 @@ const handleMessage = async (
     }
 
     const isGroup = msg.key.remoteJid?.endsWith("@g.us");
-    
-    // Verificar se é mensagem de comunidade do WhatsApp (grupos que começam com números @g.us)
-    const isCommunityGroup = isGroup && /^\d+@g\.us$/.test(msg.key.remoteJid);
-    
-    // Bloquear mensagens de comunidades do WhatsApp
-    if (isCommunityGroup) {
-      console.log(`[Community] Mensagem de comunidade bloqueada: ${msg.key.remoteJid}`);
+
+    // Verificar se é mensagem de comunidade do WhatsApp
+    // Comunidades usam messageStubType ou participant de anúncio da comunidade
+    // NÃO usar regex /^\d+@g\.us$/ pois isso bloqueia TODOS os grupos (todos têm IDs numéricos)
+    const isCommunityAnnouncement = isGroup && (
+      msg.key.remoteJid?.includes("@newsletter") ||
+      msg.messageStubType === 78 || // WAMessageStubType.COMMUNITY_ANNOUNCEMENT
+      msg.messageStubType === 79 || // WAMessageStubType.COMMUNITY_PARTICIPANT_ADD
+      msg.messageStubType === 80    // WAMessageStubType.COMMUNITY_PARTICIPANT_REMOVE
+    );
+
+    // Bloquear apenas mensagens de anúncios de comunidades
+    if (isCommunityAnnouncement) {
+      console.log(`[Community] Mensagem de anúncio de comunidade bloqueada: ${msg.key.remoteJid}`);
       return;
     }
 
@@ -5302,11 +5312,11 @@ const handleMessage = async (
       console.log(`=== OPENAI DIRETO - wbotMessageListener ===`);
       console.log(`ticket.isBot=${ticket.isBot}, isOpenai=${isOpenai}, flowId=${ticket.lastFlowId}`);
       console.log(`ticket.queue=${ticket.queue}, ticket.userId=${ticket.userId}`);
-      
+
       const nodes: INodes[] = flow.flow["nodes"];
       const nodeIndex = nodes.findIndex(node => node.id === ticket.lastFlowId);
       const nodeSelected = nodes[nodeIndex];
-      
+
       console.log(`Nó encontrado: id=${nodeSelected?.id}, type=${nodeSelected?.type}`);
 
       const cfg: any = nodeSelected.data.typebotIntegration || {};
@@ -6063,7 +6073,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         logger.info(`[newsletter] Ignorando mensagem de newsletter no listener: ${message.key.remoteJid}`);
         return;
       }
-      
+
       if (
         message?.messageStubParameters?.length &&
         message.messageStubParameters[0].includes("absent")
@@ -6273,7 +6283,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         });
 
         const updatedContact = await CreateOrUpdateContactService(contactData);
-        
+
         // 📱 Verificar se deve salvar no celular após atualizar contato
         if (!contactData.isGroup && updatedContact) {
           try {
@@ -6282,7 +6292,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
               messageBody: "",
               companyId
             });
-            
+
             if (shouldSave && !updatedContact.savedToPhone) {
               logger.info(`📱 Salvando contato ${updatedContact.id} no celular automaticamente`);
               await SaveContactToPhone({
@@ -6303,7 +6313,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     if (!groupUpdate[0]?.id) return;
     if (groupUpdate.length === 0) return;
     groupUpdate.forEach(async (group: GroupMetadata) => {
-      const number = group.id.replace(/\D/g, "");
+      const number = group.id.split("@")[0] || group.id.replace(/\D/g, "");
       const nameGroup = group.subject || number;
 
       let profilePicUrl: string = "";

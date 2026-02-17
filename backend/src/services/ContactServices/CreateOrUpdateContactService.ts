@@ -16,7 +16,9 @@ import {
   buildRemoteJidFromNumber,
   normalizePhoneNumber,
   resolveContactNumber,
-  sanitizeRemoteJid
+  sanitizeRemoteJid,
+  isGroupJid,
+  extractGroupId
 } from "../../helpers/normalizeContactNumber";
 import { FindDuplicateContact, MergeContacts } from "./ContactDeduplicationService";
 import { CalculatePotentialScore, UpdateContactScore } from "./ContactScoringService";
@@ -154,7 +156,7 @@ const CreateOrUpdateContactService = async ({
 }: Request): Promise<Contact> => {
   logger.info("=== CREATE OR UPDATE CONTACT SERVICE START ===");
   logger.info("Input data:", { rawNumber, remoteJid, remoteJidAlt, name, lid, addressingMode });
-  
+
   try {
     let createContact = false;
     const sanitizedIncomingName = sanitizeName(name);
@@ -163,22 +165,106 @@ const CreateOrUpdateContactService = async ({
       rawNumber,
       lid
     );
-    
+
     // Prioriza remoteJidAlt (número real) sobre remoteJid (pode ser LID)
     let number = resolveContactNumber({
       rawNumber,
       remoteJid,
-      remoteJidAlt
+      remoteJidAlt,
+      forGroup: isGroup
     });
+
+    // Para grupos, usar o ID do grupo diretamente, sem tratamento de LID
+    if (isGroup) {
+      const groupId = extractGroupId(remoteJid) || extractGroupId(rawNumber) || rawNumber;
+      if (groupId) {
+        number = groupId;
+      }
+      const groupRemoteJid = remoteJid && isGroupJid(remoteJid) ? remoteJid : buildRemoteJidFromNumber(number, true);
+
+      logger.info("Group contact processing:", { number, groupRemoteJid, remoteJid });
+
+      // Buscar grupo existente pelo remoteJid
+      let contact = await Contact.findOne({
+        where: {
+          companyId,
+          [Op.or]: [
+            { remoteJid: groupRemoteJid },
+            ...(remoteJid ? [{ remoteJid }] : []),
+            { number }
+          ]
+        }
+      });
+
+      const io = getIO();
+
+      if (contact) {
+        logger.info(`Found existing group contact ID: ${contact.id}`);
+        if (incomingNameIsMeaningful && sanitizedIncomingName !== contact.name) {
+          contact.name = sanitizedIncomingName;
+        }
+        if (profilePicUrl && profilePicUrl !== "" && !profilePicUrl.includes("nopicture.png")) {
+          contact.profilePicUrl = profilePicUrl;
+        }
+        if (groupRemoteJid && groupRemoteJid !== contact.remoteJid) {
+          contact.remoteJid = groupRemoteJid;
+        }
+        if (number !== contact.number) {
+          contact.number = number;
+        }
+        await contact.save();
+
+        io.of(String(companyId)).emit(`company-${companyId}-contact`, {
+          action: "update",
+          contact
+        });
+
+        return contact;
+      } else {
+        // Criar novo contato de grupo
+        const settings = await CompaniesSettings.findOne({ where: { companyId } });
+        const { acceptAudioMessageContact } = settings;
+        const profileUrl = profilePicUrl || `${process.env.FRONTEND_URL}/nopicture.png`;
+        const initialName = incomingNameIsMeaningful ? sanitizedIncomingName : DEFAULT_FALLBACK_NAME;
+
+        contact = await Contact.create({
+          name: initialName,
+          number,
+          email: "",
+          isGroup: true,
+          companyId,
+          channel,
+          acceptAudioMessage: acceptAudioMessageContact === 'enabled',
+          remoteJid: groupRemoteJid,
+          profilePicUrl: profileUrl,
+          urlPicture: "",
+          whatsappId,
+          potentialScore: 0,
+          isPotential: false,
+          savedToPhone: false,
+          lidStability: "unknown"
+        });
+
+        logger.info(`Group contact ${contact.id} created`);
+
+        io.of(String(companyId)).emit(`company-${companyId}-contact`, {
+          action: "create",
+          contact
+        });
+
+        await ensureFallbackName(contact);
+        return contact;
+      }
+    }
 
     const remoteLidDigits = extractLidDigits(remoteJid);
     const remoteAltLidDigits = extractLidDigits(remoteJidAlt);
-    
+
     // Se não conseguiu resolver o número e temos um rawNumber que parece LID,
     // usa o rawNumber temporariamente mas marca como LID
     const rawDigits = rawNumber ? rawNumber.replace(/\D/g, "") : "";
     const isRawLid = isLidNumber(rawDigits);
-    
+
     const bestLidDigits = remoteLidDigits || remoteAltLidDigits || (isRawLid ? rawDigits : "");
 
     if (!number && bestLidDigits) {
@@ -189,7 +275,7 @@ const CreateOrUpdateContactService = async ({
     if (!number) {
       number = `${TEMP_RANDOM_PREFIX}${Date.now()}${Math.floor(Math.random() * 1000)}`;
     }
-    
+
     const io = getIO();
     const jidToSanitize = remoteJidAlt || remoteJid;
     const sanitizedRemoteJid = sanitizeRemoteJid(jidToSanitize, number, isGroup);
@@ -218,31 +304,31 @@ const CreateOrUpdateContactService = async ({
 
     // Se não encontrou pelo LID, busca por número ou remoteJidAlt
     if (!contact) {
-      
+
       const orConditions: any[] = [];
-      
+
       // Busca pelo número normalizado
       if (number) {
         orConditions.push({ number });
         orConditions.push({ number: number.replace(/^55/, "") });
       }
-      
+
       // Busca pelo remoteJidAlt
       if (remoteJidAlt) {
         orConditions.push({ remoteJid: remoteJidAlt });
       }
-      
+
       // Busca pelo remoteJid se não for LID
       if (remoteJid && !isLidJid) {
         orConditions.push({ remoteJid });
       }
-      
+
       // Busca por contatos que foram criados com o número LID incorretamente
       if (isRawLid) {
         orConditions.push({ number: rawDigits });
         logger.info(`Also searching for contact with LID number: ${rawDigits}`);
       }
-      
+
       if (orConditions.length > 0) {
         contact = await Contact.findOne({
           where: {
@@ -311,11 +397,11 @@ const CreateOrUpdateContactService = async ({
 
     if (contact) {
       logger.info(`Updating existing contact ID: ${contact.id}, current number: ${contact.number}`);
-      
+
       // Verifica se o número atual do contato é um LID
       const currentNumberIsLid = isLidNumber(contact.number || "");
       const newNumberIsReal = isRealPhoneNumber(number);
-      
+
       // Atualiza o número se:
       // 1. O número atual é um LID e temos um número real
       // 2. Ou se o número é diferente e não é um LID
@@ -323,30 +409,30 @@ const CreateOrUpdateContactService = async ({
         logger.info(`Updating contact number from ${contact.number} to ${number}`);
         contact.number = number;
       }
-      
+
       if (profilePicUrl && profilePicUrl !== "" && !profilePicUrl.includes("nopicture.png")) {
         contact.profilePicUrl = profilePicUrl;
       }
-      
+
       if (incomingNameIsMeaningful && sanitizedIncomingName !== contact.name) {
         contact.name = sanitizedIncomingName;
       }
-      
+
       // Prioriza remoteJidAlt (número real) para o remoteJid salvo
       if (sanitizedRemoteJid && sanitizedRemoteJid !== contact.remoteJid && !sanitizedRemoteJid.includes("@lid")) {
         contact.remoteJid = sanitizedRemoteJid;
         logger.info(`Updated remoteJid to: ${sanitizedRemoteJid}`);
       }
-      
+
       // Salva o LID original para referência futura
       if (bestLidDigits && contact.lid !== bestLidDigits) {
         contact.lid = bestLidDigits;
       }
-      
+
       if (lid) {
         contact.lid = lid;
       }
-      
+
       if (addressingMode) {
         contact.addressingMode = addressingMode;
       }
@@ -357,9 +443,9 @@ const CreateOrUpdateContactService = async ({
       // Cria novo contato
       const settings = await CompaniesSettings.findOne({ where: { companyId } });
       const { acceptAudioMessageContact } = settings;
-      
+
       let profileUrl = profilePicUrl || `${process.env.FRONTEND_URL}/nopicture.png`;
-      
+
       if (!profileUrl && wbot && ['whatsapp'].includes(channel)) {
         try {
           profileUrl = await wbot.profilePictureUrl(remoteJid, "image");
@@ -372,14 +458,14 @@ const CreateOrUpdateContactService = async ({
       // Prioriza remoteJidAlt (número real) para o remoteJid salvo
       const jidToSanitize = remoteJidAlt || remoteJid;
       const newRemoteJid = sanitizeRemoteJid(jidToSanitize, number, isGroup) || buildRemoteJidFromNumber(number, isGroup);
-      
+
       // Salva o LID original para referência futura
       const lidToSave = isLidJid ? remoteJidDigits : lid;
 
       const initialName = incomingNameIsMeaningful ? sanitizedIncomingName : DEFAULT_FALLBACK_NAME;
 
       logger.info("Creating new contact:", { name: initialName, number, newRemoteJid, lid: lidToSave, addressingMode });
-      
+
       contact = await Contact.create({
         name: initialName,
         number,
@@ -431,7 +517,7 @@ const CreateOrUpdateContactService = async ({
         companyId,
         excludeId: contact.id
       });
-      
+
       // Se encontrou duplicado, fazer merge
       if (duplicate && duplicate.id !== contact.id) {
         logger.warn(`Duplicate contact found: ${duplicate.id}, merging...`);
@@ -441,7 +527,7 @@ const CreateOrUpdateContactService = async ({
           companyId
         });
       }
-      
+
       // 📊 Calcular score se tiver mensagem
       if (msgBody && typeof msgBody === 'string') {
         const score = CalculatePotentialScore(msgBody);
