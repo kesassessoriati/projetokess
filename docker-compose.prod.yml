@@ -5,10 +5,7 @@ services:
   ## --------------------------- ATENDZAPPY BACKEND --------------------------- ##
 
   atendzappy_backend:
-    image: ${DOCKER_REGISTRY:-}atendzappy-backend:${TAG:-latest}
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: williamwilmer10/atendz:backend-latest
 
     volumes:
       - atendzappy_public:/app/public ## Arquivos de mídia/uploads
@@ -92,14 +89,7 @@ services:
   ## --------------------------- ATENDZAPPY FRONTEND --------------------------- ##
 
   atendzappy_frontend:
-    image: ${DOCKER_REGISTRY:-}atendzappy-frontend:${TAG:-latest}
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_BACKEND_URL: https://apiatendzappy.waiasolutions.site
-        REACT_APP_HOURS_CLOSE_TICKETS_AUTO: "24"
-        REACT_APP_FACEBOOK_APP_ID: "SEU_FACEBOOK_APP_ID"
+    image: williamwilmer10/atendz:frontend-latest
 
     networks:
       - waianet ## Nome da rede interna
