@@ -103,6 +103,7 @@ import contactSettingsRoutes from "./contactSettingsRoutes";
 import contactAnalyticsRoutes from "./contactAnalyticsRoutes";
 import notificationRoutes from "./notificationRoutes";
 import callRecordRoutes from "./callRecordRoutes";
+import externalAppRoutes from "./externalAppRoutes";
 
 const routes = Router();
 
@@ -225,5 +226,6 @@ routes.use("/notifications", notificationRoutes);
 
 // Histórico de Chamadas
 routes.use(callRecordRoutes);
+routes.use(externalAppRoutes);
 
 export default routes;

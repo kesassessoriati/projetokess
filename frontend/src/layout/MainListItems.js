@@ -60,6 +60,7 @@ import { isArray } from "lodash";
 import api from "../services/api";
 import toastError from "../errors/toastError";
 import { i18n } from "../translate/i18n";
+import { embeddedLinks } from "../config/embedded_links";
 
 const submenuWidth = 280;
 
@@ -206,8 +207,8 @@ const useStyles = makeStyles((theme) => ({
       },
     },
     "&.active": {
-      backgroundColor: theme.mode === "light" 
-        ? "rgba(124, 77, 255, 0.12)" 
+      backgroundColor: theme.mode === "light"
+        ? "rgba(124, 77, 255, 0.12)"
         : "rgba(124, 77, 255, 0.25)",
       "& .MuiTypography-root": {
         color: theme.palette.primary.main,
@@ -364,8 +365,8 @@ const useStyles = makeStyles((theme) => ({
     cursor: "pointer",
     minHeight: "48px",
     "&:hover": {
-      backgroundColor: theme.mode === "light" 
-        ? "rgba(124, 77, 255, 0.08)" 
+      backgroundColor: theme.mode === "light"
+        ? "rgba(124, 77, 255, 0.08)"
         : "rgba(124, 77, 255, 0.15)",
     },
   },
@@ -518,6 +519,20 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
 
+  const [externalApps, setExternalApps] = useState([]);
+
+  useEffect(() => {
+    async function fetchExternalApps() {
+      try {
+        const { data } = await api.get("/external-apps");
+        setExternalApps(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchExternalApps();
+  }, []);
+
   useEffect(() => {
     async function checkHelps() {
       const helps = await list();
@@ -530,7 +545,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
     if (isMobile && drawerClose) {
       drawerClose();
     }
-    
+
     if (activeSubmenu === menuName) {
       setActiveSubmenu(null);
       if (onSubmenuOpen) onSubmenuOpen(false, false);
@@ -1026,6 +1041,14 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
             <div className={classes.submenuContent}>
               {user.super && (
                 <ListItemLink
+                  to="/apps-config"
+                  primary="Apps Externos"
+                  icon={<CodeIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
+              {user.super && (
+                <ListItemLink
                   to="/announcements"
                   primary={i18n.t("mainDrawer.listItems.annoucements")}
                   icon={<AnnouncementIcon />}
@@ -1227,7 +1250,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
             )}
           />
         )}
-        
+
         <Tooltip title={collapsed ? "Comunicação" : ""} placement="right">
           <ListItem
             button
@@ -1380,6 +1403,44 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           )}
         />
 
+        {/* Embedded Links (Dynamic) */}
+        {externalApps.length > 0 && (
+          <>
+            {!collapsed && (
+              <div className={classes.submenuHeader} style={{ marginTop: 10 }}>
+                <Typography className={classes.submenuTitle}>
+                  Aplicativos
+                </Typography>
+              </div>
+            )}
+            {externalApps.map((app) => (
+              <Tooltip title={collapsed ? app.name : ""} placement="right" key={app.id}>
+                <ListItem
+                  button
+                  component={RouterLink}
+                  to={`/apps/${app.id}`}
+                  className={`${classes.listItem} ${location.pathname === `/apps/${app.id}` ? "active" : ""}`}
+                >
+                  <ListItemIcon className={classes.listItemIcon}>
+                    <Avatar className={classes.iconAvatar}>
+                      <CodeIcon />
+                    </Avatar>
+                  </ListItemIcon>
+                  {!collapsed && (
+                    <ListItemText
+                      primary={
+                        <Typography className={`${classes.listItemText} ${location.pathname === `/apps/${app.id}` ? "active" : ""}`}>
+                          {app.name}
+                        </Typography>
+                      }
+                    />
+                  )}
+                </ListItem>
+              </Tooltip>
+            ))}
+          </>
+        )}
+
         {!collapsed && (
           <React.Fragment>
             <Divider style={{ margin: "16px 0" }} />
@@ -1407,10 +1468,10 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
       ) : (
         <div className={classes.bottomSection}>
           <Tooltip title="Perfil" placement="right">
-            <div 
-              style={{ 
-                display: "flex", 
-                justifyContent: "center", 
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
                 padding: "8px",
                 cursor: "pointer",
                 borderRadius: "8px",
@@ -1489,10 +1550,10 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           <div className={classes.logoutButton} onClick={handleLogoutClick}>
             <ExitToAppIcon className={classes.logoutIcon} />
             <Typography className={classes.logoutText}>
-            {isMobileSession
-              ? i18n.t("mainDrawer.appBar.user.logoutApp", { defaultValue: "Sair do app" })
-              : i18n.t("mainDrawer.appBar.user.logout")}
-          </Typography>
+              {isMobileSession
+                ? i18n.t("mainDrawer.appBar.user.logoutApp", { defaultValue: "Sair do app" })
+                : i18n.t("mainDrawer.appBar.user.logout")}
+            </Typography>
           </div>
         </div>
       </Drawer>
