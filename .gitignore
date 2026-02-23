@@ -29,7 +29,7 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
-stack-swarm.yml
+# stack-swarm.yml
 
 # Arquivos grandes (OCR)
 *.traineddata

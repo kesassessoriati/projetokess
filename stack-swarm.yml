@@ -1,0 +1,181 @@
+## ============================================================================
+## ATENDZAPPY - Stack de Produção para Portainer
+## ============================================================================
+## Domínios:
+##   Frontend: https://chat.kesassessoria.com
+##   Backend:  https://apichat.kesassessoria.com
+##   npx sequelize db:migrate
+##   npx sequelize db:seed:all
+##
+## Rede: kesnet (externa, gerenciada pelo Traefik)
+## Banco: pgvector (externo, na mesma rede kesnet)
+## ============================================================================
+
+version: "3.7"
+
+services:
+
+## ========================= ATENDZAPPY BACKEND ========================= ##
+
+  atendzappy_backend:
+    image: atendzappy/backend:1.0
+    volumes:
+      - atendzappy_public:/app/public
+      - atendzappy_logs:/app/logs
+    networks:
+      - kesnet
+    environment:
+      ## ⚡ Ambiente
+      - NODE_ENV=production
+      - PORT=8080
+      - TZ=America/Sao_Paulo
+
+      ## 💬 URLs da aplicação
+      - APP_URL=https://apichat.kesassessoria.com
+      - BACKEND_URL=https://apichat.kesassessoria.com
+      - FRONTEND_URL=https://chat.kesassessoria.com
+
+      ## 🗄️ Dados do Postgres (pgvector compartilhado na rede kesnet)
+      - DB_DIALECT=postgres
+      - DB_HOST=pgvector
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=9b383b03c79359d5a08e5791c3793165
+      - DB_NAME=atendzappy
+
+      ## 🔐 JWT Secrets
+      - JWT_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4
+      - JWT_REFRESH_SECRET=z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7
+
+      ## 🧑💻 Redis
+      - REDIS_URI=redis://:atendzappy123@atendzappy_redis:6379
+      - REDIS_OPT_LIMITER_MAX=500
+      - REDIS_OPT_LIMITER_DURATION=3000
+
+      ## 📊 Limites
+      - USER_LIMIT=999
+      - CONNECTIONS_LIMIT=999
+      - CLOSED_SEND_BY_ME=true
+
+      ## 🔑 Webhooks (descomente se necessário)
+      #- VERIFY_TOKEN=whaticket
+
+      ## 📱 Facebook / Meta (descomente e preencha se necessário)
+      #- FACEBOOK_APP_ID=SEU_FACEBOOK_APP_ID
+      #- FACEBOOK_APP_SECRET=SEU_FACEBOOK_APP_SECRET
+
+      ## 🌐 Google (descomente e preencha se necessário)
+      #- GOOGLE_CLIENT_ID=SEU_GOOGLE_CLIENT_ID
+      #- GOOGLE_CLIENT_SECRET=SEU_GOOGLE_CLIENT_SECRET
+      #- GOOGLE_REDIRECT_URI=https://apichat.kesassessoria.com/google-calendar/oauth/callback
+
+      ## 📡 UAZAPI (descomente e preencha se necessário)
+      #- UAZAPI_ADMIN_TOKEN=SEU_UAZAPI_TOKEN
+      #- UAZAPI_BASE_URL=https://free.uazapi.com
+      #- UAZAPI_WEBHOOK_URL=https://apichat.kesassessoria.com/webhook/uazapi
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.kesassessoria.com`)
+        - traefik.http.routers.atendzappy_backend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_backend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_backend.priority=1
+        - traefik.http.routers.atendzappy_backend.service=atendzappy_backend
+        - traefik.http.services.atendzappy_backend.loadbalancer.server.port=8080
+        - traefik.http.services.atendzappy_backend.loadbalancer.passHostHeader=true
+        - traefik.http.middlewares.atendzappy_sslheader.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.atendzappy_backend.middlewares=atendzappy_sslheader
+
+## ========================= ATENDZAPPY FRONTEND ========================= ##
+
+  atendzappy_frontend:
+    image: atendzappy/frontend:1.0
+    networks:
+      - kesnet
+    environment:
+      ## URL do backend injetada em runtime via env.sh (não precisa rebuildar a imagem)
+      - REACT_APP_BACKEND_URL=https://apichat.kesassessoria.com
+      - NODE_ENV=production
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 2024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.kesassessoria.com`)
+        - traefik.http.routers.atendzappy_frontend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_frontend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_frontend.priority=1
+        - traefik.http.routers.atendzappy_frontend.service=atendzappy_frontend
+        - traefik.http.services.atendzappy_frontend.loadbalancer.server.port=80
+        - traefik.http.services.atendzappy_frontend.loadbalancer.passHostHeader=true
+
+## ========================= ATENDZAPPY REDIS ========================= ##
+
+  atendzappy_redis:
+    image: redis:7-alpine
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--port"
+      - "6379"
+      - "--maxmemory"
+      - "512mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--requirepass"
+      - "atendzappy123"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "atendzappy123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - atendzappy_redis:/data
+    networks:
+      - kesnet
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+## ========================= VOLUMES ========================= ##
+
+volumes:
+  atendzappy_public:
+    external: true
+    name: atendzappy_public
+  atendzappy_logs:
+    external: true
+    name: atendzappy_logs
+  atendzappy_redis:
+    external: true
+    name: atendzappy_redis
+
+## ========================= NETWORK ========================= ##
+
+networks:
+  kesnet:
+    external: true
+    name: kesnet
