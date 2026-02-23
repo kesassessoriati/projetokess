@@ -148,7 +148,7 @@ deploy_portainer() {
 deploy_stack() {
     log_step "Fazendo deploy da stack principal..."
 
-    docker stack deploy -c docker-compose.yml --with-registry-auth $STACK_NAME
+    docker stack deploy -c stack-swarm.yml --with-registry-auth $STACK_NAME
     log_success "Stack deployada!"
 }
 
