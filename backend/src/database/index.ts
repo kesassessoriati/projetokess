@@ -95,6 +95,7 @@ import FollowUp from "../models/FollowUp";
 import CallRecord from "../models/CallRecord";
 import GoogleSheetsToken from "../models/GoogleSheetsToken";
 import UserDevice from "../models/UserDevice";
+import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
 
@@ -199,5 +200,6 @@ const models = [
 ];
 
 sequelize.addModels(models);
+applyTenantIsolation(sequelize);
 
 export default sequelize;

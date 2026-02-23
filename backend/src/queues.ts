@@ -60,6 +60,7 @@ const limiterDuration = process.env.REDIS_OPT_LIMITER_DURATION || 3000;
 interface ProcessCampaignData {
   id: number;
   delay: number;
+  companyId: number;
 }
 
 interface CampaignSettings {
@@ -74,12 +75,14 @@ interface PrepareContactData {
   campaignId: number;
   delay: number;
   variables: any[];
+  companyId: number;
 }
 
 interface DispatchCampaignData {
   campaignId: number;
   campaignShippingId: number;
   contactListItemId: number;
+  companyId: number;
 }
 
 export const userMonitor = new BullQueue("UserMonitor", connection);
@@ -101,7 +104,9 @@ async function handleSendMessage(job) {
   try {
     const { data } = job;
 
-    const whatsapp = await Whatsapp.findByPk(data.whatsappId);
+    const whatsapp = await Whatsapp.findOne({
+      where: { id: data.whatsappId, companyId: data.companyId }
+    });
 
     if (whatsapp === null) {
       throw Error("Whatsapp não identificado");
@@ -160,7 +165,9 @@ async function handleSendScheduledMessage(job) {
   let scheduleRecord: Schedule | null = null;
 
   try {
-    scheduleRecord = await Schedule.findByPk(schedule.id);
+    scheduleRecord = await Schedule.findOne({
+      where: { id: schedule.id, companyId: schedule.companyId }
+    });
   } catch (e) {
     Sentry.captureException(e);
     logger.info(`Erro ao tentar consultar agendamento: ${schedule.id}`);
@@ -170,11 +177,13 @@ async function handleSendScheduledMessage(job) {
     let whatsapp
 
     if (!isNil(schedule.whatsappId)) {
-      whatsapp = await Whatsapp.findByPk(schedule.whatsappId);
+      whatsapp = await Whatsapp.findOne({
+        where: { id: schedule.whatsappId, companyId: schedule.companyId }
+      });
     }
 
     if (!whatsapp)
-      whatsapp = await GetDefaultWhatsApp(whatsapp.id,schedule.companyId);
+      whatsapp = await GetDefaultWhatsApp(whatsapp.id, schedule.companyId);
 
 
     // const settings = await CompaniesSettings.findOne({
@@ -373,9 +382,9 @@ async function handleVerifyCampaigns(job) {
   try {
     await new Promise(r => setTimeout(r, 1500));
 
-    const campaigns: { id: number; scheduledAt: string }[] =
+    const campaigns: { id: number; scheduledAt: string; companyId: number }[] =
       await sequelize.query(
-        `SELECT id, "scheduledAt" FROM "Campaigns" c
+        `SELECT id, "scheduledAt", "companyId" FROM "Campaigns" c
         WHERE "scheduledAt" BETWEEN NOW() AND NOW() + INTERVAL '3 hour' AND status = 'PROGRAMADA'`,
         { type: QueryTypes.SELECT }
       );
@@ -398,7 +407,7 @@ async function handleVerifyCampaigns(job) {
 
           return campaignQueue.add(
             "ProcessCampaign",
-            { id: campaign.id, delay },
+            { id: campaign.id, delay, companyId: campaign.companyId },
             { priority: 3, removeOnComplete: { age: 60 * 60, count: 10 }, removeOnFail: { age: 60 * 60, count: 10 } }
           );
 
@@ -420,9 +429,9 @@ async function handleVerifyCampaigns(job) {
 }
 
 
-async function getCampaign(id) {
+async function getCampaign(id, companyId) {
   return await Campaign.findOne({
-    where: { id },
+    where: { id, companyId },
     include: [
       {
         model: ContactList,
@@ -611,44 +620,45 @@ function getProcessedMessage(msg: string, variables: any[], contact: any) {
   return finalMessage;
 }
 
-const checkerWeek = async () => {
+const checkerWeek = async (companyId: number) => {
   const sab = moment().day() === 6;
   const dom = moment().day() === 0;
 
   const sabado = await CampaignSetting.findOne({
-    where: { key: "sabado" }
+    where: { key: "sabado", companyId }
   });
 
   const domingo = await CampaignSetting.findOne({
-    where: { key: "domingo" }
+    where: { key: "domingo", companyId }
   });
 
   if (sabado?.value === "false" && sab) {
-    messageQueue.pause();
-    return true;
+    return false;
   }
 
   if (domingo?.value === "false" && dom) {
-    messageQueue.pause();
-    return true;
+    return false;
   }
 
-  messageQueue.resume();
-  return false;
+  return true;
 };
 
-const checkTime = async () => {
+const checkTime = async (companyId: number) => {
   const startHour = await CampaignSetting.findOne({
     where: {
-      key: "startHour"
+      key: "startHour",
+      companyId
     }
   });
 
   const endHour = await CampaignSetting.findOne({
     where: {
-      key: "endHour"
+      key: "endHour",
+      companyId
     }
   });
+
+  if (!startHour || !endHour) return true;
 
   const hour = startHour.value as unknown as number;
   const endHours = endHour.value as unknown as number;
@@ -656,21 +666,12 @@ const checkTime = async () => {
   const timeNow = moment().format("HH:mm") as unknown as number;
 
   if (timeNow <= endHours && timeNow >= hour) {
-    messageQueue.resume();
-
     return true;
   }
 
-
   logger.info(
-    `Envio inicia as ${hour} e termina as ${endHours}, hora atual ${timeNow} não está dentro do horário`
+    `Empresa ${companyId}: Envio inicia as ${hour} e termina as ${endHours}, hora atual ${timeNow} não está dentro do horário`
   );
-  messageQueue.clean(0, "delayed");
-  messageQueue.clean(0, "wait");
-  messageQueue.clean(0, "active");
-  messageQueue.clean(0, "completed");
-  messageQueue.clean(0, "failed");
-  messageQueue.pause();
 
   return false;
 };
@@ -758,8 +759,8 @@ async function verifyAndFinalizeCampaign(campaign) {
 
 async function handleProcessCampaign(job) {
   try {
-    const { id }: ProcessCampaignData = job.data;
-    const campaign = await getCampaign(id);
+    const { id, companyId }: ProcessCampaignData = job.data;
+    const campaign = await getCampaign(id, companyId);
     const settings = await getSettings(campaign);
     if (campaign) {
       const { contacts } = campaign.contactList;
@@ -778,24 +779,28 @@ async function handleProcessCampaign(job) {
 
         let baseDelay = campaign.scheduledAt;
 
-        // const isOpen = await checkTime();
-        // const isFds = await checkerWeek();
+        const isAllowedTime = await checkTime(campaign.companyId);
+        const isAllowedWeek = await checkerWeek(campaign.companyId);
 
         const queuePromises = [];
         for (let i = 0; i < contactData.length; i++) {
           baseDelay = addSeconds(baseDelay, i > longerIntervalAfter ? greaterInterval : messageInterval);
 
           const { contactId, campaignId, variables } = contactData[i];
-          const delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
-          // if (isOpen || !isFds) {
+          let delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
+
+          // Se não for horário permitido, adicionamos um delay de 1 hora para reprocessar
+          if (!isAllowedTime || !isAllowedWeek) {
+            delay += 3600000; // +1 hora
+          }
+
           const queuePromise = campaignQueue.add(
             "PrepareContact",
-            { contactId, campaignId, variables, delay },
-            { removeOnComplete: true }
+            { contactId, campaignId, variables, delay, companyId: campaign.companyId },
+            { removeOnComplete: true, delay }
           );
           queuePromises.push(queuePromise);
           logger.info(`Registro enviado pra fila de disparo: Campanha=${campaign.id};Contato=${contacts[i].name};delay=${delay}`);
-          // }
         }
         await Promise.all(queuePromises);
         // await campaign.update({ status: "EM_ANDAMENTO" });
@@ -817,9 +822,9 @@ function calculateDelay(index, baseDelay, longerIntervalAfter, greaterInterval, 
 
 async function handlePrepareContact(job) {
   try {
-    const { contactId, campaignId, delay, variables }: PrepareContactData =
+    const { contactId, campaignId, delay, variables, companyId }: PrepareContactData =
       job.data;
-    const campaign = await getCampaign(campaignId);
+    const campaign = await getCampaign(campaignId, companyId);
     const contact = await getContact(contactId);
     const campaignShipping: any = {};
     campaignShipping.number = contact.number;
@@ -877,7 +882,8 @@ async function handlePrepareContact(job) {
         {
           campaignId: campaign.id,
           campaignShippingId: record.id,
-          contactListItemId: contactId
+          contactListItemId: contactId,
+          companyId: campaign.companyId
         },
         {
           delay
@@ -897,8 +903,8 @@ async function handlePrepareContact(job) {
 async function handleDispatchCampaign(job) {
   try {
     const { data } = job;
-    const { campaignShippingId, campaignId }: DispatchCampaignData = data;
-    const campaign = await getCampaign(campaignId);
+    const { campaignShippingId, campaignId, companyId }: DispatchCampaignData = data;
+    const campaign = await getCampaign(campaignId, companyId);
     const wbot = await GetWhatsappWbot(campaign.whatsapp);
 
     if (!wbot) {
@@ -944,7 +950,9 @@ async function handleDispatchCampaign(job) {
           profilePicUrl: ""
         }
       })
-      const whatsapp = await Whatsapp.findByPk(campaign.whatsappId);
+      const whatsapp = await Whatsapp.findOne({
+        where: { id: campaign.whatsappId, companyId: campaign.companyId }
+      });
 
       let ticket = await Ticket.findOne({
         where: {
@@ -1558,7 +1566,9 @@ async function handleProcessLanes() {
         if (ticketTags.length > 0) {
           ticketTags.map(async t => {
             if (!isNil(t?.tag.nextLaneId) && t?.tag.nextLaneId > 0 && t?.tag.timeLane > 0) {
-              const nextTag = await Tag.findByPk(t?.tag.nextLaneId);
+              const nextTag = await Tag.findOne({
+                where: { id: t?.tag.nextLaneId, companyId }
+              });
 
               const dataLimite = new Date();
               dataLimite.setHours(dataLimite.getHours() - Number(t.tag.timeLane));
@@ -1568,12 +1578,16 @@ async function handleProcessLanes() {
                 await TicketTag.destroy({ where: { ticketId: t.ticketId, tagId: t.tagId } });
                 await TicketTag.create({ ticketId: t.ticketId, tagId: nextTag.id });
 
-                const whatsapp = await Whatsapp.findByPk(t.ticket.whatsappId);
+                const whatsapp = await Whatsapp.findOne({
+                  where: { id: t.ticket.whatsappId, companyId }
+                });
 
                 if (!isNil(nextTag.greetingMessageLane) && nextTag.greetingMessageLane !== "") {
                   const bodyMessage = nextTag.greetingMessageLane;
 
-                  const contact = await Contact.findByPk(t.ticket.contactId);
+                  const contact = await Contact.findOne({
+                    where: { id: t.ticket.contactId, companyId }
+                  });
                   const ticketUpdate = await ShowTicketService(t.ticketId, companyId);
 
                   await SendMessage(whatsapp, {
@@ -1637,91 +1651,91 @@ async function handleInvoiceCreate() {
   const job = new CronJob('*/30 * * * * *', async () => {
     const companies = await Company.findAll();
     companies.map(async c => {
-    
+
       const status = c.status;
-      const dueDate = c.dueDate; 
+      const dueDate = c.dueDate;
       const date = moment(dueDate).format();
       const timestamp = moment().format();
       const hoje = moment().format("DD/MM/yyyy");
       const vencimento = moment(dueDate).format("DD/MM/yyyy");
       const diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
       const dias = moment.duration(diff).asDays();
-    
-      if(status === true){
-      	//logger.info(`EMPRESA: ${c.id} está ATIVA com vencimento em: ${vencimento} | ${dias}`);
-      
-      	//Verifico se a empresa está a mais de 10 dias sem pagamento
-        
-        if(dias <= -3){
-       
+
+      if (status === true) {
+        //logger.info(`EMPRESA: ${c.id} está ATIVA com vencimento em: ${vencimento} | ${dias}`);
+
+        //Verifico se a empresa está a mais de 10 dias sem pagamento
+
+        if (dias <= -3) {
+
           logger.info(`EMPRESA: ${c.id} está VENCIDA A MAIS DE 3 DIAS... INATIVANDO... ${dias}`);
           c.status = false;
           await c.save(); // Save the updated company record
           logger.info(`EMPRESA: ${c.id} foi INATIVADA.`);
           logger.info(`EMPRESA: ${c.id} Desativando conexões com o WhatsApp...`);
-          
+
           try {
-    		const whatsapps = await Whatsapp.findAll({
-      		where: {
-        		companyId: c.id,
-      		},
-      			attributes: ['id','status','session'],
-    		});
-    		for (const whatsapp of whatsapps) {
-            	if (whatsapp.session) {
-    				await whatsapp.update({ status: "DISCONNECTED", session: "" });
-    				const wbot = getWbot(whatsapp.id);
-    				await wbot.logout();
-                	logger.info(`EMPRESA: ${c.id} teve o WhatsApp ${whatsapp.id} desconectado...`);
-  				}
-    		}
-          
-  		  } catch (error) {
-    		// Lidar com erros, se houver
-    		console.error('Erro ao buscar os IDs de WhatsApp:', error);
-    		throw error;
-  		  }
-        
-        }else{ // ELSE if(dias <= -3){
-        
+            const whatsapps = await Whatsapp.findAll({
+              where: {
+                companyId: c.id,
+              },
+              attributes: ['id', 'status', 'session'],
+            });
+            for (const whatsapp of whatsapps) {
+              if (whatsapp.session) {
+                await whatsapp.update({ status: "DISCONNECTED", session: "" });
+                const wbot = getWbot(whatsapp.id);
+                await wbot.logout();
+                logger.info(`EMPRESA: ${c.id} teve o WhatsApp ${whatsapp.id} desconectado...`);
+              }
+            }
+
+          } catch (error) {
+            // Lidar com erros, se houver
+            console.error('Erro ao buscar os IDs de WhatsApp:', error);
+            throw error;
+          }
+
+        } else { // ELSE if(dias <= -3){
+
           const plan = await Plan.findByPk(c.planId);
-        
+
           const sql = `SELECT * FROM "Invoices" WHERE "companyId" = ${c.id} AND "status" = 'open';`
           const openInvoices = await sequelize.query(sql, { type: QueryTypes.SELECT }) as { id: number, dueDate: Date }[];
           const existingInvoice = openInvoices.find(invoice => moment(invoice.dueDate).format("DD/MM/yyyy") === vencimento);
-        
+
           if (existingInvoice) {
             // Due date already exists, no action needed
             //logger.info(`Fatura Existente`);
-        
+
           } else if (openInvoices.length > 0) {
             const updateSql = `UPDATE "Invoices" SET "dueDate" = '${date}' WHERE "id" = ${openInvoices[0].id};`;
             await sequelize.query(updateSql, { type: QueryTypes.UPDATE });
-        
+
             logger.info(`Fatura Atualizada ID: ${openInvoices[0].id}`);
-        
+
           } else {
             const valuePlan = plan.amount.replace(",", ".");
             const sql = `INSERT INTO "Invoices" ("companyId", "dueDate", detail, status, value, users, connections, queues, "updatedAt", "createdAt")
             VALUES (${c.id}, '${date}', '${plan.name}', 'open', ${valuePlan}, ${plan.users}, ${plan.connections}, ${plan.queues}, '${timestamp}', '${timestamp}');`
             const invoiceInsert = await sequelize.query(sql, { type: QueryTypes.INSERT });
-        
+
             logger.info(`Fatura Gerada para o cliente: ${c.id}`);
             // Rest of the code for sending email
           }
-        
-          
-        
-        
+
+
+
+
         } // if(dias <= -6){
-        
-      }else{ // ELSE if(status === true){
-      
-      	//logger.info(`EMPRESA: ${c.id} está INATIVA`);
-      
+
+      } else { // ELSE if(status === true){
+
+        //logger.info(`EMPRESA: ${c.id} está INATIVA`);
+
       }
-    
-    
+
+
     });
   });
   job.start();

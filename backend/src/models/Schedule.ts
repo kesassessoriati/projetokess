@@ -10,7 +10,8 @@ import {
   DataType,
   BelongsTo,
   ForeignKey,
-  Default
+  Default,
+  AllowNull
 } from "sequelize-typescript";
 import Company from "./Company";
 import Contact from "./Contact";
@@ -48,6 +49,7 @@ class Schedule extends Model<Schedule> {
   userId: number;
 
   @ForeignKey(() => Company)
+  @AllowNull(false)
   @Column
   companyId: number;
 

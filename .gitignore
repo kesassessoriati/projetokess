@@ -29,6 +29,7 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+stack-swarm.yml
 
 # Arquivos grandes (OCR)
 *.traineddata
@@ -48,3 +49,5 @@ backend/public/
 
 # Package lock (opcional, se quiser manter remova estas linhas)
 # package-lock.json
+
+

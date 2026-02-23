@@ -81,17 +81,17 @@ if (String(process.env.BULL_BOARD).toLocaleLowerCase() === 'true' && process.env
 
 
 app.use(compression()); // Compressão HTTP
-app.use(bodyParser.json({ limit: '2gb' })); // Aumentar o limite de carga para 2 GB
-app.use(bodyParser.urlencoded({ limit: '2gb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' })); // Limite de 50MB para segurança
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 // Configuração CORS para permitir qualquer origem
 app.use(
   cors({
     credentials: true,
-    origin: true // Permite qualquer origem
+    origin: allowedOrigins // Restrito aos domínios permitidos
   })
 );
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(Sentry.Handlers.requestHandler());
 // Arquivos públicos com cache curto (1 hora) para evitar cache excessivo
 app.use("/public", express.static(uploadConfig.directory, {

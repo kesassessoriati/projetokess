@@ -7,7 +7,7 @@ import authConfig from "../config/auth";
 import { getIO } from "../libs/socket";
 import ShowUserService from "../services/UserServices/ShowUserService";
 import { updateUser } from "../helpers/updateUser";
-// import { moment} from "moment-timezone"
+import { runWithContext } from "../context";
 
 interface TokenPayload {
   id: string;
@@ -44,10 +44,12 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       profile,
       companyId
     };
+
+    return runWithContext({ companyId }, () => next());
   } catch (err: any) {
     // Log do erro para debug
     console.error("Auth error:", err.name, err.message);
-    
+
     if (err.name === "TokenExpiredError") {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     } else if (err.name === "JsonWebTokenError") {
@@ -59,8 +61,6 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       );
     }
   }
-
-  return next();
 };
 
 export default isAuth;

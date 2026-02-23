@@ -280,7 +280,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<Response
 };
 
 export const webhookOfficial = async (req: Request, res: Response): Promise<Response> => {
-  const { "hub.verify-token": verifyToken, "hub.challenge": challenge } = req.query;
+  const { "hub.verify_token": verifyToken, "hub.challenge": challenge } = req.query;
 
   // Webhook verification
   if (verifyToken) {

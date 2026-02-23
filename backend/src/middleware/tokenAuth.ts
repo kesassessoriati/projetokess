@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 
 import AppError from "../errors/AppError";
 import Whatsapp from "../models/Whatsapp";
+import { runWithContext } from "../context";
 
 const isAuthApi = async (
   req: Request,
@@ -25,6 +26,7 @@ const isAuthApi = async (
     if (getToken !== token) {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
+    return runWithContext({ companyId: whatsapp.companyId }, () => next());
   } catch (err) {
     throw new AppError(
       "Invalid token. We'll try to assign a new one on next request",
@@ -32,7 +34,6 @@ const isAuthApi = async (
     );
   }
 
-  return next();
 };
 
 export default isAuthApi;

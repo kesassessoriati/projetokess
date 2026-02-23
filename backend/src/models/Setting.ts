@@ -7,7 +7,8 @@ import {
   PrimaryKey,
   ForeignKey,
   BelongsTo,
-  AutoIncrement
+  AutoIncrement,
+  AllowNull
 } from "sequelize-typescript";
 
 import Company from "./Company";
@@ -32,6 +33,7 @@ class Setting extends Model<Setting> {
   updatedAt: Date;
 
   @ForeignKey(() => Company)
+  @AllowNull(false)
   @Column
   companyId: number;
 

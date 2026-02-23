@@ -8,7 +8,8 @@ import {
   AutoIncrement,
   ForeignKey,
   BelongsTo,
-  HasMany
+  HasMany,
+  AllowNull
 } from "sequelize-typescript";
 import CampaignShipping from "./CampaignShipping";
 import Company from "./Company";
@@ -82,6 +83,7 @@ class Campaign extends Model<Campaign> {
   updatedAt: Date;
 
   @ForeignKey(() => Company)
+  @AllowNull(false)
   @Column
   companyId: number;
 

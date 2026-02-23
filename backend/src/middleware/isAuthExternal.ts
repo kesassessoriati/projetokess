@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import AppError from "../errors/AppError";
 import CompanyApiKey from "../models/CompanyApiKey";
+import { runWithContext } from "../context";
 
 const isAuthExternal = async (
   req: Request,
@@ -38,7 +39,7 @@ const isAuthExternal = async (
   apiKey.lastUsedAt = new Date();
   await apiKey.save();
 
-  return next();
+  return runWithContext({ companyId: apiKey.companyId }, () => next());
 };
 
 export default isAuthExternal;

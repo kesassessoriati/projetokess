@@ -124,6 +124,7 @@ class Ticket extends Model<Ticket> {
   tags: Tag[];
 
   @ForeignKey(() => Company)
+  @AllowNull(false)
   @Column
   companyId: number;
 
