@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer, useContext, useCallback } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
@@ -415,7 +415,7 @@ const Invoices = () => {
             <Grid item xs={12} md={8}>
               <Box display="flex" alignItems="center" pt={1}>
                 <Typography variant="body2" color="textSecondary">
-                  Mostrando {filteredInvoices.length} fatura(s)
+                  Mostrando {filteredInvoicesList.length} fatura(s)
                   {statusFilter !== "all" && ` - Filtro: ${statusFilter === "paid" ? "Pagas" : statusFilter === "unpaid" ? "Em Aberto" : "Vencidas"}`}
                 </Typography>
               </Box>
