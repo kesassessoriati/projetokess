@@ -103,6 +103,8 @@ import f002Image from "../assets/f002.png";
 import logo from "../assets/logo.png";
 import ColorModeContext from "./themeContext";
 import { useSystemAlert } from "../components/SystemAlert";
+import SendIcon from "@material-ui/icons/Send";
+import QuickSendModal from "../components/QuickSendModal";
 
 const backendUrl = getBackendUrl();
 
@@ -757,6 +759,7 @@ const LoggedInLayout = ({ children }) => {
   const [volume, setVolume] = useState(localStorage.getItem("volume") || 1);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [quickSendOpen, setQuickSendOpen] = useState(false);
 
   useEffect(() => {
     if (sidebarPinned) {
@@ -1300,6 +1303,21 @@ const LoggedInLayout = ({ children }) => {
                 <CachedIcon />
               </IconButton>
 
+              {/* ── Botão Quick Send (Mensagem Rápida) ─────────────────── */}
+              <Tooltip title="Mensagem Rápida">
+                <IconButton
+                  id="quick-send-header-btn"
+                  className={classes.iconButton}
+                  onClick={() => setQuickSendOpen(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #075E54, #25D366)',
+                    position: 'relative',
+                  }}
+                >
+                  <SendIcon style={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+
               {/* Volume */}
               <div className={classes.iconButton}>
                 <NotificationsVolume setVolume={setVolume} volume={volume} />
@@ -1366,6 +1384,12 @@ const LoggedInLayout = ({ children }) => {
       <SearchTicketModal
         open={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
+      />
+
+      {/* ── Modal de Mensagem Rápida ─────────────────────────────── */}
+      <QuickSendModal
+        open={quickSendOpen}
+        onClose={() => setQuickSendOpen(false)}
       />
 
       {/* Conteúdo Principal */}
