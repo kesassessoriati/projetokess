@@ -1,9 +1,9 @@
 {
   "name": "frontend",
-  "version": "12.0.3",
+  "version": "2.0",
   "private": true,
   "nomeEmpresa": "CopyRight",
-  "versionSystem": "12.0.3",
+  "versionSystem": "2.0",
   "dependencies": {
     "@date-io/date-fns": "^2.16.0",
     "@emoji-mart/data": "^1.1.1",

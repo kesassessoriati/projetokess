@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
+import { getEnvVariable } from "../../config";
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
@@ -120,19 +121,19 @@ const FacebookInstagramModal = ({ open, onClose, whatsAppId }) => {
   const [activeTab, setActiveTab] = useState(0); // 0 = Facebook, 1 = Instagram
 
   // Informações do webhook - usando a URL do backend
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://api.faedeveloper.com.br";
+  const backendUrl = getEnvVariable('REACT_APP_BACKEND_URL') || "https://api.faedeveloper.com.br";
   const webhookUrl = `${backendUrl}/webhook`;
-  const verifyToken = "whaticket";
+  const verifyToken = getEnvVariable('REACT_APP_VERIFY_TOKEN') || "whaticket";
 
   // Função para login direto no Instagram Business
   const handleInstagramLogin = () => {
-    const instagramOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.REACT_APP_FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(backendUrl + '/instagram-callback')}&scope=instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management&response_type=token&state=${localStorage.getItem('companyId')}`;
+    const instagramOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${getEnvVariable('REACT_APP_FACEBOOK_APP_ID')}&redirect_uri=${encodeURIComponent(backendUrl + '/instagram-callback')}&scope=instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management&response_type=token&state=${localStorage.getItem('companyId')}`;
     window.open(instagramOAuthUrl, '_blank', 'width=600,height=600');
   };
 
   // Função para login direto no Facebook
   const handleFacebookLogin = () => {
-    const facebookOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.REACT_APP_FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(backendUrl + '/facebook-callback')}&scope=public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management&response_type=token&state=${localStorage.getItem('companyId')}`;
+    const facebookOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${getEnvVariable('REACT_APP_FACEBOOK_APP_ID')}&redirect_uri=${encodeURIComponent(backendUrl + '/facebook-callback')}&scope=public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management&response_type=token&state=${localStorage.getItem('companyId')}`;
     window.open(facebookOAuthUrl, '_blank', 'width=600,height=600');
   };
 
@@ -186,20 +187,20 @@ const FacebookInstagramModal = ({ open, onClose, whatsAppId }) => {
       <DialogTitle className={classes.dialogTitle}>
         Conexão Facebook / Instagram
       </DialogTitle>
-      
+
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => setActiveTab(newValue)}
         className={classes.tabsContainer}
         centered
       >
-        <Tab 
-          label="Facebook" 
+        <Tab
+          label="Facebook"
           icon={<Facebook style={{ marginRight: 8 }} />}
           className={`${classes.tab} ${classes.facebookTab}`}
         />
-        <Tab 
-          label="Instagram" 
+        <Tab
+          label="Instagram"
           icon={<Instagram style={{ marginRight: 8 }} />}
           className={`${classes.tab} ${classes.instagramTab}`}
         />
@@ -248,7 +249,7 @@ const FacebookInstagramModal = ({ open, onClose, whatsAppId }) => {
               <Typography className={classes.instructionText}>
                 Se precisar configurar manualmente, use as informações abaixo:
               </Typography>
-              
+
               <Typography variant="caption" style={{ color: "#666", fontWeight: 500 }}>
                 URL de Callback:
               </Typography>
@@ -339,7 +340,7 @@ const FacebookInstagramModal = ({ open, onClose, whatsAppId }) => {
               <Typography className={classes.instructionText}>
                 Se precisar configurar manualmente, use as informações abaixo:
               </Typography>
-              
+
               <Typography variant="caption" style={{ color: "#666", fontWeight: 500 }}>
                 URL de Callback:
               </Typography>

@@ -57,6 +57,7 @@ import ChannelModal from "../../HubEcosystem/components/ChannelModal";
 import notificame_logo from "../../assets/notificame_logo.png";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import FacebookInstagramModal from "../../components/FacebookInstagramModal";
+import { getEnvVariable } from "../../config";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -550,7 +551,7 @@ const Connections = () => {
   const handleEditConnection = (whatsApp) => {
     setSelectedWhatsApp(whatsApp);
     setModalChannel(whatsApp.channel);
-    
+
     // Abrir modal específico baseado no canal
     if (whatsApp.channel === "facebook" || whatsApp.channel === "instagram") {
       setFbIgModalOpen(true);
@@ -784,37 +785,37 @@ const Connections = () => {
         {(whatsApp.status === "CONNECTED" ||
           whatsApp.status === "PAIRING" ||
           whatsApp.status === "TIMEOUT") && (
-          <Can
-            role={user.profile}
-            perform="connections-page:addConnection"
-            yes={() => (
-              <>
-                <Button
-                  startIcon={<LogoutIcon />}
-                  size="small"
-                  variant="outlined"
-                  style={{
-                    color: "white",
-                    backgroundColor: "#db6565",
-                    boxShadow: "none",
-                    borderRadius: "5px",
-                  }}
-                  onClick={() => {
-                    handleOpenConfirmationModal(
-                      "disconnect",
-                      whatsApp.id,
-                      whatsApp.channel
-                    );
-                  }}
-                >
-                  {i18n.t("connections.buttons.disconnect")}
-                </Button>
+            <Can
+              role={user.profile}
+              perform="connections-page:addConnection"
+              yes={() => (
+                <>
+                  <Button
+                    startIcon={<LogoutIcon />}
+                    size="small"
+                    variant="outlined"
+                    style={{
+                      color: "white",
+                      backgroundColor: "#db6565",
+                      boxShadow: "none",
+                      borderRadius: "5px",
+                    }}
+                    onClick={() => {
+                      handleOpenConfirmationModal(
+                        "disconnect",
+                        whatsApp.id,
+                        whatsApp.channel
+                      );
+                    }}
+                  >
+                    {i18n.t("connections.buttons.disconnect")}
+                  </Button>
 
-                {renderImportButton(whatsApp)}
-              </>
-            )}
-          />
-        )}
+                  {renderImportButton(whatsApp)}
+                </>
+              )}
+            />
+          )}
         {whatsApp.status === "OPENING" && (
           <Button size="small" variant="outlined" disabled color="default">
             {i18n.t("connections.buttons.connecting")}
@@ -1036,7 +1037,7 @@ const Connections = () => {
                           NotificaMe Hub
                         </MenuItem>
                         <FacebookLogin
-                          appId={process.env.REACT_APP_FACEBOOK_APP_ID}
+                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
                           autoLoad={false}
                           fields="name,email,picture"
                           version="13.0"
@@ -1050,7 +1051,7 @@ const Connections = () => {
                           )}
                         />
                         <FacebookLogin
-                          appId={process.env.REACT_APP_FACEBOOK_APP_ID}
+                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
                           autoLoad={false}
                           fields="name,email,picture"
                           version="13.0"

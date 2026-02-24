@@ -524,8 +524,15 @@ const TicketsManagerTabs = () => {
   const [searchParam, setSearchParam] = useState("");
   const [tab, setTab] = useState("open");
   const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
-  const [showAllTickets, setShowAllTickets] = useState(false);
+  const [showAllTickets, setShowAllTickets] = useState(() => {
+    const saved = localStorage.getItem("showAllTickets");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [sortTickets, setSortTickets] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("showAllTickets", JSON.stringify(showAllTickets));
+  }, [showAllTickets]);
 
   const searchInputRef = useRef();
   const [searchOnMessages, setSearchOnMessages] = useState(false);
@@ -557,7 +564,7 @@ const TicketsManagerTabs = () => {
   const [isHoveredSort, setIsHoveredSort] = useState(false);
 
   const [isFilterActive, setIsFilterActive] = useState(false);
-  
+
   // Garante que as filas do usuário sejam selecionadas automaticamente quando carregadas
   useEffect(() => {
     if (user?.queues?.length > 0 && selectedQueueIds.length === 0) {
@@ -573,11 +580,6 @@ const TicketsManagerTabs = () => {
     setSelectedQueuesMessage(selectedQueueIds);
   }, [selectedQueueIds]);
 
-  useEffect(() => {
-    if (user.profile.toUpperCase() === "ADMIN" || user.allUserChat.toUpperCase() === "ENABLED") {
-      setShowAllTickets(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (tab === "search") {
@@ -835,22 +837,22 @@ const TicketsManagerTabs = () => {
                     badgeContent={"Todos"}
                     classes={{ badge: classes.tabsBadge }}
                   >
-                      <ToggleButton
-                        onMouseEnter={() => setIsHoveredAll(true)}
-                        onMouseLeave={() => setIsHoveredAll(false)}
-                        className={clsx(classes.actionButton, showAllTickets && classes.actionButtonActive)}
-                        value="uncheck"
-                        selected={showAllTickets}
-                        onChange={() =>
-                          setShowAllTickets((prevState) => !prevState)
-                        }
-                      >
-                        {showAllTickets ? (
-                          <VisibilityIcon />
-                        ) : (
-                          <VisibilityOffIcon />
-                        )}
-                      </ToggleButton>
+                    <ToggleButton
+                      onMouseEnter={() => setIsHoveredAll(true)}
+                      onMouseLeave={() => setIsHoveredAll(false)}
+                      className={clsx(classes.actionButton, showAllTickets && classes.actionButtonActive)}
+                      value="uncheck"
+                      selected={showAllTickets}
+                      onChange={() =>
+                        setShowAllTickets((prevState) => !prevState)
+                      }
+                    >
+                      {showAllTickets ? (
+                        <VisibilityIcon />
+                      ) : (
+                        <VisibilityOffIcon />
+                      )}
+                    </ToggleButton>
                   </Badge>
                 )}
               />
@@ -896,16 +898,16 @@ const TicketsManagerTabs = () => {
                 badgeContent={i18n.t("tickets.inbox.newTicket")}
                 classes={{ badge: classes.tabsBadge }}
               >
-                  <IconButton
-                    onMouseEnter={() => setIsHoveredNew(true)}
-                    onMouseLeave={() => setIsHoveredNew(false)}
-                    className={classes.actionButton}
-                    onClick={() => {
-                      setNewTicketModalOpen(true);
-                    }}
-                  >
-                    <AddIcon />
-                  </IconButton>
+                <IconButton
+                  onMouseEnter={() => setIsHoveredNew(true)}
+                  onMouseLeave={() => setIsHoveredNew(false)}
+                  className={classes.actionButton}
+                  onClick={() => {
+                    setNewTicketModalOpen(true);
+                  }}
+                >
+                  <AddIcon />
+                </IconButton>
               </Badge>
 
               {/* Close All Button - Admin Only */}
@@ -916,14 +918,14 @@ const TicketsManagerTabs = () => {
                   badgeContent={i18n.t("tickets.inbox.closedAll")}
                   classes={{ badge: classes.tabsBadge }}
                 >
-                    <IconButton
-                      onMouseEnter={() => setIsHoveredResolve(true)}
-                      onMouseLeave={() => setIsHoveredResolve(false)}
-                      className={classes.actionButton}
-                      onClick={handleSnackbarOpen}
-                    >
-                      <PlaylistAddCheckOutlined />
-                    </IconButton>
+                  <IconButton
+                    onMouseEnter={() => setIsHoveredResolve(true)}
+                    onMouseLeave={() => setIsHoveredResolve(false)}
+                    className={classes.actionButton}
+                    onClick={handleSnackbarOpen}
+                  >
+                    <PlaylistAddCheckOutlined />
+                  </IconButton>
                 </Badge>
               )}
 
@@ -942,20 +944,20 @@ const TicketsManagerTabs = () => {
                 badgeContent={i18n.t("tickets.inbox.open")}
                 classes={{ badge: classes.tabsBadge }}
               >
-                  <IconButton
-                    onMouseEnter={() => {
-                      setIsHoveredOpen(true);
-                      setHoveredButton("open");
-                    }}
-                    onMouseLeave={() => {
-                      setIsHoveredOpen(false);
-                      setHoveredButton(null);
-                    }}
-                    className={clsx(classes.tabButton, tab === "open" && classes.tabButtonActive)}
-                    onClick={() => handleChangeTab(null, "open")}
-                  >
-                    <MoveToInboxIcon />
-                  </IconButton>
+                <IconButton
+                  onMouseEnter={() => {
+                    setIsHoveredOpen(true);
+                    setHoveredButton("open");
+                  }}
+                  onMouseLeave={() => {
+                    setIsHoveredOpen(false);
+                    setHoveredButton(null);
+                  }}
+                  className={clsx(classes.tabButton, tab === "open" && classes.tabButtonActive)}
+                  onClick={() => handleChangeTab(null, "open")}
+                >
+                  <MoveToInboxIcon />
+                </IconButton>
               </Badge>
 
               {/* Closed Tickets Tab Button */}
@@ -974,20 +976,20 @@ const TicketsManagerTabs = () => {
                 badgeContent={i18n.t("tickets.inbox.resolverd")}
                 classes={{ badge: classes.tabsBadge }}
               >
-                  <IconButton
-                    onMouseEnter={() => {
-                      setIsHoveredClosed(true);
-                      setHoveredButton("closed");
-                    }}
-                    onMouseLeave={() => {
-                      setIsHoveredClosed(false);
-                      setHoveredButton(null);
-                    }}
-                    className={clsx(classes.tabButton, tab === "closed" && classes.tabButtonActive)}
-                    onClick={() => handleChangeTab(null, "closed")}
-                  >
-                    <CheckBoxIcon />
-                  </IconButton>
+                <IconButton
+                  onMouseEnter={() => {
+                    setIsHoveredClosed(true);
+                    setHoveredButton("closed");
+                  }}
+                  onMouseLeave={() => {
+                    setIsHoveredClosed(false);
+                    setHoveredButton(null);
+                  }}
+                  className={clsx(classes.tabButton, tab === "closed" && classes.tabButtonActive)}
+                  onClick={() => handleChangeTab(null, "closed")}
+                >
+                  <CheckBoxIcon />
+                </IconButton>
               </Badge>
 
               {/* Sort Button */}
@@ -1004,22 +1006,22 @@ const TicketsManagerTabs = () => {
                   badgeContent={!sortTickets ? "Crescente" : "Decrescente"}
                   classes={{ badge: classes.tabsBadge }}
                 >
-                    <ToggleButton
-                      onMouseEnter={() => setIsHoveredSort(true)}
-                      onMouseLeave={() => setIsHoveredSort(false)}
-                      className={clsx(classes.actionButton, sortTickets && classes.actionButtonActive)}
-                      value="uncheck"
-                      selected={sortTickets}
-                      onChange={() =>
-                        setSortTickets((prevState) => !prevState)
-                      }
-                    >
-                      {!sortTickets ? (
-                        <TextRotateUp />
-                      ) : (
-                        <TextRotationDown />
-                      )}
-                    </ToggleButton>
+                  <ToggleButton
+                    onMouseEnter={() => setIsHoveredSort(true)}
+                    onMouseLeave={() => setIsHoveredSort(false)}
+                    className={clsx(classes.actionButton, sortTickets && classes.actionButtonActive)}
+                    value="uncheck"
+                    selected={sortTickets}
+                    onChange={() =>
+                      setSortTickets((prevState) => !prevState)
+                    }
+                  >
+                    {!sortTickets ? (
+                      <TextRotateUp />
+                    ) : (
+                      <TextRotationDown />
+                    )}
+                  </ToggleButton>
                 </Badge>
               )}
 

@@ -724,11 +724,11 @@ const LoggedInLayout = ({ children }) => {
   const primaryColor = theme.palette.primary.main || "#3b82f6";
   const history = useHistory();
   const location = useLocation();
-  
+
   const { user, handleLogout, loading, isMobileSession } = useContext(AuthContext);
   const { planActive, loading: planLoading } = usePlanPermissions();
   const { showAlert } = useSystemAlert();
-  
+
   // Verificar se está no modo mobile app (via URL params)
   const urlParams = new URLSearchParams(location.search);
   const mobileApp = urlParams.get('mobileApp') === 'true';
@@ -740,16 +740,16 @@ const LoggedInLayout = ({ children }) => {
 
   // Ocultar layout completamente se estiver na página atendimentomobile
   const shouldHideLayout = isAtendimentosMobilePage;
-  
-  const classes = useStyles({ 
-    theme, 
-    drawerWidth, 
-    drawerExpanded, 
-    isMobileSession, 
+
+  const classes = useStyles({
+    theme,
+    drawerWidth,
+    drawerExpanded,
+    isMobileSession,
     primaryColor: theme?.palette?.primary?.main || "#3b82f6",
-    shouldHideLayout 
+    shouldHideLayout
   });
-  
+
   const [anchorEl, setAnchorEl] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
@@ -786,12 +786,12 @@ const LoggedInLayout = ({ children }) => {
   useEffect(() => {
     // Se ainda está carregando informações do plano, não faz nada
     if (planLoading || loading) return;
-    
+
     // Se o plano não está ativo (vencido) e a empresa não está ativa, e não está na página financeiro
     if (!planActive && !user?.company?.status && location.pathname !== "/financeiro") {
       // Redireciona para a página financeiro
       history.push("/financeiro");
-      
+
       // Mostra alerta sobre o bloqueio
       showAlert({
         type: "warning",
@@ -839,9 +839,9 @@ const LoggedInLayout = ({ children }) => {
     /\/atendimentos\/[a-zA-Z0-9-]+$/i.test(location.pathname);
 
   // Detectar se está no Flow Builder (para ocultar menu lateral)
-  const isFlowBuilderPage = 
-    location.pathname.startsWith("/flowbuilder/") && 
-    location.pathname !== "/flowbuilder" && 
+  const isFlowBuilderPage =
+    location.pathname.startsWith("/flowbuilder/") &&
+    location.pathname !== "/flowbuilder" &&
     location.pathname !== "/flowbuilder/";
 
   const menuGroups = useMemo(
@@ -1168,7 +1168,7 @@ const LoggedInLayout = ({ children }) => {
               </div>
             );
           })}
-          <div className={classes.menuSectionLabel}>Version 3.5.2</div>
+          <div className={classes.menuSectionLabel}>Version 2.0</div>
         </List>
       </div>
     </div>
@@ -1221,101 +1221,101 @@ const LoggedInLayout = ({ children }) => {
             <div className={classes.headerLeft}>
               {/* Back Button - Visível apenas no Flow Builder */}
               {isFlowBuilderPage && (
-              <IconButton
-                className={classes.menuButton}
-                onClick={() => history.push("/flowbuilders")}
-                edge="start"
-                title="Voltar para lista de fluxos"
-              >
-                <ArrowBackIcon />
-              </IconButton>
-            )}
-            
-            {/* Menu Button Mobile - Oculto no Flow Builder */}
-            {!isFlowBuilderPage && (
-              <IconButton
-                className={classes.menuButton}
-                onClick={handleDrawerToggle}
-                edge="start"
-              >
-                <MenuIcon />
-              </IconButton>
-            )}
-
-            {/* Hamburger Button - Desktop */}
-            {!isFlowBuilderPage && !isMobile && (
-              <IconButton
-                className={classes.hamburgerButton}
-                onClick={handleToggleSidebarPin}
-                title={sidebarPinned ? "Recolher menu" : "Fixar menu aberto"}
-              >
-                {sidebarPinned ? <CloseIcon style={{ fontSize: 22 }} /> : <MenuIcon style={{ fontSize: 22 }} />}
-              </IconButton>
-            )}
-
-            {/* Busca - Oculto no mobile */}
-            <div 
-              className={classes.searchContainer}
-              onClick={() => setSearchModalOpen(true)}
-              style={{ cursor: "pointer" }}
-            >
-              <div className={classes.searchIcon}>
-                <SearchIcon />
-              </div>
-              <InputBase
-                placeholder="Buscar conversas..."
-                classes={{
-                  root: classes.inputRoot,
-                  input: classes.inputInput,
-                }}
-                readOnly
-                style={{ cursor: "pointer" }}
-              />
-              <Button className={classes.searchButton}>
-                <SearchIcon style={{ fontSize: 18 }} />
-              </Button>
-            </div>
-
-            {/* Logo - Visível apenas no mobile */}
-            <div className={classes.mobileLogo}>
-              {(theme.appLogoLight || theme.calculatedLogoLight?.()) ? (
-                <img 
-                  src={theme.calculatedLogoLight ? theme.calculatedLogoLight() : theme.appLogoLight} 
-                  alt="Logo" 
-                />
-              ) : (
-                <img src={logo} alt="Logo" />
+                <IconButton
+                  className={classes.menuButton}
+                  onClick={() => history.push("/flowbuilders")}
+                  edge="start"
+                  title="Voltar para lista de fluxos"
+                >
+                  <ArrowBackIcon />
+                </IconButton>
               )}
+
+              {/* Menu Button Mobile - Oculto no Flow Builder */}
+              {!isFlowBuilderPage && (
+                <IconButton
+                  className={classes.menuButton}
+                  onClick={handleDrawerToggle}
+                  edge="start"
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+
+              {/* Hamburger Button - Desktop */}
+              {!isFlowBuilderPage && !isMobile && (
+                <IconButton
+                  className={classes.hamburgerButton}
+                  onClick={handleToggleSidebarPin}
+                  title={sidebarPinned ? "Recolher menu" : "Fixar menu aberto"}
+                >
+                  {sidebarPinned ? <CloseIcon style={{ fontSize: 22 }} /> : <MenuIcon style={{ fontSize: 22 }} />}
+                </IconButton>
+              )}
+
+              {/* Busca - Oculto no mobile */}
+              <div
+                className={classes.searchContainer}
+                onClick={() => setSearchModalOpen(true)}
+                style={{ cursor: "pointer" }}
+              >
+                <div className={classes.searchIcon}>
+                  <SearchIcon />
+                </div>
+                <InputBase
+                  placeholder="Buscar conversas..."
+                  classes={{
+                    root: classes.inputRoot,
+                    input: classes.inputInput,
+                  }}
+                  readOnly
+                  style={{ cursor: "pointer" }}
+                />
+                <Button className={classes.searchButton}>
+                  <SearchIcon style={{ fontSize: 18 }} />
+                </Button>
+              </div>
+
+              {/* Logo - Visível apenas no mobile */}
+              <div className={classes.mobileLogo}>
+                {(theme.appLogoLight || theme.calculatedLogoLight?.()) ? (
+                  <img
+                    src={theme.calculatedLogoLight ? theme.calculatedLogoLight() : theme.appLogoLight}
+                    alt="Logo"
+                  />
+                ) : (
+                  <img src={logo} alt="Logo" />
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Seção Direita */}
-          <div className={classes.headerRight}>
-            {/* Botão Refresh */}
-            <IconButton
-              className={classes.iconButton}
-              onClick={handleRefreshPage}
-              title="Atualizar"
-            >
-              <CachedIcon />
-            </IconButton>
+            {/* Seção Direita */}
+            <div className={classes.headerRight}>
+              {/* Botão Refresh */}
+              <IconButton
+                className={classes.iconButton}
+                onClick={handleRefreshPage}
+                title="Atualizar"
+              >
+                <CachedIcon />
+              </IconButton>
 
-            {/* Volume */}
-            <div className={classes.iconButton}>
-              <NotificationsVolume setVolume={setVolume} volume={volume} />
+              {/* Volume */}
+              <div className={classes.iconButton}>
+                <NotificationsVolume setVolume={setVolume} volume={volume} />
+              </div>
+
+              {/* Avatar do Usuário */}
+              <Avatar
+                className={classes.avatar}
+                src={profileUrl}
+                onClick={handleUserMenuClick}
+              >
+                {!profileUrl && <PersonIcon />}
+              </Avatar>
             </div>
-
-            {/* Avatar do Usuário */}
-            <Avatar
-              className={classes.avatar}
-              src={profileUrl}
-              onClick={handleUserMenuClick}
-            >
-              {!profileUrl && <PersonIcon />}
-            </Avatar>
-          </div>
-        </Toolbar>
-      </AppBar>
+          </Toolbar>
+        </AppBar>
       )}
 
       {/* Menu do Usuário - Ocultar se estiver no modo mobile app */}
@@ -1340,9 +1340,9 @@ const LoggedInLayout = ({ children }) => {
             </ListItemIcon>
             <ListItemText primary="Meu Perfil" />
           </MenuItem>
-          
+
           <Divider className={classes.divider} />
-          
+
           <MenuItem onClick={handleLogoutClick} className={classes.dropdownItem}>
             <ListItemIcon className={classes.dropdownIcon}>
               <ExitToAppIcon />
