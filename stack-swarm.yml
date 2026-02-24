@@ -2,7 +2,7 @@ version: "3.7"
 services:
 ## --------------------------- ATENDZAPPY BACKEND --------------------------- ##
   atendzappy_backend:
-    image: atendzappy/backend:1.0
+    image: atendzappy/backend:1.1
     volumes:
       - atendzappy_public:/app/public
       - atendzappy_logs:/app/logs
@@ -69,7 +69,7 @@ services:
         
 ## --------------------------- ATENDZAPPY FRONTEND --------------------------- ##
   atendzappy_frontend:
-    image: atendzappy/frontend:1.0
+    image: atendzappy/frontend:1.1
     networks:
       - waianet
     environment:
