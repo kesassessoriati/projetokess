@@ -41,6 +41,8 @@ import {
   updateAppointment,
   deleteAppointment
 } from "../../services/userScheduleService";
+import useSafeApi from "../../hooks/useSafeApi";
+import SafeComponent from "../../components/SafeComponent";
 import toastError from "../../errors/toastError";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import AppointmentModal from "../../components/AppointmentModal";
@@ -144,12 +146,9 @@ const Agenda = () => {
   const classes = useStyles();
   const location = useLocation();
 
-  const [loading, setLoading] = useState(true);
-  const [appointments, setAppointments] = useState([]);
-  const [schedules, setSchedules] = useState([]);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   const [filters, setFilters] = useState({
     scheduleId: "",
@@ -157,6 +156,12 @@ const Agenda = () => {
     startDate: "",
     endDate: ""
   });
+
+  const { data: appointmentData, loading: loadingAppointments, error: errorAppointments, request: fetchAppointmentsApi } = useSafeApi(null, { manual: true });
+  const { data: schedulesData, loading: loadingSchedules } = useSafeApi("/user-schedules", { manual: false });
+
+  const appointments = appointmentData?.appointments || [];
+  const schedules = schedulesData?.schedules || [];
 
   useEffect(() => {
     if (location && location.search) {
@@ -170,34 +175,20 @@ const Agenda = () => {
 
   const fetchAppointments = useCallback(async () => {
     try {
-      setLoading(true);
       const params = {};
       if (filters.scheduleId) params.scheduleId = filters.scheduleId;
       if (filters.status) params.status = filters.status;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
-      const data = await listAppointments(params);
-      setAppointments(data.appointments || []);
+      await fetchAppointmentsApi({
+        url: "/appointments",
+        params
+      });
     } catch (err) {
       toastError(err);
-    } finally {
-      setLoading(false);
     }
-  }, [filters]);
-
-  const fetchSchedules = useCallback(async () => {
-    try {
-      const data = await listUserSchedules();
-      setSchedules(data.schedules || []);
-    } catch (err) {
-      console.error("Erro ao buscar agendas:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSchedules();
-  }, [fetchSchedules]);
+  }, [filters, fetchAppointmentsApi]);
 
   useEffect(() => {
     fetchAppointments();
@@ -335,133 +326,140 @@ const Agenda = () => {
         </Box>
       </Box>
 
-      {loading ? (
-        <Box className={classes.loadingContainer}>
-          <CircularProgress />
-        </Box>
-      ) : appointments.length === 0 ? (
-        <Box className={classes.emptyState}>
-          <EventIcon style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }} />
-          <Typography variant="h6">Nenhum compromisso encontrado</Typography>
-          <Typography variant="body2">
-            Clique em "Novo Compromisso" para agendar
-          </Typography>
-        </Box>
-      ) : (
-        <TableContainer component={Paper} className={classes.tableContainer}>
-          <Table>
-            <TableHead className={classes.tableHead}>
-              <TableRow>
-                <TableCell className={classes.tableHeadCell}>Compromisso</TableCell>
-                <TableCell className={classes.tableHeadCell}>Agenda</TableCell>
-                <TableCell className={classes.tableHeadCell}>Data/Hora</TableCell>
-                <TableCell className={classes.tableHeadCell}>Duração</TableCell>
-                <TableCell className={classes.tableHeadCell}>Serviço</TableCell>
-                <TableCell className={classes.tableHeadCell}>Status</TableCell>
-                <TableCell className={classes.tableHeadCell} align="center">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {appointments.map((appointment) => (
-                <TableRow key={appointment.id} hover>
-                  <TableCell>
-                    <Box className={classes.appointmentInfo}>
-                      <Typography className={classes.appointmentTitle}>
-                        {appointment.title}
-                      </Typography>
-                      {appointment.description && (
-                        <Typography variant="body2" color="textSecondary">
-                          {appointment.description.substring(0, 50)}
-                          {appointment.description.length > 50 ? "..." : ""}
-                        </Typography>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box className={classes.appointmentMeta}>
-                      <PersonIcon fontSize="small" />
-                      {appointment.schedule?.name || "-"}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box className={classes.appointmentMeta}>
-                      <EventIcon fontSize="small" />
-                      {formatDateTime(appointment.startDatetime)}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box className={classes.appointmentMeta}>
-                      <AccessTimeIcon fontSize="small" />
-                      {formatDuration(appointment.durationMinutes)}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {appointment.service ? (
-                      <Box className={classes.appointmentMeta}>
-                        <BuildIcon fontSize="small" />
-                        {appointment.service.nome}
-                      </Box>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={statusColors[appointment.status]?.label || appointment.status}
-                      size="small"
-                      className={classes.statusChip}
-                      style={{
-                        backgroundColor: statusColors[appointment.status]?.bg || "#6b7280",
-                        color: "#fff"
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box className={classes.actionsBox}>
-                      {appointment.status === "scheduled" && (
-                        <Tooltip title="Confirmar">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleStatusChange(appointment, "confirmed")}
-                          >
-                            <CheckCircleIcon fontSize="small" style={{ color: "#059669" }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {(appointment.status === "scheduled" || appointment.status === "confirmed") && (
-                        <Tooltip title="Cancelar">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleStatusChange(appointment, "cancelled")}
-                          >
-                            <CancelIcon fontSize="small" style={{ color: "#ef4444" }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Editar">
-                        <IconButton
+      <SafeComponent
+        loading={loadingAppointments && appointments.length === 0}
+        error={errorAppointments}
+        data={appointments}
+        renderData={(records) => {
+          if (records.length === 0) {
+            return (
+              <Box className={classes.emptyState}>
+                <EventIcon style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }} />
+                <Typography variant="h6">Nenhum compromisso encontrado</Typography>
+                <Typography variant="body2">
+                  Clique em "Novo Compromisso" para agendar
+                </Typography>
+              </Box>
+            );
+          }
+
+          return (
+            <TableContainer component={Paper} className={classes.tableContainer}>
+              <Table>
+                <TableHead className={classes.tableHead}>
+                  <TableRow>
+                    <TableCell className={classes.tableHeadCell}>Compromisso</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Agenda</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Data/Hora</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Duração</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Serviço</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Status</TableCell>
+                    <TableCell className={classes.tableHeadCell} align="center">Ações</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {records.map((appointment) => (
+                    <TableRow key={appointment.id} hover>
+                      <TableCell>
+                        <Box className={classes.appointmentInfo}>
+                          <Typography className={classes.appointmentTitle}>
+                            {appointment.title}
+                          </Typography>
+                          {appointment.description && (
+                            <Typography variant="body2" color="textSecondary">
+                              {appointment.description.substring(0, 50)}
+                              {appointment.description.length > 50 ? "..." : ""}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box className={classes.appointmentMeta}>
+                          <PersonIcon fontSize="small" />
+                          {appointment.schedule?.name || "-"}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box className={classes.appointmentMeta}>
+                          <EventIcon fontSize="small" />
+                          {formatDateTime(appointment.startDatetime)}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box className={classes.appointmentMeta}>
+                          <AccessTimeIcon fontSize="small" />
+                          {formatDuration(appointment.durationMinutes)}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        {appointment.service ? (
+                          <Box className={classes.appointmentMeta}>
+                            <BuildIcon fontSize="small" />
+                            {appointment.service.nome}
+                          </Box>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={statusColors[appointment.status]?.label || appointment.status}
                           size="small"
-                          onClick={() => handleOpenModal(appointment)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDeleteModal(appointment)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+                          className={classes.statusChip}
+                          style={{
+                            backgroundColor: statusColors[appointment.status]?.bg || "#6b7280",
+                            color: "#fff"
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box className={classes.actionsBox}>
+                          {appointment.status === "scheduled" && (
+                            <Tooltip title="Confirmar">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusChange(appointment, "confirmed")}
+                              >
+                                <CheckCircleIcon fontSize="small" style={{ color: "#059669" }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {(appointment.status === "scheduled" || appointment.status === "confirmed") && (
+                            <Tooltip title="Cancelar">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusChange(appointment, "cancelled")}
+                              >
+                                <CancelIcon fontSize="small" style={{ color: "#ef4444" }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Editar">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenModal(appointment)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Excluir">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenDeleteModal(appointment)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          );
+        }}
+      />
 
       <AppointmentModal
         open={modalOpen}

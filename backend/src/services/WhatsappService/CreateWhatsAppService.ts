@@ -5,6 +5,7 @@ import Whatsapp from "../../models/Whatsapp";
 import Company from "../../models/Company";
 import Plan from "../../models/Plan";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
+import { trackProductEvent } from "../SystemMetricService";
 
 interface Request {
   name: string;
@@ -37,7 +38,7 @@ interface Request {
   expiresInactiveMessage?: string;
   groupAsTicket?: string;
   importOldMessages?: string;
-  importRecentMessages?:string;
+  importRecentMessages?: string;
   importOldMessagesGroups?: boolean;
   closedTicketsPostImported?: boolean;
   timeCreateNewTicket?: number;
@@ -205,7 +206,7 @@ const CreateWhatsAppService = async ({
       isDefault,
       companyId,
       token,
-	  wavoip,
+      wavoip,
       provider,
       channel,
       facebookUserId,
@@ -244,6 +245,11 @@ const CreateWhatsAppService = async ({
   );
 
   await AssociateWhatsappQueue(whatsapp, queueIds);
+
+  trackProductEvent("CONNECTION_CREATED", {
+    companyId,
+    metadata: { channel, name: whatsapp.name }
+  });
 
   return { whatsapp, oldDefaultWhatsapp };
 };

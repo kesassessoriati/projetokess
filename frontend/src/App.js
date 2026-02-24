@@ -15,6 +15,7 @@ import defaultLogoDark from "./assets/logo-black.png";
 import defaultLogoFavicon from "./assets/favicon.ico";
 import useSettings from "./hooks/useSettings";
 import { SystemAlertProvider } from "./components/SystemAlert";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -274,17 +275,19 @@ const App = () => {
   return (
     <>
       <Favicon url={appLogoFavicon && appLogoFavicon !== defaultLogoFavicon ? appLogoFavicon : defaultLogoFavicon} />
-      <ColorModeContext.Provider value={colorMode}>
-        <ThemeProvider theme={theme}>
-          <QueryClientProvider client={queryClient}>
-            <SystemAlertProvider>
-              <ActiveMenuProvider>
-                <Routes />
-              </ActiveMenuProvider>
-            </SystemAlertProvider>
-          </QueryClientProvider>
-        </ThemeProvider>
-      </ColorModeContext.Provider>
+      <ErrorBoundary>
+        <ColorModeContext.Provider value={colorMode}>
+          <ThemeProvider theme={theme}>
+            <QueryClientProvider client={queryClient}>
+              <SystemAlertProvider>
+                <ActiveMenuProvider>
+                  <Routes />
+                </ActiveMenuProvider>
+              </SystemAlertProvider>
+            </QueryClientProvider>
+          </ThemeProvider>
+        </ColorModeContext.Provider>
+      </ErrorBoundary>
     </>
   );
 };

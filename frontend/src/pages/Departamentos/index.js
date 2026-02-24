@@ -16,6 +16,9 @@ import QueueIcon from "@material-ui/icons/Queue";
 import AddIcon from "@material-ui/icons/Add";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
+import { useSocket } from "../../context/SocketContext";
+import useSafeApi from "../../hooks/useSafeApi";
+import SafeComponent from "../../components/SafeComponent";
 import api from "../../services/api";
 import QueueModal from "../../components/QueueModal";
 import { toast } from "react-toastify";
@@ -258,57 +261,54 @@ const reducer = (state, action) => {
 const Queues = () => {
   const classes = useStyles();
 
-  const [queues, dispatch] = useReducer(reducer, []);
-  const [loading, setLoading] = useState(false);
+  const { data: queues, loading: loadingQueues, error: errorQueues, setData: setQueues, request: fetchQueues } = useSafeApi("/queue");
   const [searchParam, setSearchParam] = useState("");
-
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const { user, socket } = useContext(AuthContext);
-  const companyId = user.companyId;
+
+  const { user } = useContext(AuthContext);
+  const { isReady, on } = useSocket();
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
   };
 
-  const filteredQueues = queues.filter((queue) =>
+  const filteredQueues = Array.isArray(queues) ? queues.filter((queue) =>
     queue.name.toLowerCase().includes(searchParam)
-  );
-
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const { data } = await api.get("/queue");
-        dispatch({ type: "LOAD_QUEUES", payload: data });
-
-        setLoading(false);
-      } catch (err) {
-        toastError(err);
-        setLoading(false);
-      }
-    })();
-  }, []);
+  ) : [];
 
   useEffect(() => {
+    if (!isReady || !user.companyId) return;
 
-    const onQueueEvent = (data) => {
+    const cleanup = on(`company-${user.companyId}-queue`, (data) => {
       if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_QUEUES", payload: data.queue });
+        setQueues((prev) => {
+          const aux = [...prev];
+          const queueIndex = aux.findIndex((q) => q.id === data.queue.id);
+          if (queueIndex !== -1) {
+            aux[queueIndex] = data.queue;
+            return aux;
+          } else {
+            return [data.queue, ...aux];
+          }
+        });
       }
 
       if (data.action === "delete") {
-        dispatch({ type: "DELETE_QUEUE", payload: data.queueId });
+        setQueues((prev) => {
+          const aux = [...prev];
+          const queueIndex = aux.findIndex((q) => q.id === data.queueId);
+          if (queueIndex !== -1) {
+            aux.splice(queueIndex, 1);
+          }
+          return aux;
+        });
       }
-    };
-    socket.on(`company-${companyId}-queue`, onQueueEvent);
+    });
 
-    return () => {
-      socket.off(`company-${companyId}-queue`, onQueueEvent);
-    };
-  }, [socket, companyId]);
+    return cleanup;
+  }, [isReady, user.companyId, on, setQueues]);
 
   const handleOpenQueueModal = () => {
     setQueueModalOpen(true);
@@ -412,59 +412,67 @@ const Queues = () => {
 
       <Box className={classes.content}>
         <Box className={classes.listWrapper}>
-          {loading ? (
-            <Box className={classes.loadingBox}>
-              <CircularProgress size={24} />
-              <Typography variant="body2">Carregando filas...</Typography>
-            </Box>
-          ) : filteredQueues.length === 0 ? (
-            <Box className={classes.emptyState}>
-              <QueueIcon />
-              <Typography>Nenhuma fila encontrada</Typography>
-            </Box>
-          ) : (
-            filteredQueues.map((queue) => (
-              <Box key={queue.id} className={classes.card}>
-                <Box
-                  className={classes.colorBadge}
-                  style={{ backgroundColor: queue.color || "#e0e0e0" }}
-                >
-                  <QueueIcon style={{ color: "#fff", fontSize: 24 }} />
-                </Box>
-                <Box className={classes.cardInfo}>
-                  <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
-                    {queue.name}
-                  </Typography>
-                  <Box className={classes.metaRow}>
-                    <span>ID: {queue.id}</span>
-                    <span>•</span>
-                    <span>Ordenação: {queue.orderQueue || "N/A"}</span>
+          <SafeComponent
+            loading={loadingQueues && queues.length === 0}
+            error={errorQueues}
+            data={queues}
+            renderData={(records) => {
+              const filtered = records.filter((queue) =>
+                queue.name.toLowerCase().includes(searchParam)
+              );
+
+              if (filtered.length === 0) {
+                return (
+                  <Box className={classes.emptyState}>
+                    <QueueIcon />
+                    <Typography>Nenhuma fila encontrada</Typography>
+                  </Box>
+                );
+              }
+
+              return filtered.map((queue) => (
+                <Box key={queue.id} className={classes.card}>
+                  <Box
+                    className={classes.colorBadge}
+                    style={{ backgroundColor: queue.color || "#e0e0e0" }}
+                  >
+                    <QueueIcon style={{ color: "#fff", fontSize: 24 }} />
+                  </Box>
+                  <Box className={classes.cardInfo}>
+                    <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                      {queue.name}
+                    </Typography>
+                    <Box className={classes.metaRow}>
+                      <span>ID: {queue.id}</span>
+                      <span>•</span>
+                      <span>Ordenação: {queue.orderQueue || "N/A"}</span>
+                    </Box>
+                  </Box>
+                  <Box className={classes.cardActions}>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        className={`${classes.actionButton} ${classes.editButton}`}
+                        onClick={() => handleEditQueue(queue)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        className={`${classes.actionButton} ${classes.deleteButton}`}
+                        onClick={() => {
+                          setSelectedQueue(queue);
+                          setConfirmModalOpen(true);
+                        }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
                 </Box>
-                <Box className={classes.cardActions}>
-                  <Tooltip title="Editar">
-                    <IconButton
-                      className={`${classes.actionButton} ${classes.editButton}`}
-                      onClick={() => handleEditQueue(queue)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir">
-                    <IconButton
-                      className={`${classes.actionButton} ${classes.deleteButton}`}
-                      onClick={() => {
-                        setSelectedQueue(queue);
-                        setConfirmModalOpen(true);
-                      }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
-            ))
-          )}
+              ));
+            }}
+          />
         </Box>
       </Box>
     </Box>

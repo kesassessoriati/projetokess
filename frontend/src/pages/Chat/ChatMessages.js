@@ -144,13 +144,13 @@ export default function ChatMessages({
   loading,
 }) {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { datetimeToClient } = useDate();
   const baseRef = useRef();
 
   const [contentMessage, setContentMessage] = useState("");
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Estado para controlar a exibição do seletor de emojis
-  const [selectedImage, setSelectedImage] = useState(null); // Estado para controlar a imagem selecionada para ampliar
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const scrollToBottom = () => {
     if (baseRef.current) {
@@ -159,22 +159,22 @@ export default function ChatMessages({
   };
 
   const unreadMessages = (chat) => {
-    if (chat !== undefined) {
+    if (chat && Array.isArray(chat.users)) {
       const currentUser = chat.users.find((u) => u.userId === user.id);
-      return currentUser.unreads > 0;
+      return currentUser ? currentUser.unreads > 0 : false;
     }
-    return 0;
+    return false;
   };
 
   useEffect(() => {
-    if (unreadMessages(chat) > 0) {
+    if (chat?.id && unreadMessages(chat)) {
       try {
         api.post(`/chats/${chat.id}/read`, { userId: user.id });
-      } catch (err) {}
+      } catch (err) { }
     }
     scrollToBottomRef.current = scrollToBottom;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [chat?.id]);
 
   const handleScroll = (e) => {
     const { scrollTop } = e.currentTarget;
@@ -284,24 +284,24 @@ export default function ChatMessages({
       <div className={classes.inputArea}>
         <div className={classes.buttonContainer}>
           <IconButton
-           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-           style={{
-           backgroundColor: "#40BFFF", // Azul claro
-           padding: "8px",
-           borderRadius: "10px",
-          }}
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            style={{
+              backgroundColor: "#40BFFF", // Azul claro
+              padding: "8px",
+              borderRadius: "10px",
+            }}
           >
             <InsertEmoticonIcon style={{ color: "#fff" }} />
           </IconButton>
           <IconButton
-           style={{
-           backgroundColor: "#4ec24e", // Verde
-           padding: "8px",
-           borderRadius: "10px",
-           }}
+            style={{
+              backgroundColor: "#4ec24e", // Verde
+              padding: "8px",
+              borderRadius: "10px",
+            }}
             onClick={handleSend}
           >
-            <SendIcon style={{ color: "#fff" }}/>
+            <SendIcon style={{ color: "#fff" }} />
           </IconButton>
         </div>
         {showEmojiPicker && (

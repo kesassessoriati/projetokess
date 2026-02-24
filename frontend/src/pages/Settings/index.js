@@ -18,6 +18,8 @@ import DeleteIcon from "@material-ui/icons/Delete";
 import CloudUploadIcon from "@material-ui/icons/CloudUpload";
 import { toast } from "react-toastify";
 
+import { useSocket } from "../../context/SocketContext";
+import useSafeApi from "../../hooks/useSafeApi";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n.js";
 import toastError from "../../errors/toastError";
@@ -124,21 +126,11 @@ const Settings = () => {
   //   const socketManager = useContext(SocketContext);
   const { user, socket } = useContext(AuthContext);
 
-  const [settings, setSettings] = useState([]);
+  const { data: settings, loading: loadingSettings, setData: setSettings } = useSafeApi("/settings", { manual: false });
   const [loadingImage, setLoadingImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const { data } = await api.get("/settings");
-        setSettings(data);
-      } catch (err) {
-        toastError(err);
-      }
-    };
-    fetchSession();
-  }, []);
+  const { isReady, on } = useSocket();
 
   useEffect(() => {
     const fetchLoadingImage = async () => {
@@ -189,25 +181,23 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    const companyId = user.companyId;
-    // const socket = socketManager.GetSocket();
+    if (!isReady || !user.companyId) return;
 
-    const onSettingsEvent = (data) => {
+    const cleanup = on(`company-${user.companyId}-settings`, (data) => {
       if (data.action === "update") {
         setSettings((prevState) => {
           const aux = [...prevState];
           const settingIndex = aux.findIndex((s) => s.key === data.setting.key);
-          aux[settingIndex].value = data.setting.value;
+          if (settingIndex !== -1) {
+            aux[settingIndex].value = data.setting.value;
+          }
           return aux;
         });
       }
-    };
-    socket.on(`company-${companyId}-settings`, onSettingsEvent);
+    });
 
-    return () => {
-      socket.off(`company-${companyId}-settings`, onSettingsEvent);
-    };
-  }, [socket]);
+    return cleanup;
+  }, [isReady, user.companyId, on, setSettings]);
 
   const handleChangeSetting = async (e) => {
     const selectedValue = e.target.value;
@@ -241,136 +231,150 @@ const Settings = () => {
         </Typography>
       </div>
 
-      <Box className={classes.section}>
-        <Typography className={classes.sectionTitle}>Geral</Typography>
+      <SafeComponent
+        loading={loadingSettings && settings.length === 0}
+        error={errorSettings}
+        data={settings}
+        renderData={(records) => {
+          const getVal = (key) => {
+            const found = records.find((s) => s.key === key);
+            return found ? found.value : "";
+          };
 
-        <Box className={classes.card}>
-          <Box
-            className={classes.cardIcon}
-            style={{ backgroundColor: "#e3f2fd", color: "#1976d2" }}
-          >
-            <PersonAddIcon />
-          </Box>
-          <Box className={classes.cardInfo}>
-            <Typography className={classes.cardTitle}>
-              {i18n.t("settings.settings.userCreation.name")}
-            </Typography>
-            <Typography className={classes.cardDescription}>
-              Permitir que usuários criem novas contas
-            </Typography>
-          </Box>
-          <FormControl variant="outlined" className={classes.selectControl}>
-            <Select
-              id="userCreation-setting"
-              name="userCreation"
-              value={
-                settings && settings.length > 0 ? getSettingValue("userCreation") : ""
-              }
-              onChange={handleChangeSetting}
-            >
-              <MenuItem value="enabled">
-                {i18n.t("settings.settings.userCreation.options.enabled")}
-              </MenuItem>
-              <MenuItem value="disabled">
-                {i18n.t("settings.settings.userCreation.options.disabled")}
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Box>
+          return (
+            <>
+              <Box className={classes.section}>
+                <Typography className={classes.sectionTitle}>Geral</Typography>
 
-      {user.profile === "super" && (
-        <Box className={classes.section}>
-          <Typography className={classes.sectionTitle}>Super Admin</Typography>
+                <Box className={classes.card}>
+                  <Box
+                    className={classes.cardIcon}
+                    style={{ backgroundColor: "#e3f2fd", color: "#1976d2" }}
+                  >
+                    <PersonAddIcon />
+                  </Box>
+                  <Box className={classes.cardInfo}>
+                    <Typography className={classes.cardTitle}>
+                      {i18n.t("settings.settings.userCreation.name")}
+                    </Typography>
+                    <Typography className={classes.cardDescription}>
+                      Permitir que usuários criem novas contas
+                    </Typography>
+                  </Box>
+                  <FormControl variant="outlined" className={classes.selectControl}>
+                    <Select
+                      id="userCreation-setting"
+                      name="userCreation"
+                      value={getVal("userCreation")}
+                      onChange={handleChangeSetting}
+                    >
+                      <MenuItem value="enabled">
+                        {i18n.t("settings.settings.userCreation.options.enabled")}
+                      </MenuItem>
+                      <MenuItem value="disabled">
+                        {i18n.t("settings.settings.userCreation.options.disabled")}
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
 
-          <Box className={classes.card}>
-            <Box
-              className={classes.cardIcon}
-              style={{ backgroundColor: "#fff3e0", color: "#ff9800" }}
-            >
-              <ViewCarouselIcon />
-            </Box>
-            <Box className={classes.cardInfo}>
-              <Typography className={classes.cardTitle}>
-                Slider / Banners
-              </Typography>
-              <Typography className={classes.cardDescription}>
-                Área para gestão de banners do slider (apenas Super Admin)
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      )}
+              {user.profile === "super" && (
+                <Box className={classes.section}>
+                  <Typography className={classes.sectionTitle}>Super Admin</Typography>
 
-      {user.companyId === 1 && (
-        <Box className={classes.section}>
-          <Typography className={classes.sectionTitle}>Personalização (Empresa Principal)</Typography>
-
-          <Box className={classes.card}>
-            <Box
-              className={classes.cardIcon}
-              style={{ backgroundColor: "#f3e8ff", color: "#9c27b0" }}
-            >
-              <ImageIcon />
-            </Box>
-            <Box className={classes.cardInfo}>
-              <Typography className={classes.cardTitle}>
-                Animação de Carregamento
-              </Typography>
-              <Typography className={classes.cardDescription}>
-                Personalize a animação de loading do sistema (GIF, PNG, WEBP)
-              </Typography>
-              {loadingImage && (
-                <Box mt={1} display="flex" alignItems="center" gap={1}>
-                  <img
-                    src={`${getBackendUrl()}/public/company1/${loadingImage}`}
-
-                    alt="Loading atual"
-                    style={{ width: 40, height: 40, objectFit: 'contain' }}
-                  />
-                  <Typography style={{ fontSize: 12, color: '#666' }}>
-                    {loadingImage}
-                  </Typography>
+                  <Box className={classes.card}>
+                    <Box
+                      className={classes.cardIcon}
+                      style={{ backgroundColor: "#fff3e0", color: "#ff9800" }}
+                    >
+                      <ViewCarouselIcon />
+                    </Box>
+                    <Box className={classes.cardInfo}>
+                      <Typography className={classes.cardTitle}>
+                        Slider / Banners
+                      </Typography>
+                      <Typography className={classes.cardDescription}>
+                        Área para gestão de banners do slider (apenas Super Admin)
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Box>
               )}
-            </Box>
-            <Box display="flex" gap={1}>
-              <input
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                style={{ display: 'none' }}
-                id="loading-image-upload"
-                type="file"
-                onChange={handleUploadLoadingImage}
-                disabled={uploadingImage}
-              />
-              <label htmlFor="loading-image-upload">
-                <Button
-                  variant="contained"
-                  component="span"
-                  disabled={uploadingImage}
-                  startIcon={<CloudUploadIcon />}
-                  style={{
-                    backgroundColor: '#9c27b0',
-                    color: '#fff',
-                    textTransform: 'none'
-                  }}
-                >
-                  {uploadingImage ? 'Enviando...' : 'Upload'}
-                </Button>
-              </label>
-              {loadingImage && (
-                <IconButton
-                  onClick={handleRemoveLoadingImage}
-                  disabled={uploadingImage}
-                  style={{ color: '#ef4444' }}
-                >
-                  <DeleteIcon />
-                </IconButton>
+
+              {user.companyId === 1 && (
+                <Box className={classes.section}>
+                  <Typography className={classes.sectionTitle}>Personalização (Empresa Principal)</Typography>
+
+                  <Box className={classes.card}>
+                    <Box
+                      className={classes.cardIcon}
+                      style={{ backgroundColor: "#f3e8ff", color: "#9c27b0" }}
+                    >
+                      <ImageIcon />
+                    </Box>
+                    <Box className={classes.cardInfo}>
+                      <Typography className={classes.cardTitle}>
+                        Animação de Carregamento
+                      </Typography>
+                      <Typography className={classes.cardDescription}>
+                        Personalize a animação de loading do sistema (GIF, PNG, WEBP)
+                      </Typography>
+                      {loadingImage && (
+                        <Box mt={1} display="flex" alignItems="center" gap={1}>
+                          <img
+                            src={`${getBackendUrl()}/public/company1/${loadingImage}`}
+
+                            alt="Loading atual"
+                            style={{ width: 40, height: 40, objectFit: 'contain' }}
+                          />
+                          <Typography style={{ fontSize: 12, color: '#666' }}>
+                            {loadingImage}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                    <Box display="flex" gap={1}>
+                      <input
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        style={{ display: 'none' }}
+                        id="loading-image-upload"
+                        type="file"
+                        onChange={handleUploadLoadingImage}
+                        disabled={uploadingImage}
+                      />
+                      <label htmlFor="loading-image-upload">
+                        <Button
+                          variant="contained"
+                          component="span"
+                          disabled={uploadingImage}
+                          startIcon={<CloudUploadIcon />}
+                          style={{
+                            backgroundColor: '#9c27b0',
+                            color: '#fff',
+                            textTransform: 'none'
+                          }}
+                        >
+                          {uploadingImage ? 'Enviando...' : 'Upload'}
+                        </Button>
+                      </label>
+                      {loadingImage && (
+                        <IconButton
+                          onClick={handleRemoveLoadingImage}
+                          disabled={uploadingImage}
+                          style={{ color: '#ef4444' }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
               )}
-            </Box>
-          </Box>
-        </Box>
-      )}
+            </>
+          );
+        }}
+      />
     </div>
   );
 };

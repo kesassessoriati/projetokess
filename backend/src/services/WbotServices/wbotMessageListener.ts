@@ -77,6 +77,7 @@ import Whatsapp from "../../models/Whatsapp";
 import QueueIntegrations from "../../models/QueueIntegrations";
 import ShowFileService from "../FileServices/ShowService";
 import { ShouldSaveToPhone, SaveContactToPhone } from "../ContactServices/ContactPhoneService";
+import { trackProductEvent } from "../SystemMetricService";
 
 import OpenAI from "openai";
 import ffmpeg from "fluent-ffmpeg";
@@ -1243,6 +1244,12 @@ export const verifyMessage = async (
   });
 
   await CreateMessageService({ messageData, companyId: companyId });
+
+  trackProductEvent("MESSAGE_SENT", {
+    companyId,
+    userId: messageUserId,
+    metadata: { fromMe: msg.key.fromMe }
+  });
 
   if (!msg.key.fromMe && ticket.status === "closed") {
     console.log("===== CHANGE =====");

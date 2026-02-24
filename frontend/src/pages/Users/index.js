@@ -24,60 +24,19 @@ import { i18n } from "../../translate/i18n";
 import UserModal from "../../components/UserModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
-import { SocketContext, socketManager } from "../../context/Socket/SocketContext";
 import UserStatusIcon from "../../components/UserModal/statusIcon";
 import { getBackendUrl } from "../../config";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import AddIcon from '@mui/icons-material/Add';
+import useSafeApi from "../../hooks/useSafeApi";
+import { useSocket } from "../../context/SocketContext";
+import SafeComponent from "../../components/SafeComponent";
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import EventAvailableIcon from '@material-ui/icons/EventAvailable';
+import { useRef } from "react";
 
 const backendUrl = getBackendUrl();
-
-const reducer = (state, action) => {
-  if (action.type === "LOAD_USERS") {
-    const users = action.payload;
-    const newUsers = [];
-
-    users.forEach((user) => {
-      const userIndex = state.findIndex((u) => u.id === user.id);
-      if (userIndex !== -1) {
-        state[userIndex] = user;
-      } else {
-        newUsers.push(user);
-      }
-    });
-
-    return [...state, ...newUsers];
-  }
-
-  if (action.type === "UPDATE_USERS") {
-    const user = action.payload;
-    const userIndex = state.findIndex((u) => u.id === user.id);
-
-    if (userIndex !== -1) {
-      state[userIndex] = user;
-      return [...state];
-    } else {
-      return [user, ...state];
-    }
-  }
-
-  if (action.type === "DELETE_USER") {
-    const userId = action.payload;
-
-    const userIndex = state.findIndex((u) => u.id === userId);
-    if (userIndex !== -1) {
-      state.splice(userIndex, 1);
-    }
-    return [...state];
-  }
-
-  if (action.type === "RESET") {
-    return [];
-  }
-};
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -285,8 +244,6 @@ const Users = () => {
   const classes = useStyles();
   const history = useHistory();
 
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -294,51 +251,84 @@ const Users = () => {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
-  const [users, dispatch] = useReducer(reducer, []);
-  const { user: loggedInUser, socket } = useContext(AuthContext)
+  const { user: loggedInUser } = useContext(AuthContext);
   const { profileImage } = loggedInUser;
+  const isMounted = useRef(true);
+
+  const {
+    data: users,
+    loading: loadingUsers,
+    error: errorUsers,
+    setData: setUsers,
+    request: fetchUsersApi,
+  } = useSafeApi("/users/", { manual: true, initialData: [] });
+
+  const { isReady, on } = useSocket();
 
   useEffect(() => {
-    dispatch({ type: "RESET" });
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    setUsers([]);
     setPageNumber(1);
-  }, [searchParam]);
+  }, [searchParam, setUsers]);
 
   useEffect(() => {
-    setLoading(true);
     const fetchUsers = async () => {
-      try {
-        const { data } = await api.get("/users/", {
-          params: { searchParam, pageNumber },
+      if (!isMounted.current) return;
+      const data = await fetchUsersApi({
+        params: { searchParam, pageNumber },
+      });
+      if (data && isMounted.current) {
+        setUsers((prev) => {
+          const newUsers = data.users || [];
+          const updatedUsers = [...prev];
+
+          newUsers.forEach((user) => {
+            const index = updatedUsers.findIndex((u) => u.id === user.id);
+            if (index !== -1) {
+              updatedUsers[index] = user;
+            } else {
+              updatedUsers.push(user);
+            }
+          });
+
+          return updatedUsers;
         });
-        dispatch({ type: "LOAD_USERS", payload: data.users });
         setHasMore(data.hasMore);
-      } catch (err) {
-        toastError(err);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
       }
     };
     fetchUsers();
-  }, [searchParam, pageNumber]);
+  }, [searchParam, pageNumber, fetchUsersApi, setUsers]);
 
   useEffect(() => {
-    if (loggedInUser) {
-      const companyId = loggedInUser.companyId;
-      const onCompanyUser = (data) => {
-        if (data.action === "update" || data.action === "create") {
-          dispatch({ type: "UPDATE_USERS", payload: data.user });
-        }
-        if (data.action === "delete") {
-          dispatch({ type: "DELETE_USER", payload: +data.userId });
-        }
-      };
-      socket.on(`company-${companyId}-user`, onCompanyUser);
-      return () => {
-        socket.off(`company-${companyId}-user`, onCompanyUser);
-      };
-    }
-  }, [socket]);
+    if (!isReady || !loggedInUser) return;
+
+    const companyId = loggedInUser.companyId;
+    const cleanup = on(`company-${companyId}-user`, (data) => {
+      if (data.action === "update" || data.action === "create") {
+        setUsers((prev) => {
+          const updatedUsers = [...prev];
+          const index = updatedUsers.findIndex((u) => u.id === data.user.id);
+          if (index !== -1) {
+            updatedUsers[index] = data.user;
+            return updatedUsers;
+          } else {
+            return [data.user, ...updatedUsers];
+          }
+        });
+      }
+      if (data.action === "delete") {
+        setUsers((prev) => {
+          return prev.filter((u) => u.id !== +data.userId);
+        });
+      }
+    });
+
+    return cleanup;
+  }, [isReady, loggedInUser, on, setUsers]);
 
   const handleOpenUserModal = () => {
     setSelectedUser(null);
@@ -372,12 +362,11 @@ const Users = () => {
   };
 
   const loadMore = () => {
-    setLoadingMore(true);
     setPageNumber((prevPage) => prevPage + 1);
   };
 
   const handleScroll = (e) => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loadingUsers) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollHeight - (scrollTop + 100) < clientHeight) {
       loadMore();
@@ -484,73 +473,67 @@ const Users = () => {
           </Box>
           <Box className={classes.content}>
             <Box className={classes.listWrapper} onScroll={handleScroll}>
-              {users.length === 0 && !loading ? (
-                <Box className={classes.emptyState}>
-                  <PeopleAltIcon />
-                  <Typography>Nenhum usuário cadastrado ainda</Typography>
-                </Box>
-              ) : (
-                users.filter((user) => user.id !== 1).map((user) => (
-                  <Box key={user.id} className={classes.card}>
-                    {renderProfileImage(user)}
-                    <Box className={classes.cardInfo}>
-                      <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
-                        {user.name}
-                      </Typography>
-                      <Box className={classes.metaRow}>
-                        <span>ID: {user.id}</span>
-                        <span>•</span>
-                        <span>Perfil: {user.profile}</span>
-                        <span>•</span>
-                        <span>Email: {user.email}</span>
+              <SafeComponent
+                loading={loadingUsers && users.length === 0}
+                error={errorUsers}
+                data={users}
+                renderData={(records) => (
+                  <>
+                    {records.filter((u) => u.id !== 1).map((user) => (
+                      <Box key={user.id} className={classes.card}>
+                        {renderProfileImage(user)}
+                        <Box className={classes.cardInfo}>
+                          <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                            {user.name}
+                          </Typography>
+                          <Box className={classes.metaRow}>
+                            <span>ID: {user.id}</span>
+                            <span>•</span>
+                            <span>Perfil: {user.profile}</span>
+                            <span>•</span>
+                            <span>Email: {user.email}</span>
+                          </Box>
+                          <Box className={classes.metaRow}>
+                            <span>Início: {user.startWork || "N/A"}</span>
+                            <span>•</span>
+                            <span>Fim: {user.endWork || "N/A"}</span>
+                          </Box>
+                          <Box className={classes.statusBadge}>
+                            <UserStatusIcon user={user} /> Status
+                          </Box>
+                        </Box>
+                        <Box className={classes.cardActions}>
+                          <Tooltip title="Editar">
+                            <IconButton
+                              className={`${classes.actionButton} ${classes.editButton}`}
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Excluir">
+                            <IconButton
+                              className={`${classes.actionButton} ${classes.deleteButton}`}
+                              onClick={() => {
+                                setConfirmModalOpen(true);
+                                setDeletingUser(user);
+                              }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </Box>
-                      <Box className={classes.metaRow}>
-                        <span>Início: {user.startWork || "N/A"}</span>
-                        <span>•</span>
-                        <span>Fim: {user.endWork || "N/A"}</span>
+                    ))}
+                    {loadingUsers && (
+                      <Box className={classes.loadingBox}>
+                        <CircularProgress size={20} />
+                        <Typography variant="body2">{i18n.t("loading")}</Typography>
                       </Box>
-                      <Box className={classes.statusBadge}>
-                        <UserStatusIcon user={user} /> Status
-                      </Box>
-                    </Box>
-                    <Box className={classes.cardActions}>
-                      <Tooltip title="Editar">
-                        <IconButton
-                          className={`${classes.actionButton} ${classes.editButton}`}
-                          onClick={() => handleEditUser(user)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton
-                          className={`${classes.actionButton} ${classes.deleteButton}`}
-                          onClick={() => {
-                            setConfirmModalOpen(true);
-                            setDeletingUser(user);
-                          }}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                ))
-              )}
-
-              {loading && (
-                <Box className={classes.loadingBox}>
-                  <CircularProgress size={20} />
-                  <Typography variant="body2">{i18n.t("loading")}</Typography>
-                </Box>
-              )}
-
-              {loadingMore && (
-                <Box className={classes.loadingBox}>
-                  <CircularProgress size={20} />
-                  <Typography variant="body2">Carregando mais usuários...</Typography>
-                </Box>
-              )}
+                    )}
+                  </>
+                )}
+              />
             </Box>
           </Box>
         </>

@@ -16,7 +16,6 @@ const useAuth = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState({});
-  const [socket, setSocket] = useState({});
   const [loginOrigin, setLoginOrigin] = useState(
     () => localStorage.getItem("loginOrigin") || "default"
   );
@@ -77,6 +76,8 @@ const useAuth = () => {
           api.defaults.headers.Authorization = `Bearer ${data.token}`;
           setIsAuth(true);
           setUser(data.user);
+          localStorage.setItem("userId", data.user.id);
+          localStorage.setItem("companyId", data.user.company.id);
         } catch (err) {
           toastError(err);
         }
@@ -86,28 +87,7 @@ const useAuth = () => {
   }, []);
 
   useEffect(() => {
-    if (Object.keys(user).length && user.id > 0) {
-      // console.log("Entrou useWhatsapp com user", Object.keys(user).length, Object.keys(socket).length ,user, socket)
-      let io;
-      if (!Object.keys(socket).length) {
-        io = socketConnection({ user });
-        setSocket(io);
-      } else {
-        io = socket;
-      }
-      io.on(`company-${user.companyId}-user`, (data) => {
-        if (data.action === "update" && data.user.id === user.id) {
-          setUser(data.user);
-        }
-      });
-
-      return () => {
-        // console.log("desconectou o company user ", user.id)
-        io.off(`company-${user.companyId}-user`);
-        // io.disconnect();
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }
+    // Socket removido para SocketProvider dedicado
   }, [user]);
 
   const handleLogin = async (userData) => {
@@ -175,13 +155,14 @@ const useAuth = () => {
         api.defaults.headers.Authorization = `Bearer ${data.token}`;
         setUser(data.user);
         setIsAuth(true);
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("companyId", data.user.company.id);
         const origin = localStorage.getItem("loginOrigin") || "default";
         setLoginOrigin(origin);
         toast.success(i18n.t("auth.toasts.success"));
         if (Math.round(dias) < 5) {
           toast.warn(
-            `Sua assinatura vence em ${Math.round(dias)} ${
-              Math.round(dias) === 1 ? "dia" : "dias"
+            `Sua assinatura vence em ${Math.round(dias)} ${Math.round(dias) === 1 ? "dia" : "dias"
             } `
           );
         }
@@ -193,7 +174,7 @@ const useAuth = () => {
 
         history.push("/atendimentos");
         setLoading(false);
-        
+
         // Se for login mobile, autenticar no WebView
         if (origin === "mobile") {
           try {
@@ -232,6 +213,8 @@ Entre em contato com o Suporte para mais informações! `);
       setUser({});
       localStorage.removeItem("token");
       localStorage.removeItem("cshow");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("companyId");
       // localStorage.removeItem("public-token");
       localStorage.removeItem("loginOrigin");
       api.defaults.headers.Authorization = undefined;
@@ -272,7 +255,7 @@ Entre em contato com o Suporte para mais informações! `);
     handleSetLoginOrigin,
     isMobileSession: loginOrigin === "mobile",
     getCurrentUserInfo,
-    socket,
+    socket: null, // Mantido null para evitar quebra de props mas forçar refatoração
   };
 };
 

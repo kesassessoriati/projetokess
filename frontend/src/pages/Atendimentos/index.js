@@ -107,6 +107,9 @@ import TicketActionsMenu from "../../components/TicketActionsMenu";
 import useQuickMessages from "../../hooks/useQuickMessages";
 import { toast } from "react-toastify";
 import { useSystemAlert } from "../../components/SystemAlert";
+import useSafeApi from "../../hooks/useSafeApi";
+import { useSocket } from "../../context/SocketContext";
+import SafeComponent from "../../components/SafeComponent";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -116,25 +119,25 @@ const useStyles = makeStyles(theme => ({
 			opacity: 1,
 			transform: 'scale(1)',
 		},
-	mobileHeaderToggle: {
-		marginLeft: "auto",
-		backgroundColor: "#e1e4ea",
-	},
-	mobileActionsCollapse: {
-		width: "100%",
-		display: "flex",
-		flexWrap: "wrap",
-		justifyContent: "flex-end",
-		gap: 6,
-	},
-	mobileHeaderActions: {
-		width: "100%",
-		display: "flex",
-		flexWrap: "wrap",
-		justifyContent: "flex-end",
-		gap: 6,
-		marginTop: 8
-	},
+		mobileHeaderToggle: {
+			marginLeft: "auto",
+			backgroundColor: "#e1e4ea",
+		},
+		mobileActionsCollapse: {
+			width: "100%",
+			display: "flex",
+			flexWrap: "wrap",
+			justifyContent: "flex-end",
+			gap: 6,
+		},
+		mobileHeaderActions: {
+			width: "100%",
+			display: "flex",
+			flexWrap: "wrap",
+			justifyContent: "flex-end",
+			gap: 6,
+			marginTop: 8
+		},
 		'50%': {
 			opacity: 0.5,
 			transform: 'scale(1.2)',
@@ -158,7 +161,7 @@ const useStyles = makeStyles(theme => ({
 	rootMobile: {
 		flexDirection: "column",
 	},
-	
+
 	sidebar: {
 		width: 420,
 		minWidth: 420,
@@ -183,7 +186,7 @@ const useStyles = makeStyles(theme => ({
 		maxHeight: "100vh",
 		overflowY: "auto",
 	},
-	
+
 	sidebarHeader: {
 		height: 60,
 		backgroundColor: "#f0f2f5",
@@ -194,7 +197,7 @@ const useStyles = makeStyles(theme => ({
 		borderBottom: "1px solid #e9edef",
 		flexShrink: 0,
 	},
-	
+
 	// Animação para status de digitação
 	'@keyframes pulse': {
 		'0%': {
@@ -210,13 +213,13 @@ const useStyles = makeStyles(theme => ({
 			transform: 'scale(1)',
 		},
 	},
-	
+
 	sidebarSearch: {
 		padding: "8px 16px",
 		backgroundColor: "#ffffff",
 		borderBottom: "1px solid #e9edef",
 	},
-	
+
 	searchInput: {
 		backgroundColor: "#f0f2f5",
 		borderRadius: 8,
@@ -229,7 +232,7 @@ const useStyles = makeStyles(theme => ({
 			flex: 1,
 		},
 	},
-	
+
 	tabs: {
 		borderBottom: "1px solid #e9edef",
 		backgroundColor: "#ffffff",
@@ -241,7 +244,7 @@ const useStyles = makeStyles(theme => ({
 			fontWeight: 500,
 		},
 	},
-	
+
 	ticketsList: {
 		flex: 1,
 		overflowY: "auto",
@@ -254,7 +257,7 @@ const useStyles = makeStyles(theme => ({
 			borderRadius: "3px",
 		},
 	},
-	
+
 	ticketItem: {
 		display: "flex",
 		alignItems: "center",
@@ -269,18 +272,18 @@ const useStyles = makeStyles(theme => ({
 			backgroundColor: "#f0f2f5",
 		},
 	},
-	
+
 	ticketDropdownArrow: {
 		marginLeft: 4,
 	},
-	
+
 	ticketAvatar: {
 		width: 49,
 		height: 49,
 		marginRight: 15,
 		flexShrink: 0,
 	},
-	
+
 	ticketInfo: {
 		flex: 1,
 		minWidth: 0,
@@ -289,7 +292,7 @@ const useStyles = makeStyles(theme => ({
 		flexDirection: "column",
 		gap: 2,
 	},
-	
+
 	ticketName: {
 		fontSize: 17,
 		fontWeight: 400,
@@ -299,14 +302,14 @@ const useStyles = makeStyles(theme => ({
 		whiteSpace: "nowrap",
 		lineHeight: "21px",
 	},
-	
+
 	ticketTime: {
 		fontSize: 12,
 		color: "#667781",
 		whiteSpace: "nowrap",
 		marginLeft: 6,
 	},
-	
+
 	ticketLastMessage: {
 		fontSize: 14,
 		color: "#667781",
@@ -318,7 +321,7 @@ const useStyles = makeStyles(theme => ({
 		gap: 8,
 		lineHeight: "20px",
 	},
-	
+
 	chatArea: {
 		flex: 1,
 		display: "flex",
@@ -336,7 +339,7 @@ const useStyles = makeStyles(theme => ({
 		flex: "1 1 auto",
 		height: "calc(100vh - 64px)",
 	},
-	
+
 	chatHeader: {
 		height: 60,
 		backgroundColor: "#f0f2f5",
@@ -357,12 +360,12 @@ const useStyles = makeStyles(theme => ({
 		paddingBottom: 8,
 		gap: 8
 	},
-	
+
 	chatHeaderInfo: {
 		flex: 1,
 		marginLeft: 12,
 	},
-	
+
 	chatMessages: {
 		flex: 1,
 		overflowY: "auto",
@@ -370,14 +373,14 @@ const useStyles = makeStyles(theme => ({
 		backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h100v100H0z' fill='%23efeae2'/%3E%3Cpath d='M20 20h60v60H20z' fill='%23f0f0f0' opacity='0.05'/%3E%3C/svg%3E")`,
 		padding: 20,
 	},
-	
+
 	messageGroup: {
 		marginBottom: 12,
 		display: "flex",
 		flexDirection: "column",
 		alignItems: (props) => props.fromMe ? "flex-end" : "flex-start",
 	},
-	
+
 	messageBubble: {
 		maxWidth: "65%",
 		padding: "6px 7px 8px 9px",
@@ -387,21 +390,21 @@ const useStyles = makeStyles(theme => ({
 		position: "relative",
 		marginBottom: 2,
 	},
-	
+
 	messageText: {
 		fontSize: 14,
 		color: "#111b21",
 		wordWrap: "break-word",
 		marginBottom: 4,
 	},
-	
+
 	messageTime: {
 		fontSize: 11,
 		color: "#667781",
 		textAlign: "right",
 		marginTop: 4,
 	},
-	
+
 	chatInput: {
 		backgroundColor: "#f0f2f5",
 		borderTop: "1px solid #e9edef",
@@ -413,7 +416,7 @@ const useStyles = makeStyles(theme => ({
 		bottom: 0,
 		zIndex: 10,
 	},
-	
+
 	inputField: {
 		flex: 1,
 		backgroundColor: "#ffffff",
@@ -422,7 +425,7 @@ const useStyles = makeStyles(theme => ({
 		fontSize: 15,
 		position: 'relative',
 	},
-	
+
 	welcomeContainer: {
 		display: "flex",
 		flexDirection: "column",
@@ -434,14 +437,14 @@ const useStyles = makeStyles(theme => ({
 		textAlign: "center",
 		padding: 40,
 	},
-	
+
 	welcomeIcon: {
 		fontSize: 120,
 		color: "#00a884",
 		opacity: 0.3,
 		marginBottom: 24,
 	},
-	
+
 	welcomeTitle: {
 		fontSize: 32,
 		fontWeight: 300,
@@ -449,7 +452,7 @@ const useStyles = makeStyles(theme => ({
 		marginBottom: 16,
 		fontFamily: "'Segoe UI', Helvetica, Arial, sans-serif",
 	},
-	
+
 	welcomeText: {
 		fontSize: 14,
 		color: "#667781",
@@ -457,7 +460,7 @@ const useStyles = makeStyles(theme => ({
 		maxWidth: 480,
 		fontFamily: "'Segoe UI', Helvetica, Arial, sans-serif",
 	},
-	
+
 	unreadBadge: {
 		backgroundColor: "#25d366",
 		color: "#fff",
@@ -471,7 +474,7 @@ const useStyles = makeStyles(theme => ({
 		fontSize: 12,
 		fontWeight: 600,
 	},
-	
+
 	statusChip: {
 		height: 20,
 		fontSize: 11,
@@ -488,11 +491,11 @@ const CHANNEL_STYLES = {
 // Função para detectar se é mensagem automática de anúncio Facebook/Instagram
 const isAdAutomaticMessage = (message, channel) => {
 	if (!message || !channel || !['facebook', 'instagram'].includes(channel)) return false;
-	
+
 	const adKeywords = [
 		// Facebook
 		'obrigado por entrar em contato',
-		'agradecemos seu contato', 
+		'agradecemos seu contato',
 		'responderemos em breve',
 		'em breve retornamos',
 		'mensagem automática',
@@ -512,18 +515,18 @@ const isAdAutomaticMessage = (message, channel) => {
 		'promoção',
 		'oferta'
 	];
-	
+
 	const messageText = (message.body || '').toLowerCase();
-	
+
 	// Verificar se contém palavras-chave de anúncio
 	const hasAdKeyword = adKeywords.some(keyword => messageText.includes(keyword));
-	
+
 	// Verificar se é muito curto (muitas mensagens de anúncio são curtas)
 	const isVeryShort = messageText.length < 20;
-	
+
 	// Verificar se contém emojis comuns de anúncios
 	const hasAdEmoji = /[\ud83d\udce2\ud83d\udccb\ud83c\udfaf\ud83d\udcc8\ud83d\udcb0\ud83c\udff7\ufe0f]/.test(messageText);
-	
+
 	return hasAdKeyword || (isVeryShort && hasAdEmoji);
 };
 
@@ -535,7 +538,7 @@ const getUTMParameters = () => {
 	const utmCampaign = params.get('utm_campaign');
 	const utmTerm = params.get('utm_term');
 	const utmContent = params.get('utm_content');
-	
+
 	if (utmSource || utmMedium || utmCampaign) {
 		const utmParams = [];
 		if (utmSource) utmParams.push(`source: ${utmSource}`);
@@ -543,13 +546,13 @@ const getUTMParameters = () => {
 		if (utmCampaign) utmParams.push(`campaign: ${utmCampaign}`);
 		if (utmTerm) utmParams.push(`term: ${utmTerm}`);
 		if (utmContent) utmParams.push(`content: ${utmContent}`);
-		
+
 		return {
 			source: `UTM: ${utmParams.join(' | ')}`,
 			campaign: utmCampaign || ''
 		};
 	}
-	
+
 	return { source: '', campaign: '' };
 };
 
@@ -557,7 +560,7 @@ const getUTMParameters = () => {
 const createLeadFromAd = async (ticket) => {
 	try {
 		const utmData = getUTMParameters();
-		
+
 		const leadData = {
 			name: ticket.contact?.name || 'Contato Anúncio',
 			email: '',
@@ -567,11 +570,11 @@ const createLeadFromAd = async (ticket) => {
 			status: 'new',
 			temperature: 'quente',
 			notes: `Lead gerado automaticamente via anúncio ${ticket.channel === 'facebook' ? 'Facebook' : 'Instagram'}\n` +
-					`Ticket ID: ${ticket.id}\n` +
-					`Data: ${new Date().toLocaleString('pt-BR')}\n` +
-					`Canal: ${ticket.channel}`
+				`Ticket ID: ${ticket.id}\n` +
+				`Data: ${new Date().toLocaleString('pt-BR')}\n` +
+				`Canal: ${ticket.channel}`
 		};
-		
+
 		// Construir URL com UTMs para enviar ao backend
 		const utmParams = new URLSearchParams();
 		if (utmData.source && utmData.source.includes('UTM:')) {
@@ -593,10 +596,10 @@ const createLeadFromAd = async (ticket) => {
 				});
 			}
 		}
-		
+
 		const url = `/crm/leads${utmParams.toString() ? '?' + utmParams.toString() : ''}`;
 		const { data } = await api.post(url, leadData);
-		
+
 		// Opcional: mostrar notificação
 		if (window.Notification && Notification.permission === "granted") {
 			new Notification('🎯 Lead Criado', {
@@ -604,7 +607,7 @@ const createLeadFromAd = async (ticket) => {
 				icon: "/logo.png"
 			});
 		}
-		
+
 		return data;
 	} catch (err) {
 	}
@@ -615,44 +618,44 @@ const getChannelStyle = (channel) => CHANNEL_STYLES[channel] || CHANNEL_STYLES.w
 // Função para formatar texto do WhatsApp (negrito, itálico, riscado, monospace, quebras de linha)
 const formatWhatsAppText = (text) => {
 	if (!text || typeof text !== 'string') return text;
-	
+
 	// Escapar HTML para segurança
 	let formatted = text
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;');
-	
+
 	// Negrito: *texto*
 	formatted = formatted.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
-	
+
 	// Itálico: _texto_
 	formatted = formatted.replace(/\_([^_]+)\_/g, '<em>$1</em>');
-	
+
 	// Riscado: ~texto~
 	formatted = formatted.replace(/\~([^~]+)\~/g, '<del>$1</del>');
-	
+
 	// Monospace: ```texto```
 	formatted = formatted.replace(/\`\`\`([^`]+)\`\`\`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px;font-family:monospace">$1</code>');
-	
+
 	// Monospace inline: `texto`
 	formatted = formatted.replace(/\`([^`]+)\`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px;font-family:monospace">$1</code>');
-	
+
 	// Links clicáveis (http, https, www, domínios .com/.br)
 	const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.(com|br|org|net|gov|edu|mil|info|biz|co|io|ai|app|dev|tech|store|online|site|art|design|photo|video|music|blog|news|shop|club|team|live|studio|agency|company|services|solutions|consulting|marketing|software|data|cloud|security|network|systems|digital|creative|media|group|global|local|international|world|us|uk|ca|au|de|fr|es|it|pt|mx|ar|cl|pe|ve|uy|py|bo|ec|gy|sr|gf|gu)\b[^\s]*)/g;
 	formatted = formatted.replace(urlRegex, (url) => {
 		const href = url.startsWith('www.') ? `https://${url}` : (url.match(/^https?:\/\//) ? url : `https://${url}`);
 		return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color:#0084ff;text-decoration:underline;cursor:pointer;-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;">${url}</a>`;
 	});
-	
+
 	// Emails clicáveis que abrem no Gmail
 	const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
 	formatted = formatted.replace(emailRegex, (email) => {
 		return `<a href="https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}" target="_blank" rel="noopener noreferrer" style="color:#0084ff;text-decoration:underline;cursor:pointer;-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;font-weight:500;">${email}</a>`;
 	});
-	
+
 	// Quebras de linha: \n para <br>
 	formatted = formatted.replace(/\n/g, '<br/>');
-	
+
 	return formatted;
 };
 
@@ -665,21 +668,21 @@ const Atendimentos = () => {
 	const location = useLocation();
 	const { user } = useContext(AuthContext);
 	const { showConfirm } = useSystemAlert();
-	
+
 	// Verificar se está no modo mobile app (via URL params)
 	const urlParams = new URLSearchParams(location.search);
 	const mobileApp = urlParams.get('mobileApp') === 'true';
 	const hideMenu = urlParams.get('hideMenu') === 'true';
-	
+
 	// Ocultar menu fixo se estiver no modo mobile app
 	const shouldHideMobileMenu = mobileApp && hideMenu;
-	
+
 	// Índice inicial da aba: 0 para todos (Automação para admin, Aguardando para não-admin)
 	const [tabIndex, setTabIndex] = useState(0);
 	const [tickets, setTickets] = useState([]);
 	const [selectedTicket, setSelectedTicket] = useState(null);
 	const [messages, setMessages] = useState([]);
-	const [loading, setLoading] = useState(false);
+	const { loading, error: errorTickets, request: fetchTicketsApi } = useSafeApi("/tickets", { manual: true });
 	const [searchTerm, setSearchTerm] = useState("");
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 	const [filterAnchor, setFilterAnchor] = useState(null);
@@ -890,16 +893,16 @@ const Atendimentos = () => {
 			toast.error("Nenhum ticket selecionado.");
 			return;
 		}
-		
+
 		// **NOVO: Verificação por telefone**
 		const hasClient = selectedTicket?.crmClient || selectedTicket?.contact?.crmClients?.[0];
-		
+
 		if (hasClient) {
 			// Se já tem cliente vinculado, abre o modal
 			setFaturaModalOpen(true);
 			return;
 		}
-		
+
 		// **NOVO: Buscar cliente por telefone**
 		try {
 			const contactPhone = selectedTicket?.contact?.number;
@@ -908,34 +911,34 @@ const Atendimentos = () => {
 				setFaturaModalOpen(true);
 				return;
 			}
-			
+
 			// Limpar o telefone (remover caracteres especiais)
 			const cleanPhone = contactPhone.replace(/\D/g, '');
-			
+
 			// Buscar em clientes, leads e contatos pelo telefone
 			const { data: clients } = await api.get(`/clients`, {
 				params: { searchParam: cleanPhone, phone: cleanPhone }
 			});
-			
+
 			const { data: leads } = await api.get(`/leads`, {
 				params: { searchParam: cleanPhone, phone: cleanPhone }
 			});
-			
+
 			const { data: contacts } = await api.get(`/contacts`, {
 				params: { searchParam: cleanPhone, phone: cleanPhone }
 			});
-			
+
 			// Verificar se encontrou algum cliente/lead/contato com o mesmo telefone
 			const foundClient = clients.find(c => c.phone && c.phone.replace(/\D/g, '') === cleanPhone);
 			const foundLead = leads.find(l => l.phone && l.phone.replace(/\D/g, '') === cleanPhone);
 			const foundContact = contacts.find(c => c.number && c.number.replace(/\D/g, '') === cleanPhone);
-			
+
 			if (foundClient) {
 				// Vincular o cliente encontrado ao contato
 				await api.put(`/contacts/${selectedTicket.contact.id}`, {
 					crmClients: [foundClient.id]
 				});
-				
+
 				// Atualizar o ticket selecionado com o cliente vinculado
 				setSelectedTicket(prev => ({
 					...prev,
@@ -945,25 +948,25 @@ const Atendimentos = () => {
 						crmClients: [foundClient]
 					}
 				}));
-				
+
 				toast.success(`Cliente "${foundClient.name}" encontrado e vinculado pelo telefone!`);
 				setFaturaModalOpen(true);
 				return;
 			}
-			
+
 			if (foundLead) {
 				toast.info(`Lead "${foundLead.name}" encontrado com mesmo telefone. Converta o lead para cliente primeiro.`);
 				return;
 			}
-			
+
 			if (foundContact) {
 				toast.warning("Contato encontrado com mesmo telefone, mas sem cliente vinculado.");
 				return;
 			}
-			
+
 			// **CORREÇÃO: Abrir modal mesmo sem encontrar cliente para vinculação manual**
 			setFaturaModalOpen(true);
-			
+
 		} catch (err) {
 			// **CORREÇÃO: Abrir modal mesmo em caso de erro**
 			setFaturaModalOpen(true);
@@ -990,7 +993,7 @@ const Atendimentos = () => {
 										status: "open",
 										userId: user?.id,
 									});
-									
+
 									// **NOVO: Atualização instantânea sem F5**
 									setTickets(prevTickets => {
 										const updatedTickets = prevTickets.map(ticket => {
@@ -1004,26 +1007,26 @@ const Atendimentos = () => {
 											}
 											return ticket;
 										});
-										
+
 										// Reordena para colocar o ticket aceito no topo da aba "Atendendo"
 										return updatedTickets.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 									});
-									
+
 									// Atualiza o ticket selecionado
 									setSelectedTicket(prev => ({
 										...prev,
 										status: "open",
 										userId: user?.id
 									}));
-									
+
 									// Atualiza contadores
 									loadUnreadCounts();
-									
+
 									// **NOVO: Muda para aba "Atendendo" (tab 1) se não estiver lá**
 									if (tabIndex !== 1) {
 										setTabIndex(1);
 									}
-									
+
 								} catch (err) {
 								}
 							}}
@@ -1202,9 +1205,9 @@ const Atendimentos = () => {
 
 	const formatWaitingTime = (ticket) => {
 		if (!ticket || ticket.status !== "pending") {
-		 return null;
+			return null;
 		}
-		
+
 		// Mostrar tempo de espera se tem usuário OU fila
 		if (!hasAssignedUser(ticket) && !hasQueue(ticket)) {
 			return null;
@@ -1239,35 +1242,35 @@ const Atendimentos = () => {
 
 	const handleCloseTransferModal = async (ticketUpdated = false) => {
 		setTransferTicketModalOpen(false);
-		
+
 		// Se o ticket foi atualizado (transferido), recarrega os dados
 		if (ticketUpdated && selectedTicket) {
 			try {
 				const { data } = await api.get(`/tickets/${selectedTicket.id}`);
 				setSelectedTicket(data);
-				
+
 				// Atualiza também na lista de tickets
-				setTickets(prevTickets => 
-					prevTickets.map(ticket => 
+				setTickets(prevTickets =>
+					prevTickets.map(ticket =>
 						ticket.id === data.id ? data : ticket
 					)
 				);
-				
+
 			} catch (err) {
 			}
 		}
 	};
-	
 
-useEffect(() => {
-	const raf = requestAnimationFrame(() => {
-		if (inputMessageRef.current) {
-			inputMessageRef.current.focus({ preventScroll: true });
-			keepInputFocusRef.current = true;
-		}
-	});
-	return () => cancelAnimationFrame(raf);
-}, [messages, selectedTicket?.id]);
+
+	useEffect(() => {
+		const raf = requestAnimationFrame(() => {
+			if (inputMessageRef.current) {
+				inputMessageRef.current.focus({ preventScroll: true });
+				keepInputFocusRef.current = true;
+			}
+		});
+		return () => cancelAnimationFrame(raf);
+	}, [messages, selectedTicket?.id]);
 
 	const handleQuickReplyKeyDown = (e) => {
 		if (!showQuickReplies) return;
@@ -1318,14 +1321,14 @@ useEffect(() => {
 			try {
 				if ("permissions" in navigator) {
 					const permission = await navigator.permissions.query({ name: 'microphone' });
-					
+
 					if (permission.state === 'prompt') {
 					}
 				}
 			} catch (err) {
 			}
 		};
-		
+
 		requestMicrophonePermission();
 	}, []);
 
@@ -1335,22 +1338,22 @@ useEffect(() => {
 			if (!audioContextRef.current) {
 				audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
 			}
-			
+
 			const audioContext = audioContextRef.current;
 			const oscillator = audioContext.createOscillator();
 			const gainNode = audioContext.createGain();
-			
+
 			oscillator.connect(gainNode);
 			gainNode.connect(audioContext.destination);
-			
+
 			// Som similar ao WhatsApp: duas notas rápidas e mais alto
 			oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
 			oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
-			
+
 			// Aumentar volume para 0.5 (50% do máximo)
 			gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
 			gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-			
+
 			oscillator.start(audioContext.currentTime);
 			oscillator.stop(audioContext.currentTime + 0.3);
 		} catch (err) {
@@ -1361,12 +1364,12 @@ useEffect(() => {
 	const showDesktopNotification = (contactName, messageBody) => {
 		if ("Notification" in window && Notification.permission === "granted") {
 			try {
-				
+
 				// Limitar tamanho da mensagem para notificação
-				const truncatedBody = messageBody?.length > 100 
-					? messageBody.substring(0, 100) + "..." 
+				const truncatedBody = messageBody?.length > 100
+					? messageBody.substring(0, 100) + "..."
 					: messageBody || "Mídia";
-				
+
 				const notification = new Notification(`🔔 Nova mensagem de ${contactName}`, {
 					body: truncatedBody,
 					icon: "/logo.png",
@@ -1386,7 +1389,7 @@ useEffect(() => {
 
 				// Auto-fecha após 8 segundos (mais tempo para ler)
 				setTimeout(() => notification.close(), 8000);
-				
+
 				// Feedback visual no console
 			} catch (err) {
 			}
@@ -1399,12 +1402,12 @@ useEffect(() => {
 		if (messagesEndRef.current) {
 			const container = messagesContainerRef.current;
 			if (!container) return;
-			
+
 			// Se for forçado, rola agressivamente sem verificar posição
 			if (force) {
 				// Usar scrollIntoView com behavior "auto" para mais agressividade
 				messagesEndRef.current.scrollIntoView({ behavior: "auto" });
-				
+
 				// Segunda tentativa: scroll direto do container
 				setTimeout(() => {
 					if (container && messagesEndRef.current) {
@@ -1414,7 +1417,7 @@ useEffect(() => {
 			} else {
 				// Comportamento normal/inteligente - REATIVADO (WhatsApp Web)
 				const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 150;
-				
+
 				if (isAtBottom) {
 					messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
 				}
@@ -1428,17 +1431,17 @@ useEffect(() => {
 			// Detectar se é uma mensagem enviada (última mensagem do usuário)
 			const lastMessage = messages[messages.length - 1];
 			const isMyMessage = lastMessage?.fromMe === true;
-			
+
 			// Verificar se o usuário está no final antes de forçar o scroll
 			const container = messagesContainerRef.current;
 			const isAtBottom = container ? (container.scrollHeight - container.scrollTop - container.clientHeight <= 150) : false;
-			
+
 			// SÓ FORÇAR SE ESTIVER NO FINAL OU SE FOR MENSAGEM ENVIADA
 			if (isMyMessage || isAtBottom) {
 				setTimeout(() => {
 					if (isMyMessage) {
 						scrollToBottom(true); // força ao enviar
-						
+
 						// Reforço extra para garantir no final
 						setTimeout(() => {
 							scrollToBottom(true);
@@ -1487,11 +1490,11 @@ useEffect(() => {
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 100);
-			
+
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 250);
-			
+
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 400);
@@ -1556,11 +1559,14 @@ useEffect(() => {
 		tabIndexRef.current = tabIndex;
 	}, [selectedTicket, tabIndex]);
 
-	useEffect(() => {
-		const socket = socketConnection({ companyId: user.companyId });
+	const { isReady, on } = useSocket();
 
-		socket.on(`company-${user.companyId}-ticket`, (data) => {
-			
+	useEffect(() => {
+		if (!isReady || !user.companyId) return;
+
+		const companyId = user.companyId;
+
+		const cleanupTicket = on(`company-${companyId}-ticket`, (data) => {
 			if (data.action === "update" || data.action === "create") {
 				// Verifica se o ticket pertence às filas do usuário
 				const userQueueIds = user?.queues?.map(q => q.id) || [];
@@ -1570,7 +1576,7 @@ useEffect(() => {
 				const belongsToUserQueue = user?.profile === "admin" || hasAllQueuesPerm ||
 					userQueueIds.includes(data.ticket?.queueId) ||
 					(!data.ticket?.queueId && hasAllTicketPerm);
-				
+
 				// Verifica se o usuário pode ver o ticket
 				let canSeeTicket = false;
 				if (user?.profile === "admin") {
@@ -1587,11 +1593,11 @@ useEffect(() => {
 				} else if (data.ticket?.status === "closed") {
 					canSeeTicket = true;
 				}
-				
+
 				// **NOVO: Filtro por aba ativa**
 				const currentTab = tabIndexRef.current;
 				const ticketStatus = data.ticket.status;
-				
+
 				// Verifica se o ticket pertence à aba atual
 				let belongsToCurrentTab = false;
 				if (currentTab === 0) {
@@ -1610,31 +1616,31 @@ useEffect(() => {
 					// Aba "Fechados"
 					belongsToCurrentTab = ticketStatus === "closed";
 				}
-				
+
 				// **NOVO: Só mostra notificação se pertencer à aba atual**
 				const shouldNotify = belongsToCurrentTab && belongsToUserQueue && canSeeTicket;
-				
+
 				setTickets((prevTickets) => {
 					const ticketIndex = prevTickets.findIndex(t => t.id === data.ticket.id);
-					
+
 					if (ticketIndex !== -1) {
 						// Ticket já existe na lista - verificar se ainda pode ver
 						if (!canSeeTicket || !belongsToCurrentTab) {
 							// Usuário não tem mais permissão ou ticket mudou de aba - remover
 							return prevTickets.filter(t => t.id !== data.ticket.id);
 						}
-						
+
 						const updatedTickets = [...prevTickets];
 						const oldTicket = updatedTickets[ticketIndex];
 						updatedTickets[ticketIndex] = data.ticket;
-						
+
 						// Reordena se updatedAt mudou (nova mensagem) OU se status mudou (muda de aba)
 						const shouldReorder = new Date(oldTicket.updatedAt).getTime() !== new Date(data.ticket.updatedAt).getTime() ||
 							oldTicket.status !== data.ticket.status;
-						
+
 						if (shouldReorder) {
 							const result = updatedTickets.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-							
+
 							// Forçar re-renderização criando novo array
 							return [...result];
 						}
@@ -1643,7 +1649,7 @@ useEffect(() => {
 							// Forçar re-renderização criando novo array
 							return [...updatedTickets];
 						}
-						
+
 						// Forçar re-renderização mesmo sem mudanças significativas
 						return [...updatedTickets];
 					} else if (shouldNotify) {
@@ -1658,66 +1664,52 @@ useEffect(() => {
 					}
 					return prevTickets;
 				});
-				
+
 				// Atualiza contadores sem recriar componente inteiro
 				setTimeout(() => {
 					loadUnreadCounts();
 				}, 100);
-				if (selectedTicket && data.ticket.id === selectedTicket.id) {
+				if (selectedTicketRef.current && data.ticket.id === selectedTicketRef.current.id) {
 					setSelectedTicket(data.ticket);
 				}
 			}
 			if (data.action === "delete") {
 				setTickets((prevTickets) => prevTickets.filter(t => t.id !== data.ticketId));
 				loadUnreadCounts();
-				if (selectedTicket && data.ticketId === selectedTicket.id) {
+				if (selectedTicketRef.current && data.ticketId === selectedTicketRef.current.id) {
 					setSelectedTicket(null);
-					// Limpa o ID do ticket da URL
 					history.push("/atendimentos");
 				}
 			}
 		});
 
-		socket.on(`company-${user.companyId}-appMessage`, (data) => {
+		const cleanupAppMessage = on(`company-${companyId}-appMessage`, (data) => {
 			if (data.action === "create") {
 				// **NOVO: Verificar aba atual antes de notificar**
 				const currentTab = tabIndexRef.current;
-				
-				// **CORREÇÃO: Atualização instantânea e sem duplicação**
+
 				setTickets((prevTickets) => {
 					const ticketIndex = prevTickets.findIndex(t => t.id === data.message.ticketId);
-					
-					// Se o ticket já existe, atualiza imediatamente
+
 					if (ticketIndex !== -1) {
 						const updatedTickets = [...prevTickets];
 						const ticket = { ...updatedTickets[ticketIndex] };
-						
-						// Atualiza dados da mensagem
+
 						ticket.lastMessage = data.message.body;
 						ticket.updatedAt = data.message.createdAt;
-						
-						// Atualiza unreadMessages baseado em quem enviou
+
 						if (!data.message.fromMe) {
 							ticket.unreadMessages = (ticket.unreadMessages || 0) + 1;
-							
-							// **NOVO: Verificar se pertence à aba atual para notificação**
+
 							let belongsToCurrentTab = false;
-							if (currentTab === 0) {
-								belongsToCurrentTab = true; // Todos
-							} else if (currentTab === 1) {
-								belongsToCurrentTab = ticket.status === "open" && ticket.userId === user.id; // Atendendo
-							} else if (currentTab === 2) {
-								belongsToCurrentTab = ticket.status === "pending" // Aguardando
-							} else if (currentTab === 3) {
-								belongsToCurrentTab = ticket.status === "open" && !ticket.userId; // Automação
-							} else if (currentTab === 4) {
-								belongsToCurrentTab = ticket.status === "closed"; // Fechados
-							}
-							
-							// Toca som e exibe notificação apenas se pertencer à aba atual
+							if (currentTab === 0) belongsToCurrentTab = true;
+							else if (currentTab === 1) belongsToCurrentTab = ticket.status === "open" && ticket.userId === user.id;
+							else if (currentTab === 2) belongsToCurrentTab = ticket.status === "pending";
+							else if (currentTab === 3) belongsToCurrentTab = ticket.status === "open" && !ticket.userId;
+							else if (currentTab === 4) belongsToCurrentTab = ticket.status === "closed";
+
 							if (belongsToCurrentTab) {
-								const ticketChannel = ticket.channel;
-								if (!isAdAutomaticMessage(data.message, ticketChannel)) {
+								if (!isAdAutomaticMessage(data.message, ticket.channel)) {
 									playNotificationSound();
 									showDesktopNotification(
 										ticket.contact?.name || "Novo Contato",
@@ -1726,21 +1718,13 @@ useEffect(() => {
 								}
 							}
 						} else {
-							// Se é mensagem enviada por mim, zera o contador
 							ticket.unreadMessages = 0;
 						}
-						
-						updatedTickets[ticketIndex] = ticket;
-						
-						// **NOVO: Reordena imediatamente para mostrar no topo**
+
 						const result = updatedTickets.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-						return [...result]; // Forçar re-renderização
+						return [...result];
 					}
-					
-					// Se o ticket não existe, verifica se pode adicionar
 					else if (data.ticket) {
-						
-						// Verifica se o ticket pertence às filas do usuário
 						const userQueueIds = user?.queues?.map(q => q.id) || [];
 						const hasAllTicketPerm = user?.allTicket === "enable" || user?.allTicket === "enabled";
 						const hasAllQueuesPerm = user?.allHistoric === "enabled";
@@ -1748,58 +1732,45 @@ useEffect(() => {
 						const belongsToUserQueue = user?.profile === "admin" || hasAllQueuesPerm ||
 							userQueueIds.includes(data.ticket?.queueId) ||
 							(!data.ticket?.queueId && hasAllTicketPerm);
-						
-						// Verifica se o usuário pode ver o ticket
+
 						let canSeeTicket = false;
-						if (user?.profile === "admin") {
-							canSeeTicket = true;
-						} else if (data.ticket?.userId === user?.id) {
-							canSeeTicket = true;
-						} else if (!data.ticket?.userId && data.ticket?.status === "pending") {
-							canSeeTicket = belongsToUserQueue;
-						} else if (data.ticket?.userId && data.ticket?.userId !== user?.id) {
-							canSeeTicket = hasAllUserChatPerm;
-						} else if (data.ticket?.status === "closed") {
-							canSeeTicket = true;
-						}
-						
-						// Só adiciona se tiver permissão
+						if (user?.profile === "admin") canSeeTicket = true;
+						else if (data.ticket?.userId === user?.id) canSeeTicket = true;
+						else if (!data.ticket?.userId && data.ticket?.status === "pending") canSeeTicket = belongsToUserQueue;
+						else if (data.ticket?.userId && data.ticket?.userId !== user?.id) canSeeTicket = hasAllUserChatPerm;
+						else if (data.ticket?.status === "closed") canSeeTicket = true;
+
 						if (belongsToUserQueue && canSeeTicket) {
-							// Verificar se é ticket de Facebook/Instagram e criar lead automaticamente
 							if (['facebook', 'instagram'].includes(data.ticket.channel)) {
 								if (!isAdAutomaticMessage(data.message, data.ticket.channel)) {
 									createLeadFromAd(data.ticket);
 								}
 							}
-							
-							// Adiciona o ticket e reordena
+
 							const result = [data.ticket, ...prevTickets].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 							return result;
 						}
 					}
-					
+
 					return prevTickets;
 				});
-				
-				// Atualiza contadores
+
 				setTimeout(() => {
 					loadUnreadCounts();
 				}, 100);
-				
-				// Atualiza mensagens do ticket atual
+
 				const currentTicket = selectedTicketRef.current;
 				if (currentTicket && data.message.ticketId === currentTicket.id) {
 					setMessages((prev) => [...prev, data.message]);
 				}
 			}
-			
+
 			if (data.action === "update") {
-				// Atualizar mensagem existente (ack, isEdited, isDeleted, etc)
 				const currentTicket = selectedTicketRef.current;
 				if (currentTicket && data.message.ticketId === currentTicket.id) {
-					setMessages((prev) => 
-						prev.map((msg) => 
-							msg.id === data.message.id 
+					setMessages((prev) =>
+						prev.map((msg) =>
+							msg.id === data.message.id
 								? { ...msg, ...data.message }
 								: msg
 						)
@@ -1808,15 +1779,12 @@ useEffect(() => {
 			}
 		});
 
-		// Evento para status de digitação
-		socket.on(`company-${user.companyId}-typing`, (data) => {
-			
+		const cleanupTyping = on(`company-${companyId}-typing`, (data) => {
 			const currentTicket = selectedTicketRef.current;
 			if (currentTicket && data.ticketId === currentTicket.id) {
 				setIsTyping(data.isTyping);
 				setTypingUser(data.user);
-				
-				// Auto-remove após 3 segundos
+
 				if (data.isTyping) {
 					setTimeout(() => {
 						setIsTyping(false);
@@ -1826,23 +1794,19 @@ useEffect(() => {
 			}
 		});
 
-		// Listener para atualização de contact
-		socket.on(`company-${user.companyId}-contact`, (data) => {
-			
+		const cleanupContact = on(`company-${companyId}-contact`, (data) => {
 			if (data.action === "update") {
 				const currentTicket = selectedTicketRef.current;
-				
-				// Atualiza o ticket selecionado se o contato for o mesmo
+
 				if (currentTicket && currentTicket.contact?.id === data.contact.id) {
 					setSelectedTicket(prev => ({
 						...prev,
 						contact: data.contact
 					}));
 				}
-				
-				// Atualiza na lista de tickets
-				setTickets(prevTickets => 
-					prevTickets.map(ticket => 
+
+				setTickets(prevTickets =>
+					prevTickets.map(ticket =>
 						ticket.contact?.id === data.contact.id
 							? { ...ticket, contact: data.contact }
 							: ticket
@@ -1852,9 +1816,12 @@ useEffect(() => {
 		});
 
 		return () => {
-			socket.disconnect();
+			cleanupTicket();
+			cleanupAppMessage();
+			cleanupTyping();
+			cleanupContact();
 		};
-	}, [user.companyId]);
+	}, [isReady, user.companyId, on]);
 
 	const hasAssignedUser = (ticket) =>
 		Boolean(ticket?.userId || ticket?.user?.id);
@@ -1869,26 +1836,26 @@ useEffect(() => {
 	// TAB_CONFIG dinâmico baseado no perfil do usuário
 	const TAB_CONFIG = React.useMemo(() => {
 		const tabs = [];
-		
+
 		// Aba de Automação - apenas para admins
 		if (user?.profile === "admin") {
 			tabs.push({ key: "automation", status: "pending", filter: (ticket) => ticket.status === "pending" && !hasAssignedUser(ticket) && !hasQueue(ticket) && !ticket.isGroup });
 		}
-		
+
 		// Aba Aguardando
 		tabs.push({ key: "pending", status: "pending", filter: (ticket) => ticket.status === "pending" && (hasAssignedUser(ticket) || hasQueue(ticket)) && !ticket.isGroup });
-		
+
 		// Aba Atendendo
 		tabs.push({ key: "open", status: "open", filter: (ticket) => ticket.status === "open" && !ticket.isGroup });
-		
+
 		// Aba Grupos - apenas para quem tem permissão
 		if (user?.profile === "admin" || user?.allowGroup === true) {
 			tabs.push({ key: "groups", status: "group" });
 		}
-		
+
 		// Aba Finalizados (acessível via botão)
 		tabs.push({ key: "closed", status: "closed", filter: (ticket) => ticket.status === "closed" && !ticket.isGroup });
-		
+
 		return tabs;
 	}, [user?.profile, user?.allowGroup]);
 
@@ -1896,7 +1863,7 @@ useEffect(() => {
 		// Permissões do usuário
 		const isAdmin = user?.profile === "admin";
 		const canViewAllTickets = isAdmin || user?.allUserChat === "enabled" || user?.allTicket === "enabled";
-		
+
 		const userQueueIds = user?.queues?.map(queue => queue.id).filter(Boolean) || [];
 		const queueFilter = selectedQueues.length > 0 ? selectedQueues : userQueueIds;
 		const params = {
@@ -1930,7 +1897,7 @@ useEffect(() => {
 
 	const applyClientFilters = useCallback((tickets = []) => {
 		let filteredTickets = tickets;
-		
+
 		if (selectedChannelsQuickFilter.length > 0) {
 			filteredTickets = filteredTickets.filter(ticket =>
 				ticket.channel && selectedChannelsQuickFilter.includes(ticket.channel)
@@ -1948,7 +1915,6 @@ useEffect(() => {
 
 	const loadTickets = useCallback(async () => {
 		try {
-			setLoading(true);
 			const currentTab = TAB_CONFIG[tabIndex] || TAB_CONFIG[1];
 			const status = currentTab.status || "pending";
 			const params = {
@@ -1956,27 +1922,26 @@ useEffect(() => {
 				status
 			};
 
-			const { data } = await api.get("/tickets", { params });
-			
+			const data = await fetchTicketsApi({ params });
+			if (!data) return;
+
 			// Para grupos, não aplicar filtros - mostrar direto
 			if (currentTab.key === "groups") {
 				const groupTickets = data.tickets || [];
 				setTickets(groupTickets);
 				return;
 			}
-			
+
 			let filteredTickets = applyClientFilters(data.tickets || []);
 
 			if (currentTab?.filter) {
 				filteredTickets = filteredTickets.filter(currentTab.filter);
 			}
-			
+
 			setTickets(filteredTickets);
 		} catch (err) {
-		} finally {
-			setLoading(false);
 		}
-	}, [tabIndex, buildFilterParams, applyClientFilters, TAB_CONFIG]);
+	}, [tabIndex, buildFilterParams, applyClientFilters, TAB_CONFIG, fetchTicketsApi]);
 
 	const loadTicket = async (id) => {
 		try {
@@ -1992,20 +1957,20 @@ useEffect(() => {
 			const { data } = await api.get(`/messages/${ticketId}`, {
 				params: { pageNumber: 1 }
 			});
-			
+
 			setMessages(data.messages);
 			setHasMore(data.hasMore);
 			setPageNumber(1);
-			
+
 			// Forçar scroll para o final no carregamento
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 100);
-			
+
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 300);
-			
+
 			setTimeout(() => {
 				scrollToBottom(true);
 			}, 500);
@@ -2015,23 +1980,23 @@ useEffect(() => {
 
 	const loadMoreMessages = async () => {
 		if (!selectedTicket || loadingMore || !hasMore) return;
-		
+
 		setLoadingMore(true);
 		const nextPage = pageNumber + 1;
-		
+
 		try {
 			const { data } = await api.get(`/messages/${selectedTicket.id}`, {
 				params: { pageNumber: nextPage }
 			});
-			
+
 			const container = messagesContainerRef.current;
 			const scrollHeightBefore = container.scrollHeight;
 			const scrollTopBefore = container.scrollTop;
-			
+
 			setMessages(prev => [...data.messages, ...prev]);
 			setPageNumber(nextPage);
 			setHasMore(data.hasMore);
-			
+
 			// CORREÇÃO MELHORADA: Mantém a posição exata do usuário
 			setTimeout(() => {
 				if (container) {
@@ -2052,20 +2017,20 @@ useEffect(() => {
 		if (isMobile) {
 			setMobileView("chat");
 		}
-		
+
 		if (ticket.unreadMessages > 0) {
 			try {
 				await api.put(`/tickets/${ticket.id}`, {
 					unreadMessages: 0,
 				});
-				
+
 				setTickets((prevTickets) => {
-					const updatedTickets = prevTickets.map(t => 
+					const updatedTickets = prevTickets.map(t =>
 						t.id === ticket.id ? { ...t, unreadMessages: 0 } : t
 					);
 					return updatedTickets;
 				});
-				
+
 				loadUnreadCounts();
 			} catch (err) {
 			}
@@ -2076,8 +2041,8 @@ useEffect(() => {
 		if (!inputMessage.trim() || !selectedTicket) return;
 
 		try {
-			const messageBody = signMessage 
-				? `*${user.name}:*\n${inputMessage}` 
+			const messageBody = signMessage
+				? `*${user.name}:*\n${inputMessage}`
 				: inputMessage;
 
 			const payload = {
@@ -2141,10 +2106,10 @@ useEffect(() => {
 				mediaType: file.type.startsWith("image")
 					? "image"
 					: file.type.startsWith("video")
-					? "video"
-					: file.type.startsWith("audio")
-					? "audio"
-					: "file",
+						? "video"
+						: file.type.startsWith("audio")
+							? "audio"
+							: "file",
 				body: caption, // **IMPORTANTE: Coloca a legenda no body da mensagem de mídia**
 				fromMe: true,
 				createdAt: new Date().toISOString(),
@@ -2158,7 +2123,7 @@ useEffect(() => {
 			const formData = new FormData();
 			formData.append("fromMe", true);
 			formData.append("isPrivate", "false");
-			
+
 			// Para cada arquivo, adiciona mídia e legenda
 			filesToSend.forEach(file => {
 				formData.append("medias", file);
@@ -2169,24 +2134,24 @@ useEffect(() => {
 				formData.append("quotedMsg", JSON.stringify({ id: replyingTo.id }));
 			}
 
-		await api.post(`/messages/${selectedTicket.id}`, formData, {
-			headers: {
-				"Content-Type": "multipart/form-data",
-			},
-		});
-		
-		// Remove mensagens temporárias
-		setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith("temp-")));
-	} catch (err) {
-		// Remove temporary messages on error
-		setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith("temp-")));
-	} finally {
-		setMediaPreviewOpen(false);
-		setSelectedFile(null);
-		setSelectedFiles([]);
-		setReplyingTo(null);
-	}
-};
+			await api.post(`/messages/${selectedTicket.id}`, formData, {
+				headers: {
+					"Content-Type": "multipart/form-data",
+				},
+			});
+
+			// Remove mensagens temporárias
+			setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith("temp-")));
+		} catch (err) {
+			// Remove temporary messages on error
+			setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith("temp-")));
+		} finally {
+			setMediaPreviewOpen(false);
+			setSelectedFile(null);
+			setSelectedFiles([]);
+			setReplyingTo(null);
+		}
+	};
 
 	const handleStartRecording = async () => {
 		setLoading(true);
@@ -2320,33 +2285,33 @@ useEffect(() => {
 			history.push("/atendimentos");
 			return;
 		}
-		
+
 		history.push("/atendimentos");
 	};
 
 	// **NOVO: Componente para texto de anúncios com "ler mais"**
 	const AdMessageText = ({ text, isBase64, hasMedia }) => {
 		const [expanded, setExpanded] = useState(false);
-		
+
 		// Para anúncios base64, verifica se o texto é longo
 		// Para legendas normais (não-base64), não truncar
 		const shouldTruncate = isBase64 && text.length > 40;
-		const displayText = shouldTruncate && !expanded 
-			? text.substring(0, 40) + "..." 
+		const displayText = shouldTruncate && !expanded
+			? text.substring(0, 40) + "..."
 			: text;
-		
+
 		return (
 			<>
-				<Typography 
+				<Typography
 					className={classes.messageText}
 					style={{ marginTop: hasMedia ? "8px" : "0" }}
 					dangerouslySetInnerHTML={{ __html: formatWhatsAppText(displayText) }}
 				/>
 				{shouldTruncate && (
-					<Typography 
-						style={{ 
-							color: "#00a884", 
-							cursor: "pointer", 
+					<Typography
+						style={{
+							color: "#00a884",
+							cursor: "pointer",
 							fontSize: "0.875em",
 							marginTop: "4px",
 							fontWeight: 500
@@ -2365,10 +2330,10 @@ useEffect(() => {
 	const renderMessageContent = (message) => {
 		const hasMedia = Boolean(message.mediaUrl);
 		const isBase64 = message.body && message.body.startsWith("data:image/");
-		
+
 		// **VERDADE: Backend salva legenda no 'body' quando tem mídia**
 		let messageText = message.body || "";
-		
+
 		// **NOVO: Extrai texto de mensagens base64 (anúncios Facebook/Instagram)**
 		if (isBase64 && messageText.includes(" | ")) {
 			// Formato: data:image/png;base64,... | https://fb.me/... | Título do anúncio | Descrição
@@ -2378,23 +2343,23 @@ useEffect(() => {
 				messageText = parts.slice(2).join(" | "); // Título | Descrição
 			}
 		}
-		
+
 		return (
 			<>
 				{/* Renderiza a mídia se tiver */}
 				{hasMedia && renderMessageMedia(message)}
-				
+
 				{/* **SOLUÇÃO: Se tem mídia, mostra o body como legenda** */}
 				{hasMedia && message.body && message.body.trim() && (
 					<div style={{ marginTop: "8px" }}>
-						<AdMessageText 
-							text={message.body} 
+						<AdMessageText
+							text={message.body}
 							isBase64={false}
 							hasMedia={false}
 						/>
 					</div>
 				)}
-				
+
 				{/* Renderiza o texto normal (apenas se não tiver mídia) */}
 				{!hasMedia && (
 					<>
@@ -2402,16 +2367,16 @@ useEffect(() => {
 							// Condição para exibir texto:
 							const shouldShowText = (
 								// Mensagem de texto normal (sem mídia)
-								(!isBase64 && messageText && 
+								(!isBase64 && messageText &&
 									!["audio", "reactionMessage", "locationMessage", "contactMessage"].includes(message.mediaType)
 								) ||
 								// **NOVO: Base64 (anúncios Facebook/Instagram) - extrai e exibe o texto**
 								(isBase64 && messageText && messageText.includes(" | "))
 							);
-							
+
 							return shouldShowText && messageText && (
-								<AdMessageText 
-									text={messageText} 
+								<AdMessageText
+									text={messageText}
 									isBase64={isBase64}
 									hasMedia={hasMedia}
 								/>
@@ -2428,7 +2393,7 @@ useEffect(() => {
 
 		const isBase64Image = message.body && message.body.startsWith("data:image/");
 		let imageUrl = isBase64Image ? message.body : message.mediaUrl;
-		
+
 		// **NOVO: Extrai apenas o base64 da imagem de anúncios Facebook/Instagram**
 		if (isBase64Image && message.body.includes(" | ")) {
 			const parts = message.body.split(" | ");
@@ -2455,16 +2420,16 @@ useEffect(() => {
 		}
 
 		if (message.mediaType === "audio") {
-			const avatarUrl = message.fromMe 
-				? user.profileImage 
+			const avatarUrl = message.fromMe
+				? user.profileImage
 				: selectedTicket?.contact?.profilePicUrl;
-			const userName = message.fromMe 
-				? user.name 
+			const userName = message.fromMe
+				? user.name
 				: selectedTicket?.contact?.name;
-			
+
 			return (
-				<AudioModal 
-					url={message.mediaUrl} 
+				<AudioModal
+					url={message.mediaUrl}
 					avatarUrl={avatarUrl}
 					userName={userName}
 				/>
@@ -2492,14 +2457,14 @@ useEffect(() => {
 			// Extrai nome do arquivo e extensão da URL
 			const fileName = message.body || message.mediaUrl.split('/').pop().split('?')[0] || 'arquivo';
 			const fileExtension = fileName.split('.').pop().toUpperCase();
-			
+
 			// Função para formatar tamanho do arquivo (se disponível)
 			const formatFileSize = (bytes) => {
 				if (!bytes) return '';
 				const mb = bytes / (1024 * 1024);
 				return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(2)} KB`;
 			};
-			
+
 			// Ícone baseado no tipo de arquivo
 			const getFileIcon = () => {
 				const ext = fileExtension.toLowerCase();
@@ -2510,11 +2475,11 @@ useEffect(() => {
 				if (['txt', 'xml'].includes(ext)) return <DocumentIcon style={{ fontSize: 40, color: '#fff' }} />;
 				return <FileIcon style={{ fontSize: 40, color: '#fff' }} />;
 			};
-			
+
 			return (
-				<div style={{ 
-					display: 'flex', 
-					alignItems: 'center', 
+				<div style={{
+					display: 'flex',
+					alignItems: 'center',
 					gap: 12,
 					backgroundColor: '#1f2c33',
 					padding: '12px 16px',
@@ -2535,11 +2500,11 @@ useEffect(() => {
 					}}>
 						{getFileIcon()}
 					</div>
-					
+
 					{/* Informações do arquivo */}
 					<div style={{ flex: 1, minWidth: 0 }}>
-						<Typography style={{ 
-							fontSize: 14, 
+						<Typography style={{
+							fontSize: 14,
 							color: '#e9edef',
 							fontWeight: 500,
 							overflow: 'hidden',
@@ -2548,15 +2513,15 @@ useEffect(() => {
 						}}>
 							{fileName}
 						</Typography>
-						<Typography style={{ 
-							fontSize: 12, 
+						<Typography style={{
+							fontSize: 12,
 							color: '#8696a0',
 							marginTop: 2
 						}}>
 							{fileExtension} • {message.fileSize ? formatFileSize(message.fileSize) : '47 MB'}
 						</Typography>
 					</div>
-					
+
 					{/* Botão de download */}
 					<IconButton
 						size="small"
@@ -2616,11 +2581,11 @@ useEffect(() => {
 		messages.forEach((message, index) => {
 			const hasMedia = message.mediaUrl && message.mediaType !== "audio";
 			const prevMessage = messages[index - 1];
-			
+
 			// Verifica se deve agrupar com a mensagem anterior
-			const shouldGroup = hasMedia && 
-				prevMessage && 
-				prevMessage.mediaUrl && 
+			const shouldGroup = hasMedia &&
+				prevMessage &&
+				prevMessage.mediaUrl &&
 				prevMessage.mediaType !== "audio" &&
 				message.fromMe === prevMessage.fromMe &&
 				Math.abs(new Date(message.createdAt) - new Date(prevMessage.createdAt)) < 5000; // 5 segundos
@@ -2639,7 +2604,7 @@ useEffect(() => {
 						grouped.push(currentGroup.messages[0]);
 					}
 				}
-				
+
 				// Inicia novo grupo ou adiciona mensagem individual
 				if (hasMedia) {
 					currentGroup = {
@@ -2675,9 +2640,9 @@ useEffect(() => {
 		// Filtra mensagens deletadas se não estiver no modo de visualização de deletadas
 		const filteredMessages = showDeleted ? messages : messages.filter(msg => !msg.isDeleted);
 		const totalFiles = filteredMessages.length;
-		
+
 		if (totalFiles === 0) return null;
-		
+
 		const visibleFiles = Math.min(totalFiles, 4);
 		const remainingFiles = totalFiles - visibleFiles;
 
@@ -2694,7 +2659,7 @@ useEffect(() => {
 		const itemHeight = totalFiles === 2 ? '200px' : '150px';
 
 		return (
-			<div style={{ 
+			<div style={{
 				display: 'grid',
 				gridTemplateColumns: `repeat(${layout.columns}, 1fr)`,
 				gap: 4,
@@ -2703,11 +2668,11 @@ useEffect(() => {
 			}}>
 				{filteredMessages.slice(0, visibleFiles).map((msg, index) => {
 					const isLast = index === visibleFiles - 1 && remainingFiles > 0;
-					
+
 					return (
-						<div 
+						<div
 							key={msg.id}
-							style={{ 
+							style={{
 								position: 'relative',
 								width: '100%',
 								height: itemHeight,
@@ -2750,18 +2715,18 @@ useEffect(() => {
 									)}
 								</>
 							) : msg.mediaType === 'video' ? (
-							<>
-								<video
-									src={msg.mediaUrl}
-									style={{
-										width: '100%',
-										height: '100%',
-										objectFit: 'cover',
-										cursor: 'pointer',
-										filter: isLast ? 'brightness(0.5)' : 'none'
-									}}
-									onClick={() => handleOpenMediaGallery(msg)}
-								/>
+								<>
+									<video
+										src={msg.mediaUrl}
+										style={{
+											width: '100%',
+											height: '100%',
+											objectFit: 'cover',
+											cursor: 'pointer',
+											filter: isLast ? 'brightness(0.5)' : 'none'
+										}}
+										onClick={() => handleOpenMediaGallery(msg)}
+									/>
 									{isLast && (
 										<div style={{
 											position: 'absolute',
@@ -2795,8 +2760,8 @@ useEffect(() => {
 									filter: isLast ? 'brightness(0.7)' : 'none'
 								}}>
 									<DocumentIcon style={{ fontSize: 40, color: '#8696a0', marginBottom: 4 }} />
-									<Typography style={{ 
-										fontSize: 11, 
+									<Typography style={{
+										fontSize: 11,
 										color: '#e9edef',
 										textAlign: 'center',
 										overflow: 'hidden',
@@ -2867,20 +2832,20 @@ useEffect(() => {
 				api.get("/tags"),
 				api.get("/whatsapp")
 			]);
-			
+
 			// Filtra filas baseado nas permissões do usuário
 			const allQueues = Array.isArray(queuesRes.data) ? queuesRes.data : [];
 			const userQueueIds = user?.queues?.map(q => q.id) || [];
-			const filteredQueues = user?.profile === "admin" 
-				? allQueues 
+			const filteredQueues = user?.profile === "admin"
+				? allQueues
 				: allQueues.filter(q => userQueueIds.includes(q.id));
-			
+
 			// Filtra conexões baseado nas permissões do usuário
 			const allWhatsapps = Array.isArray(whatsappsRes.data) ? whatsappsRes.data : [];
 			const filteredWhatsapps = user?.profile === "admin" || !user?.whatsappId
 				? allWhatsapps
 				: allWhatsapps.filter(w => w.id === user.whatsappId);
-			
+
 			setQueues(filteredQueues);
 			setUsers(Array.isArray(usersRes.data.users) ? usersRes.data.users : (Array.isArray(usersRes.data) ? usersRes.data : []));
 			setTags(Array.isArray(tagsRes.data) ? tagsRes.data : []);
@@ -2895,7 +2860,7 @@ useEffect(() => {
 
 	const sumUnread = (tickets = []) =>
 		tickets.reduce((total, ticket) => total + (ticket.unreadMessages || 0), 0);
-	
+
 	const countTickets = (tickets = []) => tickets.length;
 
 	const loadUnreadCounts = async () => {
@@ -2908,7 +2873,7 @@ useEffect(() => {
 				api.get("/tickets", { params: { ...baseParams, status: "closed" } }),
 				api.get("/tickets", { params: { ...baseParams, status: "group" } })
 			]);
-			
+
 			// Buscar grupos do endpoint específico
 			const groupTickets = groupRes.data?.tickets || [];
 			const pendingTickets = pendingRes.data?.tickets || [];
@@ -2925,7 +2890,7 @@ useEffect(() => {
 				automation: countTickets(automationTickets),
 				groups: countTickets(groupTickets)
 			};
-			
+
 			setUnreadCounts(counts);
 		} catch (err) {
 		}
@@ -2933,35 +2898,35 @@ useEffect(() => {
 
 	const handleSelectQuickMessage = async (quickMessage) => {
 		setQuickMessagesOpen(false);
-		
+
 		if (!selectedTicket) {
 			setInputMessage(quickMessage.message || "");
 			return;
 		}
-		
+
 		try {
 			// Se a resposta rápida tem arquivo, envia primeiro o arquivo
 			if (quickMessage.mediaPath) {
 				// Buscar o arquivo da URL
 				const response = await fetch(quickMessage.mediaPath);
 				const blob = await response.blob();
-				
+
 				// Criar um File a partir do blob
 				const fileName = quickMessage.mediaName || "arquivo";
 				const file = new File([blob], fileName, { type: blob.type });
-				
+
 				// Enviar mídia SEM legenda (arquivo primeiro)
 				const formData = new FormData();
 				formData.append("medias", file);
 				formData.append("body", "");
-				
+
 				await api.post(`/messages/${selectedTicket.id}`, formData, {
 					headers: {
 						"Content-Type": "multipart/form-data",
 					},
 				});
 			}
-			
+
 			// Depois envia o texto como mensagem separada (se tiver texto)
 			if (quickMessage.message && quickMessage.message.trim()) {
 				await api.post(`/messages/${selectedTicket.id}`, {
@@ -2969,7 +2934,7 @@ useEffect(() => {
 					fromMe: true,
 				});
 			}
-			
+
 			setReplyingTo(null);
 			setMediaPreviewOpen(false);
 			setSelectedFile(null);
@@ -2997,7 +2962,7 @@ useEffect(() => {
 
 	const handleDeleteMessage = async () => {
 		if (!selectedMessage) return;
-		
+
 		try {
 			await api.delete(`/messages/${selectedMessage.id}`);
 			loadMessages(selectedTicket.id);
@@ -3009,7 +2974,7 @@ useEffect(() => {
 
 	const handleEditMessage = async (newText) => {
 		if (!selectedMessage) return;
-		
+
 		try {
 			await api.post(`/messages/edit/${selectedMessage.id}`, {
 				body: newText,
@@ -3023,7 +2988,7 @@ useEffect(() => {
 
 	const handleForwardMessage = async (contactIds) => {
 		if (!selectedMessage) return;
-		
+
 		try {
 			for (const contactId of contactIds) {
 				// Buscar ou criar ticket para o contato
@@ -3032,7 +2997,7 @@ useEffect(() => {
 					userId: user.id,
 					status: "open",
 				});
-				
+
 				// Enviar mensagem para o ticket
 				await api.post(`/messages/${ticketData.id}`, {
 					body: selectedMessage.body,
@@ -3052,19 +3017,19 @@ useEffect(() => {
 
 	const toggleFilter = (type, id) => {
 		if (type === "queue") {
-			setSelectedQueues(prev => 
+			setSelectedQueues(prev =>
 				prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
 			);
 		} else if (type === "user") {
-			setSelectedUsers(prev => 
+			setSelectedUsers(prev =>
 				prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
 			);
 		} else if (type === "tag") {
-			setSelectedTags(prev => 
+			setSelectedTags(prev =>
 				prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
 			);
 		} else if (type === "whatsapp") {
-			setSelectedWhatsapps(prev => 
+			setSelectedWhatsapps(prev =>
 				prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
 			);
 		}
@@ -3144,7 +3109,7 @@ useEffect(() => {
 
 	const handleRemoveGroup = async (ticket) => {
 		if (!ticket || !ticket.isGroup) return;
-		
+
 		const confirmRemover = await showConfirm({
 			type: "error",
 			title: "Remover Grupo",
@@ -3232,7 +3197,7 @@ useEffect(() => {
 								<IconButton
 									size="small"
 									onClick={() => setShowAllTickets(!showAllTickets)}
-									style={{ 
+									style={{
 										marginRight: 8,
 										backgroundColor: showAllTickets ? "#00a884" : "transparent",
 										color: showAllTickets ? "#ffffff" : "inherit"
@@ -3286,167 +3251,164 @@ useEffect(() => {
 					>
 						{/* Aba de Automação - apenas para admins */}
 						{user?.profile === "admin" && (
-							<Tab 
+							<Tab
 								label={
-									<Badge 
-										badgeContent={unreadCounts.automation} 
+									<Badge
+										badgeContent={unreadCounts.automation}
 										color="error"
 										max={99}
 									>
 										<span style={{ fontSize: '0.75rem' }}>Automação</span>
 									</Badge>
-								} 
+								}
 							/>
 						)}
-						<Tab 
+						<Tab
 							label={
-								<Badge 
-									badgeContent={unreadCounts.pending} 
+								<Badge
+									badgeContent={unreadCounts.pending}
 									color="error"
 									max={99}
 								>
 									<span style={{ fontSize: '0.75rem' }}>Aguardando</span>
 								</Badge>
-							} 
+							}
 						/>
-						<Tab 
+						<Tab
 							label={
-								<Badge 
-									badgeContent={unreadCounts.open} 
+								<Badge
+									badgeContent={unreadCounts.open}
 									color="error"
 									max={99}
 								>
 									<span style={{ fontSize: '0.75rem' }}>Atendendo</span>
 								</Badge>
-							} 
+							}
 						/>
 						{/* Aba de Grupos - apenas para quem tem permissão */}
 						{(user?.profile === "admin" || user?.allowGroup === true) && (
-							<Tab 
+							<Tab
 								label={
-									<Badge 
-										badgeContent={unreadCounts.groups} 
+									<Badge
+										badgeContent={unreadCounts.groups}
 										color="primary"
 										max={99}
 									>
 										<span style={{ fontSize: '0.75rem' }}>Grupos</span>
 									</Badge>
-								} 
+								}
 							/>
 						)}
 					</Tabs>
 
 					{/* Tickets List */}
 					<div className={classes.ticketsList}>
-						{loading ? (
-							<div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-								<CircularProgress size={30} />
-							</div>
-						) : tickets.length === 0 ? (
-							<div style={{ padding: 20, textAlign: "center", color: "#667781" }}>
-								Nenhum atendimento encontrado
-							</div>
-						) : (
-							tickets.map((ticket) => (
-								<div
-									key={ticket.id}
-									className={`${classes.ticketItem} ${selectedTicket?.id === ticket.id ? "active" : ""}`}
-									onClick={() => handleTicketClick(ticket)}
-									onContextMenu={(e) => handleTicketContextMenu(e)}
-								>
-									<Avatar
-										src={ticket.contact?.profilePicUrl}
-										className={classes.ticketAvatar}
+						<SafeComponent
+							loading={loading && tickets.length === 0}
+							error={errorTickets}
+							data={tickets}
+							renderData={(records) => (
+								records.map((ticket) => (
+									<div
+										key={ticket.id}
+										className={`${classes.ticketItem} ${selectedTicket?.id === ticket.id ? "active" : ""}`}
+										onClick={() => handleTicketClick(ticket)}
+										onContextMenu={(e) => handleTicketContextMenu(e)}
 									>
-										{ticket.contact?.name?.charAt(0)}
-									</Avatar>
-									<div className={classes.ticketInfo}>
-										<Typography className={classes.ticketName}>
-											{ticket.contact?.name || "Sem nome"}
-										</Typography>
-										<div className={classes.ticketLastMessage}>
-											{ticket.lastMessage || "Sem mensagens"}
-										</div>
+										<Avatar
+											src={ticket.contact?.profilePicUrl}
+											className={classes.ticketAvatar}
+										>
+											{ticket.contact?.name?.charAt(0)}
+										</Avatar>
+										<div className={classes.ticketInfo}>
+											<Typography className={classes.ticketName}>
+												{ticket.contact?.name || "Sem nome"}
+											</Typography>
+											<div className={classes.ticketLastMessage}>
+												{ticket.lastMessage || "Sem mensagens"}
+											</div>
 
-										<div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-											{ticket.whatsapp?.name && (
-												(() => {
-													const channelStyle = getChannelStyle(ticket.channel);
-													return (
-														<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: channelStyle.bg, padding: '2px 6px', borderRadius: 4 }}>
-															<ConnectionIcon connectionType={ticket.channel} size={12} />
-															<Typography style={{ fontSize: 10, color: channelStyle.color, fontWeight: 500 }}>
-																{ticket.whatsapp.name}
-															</Typography>
+											<div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+												{ticket.whatsapp?.name && (
+													(() => {
+														const channelStyle = getChannelStyle(ticket.channel);
+														return (
+															<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: channelStyle.bg, padding: '2px 6px', borderRadius: 4 }}>
+																<ConnectionIcon connectionType={ticket.channel} size={12} />
+																<Typography style={{ fontSize: 10, color: channelStyle.color, fontWeight: 500 }}>
+																	{ticket.whatsapp.name}
+																</Typography>
+															</div>
+														);
+													})()
+												)}
+												{ticket.queue?.name && (
+													<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
+														<Typography style={{ fontSize: 10, color: '#667781', fontWeight: 500 }}>
+															{ticket.queue.name}
+														</Typography>
+													</div>
+												)}
+												{tabIndex === 4 && (ticket.lastFlowId || ticket.hashFlowId) && (
+													<Tooltip title={`ID: ${ticket.lastFlowId || ticket.hashFlowId}`} arrow>
+														<div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f3e8ff', padding: '2px 6px', borderRadius: 4 }}>
+															<SmartToyIcon style={{ fontSize: 12, color: '#9054bc' }} />
 														</div>
-													);
-												})()
-											)}
-											{ticket.queue?.name && (
-												<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
-													<Typography style={{ fontSize: 10, color: '#667781', fontWeight: 500 }}>
-														{ticket.queue.name}
-													</Typography>
+													</Tooltip>
+												)}
+												{ticket.user?.name && (
+													<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
+														<Typography style={{ fontSize: 10, color: '#667781', fontWeight: 500 }}>
+															{ticket.user.name}
+														</Typography>
+													</div>
+												)}
+												{/* Tempo de espera - aparece apenas uma vez */}
+												{TAB_CONFIG[tabIndex]?.key === "pending" && formatWaitingTime(ticket) && (
+													<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#fff3e0', padding: '2px 6px', borderRadius: 4 }}>
+														<Typography style={{ fontSize: 10, color: '#ff9800', fontWeight: 500 }}>
+															{formatWaitingTime(ticket)}
+														</Typography>
+													</div>
+												)}
+											</div>
+										</div>
+										<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginLeft: 'auto', alignSelf: 'flex-start' }}>
+											<Typography className={classes.ticketTime}>
+												{ticket.lastMessage && formatMessageTime(ticket.updatedAt)}
+											</Typography>
+											{ticket.unreadMessages > 0 && (
+												<div className={classes.unreadBadge}>
+													{ticket.unreadMessages}
 												</div>
 											)}
-											{tabIndex === 4 && (ticket.lastFlowId || ticket.hashFlowId) && (
-												<Tooltip title={`ID: ${ticket.lastFlowId || ticket.hashFlowId}`} arrow>
-													<div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f3e8ff', padding: '2px 6px', borderRadius: 4 }}>
-														<SmartToyIcon style={{ fontSize: 12, color: '#9054bc' }} />
-													</div>
+											{/* Botão remover grupo - apenas na aba de Grupos */}
+											{tabIndex === 3 && ticket.isGroup && (
+												<Tooltip title="Remover grupo">
+													<IconButton
+														size="small"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleRemoveGroup(ticket);
+														}}
+														style={{ padding: 2 }}
+													>
+														<DeleteIcon style={{ fontSize: 16, color: '#f44336' }} />
+													</IconButton>
 												</Tooltip>
 											)}
-											{ticket.user?.name && (
-												<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
-													<Typography style={{ fontSize: 10, color: '#667781', fontWeight: 500 }}>
-														{ticket.user.name}
-													</Typography>
-												</div>
-											)}
-											{/* Tempo de espera - aparece apenas uma vez */}
-											{TAB_CONFIG[tabIndex]?.key === "pending" && formatWaitingTime(ticket) && (
-												<div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: '#fff3e0', padding: '2px 6px', borderRadius: 4 }}>
-													<Typography style={{ fontSize: 10, color: '#ff9800', fontWeight: 500 }}>
-														{formatWaitingTime(ticket)}
-													</Typography>
-												</div>
-											)}
 										</div>
 									</div>
-									<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginLeft: 'auto', alignSelf: 'flex-start' }}>
-										<Typography className={classes.ticketTime}>
-											{ticket.lastMessage && formatMessageTime(ticket.updatedAt)}
-										</Typography>
-										{ticket.unreadMessages > 0 && (
-											<div className={classes.unreadBadge}>
-												{ticket.unreadMessages}
-											</div>
-										)}
-										{/* Botão remover grupo - apenas na aba de Grupos */}
-										{tabIndex === 3 && ticket.isGroup && (
-											<Tooltip title="Remover grupo">
-												<IconButton
-													size="small"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleRemoveGroup(ticket);
-													}}
-													style={{ padding: 2 }}
-												>
-													<DeleteIcon style={{ fontSize: 16, color: '#f44336' }} />
-												</IconButton>
-											</Tooltip>
-										)}
-									</div>
-								</div>
-							))
-						)}
+								))
+							)}
+						/>
 					</div>
 				</div>
 			)}
 
 			{selectedTicketForMenu && (
-				<TicketActionsMenu 
+				<TicketActionsMenu
 					ticket={selectedTicketForMenu}
 					anchorEl={ticketMenuAnchor}
 					open={Boolean(ticketMenuAnchor)}
@@ -3459,7 +3421,7 @@ useEffect(() => {
 						loadUnreadCounts();
 						setTicketMenuAnchor(null);
 						setSelectedTicketForMenu(null);
-					}} 
+					}}
 				/>
 			)}
 
@@ -3488,7 +3450,7 @@ useEffect(() => {
 							</IconButton>
 						)}
 					</div>
-					
+
 					{Array.isArray(queues) && queues.length > 0 && (
 						<div style={{ marginBottom: 12 }}>
 							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 6 }}>
@@ -3512,7 +3474,7 @@ useEffect(() => {
 							</div>
 						</div>
 					)}
-					
+
 					{Array.isArray(users) && users.length > 0 && (
 						<div style={{ marginBottom: 12 }}>
 							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 6 }}>
@@ -3536,7 +3498,7 @@ useEffect(() => {
 							</div>
 						</div>
 					)}
-					
+
 					{Array.isArray(tags) && tags.length > 0 && (
 						<div style={{ marginBottom: 12 }}>
 							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 6 }}>
@@ -3560,7 +3522,7 @@ useEffect(() => {
 							</div>
 						</div>
 					)}
-					
+
 					{/* Filtro de Conexões */}
 					{Array.isArray(whatsapps) && whatsapps.length > 0 && (
 						<div style={{ marginBottom: 12 }}>
@@ -3585,7 +3547,7 @@ useEffect(() => {
 							</div>
 						</div>
 					)}
-					
+
 					{/* Filtro de Direção da Mensagem */}
 					<div>
 						<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 6 }}>
@@ -3707,8 +3669,8 @@ useEffect(() => {
 											backgroundColor: '#25d366',
 											animation: 'pulse 1.5s ease-in-out infinite'
 										}} />
-										<Typography style={{ 
-											fontSize: 14, 
+										<Typography style={{
+											fontSize: 14,
 											color: '#111b21',
 											fontStyle: 'italic'
 										}}>
@@ -3716,7 +3678,7 @@ useEffect(() => {
 										</Typography>
 									</div>
 								)}
-								
+
 								{loadingMore && (
 									<div style={{
 										display: 'flex',
@@ -3727,7 +3689,7 @@ useEffect(() => {
 										<Typography variant="caption">Carregando mensagens antigas...</Typography>
 									</div>
 								)}
-								
+
 								<>
 									{groupConsecutiveMediaMessages(messages).map((item) => {
 										// Se for um grupo de mensagens com múltiplos arquivos
@@ -3735,27 +3697,132 @@ useEffect(() => {
 											const firstMessage = item.messages[0];
 											const allDeleted = item.messages.every(msg => msg.isDeleted);
 											const someDeleted = item.messages.some(msg => msg.isDeleted);
-											
+
 											return (
 												<div
 													key={item.id}
 													className={classes.messageGroup}
-													style={{ 
+													style={{
 														alignItems: firstMessage.fromMe ? "flex-end" : "flex-start",
 														position: "relative",
 													}}
 												>
+													<div
+														className={classes.messageBubble}
+														style={{
+															backgroundColor: firstMessage.fromMe ? "#d9fdd3" : "#ffffff",
+															padding: "8px 12px",
+															position: "relative",
+															cursor: !allDeleted ? "pointer" : "default"
+														}}
+														onDoubleClick={(e) => {
+															if (!allDeleted) {
+																handleMessageMenuOpen(e, firstMessage);
+															}
+														}}
+														onMouseEnter={(e) => {
+															const menuBtn = e.currentTarget.querySelector('.message-menu-btn');
+															if (menuBtn) menuBtn.style.opacity = '1';
+														}}
+														onMouseLeave={(e) => {
+															const menuBtn = e.currentTarget.querySelector('.message-menu-btn');
+															if (menuBtn && !messageMenuAnchor) menuBtn.style.opacity = '0';
+														}}
+													>
+														{!allDeleted && (
+															<IconButton
+																size="small"
+																className="message-menu-btn"
+																onClick={(e) => handleMessageMenuOpen(e, firstMessage)}
+																style={{
+																	position: "absolute",
+																	top: "4px",
+																	right: "4px",
+																	left: "auto",
+																	opacity: 0,
+																	transition: "opacity 0.2s",
+																	padding: "4px",
+																	backgroundColor: "rgba(0,0,0,0.05)",
+																	zIndex: 10,
+																}}
+															>
+																<MoreVertIcon style={{ fontSize: 16 }} />
+															</IconButton>
+														)}
+
+														{allDeleted ? (
+															<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+																<Typography style={{ color: "#d32f2f", fontSize: "14px", fontStyle: "italic" }}>
+																	{item.messages.length} mensagens apagadas
+																</Typography>
+																<IconButton
+																	size="small"
+																	onClick={() => setViewingDeletedMessage(viewingDeletedMessage === firstMessage.id ? null : firstMessage.id)}
+																	style={{ padding: "4px" }}
+																>
+																	<VisibilityIcon style={{ fontSize: 18, color: "#667781" }} />
+																</IconButton>
+															</div>
+														) : (
+															<>
+																{/* Renderiza grid de múltiplos arquivos */}
+																{renderMediaGrid(item.messages)}
+
+																{someDeleted && (
+																	<Typography style={{ fontSize: "12px", color: "#d32f2f", fontStyle: "italic", marginTop: "4px" }}>
+																		Algumas mensagens foram apagadas
+																	</Typography>
+																)}
+															</>
+														)}
+
+														{allDeleted && viewingDeletedMessage === firstMessage.id && (
+															<div style={{
+																marginTop: "8px",
+																padding: "8px",
+																backgroundColor: "rgba(0,0,0,0.05)",
+																borderRadius: "4px",
+																borderLeft: "3px solid #d32f2f"
+															}}>
+																{renderMediaGrid(item.messages, true)}
+															</div>
+														)}
+
+														<div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+															{!allDeleted && (
+																<Typography style={{ fontSize: "11px", color: "#667781", fontWeight: 500 }}>
+																	{firstMessage.fromMe ? (firstMessage.fromAgent ? "Automação" : (firstMessage.user?.name || user.name)) : selectedTicket?.contact?.name} •
+																</Typography>
+															)}
+															<Typography className={classes.messageTime}>
+																{formatMessageTime(firstMessage.createdAt)}
+															</Typography>
+														</div>
+													</div>
+												</div>
+											);
+										}
+
+										return (
+											<div
+												key={item.id}
+												className={classes.messageGroup}
+												style={{
+													alignItems: item.fromMe ? "flex-end" : "flex-start",
+													position: "relative",
+												}}
+											>
 												<div
 													className={classes.messageBubble}
 													style={{
-														backgroundColor: firstMessage.fromMe ? "#d9fdd3" : "#ffffff",
+														backgroundColor: item.fromMe ? "#d9fdd3" : "#ffffff",
 														padding: "8px 12px",
 														position: "relative",
-														cursor: !allDeleted ? "pointer" : "default"
+														cursor: item.isDeleted ? "default" : "pointer"
 													}}
 													onDoubleClick={(e) => {
-														if (!allDeleted) {
-															handleMessageMenuOpen(e, firstMessage);
+														if (!item.isDeleted) {
+															handleMessageMenuOpen(e, item);
 														}
 													}}
 													onMouseEnter={(e) => {
@@ -3767,11 +3834,11 @@ useEffect(() => {
 														if (menuBtn && !messageMenuAnchor) menuBtn.style.opacity = '0';
 													}}
 												>
-													{!allDeleted && (
+													{!item.isDeleted && (
 														<IconButton
 															size="small"
 															className="message-menu-btn"
-															onClick={(e) => handleMessageMenuOpen(e, firstMessage)}
+															onClick={(e) => handleMessageMenuOpen(e, item)}
 															style={{
 																position: "absolute",
 																top: "4px",
@@ -3787,15 +3854,15 @@ useEffect(() => {
 															<MoreVertIcon style={{ fontSize: 16 }} />
 														</IconButton>
 													)}
-													
-													{allDeleted ? (
+
+													{item.isDeleted ? (
 														<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
 															<Typography style={{ color: "#d32f2f", fontSize: "14px", fontStyle: "italic" }}>
-																{item.messages.length} mensagens apagadas
+																Mensagem apagada
 															</Typography>
 															<IconButton
 																size="small"
-																onClick={() => setViewingDeletedMessage(viewingDeletedMessage === firstMessage.id ? null : firstMessage.id)}
+																onClick={() => setViewingDeletedMessage(viewingDeletedMessage === item.id ? null : item.id)}
 																style={{ padding: "4px" }}
 															>
 																<VisibilityIcon style={{ fontSize: 18, color: "#667781" }} />
@@ -3803,469 +3870,364 @@ useEffect(() => {
 														</div>
 													) : (
 														<>
-															{/* Renderiza grid de múltiplos arquivos */}
-															{renderMediaGrid(item.messages)}
-															
-															{someDeleted && (
-																<Typography style={{ fontSize: "12px", color: "#d32f2f", fontStyle: "italic", marginTop: "4px" }}>
-																	Algumas mensagens foram apagadas
-																</Typography>
+															{/* Quoted Message */}
+															{item.quotedMsg && (
+																<div style={{
+																	backgroundColor: 'rgba(0,0,0,0.05)',
+																	borderLeft: '4px solid #00a884',
+																	padding: '6px 8px',
+																	borderRadius: '4px',
+																	marginBottom: '6px',
+																	cursor: 'pointer'
+																}}>
+																	<Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500, marginBottom: 2 }}>
+																		{item.quotedMsg.fromMe ? (item.quotedMsg.fromAgent ? "Automação" : (item.quotedMsg.user?.name || user.name)) : selectedTicket?.contact?.name}
+																	</Typography>
+																	<Typography style={{
+																		fontSize: 13,
+																		color: '#667781',
+																		overflow: 'hidden',
+																		textOverflow: 'ellipsis',
+																		whiteSpace: 'nowrap'
+																	}}>
+																		{renderMessageContent(item.quotedMsg)}
+																	</Typography>
+																</div>
 															)}
+															{renderMessageContent(item)}
 														</>
 													)}
-													
-													{allDeleted && viewingDeletedMessage === firstMessage.id && (
+
+													{item.isDeleted && viewingDeletedMessage === item.id && (
 														<div style={{
-															marginTop: "8px", 
-															padding: "8px", 
-															backgroundColor: "rgba(0,0,0,0.05)", 
+															marginTop: "8px",
+															padding: "8px",
+															backgroundColor: "rgba(0,0,0,0.05)",
 															borderRadius: "4px",
 															borderLeft: "3px solid #d32f2f"
 														}}>
-															{renderMediaGrid(item.messages, true)}
+															{renderMessageContent(item)}
 														</div>
 													)}
-													
+
 													<div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
-														{!allDeleted && (
+														{!item.isDeleted && (
 															<Typography style={{ fontSize: "11px", color: "#667781", fontWeight: 500 }}>
-																{firstMessage.fromMe ? (firstMessage.fromAgent ? "Automação" : (firstMessage.user?.name || user.name)) : selectedTicket?.contact?.name} •
+																{item.fromMe ? (item.fromAgent ? "Automação" : (item.user?.name || user.name)) : selectedTicket?.contact?.name} •
 															</Typography>
 														)}
 														<Typography className={classes.messageTime}>
-															{formatMessageTime(firstMessage.createdAt)}
+															{formatMessageDateTime(item.createdAt)}
 														</Typography>
+														{item.isEdited && !item.isDeleted && (
+															<EditIcon style={{ fontSize: 14, color: "#667781" }} />
+														)}
+														{item.fromMe && !item.isDeleted && (
+															<>
+																{item.ack === 0 && (
+																	<DoneIcon style={{ fontSize: 16, color: "#667781" }} />
+																)}
+																{item.ack === 1 && (
+																	<DoneIcon style={{ fontSize: 16, color: "#667781" }} />
+																)}
+																{item.ack === 2 && (
+																	<DoneAllIcon style={{ fontSize: 16, color: "#667781" }} />
+																)}
+																{(item.ack === 3 || item.ack === 4) && (
+																	<DoneAllIcon style={{ fontSize: 16, color: "#34b7f1" }} />
+																)}
+															</>
+														)}
 													</div>
 												</div>
 											</div>
 										);
-									}
-									
-									return (
-										<div
-											key={item.id}
-											className={classes.messageGroup}
-											style={{ 
-												alignItems: item.fromMe ? "flex-end" : "flex-start",
-												position: "relative",
-											}}
-										>
-											<div
-												className={classes.messageBubble}
-												style={{
-													backgroundColor: item.fromMe ? "#d9fdd3" : "#ffffff",
-													padding: "8px 12px",
-													position: "relative",
-													cursor: item.isDeleted ? "default" : "pointer"
-												}}
-												onDoubleClick={(e) => {
-													if (!item.isDeleted) {
-														handleMessageMenuOpen(e, item);
-													}
-												}}
-												onMouseEnter={(e) => {
-													const menuBtn = e.currentTarget.querySelector('.message-menu-btn');
-													if (menuBtn) menuBtn.style.opacity = '1';
-												}}
-												onMouseLeave={(e) => {
-													const menuBtn = e.currentTarget.querySelector('.message-menu-btn');
-													if (menuBtn && !messageMenuAnchor) menuBtn.style.opacity = '0';
-												}}
-											>
-												{!item.isDeleted && (
-													<IconButton
-														size="small"
-														className="message-menu-btn"
-														onClick={(e) => handleMessageMenuOpen(e, item)}
-														style={{
-															position: "absolute",
-															top: "4px",
-															right: "4px",
-															left: "auto",
-															opacity: 0,
-															transition: "opacity 0.2s",
-															padding: "4px",
-															backgroundColor: "rgba(0,0,0,0.05)",
-															zIndex: 10,
-														}}
-													>
-														<MoreVertIcon style={{ fontSize: 16 }} />
-													</IconButton>
-												)}
-												
-												{item.isDeleted ? (
-													<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-														<Typography style={{ color: "#d32f2f", fontSize: "14px", fontStyle: "italic" }}>
-															Mensagem apagada
-														</Typography>
-														<IconButton
-															size="small"
-															onClick={() => setViewingDeletedMessage(viewingDeletedMessage === item.id ? null : item.id)}
-															style={{ padding: "4px" }}
-														>
-															<VisibilityIcon style={{ fontSize: 18, color: "#667781" }} />
-														</IconButton>
-													</div>
-												) : (
-													<>
-														{/* Quoted Message */}
-														{item.quotedMsg && (
-															<div style={{
-																backgroundColor: 'rgba(0,0,0,0.05)',
-																borderLeft: '4px solid #00a884',
-																padding: '6px 8px',
-																borderRadius: '4px',
-																marginBottom: '6px',
-																cursor: 'pointer'
-															}}>
-																<Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500, marginBottom: 2 }}>
-																	{item.quotedMsg.fromMe ? (item.quotedMsg.fromAgent ? "Automação" : (item.quotedMsg.user?.name || user.name)) : selectedTicket?.contact?.name}
-																</Typography>
-																<Typography style={{
-																	fontSize: 13,
-																	color: '#667781',
-																	overflow: 'hidden',
-																	textOverflow: 'ellipsis',
-																	whiteSpace: 'nowrap'
-																}}>
-																	{renderMessageContent(item.quotedMsg)}
-																</Typography>
-															</div>
-														)}
-														{renderMessageContent(item)}
-													</>
-												)}
-												
-												{item.isDeleted && viewingDeletedMessage === item.id && (
-													<div style={{ 
-														marginTop: "8px", 
-														padding: "8px", 
-														backgroundColor: "rgba(0,0,0,0.05)", 
-														borderRadius: "4px",
-														borderLeft: "3px solid #d32f2f"
-													}}>
-														{renderMessageContent(item)}
-													</div>
-												)}
-												
-												<div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
-													{!item.isDeleted && (
-														<Typography style={{ fontSize: "11px", color: "#667781", fontWeight: 500 }}>
-															{item.fromMe ? (item.fromAgent ? "Automação" : (item.user?.name || user.name)) : selectedTicket?.contact?.name} •
-														</Typography>
-													)}
-													<Typography className={classes.messageTime}>
-														{formatMessageDateTime(item.createdAt)}
-													</Typography>
-													{item.isEdited && !item.isDeleted && (
-														<EditIcon style={{ fontSize: 14, color: "#667781" }} />
-													)}
-													{item.fromMe && !item.isDeleted && (
-														<>
-															{item.ack === 0 && (
-																<DoneIcon style={{ fontSize: 16, color: "#667781" }} />
-															)}
-															{item.ack === 1 && (
-																<DoneIcon style={{ fontSize: 16, color: "#667781" }} />
-															)}
-															{item.ack === 2 && (
-																<DoneAllIcon style={{ fontSize: 16, color: "#667781" }} />
-															)}
-															{(item.ack === 3 || item.ack === 4) && (
-																<DoneAllIcon style={{ fontSize: 16, color: "#34b7f1" }} />
-															)}
-														</>
-													)}
-												</div>
-											</div>
-										</div>
-									);
-								})}
-								<div ref={messagesEndRef} />
-							</>
-						</div>
-
-						{/* Replying Message Preview */}
-						{replyingTo && (
-							<div style={{
-								backgroundColor: '#f0f2f5',
-								borderTop: '1px solid #e9edef',
-								padding: '8px 16px',
-								display: 'flex',
-								alignItems: 'center',
-								gap: 8
-							}}>
-								<div style={{
-									width: 4,
-									height: 40,
-									backgroundColor: '#00a884',
-									borderRadius: 2
-								}} />
-								<div style={{ flex: 1, minWidth: 0 }}>
-									<Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500 }}>
-										Respondendo a {replyingTo.fromMe ? (replyingTo.fromAgent ? "Automação" : (replyingTo.user?.name || user.name)) : selectedTicket?.contact?.name}
-									</Typography>
-									<Typography style={{
-										fontSize: 13,
-										color: '#667781',
-										overflow: 'hidden',
-										textOverflow: 'ellipsis',
-										whiteSpace: 'nowrap'
-									}}>
-										{replyingTo.body || 'Mídia'}
-									</Typography>
-								</div>
-								<IconButton
-									size="small"
-									onClick={() => setReplyingTo(null)}
-									style={{ color: '#54656f' }}
-								>
-									<CloseIcon />
-								</IconButton>
-							</div>
-						)}
-
-						{/* Input */}
-						<div className={classes.chatInput}>
-							{!isMobile && showEmojiPicker && (
-								<div style={{
-									position: 'absolute',
-									bottom: '60px',
-									left: '10px',
-									backgroundColor: '#fff',
-									border: '1px solid #e9edef',
-									borderRadius: '8px',
-									padding: '8px',
-									display: 'grid',
-									gridTemplateColumns: 'repeat(8, 1fr)',
-									gap: '4px',
-									maxWidth: '320px',
-									boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-									zIndex: 1000
-								}}>
-									{['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '👍', '👎', '👏', '🙌', '🤝', '🙏', '❤️', '🔥', '💯', '✅', '❌'].map((emoji) => (
-										<span
-											key={emoji}
-											onClick={() => handleEmojiSelect(emoji)}
-											style={{
-												fontSize: '24px',
-												cursor: 'pointer',
-												padding: '4px',
-												borderRadius: '4px',
-												transition: 'background-color 0.2s',
-											}}
-											onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f2f5'}
-											onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-										>
-											{emoji}
-										</span>
-									))}
-								</div>
-							)}
-							{!isMobile && (
-								<>
-									<IconButton 
-										size="small"
-										onClick={() => setSignMessage(!signMessage)}
-										style={{ color: signMessage ? '#00a884' : '#54656f' }}
-										title="Assinatura (nome do atendente)"
-									>
-										<SignatureIcon />
-									</IconButton>
-									<IconButton 
-										size="small"
-										onClick={() => setScheduleModalOpen(true)}
-										style={{ color: '#54656f' }}
-										title="Agendamento"
-									>
-										<ScheduleIcon />
-									</IconButton>
-									<IconButton 
-										size="small"
-										onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-										style={{ color: '#54656f' }}
-									>
-										<EmojiIcon />
-									</IconButton>
+									})}
+									<div ref={messagesEndRef} />
 								</>
-							)}
-							<input
-								type="file"
-								ref={fileInputRef}
-								style={{ display: 'none' }}
-								onChange={handleFileUpload}
-								multiple
-								accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
-							/>
-							<IconButton 
-								size="small"
-								onClick={() => fileInputRef.current?.click()}
-								style={{ color: '#54656f' }}
-							>
-								<AttachFileIcon />
-							</IconButton>
-														<InputBase
-								className={classes.inputField}
-								placeholder="Digite uma mensagem ou / para respostas rápidas"
-								value={inputMessage}
-								inputRef={inputMessageRef}
-								onChange={(e) => {
-									const value = e.target.value;
-									setInputMessage(value);
-									
-									updateQuickReplyContext(value);
-									
-									if (selectedTicket && value.length > 0) {
-										const socket = socketConnection({ companyId: user.companyId });
-										socket.emit(`company-${user.companyId}-typing`, {
-											ticketId: selectedTicket.id,
-											isTyping: true,
-											user: user.name
-										});
-									}
-								}}
-								onFocus={() => {
-									keepInputFocusRef.current = true;
-								}}
-								onBlur={(event) => {
-									const fallbackActive = typeof document !== "undefined" ? document.activeElement : null;
-									const nextElement = event?.relatedTarget || fallbackActive;
-									const isExternal = nextElement && nextElement !== document.body && nextElement !== inputMessageRef.current;
-									if (isExternal) {
-										keepInputFocusRef.current = false;
-										return;
-									}
-									keepInputFocusRef.current = true;
-									requestAnimationFrame(() => {
-										if (inputMessageRef.current) {
-											inputMessageRef.current.focus({ preventScroll: true });
-										}
-									});
-								}}
-								onKeyPress={handleKeyPress}
-								onKeyDown={(e) => {
-									handleQuickReplyKeyDown(e);
-								}}
-								onPaste={handlePaste}
-								multiline
-								maxRows={4}
-							/>
-							
-							{/* Sugestões de respostas rápidas */}
-							{showQuickReplies && filteredQuickMessages.length > 0 && (
-								<Paper 
-									elevation={3} 
-									style={{ 
-										position: 'absolute', 
-										bottom: '100%', 
-										left: 0, 
-										right: 0,
-										maxHeight: '200px',
-										overflowY: 'auto',
-										zIndex: 1000,
-										marginBottom: '8px'
-									}}
-								>
-									<Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>
-										<Typography variant="caption" style={{ fontWeight: 600 }}>
-											Mensagens Rápidas
+							</div>
+
+							{/* Replying Message Preview */}
+							{replyingTo && (
+								<div style={{
+									backgroundColor: '#f0f2f5',
+									borderTop: '1px solid #e9edef',
+									padding: '8px 16px',
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8
+								}}>
+									<div style={{
+										width: 4,
+										height: 40,
+										backgroundColor: '#00a884',
+										borderRadius: 2
+									}} />
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500 }}>
+											Respondendo a {replyingTo.fromMe ? (replyingTo.fromAgent ? "Automação" : (replyingTo.user?.name || user.name)) : selectedTicket?.contact?.name}
 										</Typography>
-										<IconButton size="small" onClick={() => {
-											setShowQuickReplies(false);
-											setFilteredQuickMessages([]);
-											setSelectedQuickIndex(-1);
+										<Typography style={{
+											fontSize: 13,
+											color: '#667781',
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+											whiteSpace: 'nowrap'
 										}}>
-											<CloseIcon fontSize="small" />
-										</IconButton>
-									</Box>
-									<List dense>
-										{filteredQuickMessages.map((msg, index) => (
-											<ListItem
-												key={msg.id}
-												button
-												selected={index === selectedQuickIndex}
-												onClick={() => handleSelectQuickReply(msg.message)}
-												style={{
-													backgroundColor: index === selectedQuickIndex ? '#e3f2fd' : 'transparent'
-												}}
-											>
-												<ListItemText 
-													primary={`${msg.shortcode} - ${msg.message?.substring(0, 25) || ""}${msg.message?.length > 25 ? "..." : ""}`}
-													primaryTypographyProps={{
-														style: { 
-															fontSize: '14px',
-															color: index === selectedQuickIndex ? '#1976d2' : 'inherit'
-														}
-													}}
-												/>
-											</ListItem>
-										))}
-									</List>
-								</Paper>
-							)}
-							{inputMessage.trim() ? (
-								<IconButton
-									color="primary"
-									onClick={handleSendMessage}
-								>
-									<SendIcon />
-								</IconButton>
-							) : recording ? (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#f0f2f5', padding: '8px 12px', borderRadius: 20, flex: 1 }}>
-									<IconButton
-										size="small"
-										onClick={handleCancelRecording}
-										style={{ color: '#f44336' }}
-										title="Cancelar gravação"
-									>
-										<CloseIcon />
-									</IconButton>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-										<div style={{ 
-											width: 8, 
-											height: 8, 
-											borderRadius: '50%', 
-											backgroundColor: '#f44336',
-											animation: 'pulse 1.5s ease-in-out infinite'
-										}} />
-										<Typography style={{ fontSize: 14, color: '#111b21', fontFamily: 'monospace' }}>
-											{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+											{replyingTo.body || 'Mídia'}
 										</Typography>
 									</div>
 									<IconButton
+										size="small"
+										onClick={() => setReplyingTo(null)}
+										style={{ color: '#54656f' }}
+									>
+										<CloseIcon />
+									</IconButton>
+								</div>
+							)}
+
+							{/* Input */}
+							<div className={classes.chatInput}>
+								{!isMobile && showEmojiPicker && (
+									<div style={{
+										position: 'absolute',
+										bottom: '60px',
+										left: '10px',
+										backgroundColor: '#fff',
+										border: '1px solid #e9edef',
+										borderRadius: '8px',
+										padding: '8px',
+										display: 'grid',
+										gridTemplateColumns: 'repeat(8, 1fr)',
+										gap: '4px',
+										maxWidth: '320px',
+										boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+										zIndex: 1000
+									}}>
+										{['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '👍', '👎', '👏', '🙌', '🤝', '🙏', '❤️', '🔥', '💯', '✅', '❌'].map((emoji) => (
+											<span
+												key={emoji}
+												onClick={() => handleEmojiSelect(emoji)}
+												style={{
+													fontSize: '24px',
+													cursor: 'pointer',
+													padding: '4px',
+													borderRadius: '4px',
+													transition: 'background-color 0.2s',
+												}}
+												onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f2f5'}
+												onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+											>
+												{emoji}
+											</span>
+										))}
+									</div>
+								)}
+								{!isMobile && (
+									<>
+										<IconButton
+											size="small"
+											onClick={() => setSignMessage(!signMessage)}
+											style={{ color: signMessage ? '#00a884' : '#54656f' }}
+											title="Assinatura (nome do atendente)"
+										>
+											<SignatureIcon />
+										</IconButton>
+										<IconButton
+											size="small"
+											onClick={() => setScheduleModalOpen(true)}
+											style={{ color: '#54656f' }}
+											title="Agendamento"
+										>
+											<ScheduleIcon />
+										</IconButton>
+										<IconButton
+											size="small"
+											onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+											style={{ color: '#54656f' }}
+										>
+											<EmojiIcon />
+										</IconButton>
+									</>
+								)}
+								<input
+									type="file"
+									ref={fileInputRef}
+									style={{ display: 'none' }}
+									onChange={handleFileUpload}
+									multiple
+									accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
+								/>
+								<IconButton
+									size="small"
+									onClick={() => fileInputRef.current?.click()}
+									style={{ color: '#54656f' }}
+								>
+									<AttachFileIcon />
+								</IconButton>
+								<InputBase
+									className={classes.inputField}
+									placeholder="Digite uma mensagem ou / para respostas rápidas"
+									value={inputMessage}
+									inputRef={inputMessageRef}
+									onChange={(e) => {
+										const value = e.target.value;
+										setInputMessage(value);
+
+										updateQuickReplyContext(value);
+
+										if (selectedTicket && value.length > 0) {
+											const socket = socketConnection({ companyId: user.companyId });
+											socket.emit(`company-${user.companyId}-typing`, {
+												ticketId: selectedTicket.id,
+												isTyping: true,
+												user: user.name
+											});
+										}
+									}}
+									onFocus={() => {
+										keepInputFocusRef.current = true;
+									}}
+									onBlur={(event) => {
+										const fallbackActive = typeof document !== "undefined" ? document.activeElement : null;
+										const nextElement = event?.relatedTarget || fallbackActive;
+										const isExternal = nextElement && nextElement !== document.body && nextElement !== inputMessageRef.current;
+										if (isExternal) {
+											keepInputFocusRef.current = false;
+											return;
+										}
+										keepInputFocusRef.current = true;
+										requestAnimationFrame(() => {
+											if (inputMessageRef.current) {
+												inputMessageRef.current.focus({ preventScroll: true });
+											}
+										});
+									}}
+									onKeyPress={handleKeyPress}
+									onKeyDown={(e) => {
+										handleQuickReplyKeyDown(e);
+									}}
+									onPaste={handlePaste}
+									multiline
+									maxRows={4}
+								/>
+
+								{/* Sugestões de respostas rápidas */}
+								{showQuickReplies && filteredQuickMessages.length > 0 && (
+									<Paper
+										elevation={3}
+										style={{
+											position: 'absolute',
+											bottom: '100%',
+											left: 0,
+											right: 0,
+											maxHeight: '200px',
+											overflowY: 'auto',
+											zIndex: 1000,
+											marginBottom: '8px'
+										}}
+									>
+										<Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>
+											<Typography variant="caption" style={{ fontWeight: 600 }}>
+												Mensagens Rápidas
+											</Typography>
+											<IconButton size="small" onClick={() => {
+												setShowQuickReplies(false);
+												setFilteredQuickMessages([]);
+												setSelectedQuickIndex(-1);
+											}}>
+												<CloseIcon fontSize="small" />
+											</IconButton>
+										</Box>
+										<List dense>
+											{filteredQuickMessages.map((msg, index) => (
+												<ListItem
+													key={msg.id}
+													button
+													selected={index === selectedQuickIndex}
+													onClick={() => handleSelectQuickReply(msg.message)}
+													style={{
+														backgroundColor: index === selectedQuickIndex ? '#e3f2fd' : 'transparent'
+													}}
+												>
+													<ListItemText
+														primary={`${msg.shortcode} - ${msg.message?.substring(0, 25) || ""}${msg.message?.length > 25 ? "..." : ""}`}
+														primaryTypographyProps={{
+															style: {
+																fontSize: '14px',
+																color: index === selectedQuickIndex ? '#1976d2' : 'inherit'
+															}
+														}}
+													/>
+												</ListItem>
+											))}
+										</List>
+									</Paper>
+								)}
+								{inputMessage.trim() ? (
+									<IconButton
 										color="primary"
-										onClick={handleStopRecording}
-										style={{ backgroundColor: '#00a884', color: '#fff' }}
-										title="Enviar áudio"
+										onClick={handleSendMessage}
 									>
 										<SendIcon />
 									</IconButton>
-								</div>
-							) : (
-								<IconButton
-									color="primary"
-									onClick={handleStartRecording}
-									style={{ color: '#54656f' }}
-								>
-									<MicIcon />
-								</IconButton>
-							)}
+								) : recording ? (
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#f0f2f5', padding: '8px 12px', borderRadius: 20, flex: 1 }}>
+										<IconButton
+											size="small"
+											onClick={handleCancelRecording}
+											style={{ color: '#f44336' }}
+											title="Cancelar gravação"
+										>
+											<CloseIcon />
+										</IconButton>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+											<div style={{
+												width: 8,
+												height: 8,
+												borderRadius: '50%',
+												backgroundColor: '#f44336',
+												animation: 'pulse 1.5s ease-in-out infinite'
+											}} />
+											<Typography style={{ fontSize: 14, color: '#111b21', fontFamily: 'monospace' }}>
+												{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+											</Typography>
+										</div>
+										<IconButton
+											color="primary"
+											onClick={handleStopRecording}
+											style={{ backgroundColor: '#00a884', color: '#fff' }}
+											title="Enviar áudio"
+										>
+											<SendIcon />
+										</IconButton>
+									</div>
+								) : (
+									<IconButton
+										color="primary"
+										onClick={handleStartRecording}
+										style={{ color: '#54656f' }}
+									>
+										<MicIcon />
+									</IconButton>
+								)}
+							</div>
+						</>
+					) : (
+						<div className={classes.welcomeContainer}>
+							<ChatIcon className={classes.welcomeIcon} />
+							<div className={classes.welcomeTitle}>
+								Atendimentos
+							</div>
+							<div className={classes.welcomeText}>
+								Selecione um atendimento para visualizar a conversa
+								<br />
+								ou inicie um novo atendimento
+							</div>
 						</div>
-					</>
-				) : (
-					<div className={classes.welcomeContainer}>
-						<ChatIcon className={classes.welcomeIcon} />
-						<div className={classes.welcomeTitle}>
-							Atendimentos
-						</div>
-						<div className={classes.welcomeText}>
-							Selecione um atendimento para visualizar a conversa
-							<br />
-							ou inicie um novo atendimento
-						</div>
-					</div>
-				)}
-			</div>
+					)}
+				</div>
 			)}
 
 			{/* Modal de Agendamento */}
@@ -4474,14 +4436,14 @@ useEffect(() => {
 						try {
 							const { data } = await api.get(`/tickets/${selectedTicket.id}`);
 							setSelectedTicket(data);
-							
+
 							// Atualiza também na lista de tickets
-							setTickets(prevTickets => 
-								prevTickets.map(ticket => 
+							setTickets(prevTickets =>
+								prevTickets.map(ticket =>
 									ticket.id === data.id ? data : ticket
 								)
 							);
-							
+
 						} catch (err) {
 						}
 					}}

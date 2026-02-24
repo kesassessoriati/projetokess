@@ -24,6 +24,9 @@ import DeviceHubIcon from "@material-ui/icons/DeviceHub";
 import IntegrationModal from "../../components/QueueIntegrationModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import GoogleCalendarIntegrationModal from "../../components/GoogleCalendarIntegrationModal";
+import useSafeApi from "../../hooks/useSafeApi";
+import SafeComponent from "../../components/SafeComponent";
+import { useSocket } from "../../context/SocketContext";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
@@ -32,50 +35,6 @@ import usePlans from "../../hooks/usePlans";
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import AddIcon from "@material-ui/icons/Add";
-
-const reducer = (state, action) => {
-  if (action.type === "LOAD_INTEGRATIONS") {
-    const queueIntegration = action.payload;
-    const newIntegrations = [];
-
-    queueIntegration.forEach((integration) => {
-      const integrationIndex = state.findIndex((u) => u.id === integration.id);
-      if (integrationIndex !== -1) {
-        state[integrationIndex] = integration;
-      } else {
-        newIntegrations.push(integration);
-      }
-    });
-
-    return [...state, ...newIntegrations];
-  }
-
-  if (action.type === "UPDATE_INTEGRATIONS") {
-    const queueIntegration = action.payload;
-    const integrationIndex = state.findIndex((u) => u.id === queueIntegration.id);
-
-    if (integrationIndex !== -1) {
-      state[integrationIndex] = queueIntegration;
-      return [...state];
-    } else {
-      return [queueIntegration, ...state];
-    }
-  }
-
-  if (action.type === "DELETE_INTEGRATION") {
-    const integrationId = action.payload;
-
-    const integrationIndex = state.findIndex((u) => u.id === integrationId);
-    if (integrationIndex !== -1) {
-      state.splice(integrationIndex, 1);
-    }
-    return [...state];
-  }
-
-  if (action.type === "RESET") {
-    return [];
-  }
-};
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -292,8 +251,13 @@ const useStyles = makeStyles((theme) => ({
 
 const QueueIntegration = () => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  const companyId = user.companyId;
+  const history = useHistory();
+  const { getPlanCompany } = usePlans();
+  const { on, isReady } = useSocket();
 
-  const [loading, setLoading] = useState(false);
+  // Estados
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [selectedIntegration, setSelectedIntegration] = useState(null);
@@ -304,13 +268,17 @@ const QueueIntegration = () => {
   const [searchParam, setSearchParam] = useState("");
   const [googleIntegration, setGoogleIntegration] = useState(null);
   const [loadingGoogleIntegration, setLoadingGoogleIntegration] = useState(false);
-  const [queueIntegration, dispatch] = useReducer(reducer, []);
-  const { user, socket } = useContext(AuthContext);
 
-  const { getPlanCompany } = usePlans();
-  const companyId = user.companyId;
-  const history = useHistory();
+  // useSafeApi para Integrações
+  const {
+    data: queueIntegrations,
+    loading: loadingIntegrations,
+    error: errorIntegrations,
+    setData: setIntegrations,
+    request: fetchIntegrationsApi,
+  } = useSafeApi("/queueIntegration/", { manual: true, initialData: [] });
 
+  // Verificar plano
   useEffect(() => {
     async function fetchData() {
       const planConfigs = await getPlanCompany(undefined, companyId);
@@ -322,14 +290,65 @@ const QueueIntegration = () => {
       }
     }
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [companyId, getPlanCompany, history]);
 
+  // Carregar dados iniciais e busca
   useEffect(() => {
-    dispatch({ type: "RESET" });
-    setPageNumber(1);
-  }, [searchParam]);
+    const fetchIntegrations = async () => {
+      const { queueIntegrations: list, hasMore: more } = await fetchIntegrationsApi({
+        params: { searchParam, pageNumber: 1 },
+      });
+      if (list) {
+        setIntegrations(list);
+        setHasMore(more);
+        setPageNumber(1);
+      }
+    };
+    fetchIntegrations();
+  }, [searchParam, fetchIntegrationsApi, setIntegrations]);
 
+  // Carregar mais (pagination)
+  useEffect(() => {
+    if (pageNumber > 1) {
+      const fetchMore = async () => {
+        const { queueIntegrations: list, hasMore: more } = await fetchIntegrationsApi({
+          params: { searchParam, pageNumber },
+        });
+        if (list) {
+          setIntegrations((prev) => [...prev, ...list]);
+          setHasMore(more);
+        }
+      };
+      fetchMore();
+    }
+  }, [pageNumber, searchParam, fetchIntegrationsApi, setIntegrations]);
+
+  // Socket
+  useEffect(() => {
+    if (!isReady) return;
+
+    const cleanup = on(`company-${companyId}-queueIntegration`, (data) => {
+      if (data.action === "update" || data.action === "create") {
+        setIntegrations((prev) => {
+          const index = prev.findIndex((i) => i.id === data.queueIntegration.id);
+          if (index !== -1) {
+            const newIntegrations = [...prev];
+            newIntegrations[index] = data.queueIntegration;
+            return newIntegrations;
+          }
+          return [data.queueIntegration, ...prev];
+        });
+      }
+
+      if (data.action === "delete") {
+        setIntegrations((prev) => prev.filter((i) => i.id !== +data.integrationId));
+      }
+    });
+
+    return cleanup;
+  }, [isReady, on, companyId, setIntegrations]);
+
+  // Google Calendar
   useEffect(() => {
     const fetchGoogleIntegration = async () => {
       try {
@@ -345,43 +364,6 @@ const QueueIntegration = () => {
 
     fetchGoogleIntegration();
   }, []);
-
-  useEffect(() => {
-    setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchIntegrations = async () => {
-        try {
-          const { data } = await api.get("/queueIntegration/", {
-            params: { searchParam, pageNumber },
-          });
-          dispatch({ type: "LOAD_INTEGRATIONS", payload: data.queueIntegrations });
-          setHasMore(data.hasMore);
-          setLoading(false);
-        } catch (err) {
-          toastError(err);
-        }
-      };
-      fetchIntegrations();
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber]);
-
-  useEffect(() => {
-    const onQueueEvent = (data) => {
-      if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_INTEGRATIONS", payload: data.queueIntegration });
-      }
-
-      if (data.action === "delete") {
-        dispatch({ type: "DELETE_INTEGRATION", payload: +data.integrationId });
-      }
-    };
-
-    socket.on(`company-${companyId}-queueIntegration`, onQueueEvent);
-    return () => {
-      socket.off(`company-${companyId}-queueIntegration`, onQueueEvent);
-    };
-  }, [socket, companyId]);
 
   const handleOpenUserModal = () => {
     setSelectedIntegration(null);
@@ -488,7 +470,7 @@ const QueueIntegration = () => {
               {i18n.t("queueIntegration.title")}
             </Typography>
             <Typography className={classes.headerSubtitle}>
-              {queueIntegration.length} integrações conectadas
+              {queueIntegrations.length} integrações conectadas
             </Typography>
           </Box>
         </Box>
@@ -560,53 +542,55 @@ const QueueIntegration = () => {
             )}
 
             <Box className={classes.listWrapper} onScroll={handleScroll}>
-              {queueIntegration.length === 0 && !loading ? (
-                <Box className={classes.emptyState}>
-                  <DeviceHubIcon />
-                  <Typography>Nenhuma integração configurada ainda</Typography>
-                </Box>
-              ) : (
-                queueIntegration.map((integration) => (
-                  <Box key={integration.id} className={classes.card}>
-                    <img
-                      src={getIntegrationLogo(integration.type)}
-                      alt={integration.type}
-                      className={classes.logo}
-                    />
-                    <Box className={classes.cardInfo}>
-                      <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
-                        {integration.name}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Tipo: {integration.type}
-                      </Typography>
-                    </Box>
-                    <Box className={classes.cardActions}>
-                      <Tooltip title="Editar">
-                        <IconButton
-                          className={`${classes.actionButton} ${classes.editButton}`}
-                          onClick={() => handleEditIntegration(integration)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton
-                          className={`${classes.actionButton} ${classes.deleteButton}`}
-                          onClick={() => {
-                            setConfirmModalOpen(true);
-                            setDeletingUser(integration);
-                          }}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                ))
-              )}
+              <SafeComponent
+                loading={loadingIntegrations && queueIntegrations.length === 0}
+                error={errorIntegrations}
+                data={queueIntegrations}
+                renderData={() => (
+                  <>
+                    {queueIntegrations.map((integration) => (
+                      <Box key={integration.id} className={classes.card}>
+                        <img
+                          src={getIntegrationLogo(integration.type)}
+                          alt={integration.type}
+                          className={classes.logo}
+                        />
+                        <Box className={classes.cardInfo}>
+                          <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                            {integration.name}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            Tipo: {integration.type}
+                          </Typography>
+                        </Box>
+                        <Box className={classes.cardActions}>
+                          <Tooltip title="Editar">
+                            <IconButton
+                              className={`${classes.actionButton} ${classes.editButton}`}
+                              onClick={() => handleEditIntegration(integration)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Excluir">
+                            <IconButton
+                              className={`${classes.actionButton} ${classes.deleteButton}`}
+                              onClick={() => {
+                                setConfirmModalOpen(true);
+                                setDeletingUser(integration);
+                              }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                    ))}
+                  </>
+                )}
+              />
 
-              {loading && (
+              {loadingIntegrations && queueIntegrations.length > 0 && (
                 <Box className={classes.loadingBox}>
                   <CircularProgress size={20} />
                   <Typography variant="body2">{i18n.t("loading")}</Typography>

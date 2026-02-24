@@ -14,6 +14,7 @@ import resolveLeadClientForContact from "./helpers/resolveLeadClientForContact";
 
 import CreateLogTicketService from "./CreateLogTicketService";
 import ShowTicketService from "./ShowTicketService";
+import { trackProductEvent } from "../SystemMetricService";
 
 interface Request {
   contactId: number;
@@ -149,6 +150,8 @@ const CreateTicketService = async ({
     ticketId: ticket.id,
     type: "create"
   });
+
+  trackProductEvent("TICKET_CREATED", { companyId, userId });
 
   return ticket;
 };

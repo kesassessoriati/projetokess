@@ -49,6 +49,10 @@ import WebhookIcon from "@mui/icons-material/Webhook";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import BugReportIcon from "@mui/icons-material/BugReport";
+import TerminalIcon from "@mui/icons-material/Terminal";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import SpeedIcon from "@mui/icons-material/Speed";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -1052,6 +1056,38 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                   to="/announcements"
                   primary={i18n.t("mainDrawer.listItems.annoucements")}
                   icon={<AnnouncementIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
+              {user.super && (
+                <ListItemLink
+                  to="/admin/frontend-errors"
+                  primary="Erros do Sistema"
+                  icon={<BugReportIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
+              {user.super && (
+                <ListItemLink
+                  to="/admin/backend-errors"
+                  primary="Erros do Servidor"
+                  icon={<TerminalIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
+              {user.super && (
+                <ListItemLink
+                  to="/admin/system-metrics"
+                  primary="Metricas do Sistema"
+                  icon={<TrendingUpIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
+              {user.super && (
+                <ListItemLink
+                  to="/admin/performance"
+                  primary="Performance"
+                  icon={<SpeedIcon />}
                   onNavigate={handleNavigateFromSubmenu}
                 />
               )}

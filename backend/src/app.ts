@@ -16,6 +16,10 @@ import { ValidationError, DatabaseError, ForeignKeyConstraintError } from "seque
 import AppError from "./errors/AppError";
 import routes from "./routes";
 import logger from "./utils/logger";
+import loggerContextMiddleware from "./middleware/loggerContextMiddleware";
+import CreateBackendErrorService from "./services/BackendErrorServices/CreateBackendErrorService";
+import performanceMiddleware from "./middleware/performanceMiddleware";
+import { initProcessMetricsJob } from "./libs/processMetricsJob";
 import { messageQueue, sendScheduledMessages } from "./queues";
 import BullQueue from "./libs/queue"
 import BullBoard from 'bull-board';
@@ -80,7 +84,16 @@ if (String(process.env.BULL_BOARD).toLocaleLowerCase() === 'true' && process.env
 }
 
 
+app.use(loggerContextMiddleware);
+app.use(performanceMiddleware);
 app.use(compression()); // Compressão HTTP
+
+// Monkey-patch console para usar o logger estruturado
+console.log = (...args: any[]) => (logger as any).info(...args);
+console.info = (...args: any[]) => (logger as any).info(...args);
+console.warn = (...args: any[]) => (logger as any).warn(...args);
+console.error = (...args: any[]) => (logger as any).error(...args);
+
 app.use(bodyParser.json({ limit: '50mb' })); // Limite de 50MB para segurança
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 // Configuração CORS para permitir qualquer origem
@@ -131,6 +144,20 @@ app.use(async (err: Error, req: Request, res: Response, _: NextFunction) => {
     return;
   }
 
+  const statusCode = err instanceof AppError ? err.statusCode : 500;
+  const message = err.message || "Internal server error";
+
+  // Registrar erro no banco de dados de forma assíncrona (não bloqueia resposta)
+  CreateBackendErrorService({
+    message,
+    stack: err.stack,
+    route: req.path,
+    method: req.method,
+    statusCode,
+    userId: (req as any).user?.id,
+    companyId: (req as any).user?.companyId
+  }).catch(e => logger.error("Falha ao salvar erro backend:", e));
+
   const formatFieldName = (field?: string) => {
     if (!field) return "campo obrigatório";
     return field
@@ -178,5 +205,7 @@ app.use(async (err: Error, req: Request, res: Response, _: NextFunction) => {
   logger.error(err);
   return res.status(500).json({ error: "Internal server error" });
 });
+
+initProcessMetricsJob();
 
 export default app;

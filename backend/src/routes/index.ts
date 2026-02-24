@@ -105,6 +105,10 @@ import notificationRoutes from "./notificationRoutes";
 import callRecordRoutes from "./callRecordRoutes";
 import externalAppRoutes from "./externalAppRoutes";
 import quickSendRoutes from "./quickSendRoutes";
+import frontendErrorRoutes from "./frontendErrorRoutes";
+import backendErrorRoutes from "./backendErrorRoutes";
+import systemMetricsRoutes from "./systemMetricsRoutes";
+import performanceRoutes from "./performanceRoutes";
 
 const routes = Router();
 
@@ -229,5 +233,9 @@ routes.use("/notifications", notificationRoutes);
 routes.use(callRecordRoutes);
 routes.use(externalAppRoutes);
 routes.use(quickSendRoutes);
+routes.use(frontendErrorRoutes);
+routes.use(backendErrorRoutes);
+routes.use(systemMetricsRoutes);
+routes.use(performanceRoutes);
 
 export default routes;

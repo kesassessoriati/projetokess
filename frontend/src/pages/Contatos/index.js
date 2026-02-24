@@ -42,6 +42,13 @@ import { v4 as uuidv4 } from "uuid";
 import ContactImportWpModal from "../../components/ContactImportWpModal";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
+import useSafeApi from "../../hooks/useSafeApi";
+import { useSocket } from "../../context/SocketContext";
+import SafeComponent from "../../components/SafeComponent";
+import {
+  List,
+  CircularProgress,
+} from "@material-ui/core";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
@@ -347,10 +354,9 @@ const Contacts = () => {
   const classes = useStyles();
   const history = useHistory();
 
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { setCurrentTicket } = useContext(TicketsContext);
 
-  const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam, setSearchParam] = useState("");
   const [contacts, dispatch] = useReducer(reducer, []);
@@ -370,6 +376,7 @@ const Contacts = () => {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [importWhatsappId, setImportWhatsappId] = useState();
   const [ImportContacts, setImportContacts] = useState(null);
+  const isMounted = useRef(true);
 
   const { getAll: getAllSettings } = useCompanySettings();
   const [hideNum, setHideNum] = useState(false);
@@ -393,48 +400,55 @@ const Contacts = () => {
     fetchData();
   }, []);
 
+  const {
+    loading: loadingContacts,
+    error: errorContacts,
+    request: fetchContacts,
+  } = useSafeApi("/contacts/", {
+    manual: true
+  });
+
+  const { isReady, on } = useSocket();
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
   }, [searchParam, selectedTags]);
 
   useEffect(() => {
-    setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchContacts = async () => {
-        try {
-          const { data } = await api.get("/contacts/", {
-            params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) },
-          });
-          dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
-          setHasMore(data.hasMore);
-          setLoading(false);
-        } catch (err) {
-          toastError(err);
-        }
-      };
-      fetchContacts();
-    }, 500);
+    const delayDebounceFn = setTimeout(async () => {
+      if (!isMounted.current) return;
+      const data = await fetchContacts({
+        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) }
+      });
+      if (data && isMounted.current) {
+        dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
+        setHasMore(data.hasMore);
+      }
+    }, searchParam ? 500 : 0);
     return () => clearTimeout(delayDebounceFn);
   }, [searchParam, pageNumber, selectedTags]);
 
   useEffect(() => {
-    const companyId = user.companyId;
+    if (!isReady) return;
 
-    const onContactEvent = (data) => {
+    const companyId = user.companyId;
+    const cleanup = on(`company-${companyId}-contact`, (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_CONTACTS", payload: data.contact });
       }
       if (data.action === "delete") {
         dispatch({ type: "DELETE_CONTACT", payload: +data.contactId });
       }
-    };
-    socket.on(`company-${companyId}-contact`, onContactEvent);
+    });
 
-    return () => {
-      socket.off(`company-${companyId}-contact`, onContactEvent);
-    };
-  }, [socket, user.companyId]);
+    return cleanup;
+  }, [isReady, user.companyId]);
 
   const handleSelectTicket = (ticket) => {
     const code = uuidv4();
@@ -571,7 +585,7 @@ const Contacts = () => {
   };
 
   const handleScroll = (e) => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loadingContacts) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollHeight - (scrollTop + 100) < clientHeight) {
       loadMore();
@@ -596,12 +610,12 @@ const Contacts = () => {
           deletingContact
             ? `${i18n.t("contacts.confirmationModal.deleteTitle")} ${getDisplayName(deletingContact)}?`
             : blockingContact
-            ? `Bloquear Contato ${getDisplayName(blockingContact)}?`
-            : unBlockingContact
-            ? `Desbloquear Contato ${getDisplayName(unBlockingContact)}?`
-            : ImportContacts
-            ? `${i18n.t("contacts.confirmationModal.importTitlte")}`
-            : `${i18n.t("contactListItems.confirmationModal.importTitlte")}`
+              ? `Bloquear Contato ${getDisplayName(blockingContact)}?`
+              : unBlockingContact
+                ? `Desbloquear Contato ${getDisplayName(unBlockingContact)}?`
+                : ImportContacts
+                  ? `${i18n.t("contacts.confirmationModal.importTitlte")}`
+                  : `${i18n.t("contactListItems.confirmationModal.importTitlte")}`
         }
         onSave={onSave}
         isCellPhone={ImportContacts}
@@ -611,23 +625,23 @@ const Contacts = () => {
           deletingContact
             ? handleDeleteContact(deletingContact.id)
             : blockingContact
-            ? handleBlockContact(blockingContact.id)
-            : unBlockingContact
-            ? handleUnBlockContact(unBlockingContact.id)
-            : ImportContacts
-            ? handleImportContact()
-            : handleImportExcel()
+              ? handleBlockContact(blockingContact.id)
+              : unBlockingContact
+                ? handleUnBlockContact(unBlockingContact.id)
+                : ImportContacts
+                  ? handleImportContact()
+                  : handleImportExcel()
         }
       >
         {deletingContact
           ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
           : blockingContact
-          ? `${i18n.t("contacts.confirmationModal.blockContact")}`
-          : unBlockingContact
-          ? `${i18n.t("contacts.confirmationModal.unblockContact")}`
-          : ImportContacts
-          ? `Escolha de qual conexão deseja importar`
-          : `${i18n.t("contactListItems.confirmationModal.importMessage")}`}
+            ? `${i18n.t("contacts.confirmationModal.blockContact")}`
+            : unBlockingContact
+              ? `${i18n.t("contacts.confirmationModal.unblockContact")}`
+              : ImportContacts
+                ? `Escolha de qual conexão deseja importar`
+                : `${i18n.t("contactListItems.confirmationModal.importMessage")}`}
       </ConfirmationModal>
       <ConfirmationModal
         title="Excluir contatos selecionados"
@@ -756,116 +770,128 @@ const Contacts = () => {
 
       {/* Content - Lista */}
       <Box className={classes.content}>
-        {contacts.length === 0 && !loading ? (
-          <Box className={classes.emptyState}>
-            <PersonIcon style={{ fontSize: 48, marginBottom: 8 }} />
-            <Typography>Nenhum contato encontrado</Typography>
-          </Box>
-        ) : (
-          contacts.map((contact) => (
-            <Box key={contact.id} className={classes.listItem}>
-              {/* Checkbox - Oculto no mobile */}
-              <Checkbox
-                color="primary"
-                checked={selectedContacts.includes(contact.id)}
-                onChange={() => handleToggleSelectContact(contact.id)}
-                className={classes.hideOnMobile}
-              />
+        <SafeComponent
+          loading={loadingContacts && contacts.length === 0}
+          error={errorContacts}
+          data={contacts}
+          renderData={(records) => (
+            <>
+              {records.map((contact) => (
+                <Box key={contact.id} className={classes.listItem}>
+                  {/* Checkbox - Oculto no mobile */}
+                  <Checkbox
+                    color="primary"
+                    checked={selectedContacts.includes(contact.id)}
+                    onChange={() => handleToggleSelectContact(contact.id)}
+                    className={classes.hideOnMobile}
+                  />
 
-              {/* Avatar */}
-              <ExpandableAvatar contact={contact} classes={classes} />
+                  {/* Avatar */}
+                  <ExpandableAvatar contact={contact} classes={classes} />
 
-              {/* Info */}
-              <Box className={classes.itemInfo}>
-                <Typography className={classes.itemName}>
-                  {getDisplayName(contact)}
-                </Typography>
-                <Box className={classes.itemDetails}>
-                  <span className={classes.hideOnMobile}>ID: {contact.id}</span>
-                  <span className={classes.hideOnMobile}>•</span>
-                  <span>{contact.number}</span>
-                  <span className={classes.hideOnMobile}>•</span>
-                  <Box className={classes.itemStatus}>
-                    {contact.active ? (
-                      <CheckCircleIcon className={classes.statusActive} />
-                    ) : (
-                      <BlockIcon className={classes.statusBlocked} />
-                    )}
+                  {/* Info */}
+                  <Box className={classes.itemInfo}>
+                    <Typography className={classes.itemName}>
+                      {getDisplayName(contact)}
+                    </Typography>
+                    <Box className={classes.itemDetails}>
+                      <span className={classes.hideOnMobile}>ID: {contact.id}</span>
+                      <span className={classes.hideOnMobile}>•</span>
+                      <span>{contact.number}</span>
+                      <span className={classes.hideOnMobile}>•</span>
+                      <Box className={classes.itemStatus}>
+                        {contact.active ? (
+                          <CheckCircleIcon className={classes.statusActive} />
+                        ) : (
+                          <BlockIcon className={classes.statusBlocked} />
+                        )}
+                      </Box>
+                    </Box>
                   </Box>
-                </Box>
-              </Box>
 
-              {/* Ações */}
-              <Box className={classes.itemActions}>
-                <Tooltip title="WhatsApp">
-                  <IconButton
-                    size="small"
-                    className={`${classes.actionButton} ${classes.whatsappButton}`}
-                    disabled={!contact.active}
-                    onClick={() => {
-                      setContactTicket(contact);
-                      setNewTicketModalOpen(true);
-                    }}
-                  >
-                    <WhatsAppIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Editar">
-                  <IconButton
-                    size="small"
-                    className={`${classes.actionButton} ${classes.editButton}`}
-                    onClick={() => handleEditContact(contact.id)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={contact.active ? "Bloquear" : "Desbloquear"}>
-                  <IconButton
-                    size="small"
-                    className={`${classes.actionButton} ${
-                      contact.active ? classes.blockButton : classes.unblockButton
-                    }`}
-                    onClick={() => {
-                      setConfirmOpen(true);
-                      if (contact.active) {
-                        setBlockingContact(contact);
-                      } else {
-                        setUnBlockingContact(contact);
-                      }
-                    }}
-                  >
-                    {contact.active ? (
-                      <BlockIcon fontSize="small" />
-                    ) : (
-                      <CheckCircleIcon fontSize="small" />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                <Can
-                  role={user.profile}
-                  perform="contacts-page:deleteContact"
-                  yes={() => (
-                    <Tooltip title="Excluir">
+                  {/* Ações */}
+                  <Box className={classes.itemActions}>
+                    <Tooltip title="WhatsApp">
                       <IconButton
                         size="small"
-                        className={`${classes.actionButton} ${classes.deleteButton}`}
                         onClick={() => {
-                          setConfirmOpen(true);
-                          setDeletingContact(contact);
+                          setContactTicket(contact);
+                          setNewTicketModalOpen(true);
                         }}
+                        className={`${classes.actionButton} ${classes.whatsappButton}`}
                       >
-                        <DeleteOutlineIcon fontSize="small" />
+                        <WhatsAppIcon />
                       </IconButton>
                     </Tooltip>
-                  )}
-                />
-              </Box>
-            </Box>
-          ))
-        )}
+
+                    <Tooltip title={i18n.t("contacts.buttons.edit")}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditContact(contact.id)}
+                        className={`${classes.actionButton} ${classes.editButton}`}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+
+                    {contact.active ? (
+                      <Tooltip title="Bloquear">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setBlockingContact(contact);
+                            setConfirmOpen(true);
+                          }}
+                          className={`${classes.actionButton} ${classes.blockButton}`}
+                        >
+                          <BlockIcon />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="Desbloquear">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setUnBlockingContact(contact);
+                            setConfirmOpen(true);
+                          }}
+                          className={`${classes.actionButton} ${classes.unblockButton}`}
+                        >
+                          <CheckCircleIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+
+                    <Can
+                      role={user.profile}
+                      perform="contacts-page:deleteContact"
+                      yes={() => (
+                        <Tooltip title={i18n.t("contacts.buttons.delete")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setConfirmOpen(true);
+                              setDeletingContact(contact);
+                            }}
+                            className={`${classes.actionButton} ${classes.deleteButton}`}
+                          >
+                            <DeleteOutlineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    />
+                  </Box>
+                </Box>
+              ))}
+              {loadingContacts && (
+                <Box display="flex" justifyContent="center" p={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+            </>
+          )}
+        />
       </Box>
     </Box>
   );
 };
-
-export default Contacts;

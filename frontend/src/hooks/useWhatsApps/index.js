@@ -1,16 +1,12 @@
-import { useState, useEffect, useReducer, useContext } from "react";
-import toastError from "../../errors/toastError";
-
+import { useState, useEffect, useReducer, useContext, useRef } from "react";
 import api from "../../services/api";
-// import { SocketContext } from "../../context/Socket/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { isNill } from "lodash";
+import useSafeApi from "../useSafeApi";
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_WHATSAPPS") {
-    const whatsApps = action.payload;
-
-    return [...whatsApps];
+    return [...action.payload];
   }
 
   if (action.type === "UPDATE_WHATSAPPS") {
@@ -30,86 +26,81 @@ const reducer = (state, action) => {
     const whatsAppIndex = state.findIndex((s) => s.id === whatsApp.id);
 
     if (whatsAppIndex !== -1) {
-      state[whatsAppIndex].status = whatsApp.status;
-      state[whatsAppIndex].updatedAt = whatsApp.updatedAt;
-      state[whatsAppIndex].qrcode = whatsApp.qrcode;
-      state[whatsAppIndex].retries = whatsApp.retries;
-      return [...state];
-    } else {
+      state[whatsAppIndex] = {
+        ...state[whatsAppIndex],
+        status: whatsApp.status,
+        updatedAt: whatsApp.updatedAt,
+        qrcode: whatsApp.qrcode,
+        retries: whatsApp.retries
+      };
       return [...state];
     }
+    return state;
   }
 
   if (action.type === "DELETE_WHATSAPPS") {
     const whatsAppId = action.payload;
-
-    const whatsAppIndex = state.findIndex((s) => s.id === whatsAppId);
-    if (whatsAppIndex !== -1) {
-      state.splice(whatsAppIndex, 1);
-    }
-    return [...state];
+    return state.filter((s) => s.id !== whatsAppId);
   }
 
   if (action.type === "RESET") {
     return [];
   }
+  return state;
 };
 
 const useWhatsApps = () => {
   const [whatsApps, dispatch] = useReducer(reducer, []);
-  const [loading, setLoading] = useState(true);
-//   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isReady, on } = useSocket();
+  const isMounted = useRef(true);
 
-
+  const { loading, error, request: fetchWhatsApps } = useSafeApi("/whatsapp/?session=0", {
+    manual: true
+  });
 
   useEffect(() => {
-    setLoading(true);
-    const fetchSession = async () => {
-      try {
-        const { data } = await api.get("/whatsapp/?session=0");
-        dispatch({ type: "LOAD_WHATSAPPS", payload: data });
-        setLoading(false);
-      } catch (_) {
-        setLoading(false);
-        // toastError(err);
-      }
-    };
-    fetchSession();
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
   }, []);
 
   useEffect(() => {
-    if (user.companyId) {
-
-      const companyId = user.companyId;
-//    const socket = socketManager.GetSocket();
-
-      const onCompanyWhatsapp = (data) => {
-        if (data.action === "update") {
-          dispatch({ type: "UPDATE_WHATSAPPS", payload: data.whatsapp });
-        }
-        if (data.action === "delete") {
-          dispatch({ type: "DELETE_WHATSAPPS", payload: data.whatsappId });
-        }
+    const load = async () => {
+      const data = await fetchWhatsApps();
+      if (data && isMounted.current) {
+        dispatch({ type: "LOAD_WHATSAPPS", payload: data });
       }
+    };
+    load();
+  }, [fetchWhatsApps]);
 
-      const onCompanyWhatsappSession = (data) => {
-        if (data.action === "update") {
-          dispatch({ type: "UPDATE_SESSION", payload: data.session });
-        }
+  useEffect(() => {
+    if (!isReady || !user.companyId) return;
+
+    const companyId = user.companyId;
+
+    const cleanupWhatsapp = on(`company-${companyId}-whatsapp`, (data) => {
+      if (data.action === "update") {
+        dispatch({ type: "UPDATE_WHATSAPPS", payload: data.whatsapp });
       }
+      if (data.action === "delete") {
+        dispatch({ type: "DELETE_WHATSAPPS", payload: data.whatsappId });
+      }
+    });
 
-      socket.on(`company-${companyId}-whatsapp`, onCompanyWhatsapp);
-      socket.on(`company-${companyId}-whatsappSession`, onCompanyWhatsappSession);
+    const cleanupSession = on(`company-${companyId}-whatsappSession`, (data) => {
+      if (data.action === "update") {
+        dispatch({ type: "UPDATE_SESSION", payload: data.session });
+      }
+    });
 
-      return () => {
-        socket.off(`company-${companyId}-whatsapp`, onCompanyWhatsapp);
-        socket.off(`company-${companyId}-whatsappSession`, onCompanyWhatsappSession);
-      };
-    }
-  }, [socket]);
+    return () => {
+      cleanupWhatsapp();
+      cleanupSession();
+    };
+  }, [isReady, user.companyId, on]);
 
-  return { whatsApps, loading };
+  return { whatsApps, loading, error };
 };
 
 export default useWhatsApps;

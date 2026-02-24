@@ -22,6 +22,9 @@ import { i18n } from "../../translate/i18n";
 import QuickMessageDialog from "../../components/QuickMessageDialog";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
+import { useSocket } from "../../context/SocketContext";
+import useSafeApi from "../../hooks/useSafeApi";
+import SafeComponent from "../../components/SafeComponent";
 import { isArray } from "lodash";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
@@ -214,7 +217,6 @@ const useStyles = makeStyles((theme) => ({
 const QuickMessages = () => {
   const classes = useStyles();
 
-  const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [selectedQuickemessage, setSelectedQuickemessage] = useState(null);
@@ -222,53 +224,72 @@ const QuickMessages = () => {
   const [quickemessageModalOpen, setQuickMessageDialogOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
-  const [quickemessages, dispatch] = useReducer(reducer, []);
-  const { user, socket } = useContext(AuthContext);
+
+  const { data: quickemessages, loading: loadingQuickMessages, error: errorQuickMessages, setData: setQuickemessages, request: fetchQuickemessagesApi } = useSafeApi("/quick-messages", { manual: true });
+
+  const { user } = useContext(AuthContext);
+  const { isReady, on } = useSocket();
 
   useEffect(() => {
-    dispatch({ type: "RESET" });
+    setQuickemessages([]);
     setPageNumber(1);
-  }, [searchParam]);
+  }, [searchParam, setQuickemessages]);
+
+  const fetchQuickemessages = useCallback(async () => {
+    try {
+      const data = await fetchQuickemessagesApi({
+        params: { searchParam, pageNumber },
+      });
+
+      if (data) {
+        setQuickemessages((prev) => {
+          if (pageNumber === 1) return data.records || [];
+          return [...prev, ...(data.records || [])];
+        });
+        setHasMore(data.hasMore);
+      }
+    } catch (err) {
+      toastError(err);
+    }
+  }, [searchParam, pageNumber, fetchQuickemessagesApi, setQuickemessages]);
 
   useEffect(() => {
-    setLoading(true);
     const delayDebounceFn = setTimeout(() => {
       fetchQuickemessages();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber]);
+  }, [fetchQuickemessages]);
 
   useEffect(() => {
-    const companyId = user.companyId;
+    if (!isReady || !user.companyId) return;
 
-    const onQuickMessageEvent = (data) => {
+    const cleanup = on(`company-${user.companyId}-quickemessage`, (data) => {
       if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_QUICKMESSAGES", payload: data.record });
+        setQuickemessages((prev) => {
+          const aux = [...prev];
+          const index = aux.findIndex((u) => u.id === data.record.id);
+          if (index !== -1) {
+            aux[index] = data.record;
+            return aux;
+          } else {
+            return [data.record, ...aux];
+          }
+        });
       }
       if (data.action === "delete") {
-        dispatch({ type: "DELETE_QUICKMESSAGE", payload: +data.id });
+        setQuickemessages((prev) => {
+          const aux = [...prev];
+          const index = aux.findIndex((u) => u.id === +data.id);
+          if (index !== -1) {
+            aux.splice(index, 1);
+          }
+          return aux;
+        });
       }
-    };
-    socket.on(`company-${companyId}-quickemessage`, onQuickMessageEvent);
+    });
 
-    return () => {
-      socket.off(`company-${companyId}-quickemessage`, onQuickMessageEvent);
-    };
-  }, [socket, user.companyId]);
-
-  const fetchQuickemessages = async () => {
-    try {
-      const { data } = await api.get("/quick-messages", {
-        params: { searchParam, pageNumber },
-      });
-
-      dispatch({ type: "LOAD_QUICKMESSAGES", payload: data.records });
-      setHasMore(data.hasMore);
-      setLoading(false);
-    } catch (err) {
-      toastError(err);
-    }
-  };
+    return cleanup;
+  }, [isReady, user.companyId, on, setQuickemessages]);
 
   const handleOpenQuickMessageDialog = () => {
     setSelectedQuickemessage(null);
@@ -301,7 +322,6 @@ const QuickMessages = () => {
     setSearchParam("");
     setPageNumber(1);
     fetchQuickemessages();
-    dispatch({ type: "RESET" });
   };
 
   const loadMore = () => {
@@ -309,7 +329,7 @@ const QuickMessages = () => {
   };
 
   const handleScroll = (e) => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loadingQuickMessages) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollHeight - (scrollTop + 100) < clientHeight) {
       loadMore();
@@ -384,64 +404,73 @@ const QuickMessages = () => {
 
       {/* Content - Lista */}
       <Box className={classes.content} onScroll={handleScroll}>
-        {quickemessages.length === 0 && !loading ? (
-          <Box className={classes.emptyState}>
-            <FlashOnIcon style={{ fontSize: 48, marginBottom: 8 }} />
-            <Typography>Nenhuma resposta rápida encontrada</Typography>
-          </Box>
-        ) : (
-          quickemessages.map((quickemessage) => (
-            <Box key={quickemessage.id} className={classes.listItem}>
-              {/* Ícone ou Imagem */}
-              {quickemessage.mediaPath ? (
-                <img
-                  src={quickemessage.mediaPath}
-                  alt={quickemessage.shortcode}
-                  className={classes.itemImage}
-                />
-              ) : (
-                <Box className={classes.itemIcon}>
-                  <ImageIcon />
+        <SafeComponent
+          loading={loadingQuickMessages && quickemessages.length === 0}
+          error={errorQuickMessages}
+          data={quickemessages}
+          renderData={(records) => {
+            if (records.length === 0) {
+              return (
+                <Box className={classes.emptyState}>
+                  <FlashOnIcon style={{ fontSize: 48, marginBottom: 8 }} />
+                  <Typography>Nenhuma resposta rápida encontrada</Typography>
                 </Box>
-              )}
+              );
+            }
 
-              {/* Info */}
-              <Box className={classes.itemInfo}>
-                <Typography className={classes.itemName}>
-                  {quickemessage.shortcode}
-                </Typography>
-                <Typography className={classes.itemId}>
-                  ID: {quickemessage.id}
-                </Typography>
-              </Box>
+            return records.map((quickemessage) => (
+              <Box key={quickemessage.id} className={classes.listItem}>
+                {/* Ícone ou Imagem */}
+                {quickemessage.mediaPath ? (
+                  <img
+                    src={quickemessage.mediaPath}
+                    alt={quickemessage.shortcode}
+                    className={classes.itemImage}
+                  />
+                ) : (
+                  <Box className={classes.itemIcon}>
+                    <FlashOnIcon />
+                  </Box>
+                )}
 
-              {/* Ações */}
-              <Box className={classes.itemActions}>
-                <Tooltip title="Editar">
-                  <IconButton
-                    size="small"
-                    className={classes.editButton}
-                    onClick={() => handleEditQuickemessage(quickemessage)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Excluir">
-                  <IconButton
-                    size="small"
-                    className={classes.deleteButton}
-                    onClick={() => {
-                      setConfirmModalOpen(true);
-                      setDeletingQuickemessage(quickemessage);
-                    }}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {/* Info */}
+                <Box className={classes.itemInfo}>
+                  <Typography className={classes.itemName}>
+                    {quickemessage.shortcode}
+                  </Typography>
+                  <Typography className={classes.itemId}>
+                    ID: {quickemessage.id}
+                  </Typography>
+                </Box>
+
+                {/* Ações */}
+                <Box className={classes.itemActions}>
+                  <Tooltip title="Editar">
+                    <IconButton
+                      size="small"
+                      className={classes.editButton}
+                      onClick={() => handleEditQuickemessage(quickemessage)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Excluir">
+                    <IconButton
+                      size="small"
+                      className={classes.deleteButton}
+                      onClick={() => {
+                        setConfirmModalOpen(true);
+                        setDeletingQuickemessage(quickemessage);
+                      }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
-            </Box>
-          ))
-        )}
+            ));
+          }}
+        />
       </Box>
     </Box>
   );

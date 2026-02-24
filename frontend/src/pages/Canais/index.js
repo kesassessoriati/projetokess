@@ -32,29 +32,9 @@ import {
   Message as MessengerIcon,
 } from "@material-ui/icons";
 
-import api from "../../services/api";
-import WhatsAppModal from "../../components/WhatsAppModal";
-import ConfirmationModal from "../../components/ConfirmationModal";
-import QrcodeModal from "../../components/QrcodeModal";
-import { i18n } from "../../translate/i18n";
-import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
-import toastError from "../../errors/toastError";
-import formatSerializedId from "../../utils/formatSerializedId";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import usePlans from "../../hooks/usePlans";
-import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
-import ForbiddenPage from "../../components/ForbiddenPage";
-import { Can } from "../../components/Can";
-import moment from "moment";
-import QrCodeIcon from "@mui/icons-material/QrCode";
-import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import AddIcon from "@material-ui/icons/Add";
-import LogoutIcon from "@mui/icons-material/Logout";
-import RepeatIcon from "@mui/icons-material/Repeat";
-import PowerIcon from "@mui/icons-material/Power";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import ChannelModal from "../../HubEcosystem/components/ChannelModal";
-import notificame_logo from "../../assets/notificame_logo.png";
+import useSafeApi from "../../hooks/useSafeApi";
+import { useSocket } from "../../context/SocketContext";
+import SafeComponent from "../../components/SafeComponent";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import FacebookInstagramModal from "../../components/FacebookInstagramModal";
 import { getEnvVariable } from "../../config";
@@ -391,7 +371,7 @@ const IconChannel = (channel) => {
 const Connections = () => {
   const classes = useStyles();
 
-  const { whatsApps, loading } = useContext(WhatsAppsContext);
+  const { whatsApps, loading, error: whatsAppError } = useContext(WhatsAppsContext);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [statusImport, setStatusImport] = useState([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -401,22 +381,9 @@ const Connections = () => {
   const [hubChannelModalOpen, setHubChannelModalOpen] = useState(false);
   const [fbIgModalOpen, setFbIgModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
-  const { handleLogout } = useContext(AuthContext);
+  const { handleLogout, user } = useContext(AuthContext);
   const history = useHistory();
-  const confirmationModalInitialState = {
-    action: "",
-    title: "",
-    message: "",
-    whatsAppId: "",
-    channel: "",
-    open: false,
-  };
-  const [confirmModalInfo, setConfirmModalInfo] = useState(
-    confirmationModalInitialState
-  );
-  const [planConfig, setPlanConfig] = useState(false);
-
-  const { user, socket } = useContext(AuthContext);
+  const { isReady, on } = useSocket();
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
@@ -484,9 +451,11 @@ const Connections = () => {
   };
 
   useEffect(() => {
+    if (!isReady || !user.companyId) return;
+
     const channel = `importMessages-${user.companyId}`;
 
-    const handler = (data) => {
+    const cleanup = on(channel, (data) => {
       if (data.action === "refresh") {
         setStatusImport([]);
         history.go(0);
@@ -494,14 +463,10 @@ const Connections = () => {
       if (data.action === "update") {
         setStatusImport(data.status);
       }
-    };
+    });
 
-    socket.on(channel, handler);
-
-    return () => {
-      socket.off(channel, handler);
-    };
-  }, [socket, user.companyId, history, whatsApps]);
+    return cleanup;
+  }, [isReady, user.companyId, history]);
 
   const handleStartWhatsAppSession = async (whatsAppId) => {
     try {
@@ -1095,97 +1060,103 @@ const Connections = () => {
         )}
 
         <Box className={classes.listWrapper}>
-          {loading ? (
-            <Box className={classes.loadingBox}>
-              <CircularProgress size={24} />
-              <Typography variant="body2">Carregando conexões...</Typography>
-            </Box>
-          ) : filteredConnections.length === 0 ? (
-            <Box className={classes.emptyState}>
-              <LinkIcon />
-              <Typography>Nenhuma conexão encontrada</Typography>
-            </Box>
-          ) : (
-            filteredConnections.map((whatsApp) => {
-              const statusInfo = getStatusBadge(whatsApp.status);
-              return (
-                <Box key={whatsApp.id} className={classes.card}>
-                  <Box
-                    className={classes.channelIcon}
-                    style={{ backgroundColor: getChannelBg(whatsApp.channel) }}
-                  >
-                    {getChannelIcon(whatsApp.channel)}
+          <SafeComponent
+            loading={loading && whatsApps.length === 0}
+            error={whatsAppError}
+            data={whatsApps}
+            renderData={() => (
+              <>
+                {filteredConnections.length === 0 ? (
+                  <Box className={classes.emptyState}>
+                    <WhatsApp />
+                    <Typography>Nenhuma conexão encontrada</Typography>
                   </Box>
-                  <Box className={classes.cardInfo}>
-                    <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
-                      {whatsApp.name}
-                      {whatsApp.channel === "facebook" && (
-                        <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#3b5998", fontWeight: 500 }}>
-                          <Facebook style={{ fontSize: 14, verticalAlign: 'middle' }} /> Facebook
-                        </span>
-                      )}
-                      {whatsApp.channel === "instagram" && (
-                        <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#e1306c", fontWeight: 500 }}>
-                          <Instagram style={{ fontSize: 14, verticalAlign: 'middle' }} /> Instagram
-                        </span>
-                      )}
-                      {whatsApp.isDefault && (
-                        <span style={{ marginLeft: 8, fontSize: "0.7rem", color: green[500], fontWeight: 500 }}>
-                          (Padrão)
-                        </span>
-                      )}
-                    </Typography>
-                    <Box className={classes.metaRow}>
-                      {whatsApp.channel === "whatsapp" && (
-                        <>
-                          <span>
-                            {whatsApp.number
-                              ? formatSerializedId(whatsApp.number)
-                              : "Sem número"}
-                          </span>
-                          <span>•</span>
-                        </>
-                      )}
-                      <span>{format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm")}</span>
-                    </Box>
-                    <Box style={{ marginTop: 4 }}>
-                      <span className={`${classes.statusBadge} ${statusInfo.class}`}>
-                        {renderStatusToolTips(whatsApp)}
-                        {statusInfo.label}
-                      </span>
-                    </Box>
-                  </Box>
-                  <Box className={classes.cardActions}>
-                    {renderActionButtons(whatsApp)}
-                    <Can
-                      role={user.profile}
-                      perform="connections-page:addConnection"
-                      yes={() => (
-                        <>
-                          <Tooltip title="Editar">
-                            <IconButton
-                              className={`${classes.actionButton} ${classes.editButton}`}
-                              onClick={() => handleEditConnection(whatsApp)}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Excluir">
-                            <IconButton
-                              className={`${classes.actionButton} ${classes.deleteButton}`}
-                              onClick={() => handleOpenConfirmationModal("delete", whatsApp.id, whatsApp.channel)}
-                            >
-                              <DeleteOutline fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    />
-                  </Box>
-                </Box>
-              );
-            })
-          )}
+                ) : (
+                  filteredConnections.map((whatsApp) => {
+                    const statusInfo = getStatusBadge(whatsApp.status);
+                    return (
+                      <Box key={whatsApp.id} className={classes.card}>
+                        <Box
+                          className={classes.channelIcon}
+                          style={{ backgroundColor: getChannelBg(whatsApp.channel) }}
+                        >
+                          {getChannelIcon(whatsApp.channel)}
+                        </Box>
+                        <Box className={classes.cardInfo}>
+                          <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                            {whatsApp.name}
+                            {whatsApp.channel === "facebook" && (
+                              <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#3b5998", fontWeight: 500 }}>
+                                <Facebook style={{ fontSize: 14, verticalAlign: 'middle' }} /> Facebook
+                              </span>
+                            )}
+                            {whatsApp.channel === "instagram" && (
+                              <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#e1306c", fontWeight: 500 }}>
+                                <Instagram style={{ fontSize: 14, verticalAlign: 'middle' }} /> Instagram
+                              </span>
+                            )}
+                            {whatsApp.isDefault && (
+                              <span style={{ marginLeft: 8, fontSize: "0.7rem", color: green[500], fontWeight: 500 }}>
+                                (Padrão)
+                              </span>
+                            )}
+                          </Typography>
+                          <Box className={classes.metaRow}>
+                            {whatsApp.channel === "whatsapp" && (
+                              <>
+                                <span>
+                                  {whatsApp.number
+                                    ? formatSerializedId(whatsApp.number)
+                                    : "Sem número"}
+                                </span>
+                                <span>•</span>
+                              </>
+                            )}
+                            <span>{format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm")}</span>
+                          </Box>
+                          <Box style={{ marginTop: 4 }}>
+                            <span className={`${classes.statusBadge} ${statusInfo.class}`}>
+                              {renderStatusToolTips(whatsApp)}
+                              {statusInfo.label}
+                            </span>
+                          </Box>
+                        </Box>
+                        <Box className={classes.cardActions}>
+                          {renderActionButtons(whatsApp)}
+                          <Can
+                            role={user.profile}
+                            perform="connections-page:addConnection"
+                            yes={() => (
+                              <>
+                                <Tooltip title="Editar">
+                                  <IconButton
+                                    size="small"
+                                    className={`${classes.actionButton} ${classes.editButton}`}
+                                    onClick={() => handleEditConnection(whatsApp)}
+                                  >
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Excluir">
+                                  <IconButton
+                                    size="small"
+                                    className={`${classes.actionButton} ${classes.deleteButton}`}
+                                    onClick={() => handleOpenConfirmationModal("delete", whatsApp.id, whatsApp.channel)}
+                                  >
+                                    <DeleteOutline fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          />
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </>
+            )}
+          />
         </Box>
       </Box>
     </Box>

@@ -16,6 +16,8 @@ import SubscriptionModal from "../../components/SubscriptionModal";
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import toastError from "../../errors/toastError";
+import useSafeApi from "../../hooks/useSafeApi";
+import SafeComponent from "../../components/SafeComponent";
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { listCompanyPaymentSettings } from "../../services/companyPaymentSettings";
@@ -157,25 +159,54 @@ const Invoices = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
 
-  const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [searchParam, ] = useState("");
-  const [invoices, dispatch] = useReducer(reducer, []);
-  const [storagePlans, setStoragePlans] = React.useState([]);
+  const [searchParam] = useState("");
+  const [storagePlans, setStoragePlans] = useState([]);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all"); // Filtro de status para Company ID 1
+  const [statusFilter, setStatusFilter] = useState("all");
   const [noGatewayModalOpen, setNoGatewayModalOpen] = useState(false);
 
-  // Verificar se é company ID 1 para painel admin
   const isCompanyIdOne = user?.companyId === 1;
 
-  const handleOpenContactModal = async (invoices) => {
-    console.log("handleOpenContactModal chamado com:", invoices);
-    
+  const { data: invoices, loading: loadingInvoices, error: errorInvoices, setData: setInvoices, request: fetchInvoicesApi } = useSafeApi("/invoices/all", { manual: true });
+
+  const fetchInvoices = useCallback(async () => {
     try {
-      // Verifica se há gateway de pagamento configurado
+      const data = await fetchInvoicesApi({
+        params: { searchParam, pageNumber },
+      });
+
+      if (data && Array.isArray(data.invoices)) { // Ensure data.invoices is an array
+        setInvoices((prev) => {
+          if (pageNumber === 1) return data.invoices;
+          return [...prev, ...data.invoices];
+        });
+        setHasMore(data.hasMore);
+      } else {
+        setInvoices([]);
+        setHasMore(false);
+      }
+    } catch (err) {
+      toastError(err);
+    }
+  }, [searchParam, pageNumber, fetchInvoicesApi, setInvoices]);
+
+  useEffect(() => {
+    setInvoices([]);
+    setPageNumber(1);
+  }, [searchParam, setInvoices]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchInvoices();
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [fetchInvoices]);
+
+  const handleOpenContactModal = async (invoice) => {
+    try {
       const paymentSettings = await listCompanyPaymentSettings();
       const hasGateway = Array.isArray(paymentSettings) && paymentSettings.length > 0 && paymentSettings.some(p => p.active);
 
@@ -188,50 +219,22 @@ const Invoices = () => {
       return;
     }
 
-    setStoragePlans(invoices);
+    setStoragePlans(invoice);
     setSelectedContactId(null);
     setContactModalOpen(true);
-    console.log("contactModalOpen definido como true");
   };
 
   const handleCloseContactModal = () => {
     setSelectedContactId(null);
     setContactModalOpen(false);
   };
-  useEffect(() => {
-    dispatch({ type: "RESET" });
-    setPageNumber(1);
-  }, [searchParam]);
-
-  useEffect(() => {
-    setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchInvoices = async () => {
-        try {
-          // Company ID 1 busca todas faturas, outras buscam apenas as suas
-          const endpoint = isCompanyIdOne ? "/invoices/all" : "/invoices/all";
-          const { data } = await api.get(endpoint, {
-            params: { searchParam, pageNumber },
-          });
-
-          dispatch({ type: "LOAD_INVOICES", payload: data });
-          setHasMore(data.hasMore);
-          setLoading(false);
-        } catch (err) {
-          toastError(err);
-        }
-      };
-      fetchInvoices();
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber, isCompanyIdOne]);
 
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);
   };
 
   const handleScroll = (e) => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loadingInvoices) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollHeight - (scrollTop + 100) < clientHeight) {
       loadMore();
@@ -239,70 +242,60 @@ const Invoices = () => {
   };
 
   const rowStyle = (record) => {
-    const hoje = moment(moment()).format("DD/MM/yyyy");
-    const vencimento = moment(record.dueDate).format("DD/MM/yyyy");
-    var diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
-    var dias = moment.duration(diff).asDays();
-    if (dias < 0 && record.status !== "paid") {
+    const hoje = moment();
+    const vencimento = moment(record.dueDate);
+    if (vencimento.isBefore(hoje, 'day') && record.status !== "paid") {
       return { backgroundColor: "#ffbcbc9c" };
     }
   };
 
   const rowStatus = (record) => {
-    const hoje = moment(moment()).format("DD/MM/yyyy");
-    const vencimento = moment(record.dueDate).format("DD/MM/yyyy");
-    var diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
-    var dias = moment.duration(diff).asDays();
+    const hoje = moment();
+    const vencimento = moment(record.dueDate);
     const status = record.status;
     if (status === "paid") {
       return { text: "Pago", color: "paid", overdueDays: 0 };
     }
-    if (dias < 0) {
-      return { text: "Vencido", color: "overdue", overdueDays: Math.abs(Math.floor(dias)) };
+    if (vencimento.isBefore(hoje, 'day')) {
+      return { text: "Vencido", color: "overdue", overdueDays: Math.abs(hoje.diff(vencimento, 'days')) };
     } else {
       return { text: "Em Aberto", color: "unpaid", overdueDays: 0 };
     }
-  }
+  };
 
-  // Filtrar faturas por status e company
   const getFilteredInvoices = () => {
+    if (!invoices) return [];
+
+    let filtered = invoices;
     if (isCompanyIdOne) {
-      // Company ID 1 vê todas as faturas EXCETO a própria
-      const otherCompaniesInvoices = invoices.filter(inv => inv.companyId !== 1);
-      
-      if (statusFilter === "all") return otherCompaniesInvoices;
-      if (statusFilter === "paid") return otherCompaniesInvoices.filter(inv => inv.status === "paid");
-      if (statusFilter === "unpaid") return otherCompaniesInvoices.filter(inv => inv.status !== "paid");
+      filtered = filtered.filter(inv => inv.companyId !== 1);
+
+      if (statusFilter === "paid") filtered = filtered.filter(inv => inv.status === "paid");
+      if (statusFilter === "unpaid") filtered = filtered.filter(inv => inv.status !== "paid");
       if (statusFilter === "overdue") {
-        const hoje = moment(moment()).format("DD/MM/yyyy");
-        return otherCompaniesInvoices.filter(inv => {
-          const vencimento = moment(inv.dueDate).format("DD/MM/yyyy");
-          const diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
-          return inv.status !== "paid" && diff < 0;
+        const hoje = moment();
+        filtered = filtered.filter(inv => {
+          return inv.status !== "paid" && moment(inv.dueDate).isBefore(hoje, 'day');
         });
       }
-      return otherCompaniesInvoices;
     } else {
-      // Outras companies veem apenas suas faturas (excluindo Company ID 1)
-      const userInvoices = invoices.filter(inv => inv.companyId === user?.companyId);
-      return userInvoices;
+      filtered = filtered.filter(inv => inv.companyId === user?.companyId);
     }
+    return filtered;
   };
 
-  // Calcular estatísticas
-  const calculateStats = () => {
-    const filteredInvoices = getFilteredInvoices();
-    const paid = filteredInvoices.filter(inv => inv.status === "paid").length;
-    const unpaid = filteredInvoices.filter(inv => inv.status !== "paid").length;
-    const total = filteredInvoices.reduce((sum, inv) => sum + inv.value, 0);
-    const unpaidTotal = filteredInvoices.filter(inv => inv.status !== "paid").reduce((sum, inv) => sum + inv.value, 0);
-    
+  const stats = (() => {
+    const filtered = getFilteredInvoices();
+    const paid = filtered.filter(inv => inv.status === "paid").length;
+    const unpaid = filtered.filter(inv => inv.status !== "paid").length;
+    const total = filtered.reduce((sum, inv) => sum + (inv.value || 0), 0);
+    const unpaidTotal = filtered.filter(inv => inv.status !== "paid").reduce((sum, inv) => sum + (inv.value || 0), 0);
+
     return { paid, unpaid, total, unpaidTotal };
-  };
+  })();
 
-  const stats = calculateStats();
-  const filteredInvoices = getFilteredInvoices();
-  
+  const filteredInvoicesList = getFilteredInvoices();
+
   const renderUseWhatsapp = (row) => { return row.status === false ? "Não" : "Sim" };
   const renderUseFacebook = (row) => { return row.status === false ? "Não" : "Sim" };
   const renderUseInstagram = (row) => { return row.status === false ? "Não" : "Sim" };
@@ -320,11 +313,11 @@ const Invoices = () => {
         Invoice={storagePlans}
         contactId={selectedContactId}
       />
-      
+
       <MainHeader>
         <Title>Financeiro</Title>
       </MainHeader>
-      
+
       <Paper className={classes.mainPaper} variant="outlined">
         {/* Header Card */}
         <Card className={classes.headerCard}>
@@ -422,7 +415,7 @@ const Invoices = () => {
             <Grid item xs={12} md={8}>
               <Box display="flex" alignItems="center" pt={1}>
                 <Typography variant="body2" color="textSecondary">
-                  Mostrando {filteredInvoices.length} fatura(s) 
+                  Mostrando {filteredInvoices.length} fatura(s)
                   {statusFilter !== "all" && ` - Filtro: ${statusFilter === "paid" ? "Pagas" : statusFilter === "unpaid" ? "Em Aberto" : "Vencidas"}`}
                 </Typography>
               </Box>
@@ -431,127 +424,132 @@ const Invoices = () => {
         )}
 
         {/* Tabela de Faturas - Para todas as companies */}
-        <>
-          <Typography variant="h6" gutterBottom style={{ marginTop: 24, marginBottom: 16 }}>
-            📋 {isCompanyIdOne ? "Faturas das Empresas Clientes" : "Histórico de Faturas"}
-          </Typography>
-          
-          <Card className={classes.invoiceTable}>
-            <Table size="small">
-              <TableHead className={classes.tableHead}>
-                <TableRow>
-                  <TableCell align="center">Detalhes</TableCell>
-                  <TableCell align="center">Empresa</TableCell>
-                  <TableCell align="center">Usuários</TableCell>
-                  <TableCell align="center">Conexões</TableCell>
-                  <TableCell align="center">Filas</TableCell>
-                  <TableCell align="center">Valor</TableCell>
-                  <TableCell align="center">Vencimento</TableCell>
-                  <TableCell align="center">Status</TableCell>
-                  {isCompanyIdOne && <TableCell align="center">Atraso</TableCell>}
-                  <TableCell align="center">Ação</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredInvoices.map((invoice) => {
-                  const status = rowStatus(invoice);
-                  return (
-                    <TableRow 
-                      key={invoice.id} 
-                      style={rowStyle(invoice)}
-                      hover
-                    >
-                      <TableCell align="center">{invoice.detail}</TableCell>
-                      <TableCell align="center">
-                        {isCompanyIdOne ? (
-                          <Chip 
-                            label={`ID: ${invoice.companyId || 'N/A'} ${invoice.companyId === 1 ? '(Admin)' : ''}`}
-                            size="small"
-                            style={{ 
-                              backgroundColor: invoice.companyId === 1 ? '#f3e5f5' : '#e3f2fd', 
-                              color: invoice.companyId === 1 ? '#7b1fa2' : '#1976d2'
-                            }}
-                          />
-                        ) : (
-                          invoice.detail
-                        )}
-                      </TableCell>
-                      <TableCell align="center">{invoice.users}</TableCell>
-                      <TableCell align="center">{invoice.connections}</TableCell>
-                      <TableCell align="center">{invoice.queues}</TableCell>
-                      <TableCell align="center" style={{ fontWeight: 'bold' }}>
-                        {invoice.value.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}
-                      </TableCell>
-                      <TableCell align="center">
-                        {moment(invoice.dueDate).format("DD/MM/YYYY")}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={status.text}
-                          className={`${classes.statusChip} ${classes[`${status.color}Chip`]}`}
-                        />
-                      </TableCell>
-                      {isCompanyIdOne && (
-                        <TableCell align="center">
-                          {status.overdueDays > 0 ? (
-                            <Chip 
-                              label={`${status.overdueDays} dias`}
-                              size="small"
-                              style={{ 
-                                backgroundColor: status.overdueDays > 30 ? '#ffebee' : '#fff3e0',
-                                color: status.overdueDays > 30 ? '#c62828' : '#f57c00'
-                              }}
-                            />
-                          ) : (
-                            <Typography variant="body2" color="textSecondary">
-                              -
-                            </Typography>
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell align="center">
-                        {status.text !== "Pago" ? (
-                          <Button
-                            startIcon={<AttachMoneyIcon />}
-                            size="small"
-                            className={classes.payButton}
-                            onClick={() => {
-                              console.log("Botão PAGAR clicado", invoice);
-                              handleOpenContactModal(invoice);
-                            }}
-                          >
-                            PAGAR
-                          </Button>
-                        ) : (
-                          <Button
-                            startIcon={<AttachMoneyIcon />}
-                            size="small"
-                            className={classes.paidButton}
-                          >
-                            PAGO
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {loading && <TableRowSkeleton columns={isCompanyIdOne ? 9 : 8} />}
-              </TableBody>
-            </Table>
-          </Card>
-        </>
+        <SafeComponent
+          loading={loadingInvoices && invoices.length === 0}
+          error={errorInvoices}
+          data={invoices}
+          renderData={() => (
+            <>
+              <Typography variant="h6" gutterBottom style={{ marginTop: 24, marginBottom: 16 }}>
+                📋 {isCompanyIdOne ? "Faturas das Empresas Clientes" : "Histórico de Faturas"}
+              </Typography>
 
-        {/* Mensagem se não houver faturas */}
-        {filteredInvoices.length === 0 && !loading && (
-          <Box textAlign="center" py={8}>
-            <Typography variant="h6" color="textSecondary">
-              {isCompanyIdOne ? "Nenhuma fatura de cliente encontrada" : "Nenhuma fatura encontrada"}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {isCompanyIdOne ? "Não há faturas registradas para as empresas clientes" : "Você não possui faturas em seu histórico"}
-            </Typography>
-          </Box>
-        )}
+              {filteredInvoicesList.length === 0 ? (
+                <Box textAlign="center" py={8}>
+                  <Typography variant="h6" color="textSecondary">
+                    {isCompanyIdOne ? "Nenhuma fatura de cliente encontrada" : "Nenhuma fatura encontrada"}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {isCompanyIdOne ? "Não há faturas registradas para as empresas clientes" : "Você não possui faturas em seu histórico"}
+                  </Typography>
+                </Box>
+              ) : (
+                <Card className={classes.invoiceTable}>
+                  <Table size="small">
+                    <TableHead className={classes.tableHead}>
+                      <TableRow>
+                        <TableCell align="center">Detalhes</TableCell>
+                        <TableCell align="center">Empresa</TableCell>
+                        <TableCell align="center">Usuários</TableCell>
+                        <TableCell align="center">Conexões</TableCell>
+                        <TableCell align="center">Filas</TableCell>
+                        <TableCell align="center">Valor</TableCell>
+                        <TableCell align="center">Vencimento</TableCell>
+                        <TableCell align="center">Status</TableCell>
+                        {isCompanyIdOne && <TableCell align="center">Atraso</TableCell>}
+                        <TableCell align="center">Ação</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredInvoicesList.map((invoice) => {
+                        const status = rowStatus(invoice);
+                        return (
+                          <TableRow
+                            key={invoice.id}
+                            style={rowStyle(invoice)}
+                            hover
+                          >
+                            <TableCell align="center">{invoice.detail}</TableCell>
+                            <TableCell align="center">
+                              {isCompanyIdOne ? (
+                                <Chip
+                                  label={`ID: ${invoice.companyId || 'N/A'} ${invoice.companyId === 1 ? '(Admin)' : ''}`}
+                                  size="small"
+                                  style={{
+                                    backgroundColor: invoice.companyId === 1 ? '#f3e5f5' : '#e3f2fd',
+                                    color: invoice.companyId === 1 ? '#7b1fa2' : '#1976d2'
+                                  }}
+                                />
+                              ) : (
+                                invoice.detail
+                              )}
+                            </TableCell>
+                            <TableCell align="center">{invoice.users}</TableCell>
+                            <TableCell align="center">{invoice.connections}</TableCell>
+                            <TableCell align="center">{invoice.queues}</TableCell>
+                            <TableCell align="center" style={{ fontWeight: 'bold' }}>
+                              {(invoice.value || 0).toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}
+                            </TableCell>
+                            <TableCell align="center">
+                              {moment(invoice.dueDate).format("DD/MM/YYYY")}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={status.text}
+                                className={`${classes.statusChip} ${classes[`${status.color}Chip`]}`}
+                              />
+                            </TableCell>
+                            {isCompanyIdOne && (
+                              <TableCell align="center">
+                                {status.overdueDays > 0 ? (
+                                  <Chip
+                                    label={`${status.overdueDays} dias`}
+                                    size="small"
+                                    style={{
+                                      backgroundColor: status.overdueDays > 30 ? '#ffebee' : '#fff3e0',
+                                      color: status.overdueDays > 30 ? '#c62828' : '#f57c00'
+                                    }}
+                                  />
+                                ) : (
+                                  <Typography variant="body2" color="textSecondary">
+                                    -
+                                  </Typography>
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell align="center">
+                              {status.text !== "Pago" ? (
+                                <Button
+                                  startIcon={<AttachMoneyIcon />}
+                                  size="small"
+                                  className={classes.payButton}
+                                  onClick={() => {
+                                    handleOpenContactModal(invoice);
+                                  }}
+                                >
+                                  PAGAR
+                                </Button>
+                              ) : (
+                                <Button
+                                  startIcon={<AttachMoneyIcon />}
+                                  size="small"
+                                  className={classes.paidButton}
+                                >
+                                  PAGO
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {loadingInvoices && <TableRowSkeleton columns={isCompanyIdOne ? 9 : 8} />}
+                    </TableBody>
+                  </Table>
+                </Card>
+              )}
+            </>
+          )}
+        />
 
         {/* Modal de aviso sobre gateway não configurado */}
         <Dialog
@@ -560,8 +558,8 @@ const Invoices = () => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle style={{ 
-            backgroundColor: '#f44336', 
+          <DialogTitle style={{
+            backgroundColor: '#f44336',
             color: 'white',
             textAlign: 'center'
           }}>

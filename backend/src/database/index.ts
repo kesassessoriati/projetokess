@@ -95,11 +95,46 @@ import FollowUp from "../models/FollowUp";
 import CallRecord from "../models/CallRecord";
 import GoogleSheetsToken from "../models/GoogleSheetsToken";
 import UserDevice from "../models/UserDevice";
+import ExternalApp from "../models/ExternalApp";
+import IaWorkflow from "../models/IaWorkflow";
+import FrontendError from "../models/FrontendError";
+import BackendError from "../models/BackendError";
+import SystemMetric from "../models/SystemMetric";
+import BackendMetric from "../models/BackendMetric";
+import SlowQuery from "../models/SlowQuery";
+import SystemProcessMetric from "../models/SystemProcessMetric";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
 
-const sequelize = new Sequelize(dbConfig);
+const sequelize = new Sequelize({
+  ...dbConfig,
+  benchmark: true,
+  logging: (sql: string, duration?: number | any) => {
+    // Se a duração for maior que 500ms, registra como SlowQuery
+    if (typeof duration === "number" && duration > 500) {
+      const context = (require("../libs/logContext").logContextStorage).getStore();
+
+      let severity = "LOW";
+      if (duration > 2000) severity = "CRITICAL";
+      else if (duration > 1000) severity = "HIGH";
+
+      // Fire and forget persistence
+      SlowQuery.create({
+        query: sql,
+        duration: duration,
+        severity,
+        companyId: context?.companyId,
+        route: context?.path // Nota: precisamos garantir que o path esteja no context
+      }).catch(e => {
+        // Evitar loop infinito se o erro for no próprio SlowQuery
+        if (!sql.includes("SlowQueries")) {
+          console.error("Erro ao registrar SlowQuery:", e);
+        }
+      });
+    }
+  }
+});
 
 const models = [
   Company,
@@ -197,6 +232,14 @@ const models = [
   GoogleSheetsToken,
   UserDevice,
   CallRecord,
+  ExternalApp,
+  IaWorkflow,
+  FrontendError,
+  BackendError,
+  SystemMetric,
+  BackendMetric,
+  SlowQuery,
+  SystemProcessMetric
 ];
 
 sequelize.addModels(models);
