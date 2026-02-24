@@ -28,6 +28,7 @@ import MarkdownWrapper from "../MarkdownWrapper";
 import { ContactForm } from "../ContactForm";
 import ContactModal from "../ContactModal";
 import { ContactNotes } from "../ContactNotes";
+import PrivateNoteInput from "../PrivateNoteInput";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import toastError from "../../errors/toastError";
@@ -206,7 +207,7 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 	const { get } = useCompanySettings();
 	const [hideNum, setHideNum] = useState(false);
 	const { user } = useContext(AuthContext);
-    const [acceptAudioMessage, setAcceptAudio] = useState(safeContact.acceptAudioMessage ?? false);
+	const [acceptAudioMessage, setAcceptAudio] = useState(safeContact.acceptAudioMessage ?? false);
 	const [queues, setQueues] = useState([]);
 	const [selectedQueue, setSelectedQueue] = useState(ticket?.queueId || "");
 	const [loadingQueue, setLoadingQueue] = useState(false);
@@ -241,13 +242,13 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 	}, [open, ticket]);
 
 	const handleContactToggleAcceptAudio = async () => {
-        try {
-            const resp = await api.put(`/contacts/toggleAcceptAudio/${safeContact.id}`);
-            setAcceptAudio(resp.data.acceptAudioMessage);
-        } catch (err) {
-            toastError(err);
-        }
-    };
+		try {
+			const resp = await api.put(`/contacts/toggleAcceptAudio/${safeContact.id}`);
+			setAcceptAudio(resp.data.acceptAudioMessage);
+		} catch (err) {
+			toastError(err);
+		}
+	};
 
 	const loadQueues = async () => {
 		try {
@@ -425,7 +426,7 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 									name="disableBot"
 									color="primary"
 								/>
-								{i18n.t("ticketOptionsMenu.acceptAudioMessage")}								
+								{i18n.t("ticketOptionsMenu.acceptAudioMessage")}
 							</Typography>
 						</>
 					) : (<br />)}
@@ -444,7 +445,7 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 								title={
 									<>
 										<Typography onClick={() => setOpenForm(true)}>
-										{getDisplayName(safeContact)}
+											{getDisplayName(safeContact)}
 											<CreateIcon style={{ fontSize: 16, marginLeft: 5 }} />
 										</Typography>
 									</>
@@ -484,9 +485,9 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 									borderRadius: 0,
 									fontSize: "12px",
 								}}
-										onClick={() => safeContact.active
-											? handleBlockContact(safeContact.id)
-											: handleUnBlockContact(safeContact.id)}
+								onClick={() => safeContact.active
+									? handleBlockContact(safeContact.id)
+									: handleUnBlockContact(safeContact.id)}
 								disabled={loading}
 							>
 								{!safeContact.active ? "Desbloquear contato" : "Bloquear contato"}
@@ -500,16 +501,24 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 							</Typography>
 							<ContactNotes ticket={ticket} />
 						</Paper>
+
+						{/* ── Seção de Notas Privadas (isolamento multi-tenant) ────── */}
+						{ticket?.id && (
+							<Paper square variant="outlined" className={classes.contactDetails}
+								style={{ borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' }}>
+								<PrivateNoteInput ticket={ticket} />
+							</Paper>
+						)}
 						<Paper square variant="outlined" className={classes.contactDetails}>
-									<ContactModal
-										open={modalOpen}
-										onClose={() => setModalOpen(false)}
-										contactId={safeContact.id}
-									></ContactModal>
+							<ContactModal
+								open={modalOpen}
+								onClose={() => setModalOpen(false)}
+								contactId={safeContact.id}
+							></ContactModal>
 							<Typography variant="subtitle1">
 								{i18n.t("contactDrawer.extraInfo")}
 							</Typography>
-									{safeContact?.extraInfo?.map(info => (
+							{safeContact?.extraInfo?.map(info => (
 								<Paper
 									key={info.id}
 									square

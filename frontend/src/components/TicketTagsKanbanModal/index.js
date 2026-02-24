@@ -30,6 +30,7 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import { TagsContainer } from "../TagsContainer";
 import { TagsKanbanContainer } from "../TagsKanbanContainer";
 import { ContactNotes } from "../ContactNotes";
+import PrivateNoteInput from "../PrivateNoteInput";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 
@@ -711,7 +712,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     resolvedContact?.profilePicUrl ||
     resolvedContact?.urlPicture ||
     "https://ui-avatars.com/api/?background=00a884&color=fff&name=" +
-      encodeURIComponent(contactName);
+    encodeURIComponent(contactName);
 
   const kanbanStage = useMemo(() => {
     const tags = resolvedTicket?.tags || [];
@@ -1188,8 +1189,10 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
             {activeTab === "links" && renderLinksTab()}
             {activeTab === "images" && renderImagesTab()}
             {activeTab === "notes" && (
-              <Box mt={2}>
+              <Box mt={2} display="flex" flexDirection="column" style={{ gap: 16 }}>
                 <ContactNotes ticket={ticket} />
+                {/* ── Notas Privadas (isolamento multi-tenant, fundo amarelo) ── */}
+                <PrivateNoteInput ticket={resolvedTicket || ticket} />
               </Box>
             )}
           </div>

@@ -1,9 +1,12 @@
 import { Sequelize, Op } from "sequelize";
 import TicketNote from "../../models/TicketNote";
+import User from "../../models/User";
 
 interface Request {
   searchParam?: string;
   pageNumber?: string;
+  companyId: number;
+  onlyPrivate?: boolean;
 }
 
 interface Response {
@@ -14,9 +17,12 @@ interface Response {
 
 const ListTicketNotesService = async ({
   searchParam = "",
-  pageNumber = "1"
+  pageNumber = "1",
+  companyId,
+  onlyPrivate = false
 }: Request): Promise<Response> => {
-  const whereCondition = {
+  const whereCondition: any = {
+    companyId, // ─── Isolamento multi-tenant obrigatório ───────────────────
     [Op.or]: [
       {
         note: Sequelize.where(
@@ -27,11 +33,20 @@ const ListTicketNotesService = async ({
       }
     ]
   };
+
+  // Filtro opcional: retornar apenas notas privadas
+  if (onlyPrivate) {
+    whereCondition.isPrivate = true;
+  }
+
   const limit = 20;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: ticketNotes } = await TicketNote.findAndCountAll({
     where: whereCondition,
+    include: [
+      { model: User, as: "user", attributes: ["id", "name", "email"] }
+    ],
     limit,
     offset,
     order: [["createdAt", "DESC"]]

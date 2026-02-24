@@ -1,9 +1,14 @@
 import TicketNote from "../../models/TicketNote";
 import AppError from "../../errors/AppError";
 
-const DeleteTicketNoteService = async (id: string): Promise<void> => {
+// ─── Delete com validação de companyId ────────────────────────────────────
+// O companyId garante que um usuário não pode deletar nota de outra empresa
+const DeleteTicketNoteService = async (
+  id: string,
+  companyId: number
+): Promise<void> => {
   const ticketnote = await TicketNote.findOne({
-    where: { id }
+    where: { id, companyId }
   });
 
   if (!ticketnote) {
