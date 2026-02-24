@@ -260,6 +260,7 @@ export default function QuickSendModal({ open, onClose }) {
         setMessage('');
         setWhatsappId('');
         setQueueId('');
+        setLoading(false);
 
         const load = async () => {
             try {
@@ -301,7 +302,7 @@ export default function QuickSendModal({ open, onClose }) {
                 name: name.trim() || undefined,
                 queueId: queueId ? Number(queueId) : undefined,
                 createIfNotExists: true,
-            });
+            }, { timeout: 20000 });
 
             const { ticket } = resp.data;
             setResult({ type: 'success', msg: 'Mensagem enviada com sucesso! ✓', ticket });
@@ -312,7 +313,10 @@ export default function QuickSendModal({ open, onClose }) {
                 const { ticket, warning } = err.response.data;
                 setResult({ type: 'warning', msg: warning, ticket });
             } else {
-                const msg = err?.response?.data?.error || 'Erro ao enviar mensagem.';
+                let msg = err?.response?.data?.error || 'Erro ao enviar mensagem.';
+                if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+                    msg = 'Tempo esgotado: o servidor não respondeu a tempo. Verifique sua conexão ou se o WhatsApp está conectado.';
+                }
                 setResult({ type: 'error', msg });
                 toast.error(msg);
             }
@@ -510,10 +514,10 @@ export default function QuickSendModal({ open, onClose }) {
                     {result && (
                         <Box
                             className={`${classes.resultCard} ${result.type === 'success'
-                                    ? classes.resultSuccess
-                                    : result.type === 'warning'
-                                        ? classes.resultWarning
-                                        : classes.resultError
+                                ? classes.resultSuccess
+                                : result.type === 'warning'
+                                    ? classes.resultWarning
+                                    : classes.resultError
                                 }`}
                         >
                             <Box style={{ flex: 1 }}>
