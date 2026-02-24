@@ -5,7 +5,7 @@ module.exports = {
         const tableDescription = await queryInterface.describeTable("TicketNotes");
 
         // ─── 1. Adiciona companyId (isolamento multi-tenant) ───────────────────
-        if (!tableDescription.companyId) {
+        if (!(tableDescription as any).companyId) {
             await queryInterface.addColumn("TicketNotes", "companyId", {
                 type: DataTypes.INTEGER,
                 allowNull: true, // Temporariamente nullable para backfill
@@ -34,7 +34,7 @@ module.exports = {
         }
 
         // ─── 2. Adiciona isPrivate (visibilidade da nota) ──────────────────────
-        if (!tableDescription.isPrivate) {
+        if (!(tableDescription as any).isPrivate) {
             await queryInterface.addColumn("TicketNotes", "isPrivate", {
                 type: DataTypes.BOOLEAN,
                 allowNull: false,
@@ -80,10 +80,10 @@ module.exports = {
         }
 
         const tableDescription = await queryInterface.describeTable("TicketNotes");
-        if (tableDescription.isPrivate) {
+        if ((tableDescription as any).isPrivate) {
             await queryInterface.removeColumn("TicketNotes", "isPrivate");
         }
-        if (tableDescription.companyId) {
+        if ((tableDescription as any).companyId) {
             await queryInterface.removeColumn("TicketNotes", "companyId");
         }
     }
