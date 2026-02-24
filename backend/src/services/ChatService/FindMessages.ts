@@ -8,6 +8,7 @@ import { sortBy } from "lodash";
 interface Request {
   chatId: string;
   ownerId: number;
+  companyId: number;
   pageNumber?: string;
 }
 
@@ -20,10 +21,11 @@ interface Response {
 const FindMessages = async ({
   chatId,
   ownerId,
+  companyId,
   pageNumber = "1"
 }: Request): Promise<Response> => {
   const userInChat = await ChatUser.count({
-    where: { chatId, userId: ownerId }
+    where: { chatId, userId: ownerId, companyId }
   });
 
   if (userInChat === 0) {
@@ -35,7 +37,8 @@ const FindMessages = async ({
 
   const { count, rows: records } = await ChatMessage.findAndCountAll({
     where: {
-      chatId
+      chatId,
+      companyId
     },
     include: [{ model: User, as: "sender", attributes: ["id", "name"] }],
     limit,

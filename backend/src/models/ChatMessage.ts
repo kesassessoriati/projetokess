@@ -11,6 +11,7 @@ import {
 } from "sequelize-typescript";
 import User from "./User";
 import Chat from "./Chat";
+import Company from "./Company";
 
 @Table({ tableName: "ChatMessages" })
 class ChatMessage extends Model<ChatMessage> {
@@ -26,6 +27,10 @@ class ChatMessage extends Model<ChatMessage> {
   @ForeignKey(() => User)
   @Column
   senderId: number;
+
+  @ForeignKey(() => Company)
+  @Column
+  companyId: number;
 
   @Column({ defaultValue: "" })
   message: string;
@@ -47,6 +52,9 @@ class ChatMessage extends Model<ChatMessage> {
 
   @BelongsTo(() => User)
   sender: User;
+
+  @BelongsTo(() => Company)
+  company: Company;
 }
 
 export default ChatMessage;

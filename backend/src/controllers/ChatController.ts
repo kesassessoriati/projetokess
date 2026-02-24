@@ -32,10 +32,12 @@ type FindParams = {
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { pageNumber } = req.query as unknown as IndexQuery;
+  const { companyId } = req.user;
   const ownerId = +req.user.id;
 
   const { records, count, hasMore } = await ListService({
     ownerId,
+    companyId,
     pageNumber
   });
 
@@ -76,7 +78,8 @@ export const update = async (
 
   const record = await UpdateService({
     ...data,
-    id: +id
+    id: +id,
+    companyId
   });
 
   const io = getIO();
@@ -94,8 +97,9 @@ export const update = async (
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { id } = req.params;
+  const { companyId } = req.user;
 
-  const record = await ShowFromUuidService(id);
+  const record = await ShowFromUuidService(id, companyId);
 
   return res.status(200).json(record);
 };
@@ -107,7 +111,7 @@ export const remove = async (
   const { id } = req.params;
   const { companyId } = req.user;
 
-  await DeleteService(id);
+  await DeleteService(id, companyId);
 
   const io = getIO();
   io.of(String(companyId)).emit(`company-${companyId}-chat`, {
@@ -132,11 +136,13 @@ export const saveMessage = async (
   const newMessage = await CreateMessageService({
     chatId,
     senderId,
+    companyId,
     message,
     medias
   });
 
-  const chat = await Chat.findByPk(chatId, {
+  const chat = await Chat.findOne({
+    where: { id: chatId, companyId },
     include: [
       { model: User, as: "owner" },
       { model: ChatUser, as: "users" }
@@ -167,10 +173,11 @@ export const checkAsRead = async (
   const { userId } = req.body;
   const { id } = req.params;
 
-  const chatUser = await ChatUser.findOne({ where: { chatId: id, userId } });
+  const chatUser = await ChatUser.findOne({ where: { chatId: id, userId, companyId } });
   await chatUser.update({ unreads: 0 });
 
-  const chat = await Chat.findByPk(id, {
+  const chat = await Chat.findOne({
+    where: { id, companyId },
     include: [
       { model: User, as: "owner" },
       { model: ChatUser, as: "users" }
@@ -197,11 +204,13 @@ export const messages = async (
 ): Promise<Response> => {
   const { pageNumber } = req.query as unknown as IndexQuery;
   const { id: chatId } = req.params;
+  const { companyId } = req.user;
   const ownerId = +req.user.id;
 
   const { records, count, hasMore } = await FindMessages({
     chatId,
     ownerId,
+    companyId,
     pageNumber
   });
 

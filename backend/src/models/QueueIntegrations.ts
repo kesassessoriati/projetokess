@@ -14,6 +14,7 @@ import {
 } from "sequelize-typescript";
 import Queue from "./Queue";
 import Company from "./Company";
+import Prompt from "./Prompt";
 
 @Table
 class QueueIntegrations extends Model<QueueIntegrations> {
@@ -27,10 +28,10 @@ class QueueIntegrations extends Model<QueueIntegrations> {
 
     @Column(DataType.TEXT)
     name: string;
-    
+
     @Column(DataType.TEXT)
     projectName: string;
-    
+
     @Column(DataType.TEXT)
     jsonContent: string;
 
@@ -51,10 +52,10 @@ class QueueIntegrations extends Model<QueueIntegrations> {
     @ForeignKey(() => Company)
     @Column
     companyId: number;
-  
+
     @BelongsTo(() => Company)
     company: Company;
-  
+
     @Column
     typebotSlug: string;
 
@@ -77,6 +78,13 @@ class QueueIntegrations extends Model<QueueIntegrations> {
 
     @Column
     typebotRestartMessage: string;
+
+    @ForeignKey(() => Prompt)
+    @Column
+    promptId: number;
+
+    @BelongsTo(() => Prompt)
+    prompt: Prompt;
 }
 
 export default QueueIntegrations;

@@ -5,6 +5,7 @@ import dialogflow from "../../assets/dialogflow.png";
 import webhooks from "../../assets/webhook.png";
 import typebot from "../../assets/typebot.jpg";
 import flowbuilder from "../../assets/flowbuilders.png"
+import chatgpt from "../../assets/chatgpt.png";
 import { makeStyles } from "@material-ui/core/styles";
 import {
   Box,
@@ -445,6 +446,7 @@ const QueueIntegration = () => {
     if (type === "webhook") return webhooks;
     if (type === "typebot") return typebot;
     if (type === "flowbuilder") return flowbuilder;
+    if (type === "openai") return chatgpt;
     return webhooks;
   };
 
@@ -617,6 +619,6 @@ const QueueIntegration = () => {
     </Box>
   );
 }
-;
+  ;
 
 export default QueueIntegration;

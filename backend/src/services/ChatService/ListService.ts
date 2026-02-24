@@ -5,6 +5,7 @@ import User from "../../models/User";
 
 interface Request {
   ownerId: number;
+  companyId: number;
   pageNumber?: string;
 }
 
@@ -16,10 +17,11 @@ interface Response {
 
 const ListService = async ({
   ownerId,
+  companyId,
   pageNumber = "1"
 }: Request): Promise<Response> => {
   const chatUsers = await ChatUser.findAll({
-    where: { userId: ownerId }
+    where: { userId: ownerId, companyId }
   });
 
   const chatIds = chatUsers.map(chat => chat.chatId);
@@ -31,7 +33,8 @@ const ListService = async ({
     where: {
       id: {
         [Op.in]: chatIds
-      }
+      },
+      companyId
     },
     include: [
       { model: User, as: "owner" },

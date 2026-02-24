@@ -9,6 +9,7 @@ import path from "path";
 export interface ChatMessageData {
   senderId: number;
   chatId: number;
+  companyId: number;
   message: string;
   medias?: Express.Multer.File[];
 }
@@ -16,6 +17,7 @@ export interface ChatMessageData {
 export default async function CreateMessageService({
   senderId,
   chatId,
+  companyId,
   message,
   medias
 }: ChatMessageData) {
@@ -40,7 +42,7 @@ export default async function CreateMessageService({
     const filePath = path.join(dir, mediaName);
 
     // Salvar arquivo
-    fs.writeFileSync(filePath, media.buffer);
+    fs.writeFileSync(filePath, media.buffer as any);
 
     // Definir caminho da mídia para salvar no banco de dados
     mediaPath = `/chat-media/${mediaName}`;
@@ -49,6 +51,7 @@ export default async function CreateMessageService({
   const newMessage = await ChatMessage.create({
     senderId,
     chatId,
+    companyId,
     message,
     mediaPath,
     mediaName
@@ -70,7 +73,7 @@ export default async function CreateMessageService({
   await newMessage.chat.update({ lastMessage: `${sender.name}: ${message}` });
 
   const chatUsers = await ChatUser.findAll({
-    where: { chatId }
+    where: { chatId, companyId }
   });
 
   for (let chatUser of chatUsers) {

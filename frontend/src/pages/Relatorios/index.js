@@ -53,6 +53,7 @@ import ShoppingBasketIcon from '@material-ui/icons/ShoppingBasket';
 import BuildIcon from '@material-ui/icons/Build';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import moment from "moment";
+import html2pdf from "html2pdf.js";
 
 import api from "../../services/api";
 import { listFinanceiroFaturas } from "../../services/financeiroFaturas";
@@ -76,7 +77,7 @@ const useStyles = makeStyles(theme => ({
       paddingBottom: "100px",
     },
   },
-  
+
   // Header da página
   pageHeader: {
     marginBottom: theme.spacing(3),
@@ -111,7 +112,7 @@ const useStyles = makeStyles(theme => ({
       color: "#3b82f6",
     },
   },
-  
+
   // Tabs
   tabsContainer: {
     background: "#ffffff",
@@ -147,7 +148,7 @@ const useStyles = makeStyles(theme => ({
     height: 3,
     borderRadius: 2,
   },
-  
+
   // Cards de indicadores
   indicatorCard: {
     background: "#ffffff",
@@ -214,7 +215,7 @@ const useStyles = makeStyles(theme => ({
   trendDown: {
     color: "#ef4444",
   },
-  
+
   // Gráficos
   chartCard: {
     background: "#ffffff",
@@ -248,7 +249,7 @@ const useStyles = makeStyles(theme => ({
       fontSize: "14px",
     },
   },
-  
+
   // Tabela
   tableCard: {
     background: "#ffffff",
@@ -286,7 +287,7 @@ const useStyles = makeStyles(theme => ({
       },
     },
   },
-  
+
   // Filtros
   filtersContainer: {
     background: "#ffffff",
@@ -310,7 +311,7 @@ const useStyles = makeStyles(theme => ({
       },
     },
   },
-  
+
   // Avatar do atendente
   attendantAvatar: {
     width: 40,
@@ -332,7 +333,7 @@ const useStyles = makeStyles(theme => ({
     right: 0,
     border: "2px solid #fff",
   },
-  
+
   // Loading
   loadingContainer: {
     display: "flex",
@@ -388,7 +389,7 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState(moment().startOf('month').format('YYYY-MM-DD'));
   const [dateTo, setDateTo] = useState(moment().endOf('month').format('YYYY-MM-DD'));
-  
+
   // Dados
   const [counters, setCounters] = useState({});
   const [attendants, setAttendants] = useState([]);
@@ -414,14 +415,14 @@ const Reports = () => {
         date_from: dateFrom,
         date_to: dateTo,
       });
-      
+
       if (data) {
         setCounters(data.counters || {});
         setAttendants(data.attendants || []);
         setTags(data.tagsContactsSummary || []);
         setKanbanSummary(data.kanbanSummary || []);
       }
-      
+
       // Dados do período anterior para comparação
       const prevStart = moment(dateFrom).subtract(1, 'month').format('YYYY-MM-DD');
       const prevEnd = moment(dateTo).subtract(1, 'month').format('YYYY-MM-DD');
@@ -429,11 +430,11 @@ const Reports = () => {
         date_from: prevStart,
         date_to: prevEnd,
       });
-      
+
       if (prevData && prevData.counters) {
         setPreviousCounters(prevData.counters);
       }
-      
+
       // Dados por dia (últimos 7 dias)
       const dailyData = [];
       for (let i = 6; i >= 0; i--) {
@@ -450,7 +451,7 @@ const Reports = () => {
         }
       }
       setTicketsPerDay(dailyData);
-      
+
       // Carregar conexões (WhatsApp e Instagram)
       try {
         const { data: whatsapps } = await api.get('/whatsapp');
@@ -463,7 +464,7 @@ const Reports = () => {
       } catch (err) {
         console.log('Erro ao carregar conexões:', err);
       }
-      
+
       // Carregar faturas (mesmo endpoint da página Financeiro/Faturas)
       try {
         const financeiroData = await listFinanceiroFaturas({ pageNumber: 1 });
@@ -495,7 +496,7 @@ const Reports = () => {
         console.log('Erro ao carregar serviços:', err);
         setServices([]);
       }
-      
+
     } catch (err) {
       toastError(err);
     } finally {
@@ -538,11 +539,29 @@ const Reports = () => {
     return `${Math.floor(mins / 60)}h ${mins % 60}min`;
   };
 
+  const handleExportPDF = () => {
+    const element = document.getElementById("report-content");
+    const activeTabLabel = [
+      "Visão Geral", "Atendentes", "Tickets", "Tags", "Kanban",
+      "Avaliações", "Canais", "Produtos", "Serviços", "Faturas"
+    ][activeTab];
+
+    const options = {
+      margin: [10, 10, 10, 10],
+      filename: `Relatorio_${activeTabLabel}_${moment().format("DD_MM_YYYY")}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().from(element).set(options).save();
+  };
+
   // ==================== ABA 1: VISÃO GERAL ====================
   const renderOverview = () => {
     const ticketsTrend = calcTrend(counters.supportFinished, previousCounters.supportFinished);
     const leadsTrend = calcTrend(counters.leads, previousCounters.leads);
-    
+
     return (
       <>
         {/* Cards de Indicadores */}
@@ -625,7 +644,7 @@ const Reports = () => {
   // ==================== ABA 2: ATENDENTES ====================
   const renderAttendants = () => {
     const sortedAttendants = [...attendants].sort((a, b) => (b.tickets || 0) - (a.tickets || 0));
-    
+
     return (
       <>
         {/* Cards de resumo */}
@@ -662,7 +681,7 @@ const Reports = () => {
               icon={<AccessTimeIcon style={{ color: '#fff', fontSize: 28 }} />}
               iconBg="#8b5cf6"
               label="Média de Avaliação"
-              value={attendants.length > 0 
+              value={attendants.length > 0
                 ? (attendants.reduce((acc, a) => acc + (parseFloat(a.rating) || 0), 0) / attendants.length).toFixed(1)
                 : '0'}
               classes={classes}
@@ -721,7 +740,7 @@ const Reports = () => {
                         <Avatar className={classes.attendantAvatar}>
                           {attendant.name?.charAt(0).toUpperCase()}
                         </Avatar>
-                        <div 
+                        <div
                           className={classes.onlineIndicator}
                           style={{ background: attendant.online ? '#10b981' : '#9ca3af' }}
                         />
@@ -854,7 +873,7 @@ const Reports = () => {
     const commonTags = tags.filter(t => !t.kanban || t.kanban === 0);
     const sortedTags = [...commonTags].sort((a, b) => (b.contactsCount || 0) - (a.contactsCount || 0));
     const totalContacts = sortedTags.reduce((acc, t) => acc + (t.contactsCount || 0), 0);
-    
+
     return (
       <>
         <Grid container spacing={3} style={{ marginBottom: 24 }}>
@@ -988,7 +1007,7 @@ const Reports = () => {
   // ==================== ABA 5: KANBAN ====================
   const renderKanban = () => {
     const totalTickets = kanbanSummary.reduce((acc, k) => acc + (k.ticketsCount || 0), 0);
-    
+
     return (
       <>
         <Grid container spacing={3} style={{ marginBottom: 24 }}>
@@ -1054,10 +1073,10 @@ const Reports = () => {
   const renderRatings = () => {
     // Calcular métricas gerais de avaliação
     const totalRatings = attendants.reduce((acc, a) => acc + (parseInt(a.countRating) || 0), 0);
-    const avgRating = attendants.length > 0 
+    const avgRating = attendants.length > 0
       ? attendants.reduce((acc, a) => acc + (parseFloat(a.rating) || 0), 0) / attendants.filter(a => parseFloat(a.rating) > 0).length
       : 0;
-    
+
     // Distribuição de notas (1-5)
     const ratingDistribution = [0, 0, 0, 0, 0]; // índice 0 = nota 1, índice 4 = nota 5
     attendants.forEach(a => {
@@ -1066,22 +1085,22 @@ const Reports = () => {
         ratingDistribution[rating - 1] += parseInt(a.countRating) || 0;
       }
     });
-    
+
     // NPS geral
     const npsScore = (counters.npsPromotersPerc || 0) - (counters.npsDetractorsPerc || 0);
-    
+
     // Top atendentes por avaliação
     const topRatedAttendants = [...attendants]
       .filter(a => parseFloat(a.rating) > 0)
       .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating))
       .slice(0, 5);
-    
+
     // Renderizar estrelas
     const renderStars = (rating) => {
       const stars = [];
       const fullStars = Math.floor(rating);
       const hasHalf = rating % 1 >= 0.5;
-      
+
       for (let i = 0; i < 5; i++) {
         if (i < fullStars) {
           stars.push(<StarIcon key={i} style={{ color: '#f59e0b', fontSize: 20 }} />);
@@ -1093,7 +1112,7 @@ const Reports = () => {
       }
       return stars;
     };
-    
+
     return (
       <>
         {/* Cards de Indicadores */}
@@ -1148,7 +1167,7 @@ const Reports = () => {
                   chart: { type: 'bar', toolbar: { show: false } },
                   colors: ['#f59e0b'],
                   plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
-                  xaxis: { 
+                  xaxis: {
                     categories: ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★'],
                     labels: { style: { colors: '#374151', fontSize: '14px' } }
                   },
@@ -1268,14 +1287,14 @@ const Reports = () => {
     const connectedWhatsapp = whatsappConnections.filter(w => w.status === 'CONNECTED').length;
     const connectedInstagram = instagramConnections.filter(w => w.status === 'CONNECTED').length;
     const connectedFacebook = facebookConnections.filter(w => w.status === 'CONNECTED').length;
-    
+
     // Calcular tickets por canal (estimativa baseada nas conexões)
     const totalTickets = attendants.reduce((acc, a) => acc + (a.tickets || 0), 0);
     const totalConn = Math.max(allConnections.length, 1);
     const whatsappTickets = (totalTickets * whatsappConnections.length) / totalConn;
     const instagramTickets = (totalTickets * instagramConnections.length) / totalConn;
     const facebookTickets = (totalTickets * facebookConnections.length) / totalConn;
-    
+
     const getStatusColor = (status) => {
       switch (status) {
         case 'CONNECTED': return '#10b981';
@@ -1285,7 +1304,7 @@ const Reports = () => {
         default: return '#9ca3af';
       }
     };
-    
+
     const getStatusLabel = (status) => {
       switch (status) {
         case 'CONNECTED': return 'Conectado';
@@ -1296,7 +1315,7 @@ const Reports = () => {
         default: return status || 'Desconhecido';
       }
     };
-    
+
     return (
       <>
         {/* Cards de Indicadores */}
@@ -1854,13 +1873,13 @@ const Reports = () => {
   const renderInvoices = () => {
     // Garantir que invoices seja um array
     const invoicesList = Array.isArray(invoices) ? invoices : [];
-    
+
     // Filtrar faturas do período selecionado (usando dataVencimento)
     const filteredInvoices = invoicesList.filter(inv => {
       const invDate = moment(inv.dataVencimento || inv.createdAt);
       return invDate.isBetween(dateFrom, dateTo, 'day', '[]');
     });
-    
+
     // Métricas (usando campos corretos: status = 'pago', 'pendente', 'cancelado', 'atrasado')
     const totalInvoices = filteredInvoices.length;
     const paidInvoices = filteredInvoices.filter(inv => inv.status === 'pago');
@@ -1870,16 +1889,16 @@ const Reports = () => {
       return (inv.status === 'pendente' || !inv.status) && isOverdue;
     });
     const cancelledInvoices = filteredInvoices.filter(inv => inv.status === 'cancelado');
-    
+
     // Valores (usando campo 'valor')
     const totalValue = filteredInvoices.reduce((acc, inv) => acc + (parseFloat(inv.valor) || 0), 0);
     const paidValue = paidInvoices.reduce((acc, inv) => acc + (parseFloat(inv.valor) || 0), 0);
     const pendingValue = pendingInvoices.reduce((acc, inv) => acc + (parseFloat(inv.valor) || 0), 0);
     const overdueValue = overdueInvoices.reduce((acc, inv) => acc + (parseFloat(inv.valor) || 0), 0);
-    
+
     // Taxa de pagamento
     const paymentRate = totalInvoices > 0 ? ((paidInvoices.length / totalInvoices) * 100).toFixed(1) : 0;
-    
+
     // Dados para gráfico por mês (últimos 6 meses)
     const monthlyData = [];
     for (let i = 5; i >= 0; i--) {
@@ -1889,7 +1908,7 @@ const Reports = () => {
         const invDate = moment(inv.dataVencimento || inv.createdAt);
         return invDate.isBetween(monthStart, monthEnd, 'day', '[]');
       });
-      
+
       monthlyData.push({
         month: monthStart.format('MMM/YY'),
         total: monthInvoices.length,
@@ -1899,7 +1918,7 @@ const Reports = () => {
         paidValue: monthInvoices.filter(inv => inv.status === 'pago').reduce((acc, inv) => acc + (parseFloat(inv.valor) || 0), 0),
       });
     }
-    
+
     const getStatusColor = (status, dueDate) => {
       const isOverdue = moment(dueDate).isBefore(moment(), 'day');
       if (status === 'pago') return '#10b981';
@@ -1908,7 +1927,7 @@ const Reports = () => {
       if (status === 'cancelado') return '#6b7280';
       return '#9ca3af';
     };
-    
+
     const getStatusLabel = (status, dueDate) => {
       const isOverdue = moment(dueDate).isBefore(moment(), 'day');
       if (status === 'pago') return 'Paga';
@@ -1917,11 +1936,11 @@ const Reports = () => {
       if (status === 'cancelado') return 'Cancelada';
       return status || 'Pendente';
     };
-    
+
     const formatCurrency = (value) => {
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     };
-    
+
     return (
       <>
         {/* Cards de Indicadores */}
@@ -2127,56 +2146,56 @@ const Reports = () => {
                   .sort((a, b) => moment(b.dataVencimento).diff(moment(a.dataVencimento)))
                   .slice(0, 20)
                   .map((invoice) => (
-                  <TableRow key={invoice.id} className={classes.tableRow}>
-                    <TableCell>
-                      <Typography style={{ fontWeight: 500 }}>#{invoice.id}</Typography>
-                    </TableCell>
-                    <TableCell>{invoice.descricao || '-'}</TableCell>
-                    <TableCell align="right" style={{ fontWeight: 600 }}>
-                      {formatCurrency(invoice.valor)}
-                    </TableCell>
-                    <TableCell align="center">
-                      {invoice.dataVencimento ? moment(invoice.dataVencimento).format('DD/MM/YYYY') : '-'}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box
-                        component="span"
-                        style={{
-                          padding: '4px 12px',
-                          borderRadius: 20,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: `${getStatusColor(invoice.status, invoice.dataVencimento)}20`,
-                          color: getStatusColor(invoice.status, invoice.dataVencimento),
-                        }}
-                      >
-                        {getStatusLabel(invoice.status, invoice.dataVencimento)}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      {invoice.dataPagamento 
-                        ? moment(invoice.dataPagamento).format('DD/MM/YYYY')
-                        : '-'}
-                    </TableCell>
-                    <TableCell align="center">
-                      {invoice.recorrente ? (
+                    <TableRow key={invoice.id} className={classes.tableRow}>
+                      <TableCell>
+                        <Typography style={{ fontWeight: 500 }}>#{invoice.id}</Typography>
+                      </TableCell>
+                      <TableCell>{invoice.descricao || '-'}</TableCell>
+                      <TableCell align="right" style={{ fontWeight: 600 }}>
+                        {formatCurrency(invoice.valor)}
+                      </TableCell>
+                      <TableCell align="center">
+                        {invoice.dataVencimento ? moment(invoice.dataVencimento).format('DD/MM/YYYY') : '-'}
+                      </TableCell>
+                      <TableCell align="center">
                         <Box
                           component="span"
                           style={{
-                            padding: '4px 8px',
-                            borderRadius: 12,
-                            fontSize: 11,
+                            padding: '4px 12px',
+                            borderRadius: 20,
+                            fontSize: 12,
                             fontWeight: 600,
-                            background: '#3b82f620',
-                            color: '#3b82f6',
+                            background: `${getStatusColor(invoice.status, invoice.dataVencimento)}20`,
+                            color: getStatusColor(invoice.status, invoice.dataVencimento),
                           }}
                         >
-                          {invoice.intervalo || 'Sim'}
+                          {getStatusLabel(invoice.status, invoice.dataVencimento)}
                         </Box>
-                      ) : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell align="center">
+                        {invoice.dataPagamento
+                          ? moment(invoice.dataPagamento).format('DD/MM/YYYY')
+                          : '-'}
+                      </TableCell>
+                      <TableCell align="center">
+                        {invoice.recorrente ? (
+                          <Box
+                            component="span"
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: '#3b82f620',
+                              color: '#3b82f6',
+                            }}
+                          >
+                            {invoice.intervalo || 'Sim'}
+                          </Box>
+                        ) : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           ) : (
@@ -2281,15 +2300,22 @@ const Reports = () => {
           onChange={(e) => setDateTo(e.target.value)}
           style={{ minWidth: 160 }}
         />
-        <Tooltip title="Atualizar dados">
+        <Tooltip title="Sincronizar dados">
           <IconButton onClick={loadData} style={{ background: '#3b82f6', color: '#fff' }}>
             <RefreshIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Exportar PDF">
+          <IconButton onClick={handleExportPDF} style={{ background: '#ef4444', color: '#fff' }}>
+            <GetAppIcon />
           </IconButton>
         </Tooltip>
       </div>
 
       {/* Conteúdo da Aba */}
-      {renderTabContent()}
+      <div id="report-content">
+        {renderTabContent()}
+      </div>
 
       {/* Modal de Contatos por Tag */}
       {contactModalOpen && (

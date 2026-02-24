@@ -105,6 +105,7 @@ import ColorModeContext from "./themeContext";
 import { useSystemAlert } from "../components/SystemAlert";
 import SendIcon from "@material-ui/icons/Send";
 import QuickSendModal from "../components/QuickSendModal";
+import ChatPopover from "../pages/Chat/ChatPopover";
 
 const backendUrl = getBackendUrl();
 
@@ -865,6 +866,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Conversas", path: "/atendimentos" },
           { title: "Chamadas", path: "/chamadas" },
+          { title: "Chat Interno", path: "/chats" },
         ],
       },
       {
@@ -1317,6 +1319,11 @@ const LoggedInLayout = ({ children }) => {
                   <SendIcon style={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
+
+              {/* Chat Interno Popover */}
+              <div className={classes.iconButton}>
+                <ChatPopover />
+              </div>
 
               {/* Volume */}
               <div className={classes.iconButton}>

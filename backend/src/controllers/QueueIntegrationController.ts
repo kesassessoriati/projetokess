@@ -33,7 +33,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     typebotUnknownMessage,
     typebotDelayMessage,
     typebotKeywordRestart,
-    typebotRestartMessage } = req.body;
+    typebotRestartMessage,
+    promptId } = req.body;
   const { companyId } = req.user;
   const queueIntegration = await CreateQueueIntegrationService({
     type, name, projectName, jsonContent, language, urlN8N, companyId,
@@ -43,15 +44,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     typebotUnknownMessage,
     typebotDelayMessage,
     typebotKeywordRestart,
-    typebotRestartMessage 
+    typebotRestartMessage,
+    promptId
   });
 
   const io = getIO();
   io.of(String(companyId))
-  .emit(`company-${companyId}-queueIntegration`, {
-    action: "create",
-    queueIntegration
-  });
+    .emit(`company-${companyId}-queueIntegration`, {
+      action: "create",
+      queueIntegration
+    });
 
   return res.status(200).json(queueIntegration);
 };
@@ -77,10 +79,10 @@ export const update = async (
 
   const io = getIO();
   io.of(String(companyId))
-  .emit(`company-${companyId}-queueIntegration`, {
-    action: "update",
-    queueIntegration
-  });
+    .emit(`company-${companyId}-queueIntegration`, {
+      action: "update",
+      queueIntegration
+    });
 
   return res.status(201).json(queueIntegration);
 };
@@ -96,10 +98,10 @@ export const remove = async (
 
   const io = getIO();
   io.of(String(companyId))
-  .emit(`company-${companyId}-queueIntegration`, {
-    action: "delete",
-    integrationId: +integrationId
-  });
+    .emit(`company-${companyId}-queueIntegration`, {
+      action: "delete",
+      integrationId: +integrationId
+    });
 
   return res.status(200).send();
 };
@@ -112,10 +114,10 @@ export const testSession = async (req: Request, res: Response): Promise<Response
 
   const io = getIO();
   io.of(String(companyId))
-  .emit(`company-${companyId}-queueIntegration`, {
-    action: "testSession",
-    response
-  });
+    .emit(`company-${companyId}-queueIntegration`, {
+      action: "testSession",
+      response
+    });
 
   return res.status(200).json(response);
 };

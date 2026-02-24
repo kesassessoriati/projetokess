@@ -4,13 +4,15 @@ import User from "../../models/User";
 
 interface ChatData {
   id: number;
+  companyId: number;
   title?: string;
   users?: any[];
 }
 
 export default async function UpdateService(data: ChatData) {
-  const { users } = data;
-  const record = await Chat.findByPk(data.id, {
+  const { users, companyId } = data;
+  const record = await Chat.findOne({
+    where: { id: data.id, companyId },
     include: [{ model: ChatUser, as: "users" }]
   });
   const { ownerId } = record;
@@ -18,11 +20,11 @@ export default async function UpdateService(data: ChatData) {
   await record.update({ title: data.title });
 
   if (Array.isArray(users)) {
-    await ChatUser.destroy({ where: { chatId: record.id } });
-    await ChatUser.create({ chatId: record.id, userId: ownerId });
+    await ChatUser.destroy({ where: { chatId: record.id, companyId } });
+    await ChatUser.create({ chatId: record.id, userId: ownerId, companyId });
     for (let user of users) {
       if (user.id !== ownerId) {
-        await ChatUser.create({ chatId: record.id, userId: user.id });
+        await ChatUser.create({ chatId: record.id, userId: user.id || user.userId, companyId });
       }
     }
   }

@@ -144,9 +144,23 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
     typebotRestartMessage: "",
     typebotSlug: "",
     typebotUnknownMessage: "",
+    promptId: "",
   };
 
   const [integration, setIntegration] = useState(initialState);
+  const [prompts, setPrompts] = useState([]);
+
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      try {
+        const { data } = await api.get("/prompt");
+        setPrompts(data.prompts || data || []);
+      } catch (err) {
+        console.error("Erro ao carregar agentes de IA:", err);
+      }
+    };
+    if (open) fetchPrompts();
+  }, [open]);
 
   useEffect(() => {
     (async () => {
@@ -170,6 +184,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
         language: "",
         urlN8N: "",
         typebotDelayMessage: 1000,
+        promptId: "",
       });
     };
   }, [integrationId, open]);
@@ -197,7 +212,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
 
   const handleSaveDialogflow = async (values) => {
     try {
-      if (values.type === 'n8n' || values.type === 'webhook' || values.type === 'typebot' || values.type === "flowbuilder") values.projectName = values.name;
+      if (values.type === 'n8n' || values.type === 'webhook' || values.type === 'typebot' || values.type === "flowbuilder" || values.type === "openai") values.projectName = values.name;
       if (integrationId) {
         await api.put(`/queueIntegration/${integrationId}`, values);
         toast.success(i18n.t("queueIntegrationModal.messages.editSuccess"));
@@ -286,6 +301,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                           <MenuItem value="webhook">WebHooks</MenuItem>
                           <MenuItem value="typebot">Typebot</MenuItem>
                           <MenuItem value="flowbuilder">Flowbuilder</MenuItem>
+                          <MenuItem value="openai">ChatGPT / OpenAI</MenuItem>
                         </Field>
                       </FormControl>
                     </Grid>
@@ -460,6 +476,63 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                           }}
                         />
                       </Grid>
+                    )}
+
+                    {(values.type === "openai") && (
+                      <>
+                        <Grid item xs={12} md={6} xl={6}>
+                          <Field
+                            as={TextField}
+                            label={i18n.t("queueIntegrationModal.form.name")}
+                            autoFocus
+                            name="name"
+                            fullWidth
+                            error={touched.name && Boolean(errors.name)}
+                            helpertext={touched.name && errors.name}
+                            variant="outlined"
+                            margin="dense"
+                            className={classes.textField}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <DescriptionIcon />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={6} xl={6}>
+                          <FormControl
+                            variant="outlined"
+                            className={classes.formControl}
+                            margin="dense"
+                            fullWidth
+                          >
+                            <InputLabel id="prompt-selection-label">
+                              Agente de IA (Prompt)
+                            </InputLabel>
+                            <Field
+                              as={Select}
+                              label="Agente de IA (Prompt)"
+                              name="promptId"
+                              labelId="prompt-selection-label"
+                              id="promptId"
+                              required
+                              startAdornment={
+                                <InputAdornment position="start">
+                                  <AccountTreeIcon />
+                                </InputAdornment>
+                              }
+                            >
+                              {prompts.map((prompt) => (
+                                <MenuItem key={prompt.id} value={prompt.id}>
+                                  {prompt.name}
+                                </MenuItem>
+                              ))}
+                            </Field>
+                          </FormControl>
+                        </Grid>
+                      </>
                     )}
                     {(values.type === "typebot") && (
                       <>

@@ -4418,6 +4418,61 @@ export const handleMessageIntegration = async (
         );
       }
     }
+  } else if (queueIntegration.type === "openai") {
+    if (!queueIntegration.promptId) {
+      console.warn("Integração OpenAI sem promptId configurado, ignorando.");
+      return;
+    }
+
+    let prompt;
+    try {
+      prompt = await ShowPromptService({
+        promptId: queueIntegration.promptId,
+        companyId
+      });
+    } catch (err) {
+      console.error("Erro ao buscar prompt para integração OpenAI:", err);
+      return;
+    }
+
+    if (prompt) {
+      const openAiSettings: IOpenAi = {
+        name: prompt.name,
+        prompt: prompt.prompt,
+        voice: prompt.voice,
+        voiceKey: prompt.voiceKey,
+        voiceRegion: prompt.voiceRegion,
+        maxTokens: Number(prompt.maxTokens),
+        temperature: Number(prompt.temperature),
+        apiKey: prompt.apiKey,
+        queueId: Number(prompt.queueId),
+        maxMessages: Number(prompt.maxMessages),
+        promptId: Number(prompt.id),
+        provider: prompt.provider || "openai",
+        model: prompt.model,
+        knowledgeBase: prompt.knowledgeBase || []
+      };
+
+      try {
+        const toolsEnabled = await ListPromptToolSettingsService({
+          companyId,
+          promptId: openAiSettings.promptId ?? null
+        });
+        openAiSettings.toolsEnabled = toolsEnabled;
+      } catch (error) {
+        console.error("Erro ao carregar toolsEnabled (Integrations):", error);
+      }
+
+      await handleOpenAi(
+        openAiSettings,
+        msg,
+        wbot,
+        ticket,
+        contact,
+        undefined,
+        undefined
+      );
+    }
   }
 };
 

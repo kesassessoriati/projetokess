@@ -18,6 +18,7 @@ interface IntegrationData {
   typebotDelayMessage?: number;
   typebotKeywordRestart?: string;
   typebotRestartMessage?: string;
+  promptId?: number;
 }
 
 interface Request {
@@ -49,7 +50,8 @@ const UpdateQueueIntegrationService = async ({
     typebotUnknownMessage,
     typebotDelayMessage,
     typebotKeywordRestart,
-    typebotRestartMessage 
+    typebotRestartMessage,
+    promptId
   } = integrationData;
 
   try {
@@ -74,7 +76,8 @@ const UpdateQueueIntegrationService = async ({
     typebotUnknownMessage,
     typebotDelayMessage,
     typebotKeywordRestart,
-    typebotRestartMessage 
+    typebotRestartMessage,
+    promptId
   });
 
   return integration;
