@@ -244,15 +244,17 @@ function Chat(props) {
       cleanupCurrentChat = on(`company-${companyId}-chat-${currentChat.id}`, (data) => {
         if (data.action === "new-message") {
           setMessages(prev => [...prev, data.newMessage]);
-          scrollToBottomRef.current?.();
+          if (scrollToBottomRef.current) {
+            scrollToBottomRef.current();
+          }
         }
       });
     }
 
     return () => {
-      cleanupChatUser?.();
-      cleanupChat?.();
-      cleanupCurrentChat?.();
+      if (cleanupChatUser) cleanupChatUser();
+      if (cleanupChat) cleanupChat();
+      if (cleanupCurrentChat) cleanupCurrentChat();
     };
   }, [isReady, currentChat, user.id]);
 
