@@ -12,6 +12,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Typography,
 } from "@material-ui/core";
 import ChatList from "./ChatList";
 import ChatMessages from "./ChatMessages";
@@ -166,12 +167,18 @@ function Chat(props) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const history = useHistory();
+  const { id } = useParams();
 
   const [showDialog, setShowDialog] = useState(false);
   const [dialogType, setDialogType] = useState("new");
   const [currentChat, setCurrentChat] = useState({});
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [tab, setTab] = useState(0);
+  const [messages, setMessages] = useState([]);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [messagesPageInfo, setMessagesPageInfo] = useState({ hasMore: false });
+  const scrollToBottomRef = useRef(null);
+  const isMounted = useRef(true);
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -194,6 +201,8 @@ function Chat(props) {
       if (chat) selectChat(chat);
     }
   }, [chatsData, id]);
+
+  const findMessages = (chatId) => fetchMessages(chatId, 1);
 
   useEffect(() => {
     if (isObject(currentChat) && has(currentChat, "id")) {
@@ -350,7 +359,7 @@ function Chat(props) {
                 loading={loadingChats}
                 error={errorChats}
                 data={chatsData?.records}
-                onRetry={reloadChats}
+                onRetry={findChats}
                 emptyMessage="Nenhum chat interno ativo."
                 renderData={(records) => (
                   <ChatList
