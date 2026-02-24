@@ -55,7 +55,7 @@ import FacebookInstagramModal from "../../components/FacebookInstagramModal";
 import { getEnvVariable } from "../../config";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
-import Can from "../../components/Can";
+import { Can } from "../../components/Can";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import QrcodeModal from "../../components/QrcodeModal";
