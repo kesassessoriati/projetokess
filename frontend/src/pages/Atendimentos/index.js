@@ -741,6 +741,7 @@ const Atendimentos = () => {
 	const [recording, setRecording] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
 	const [recordingInterval, setRecordingInterval] = useState(null);
+	const [loading, setLoading] = useState(false);
 	const [isTyping, setIsTyping] = useState(false);
 	const [typingUser, setTypingUser] = useState(null);
 	const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
