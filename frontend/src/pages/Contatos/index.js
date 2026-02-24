@@ -350,7 +350,10 @@ const ExpandableAvatar = ({ contact, classes }) => {
   );
 };
 
-const Contacts = () => {
+
+
+
+const Contatos = () => {
   const classes = useStyles();
   const history = useHistory();
 
@@ -895,3 +898,4 @@ const Contacts = () => {
     </Box>
   );
 };
+export default Contatos;
