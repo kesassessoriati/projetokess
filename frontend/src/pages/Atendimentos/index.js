@@ -741,7 +741,7 @@ const Atendimentos = () => {
 	const [recording, setRecording] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
 	const [recordingInterval, setRecordingInterval] = useState(null);
-	const [loading, setLoading] = useState(false);
+	const [loadingRecording, setLoadingRecording] = useState(false);
 	const [isTyping, setIsTyping] = useState(false);
 	const [typingUser, setTypingUser] = useState(null);
 	const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -2155,7 +2155,7 @@ const Atendimentos = () => {
 	};
 
 	const handleStartRecording = async () => {
-		setLoading(true);
+		setLoadingRecording(true);
 		try {
 			await navigator.mediaDevices.getUserMedia({ audio: true });
 			await Mp3Recorder.start();
@@ -2167,7 +2167,7 @@ const Atendimentos = () => {
 			}, 1000);
 			setRecordingInterval(interval);
 
-			setLoading(false);
+			setLoadingRecording(false);
 		} catch (err) {
 			if (err?.name === "NotAllowedError" || /Permission denied/i.test(err?.message || "")) {
 				toast.error("Microfone bloqueado no navegador. Clique no cadeado ao lado da URL e permita o uso do microfone.");
@@ -2176,16 +2176,16 @@ const Atendimentos = () => {
 			}
 
 			setRecording(false);
-			setLoading(false);
+			setLoadingRecording(false);
 		}
 	};
 
 	const handleStopRecording = async () => {
-		setLoading(true);
+		setLoadingRecording(true);
 		try {
 			const [, blob] = await Mp3Recorder.stop().getMp3();
 			if (blob.size < 10000) {
-				setLoading(false);
+				setLoadingRecording(false);
 				setRecording(false);
 				toast.error("Gravação muito curta. Grave por mais tempo.");
 				return;
@@ -2223,7 +2223,7 @@ const Atendimentos = () => {
 		} catch (err) {
 			toast.error("Erro ao processar áudio.");
 		} finally {
-			setLoading(false);
+			setLoadingRecording(false);
 			setRecording(false);
 			if (recordingInterval) {
 				clearInterval(recordingInterval);
@@ -2245,7 +2245,7 @@ const Atendimentos = () => {
 				setRecordingInterval(null);
 			}
 			setRecordingTime(0);
-			setLoading(false);
+			setLoadingRecording(false);
 		}
 	};
 
