@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useContext, useEffect } from "react";
+import { useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
 import { add, format, parseISO } from "date-fns";
+import moment from "moment";
 
 import Menu from "@material-ui/core/Menu";
 import MenuItem from "@material-ui/core/MenuItem";
@@ -16,6 +18,10 @@ import {
   IconButton,
   TextField,
   InputAdornment,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
 } from "@material-ui/core";
 import {
   Edit,
@@ -30,14 +36,55 @@ import {
   Search as SearchIcon,
   Link as LinkIcon,
   Message as MessengerIcon,
+  Add as AddIcon,
+  Replay as RepeatIcon,
+  PowerSettingsNew as PowerIcon,
+  ExitToApp as LogoutIcon,
+  CropFree as QrCodeIcon,
 } from "@material-ui/icons";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 
+import api from "../../services/api";
+import { i18n } from "../../translate/i18n";
+import toastError from "../../errors/toastError";
 import useSafeApi from "../../hooks/useSafeApi";
 import { useSocket } from "../../context/SocketContext";
 import SafeComponent from "../../components/SafeComponent";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import FacebookInstagramModal from "../../components/FacebookInstagramModal";
 import { getEnvVariable } from "../../config";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
+import Can from "../../components/Can";
+import ForbiddenPage from "../../components/ForbiddenPage";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import QrcodeModal from "../../components/QrcodeModal";
+import WhatsAppModal from "../../components/WhatsAppModal";
+import usePlans from "../../hooks/usePlans";
+import formatSerializedId from "../../utils/formatSerializedId";
+import notificame_logo from "../../assets/notificame_logo.png";
+
+const confirmationModalInitialState = {
+  action: "",
+  title: "",
+  message: "",
+  whatsAppId: "",
+  channel: "",
+};
+
+const ChannelModal = ({ open, onClose }) => {
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Canal Hub NotificaMe</DialogTitle>
+      <DialogContent>
+        <Typography>Configurações do Hub em breve...</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">Fechar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -384,6 +431,8 @@ const Connections = () => {
   const { handleLogout, user } = useContext(AuthContext);
   const history = useHistory();
   const { isReady, on } = useSocket();
+  const [planConfig, setPlanConfig] = useState([]);
+  const [confirmModalInfo, setConfirmModalInfo] = useState(confirmationModalInitialState);
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
