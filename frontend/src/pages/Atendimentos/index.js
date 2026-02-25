@@ -100,7 +100,6 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
 import api from "../../services/api";
 import MicRecorder from "mic-recorder-to-mp3";
-import { socketConnection } from "../../services/socket";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import TicketActionsMenu from "../../components/TicketActionsMenu";
@@ -1560,10 +1559,10 @@ const Atendimentos = () => {
 		tabIndexRef.current = tabIndex;
 	}, [selectedTicket, tabIndex]);
 
-	const { isReady, on } = useSocket();
+	const { isConnected, on, emit } = useSocket();
 
 	useEffect(() => {
-		if (!isReady || !user.companyId) return;
+		if (!isConnected || !user.companyId) return;
 
 		const companyId = user.companyId;
 
@@ -4079,8 +4078,7 @@ const Atendimentos = () => {
 										updateQuickReplyContext(value);
 
 										if (selectedTicket && value.length > 0) {
-											const socket = socketConnection({ companyId: user.companyId });
-											socket.emit(`company-${user.companyId}-typing`, {
+											emit(`company-${user.companyId}-typing`, {
 												ticketId: selectedTicket.id,
 												isTyping: true,
 												user: user.name

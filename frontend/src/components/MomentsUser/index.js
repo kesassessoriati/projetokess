@@ -5,21 +5,22 @@ import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import { ReportProblem, VisibilityOutlined } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { yellow, green } from "@mui/material/colors";
-import { 
-  Avatar, 
-  CardHeader, 
-  Divider, 
-  List, 
-  ListItem, 
-  ListItemAvatar, 
-  ListItemText, 
-  Paper, 
-  Typography, 
-  makeStyles, 
-  Grid, 
+import {
+  Avatar,
+  CardHeader,
+  Divider,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Paper,
+  Typography,
+  makeStyles,
+  Grid,
   Tooltip,
   Box,
   LinearProgress,
@@ -351,7 +352,8 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 const DashboardManage = () => {
   const classes = useStyles();
   const history = useHistory();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const [tickets, setTickets] = useState([]);
   const [update, setUpdate] = useState(false);
@@ -382,6 +384,8 @@ const DashboardManage = () => {
   }, []);
 
   useEffect(() => {
+    if (!isConnected || !user.companyId) return;
+
     const fetchTicketsOnSocket = async () => {
       try {
         const { data } = await api.get("/usersMoments");
@@ -398,14 +402,14 @@ const DashboardManage = () => {
       }
     };
 
-    socket.on(`company-${companyId}-ticket`, onAppMessage);
-    socket.on(`company-${companyId}-appMessage`, onAppMessage);
+    const cleanupTicket = on(`company-${companyId}-ticket`, onAppMessage);
+    const cleanupAppMessage = on(`company-${companyId}-appMessage`, onAppMessage);
 
     return () => {
-      socket.off(`company-${companyId}-ticket`, onAppMessage);
-      socket.off(`company-${companyId}-appMessage`, onAppMessage);
+      cleanupTicket();
+      cleanupAppMessage();
     };
-  }, [socket, companyId]);
+  }, [isConnected, on, companyId]);
 
   const handleOpenDialog = (ticket) => {
     setSelectedTicket(ticket);
@@ -439,7 +443,7 @@ const DashboardManage = () => {
 
   const getUserWithMostTickets = () => {
     if (!tickets.length) return null;
-    
+
     const userCounts = tickets.reduce((acc, ticket) => {
       if (ticket.user) {
         acc[ticket.user.id] = (acc[ticket.user.id] || 0) + 1;
@@ -447,7 +451,7 @@ const DashboardManage = () => {
       return acc;
     }, {});
 
-    const maxUserId = Object.keys(userCounts).reduce((a, b) => 
+    const maxUserId = Object.keys(userCounts).reduce((a, b) =>
       userCounts[a] > userCounts[b] ? a : b
     );
 
@@ -455,7 +459,7 @@ const DashboardManage = () => {
   };
 
   const translateStatus = (status) => {
-    switch(status) {
+    switch (status) {
       case 'pending':
         return 'Pendente';
       case 'open':
@@ -486,9 +490,9 @@ const DashboardManage = () => {
       >
         <div className={classes.dialogHeader}>
           <div className={classes.dialogTitle}>
-            <Avatar 
-              alt={contactName} 
-              src={contact.urlPicture} 
+            <Avatar
+              alt={contactName}
+              src={contact.urlPicture}
               className={classes.dialogAvatar}
               onClick={handleOpenImageModal}
             />
@@ -537,14 +541,14 @@ const DashboardManage = () => {
             </Grid>
 
             <div className={classes.dialogTags}>
-              <Chip 
-                label={ticket.whatsapp?.name || "WhatsApp"} 
-                size="small" 
+              <Chip
+                label={ticket.whatsapp?.name || "WhatsApp"}
+                size="small"
                 className={classes.whatsappTag}
               />
-              <Chip 
-                label={ticket.queue?.name ? ticket.queue.name.toUpperCase() : "SEM FILA"} 
-                size="small" 
+              <Chip
+                label={ticket.queue?.name ? ticket.queue.name.toUpperCase() : "SEM FILA"}
+                size="small"
                 className={classes.queueTag}
                 style={{ backgroundColor: ticket.queue?.color || grey[500] }}
               />
@@ -575,14 +579,14 @@ const DashboardManage = () => {
         </DialogContent>
 
         <DialogActions style={{ padding: theme.spacing(1.5, 2) }}>
-          <Button 
-            onClick={onClose} 
+          <Button
+            onClick={onClose}
             style={{
-            color: "white",
-            backgroundColor: "#db6565",
-            boxShadow: "none",
-            borderRadius: "5px",
-            fontSize: "12px",
+              color: "white",
+              backgroundColor: "#db6565",
+              boxShadow: "none",
+              borderRadius: "5px",
+              fontSize: "12px",
             }}
             variant="contained"
             size="small"
@@ -590,20 +594,20 @@ const DashboardManage = () => {
           >
             Fechar
           </Button>
-          <Button 
+          <Button
             onClick={() => {
               onClose();
               history.push(`/tickets/${ticket.uuid}`);
-            }} 
-          style={{
-          color: "white",
-          backgroundColor: "#437db5",
-          boxShadow: "none",
-          borderRadius: "5px",
-          fontSize: "12px",
-          }}
-           variant="contained"
-           size="small"
+            }}
+            style={{
+              color: "white",
+              backgroundColor: "#437db5",
+              boxShadow: "none",
+              borderRadius: "5px",
+              fontSize: "12px",
+            }}
+            variant="contained"
+            size="small"
           >
             Abrir Ticket
           </Button>
@@ -621,9 +625,9 @@ const DashboardManage = () => {
           className={classes.imageModal}
         >
           <Fade in={openImageModal}>
-            <img 
-              src={contact.urlPicture} 
-              alt={contactName} 
+            <img
+              src={contact.urlPicture}
+              alt={contactName}
               className={classes.enlargedImage}
               onClick={handleCloseImageModal}
             />
@@ -666,8 +670,8 @@ const DashboardManage = () => {
           <div className={classes.cardHeader}>
             <CardHeader
               avatar={
-                <Avatar 
-                  alt={group.user.name} 
+                <Avatar
+                  alt={group.user.name}
                   src={group.user.profileImage ? `${backendUrl}/public/company${companyId}/user/${group.user.profileImage}` : null}
                   className={classes.avatar}
                 />
@@ -683,9 +687,9 @@ const DashboardManage = () => {
                 </Typography>
               }
               action={
-                <Button 
-                  variant="outlined" 
-                  size="small" 
+                <Button
+                  variant="outlined"
+                  size="small"
                   className={classes.viewButton}
                   onClick={() => history.push(`/tickets?userId=${group.user.id}`)}
                 >
@@ -703,15 +707,15 @@ const DashboardManage = () => {
           <List className={classes.ticketList}>
             {group.userTickets.map((ticket) => (
               <Fragment key={ticket.id}>
-                <ListItem 
-                  className={classes.ticketItem} 
+                <ListItem
+                  className={classes.ticketItem}
                   button
                   onClick={() => handleOpenDialog(ticket)}
                 >
                   <ListItemAvatar>
-                    <Avatar 
-                      alt={(ticket.contact && (ticket.contact.name || ticket.contact.number)) || "Contato sem nome"} 
-                      src={ticket.contact?.urlPicture || ""} 
+                    <Avatar
+                      alt={(ticket.contact && (ticket.contact.name || ticket.contact.number)) || "Contato sem nome"}
+                      src={ticket.contact?.urlPicture || ""}
                       style={{ width: 32, height: 32 }}
                     />
                   </ListItemAvatar>
@@ -724,19 +728,19 @@ const DashboardManage = () => {
                     secondary={
                       <Fragment>
                         <Typography className={classes.lastMessage}>
-                          {ticket.lastMessage?.length > 30 
-                            ? `${ticket.lastMessage.substring(0, 27)}...` 
+                          {ticket.lastMessage?.length > 30
+                            ? `${ticket.lastMessage.substring(0, 27)}...`
                             : ticket.lastMessage}
                         </Typography>
                         <div className={classes.tagsContainer}>
-                          <Chip 
-                            label={ticket.whatsapp?.name || "WhatsApp"} 
-                            size="small" 
+                          <Chip
+                            label={ticket.whatsapp?.name || "WhatsApp"}
+                            size="small"
                             className={classes.whatsappTag}
                           />
-                          <Chip 
-                            label={ticket.queue?.name.toUpperCase() || "SEM FILA"} 
-                            size="small" 
+                          <Chip
+                            label={ticket.queue?.name.toUpperCase() || "SEM FILA"}
+                            size="small"
                             className={classes.queueTag}
                             style={{ backgroundColor: ticket.queue?.color || grey[500] }}
                           />
@@ -746,11 +750,11 @@ const DashboardManage = () => {
                   />
                   <Box display="flex" flexDirection="column" alignItems="flex-end">
                     <Typography
-                      className={Number(ticket.unreadMessages) > 0 
-                        ? classes.timeStampUnread 
+                      className={Number(ticket.unreadMessages) > 0
+                        ? classes.timeStampUnread
                         : classes.timeStamp}
                     >
-                      {isSameDay(parseISO(ticket.updatedAt), new Date()) 
+                      {isSameDay(parseISO(ticket.updatedAt), new Date())
                         ? format(parseISO(ticket.updatedAt), "HH:mm")
                         : format(parseISO(ticket.updatedAt), "dd/MM")}
                     </Typography>
@@ -814,9 +818,9 @@ const DashboardManage = () => {
                 </Typography>
               }
               action={
-                <Button 
-                  variant="outlined" 
-                  size="small" 
+                <Button
+                  variant="outlined"
+                  size="small"
                   className={classes.viewButton}
                   onClick={() => history.push('/tickets?status=pending')}
                 >
@@ -834,15 +838,15 @@ const DashboardManage = () => {
           <List className={classes.ticketList}>
             {pendingTickets.map((ticket) => (
               <Fragment key={ticket.id}>
-                <ListItem 
-                  className={classes.ticketItem} 
+                <ListItem
+                  className={classes.ticketItem}
                   button
                   onClick={() => handleOpenDialog(ticket)}
                 >
                   <ListItemAvatar>
-                    <Avatar 
-                      alt={ticket.contact.name} 
-                      src={ticket.contact.urlPicture} 
+                    <Avatar
+                      alt={ticket.contact.name}
+                      src={ticket.contact.urlPicture}
                       style={{ width: 32, height: 32 }}
                     />
                   </ListItemAvatar>
@@ -855,19 +859,19 @@ const DashboardManage = () => {
                     secondary={
                       <Fragment>
                         <Typography className={classes.lastMessage}>
-                          {ticket.lastMessage?.length > 30 
-                            ? `${ticket.lastMessage.substring(0, 27)}...` 
+                          {ticket.lastMessage?.length > 30
+                            ? `${ticket.lastMessage.substring(0, 27)}...`
                             : ticket.lastMessage}
                         </Typography>
                         <div className={classes.tagsContainer}>
-                          <Chip 
-                            label={ticket.whatsapp?.name || "WhatsApp"} 
-                            size="small" 
+                          <Chip
+                            label={ticket.whatsapp?.name || "WhatsApp"}
+                            size="small"
                             className={classes.whatsappTag}
                           />
-                          <Chip 
-                            label={ticket.queue?.name.toUpperCase() || "SEM FILA"} 
-                            size="small" 
+                          <Chip
+                            label={ticket.queue?.name.toUpperCase() || "SEM FILA"}
+                            size="small"
                             className={classes.queueTag}
                             style={{ backgroundColor: ticket.queue?.color || grey[500] }}
                           />
@@ -876,11 +880,11 @@ const DashboardManage = () => {
                     }
                   />
                   <Typography
-                    className={Number(ticket.unreadMessages) > 0 
-                      ? classes.timeStampUnread 
+                    className={Number(ticket.unreadMessages) > 0
+                      ? classes.timeStampUnread
                       : classes.timeStamp}
                   >
-                    {isSameDay(parseISO(ticket.updatedAt), new Date()) 
+                    {isSameDay(parseISO(ticket.updatedAt), new Date())
                       ? format(parseISO(ticket.updatedAt), "HH:mm")
                       : format(parseISO(ticket.updatedAt), "dd/MM")}
                   </Typography>
@@ -930,10 +934,10 @@ const DashboardManage = () => {
           {Moments}
         </div>
 
-        <TicketDialog 
-          ticket={selectedTicket} 
-          open={openDialog} 
-          onClose={handleCloseDialog} 
+        <TicketDialog
+          ticket={selectedTicket}
+          open={openDialog}
+          onClose={handleCloseDialog}
         />
       </div>
     </ThemeProvider>

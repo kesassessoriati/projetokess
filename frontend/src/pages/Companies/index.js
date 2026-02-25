@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
-// import { SocketContext } from "../../context/Socket/SocketContext";
+
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
@@ -171,8 +171,8 @@ const Companies = () => {
     const { dateToClient, datetimeToClient } = useDate();
 
     // const { getPlanCompany } = usePlans();
-  //   const socketManager = useContext(SocketContext);
-    const { user, socket } = useContext(AuthContext);
+
+    const { user } = useContext(AuthContext);
 
 
     useEffect(() => {
@@ -213,15 +213,15 @@ const Companies = () => {
         return () => clearTimeout(delayDebounceFn);
     }, [searchParam, pageNumber]);
 
-//     useEffect(() => {
-//         const companyId = user.companyId;
-//   //    const socket = socketManager.GetSocket();
-//         // const socket = socketConnection();
+    //     useEffect(() => {
+    //         const companyId = user.companyId;
+    //   //    const socket = socketManager.GetSocket();
+    //         // const socket = socketConnection();
 
-//         return () => {
-//             socket.disconnect();
-//         };
-//     }, []);
+    //         return () => {
+    //             socket.disconnect();
+    //         };
+    //     }, []);
 
     const handleOpenCompanyModal = () => {
         setSelectedCompany(null);
@@ -242,10 +242,10 @@ const Companies = () => {
         console.log("   - Empresa selecionada:", company);
         console.log("   - ID da empresa:", company?.id);
         console.log("   - Nome da empresa:", company?.name);
-        
+
         setSelectedCompany(company);
         setCompanyModalOpen(true);
-        
+
         console.log("📋 Estados atualizados:");
         console.log("   - selectedCompany será:", company);
         console.log("   - companyModalOpen será:", true);
@@ -253,9 +253,9 @@ const Companies = () => {
 
     const handleDeleteCompany = async (companyId) => {
         console.log("🗑️ INICIANDO EXCLUSÃO DA EMPRESA:", companyId);
-        
+
         let deletedFromDatabase = false;
-        
+
         // Tenta múltiplas rotas de exclusão
         try {
             console.log("🚀 Tentativa 1: DELETE /companies/" + companyId);
@@ -264,7 +264,7 @@ const Companies = () => {
             deletedFromDatabase = true;
         } catch (err) {
             console.log("❌ Falha na rota 1:", err.response?.status, err.message);
-            
+
             // Tenta rota alternativa
             try {
                 console.log("🔄 Tentativa 2: DELETE /company/" + companyId);
@@ -273,7 +273,7 @@ const Companies = () => {
                 deletedFromDatabase = true;
             } catch (err2) {
                 console.log("❌ Falha na rota 2:", err2.response?.status, err2.message);
-                
+
                 // Tenta forçar com parâmetros
                 try {
                     console.log("🔄 Tentativa 3: DELETE com force=true");
@@ -286,22 +286,22 @@ const Companies = () => {
                 }
             }
         }
-        
+
         // Mostra resultado
         if (deletedFromDatabase) {
             toast.success("Empresa excluída do banco de dados!");
         } else {
             toast.warning("Removida da interface (erro no banco)");
         }
-        
+
         // SEMPRE remove da lista visual
         console.log("🎨 Removendo da interface...");
         dispatch({ type: "DELETE_COMPANIES", payload: companyId });
-        
+
         setDeletingCompany(null);
         setSearchParam("");
         setPageNumber(1);
-        
+
         console.log("✨ Exclusão finalizada!");
     };
 

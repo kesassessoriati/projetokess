@@ -45,9 +45,9 @@ const ContactSendModal = ({ modalOpen, onClose }) => {
   const [searchParam, setSearchParam] = useState("");
   const [selectedContact, setSelectedContact] = useState(null);
   const [newContact, setNewContact] = useState({});
-  
+
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { companyId, whatsappId } = user;
 
   useEffect(() => {
@@ -83,7 +83,7 @@ const ContactSendModal = ({ modalOpen, onClose }) => {
 
   const handleSendVcard = async contact => {
     if (!contact) return;
-    
+
     setLoading(true);
     try {
       onClose(contact);
@@ -103,7 +103,7 @@ const ContactSendModal = ({ modalOpen, onClose }) => {
   };
 
   const handleCloseContactModal = () => {
-    setContactModalOpen(false);    
+    setContactModalOpen(false);
   };
 
   const handleAddNewContactTicket = contact => {
@@ -141,49 +141,49 @@ const ContactSendModal = ({ modalOpen, onClose }) => {
   };
 
   const renderContactAutocomplete = () => {
-      return (
-        <Grid xs={12} item>
-          <Autocomplete
-            fullWidth
-            options={options}
-            loading={loading}
-            clearOnBlur
-            autoHighlight
-            freeSolo
-            clearOnEscape
-            getOptionLabel={renderOptionLabel}
-            renderOption={renderOption}
-            filterOptions={createAddContactOption}
-            onChange={(e, newValue) => handleSelectOption(e, newValue)}
-            renderInput={params => (
-              <TextField
-                {...params}
-                label={i18n.t("SendContactModal.fieldLabel")}
-                variant="outlined"
-                autoFocus
-                onChange={e => setSearchParam(e.target.value)}
-                onKeyPress={e => {
-                  if (loading || !selectedContact) return;
-                  else if (e.key === "Enter") {
-                    handleSendVcard(selectedContact);
-                  }
-                }}
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <React.Fragment>
-                      {loading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </React.Fragment>
-                  ),
-                }}
-              />
-            )}
-          />
-        </Grid>
-      )
+    return (
+      <Grid xs={12} item>
+        <Autocomplete
+          fullWidth
+          options={options}
+          loading={loading}
+          clearOnBlur
+          autoHighlight
+          freeSolo
+          clearOnEscape
+          getOptionLabel={renderOptionLabel}
+          renderOption={renderOption}
+          filterOptions={createAddContactOption}
+          onChange={(e, newValue) => handleSelectOption(e, newValue)}
+          renderInput={params => (
+            <TextField
+              {...params}
+              label={i18n.t("SendContactModal.fieldLabel")}
+              variant="outlined"
+              autoFocus
+              onChange={e => setSearchParam(e.target.value)}
+              onKeyPress={e => {
+                if (loading || !selectedContact) return;
+                else if (e.key === "Enter") {
+                  handleSendVcard(selectedContact);
+                }
+              }}
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <React.Fragment>
+                    {loading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params.InputProps.endAdornment}
+                  </React.Fragment>
+                ),
+              }}
+            />
+          )}
+        />
+      </Grid>
+    )
     return null;
   }
 

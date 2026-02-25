@@ -26,7 +26,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Contacts = () => {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const [loading,] = useState(false);
   const [, setPageNumber] = useState(1);

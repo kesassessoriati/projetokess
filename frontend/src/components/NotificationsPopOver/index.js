@@ -3,7 +3,7 @@ import { useTheme } from "@material-ui/core/styles";
 
 import { useHistory } from "react-router-dom";
 import { format } from "date-fns";
-// import { SocketContext } from "../../context/Socket/SocketContext";
+import { useSocket } from "../../context/SocketContext";
 
 import useSound from "use-sound";
 
@@ -54,7 +54,8 @@ const NotificationsPopOver = (volume) => {
 
 	const history = useHistory();
 	// const socketManager = useContext(SocketContext);
-	const { user, socket } = useContext(AuthContext);
+	const { user } = useContext(AuthContext);
+	const { isConnected, on, emit } = useSocket();
 	const { profile, queues } = user;
 
 	const ticketIdUrl = +history.location.pathname.split("/")[2];
@@ -64,7 +65,7 @@ const NotificationsPopOver = (volume) => {
 	const [notifications, setNotifications] = useState([]);
 	const queueIds = queues?.map((q) => q.id) || [];
 	const { get: getSetting } = useCompanySettings();
-    const { setCurrentTicket, setTabOpen } = useContext(TicketsContext);
+	const { setCurrentTicket, setTabOpen } = useContext(TicketsContext);
 
 	const [showTicketWithoutQueue, setShowTicketWithoutQueue] = useState(false);
 	const [showNotificationPending, setShowNotificationPending] = useState(false);
@@ -140,105 +141,94 @@ const NotificationsPopOver = (volume) => {
 	}, [ticketIdUrl]);
 
 	useEffect(() => {
+		if (!isConnected || !user.id || !user.companyId) return;
+
 		const companyId = user.companyId;
-		// const socket = socketManager.GetSocket();
-		if (user.id) {
-			const queueIds = queues?.map((q) => q.id) || [];
 
-			const onConnectNotificationsPopover = () => {
-				socket.emit("joinNotification");
-			}
-
-			const onCompanyTicketNotificationsPopover = (data) => {
-				if (data.action === "updateUnread" || data.action === "delete") {
-					setNotifications(prevState => {
-						const ticketIndex = prevState.findIndex(t => t.id === data.ticketId);
-						if (ticketIndex !== -1) {
-							prevState.splice(ticketIndex, 1);
-							return [...prevState];
-						}
-						return prevState;
-					});
-
-					setDesktopNotifications(prevState => {
-						const notfiticationIndex = prevState.findIndex(
-							n => n.tag === String(data.ticketId)
-						);
-						if (notfiticationIndex !== -1) {
-							prevState[notfiticationIndex].close();
-							prevState.splice(notfiticationIndex, 1);
-							return [...prevState];
-						}
-						return prevState;
-					});
-				}
-			};
-
-			const onCompanyAppMessageNotificationsPopover = (data) => {
-				// if (
-				// 	data.action === "create" && !data.message.fromMe &&
-				// 	(
-				// 		data.ticket.status !== 'pending' &&
-				// 		data.ticket.status !== "lgpd" &&
-				// 		data.ticket.status !== "nps"						
-				// 	) &&
-				// 	(!data.message.read || (data.ticket.status === "pending" && showTicketWithoutQueue && data.ticket.queueId === null) || (data.ticket.status === "pending" && !showTicketWithoutQueue && user?.queues?.some(queue => (queue.id === data.ticket.queueId)))) &&
-				// 	(data.ticket.userId === user?.id || !data.ticket.userId)
-				// ) {
-				// 
-				
-				// Verifica se o ticket pertence às filas do usuário
-				const belongsToUserQueue = user?.queues?.some(queue => (queue.id === data.ticket.queueId)) ||
-					(!data.ticket.queueId && showTicketWithoutQueue === true);
-				
-				// Verifica se o usuário pode ver o ticket
-				const canSeeTicket = data.ticket?.userId === user?.id || !data.ticket?.userId || data.ticket?.status === 'pending';
-				
-				// Verifica se deve notificar baseado no status
-				const shouldNotifyByStatus = !["pending", "lgpd", "nps", "group"].includes(data.ticket?.status) ||
-					(data.ticket?.status === "pending" && (showNotificationPending === true || belongsToUserQueue)) ||
-					(data.ticket?.status === "group" && data.ticket?.whatsapp?.groupAsTicket === "enabled" && showGroupNotification === true);
-				
-				if (
-					data.action === "create" && !data.message.fromMe &&
-					!data.message.read &&
-					canSeeTicket &&
-					belongsToUserQueue &&
-					shouldNotifyByStatus
-				) {
-					setNotifications(prevState => {
-						const ticketIndex = prevState.findIndex(t => t.id === data.ticket.id);
-						if (ticketIndex !== -1) {
-							prevState[ticketIndex] = data.ticket;
-							return [...prevState];
-						}
-						return [data.ticket, ...prevState];
-					});
-
-					const shouldNotNotificate =
-						(data.message.ticketId === ticketIdRef.current &&
-							document.visibilityState === "visible") ||
-						(data.ticket.userId && data.ticket.userId !== user?.id) ||
-						(data.ticket.isGroup && data.ticket?.whatsapp?.groupAsTicket === "disabled" && showGroupNotification === false);
-
-
-					if (shouldNotNotificate === true) return;
-
-					handleNotifications(data);
-				}
-			}
-
-			socket.on("connect", onConnectNotificationsPopover);
-			socket.on(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
-			socket.on(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
-
-			return () => {
-				socket.off("connect", onConnectNotificationsPopover);
-				socket.off(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
-				socket.off(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
-			};
+		const onConnectNotificationsPopover = () => {
+			emit("joinNotification");
 		}
-	}, [user, profile, queues, showTicketWithoutQueue, socket, showNotificationPending, showGroupNotification]);
+
+		// Initial join if already connected
+		onConnectNotificationsPopover();
+
+		const onCompanyTicketNotificationsPopover = (data) => {
+			if (data.action === "updateUnread" || data.action === "delete") {
+				setNotifications(prevState => {
+					const ticketIndex = prevState.findIndex(t => t.id === data.ticketId);
+					if (ticketIndex !== -1) {
+						prevState.splice(ticketIndex, 1);
+						return [...prevState];
+					}
+					return prevState;
+				});
+
+				setDesktopNotifications(prevState => {
+					const notfiticationIndex = prevState.findIndex(
+						n => n.tag === String(data.ticketId)
+					);
+					if (notfiticationIndex !== -1) {
+						prevState[notfiticationIndex].close();
+						prevState.splice(notfiticationIndex, 1);
+						return [...prevState];
+					}
+					return prevState;
+				});
+			}
+		};
+
+		const onCompanyAppMessageNotificationsPopover = (data) => {
+			// Verifica se o ticket pertence às filas do usuário
+			const belongsToUserQueue = user?.queues?.some(queue => (queue.id === data.ticket.queueId)) ||
+				(!data.ticket.queueId && showTicketWithoutQueue === true);
+
+			// Verifica se o usuário pode ver o ticket
+			const canSeeTicket = data.ticket?.userId === user?.id || !data.ticket?.userId || data.ticket?.status === 'pending';
+
+			// Verifica se deve notificar baseado no status
+			const shouldNotifyByStatus = !["pending", "lgpd", "nps", "group"].includes(data.ticket?.status) ||
+				(data.ticket?.status === "pending" && (showNotificationPending === true || belongsToUserQueue)) ||
+				(data.ticket?.status === "group" && data.ticket?.whatsapp?.groupAsTicket === "enabled" && showGroupNotification === true);
+
+			if (
+				data.action === "create" && !data.message.fromMe &&
+				!data.message.read &&
+				canSeeTicket &&
+				belongsToUserQueue &&
+				shouldNotifyByStatus
+			) {
+				setNotifications(prevState => {
+					const ticketIndex = prevState.findIndex(t => t.id === data.ticket.id);
+					if (ticketIndex !== -1) {
+						prevState[ticketIndex] = data.ticket;
+						return [...prevState];
+					}
+					return [data.ticket, ...prevState];
+				});
+
+				const shouldNotNotificate =
+					(data.message.ticketId === ticketIdRef.current &&
+						document.visibilityState === "visible") ||
+					(data.ticket.userId && data.ticket.userId !== user?.id) ||
+					(data.ticket.isGroup && data.ticket?.whatsapp?.groupAsTicket === "disabled" && showGroupNotification === false);
+
+
+				if (shouldNotNotificate === true) return;
+
+				handleNotifications(data);
+			}
+		}
+
+		const cleanupConnect = on("connect", onConnectNotificationsPopover);
+		const cleanupTicket = on(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
+		const cleanupAppMessage = on(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
+
+		return () => {
+			cleanupConnect();
+			cleanupTicket();
+			cleanupAppMessage();
+		};
+	}, [isConnected, on, emit, user, showTicketWithoutQueue, showNotificationPending, showGroupNotification]);
 
 	const handleNotifications = data => {
 		const { message, contact, ticket } = data;

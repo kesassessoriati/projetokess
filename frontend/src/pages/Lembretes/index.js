@@ -29,6 +29,7 @@ import toastError from "../../errors/toastError";
 import moment from "moment";
 import "moment/locale/pt-br";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import usePlans from "../../hooks/usePlans";
 
 moment.locale("pt-br");
@@ -358,7 +359,8 @@ const Schedules = () => {
   const classes = useStyles();
   const history = useHistory();
 
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
@@ -418,6 +420,8 @@ const Schedules = () => {
   }, [searchParam, pageNumber, fetchSchedules]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
+
     const onCompanySchedule = (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_SCHEDULES", payload: data.schedule });
@@ -427,12 +431,12 @@ const Schedules = () => {
       }
     };
 
-    socket.on(`company${user.companyId}-schedule`, onCompanySchedule);
+    const cleanup = on(`company${user.companyId}-schedule`, onCompanySchedule);
 
     return () => {
-      socket.off(`company${user.companyId}-schedule`, onCompanySchedule);
+      cleanup();
     };
-  }, [socket, user.companyId]);
+  }, [isConnected, on, user]);
 
   const cleanContact = () => {
     setContactId("");

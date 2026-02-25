@@ -22,6 +22,7 @@ import ListAltIcon from "@material-ui/icons/ListAlt";
 import { useDate } from "../../hooks/useDate";
 import usePlans from "../../hooks/usePlans";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 // import { SocketContext } from "../../context/Socket/SocketContext";
 import { i18n } from "../../translate/i18n";
@@ -58,7 +59,8 @@ const CampaignReport = () => {
   const [loading, setLoading] = useState(false);
   const mounted = useRef(true);
   //   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
 
   const { datetimeToClient } = useDate();
@@ -120,11 +122,10 @@ const CampaignReport = () => {
   }, [delivered, validContacts]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
     const companyId = user.companyId;
-    // const socket = socketManager.GetSocket();
 
     const onCampaignEvent = (data) => {
-
       if (data.record.id === +campaignId) {
         setCampaign(data.record);
 
@@ -135,13 +136,13 @@ const CampaignReport = () => {
         }
       }
     };
-    socket.on(`company-${companyId}-campaign`, onCampaignEvent);
+
+    const cleanup = on(`company-${companyId}-campaign`, onCampaignEvent);
 
     return () => {
-      socket.off(`company-${companyId}-campaign`, onCampaignEvent);
+      cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId]);
+  }, [isConnected, on, user?.companyId, campaignId]);
 
   const findCampaign = async () => {
     setLoading(true);

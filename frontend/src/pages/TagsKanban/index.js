@@ -43,6 +43,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 import { useTheme } from '@material-ui/core/styles';
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_TAGS") {
@@ -161,7 +162,8 @@ const Tags = () => {
   const classes = useStyles();
   const history = useHistory();
 
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -198,6 +200,8 @@ const Tags = () => {
   }, [searchParam]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
+
     const onTagsEvent = (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_TAGS", payload: data.tag });
@@ -207,12 +211,13 @@ const Tags = () => {
         dispatch({ type: "DELETE_TAGS", payload: +data.tagId });
       }
     };
-    socket.on(`company${user.companyId}-tag`, onTagsEvent);
+
+    const cleanup = on(`company${user.companyId}-tag`, onTagsEvent);
 
     return () => {
-      socket.off(`company${user.companyId}-tag`, onTagsEvent);
+      cleanup();
     };
-  }, [socket]);
+  }, [isConnected, on, user]);
 
   const handleOpenTagModal = () => {
     setSelectedTag(null);
@@ -340,7 +345,7 @@ const Tags = () => {
         <Grid container spacing={2} className={classes.cardGrid}>
           {loading ? (
             <Grid item xs={12}>
-              <Card variant="outlined" 
+              <Card variant="outlined"
                 className={classes.cardBase}
               >
                 <CardContent>
@@ -374,8 +379,8 @@ const Tags = () => {
                       Tickets: {tag?.ticketTags?.length || 0}
                     </Typography>
                   </CardContent>
-                  <CardActions style={{ 
-                    justifyContent: "center", 
+                  <CardActions style={{
+                    justifyContent: "center",
                     gap: "10px",
                     flexWrap: isMobile ? 'wrap' : 'nowrap'
                   }}>

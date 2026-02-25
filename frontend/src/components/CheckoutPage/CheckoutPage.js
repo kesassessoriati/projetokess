@@ -30,7 +30,7 @@ import useStyles from "./styles";
 export default function CheckoutPage(props) {
   console.log("CheckoutPage - props:", props);
   console.log("CheckoutPage - props.Invoice:", props.Invoice);
-  
+
   const steps = ["Pagamento"];
   const { formId, formField } = checkoutFormModel;
 
@@ -40,20 +40,20 @@ export default function CheckoutPage(props) {
   const [invoiceId, setinvoiceId] = useState(props.Invoice.id);
   const currentValidationSchema = validationSchema[activeStep];
   const isLastStep = activeStep === steps.length - 1;
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   function _renderStepContent(step, setFieldValue, setActiveStep, values) {
     // Mostrar apenas revisão da fatura para pagamento
-    return <ReviewOrder 
-      invoice={props.Invoice} 
-      onPay={() => _handleSubmit(values, { setSubmitting: () => {} })}
+    return <ReviewOrder
+      invoice={props.Invoice}
+      onPay={() => _handleSubmit(values, { setSubmitting: () => { } })}
     />;
   }
 
   async function _submitForm(values, actions) {
     console.log("_submitForm chamado - values:", values);
     console.log("_submitForm chamado - invoiceId:", invoiceId);
-    
+
     try {
       // Usar dados da fatura em vez do formulário
       const invoice = props.Invoice;
@@ -68,14 +68,14 @@ export default function CheckoutPage(props) {
       console.log("Enviando para /invoices/pay:", newValues);
       const { data } = await api.post("/invoices/pay", newValues);
       console.log("Resposta do backend:", data);
-      
+
       // Redirecionar para o link de pagamento
       if (data.success && data.paymentLink) {
         console.log("Redirecionando para:", data.paymentLink);
         window.open(data.paymentLink, '_blank');
         toast.success("Redirecionando para pagamento...");
       }
-      
+
       setDatePayment(data)
       actions.setSubmitting(false);
       setActiveStep(activeStep + 1);
@@ -130,16 +130,16 @@ export default function CheckoutPage(props) {
                 <div className={classes.buttons}>
                   {activeStep !== 1 && activeStep !== 0 && (
                     <Button
-                        startIcon={<ArrowBackIcon />}
-                        style={{
+                      startIcon={<ArrowBackIcon />}
+                      style={{
                         color: "white",
                         backgroundColor: "#db6565",
                         boxShadow: "none",
                         borderRadius: 0
-                        }}
+                      }}
                       onClick={_handleBack}
                       className={classes.button}
-                      >
+                    >
                       VOLTAR
                     </Button>
                   )}
@@ -151,10 +151,10 @@ export default function CheckoutPage(props) {
                         type="submit"
                         variant="contained"
                         style={{
-                        color: "white",
-                        backgroundColor: "#437db5",
-                        boxShadow: "none",
-                        borderRadius: 0
+                          color: "white",
+                          backgroundColor: "#437db5",
+                          boxShadow: "none",
+                          borderRadius: 0
                         }}
                         className={classes.button}
                       >

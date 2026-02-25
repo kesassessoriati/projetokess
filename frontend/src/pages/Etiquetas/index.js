@@ -31,6 +31,7 @@ import TagModal from "../../components/TagModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import ContactTagListModal from "../../components/ContactTagListModal";
 
 const reducer = (state, action) => {
@@ -241,7 +242,8 @@ const useStyles = makeStyles((theme) => ({
 
 const Tags = () => {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const [selectedTagContacts, setSelectedTagContacts] = useState([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -277,6 +279,8 @@ const Tags = () => {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
+
     const onCompanyTags = (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_TAGS", payload: data.tag });
@@ -286,12 +290,13 @@ const Tags = () => {
         dispatch({ type: "DELETE_TAGS", payload: +data.tagId });
       }
     };
-    socket.on(`company${user.companyId}-tag`, onCompanyTags);
+
+    const cleanup = on(`company${user.companyId}-tag`, onCompanyTags);
 
     return () => {
-      socket.off(`company${user.companyId}-tag`, onCompanyTags);
+      cleanup();
     };
-  }, [socket, user.companyId]);
+  }, [isConnected, on, user?.companyId]);
 
   const handleOpenTagModal = () => {
     setSelectedTag(null);
@@ -445,9 +450,8 @@ const Tags = () => {
                   <span>•</span>
                   <Tooltip title={tag?.contacts?.length > 0 ? "Ver contatos" : ""}>
                     <Box
-                      className={`${classes.contactCount} ${
-                        tag?.contacts?.length === 0 ? classes.contactCountDisabled : ""
-                      }`}
+                      className={`${classes.contactCount} ${tag?.contacts?.length === 0 ? classes.contactCountDisabled : ""
+                        }`}
                       onClick={() => handleShowContacts(tag?.contacts, tag)}
                     >
                       <PeopleIcon style={{ fontSize: 16 }} />

@@ -124,7 +124,7 @@ const useStyles = makeStyles((theme) => ({
 const Settings = () => {
   const classes = useStyles();
   //   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const { data: settings, loading: loadingSettings, setData: setSettings } = useSafeApi("/settings", { manual: false });
   const [loadingImage, setLoadingImage] = useState(null);

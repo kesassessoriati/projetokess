@@ -6,6 +6,7 @@ import AnnouncementIcon from "@material-ui/icons/Announcement";
 
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 import {
   Avatar,
@@ -149,8 +150,8 @@ export default function AnnouncementsPopover() {
   const [invisible, setInvisible] = useState(false);
   const [announcement, setAnnouncement] = useState({});
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
-//   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
 
   useEffect(() => {
@@ -168,26 +169,26 @@ export default function AnnouncementsPopover() {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
-    if (user.companyId) {
-      const companyId = user.companyId;
-//    const socket = socketManager.GetSocket();
+    if (!isConnected || !user.companyId) return;
 
-      const onCompanyAnnouncement = (data) => {
-        if (data.action === "update" || data.action === "create") {
-          dispatch({ type: "UPDATE_ANNOUNCEMENTS", payload: data.record });
-          setInvisible(false);
-        }
-        if (data.action === "delete") {
-          dispatch({ type: "DELETE_ANNOUNCEMENT", payload: +data.id });
-        }
-      };
-      socket.on(`company-announcement`, onCompanyAnnouncement);
+    const companyId = user.companyId;
 
-      return () => {
-        socket.off(`company-announcement`, onCompanyAnnouncement);
-      };
-    }
-  }, [user]);
+    const onCompanyAnnouncement = (data) => {
+      if (data.action === "update" || data.action === "create") {
+        dispatch({ type: "UPDATE_ANNOUNCEMENTS", payload: data.record });
+        setInvisible(false);
+      }
+      if (data.action === "delete") {
+        dispatch({ type: "DELETE_ANNOUNCEMENT", payload: +data.id });
+      }
+    };
+
+    const cleanup = on(`company-announcement`, onCompanyAnnouncement);
+
+    return () => {
+      cleanup();
+    };
+  }, [isConnected, on, user.companyId]);
 
   const fetchAnnouncements = async () => {
     try {

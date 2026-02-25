@@ -10,6 +10,7 @@ import TicketsListSkeleton from "../TicketsListSkeleton";
 import useTickets from "../../hooks/useTickets";
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
     ticketsListWrapper: {
@@ -73,7 +74,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const ticketSortAsc = (a, b) => {
-    
+
     if (a.updatedAt < b.updatedAt) {
         return -1;
     }
@@ -84,7 +85,7 @@ const ticketSortAsc = (a, b) => {
 }
 
 const ticketSortDesc = (a, b) => {
-   
+
     if (a.updatedAt > b.updatedAt) {
         return -1;
     }
@@ -97,7 +98,7 @@ const ticketSortDesc = (a, b) => {
 const reducer = (state, action) => {
     //console.log("action", action, state)
     const sortDir = action.sortDir;
-    
+
     if (action.type === "LOAD_TICKETS") {
         const newTickets = action.payload;
 
@@ -221,7 +222,8 @@ const TicketsListCustom = (props) => {
     const [pageNumber, setPageNumber] = useState(1);
     let [ticketsList, dispatch] = useReducer(reducer, []);
     //   const socketManager = useContext(SocketContext);
-    const { user, socket } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
+    const { isConnected, on, emit } = useSocket();
 
     const { profile, queues } = user;
     const showTicketWithoutQueue = user.allTicket === 'enable';
@@ -270,17 +272,19 @@ const TicketsListCustom = (props) => {
     }, [tickets]);
 
     useEffect(() => {
+        if (!isConnected || !user?.companyId) return;
+
         const shouldUpdateTicket = ticket => {
             // Verifica se o ticket pertence às filas do usuário
             const belongsToQueue = (!ticket?.queueId && showTicketWithoutQueue) || selectedQueueIds.indexOf(ticket?.queueId) > -1;
-            
+
             // Verifica se o usuário pode ver o ticket:
             // - Ticket sem usuário atribuído (pending)
             // - Ticket atribuído ao usuário atual
             // - showAll está ativo
             // - Ticket em status pending (todos podem ver tickets pendentes das suas filas)
             const canSeeTicket = !ticket?.userId || ticket?.userId === user?.id || showAll || ticket?.status === 'pending';
-            
+
             return canSeeTicket && belongsToQueue;
         }
 
@@ -308,12 +312,6 @@ const TicketsListCustom = (props) => {
                 });
             }
 
-            // else if (data.action === "update" && shouldUpdateTicketUser(data.ticket) && data.ticket.status === status) {
-            //     dispatch({
-            //         type: "UPDATE_TICKET",
-            //         payload: data.ticket,
-            //     });
-            // }
             if (data.action === "update" && notBelongsToUserQueues(data.ticket)) {
                 dispatch({
                     type: "DELETE_TICKET", payload: data.ticket?.id, status: status,
@@ -340,12 +338,6 @@ const TicketsListCustom = (props) => {
                     sortDir: sortTickets
                 });
             }
-            // else if (data.action === "create" && shouldUpdateTicketUser(data.ticket) && data.ticket.status === status) {
-            //     dispatch({
-            //         type: "UPDATE_TICKET_UNREAD_MESSAGES",
-            //         payload: data.ticket,
-            //     });
-            // }
         };
 
         const onCompanyContactTicketsList = (data) => {
@@ -361,30 +353,31 @@ const TicketsListCustom = (props) => {
 
         const onConnectTicketsList = () => {
             if (status) {
-                socket.emit("joinTickets", status);
+                emit("joinTickets", status);
             } else {
-                socket.emit("joinNotification");
+                emit("joinNotification");
             }
         }
 
-        socket.on("connect", onConnectTicketsList)
-        socket.on(`company-${companyId}-ticket`, onCompanyTicketTicketsList);
-        socket.on(`company-${companyId}-appMessage`, onCompanyAppMessageTicketsList);
-        socket.on(`company-${companyId}-contact`, onCompanyContactTicketsList);
+        // Se já está conectado, emite imediatamente
+        onConnectTicketsList();
+
+        const cleanupTicket = on(`company-${companyId}-ticket`, onCompanyTicketTicketsList);
+        const cleanupAppMessage = on(`company-${companyId}-appMessage`, onCompanyAppMessageTicketsList);
+        const cleanupContact = on(`company-${companyId}-contact`, onCompanyContactTicketsList);
 
         return () => {
             if (status) {
-                socket.emit("leaveTickets", status);
+                emit("leaveTickets", status);
             } else {
-                socket.emit("leaveNotification");
+                emit("leaveNotification");
             }
-            socket.off("connect", onConnectTicketsList);
-            socket.off(`company-${companyId}-ticket`, onCompanyTicketTicketsList);
-            socket.off(`company-${companyId}-appMessage`, onCompanyAppMessageTicketsList);
-            socket.off(`company-${companyId}-contact`, onCompanyContactTicketsList);
+            cleanupTicket();
+            cleanupAppMessage();
+            cleanupContact();
         };
 
-    }, [status, showAll, user, selectedQueueIds, tags, users, profile, queues, sortTickets, showTicketWithoutQueue]);
+    }, [isConnected, on, emit, status, showAll, user, selectedQueueIds, tags, users, profile, queues, sortTickets, showTicketWithoutQueue]);
 
     useEffect(() => {
         if (typeof updateCount === "function") {

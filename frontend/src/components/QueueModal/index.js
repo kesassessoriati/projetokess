@@ -2,16 +2,16 @@ import React, { useState, useEffect, useRef, useContext, Fragment } from "react"
 import * as Yup from "yup";
 import { Formik, FieldArray, Form, Field } from "formik";
 import { toast } from "react-toastify";
-import { 
-  FormControl, 
-  FormControlLabel, 
-  Grid, 
-  InputLabel, 
-  MenuItem, 
-  Paper, 
+import {
+  FormControl,
+  FormControlLabel,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
   Select,
-  Tab, 
-  Tabs 
+  Tab,
+  Tabs
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
@@ -302,7 +302,7 @@ const QueueModal = ({ open, onClose, queueId, onEdit }) => {
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [tab, setTab] = useState(0);
   const [file, setFile] = useState(null);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [searchParam, setSearchParam] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedQueueOption, setSelectedQueueOption] = useState("");
@@ -710,7 +710,7 @@ const QueueModal = ({ open, onClose, queueId, onEdit }) => {
                       className={classes.textField}
                     />
                   </div>
-                  
+
                   <div className={classes.colorOrderContainer}>
                     <div className={classes.colorFieldContainer}>
                       <Colorize className={classes.fieldIcon} />
@@ -749,7 +749,7 @@ const QueueModal = ({ open, onClose, queueId, onEdit }) => {
                         fullWidth
                       />
                     </div>
-                    
+
                     <div className={classes.orderFieldContainer}>
                       <QueueIcon className={classes.fieldIcon} />
                       <Field
@@ -765,7 +765,7 @@ const QueueModal = ({ open, onClose, queueId, onEdit }) => {
                       />
                     </div>
                   </div>
-                  
+
                   <ColorBoxModal
                     open={colorPickerModalOpen}
                     handleClose={() => setColorPickerModalOpen(false)}
@@ -775,7 +775,7 @@ const QueueModal = ({ open, onClose, queueId, onEdit }) => {
                     }}
                     currentColor={values.color}
                   />
-                  
+
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <RotateLeftIcon className={classes.fieldIcon} />
                     <FormControlLabel

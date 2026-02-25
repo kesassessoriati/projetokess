@@ -17,6 +17,7 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n.js";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import ForbiddenPage from "../../components/ForbiddenPage";
 
 const useStyles = makeStyles((theme) => ({
@@ -115,7 +116,8 @@ const useStyles = makeStyles((theme) => ({
 const Settings = () => {
   const classes = useStyles();
   //   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const [settings, setSettings] = useState([]);
 
@@ -132,25 +134,29 @@ const Settings = () => {
   }, []);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
+
     const companyId = user.companyId;
-    // const socket = socketManager.GetSocket();
 
     const onSettingsEvent = (data) => {
       if (data.action === "update") {
         setSettings((prevState) => {
           const aux = [...prevState];
           const settingIndex = aux.findIndex((s) => s.key === data.setting.key);
-          aux[settingIndex].value = data.setting.value;
+          if (settingIndex !== -1) {
+            aux[settingIndex].value = data.setting.value;
+          }
           return aux;
         });
       }
     };
-    socket.on(`company-${companyId}-settings`, onSettingsEvent);
+
+    const cleanup = on(`company-${companyId}-settings`, onSettingsEvent);
 
     return () => {
-      socket.off(`company-${companyId}-settings`, onSettingsEvent);
+      cleanup();
     };
-  }, [socket]);
+  }, [isConnected, on, user]);
 
   const handleChangeSetting = async (e) => {
     const selectedValue = e.target.value;

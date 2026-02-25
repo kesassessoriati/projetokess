@@ -34,6 +34,7 @@ import { useDate } from "../../hooks/useDate";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import usePlans from "../../hooks/usePlans";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CAMPAIGNS") {
@@ -285,7 +286,8 @@ const Campaigns = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [campaigns, dispatch] = useReducer(reducer, []);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const { datetimeToClient } = useDate();
   const { getPlanCompany } = usePlans();
@@ -320,6 +322,7 @@ const Campaigns = () => {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
     const companyId = user.companyId;
 
     const onCompanyCampaign = (data) => {
@@ -331,11 +334,11 @@ const Campaigns = () => {
       }
     };
 
-    socket.on(`company-${companyId}-campaign`, onCompanyCampaign);
+    const cleanup = on(`company-${companyId}-campaign`, onCompanyCampaign);
     return () => {
-      socket.off(`company-${companyId}-campaign`, onCompanyCampaign);
+      cleanup();
     };
-  }, [user, socket]);
+  }, [isConnected, on, user?.companyId]);
 
   const fetchCampaigns = async () => {
     try {

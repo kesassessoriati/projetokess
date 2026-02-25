@@ -43,6 +43,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 // import { SocketContext } from "../../context/Socket/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import AddIcon from '@mui/icons-material/Add';
 
@@ -103,7 +104,8 @@ const FileLists = () => {
     const classes = useStyles();
 
     //   const socketManager = useContext(SocketContext);
-    const { user, socket } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
+    const { isConnected, on } = useSocket();
 
 
     const [loading, setLoading] = useState(false);
@@ -143,7 +145,7 @@ const FileLists = () => {
     }, [searchParam, pageNumber, fetchFileLists]);
 
     useEffect(() => {
-        // const socket = socketManager.GetSocket(user.companyId, user.id);
+        if (!isConnected || !user?.companyId) return;
 
         const onFileEvent = (data) => {
             if (data.action === "update" || data.action === "create") {
@@ -155,11 +157,12 @@ const FileLists = () => {
             }
         };
 
-        socket.on(`company-${user.companyId}-file`, onFileEvent);
+        const cleanup = on(`company-${user.companyId}-file`, onFileEvent);
+
         return () => {
-            socket.off(`company-${user.companyId}-file`, onFileEvent);
+            cleanup();
         };
-    }, [socket]);
+    }, [isConnected, on, user]);
 
     const handleOpenFileListModal = () => {
         setSelectedFileList(null);
@@ -249,10 +252,10 @@ const FileLists = () => {
                                 startIcon={<SaveIcon />}
                                 variant="contained"
                                 style={{
-                                color: "white",
-                                backgroundColor: "#FFA500",
-                                boxShadow: "none",
-                                borderRadius: "5px",
+                                    color: "white",
+                                    backgroundColor: "#FFA500",
+                                    boxShadow: "none",
+                                    borderRadius: "5px",
                                 }}
                                 onClick={handleOpenFileListModal}
                             >
@@ -265,96 +268,96 @@ const FileLists = () => {
                         variant="outlined"
                         onScroll={handleScroll}
                     >
-<Grid container spacing={2}>
-  {loading ? (
-    <Grid item xs={12}>
-      <Card 
-       variant="outlined"
-       style={{
-       backgroundColor: "#d7e0e4",
-       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-       borderRadius: "10px",
-       padding: "20px",
-       margin: "10px",
-       transition: "transform 0.2s ease-in-out",
-       cursor: "pointer",
-        }}
-       onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-       onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-       >
-        <CardContent>
-          <Typography variant="body2" color="textSecondary">
-            {i18n.t("loading")}
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
-  ) : (
-    files.map((fileList) => (
-      <Grid item xs={12} sm={6} md={4} key={fileList.id}>
-        <Card
-       variant="outlined"
-       style={{
-       backgroundColor: "#d7e0e4",
-       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-       borderRadius: "10px",
-       padding: "20px",
-       margin: "10px",
-       transition: "transform 0.2s ease-in-out",
-       cursor: "pointer",
-        }}
-       onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-       onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-       >
-          <CardContent>
-            <Typography variant="h6" color="textPrimary" align="center">
-              {fileList.name}
-            </Typography>
-          </CardContent>
-<CardActions style={{ justifyContent: "center", gap: "10px" }}>
-  <div
-    onClick={() => handleEditFileList(fileList)}
-    style={{
-      backgroundColor: "#3DB8FF",
-      borderRadius: "10px",
-      width: "40px",
-      height: "40px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      transition: "0.3s",
-    }}
-  >
-    <EditIcon style={{ color: "#fff" }} />
-  </div>
+                        <Grid container spacing={2}>
+                            {loading ? (
+                                <Grid item xs={12}>
+                                    <Card
+                                        variant="outlined"
+                                        style={{
+                                            backgroundColor: "#d7e0e4",
+                                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                                            borderRadius: "10px",
+                                            padding: "20px",
+                                            margin: "10px",
+                                            transition: "transform 0.2s ease-in-out",
+                                            cursor: "pointer",
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                                        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                                    >
+                                        <CardContent>
+                                            <Typography variant="body2" color="textSecondary">
+                                                {i18n.t("loading")}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            ) : (
+                                files.map((fileList) => (
+                                    <Grid item xs={12} sm={6} md={4} key={fileList.id}>
+                                        <Card
+                                            variant="outlined"
+                                            style={{
+                                                backgroundColor: "#d7e0e4",
+                                                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                                                borderRadius: "10px",
+                                                padding: "20px",
+                                                margin: "10px",
+                                                transition: "transform 0.2s ease-in-out",
+                                                cursor: "pointer",
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                                            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                                        >
+                                            <CardContent>
+                                                <Typography variant="h6" color="textPrimary" align="center">
+                                                    {fileList.name}
+                                                </Typography>
+                                            </CardContent>
+                                            <CardActions style={{ justifyContent: "center", gap: "10px" }}>
+                                                <div
+                                                    onClick={() => handleEditFileList(fileList)}
+                                                    style={{
+                                                        backgroundColor: "#3DB8FF",
+                                                        borderRadius: "10px",
+                                                        width: "40px",
+                                                        height: "40px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        cursor: "pointer",
+                                                        transition: "0.3s",
+                                                    }}
+                                                >
+                                                    <EditIcon style={{ color: "#fff" }} />
+                                                </div>
 
-  <div
-    onClick={() => {
-      setConfirmModalOpen(true);
-      setDeletingFileList(fileList);
-    }}
-    style={{
-      backgroundColor: "#FF6B6B",
-      borderRadius: "10px",
-      width: "40px",
-      height: "40px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      transition: "0.3s",
-    }}
-  >
-    <DeleteOutlineIcon style={{ color: "#fff" }} />
-  </div>
-</CardActions>
+                                                <div
+                                                    onClick={() => {
+                                                        setConfirmModalOpen(true);
+                                                        setDeletingFileList(fileList);
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: "#FF6B6B",
+                                                        borderRadius: "10px",
+                                                        width: "40px",
+                                                        height: "40px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        cursor: "pointer",
+                                                        transition: "0.3s",
+                                                    }}
+                                                >
+                                                    <DeleteOutlineIcon style={{ color: "#fff" }} />
+                                                </div>
+                                            </CardActions>
 
-        </Card>
-      </Grid>
-    ))
-  )}
-</Grid>
+                                        </Card>
+                                    </Grid>
+                                ))
+                            )}
+                        </Grid>
 
                     </Paper>
                 </>}

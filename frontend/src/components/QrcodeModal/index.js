@@ -8,6 +8,7 @@ import api from "../../services/api";
 import g02 from "../QrcodeModal/g02.gif";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -19,7 +20,8 @@ const useStyles = makeStyles((theme) => ({
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   const classes = useStyles();
   const [qrCode, setQrCode] = useState("");
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -36,9 +38,8 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   }, [whatsAppId]);
 
   useEffect(() => {
-    if (!whatsAppId) return;
+    if (!isConnected || !user?.companyId || !whatsAppId) return;
     const companyId = user.companyId;
-    // const socket = socketConnection({ companyId, userId: user.id });
 
     const onWhatsappData = (data) => {
       if (data.action === "update" && data.session.id === whatsAppId) {
@@ -49,39 +50,39 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
         onClose();
       }
     }
-    socket.on(`company-${companyId}-whatsappSession`, onWhatsappData);
+    const cleanup = on(`company-${companyId}-whatsappSession`, onWhatsappData);
 
     return () => {
-      socket.off(`company-${companyId}-whatsappSession`, onWhatsappData);
+      cleanup();
     };
-  }, [whatsAppId, onClose]);
+  }, [isConnected, on, whatsAppId, onClose, user?.companyId]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" scroll="paper">
-  <DialogContent>
-    <Paper elevation={0} style={{ display: "flex", alignItems: "center" }}>
-      {/* GIF no lado esquerdo */}
-      <img 
-        src={g02} 
-        alt="Gif de exemplo" 
-        style={{ width: "200px", height: "200px", marginRight: "20px" }} 
-      />
-      
-      <div>
-        <Typography color="secondary" gutterBottom>
-          {i18n.t("qrCode.message")}
-        </Typography>
-        <div className={classes.root}>
-          {qrCode ? (
-            <QRCode value={qrCode} size={300} style={{ backgroundColor: "white", padding: '5px' }} />
-          ) : (
-            <span>Aguardando pelo QR Code</span>
-          )}
-        </div>
-      </div>
-    </Paper>
-  </DialogContent>
-</Dialog>
+      <DialogContent>
+        <Paper elevation={0} style={{ display: "flex", alignItems: "center" }}>
+          {/* GIF no lado esquerdo */}
+          <img
+            src={g02}
+            alt="Gif de exemplo"
+            style={{ width: "200px", height: "200px", marginRight: "20px" }}
+          />
+
+          <div>
+            <Typography color="secondary" gutterBottom>
+              {i18n.t("qrCode.message")}
+            </Typography>
+            <div className={classes.root}>
+              {qrCode ? (
+                <QRCode value={qrCode} size={300} style={{ backgroundColor: "white", padding: '5px' }} />
+              ) : (
+                <span>Aguardando pelo QR Code</span>
+              )}
+            </div>
+          </div>
+        </Paper>
+      </DialogContent>
+    </Dialog>
   );
 };
 

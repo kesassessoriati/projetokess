@@ -16,6 +16,7 @@ import Title from "../../components/Title";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import NewTicketModal from "../../components/NewTicketModal";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
@@ -133,7 +134,8 @@ const FlowDefault = () => {
   const [hasMore, setHasMore] = useState(false);
   const [reloadData, setReloadData] = useState(false);
 
- const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -176,7 +178,8 @@ const FlowDefault = () => {
   };
 
   useEffect(() => {
-    const companyId = localStorage.getItem("companyId");
+    if (!isConnected) return;
+    const companyId = user?.companyId || localStorage.getItem("companyId");
 
     const onContact = (data) => {
       if (data.action === "update" || data.action === "create") {
@@ -188,16 +191,16 @@ const FlowDefault = () => {
       }
     }
 
-    socket.on(`company-${companyId}-contact`, onContact);
+    const cleanup = on(`company-${companyId}-contact`, onContact);
 
     getFlows().then(res => {
       getFlowsDefault(res)
     })
-    
+
     return () => {
-      socket.disconnect();
+      cleanup();
     };
-  }, []);
+  }, [isConnected, on, user?.companyId]);
 
 
 

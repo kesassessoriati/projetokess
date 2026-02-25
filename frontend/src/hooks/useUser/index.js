@@ -1,9 +1,9 @@
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import openSocket from "socket.io-client";
-import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
 import { i18n } from "../../translate/i18n";
+import { useSocket } from "../../context/SocketContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useContext } from "react";
 
 const useUser = () => {
   const [users, setUsers] = useState([]);
@@ -27,18 +27,21 @@ const useUser = () => {
     })();
   });
 
-  useEffect(() => {
-    const socket = openSocket(process.env.REACT_APP_BACKEND_URL);
+  const { isConnected, on } = useSocket();
+  const { user } = useContext(AuthContext);
 
-    socket.on("users", (data) => {
+  useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
+
+    const cleanup = on("users", (data) => {
       setUpdate(true);
     });
 
     return () => {
       console.log("OFF USERS SOCKET")
-      socket.off("users");
+      cleanup();
     };
-  }, [users]);
+  }, [isConnected, on, user?.companyId]);
 
   return { users };
 };

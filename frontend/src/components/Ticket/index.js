@@ -21,6 +21,7 @@ import { TagsContainer } from "../TagsContainer";
 import { isNil } from 'lodash';
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
+import { useSocket } from "../../context/SocketContext";
 
 const drawerWidth = 320;
 
@@ -64,7 +65,8 @@ const Ticket = () => {
   const history = useHistory();
   const classes = useStyles();
 
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on, emit } = useSocket();
   const { setTabOpen } = useContext(TicketsContext);
 
 
@@ -80,7 +82,7 @@ const Ticket = () => {
     console.log("======== Ticket ===========")
     console.log(ticket)
     console.log("===========================")
-}, [ticket])
+  }, [ticket])
 
   useEffect(() => {
     setLoading(true);
@@ -103,7 +105,7 @@ const Ticket = () => {
             setLoading(false);
           }
         } catch (err) {
-          history.push("/tickets"); 
+          history.push("/tickets");
           setLoading(false);
           toastError(err);
         }
@@ -115,53 +117,49 @@ const Ticket = () => {
   }, [ticketId, user, history]);
 
   useEffect(() => {
-    if (!ticket && !ticket.id && ticket.uuid !== ticketId && ticketId === "undefined") {
+    if (!isConnected || !user.companyId || !ticket?.id) {
       return;
     }
 
-    if (user.companyId) {
-      //    const socket = socketManager.GetSocket();
+    const companyId = user.companyId;
 
-      const onConnectTicket = () => {
-        socket.emit("joinChatBox", `${ticket.id}`);
+    const onConnectTicket = () => {
+      emit("joinChatBox", `${ticket.id}`);
+    }
+
+    // Se já está conectado, entra na sala imediatamente
+    onConnectTicket();
+
+    const onCompanyTicket = (data) => {
+      if (data.action === "update" && data.ticket.id === ticket?.id) {
+        setTicket(data.ticket);
       }
 
-      const onCompanyTicket = (data) => {
-        if (data.action === "update" && data.ticket.id === ticket?.id) {
-          setTicket(data.ticket);
-        }
+      if (data.action === "delete" && data.ticketId === ticket?.id) {
+        history.push("/tickets");
+      }
+    };
 
-        if (data.action === "delete" && data.ticketId === ticket?.id) {
-          history.push("/tickets");
-        }
-      };
+    const onCompanyContactTicket = (data) => {
+      if (data.action === "update") {
+        setContact((prevState) => {
+          if (prevState.id === data.contact?.id) {
+            return { ...prevState, ...data.contact };
+          }
+          return prevState;
+        });
+      }
+    };
 
-      const onCompanyContactTicket = (data) => {
-        if (data.action === "update") {
-          // if (isMounted) {
-          setContact((prevState) => {
-            if (prevState.id === data.contact?.id) {
-              return { ...prevState, ...data.contact };
-            }
-            return prevState;
-          });
-          // }
-        }
-      };
+    const cleanupTicket = on(`company-${companyId}-ticket`, onCompanyTicket);
+    const cleanupContact = on(`company-${companyId}-contact`, onCompanyContactTicket);
 
-      socket.on("connect", onConnectTicket)
-      socket.on(`company-${companyId}-ticket`, onCompanyTicket);
-      socket.on(`company-${companyId}-contact`, onCompanyContactTicket);
-
-      return () => {
-
-        socket.emit("joinChatBoxLeave", `${ticket.id}`);
-        socket.off("connect", onConnectTicket);
-        socket.off(`company-${companyId}-ticket`, onCompanyTicket);
-        socket.off(`company-${companyId}-contact`, onCompanyContactTicket);
-      };
-    }
-  }, [ticketId, ticket, history]);
+    return () => {
+      emit("joinChatBoxLeave", `${ticket.id}`);
+      cleanupTicket();
+      cleanupContact();
+    };
+  }, [isConnected, on, emit, ticketId, ticket?.id, history, user.companyId]);
 
   const handleDrawerOpen = useCallback(() => {
     setDrawerOpen(true);

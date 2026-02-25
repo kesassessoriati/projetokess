@@ -501,7 +501,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   const isMobile = useMediaQuery(theme.breakpoints.down("xs"));
   const { whatsApps } = useContext(WhatsAppsContext);
   const { user, handleLogout, isMobileSession } = useContext(AuthContext);
-  const { socket } = useSocket();
+  const { isConnected, on } = useSocket();
   const { setActiveMenu } = useActiveMenu();
   const location = useLocation();
 
@@ -700,7 +700,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
-    if (user.id) {
+    if (user.id && isConnected) {
       const companyId = user.companyId;
       const onCompanyChatMainListItems = (data) => {
         if (data.action === "new-message") {
@@ -711,14 +711,10 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
         }
       };
 
-      if (socket && typeof socket.on === "function") {
-        socket.on(`company-${companyId}-chat`, onCompanyChatMainListItems);
-        return () => {
-          socket.off(`company-${companyId}-chat`, onCompanyChatMainListItems);
-        };
-      }
+      const cleanup = on(`company-${companyId}-chat`, onCompanyChatMainListItems);
+      return cleanup;
     }
-  }, [socket, user]);
+  }, [isConnected, on, user]);
 
   useEffect(() => {
     let unreadsCount = 0;

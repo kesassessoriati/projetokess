@@ -33,6 +33,7 @@ import {
 } from "@material-ui/icons";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   modal: {
@@ -256,7 +257,8 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
   const [filteredList, setFilteredList] = useState(tag?.contacts || []);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   useEffect(() => {
     if (open && tag) {
@@ -273,6 +275,8 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
   }, [open, tag]);
 
   useEffect(() => {
+    if (!isConnected || !tag?.id) return;
+
     const onCompanyTags = (data) => {
       if (data.action === "update" || data.action === "create") {
         if (data.tag.id === tag.id && data.tag?.contacts?.length > 0) {
@@ -285,24 +289,20 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
         }
       }
     };
-    
-    if (socket) {
-      socket.on(`company${user.companyId}-tag`, onCompanyTags);
-    }
+
+    const cleanup = on(`company${user.companyId}-tag`, onCompanyTags);
 
     return () => {
-      if (socket) {
-        socket.off(`company${user.companyId}-tag`, onCompanyTags);
-      }
+      cleanup();
     };
-  }, [tag?.id, user.companyId, socket]);
+  }, [isConnected, on, tag?.id, user.companyId]);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredList(tagList);
     } else {
-      const filtered = tagList.filter(contact => 
-        contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      const filtered = tagList.filter(contact =>
+        contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.number?.includes(searchTerm)
       );
       setFilteredList(filtered);
@@ -346,7 +346,7 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
                 )}
               </Typography>
             </div>
-            <IconButton 
+            <IconButton
               className={classes.closeButton}
               onClick={onClose}
               aria-label="close"
@@ -417,11 +417,11 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
                         <TableCell className={classes.tableCell} align="center">
                           <Tooltip title="Remover da seta de tag">
                             <IconButton
-                             style={{
-                             backgroundColor: "#FF6B6B", // Vermelho claro
-                             padding: "8px",
-                             borderRadius: "10px",
-                             }}
+                              style={{
+                                backgroundColor: "#FF6B6B", // Vermelho claro
+                                padding: "8px",
+                                borderRadius: "10px",
+                              }}
                               onClick={() => handleRemoveContactTag(contact.id, tag.id)}
                               size="small"
                             >
@@ -441,8 +441,8 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
                   {searchTerm ? "Nenhum contato correspondente encontrado" : "Nenhum contato nesta tag"}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
-                  {searchTerm 
-                    ? "Tente ajustar seus critérios de pesquisa" 
+                  {searchTerm
+                    ? "Tente ajustar seus critérios de pesquisa"
                     : "Adicione contatos a esta tag para vê-los listados aqui"}
                 </Typography>
               </div>

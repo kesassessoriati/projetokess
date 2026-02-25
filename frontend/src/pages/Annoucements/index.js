@@ -43,6 +43,7 @@ import { isArray } from "lodash";
 
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_ANNOUNCEMENTS") {
@@ -106,8 +107,9 @@ const Announcements = () => {
   const classes = useStyles();
   const history = useHistory();
 
-//   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  //   const socketManager = useContext(SocketContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
 
   const [loading, setLoading] = useState(false);
@@ -149,24 +151,22 @@ const Announcements = () => {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
-    if (user.companyId) {
-//    const socket = socketManager.GetSocket();
+    if (!isConnected || !user.companyId) return;
 
-      const onCompanyAnnouncement = (data) => {
-        if (data.action === "update" || data.action === "create") {
-          dispatch({ type: "UPDATE_ANNOUNCEMENTS", payload: data.record });
-        }
-        if (data.action === "delete") {
-          dispatch({ type: "DELETE_ANNOUNCEMENT", payload: +data.id });
-        }
+    const onCompanyAnnouncement = (data) => {
+      if (data.action === "update" || data.action === "create") {
+        dispatch({ type: "UPDATE_ANNOUNCEMENTS", payload: data.record });
       }
-
-      socket.on(`company-announcement`, onCompanyAnnouncement);
-      return () => {
-        socket.off(`company-announcement`, onCompanyAnnouncement);
+      if (data.action === "delete") {
+        dispatch({ type: "DELETE_ANNOUNCEMENT", payload: +data.id });
       }
     }
-  }, [user]);
+
+    const cleanup = on(`company-announcement`, onCompanyAnnouncement);
+    return () => {
+      cleanup();
+    }
+  }, [isConnected, on, user.companyId]);
 
   const fetchAnnouncements = async () => {
     try {
@@ -294,12 +294,12 @@ const Announcements = () => {
                   variant="contained"
                   onClick={handleOpenAnnouncementModal}
                   style={{
-                  color: "white",
-                  backgroundColor: "#FFA500",
-                  boxShadow: "none",
-                  borderRadius: "5px",
+                    color: "white",
+                    backgroundColor: "#FFA500",
+                    boxShadow: "none",
+                    borderRadius: "5px",
                   }}
-                  >
+                >
                   {i18n.t("announcements.buttons.add")}
                 </Button>
               </Grid>
@@ -312,79 +312,79 @@ const Announcements = () => {
         variant="outlined"
         onScroll={handleScroll}
       >
-<Grid container spacing={2}>
-  {announcements.map((announcement) => (
-    <Grid item xs={12} sm={6} md={4} lg={3} key={announcement.id}>
-      <Card 
-       variant="outlined"
-       style={{
-       backgroundColor: "#d7e0e4",
-       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-       borderRadius: "10px",
-       padding: "20px",
-       margin: "10px",
-       transition: "transform 0.2s ease-in-out",
-       cursor: "pointer",
-        }}
-       onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-       onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-       >
-        <CardHeader
-          title={announcement.title}
-          subheader={translatePriority(announcement.priority)}
-          titleTypographyProps={{ align: "center" }}
-          subheaderTypographyProps={{ align: "center" }}
-        />
-        <CardContent>
-          <Typography variant="body2" align="center">
-            {i18n.t("announcements.table.mediaName")}:{" "}
-            {announcement.mediaName ?? i18n.t("quickMessages.noAttachment")}
-          </Typography>
-          <Typography variant="body2" align="center">
-            {i18n.t("announcements.table.status")}:{" "}
-            {announcement.status
-              ? i18n.t("announcements.active")
-              : i18n.t("announcements.inactive")}
-          </Typography>
-        </CardContent>
-<CardActions style={{ justifyContent: "center", gap: "10px" }}>
-  <IconButton
-    size="small"
-    onClick={() => handleEditAnnouncement(announcement)}
-    style={{
-      backgroundColor: "#42bfff", // Azul claro
-      borderRadius: "10px",
-      padding: "10px",
-    }}
-  >
-    <EditIcon style={{ color: "#fff" }} />
-  </IconButton>
+        <Grid container spacing={2}>
+          {announcements.map((announcement) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={announcement.id}>
+              <Card
+                variant="outlined"
+                style={{
+                  backgroundColor: "#d7e0e4",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "10px",
+                  padding: "20px",
+                  margin: "10px",
+                  transition: "transform 0.2s ease-in-out",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              >
+                <CardHeader
+                  title={announcement.title}
+                  subheader={translatePriority(announcement.priority)}
+                  titleTypographyProps={{ align: "center" }}
+                  subheaderTypographyProps={{ align: "center" }}
+                />
+                <CardContent>
+                  <Typography variant="body2" align="center">
+                    {i18n.t("announcements.table.mediaName")}:{" "}
+                    {announcement.mediaName ?? i18n.t("quickMessages.noAttachment")}
+                  </Typography>
+                  <Typography variant="body2" align="center">
+                    {i18n.t("announcements.table.status")}:{" "}
+                    {announcement.status
+                      ? i18n.t("announcements.active")
+                      : i18n.t("announcements.inactive")}
+                  </Typography>
+                </CardContent>
+                <CardActions style={{ justifyContent: "center", gap: "10px" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleEditAnnouncement(announcement)}
+                    style={{
+                      backgroundColor: "#42bfff", // Azul claro
+                      borderRadius: "10px",
+                      padding: "10px",
+                    }}
+                  >
+                    <EditIcon style={{ color: "#fff" }} />
+                  </IconButton>
 
-  <IconButton
-    size="small"
-    onClick={() => {
-      setConfirmModalOpen(true);
-      setDeletingAnnouncement(announcement);
-    }}
-    style={{
-      backgroundColor: "#ff6b6b", // Vermelho claro
-      borderRadius: "10px",
-      padding: "10px",
-    }}
-  >
-    <DeleteOutlineIcon style={{ color: "#fff" }} />
-  </IconButton>
-</CardActions>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setConfirmModalOpen(true);
+                      setDeletingAnnouncement(announcement);
+                    }}
+                    style={{
+                      backgroundColor: "#ff6b6b", // Vermelho claro
+                      borderRadius: "10px",
+                      padding: "10px",
+                    }}
+                  >
+                    <DeleteOutlineIcon style={{ color: "#fff" }} />
+                  </IconButton>
+                </CardActions>
 
-      </Card>
-    </Grid>
-  ))}
-  {loading && (
-    <Grid item xs={12}>
-      <Typography align="center">{i18n.t("announcements.loading")}</Typography>
-    </Grid>
-  )}
-</Grid>
+              </Card>
+            </Grid>
+          ))}
+          {loading && (
+            <Grid item xs={12}>
+              <Typography align="center">{i18n.t("announcements.loading")}</Typography>
+            </Grid>
+          )}
+        </Grid>
       </Paper>
     </MainContainer >
   )

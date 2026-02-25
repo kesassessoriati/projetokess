@@ -23,6 +23,7 @@ import { isArray } from "lodash";
 // import { SocketContext } from "../../context/Socket/SocketContext";
 import { useDate } from "../../hooks/useDate";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 import notifySound from "../../assets/chat_notify.mp3";
 import useSound from "use-sound";
@@ -98,8 +99,9 @@ const reducer = (state, action) => {
 export default function ChatPopover() {
   const classes = useStyles();
 
-//   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  //   const socketManager = useContext(SocketContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
 
   const [loading, setLoading] = useState(false);
@@ -138,32 +140,28 @@ export default function ChatPopover() {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
-    if (user.companyId) {
+    if (!isConnected || !user.companyId) return;
 
-      const companyId = user.companyId;
-//    const socket = socketManager.GetSocket();
+    const companyId = user.companyId;
 
-      const onCompanyChatPopover = (data) => {
-        if (data.action === "new-message") {
-          dispatch({ type: "CHANGE_CHAT", payload: data });
-          if (data.newMessage.senderId !== user.id) {
-
-            soundAlertRef.current();
-          }
-        }
-        if (data.action === "update") {
-          dispatch({ type: "CHANGE_CHAT", payload: data });
+    const onCompanyChatPopover = (data) => {
+      if (data.action === "new-message") {
+        dispatch({ type: "CHANGE_CHAT", payload: data });
+        if (data.newMessage.senderId !== user.id) {
+          soundAlertRef.current();
         }
       }
-
-      socket.on(`company-${companyId}-chat`, onCompanyChatPopover);
-
-      return () => {
-        socket.off(`company-${companyId}-chat`, onCompanyChatPopover);
-      };
+      if (data.action === "update") {
+        dispatch({ type: "CHANGE_CHAT", payload: data });
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+
+    const cleanup = on(`company-${companyId}-chat`, onCompanyChatPopover);
+
+    return () => {
+      cleanup();
+    };
+  }, [isConnected, on, user]);
 
 
   useEffect(() => {

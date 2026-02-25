@@ -96,7 +96,7 @@ const useStyles = makeStyles((theme) => ({
 const NotificationToast = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
-  const { socket } = useSocket();
+  const { isConnected, on } = useSocket();
   const [notifications, setNotifications] = useState([]);
 
   const removeNotification = useCallback((id) => {
@@ -126,25 +126,19 @@ const NotificationToast = () => {
   }, [removeNotification]);
 
   useEffect(() => {
-    // Verifica se o socket está disponível e tem o método 'on'
-    if (!user?.companyId || !socket || typeof socket.on !== 'function') {
-      console.log("[NotificationToast] Sem companyId ou socket inválido, aguardando...");
+    if (!isConnected || !user?.companyId) {
       return;
     }
 
     const companyId = user.companyId;
-    console.log("[NotificationToast] Registrando listeners para company:", companyId);
 
     // Listener para novos tickets (transferências)
     const handleTicket = (data) => {
-      console.log("[NotificationToast] Evento ticket recebido:", data.action, data.ticket?.id);
-
       if (data.action === "update" || data.action === "create") {
         const ticket = data.ticket;
 
         // Ignora grupos
         if (ticket?.isGroup) {
-          console.log("[NotificationToast] Ignorando grupo");
           return;
         }
 
@@ -158,17 +152,7 @@ const NotificationToast = () => {
         // Verifica se é um ticket pendente nas filas do usuário
         const isPendingInMyQueue = ticket?.status === "pending" && belongsToUserQueue && !ticket?.userId;
 
-        console.log("[NotificationToast] Ticket check:", {
-          belongsToUserQueue,
-          isTransferToMe,
-          isPendingInMyQueue,
-          ticketUserId: ticket?.userId,
-          myUserId: user?.id,
-          ticketStatus: ticket?.status
-        });
-
         if (isTransferToMe || isPendingInMyQueue) {
-          console.log("[NotificationToast] Adicionando notificação de transferência");
           addNotification({
             type: "transfer",
             title: ticket?.contact?.name || "Novo Ticket",
@@ -183,15 +167,12 @@ const NotificationToast = () => {
 
     // Listener para novas mensagens
     const handleMessage = (data) => {
-      console.log("[NotificationToast] Evento mensagem recebido:", data.action, data.message?.id);
-
       if (data.action === "create" && !data.message?.fromMe) {
         const ticket = data.ticket;
         const message = data.message;
 
         // Ignora grupos
         if (ticket?.isGroup) {
-          console.log("[NotificationToast] Ignorando grupo");
           return;
         }
 
@@ -205,17 +186,7 @@ const NotificationToast = () => {
           !ticket?.userId ||
           ticket?.status === "pending";
 
-        console.log("[NotificationToast] Message check:", {
-          belongsToUserQueue,
-          canSeeTicket,
-          ticketUserId: ticket?.userId,
-          myUserId: user?.id,
-          ticketQueueId: ticket?.queueId,
-          userQueueIds
-        });
-
         if (belongsToUserQueue && canSeeTicket) {
-          console.log("[NotificationToast] Adicionando notificação de mensagem");
           // Trunca a mensagem se for muito longa
           let messageBody = message?.body || "Nova mensagem";
           if (messageBody.length > 50) {
@@ -234,16 +205,14 @@ const NotificationToast = () => {
       }
     };
 
-    socket.on(`company-${companyId}-ticket`, handleTicket);
-    socket.on(`company-${companyId}-appMessage`, handleMessage);
-
-    console.log("[NotificationToast] Listeners registrados para:", `company-${companyId}-ticket`, `company-${companyId}-appMessage`);
+    const cleanupTicket = on(`company-${companyId}-ticket`, handleTicket);
+    const cleanupAppMessage = on(`company-${companyId}-appMessage`, handleMessage);
 
     return () => {
-      socket.off(`company-${companyId}-ticket`, handleTicket);
-      socket.off(`company-${companyId}-appMessage`, handleMessage);
+      cleanupTicket();
+      cleanupAppMessage();
     };
-  }, [user, socket, addNotification]);
+  }, [user, isConnected, on, addNotification]);
 
   const getInitials = (name) => {
     if (!name) return "?";
@@ -268,8 +237,8 @@ const NotificationToast = () => {
         >
           <div
             className={`${classes.toast} ${notification.type === "transfer"
-                ? classes.toastTransfer
-                : classes.toastMessage
+              ? classes.toastTransfer
+              : classes.toastMessage
               }`}
             onClick={() => handleNotificationClick(notification)}
           >
@@ -282,8 +251,8 @@ const NotificationToast = () => {
             <div className={classes.content}>
               <span
                 className={`${classes.badge} ${notification.type === "transfer"
-                    ? classes.badgeTransfer
-                    : classes.badgeMessage
+                  ? classes.badgeTransfer
+                  : classes.badgeMessage
                   }`}
               >
                 {notification.type === "transfer" ? "Transferência" : "Mensagem"}

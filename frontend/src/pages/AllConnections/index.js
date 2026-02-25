@@ -135,7 +135,7 @@ const IconChannel = channel => {
 
 const AllConnections = () => {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { list } = useCompanies();
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
   const [loadingComp, setLoadingComp] = useState(false);

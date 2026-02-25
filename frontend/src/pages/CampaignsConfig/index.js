@@ -148,7 +148,7 @@ const CampaignsConfig = () => {
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState(null);
   const [variable, setVariable] = useState({ key: "", value: "" });
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const [sabado, setSabado] = React.useState(false);
   const [domingo, setDomingo] = React.useState(false);

@@ -98,7 +98,7 @@ const PurpleCheckbox = withStyles({
 
 const MessageModal = ({ open, onClose, messageId, reload }) => {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const initialState = {
     nome: "",
@@ -518,7 +518,7 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
                     />
                   </Grid>
                   <Grid item xs={12} md={12} xl={12}>
-                  <FormControl size="small" fullWidth variant="outlined">
+                    <FormControl size="small" fullWidth variant="outlined">
                       <InputLabel id="demo-simple-select-label">Enviar quantas vezes</InputLabel>
                       <Select
                         labelId="demo-simple-select-label"
@@ -533,8 +533,8 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
                         label="Enviar quantas vezes"
                       >
                         <MenuItem value={4}>Enviar normalmente em dias não úteis</MenuItem>
-                      <MenuItem value={5}>Enviar um dia útil antes</MenuItem>
-                      <MenuItem value={6}>Enviar um dia útil depois</MenuItem>
+                        <MenuItem value={5}>Enviar um dia útil antes</MenuItem>
+                        <MenuItem value={6}>Enviar um dia útil depois</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -645,14 +645,14 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
                   </Grid>
                 </Grid>
                 <Button
-                variant="contained"
-                component="label"
-                style={{
-                color: "white",
-                backgroundColor: "#FFA500",
-                boxShadow: "none",
-                borderRadius: 0
-                }}
+                  variant="contained"
+                  component="label"
+                  style={{
+                    color: "white",
+                    backgroundColor: "#FFA500",
+                    boxShadow: "none",
+                    borderRadius: 0
+                  }}
                   startIcon={<AttachFileIcon />}
                 >
                   Anexar arquivo
@@ -674,14 +674,14 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
               </DialogContent>
               <DialogActions>
                 <Button
-                startIcon={<CancelIcon />}
-                onClick={handleClose}
-                style={{
-                color: "white",
-                backgroundColor: "#db6565",
-                boxShadow: "none",
-                borderRadius: 0
-                }}
+                  startIcon={<CancelIcon />}
+                  onClick={handleClose}
+                  style={{
+                    color: "white",
+                    backgroundColor: "#db6565",
+                    boxShadow: "none",
+                    borderRadius: 0
+                  }}
                   disabled={isSubmitting}
                   variant="outlined"
                 >
@@ -692,10 +692,10 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
                     startIcon={<SaveIcon />}
                     type="submit"
                     style={{
-                    color: "white",
-                    backgroundColor: "#437db5",
-                    boxShadow: "none",
-                    borderRadius: 0
+                      color: "white",
+                      backgroundColor: "#437db5",
+                      boxShadow: "none",
+                      borderRadius: 0
                     }}
                     disabled={isSubmitting}
                     variant="contained"

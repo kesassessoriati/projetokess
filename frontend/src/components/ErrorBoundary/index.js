@@ -1,5 +1,5 @@
 import React from "react";
-import axios from "axios";
+import { openApi } from "../../services/api";
 import {
     Box,
     Button,
@@ -70,6 +70,7 @@ class ErrorBoundary extends React.Component {
         try {
             const userId = localStorage.getItem("userId");
             const companyId = localStorage.getItem("companyId");
+            const token = localStorage.getItem("token");
 
             const payload = {
                 message: error.message || "Unknown error",
@@ -81,12 +82,19 @@ class ErrorBoundary extends React.Component {
                 userAgent: navigator.userAgent
             };
 
-            const backendUrl = getBackendUrl();
-            if (backendUrl) {
-                await axios.post(`${backendUrl}/frontend-errors`, payload).catch(() => {
-                    // Silencie erros no envio para evitar loops
-                });
+            const headers = {};
+            if (token) {
+                try {
+                    const parsedToken = token.startsWith('"') ? JSON.parse(token) : token;
+                    headers["Authorization"] = `Bearer ${parsedToken}`;
+                } catch (e) {
+                    headers["Authorization"] = `Bearer ${token}`;
+                }
             }
+
+            await openApi.post("/frontend-errors", payload, { headers }).catch(() => {
+                // Silencie erros no envio para evitar loops
+            });
         } catch (e) {
             console.error("[ErrorBoundary] Falha ao reportar erro:", e);
         }

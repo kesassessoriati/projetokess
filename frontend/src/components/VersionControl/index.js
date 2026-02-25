@@ -8,7 +8,7 @@ const packageVersion = require("../../../package.json").version;
 
 const VersionControl = () => {
   const { returnDays } = useDate();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [storedVersion] = useState(window.localStorage.getItem("version") || "0.0.0");
 
   const handleUpdateVersion = async () => {
@@ -31,21 +31,21 @@ const VersionControl = () => {
   };
 
   return (
-   <div>
+    <div>
       <Button
-       variant="contained"
-         size="small"
-          style={{
-            backgroundColor: "red",
-            color: "white",
-            fontWeight: "bold",
-            right: "15px",
-          }}
-          onClick={handleUpdateVersion}
-        >
-          {returnDays(user?.company?.dueDate) === 0 ? `Sua licença vence hoje! Clique aqui para atualizar.` : `Sua licença vence em ${returnDays(user?.company?.dueDate)} dias! Clique aqui para atualizar.`}
-        </Button>
-    {/*  {storedVersion !== packageVersion && (
+        variant="contained"
+        size="small"
+        style={{
+          backgroundColor: "red",
+          color: "white",
+          fontWeight: "bold",
+          right: "15px",
+        }}
+        onClick={handleUpdateVersion}
+      >
+        {returnDays(user?.company?.dueDate) === 0 ? `Sua licença vence hoje! Clique aqui para atualizar.` : `Sua licença vence em ${returnDays(user?.company?.dueDate)} dias! Clique aqui para atualizar.`}
+      </Button>
+      {/*  {storedVersion !== packageVersion && (
         <Button
        variant="contained"
          size="small"
@@ -60,7 +60,7 @@ const VersionControl = () => {
           CLique aqui e atualize para nova versão.
         </Button>
      )} */}
-    </div> 
+    </div>
   );
 };
 

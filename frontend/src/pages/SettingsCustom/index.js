@@ -89,7 +89,7 @@ const SettingsCustom = () => {
   //novo hook
   const { getAll: getAllSettings } = useCompanySettings();
   const { getAll: getAllSettingsOld } = useSettings();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     async function findData() {

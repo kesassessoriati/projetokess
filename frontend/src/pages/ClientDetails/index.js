@@ -39,6 +39,7 @@ import FaturaModal from "../../components/FaturaModal";
 import PagamentoModal from "../../components/PagamentoModal";
 import ClientModal from "../../components/ClientModal";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -261,7 +262,8 @@ const ClientDetails = () => {
   const history = useHistory();
   const { clientId } = useParams();
 
-  const { socket, user } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
   const [tab, setTab] = useState("overview");
   const [client, setClient] = useState(null);
   const [clientLoading, setClientLoading] = useState(true);
@@ -357,7 +359,7 @@ const ClientDetails = () => {
   }, [clientId, faturasPage, faturasFilters, refreshToken]);
 
   useEffect(() => {
-    if (!socket || !user?.companyId) return;
+    if (!isConnected || !user?.companyId) return;
     const eventName = `company-${user.companyId}-financeiro`;
 
     const upsertFatura = newFatura => {
@@ -398,11 +400,11 @@ const ClientDetails = () => {
       }
     };
 
-    socket.on(eventName, handler);
+    const cleanup = on(eventName, handler);
     return () => {
-      socket.off(eventName, handler);
+      cleanup();
     };
-  }, [socket, user?.companyId, clientId]);
+  }, [isConnected, on, user?.companyId, clientId]);
 
   const fetchClient = async () => {
     try {

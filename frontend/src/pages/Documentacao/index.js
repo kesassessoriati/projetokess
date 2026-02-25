@@ -71,9 +71,9 @@ const DocumentacaoPage = () => {
   const { showConfirm } = useSystemAlert();
 
   const [formMessageTextData,] = useState({ token: '', number: '', body: '', userId: '', queueId: '' })
-  const [formMessageMediaData,] = useState({ token: '', number: '', medias: '', body:'', userId: '', queueId: '' })
+  const [formMessageMediaData,] = useState({ token: '', number: '', medias: '', body: '', userId: '', queueId: '' })
   const [file, setFile] = useState({})
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [apiKeys, setApiKeys] = useState([]);
   const [loadingKeys, setLoadingKeys] = useState(true);
   const [creatingToken, setCreatingToken] = useState(false);
@@ -262,7 +262,7 @@ const DocumentacaoPage = () => {
         data,
         headers: {
           'Content-type': 'application/json',
-          'Authorization': `Bearer ${values.token}` 
+          'Authorization': `Bearer ${values.token}`
         }
       })
       toast.success('Mensagem enviada com sucesso');
@@ -276,7 +276,7 @@ const DocumentacaoPage = () => {
       const firstFile = file[0];
       const data = new FormData();
       data.append('number', values.number);
-      data.append('body', values.body ? values.body: firstFile.name);
+      data.append('body', values.body ? values.body : firstFile.name);
       data.append('userId', values.userId);
       data.append('queueId', values.queueId);
       data.append('noRegister', 'true');
@@ -352,7 +352,7 @@ const DocumentacaoPage = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12}  md={6}>
+              <Grid item xs={12} md={6}>
                 <Field
                   as={TextField}
                   label={i18n.t("messagesAPI.textMessage.userId")}
@@ -364,7 +364,7 @@ const DocumentacaoPage = () => {
                   className={classes.textField}
                 />
               </Grid>
-              <Grid item xs={12}  md={6}>
+              <Grid item xs={12} md={6}>
                 <Field
                   as={TextField}
                   label={i18n.t("messagesAPI.textMessage.queueId")}
@@ -381,10 +381,10 @@ const DocumentacaoPage = () => {
                   type="submit"
                   startIcon={<SendIcon />}
                   style={{
-                  color: "white",
-                  backgroundColor: "#FFA500",
-                  boxShadow: "none",
-                  borderRadius: "5px",
+                    color: "white",
+                    backgroundColor: "#FFA500",
+                    boxShadow: "none",
+                    borderRadius: "5px",
                   }}
                   variant="contained"
                   className={classes.btnWrapper}
@@ -461,7 +461,7 @@ const DocumentacaoPage = () => {
                   className={classes.textField}
                 />
               </Grid>
-              <Grid item xs={12}  md={6}>
+              <Grid item xs={12} md={6}>
                 <Field
                   as={TextField}
                   label={i18n.t("messagesAPI.textMessage.userId")}
@@ -473,7 +473,7 @@ const DocumentacaoPage = () => {
                   className={classes.textField}
                 />
               </Grid>
-              <Grid item xs={12}  md={6}>
+              <Grid item xs={12} md={6}>
                 <Field
                   as={TextField}
                   label={i18n.t("messagesAPI.textMessage.queueId")}
@@ -493,10 +493,10 @@ const DocumentacaoPage = () => {
                   type="submit"
                   startIcon={<SendIcon />}
                   style={{
-                  color: "white",
-                  backgroundColor: "#437db5",
-                  boxShadow: "none",
-                  borderRadius: "5px",
+                    color: "white",
+                    backgroundColor: "#437db5",
+                    boxShadow: "none",
+                    borderRadius: "5px",
                   }}
                   variant="contained"
                   className={classes.btnWrapper}
@@ -519,7 +519,7 @@ const DocumentacaoPage = () => {
   return (
     <Paper
       className={classes.mainPaper}
-      style={{marginLeft: "5px"}}
+      style={{ marginLeft: "5px" }}
       // className={classes.elementMargin}
       variant="outlined"
     >

@@ -38,6 +38,7 @@ import Title from "../../components/Title";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
 import { Grid } from "@material-ui/core";
@@ -108,8 +109,8 @@ const useStyles = makeStyles((theme) => ({
 const ContactListItems = () => {
   const classes = useStyles();
 
-  //   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const { contactListId } = useParams();
   const history = useHistory();
@@ -127,11 +128,11 @@ const ContactListItems = () => {
   const [contactList, setContactList] = useState({});
   const fileUploadRef = useRef(null);
 
-	const getDisplayName = c => {
-		if (!c || !c.name) return "Contato sem nome";
-		const onlyDigits = /^\+?\d+$/.test(c.name.replace(/\s+/g, ""));
-		return onlyDigits ? "Contato sem nome" : c.name;
-	};
+  const getDisplayName = c => {
+    if (!c || !c.name) return "Contato sem nome";
+    const onlyDigits = /^\+?\d+$/.test(c.name.replace(/\s+/g, ""));
+    return onlyDigits ? "Contato sem nome" : c.name;
+  };
 
   const { findById: findContactList } = useContactLists();
 
@@ -168,8 +169,8 @@ const ContactListItems = () => {
   }, [searchParam, pageNumber, contactListId]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
     const companyId = user.companyId;
-    // const socket = socketManager.GetSocket();
 
     const onCompanyContactLists = (data) => {
       if (data.action === "update" || data.action === "create") {
@@ -184,12 +185,12 @@ const ContactListItems = () => {
         dispatch({ type: "LOAD_CONTACTS", payload: data.records });
       }
     }
-    socket.on(`company-${companyId}-ContactListItem`, onCompanyContactLists);
+    const cleanup = on(`company-${companyId}-ContactListItem`, onCompanyContactLists);
 
     return () => {
-      socket.off(`company-${companyId}-ContactListItem`, onCompanyContactLists);
+      cleanup();
     };
-  }, [contactListId]);
+  }, [isConnected, on, user?.companyId, contactListId]);
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
@@ -320,10 +321,10 @@ const ContactListItems = () => {
                         fullWidth
                         variant="contained"
                         style={{
-                        color: "white",
-                        backgroundColor: "#FFA500",
-                        boxShadow: "none",
-                        borderRadius: 0
+                          color: "white",
+                          backgroundColor: "#FFA500",
+                          boxShadow: "none",
+                          borderRadius: 0
                         }}
                         onClick={goToContactLists}
                       >
@@ -336,10 +337,10 @@ const ContactListItems = () => {
                         fullWidth
                         variant="contained"
                         style={{
-                        color: "white",
-                        backgroundColor: "#4ec24e",
-                        boxShadow: "none",
-                        borderRadius: 0
+                          color: "white",
+                          backgroundColor: "#4ec24e",
+                          boxShadow: "none",
+                          borderRadius: 0
                         }}
                         onClick={() => {
                           fileUploadRef.current.value = null;
@@ -355,10 +356,10 @@ const ContactListItems = () => {
                         fullWidth
                         variant="contained"
                         style={{
-                        color: "white",
-                        backgroundColor: "#437db5",
-                        boxShadow: "none",
-                        borderRadius: 0
+                          color: "white",
+                          backgroundColor: "#437db5",
+                          boxShadow: "none",
+                          borderRadius: 0
                         }}
                         onClick={handleOpenContactListItemModal}
                       >

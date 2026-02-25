@@ -78,7 +78,7 @@ export default function Pricing(props) {
   const [connectionsPlans, setConnectionsPlans] = React.useState(3);
   const [storagePlans, setStoragePlans] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const { getPlanCompany } = usePlans();
 
@@ -242,10 +242,10 @@ export default function Pricing(props) {
                   fullWidth
                   variant={tier.buttonVariant}
                   style={{
-                  color: "white",
-                  backgroundColor: "#4ec24e",
-                  boxShadow: "none",
-                  borderRadius: 0
+                    color: "white",
+                    backgroundColor: "#4ec24e",
+                    boxShadow: "none",
+                    borderRadius: 0
                   }}
                   onClick={() => {
                     if (tier.custom) {

@@ -28,6 +28,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import planilhaExemplo from "../../assets/planilha.xlsx";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTLISTS") {
@@ -291,8 +292,8 @@ const ContactLists = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [contactLists, dispatch] = useReducer(reducer, []);
-  //   const socketManager = useContext(SocketContext);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
 
   useEffect(() => {
@@ -321,8 +322,8 @@ const ContactLists = () => {
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
+    if (!isConnected || !user?.companyId) return;
     const companyId = user.companyId;
-    // const socket = socketManager.GetSocket();
 
     const onContactListEvent = (data) => {
       if (data.action === "update" || data.action === "create") {
@@ -334,12 +335,12 @@ const ContactLists = () => {
       }
     };
 
-    socket.on(`company-${companyId}-ContactList`, onContactListEvent);
+    const cleanup = on(`company-${companyId}-ContactList`, onContactListEvent);
 
     return () => {
-      socket.off(`company-${companyId}-ContactList`, onContactListEvent);
+      cleanup();
     };
-  }, []);
+  }, [isConnected, on, user?.companyId]);
 
   const handleOpenContactListModal = () => {
     setSelectedContactList(null);

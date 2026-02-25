@@ -33,6 +33,7 @@ import { listFinanceiroFaturas, deleteFinanceiroFatura } from "../../services/fi
 import toastError from "../../errors/toastError";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -323,7 +324,8 @@ const PAYMENT_PROVIDER_LABELS = {
 
 const Faturas = () => {
   const history = useHistory();
-  const { socket, user } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
   const classes = useStyles();
 
   const [loading, setLoading] = useState(false);
@@ -397,7 +399,7 @@ const Faturas = () => {
   }, [fetchFaturas, pageNumber]);
 
   useEffect(() => {
-    if (!socket || !user?.companyId) return;
+    if (!isConnected || !user?.companyId) return;
     const eventName = `company-${user.companyId}-financeiro`;
 
     const handler = ({ action, payload }) => {
@@ -425,11 +427,11 @@ const Faturas = () => {
       }
     };
 
-    socket.on(eventName, handler);
+    const cleanup = on(eventName, handler);
     return () => {
-      socket.off(eventName, handler);
+      cleanup();
     };
-  }, [socket, user?.companyId]);
+  }, [isConnected, on, user?.companyId]);
 
   const handleScroll = e => {
     if (!hasMore || loading) return;
@@ -536,9 +538,9 @@ const Faturas = () => {
     value == null
       ? "-"
       : Number(value).toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL"
-        });
+        style: "currency",
+        currency: "BRL"
+      });
 
   const formatDate = value => {
     if (!value) return "-";

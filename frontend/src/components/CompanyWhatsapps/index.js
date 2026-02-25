@@ -127,7 +127,7 @@ const WhatsAppModalCompany = ({
   //console.log(filteredWhatsapps,"teste")
   //console.log(companyInfos,"testeeeee")
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { list } = useCompanies();
   const [loadingComp, setLoadingComp] = useState(false);
   const { whatsApps, loading } = useContext(WhatsAppsContext);
@@ -326,10 +326,10 @@ const WhatsAppModalCompany = ({
               size="small"
               variant="outlined"
               style={{
-              color: "white",
-              backgroundColor: "#4ec24e",
-              boxShadow: "none",
-              borderRadius: 0
+                color: "white",
+                backgroundColor: "#4ec24e",
+                boxShadow: "none",
+                borderRadius: 0
               }}
               onClick={() => handleStartWhatsAppSession(whatsApp.id)}
             >
@@ -340,10 +340,10 @@ const WhatsAppModalCompany = ({
               size="small"
               variant="outlined"
               style={{
-              color: "white",
-              backgroundColor: "#437db5",
-              boxShadow: "none",
-              borderRadius: 0
+                color: "white",
+                backgroundColor: "#437db5",
+                boxShadow: "none",
+                borderRadius: 0
               }}
               onClick={() => handleRequestNewQrCode(whatsApp.id)}
             >
@@ -359,10 +359,10 @@ const WhatsAppModalCompany = ({
               size="small"
               variant="outlined"
               style={{
-              color: "white",
-              backgroundColor: "#db6565",
-              boxShadow: "none",
-              borderRadius: 0
+                color: "white",
+                backgroundColor: "#db6565",
+                boxShadow: "none",
+                borderRadius: 0
               }}
               onClick={() => {
                 handleOpenConfirmationModal("disconnect", whatsApp.id);

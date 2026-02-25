@@ -27,6 +27,7 @@ import usePlans from "../../hooks/usePlans";
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import { TOOL_CATALOG, DEFAULT_SENSITIVE_TOOLS } from "../../constants/aiTools";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -283,7 +284,8 @@ const Prompts = () => {
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const { getPlanCompany } = usePlans();
   const history = useHistory();
@@ -330,6 +332,8 @@ const Prompts = () => {
   }, []);
 
   useEffect(() => {
+    if (!isConnected || !user.companyId) return;
+
     const onPromptEvent = (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_PROMPTS", payload: data.prompt });
@@ -342,11 +346,11 @@ const Prompts = () => {
       }
     };
 
-    socket.on(`company-${companyId}-prompt`, onPromptEvent);
+    const cleanup = on(`company-${companyId}-prompt`, onPromptEvent);
     return () => {
-      socket.off(`company-${companyId}-prompt`, onPromptEvent);
+      cleanup();
     };
-  }, [socket]);
+  }, [isConnected, on, user.companyId]);
 
   const handleOpenPromptModal = () => {
     setPromptModalOpen(true);
@@ -480,9 +484,8 @@ const Prompts = () => {
                     prompt.toolsEnabled.map((toolName) => {
                       const meta = toolMap[toolName];
                       const isSensitive = DEFAULT_SENSITIVE_TOOLS.includes(toolName);
-                      const chipClass = `${classes.toolChip} ${
-                        isSensitive ? classes.toolChipSensitive : classes.toolChipSafe
-                      }`;
+                      const chipClass = `${classes.toolChip} ${isSensitive ? classes.toolChipSensitive : classes.toolChipSafe
+                        }`;
 
                       return (
                         <Tooltip

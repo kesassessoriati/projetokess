@@ -40,7 +40,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { socketConnection } from "../../services/socket";
+import { useSocket } from "../../context/SocketContext";
 import Title from "../../components/Title";
 
 const useStyles = makeStyles((theme) => ({
@@ -163,6 +163,7 @@ const formatDate = (dateStr) => {
 const CallHistory = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
 
   const [records, setRecords] = useState([]);
   const [count, setCount] = useState(0);
@@ -215,12 +216,10 @@ const CallHistory = () => {
 
   // Socket para atualizações em tempo real
   useEffect(() => {
-    const companyId = user?.companyId;
-    if (!companyId) return;
+    if (!isConnected || !user?.companyId) return;
+    const companyId = user.companyId;
 
-    const socket = socketConnection({ companyId });
-
-    socket.on(`company-${companyId}-call`, (data) => {
+    const cleanup = on(`company-${companyId}-call`, (data) => {
       if (data.action === "ended") {
         fetchRecords();
         fetchSummary();
@@ -228,9 +227,9 @@ const CallHistory = () => {
     });
 
     return () => {
-      socket.off(`company-${companyId}-call`);
+      cleanup();
     };
-  }, [user, fetchRecords, fetchSummary]);
+  }, [isConnected, on, user?.companyId, fetchRecords, fetchSummary]);
 
   return (
     <div className={classes.root}>

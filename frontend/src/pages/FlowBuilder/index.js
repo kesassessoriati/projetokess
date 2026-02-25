@@ -302,7 +302,7 @@ const useStyles = makeStyles((theme) => ({
 const FlowBuilder = () => {
   const classes = useStyles();
   const history = useHistory();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(false);
   const [searchParam, setSearchParam] = useState("");
@@ -454,7 +454,7 @@ const FlowBuilder = () => {
           label="Ativo"
           size="small"
           className={classes.statusChip}
-          style={{ 
+          style={{
             backgroundColor: "#d4edda",
             color: "#155724"
           }}
@@ -466,7 +466,7 @@ const FlowBuilder = () => {
         label="Desativado"
         size="small"
         className={classes.statusChip}
-        style={{ 
+        style={{
           backgroundColor: "#f8f9fa",
           color: "#6c757d"
         }}

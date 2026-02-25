@@ -122,7 +122,8 @@ const Kanban = () => {
   const classes = useStyles();
   const theme = useTheme();
   const history = useHistory();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { isConnected, on } = useSocket();
   const [tags, setTags] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [file, setFile] = useState({ lanes: [] });
@@ -222,20 +223,23 @@ const Kanban = () => {
   };
 
   useEffect(() => {
+    if (!isConnected || !user.companyId) return;
+
     const companyId = user.companyId;
     const onAppMessage = (data) => {
       if (data.action === "create" || data.action === "update" || data.action === "delete") {
         fetchTickets();
       }
     };
-    socket.on(`company-${companyId}-ticket`, onAppMessage);
-    socket.on(`company-${companyId}-appMessage`, onAppMessage);
+
+    const cleanupTicket = on(`company-${companyId}-ticket`, onAppMessage);
+    const cleanupAppMessage = on(`company-${companyId}-appMessage`, onAppMessage);
 
     return () => {
-      socket.off(`company-${companyId}-ticket`, onAppMessage);
-      socket.off(`company-${companyId}-appMessage`, onAppMessage);
+      cleanupTicket();
+      cleanupAppMessage();
     };
-  }, [socket]);
+  }, [isConnected, on, user]);
 
   const handleNegocioChange = (event) => {
     setSelectedNegocioId(String(event.target.value));

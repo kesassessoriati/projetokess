@@ -7,7 +7,6 @@ import { toast } from "react-toastify";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import { socketConnection } from "../../services/socket";
 // import { useDate } from "../../hooks/useDate";
 import moment from "moment";
 
