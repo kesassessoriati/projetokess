@@ -101,6 +101,7 @@ if (process.env.CERTIFICADOS == "true") {
     SLASchedulerService.init();
     WebhookService.init();
     AIAnalyzerService.init();
+    InitPipelineTemplatesService();
   });
 
   process.on("uncaughtException", err => {

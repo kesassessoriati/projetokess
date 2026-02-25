@@ -113,6 +113,7 @@ const ExecutiveDashboard = () => {
     }, [data]);
 
     if (loading) return <Box display="flex" justifyContent="center" alignItems="center" height="100vh"><CircularProgress /></Box>;
+    if (!data) return <Box display="flex" justifyContent="center" alignItems="center" height="100vh"><Typography>Não foi possível carregar os dados. Verifique a conexão ou se há dados no Pipeline.</Typography></Box>;
 
     return (
         <Box className={classes.container}>

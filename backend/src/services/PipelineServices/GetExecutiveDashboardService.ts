@@ -48,9 +48,12 @@ class GetExecutiveDashboardService {
 
         // 4. Ciclo Médio de Vendas (Dias)
         const avgSalesCycleResult = await Opportunity.findOne({
-            where: { companyId, status: "WON" },
+            where: {
+                companyId,
+                status: "WON"
+            },
             attributes: [
-                [Sequelize.fn("AVG", Sequelize.literal("EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400")), "avgDays"]
+                [Sequelize.fn("AVG", Sequelize.literal("EXTRACT(EPOCH FROM (\"updatedAt\" - \"createdAt\")) / 86400")), "avgDays"]
             ],
             raw: true
         }) as any;

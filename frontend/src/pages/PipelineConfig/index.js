@@ -130,18 +130,38 @@ const PipelineConfig = () => {
         }
     };
 
+    const handleMigrateLegacy = async () => {
+        try {
+            await api.post("/migrate-kanban");
+            toast.success("Migração concluída com sucesso!");
+            fetchPipelines();
+        } catch (err) {
+            toast.error("Erro ao migrar dados.");
+        }
+    };
+
     if (loading) return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>;
 
     return (
         <Box className={classes.container}>
             <Box className={classes.header}>
                 <Typography variant="h4" style={{ fontWeight: 900, color: "#0f172a" }}>Construtor Visual de Funil</Typography>
-                <Button variant="contained" color="primary" startIcon={<AddIcon />} style={{ borderRadius: 12 }}>Novo Funil</Button>
+                <Box display="flex" gap={2}>
+                    <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={handleMigrateLegacy}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Migrar Kanban Legado
+                    </Button>
+                    <Button variant="contained" color="primary" startIcon={<AddIcon />} style={{ borderRadius: 12 }}>Novo Funil</Button>
+                </Box>
             </Box>
 
             {!selectedPipeline ? (
                 <Grid container spacing={4}>
-                    {pipelines.map(pipe => (
+                    {pipelines.length > 0 ? pipelines.map(pipe => (
                         <Grid item xs={12} md={4} key={pipe.id}>
                             <Card className={classes.pipelineCard} onClick={() => setSelectedPipeline(pipe)} style={{ cursor: "pointer" }}>
                                 <CardContent>
@@ -154,7 +174,14 @@ const PipelineConfig = () => {
                                 </CardContent>
                             </Card>
                         </Grid>
-                    ))}
+                    )) : (
+                        <Grid item xs={12}>
+                            <Paper style={{ padding: 40, textAlign: "center", borderRadius: 16 }}>
+                                <Typography variant="h6">Nenhum funil encontrado.</Typography>
+                                <Typography color="textSecondary" style={{ marginTop: 8 }}>Você ainda não possui funis configurados. Clique em "Migrar Kanban Legado" para importar seus dados ou crie um novo funil do zero.</Typography>
+                            </Paper>
+                        </Grid>
+                    )}
                 </Grid>
             ) : (
                 <Box>
