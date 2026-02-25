@@ -252,6 +252,7 @@ const models = [
   BackendMetric,
   SlowQuery,
   SystemProcessMetric,
+  PipelineTemplate,
   Pipeline,
   PipelineStage,
   Opportunity,
@@ -262,8 +263,7 @@ const models = [
   SystemWebhook,
   WebhookDeliveryLog,
   OpportunityPrediction,
-  AISuggestionFeedback,
-  PipelineTemplate
+  AISuggestionFeedback
 ];
 
 sequelize.addModels(models);
