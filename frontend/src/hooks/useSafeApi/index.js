@@ -10,7 +10,7 @@ import toastError from "../../errors/toastError";
  * @returns {object} { data, loading, error, request }
  */
 const useSafeApi = (url, options = {}) => {
-    const [data, setData] = useState(null);
+    const [data, setData] = useState(options.initialData || null);
     const [loading, setLoading] = useState(!options.manual);
     const [error, setError] = useState(null);
     const abortControllerRef = useRef(null);

@@ -431,7 +431,7 @@ const Users = () => {
                   {i18n.t("users.title")}
                 </Typography>
                 <Typography className={classes.headerSubtitle}>
-                  {users.filter((user) => user.id !== 1).length} usuários cadastrados
+                  {Array.isArray(users) ? users.filter((user) => user.id !== 1).length : 0} usuários cadastrados
                 </Typography>
               </Box>
             </Box>

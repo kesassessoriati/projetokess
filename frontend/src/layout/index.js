@@ -955,19 +955,21 @@ const LoggedInLayout = ({ children }) => {
     if (isAdmin) {
       if (isSuperAdmin) return menuGroups;
       // Admin normal: ocultar itens superAdmin
-      return menuGroups.map((group) => {
-        if (!group.children) return group;
-        const filtered = group.children.filter((child) => !child.superAdmin);
-        return { ...group, children: filtered };
-      });
+      return menuGroups
+        .filter(Boolean)
+        .map((group) => {
+          if (!group.children) return group;
+          const filtered = group.children.filter((child) => !child.superAdmin);
+          return { ...group, children: filtered };
+        });
     }
     const allowedMenus = ["Inbox", "Kanban", "Produtividade", "Ajuda"];
     const hiddenSubmenus = ["/funil", "/etiquetas", "/messages-api", "/produtos", "/servicos", "/projects"];
     return menuGroups
-      .filter((group) => allowedMenus.includes(group.title))
+      .filter((group) => group && allowedMenus.includes(group.title))
       .map((group) => {
         if (!group.children) return group;
-        const filtered = group.children.filter((child) => !hiddenSubmenus.includes(child.path));
+        const filtered = group.children.filter((child) => child && !hiddenSubmenus.includes(child.path));
         return { ...group, children: filtered };
       });
   }, [isAdmin, isSuperAdmin, menuGroups]);
