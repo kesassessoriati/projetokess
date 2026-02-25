@@ -15,8 +15,13 @@ TOKEN="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"
 REPO_URL="github.com/williamprado/atendzappy.git"
 
 # ─── Versão atual e próxima ───────────────────────────────────────────────────
-CURRENT_VERSION=$(grep -oP 'backend:\K[\d.]+' stack-swarm.yml | head -1)
-# Incrementa o minor version: 1.1 → 1.2
+CURRENT_VERSION=$(grep -oP 'atendzappy-backend:v\K[\d.]+' stack-swarm.yml | head -1)
+# Se não encontrar versão, define como 1.9 para evitar erro
+if [ -z "$CURRENT_VERSION" ]; then
+    CURRENT_VERSION="1.9"
+fi
+
+# Incrementa o minor version: 1.9 → 1.10
 NEXT_VERSION=$(echo "$CURRENT_VERSION" | awk -F. '{printf "%s.%d", $1, $2+1}')
 
 echo -e "${BLUE}========================================${NC}"
@@ -37,7 +42,7 @@ fi
 echo -e "${BLUE}[3/5] Construindo imagens v${NEXT_VERSION}...${NC}"
 # Backend Build
 cd backend
-docker build -t atendzappy/backend:${NEXT_VERSION} . --no-cache
+docker build -t williamwilmer10/atendzappy-backend:v${NEXT_VERSION} . --no-cache
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERRO] Falha no build do backend.${NC}"
     exit 1
@@ -46,7 +51,7 @@ cd ..
 
 # Frontend Build
 cd frontend
-docker build -t atendzappy/frontend:${NEXT_VERSION} . --no-cache
+docker build -t williamwilmer10/atendzappy-frontend:v${NEXT_VERSION} . --no-cache
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERRO] Falha no build do frontend.${NC}"
     exit 1
@@ -55,8 +60,8 @@ cd ..
 
 echo -e "${BLUE}[4/5] Atualizando Stack para v${NEXT_VERSION}...${NC}"
 # Substitui versão atual pela próxima no stack-swarm.yml
-sed -i "s/backend:${CURRENT_VERSION}/backend:${NEXT_VERSION}/g" stack-swarm.yml
-sed -i "s/frontend:${CURRENT_VERSION}/frontend:${NEXT_VERSION}/g" stack-swarm.yml
+sed -i "s/atendzappy-backend:v${CURRENT_VERSION}/atendzappy-backend:v${NEXT_VERSION}/g" stack-swarm.yml
+sed -i "s/atendzappy-frontend:v${CURRENT_VERSION}/atendzappy-frontend:v${NEXT_VERSION}/g" stack-swarm.yml
 
 # Deploy
 docker stack deploy -c stack-swarm.yml atendzappy
