@@ -1,0 +1,88 @@
+import React, { useState, useEffect } from "react";
+import { makeStyles, Typography, Box, Paper, Button, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Chip } from "@material-ui/core";
+import { Add as AddIcon, Delete as DeleteIcon, History as HistoryIcon } from "@material-ui/icons";
+import api from "../../services/api";
+import { toast } from "react-toastify";
+
+const useStyles = makeStyles((theme) => ({
+    container: {
+        padding: theme.spacing(4),
+        backgroundColor: "#f8fafc",
+        minHeight: "100vh"
+    },
+    paper: {
+        padding: theme.spacing(3),
+        borderRadius: 16,
+    },
+    header: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: theme.spacing(4)
+    }
+}));
+
+const CRMWebhooks = () => {
+    const classes = useStyles();
+    const [webhooks, setWebhooks] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchWebhooks();
+    }, []);
+
+    const fetchWebhooks = async () => {
+        try {
+            const { data } = await api.get("/crm/webhooks"); // To be implemented
+            setWebhooks(data);
+        } catch (err) {
+            // toast.error("Erro ao carregar webhooks");
+            setWebhooks([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Box className={classes.container}>
+            <Box className={classes.header}>
+                <Typography variant="h4" style={{ fontWeight: 900 }}>Webhooks (CRM)</Typography>
+                <Button variant="contained" color="primary" startIcon={<AddIcon />}>Novo Webhook</Button>
+            </Box>
+
+            <Paper className={classes.paper}>
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>Evento</TableCell>
+                            <TableCell>URL</TableCell>
+                            <TableCell>Status</TableCell>
+                            <TableCell align="right">Ações</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {webhooks.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} align="center">Nenhum webhook configurado</TableCell>
+                            </TableRow>
+                        ) : (
+                            webhooks.map(webhook => (
+                                <TableRow key={webhook.id}>
+                                    <TableCell>{webhook.eventType}</TableCell>
+                                    <TableCell>{webhook.url}</TableCell>
+                                    <TableCell><Chip size="small" label={webhook.isActive ? "Ativo" : "Inativo"} color={webhook.isActive ? "primary" : "secondary"} /></TableCell>
+                                    <TableCell align="right">
+                                        <IconButton size="small"><HistoryIcon /></IconButton>
+                                        <IconButton size="small" color="secondary"><DeleteIcon /></IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </Paper>
+        </Box>
+    );
+};
+
+export default CRMWebhooks;

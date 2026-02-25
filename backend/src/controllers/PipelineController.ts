@@ -74,3 +74,59 @@ export const metrics = async (req: Request, res: Response): Promise<Response> =>
 
     return res.status(200).json(pipelineMetrics);
 };
+
+export const updateStageOrder = async (req: Request, res: Response): Promise<Response> => {
+    const { id: pipelineId } = req.params;
+    const { stages } = req.body; // Array of { id, order }
+
+    const updates = stages.map((s: any) =>
+        PipelineStage.update({ order: s.order }, { where: { id: s.id, pipelineId } })
+    );
+
+    await Promise.all(updates);
+
+    return res.status(200).json({ message: "Stages reordered" });
+};
+
+export const storeStage = async (req: Request, res: Response): Promise<Response> => {
+    const { id: pipelineId } = req.params;
+    const { companyId } = req.user;
+    const { name, color, order, probability, slaDays } = req.body;
+
+    const stage = await PipelineStage.create({
+        pipelineId: parseInt(pipelineId, 10),
+        companyId,
+        name,
+        color,
+        order,
+        probability,
+        slaDays
+    });
+
+    return res.status(200).json(stage);
+};
+
+export const updateStage = async (req: Request, res: Response): Promise<Response> => {
+    const { stageId } = req.params;
+    const { companyId } = req.user;
+    const { name, color, order, probability, slaDays } = req.body;
+
+    const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
+    if (!stage) return res.status(404).json({ error: "Stage not found" });
+
+    await stage.update({ name, color, order, probability, slaDays });
+
+    return res.status(200).json(stage);
+};
+
+export const deleteStage = async (req: Request, res: Response): Promise<Response> => {
+    const { stageId } = req.params;
+    const { companyId } = req.user;
+
+    const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
+    if (!stage) return res.status(404).json({ error: "Stage not found" });
+
+    await stage.destroy();
+
+    return res.status(200).json({ message: "Stage deleted" });
+};

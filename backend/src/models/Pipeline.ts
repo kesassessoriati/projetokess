@@ -14,6 +14,7 @@ import {
 } from "sequelize-typescript";
 import Company from "./Company";
 import PipelineStage from "./PipelineStage";
+import PipelineTemplate from "./PipelineTemplate";
 import Opportunity from "./Opportunity";
 
 @Table({
@@ -31,6 +32,13 @@ class Pipeline extends Model<Pipeline> {
 
     @BelongsTo(() => Company)
     company: Company;
+
+    @ForeignKey(() => PipelineTemplate)
+    @Column
+    templateId: number;
+
+    @BelongsTo(() => PipelineTemplate)
+    template: PipelineTemplate;
 
     @Column
     name: string;

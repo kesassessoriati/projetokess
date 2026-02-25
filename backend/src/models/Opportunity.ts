@@ -21,6 +21,8 @@ import User from "./User";
 import OpportunityMovement from "./OpportunityMovement";
 import OpportunityEvent from "./OpportunityEvent";
 import OpportunityPrediction from "./OpportunityPrediction";
+import Ticket from "./Ticket";
+import PipelineTemplate from "./PipelineTemplate";
 
 @Table({
     tableName: "Opportunities",
@@ -59,6 +61,13 @@ class Opportunity extends Model<Opportunity> {
 
     @BelongsTo(() => Contact)
     contact: Contact;
+
+    @ForeignKey(() => Ticket)
+    @Column
+    ticketId: number;
+
+    @BelongsTo(() => Ticket)
+    ticket: Ticket;
 
     @Column
     title: string;

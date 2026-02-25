@@ -65,6 +65,8 @@ import QueueIntegration from "../pages/Integracao";
 import Files from "../pages/Files";
 import Produtos from "../pages/Produtos";
 import Kanban from "../pages/Kanban";
+import PipelineConfig from "../pages/PipelineConfig";
+import CRMWebhooks from "../pages/CRMWebhooks";
 import TagsKanban from "../pages/TagsKanban";
 import empresa from "../pages/Empresa";
 import IaWorkflows from "../pages/IaWorkflows";
@@ -227,7 +229,9 @@ const Routes = () => {
                       <Route exact path="/moments" component={ChatMoments} isPrivate />
                       <Route exact path="/intelligent-board" component={PipelineBoard} isPrivate />
                       <Route exact path="/executive-dashboard" component={ExecutiveDashboard} isPrivate />
-                      <Route exact path="/Kanban" component={Kanban} isPrivate />
+                      <Route exact path="/pipeline-config" component={PipelineConfig} isPrivate />
+                      <Route exact path="/crm-webhooks" component={CRMWebhooks} isPrivate />
+                      <Route exact path="/kanban" component={PipelineBoard} isPrivate />
                       <Route exact path="/TagsKanban" component={TagsKanban} isPrivate />
                       <Route exact path="/prompts" component={Agentes} isPrivate />
                       <Route exact path="/agentes" component={Agentes} isPrivate />

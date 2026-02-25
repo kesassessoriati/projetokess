@@ -11,6 +11,13 @@ pipelineRoutes.get("/pipelines", isAuth, PipelineController.index);
 pipelineRoutes.post("/pipelines", isAuth, PipelineController.store);
 pipelineRoutes.get("/pipelines/:id/board", isAuth, PipelineController.board);
 pipelineRoutes.get("/pipelines/:id/metrics", isAuth, PipelineController.metrics);
+
+// Stages management
+pipelineRoutes.put("/pipelines/:id/stages/sort", isAuth, PipelineController.updateStageOrder);
+pipelineRoutes.post("/pipelines/:id/stages", isAuth, PipelineController.storeStage);
+pipelineRoutes.put("/pipelines/stages/:stageId", isAuth, PipelineController.updateStage);
+pipelineRoutes.delete("/pipelines/stages/:stageId", isAuth, PipelineController.deleteStage);
+
 pipelineRoutes.get("/executive/dashboard", isAuth, ExecutiveController.index);
 
 // Opportunities

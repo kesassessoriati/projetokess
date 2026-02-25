@@ -5,6 +5,7 @@ interface Request {
     name: string;
     companyId: number;
     isDefault?: boolean;
+    templateId?: number;
     stages?: Array<{
         name: string;
         order: number;
@@ -17,12 +18,14 @@ const CreatePipelineService = async ({
     name,
     companyId,
     isDefault = false,
+    templateId,
     stages
 }: Request): Promise<Pipeline> => {
     const pipeline = await Pipeline.create({
         name,
         companyId,
-        isDefault
+        isDefault,
+        templateId
     });
 
     // Create custom stages if provided, otherwise use default stages

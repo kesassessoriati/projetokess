@@ -69,10 +69,25 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         overflowX: "auto",
         padding: theme.spacing(3),
+        paddingTop: theme.spacing(1),
         gap: theme.spacing(3),
         alignItems: "flex-start",
         "&::-webkit-scrollbar": { height: 8 },
         "&::-webkit-scrollbar-thumb": { backgroundColor: "#cbd5e1", borderRadius: 4 }
+    },
+    topScrollWrapper: {
+        width: "100%",
+        overflowX: "auto",
+        overflowY: "hidden",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e2e8f0",
+        height: 12,
+        "&::-webkit-scrollbar": { height: 8 },
+        "&::-webkit-scrollbar-thumb": { backgroundColor: "#cbd5e1", borderRadius: 4 }
+    },
+    topScrollContent: {
+        height: 1,
+        // O width será definido dinamicamente via style
     },
     lane: {
         minWidth: 340,
@@ -254,6 +269,15 @@ const PipelineBoard = () => {
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [selectedOp, setSelectedOp] = useState(null);
 
+    const topScrollRef = useRef(null);
+    const boardScrollRef = useRef(null);
+
+    const syncScroll = (source, target) => {
+        if (target.current && source.current) {
+            target.current.scrollLeft = source.current.scrollLeft;
+        }
+    };
+
     useEffect(() => {
         fetchPipelines();
     }, []);
@@ -360,7 +384,22 @@ const PipelineBoard = () => {
                 </Grid>
             </header>
 
-            <Box className={classes.boardArea}>
+            <div
+                className={classes.topScrollWrapper}
+                ref={topScrollRef}
+                onScroll={() => syncScroll(topScrollRef, boardScrollRef)}
+            >
+                <div
+                    className={classes.topScrollContent}
+                    style={{ width: (board.stages?.length || 0) * 364 + 48 }}
+                />
+            </div>
+
+            <Box
+                className={classes.boardArea}
+                ref={boardScrollRef}
+                onScroll={() => syncScroll(boardScrollRef, topScrollRef)}
+            >
                 {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
 
                 {!loading && (board.stages || []).map(stage => (

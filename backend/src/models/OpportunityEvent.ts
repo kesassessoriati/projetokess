@@ -12,6 +12,7 @@ import {
     BelongsTo
 } from "sequelize-typescript";
 import Opportunity from "./Opportunity";
+import Company from "./Company";
 
 @Table({
     tableName: "OpportunityEvents"
@@ -21,6 +22,13 @@ class OpportunityEvent extends Model<OpportunityEvent> {
     @AutoIncrement
     @Column
     id: number;
+
+    @ForeignKey(() => Company)
+    @Column
+    companyId: number;
+
+    @BelongsTo(() => Company)
+    company: Company;
 
     @ForeignKey(() => Opportunity)
     @Column

@@ -870,12 +870,15 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
       {
-        title: "Kanban",
+        title: "CRM Kanban",
         icon: <ViewKanbanIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
-          { title: "Kanban", path: "/kanban" },
-          { title: "Funil", path: "/funil" },
+          { title: "Board Inteligente", path: "/kanban" },
+          { title: "Dashboard Executivo", path: "/executive-dashboard" },
+          { title: "Configuração de Funil", path: "/pipeline-config" },
+          { title: "Webhooks (CRM)", path: "/crm-webhooks" },
+          { title: "Funil Legado", path: "/funil" },
           { title: "Etiquetas", path: "/etiquetas" },
         ],
       },

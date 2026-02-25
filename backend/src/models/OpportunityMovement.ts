@@ -13,6 +13,7 @@ import {
 } from "sequelize-typescript";
 import Opportunity from "./Opportunity";
 import PipelineStage from "./PipelineStage";
+import Company from "./Company";
 
 @Table({
     tableName: "OpportunityMovements"
@@ -22,6 +23,13 @@ class OpportunityMovement extends Model<OpportunityMovement> {
     @AutoIncrement
     @Column
     id: number;
+
+    @ForeignKey(() => Company)
+    @Column
+    companyId: number;
+
+    @BelongsTo(() => Company)
+    company: Company;
 
     @ForeignKey(() => Opportunity)
     @Column

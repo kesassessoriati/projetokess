@@ -110,6 +110,8 @@ import backendErrorRoutes from "./backendErrorRoutes";
 import systemMetricsRoutes from "./systemMetricsRoutes";
 import performanceRoutes from "./performanceRoutes";
 import pipelineRoutes from "./pipelineRoutes";
+import crmWebhookRoutes from "./crmWebhookRoutes";
+import migrationRoutes from "./migrationRoutes";
 
 const routes = Router();
 
@@ -239,5 +241,7 @@ routes.use(backendErrorRoutes);
 routes.use(systemMetricsRoutes);
 routes.use(performanceRoutes);
 routes.use(pipelineRoutes);
+routes.use(crmWebhookRoutes);
+routes.use(migrationRoutes);
 
 export default routes;

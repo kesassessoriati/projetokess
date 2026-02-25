@@ -5,6 +5,7 @@ import User from "../../models/User";
 import sequelize from "../../database";
 import CompaniesSettings from "../../models/CompaniesSettings";
 import Setting from "../../models/Setting";
+import CloneTemplateToPipelineService from "../PipelineServices/CloneTemplateToPipelineService";
 
 interface CompanyData {
   name: string;
@@ -85,33 +86,33 @@ const CreateCompanyService = async (
     );
 
     const settings = await CompaniesSettings.create({
-          companyId: company.id,
-          hoursCloseTicketsAuto: "9999999999",
-          chatBotType: "text",
-          acceptCallWhatsapp: "enabled",
-          userRandom: "enabled",
-          sendGreetingMessageOneQueues: "enabled",
-          sendSignMessage: "enabled",
-          sendFarewellWaitingTicket: "disabled",
-          userRating: "disabled",
-          sendGreetingAccepted: "enabled",
-          CheckMsgIsGroup: "enabled",
-          sendQueuePosition: "disabled",
-          scheduleType: "disabled",
-          acceptAudioMessageContact: "enabled",
-          sendMsgTransfTicket:"disabled",
-          enableLGPD: "disabled",
-          requiredTag: "disabled",
-          lgpdDeleteMessage: "disabled",
-          lgpdHideNumber: "disabled",
-          lgpdConsent: "disabled",
-          lgpdLink:"",
-          lgpdMessage:"",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          closeTicketOnTransfer: false,
-          DirectTicketsToWallets: false
-    },{ transaction: t })
+      companyId: company.id,
+      hoursCloseTicketsAuto: "9999999999",
+      chatBotType: "text",
+      acceptCallWhatsapp: "enabled",
+      userRandom: "enabled",
+      sendGreetingMessageOneQueues: "enabled",
+      sendSignMessage: "enabled",
+      sendFarewellWaitingTicket: "disabled",
+      userRating: "disabled",
+      sendGreetingAccepted: "enabled",
+      CheckMsgIsGroup: "enabled",
+      sendQueuePosition: "disabled",
+      scheduleType: "disabled",
+      acceptAudioMessageContact: "enabled",
+      sendMsgTransfTicket: "disabled",
+      enableLGPD: "disabled",
+      requiredTag: "disabled",
+      lgpdDeleteMessage: "disabled",
+      lgpdHideNumber: "disabled",
+      lgpdConsent: "disabled",
+      lgpdLink: "",
+      lgpdMessage: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      closeTicketOnTransfer: false,
+      DirectTicketsToWallets: false
+    }, { transaction: t })
 
     if (typeof campaignsEnabled === "boolean") {
       await Setting.create(
@@ -123,7 +124,10 @@ const CreateCompanyService = async (
         { transaction: t }
       );
     }
-    
+
+    // Criar Pipeline inicial baseado em Template
+    await CloneTemplateToPipelineService({ companyId: company.id });
+
     await t.commit();
 
     return company;
