@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useMemo } from "react";
 import { makeStyles, useTheme } from "@material-ui/core/styles";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import Board from 'react-trello';
 import { toast } from "react-toastify";
 import { i18n } from "../../translate/i18n";
@@ -139,7 +140,7 @@ const Kanban = () => {
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [selectedTicketForTags, setSelectedTicketForTags] = useState(null);
 
-  const jsonString = user.queues.map(queue => queue.UserQueue.queueId);
+  const jsonString = (user.queues || []).map(queue => queue.UserQueue.queueId);
 
   const getDisplayName = (contact) => {
     if (!contact || !contact.name) return "Contato sem nome";
@@ -268,8 +269,8 @@ const Kanban = () => {
   const handleOpenWhatsModal = (ticket) => {
     setChatContact({
       name: getDisplayName(ticket.contact),
-      avatar: ticket.contact?.urlPicture,
-      meAvatar: user?.profilePicUrl,
+      avatar: ticket.contact ? ticket.contact.urlPicture : null,
+      meAvatar: user ? user.profilePicUrl : null,
       statusText: "Ativo agora",
     });
     setChatTicketUuid(ticket.uuid);
@@ -375,9 +376,9 @@ const Kanban = () => {
                   <EventIcon fontSize="small" />
                 </IconButton>
                 <span style={{ flex: 1 }} />
-                {ticket?.user && (
+                {ticket && ticket.user && (
                   <Badge style={{ backgroundColor: "#000000" }} className={classes.connectionTag}>
-                    {ticket.user?.name.toUpperCase()}
+                    {(ticket.user.name || "").toUpperCase()}
                   </Badge>
                 )}
               </div>
@@ -385,7 +386,7 @@ const Kanban = () => {
             </div>
           ),
           title: <>
-            <Tooltip title={ticket.whatsapp?.name}>
+            <Tooltip title={ticket.whatsapp ? ticket.whatsapp.name : ""}>
               {IconChannel(ticket.channel)}
             </Tooltip> {getDisplayName(ticket.contact)}
           </>,
@@ -497,7 +498,7 @@ const Kanban = () => {
       <TicketTagsKanbanModal
         open={tagsModalOpen}
         onClose={handleCloseTagsModal}
-        contact={selectedTicketForTags?.contact}
+        contact={selectedTicketForTags ? selectedTicketForTags.contact : null}
         ticket={selectedTicketForTags}
         onUpdate={fetchTickets}
       />

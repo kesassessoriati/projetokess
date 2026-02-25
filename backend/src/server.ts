@@ -11,12 +11,14 @@ import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhats
 import Company from "./models/Company";
 import BullQueue from './libs/queue';
 import { startQueueProcess } from "./queues";
+import AutomationEngineService from "./services/PipelineServices/AutomationEngineService";
+import SLASchedulerService from "./services/PipelineServices/SLASchedulerService";
 
 if (process.env.CERTIFICADOS == "true") {
-  
+
   const httpsOptions = {
-    key: fs.readFileSync(process.env.SSL_KEY_FILE), 
-    cert: fs.readFileSync(process.env.SSL_CRT_FILE) 
+    key: fs.readFileSync(process.env.SSL_KEY_FILE),
+    cert: fs.readFileSync(process.env.SSL_CRT_FILE)
   };
 
   const server = https.createServer(httpsOptions, app).listen(process.env.PORT, async () => {
@@ -40,6 +42,10 @@ if (process.env.CERTIFICADOS == "true") {
     }
 
     logger.info(`Server started on port: ${process.env.PORT} with HTTPS`);
+
+    // Inicializar Pipeline Engine
+    AutomationEngineService.init();
+    SLASchedulerService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -47,7 +53,7 @@ if (process.env.CERTIFICADOS == "true") {
     console.error(err.stack);
     process.exit(1);
   });
-  
+
   process.on("unhandledRejection", (reason, p) => {
     console.error(
       `${new Date().toUTCString()} unhandledRejection:`,
@@ -56,7 +62,7 @@ if (process.env.CERTIFICADOS == "true") {
     );
     process.exit(1);
   });
-  
+
   initIO(server);
   gracefulShutdown(server);
 
@@ -66,23 +72,27 @@ if (process.env.CERTIFICADOS == "true") {
       where: { status: true },
       attributes: ["id"]
     });
-  
+
     const allPromises: any[] = [];
     companies.map(async c => {
       const promise = StartAllWhatsAppsSessions(c.id);
       allPromises.push(promise);
     });
-  
+
     Promise.all(allPromises).then(async () => {
-  
+
       await startQueueProcess();
     });
-  
+
     if (process.env.REDIS_URI_ACK && process.env.REDIS_URI_ACK !== '') {
       BullQueue.process();
     }
-  
+
     logger.info(`Server started on port: ${process.env.PORT}`);
+
+    // Inicializar Pipeline Engine
+    AutomationEngineService.init();
+    SLASchedulerService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -90,7 +100,7 @@ if (process.env.CERTIFICADOS == "true") {
     console.error(err.stack);
     process.exit(1);
   });
-  
+
   process.on("unhandledRejection", (reason, p) => {
     console.error(
       `${new Date().toUTCString()} unhandledRejection:`,
@@ -99,10 +109,10 @@ if (process.env.CERTIFICADOS == "true") {
     );
     process.exit(1);
   });
-  
+
   initIO(server);
   gracefulShutdown(server);
-  
+
 }
 
 

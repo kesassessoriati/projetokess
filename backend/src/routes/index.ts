@@ -109,6 +109,7 @@ import frontendErrorRoutes from "./frontendErrorRoutes";
 import backendErrorRoutes from "./backendErrorRoutes";
 import systemMetricsRoutes from "./systemMetricsRoutes";
 import performanceRoutes from "./performanceRoutes";
+import pipelineRoutes from "./pipelineRoutes";
 
 const routes = Router();
 
@@ -237,5 +238,6 @@ routes.use(frontendErrorRoutes);
 routes.use(backendErrorRoutes);
 routes.use(systemMetricsRoutes);
 routes.use(performanceRoutes);
+routes.use(pipelineRoutes);
 
 export default routes;

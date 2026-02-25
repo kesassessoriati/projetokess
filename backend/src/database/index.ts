@@ -103,6 +103,13 @@ import SystemMetric from "../models/SystemMetric";
 import BackendMetric from "../models/BackendMetric";
 import SlowQuery from "../models/SlowQuery";
 import SystemProcessMetric from "../models/SystemProcessMetric";
+import Pipeline from "../models/Pipeline";
+import PipelineStage from "../models/PipelineStage";
+import Opportunity from "../models/Opportunity";
+import OpportunityMovement from "../models/OpportunityMovement";
+import OpportunityEvent from "../models/OpportunityEvent";
+import PipelineAutomation from "../models/PipelineAutomation";
+import PipelineAutomationLog from "../models/PipelineAutomationLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -239,7 +246,14 @@ const models = [
   SystemMetric,
   BackendMetric,
   SlowQuery,
-  SystemProcessMetric
+  SystemProcessMetric,
+  Pipeline,
+  PipelineStage,
+  Opportunity,
+  OpportunityMovement,
+  OpportunityEvent,
+  PipelineAutomation,
+  PipelineAutomationLog
 ];
 
 sequelize.addModels(models);
