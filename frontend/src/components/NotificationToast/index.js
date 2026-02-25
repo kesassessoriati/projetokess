@@ -223,7 +223,7 @@ const NotificationToast = () => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  if (!user?.companyId || !socket) return null;
+  if (!user?.companyId || !isConnected) return null;
 
   return (
     <div className={classes.container}>
