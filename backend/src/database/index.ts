@@ -110,6 +110,8 @@ import OpportunityMovement from "../models/OpportunityMovement";
 import OpportunityEvent from "../models/OpportunityEvent";
 import PipelineAutomation from "../models/PipelineAutomation";
 import PipelineAutomationLog from "../models/PipelineAutomationLog";
+import SystemWebhook from "../models/SystemWebhook";
+import WebhookDeliveryLog from "../models/WebhookDeliveryLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -253,7 +255,9 @@ const models = [
   OpportunityMovement,
   OpportunityEvent,
   PipelineAutomation,
-  PipelineAutomationLog
+  PipelineAutomationLog,
+  SystemWebhook,
+  WebhookDeliveryLog
 ];
 
 sequelize.addModels(models);

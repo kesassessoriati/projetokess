@@ -92,7 +92,6 @@ describe("Automation Engine Integration Tests", () => {
         } as any);
 
         // Criar oportunidade de baixo valor
-        subterranean_opp:
         const oppLow = await Opportunity.create({
             companyId: company.id,
             pipelineId: pipeline.id,

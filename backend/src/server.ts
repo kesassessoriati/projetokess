@@ -13,6 +13,7 @@ import BullQueue from './libs/queue';
 import { startQueueProcess } from "./queues";
 import AutomationEngineService from "./services/PipelineServices/AutomationEngineService";
 import SLASchedulerService from "./services/PipelineServices/SLASchedulerService";
+import WebhookService from "./services/PipelineServices/WebhookService";
 
 if (process.env.CERTIFICADOS == "true") {
 
@@ -46,6 +47,7 @@ if (process.env.CERTIFICADOS == "true") {
     // Inicializar Pipeline Engine
     AutomationEngineService.init();
     SLASchedulerService.init();
+    WebhookService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -93,6 +95,7 @@ if (process.env.CERTIFICADOS == "true") {
     // Inicializar Pipeline Engine
     AutomationEngineService.init();
     SLASchedulerService.init();
+    WebhookService.init();
   });
 
   process.on("uncaughtException", err => {
