@@ -255,13 +255,12 @@ const Users = () => {
   const { profileImage } = loggedInUser;
   const isMounted = useRef(true);
 
+  const [users, setUsers] = useState([]);
   const {
-    data: users,
     loading: loadingUsers,
     error: errorUsers,
-    setData: setUsers,
     request: fetchUsersApi,
-  } = useSafeApi("/users/", { manual: true, initialData: [] });
+  } = useSafeApi("/users/", { manual: true });
 
   const { isReady, on } = useSocket();
 

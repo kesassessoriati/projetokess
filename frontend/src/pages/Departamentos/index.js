@@ -261,7 +261,22 @@ const reducer = (state, action) => {
 const Queues = () => {
   const classes = useStyles();
 
-  const { data: queues, loading: loadingQueues, error: errorQueues, setData: setQueues, request: fetchQueues } = useSafeApi("/queue");
+  const [queues, setQueues] = useState([]);
+  const {
+    loading: loadingQueues,
+    error: errorQueues,
+    request: fetchQueues
+  } = useSafeApi("/queue", { manual: true });
+
+  useEffect(() => {
+    const fetchList = async () => {
+      const data = await fetchQueues();
+      if (data) {
+        setQueues(data.queues || data || []);
+      }
+    };
+    fetchList();
+  }, [fetchQueues]);
   const [searchParam, setSearchParam] = useState("");
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);

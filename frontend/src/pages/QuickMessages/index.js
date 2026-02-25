@@ -225,7 +225,12 @@ const QuickMessages = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
 
-  const { data: quickemessages, loading: loadingQuickMessages, error: errorQuickMessages, setData: setQuickemessages, request: fetchQuickemessagesApi } = useSafeApi("/quick-messages", { manual: true });
+  const [quickemessages, setQuickemessages] = useState([]);
+  const {
+    loading: loadingQuickMessages,
+    error: errorQuickMessages,
+    request: fetchQuickemessagesApi
+  } = useSafeApi("/quick-messages", { manual: true });
 
   const { user } = useContext(AuthContext);
   const { isReady, on } = useSocket();

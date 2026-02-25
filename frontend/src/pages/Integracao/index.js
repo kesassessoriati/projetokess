@@ -270,13 +270,12 @@ const QueueIntegration = () => {
   const [loadingGoogleIntegration, setLoadingGoogleIntegration] = useState(false);
 
   // useSafeApi para Integrações
+  const [queueIntegrations, setIntegrations] = useState([]);
   const {
-    data: queueIntegrations,
     loading: loadingIntegrations,
     error: errorIntegrations,
-    setData: setIntegrations,
     request: fetchIntegrationsApi,
-  } = useSafeApi("/queueIntegration/", { manual: true, initialData: [] });
+  } = useSafeApi("/queueIntegration/", { manual: true });
 
   // Verificar plano
   useEffect(() => {
