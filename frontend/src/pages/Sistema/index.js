@@ -256,22 +256,10 @@ const categories = [
     description: "Fluxos principais para conversar com clientes e acompanhar o dia a dia.",
     items: [
       {
-        title: "Lista de contatos",
-        description: "Segmente públicos para campanhas específicas.",
-        route: "/contact-lists",
-        icon: ListAltIcon,
-      },
-      {
         title: "Campanhas",
         description: "Dispare campanhas Whatsapp com monitoramento.",
         route: "/campanhas",
         icon: CampaignOutlinedIcon,
-      },
-      {
-        title: "Importar contatos",
-        description: "Suba planilhas e integre contatos em massa.",
-        route: "/contatos/import",
-        icon: CloudUploadOutlinedIcon,
       },
       {
         title: "Mensagens Rapidas",
@@ -299,12 +287,6 @@ const categories = [
         icon: AccountTreeOutlinedIcon,
       },
       {
-        title: "Automações",
-        description: "Automatize tarefas repetitivas e gatilhos.",
-        route: "/automations",
-        icon: FlashOnIcon,
-      },
-      {
         title: "IA Workflows",
         description: "Crie automações inteligentes com varios Agentes de IA.",
         route: "/ia-workflows",
@@ -329,23 +311,12 @@ const categories = [
     tabLabel: "Admin",
     description: "Controle de usuários, empresas, cobranças e relatórios.",
     items: [
-      {
-        title: "Faturas",
-        description: "Consulte boletos, recibos e histórico de pagamentos.",
-        route: "/faturas",
-        icon: LocalAtmIcon,
-      },
+
       {
         title: "Financeiro",
         description: "Acompanhe faturas, cobranças e assinaturas.",
         route: "/financeiro",
         icon: LocalAtmIcon,
-      },
-      {
-        title: "Lembretes",
-        description: "Gerencie compromissos e calendário.",
-        route: "/lembretes",
-        icon: CalendarMonthIcon,
       },
       {
         title: "Configurações",
@@ -426,6 +397,12 @@ const categories = [
         description: "Gerencie projetos, tarefas e equipes.",
         route: "/projects",
         icon: FolderSpecialIcon,
+      },
+      {
+        title: "Faturas",
+        description: "Consulte boletos, recibos e histórico de pagamentos.",
+        route: "/faturas",
+        icon: LocalAtmIcon,
       },
     ],
   },

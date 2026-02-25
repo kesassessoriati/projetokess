@@ -888,6 +888,8 @@ const LoggedInLayout = ({ children }) => {
           { title: "Leads", path: "/leads" },
           { title: "Clientes", path: "/clientes" },
           { title: "Usuários", path: "/users" },
+          { title: "Lista de contatos", path: "/contact-lists" },
+          { title: "Importar contatos", path: "/contatos/import" },
         ],
       },
       {
@@ -902,6 +904,8 @@ const LoggedInLayout = ({ children }) => {
           { title: "Respostas rápidas", path: "/quick-messages" },
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
+          { title: "Automações", path: "/automations" },
+          { title: "Lembretes", path: "/lembretes" },
         ],
       },
       {
@@ -909,10 +913,14 @@ const LoggedInLayout = ({ children }) => {
         icon: <TrendingUpIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
+          { title: "Canais", path: "/canais" },
           { title: "Produtos", path: "/produtos" },
           { title: "Serviços", path: "/servicos" },
           { title: "Agenda", path: "/user-schedules" },
           { title: "Projetos", path: "/projects" },
+          { title: "Departamentos", path: "/departamentos" },
+          { title: "Pagamentos", path: "/payment-settings" },
+          { title: "Faturas", path: "/faturas" },
         ],
       },
       {
@@ -924,27 +932,13 @@ const LoggedInLayout = ({ children }) => {
           { title: "Documentação", path: "/messages-api" },
         ],
       },
-      {
-        title: "Configurações",
-        icon: <SettingsIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Canais", path: "/canais" },
-          { title: "Departamentos", path: "/departamentos" },
-          { title: "Pagamentos", path: "/payment-settings" },
-          { title: "Faturas", path: "/faturas" },
-        ],
-      },
+
       {
         title: "Sistema",
         icon: <BuildIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
-          { title: "Lista de contatos", path: "/contact-lists" },
-          { title: "Importar contatos", path: "/contatos/import" },
-          { title: "Automações", path: "/automations" },
           { title: "Financeiro", path: "/financeiro" },
-          { title: "Lembretes", path: "/lembretes" },
           { title: "Configurações", path: "/settings" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
