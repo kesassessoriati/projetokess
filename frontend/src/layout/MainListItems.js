@@ -60,6 +60,7 @@ import { AuthContext } from "../context/Auth/AuthContext";
 import { useActiveMenu } from "../context/ActiveMenuContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
 import { Can } from "../components/Can";
+import { useSocket } from "../context/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
 import toastError from "../errors/toastError";
@@ -499,7 +500,8 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   const classes = useStyles();
   const isMobile = useMediaQuery(theme.breakpoints.down("xs"));
   const { whatsApps } = useContext(WhatsAppsContext);
-  const { user, socket, handleLogout, isMobileSession } = useContext(AuthContext);
+  const { user, handleLogout, isMobileSession } = useContext(AuthContext);
+  const { socket } = useSocket();
   const { setActiveMenu } = useActiveMenu();
   const location = useLocation();
 
@@ -709,12 +711,14 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
         }
       };
 
-      socket.on(`company-${companyId}-chat`, onCompanyChatMainListItems);
-      return () => {
-        socket.off(`company-${companyId}-chat`, onCompanyChatMainListItems);
-      };
+      if (socket && typeof socket.on === "function") {
+        socket.on(`company-${companyId}-chat`, onCompanyChatMainListItems);
+        return () => {
+          socket.off(`company-${companyId}-chat`, onCompanyChatMainListItems);
+        };
+      }
     }
-  }, [socket]);
+  }, [socket, user]);
 
   useEffect(() => {
     let unreadsCount = 0;

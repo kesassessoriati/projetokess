@@ -3,6 +3,7 @@ import { makeStyles } from "@material-ui/core/styles";
 import { Avatar, IconButton, Typography, Slide } from "@material-ui/core";
 import { Close as CloseIcon } from "@material-ui/icons";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -94,7 +95,8 @@ const useStyles = makeStyles((theme) => ({
 
 const NotificationToast = () => {
   const classes = useStyles();
-  const { user, socket } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const { socket } = useSocket();
   const [notifications, setNotifications] = useState([]);
 
   const removeNotification = useCallback((id) => {
@@ -136,10 +138,10 @@ const NotificationToast = () => {
     // Listener para novos tickets (transferências)
     const handleTicket = (data) => {
       console.log("[NotificationToast] Evento ticket recebido:", data.action, data.ticket?.id);
-      
+
       if (data.action === "update" || data.action === "create") {
         const ticket = data.ticket;
-        
+
         // Ignora grupos
         if (ticket?.isGroup) {
           console.log("[NotificationToast] Ignorando grupo");
@@ -152,7 +154,7 @@ const NotificationToast = () => {
 
         // Verifica se é uma transferência para o usuário
         const isTransferToMe = ticket?.userId === user?.id && data.action === "update";
-        
+
         // Verifica se é um ticket pendente nas filas do usuário
         const isPendingInMyQueue = ticket?.status === "pending" && belongsToUserQueue && !ticket?.userId;
 
@@ -182,7 +184,7 @@ const NotificationToast = () => {
     // Listener para novas mensagens
     const handleMessage = (data) => {
       console.log("[NotificationToast] Evento mensagem recebido:", data.action, data.message?.id);
-      
+
       if (data.action === "create" && !data.message?.fromMe) {
         const ticket = data.ticket;
         const message = data.message;
@@ -252,6 +254,8 @@ const NotificationToast = () => {
     return name.substring(0, 2).toUpperCase();
   };
 
+  if (!user?.companyId || !socket) return null;
+
   return (
     <div className={classes.container}>
       {notifications.map((notification) => (
@@ -263,11 +267,10 @@ const NotificationToast = () => {
           unmountOnExit
         >
           <div
-            className={`${classes.toast} ${
-              notification.type === "transfer"
+            className={`${classes.toast} ${notification.type === "transfer"
                 ? classes.toastTransfer
                 : classes.toastMessage
-            }`}
+              }`}
             onClick={() => handleNotificationClick(notification)}
           >
             <Avatar
@@ -278,11 +281,10 @@ const NotificationToast = () => {
             </Avatar>
             <div className={classes.content}>
               <span
-                className={`${classes.badge} ${
-                  notification.type === "transfer"
+                className={`${classes.badge} ${notification.type === "transfer"
                     ? classes.badgeTransfer
                     : classes.badgeMessage
-                }`}
+                  }`}
               >
                 {notification.type === "transfer" ? "Transferência" : "Mensagem"}
               </span>
