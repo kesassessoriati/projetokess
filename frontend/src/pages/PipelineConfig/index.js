@@ -15,7 +15,8 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    CircularProgress
+    CircularProgress,
+    Chip
 } from "@material-ui/core";
 import {
     Add as AddIcon,
