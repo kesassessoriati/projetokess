@@ -1,46 +1,38 @@
-import { Model, DataTypes } from "sequelize";
-import sequelize from "../database";
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  CreatedAt,
+  UpdatedAt
+} from "sequelize-typescript";
 
-class IaWorkflow extends Model {
-  public id!: number;
-  public companyId!: number;
-  public orchestratorPromptId!: number;
-  public agentPromptId!: number;
-  public alias!: string;
+@Table
+class IaWorkflow extends Model<IaWorkflow> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column
+  id: number;
 
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
+  @Column
+  companyId: number;
+
+  @Column
+  orchestratorPromptId: number;
+
+  @Column
+  agentPromptId: number;
+
+  @Column
+  alias: string;
+
+  @CreatedAt
+  createdAt: Date;
+
+  @UpdatedAt
+  updatedAt: Date;
 }
-
-IaWorkflow.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-      allowNull: false
-    },
-    companyId: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    orchestratorPromptId: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    agentPromptId: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    alias: {
-      type: DataTypes.STRING,
-      allowNull: false
-    }
-  },
-  {
-    sequelize,
-    modelName: "IaWorkflow"
-  }
-);
 
 export default IaWorkflow;
