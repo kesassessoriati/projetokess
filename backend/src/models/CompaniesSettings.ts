@@ -4,143 +4,152 @@
  * @descrição:modelo para tratar as configurações das empresas 
  */
 import {
-    Table,
-    Column,
-    CreatedAt,
-    UpdatedAt,
-    Model,
-    PrimaryKey,
-    AutoIncrement,
-    ForeignKey,
-    BelongsTo,
-    Default
-  } from "sequelize-typescript";
-  import Company from "./Company";
- 
-  
-  @Table({ tableName: "CompaniesSettings" })
-  class CompaniesSettings extends Model<CompaniesSettings> {
-    @PrimaryKey
-    @AutoIncrement
-    @Column
-    id: number;
+  Table,
+  Column,
+  CreatedAt,
+  UpdatedAt,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  ForeignKey,
+  BelongsTo,
+  Default
+} from "sequelize-typescript";
+import Company from "./Company";
 
-    @ForeignKey(() => Company)
-    @Column
-    companyId: number;
-  
-    @BelongsTo(() => Company)
-    company: Company;
-  
-    @Column
-    hoursCloseTicketsAuto: string;
 
-    @Column
-    chatBotType: string;
+@Table({ tableName: "CompaniesSettings" })
+class CompaniesSettings extends Model<CompaniesSettings> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column
+  id: number;
 
-    @Column
-    acceptCallWhatsapp: string;
+  @ForeignKey(() => Company)
+  @Column
+  companyId: number;
 
-    //inicio de opções: enabled ou disabled
-    @Column
-    userRandom: string; 
+  @BelongsTo(() => Company)
+  company: Company;
 
-    @Column
-    sendGreetingMessageOneQueues: string; 
+  @Column
+  hoursCloseTicketsAuto: string;
 
-    @Column
-    sendSignMessage: string; 
+  @Column
+  chatBotType: string;
 
-    @Column
-    sendFarewellWaitingTicket: string; 
+  @Column
+  acceptCallWhatsapp: string;
 
-    @Column
-    userRating: string; 
+  //inicio de opções: enabled ou disabled
+  @Column
+  userRandom: string;
 
-    @Column
-    sendGreetingAccepted: string; 
+  @Column
+  sendGreetingMessageOneQueues: string;
 
-    @Column
-    CheckMsgIsGroup: string; 
+  @Column
+  sendSignMessage: string;
 
-    @Column
-    sendQueuePosition: string; 
+  @Column
+  sendFarewellWaitingTicket: string;
 
-    @Column
-    scheduleType: string; 
+  @Column
+  userRating: string;
 
-    @Column
-    acceptAudioMessageContact: string; 
+  @Column
+  sendGreetingAccepted: string;
 
-    @Column
-    sendMsgTransfTicket: string;
+  @Column
+  CheckMsgIsGroup: string;
 
-    @Column
-    enableLGPD: string; 
+  @Column
+  sendQueuePosition: string;
 
-    @Column
-    requiredTag: string; 
+  @Column
+  scheduleType: string;
 
-    @Column
-    lgpdDeleteMessage: string; 
+  @Column
+  acceptAudioMessageContact: string;
 
-    @Column
-    lgpdHideNumber: string; 
+  @Column
+  sendMsgTransfTicket: string;
 
-    @Column
-    lgpdConsent: string;
+  @Column
+  enableLGPD: string;
 
-    @Column
-    lgpdLink: string
+  @Column
+  requiredTag: string;
 
-    //fim de opções: enabled ou disabled 
-    @Column
-    lgpdMessage: string
+  @Column
+  lgpdDeleteMessage: string;
 
-    @CreatedAt
-    createdAt: Date;
-  
-    @UpdatedAt
-    updatedAt: Date;
+  @Column
+  lgpdHideNumber: string;
 
-    @Default(false)
-    @Column
-    DirectTicketsToWallets: boolean;
+  @Column
+  lgpdConsent: string;
 
-    @Default(false)
-    @Column
-    closeTicketOnTransfer: boolean;
+  @Column
+  lgpdLink: string
 
-    @Column
-    transferMessage: string
+  //fim de opções: enabled ou disabled 
+  @Column
+  lgpdMessage: string
 
-    @Column
-    greetingAcceptedMessage: string
+  @CreatedAt
+  createdAt: Date;
 
-    @Column
-    AcceptCallWhatsappMessage: string
+  @UpdatedAt
+  updatedAt: Date;
 
-    @Column
-    sendQueuePositionMessage: string
+  @Default(false)
+  @Column
+  DirectTicketsToWallets: boolean;
 
-    @Column
-    showNotificationPending: boolean;
+  @Default(false)
+  @Column
+  closeTicketOnTransfer: boolean;
 
-    @Column
-    notificameHub: string;
+  @Column
+  transferMessage: string
 
-    // Configurações de Contatos - Deduplicação e Salvamento
-    @Default("disabled")
-    @Column
-    autoSaveContacts: string;
+  @Column
+  greetingAcceptedMessage: string
 
-    @Default(7)
-    @Column
-    autoSaveContactsScore: number;
+  @Column
+  AcceptCallWhatsappMessage: string
 
-    @Default("high_potential")
-    @Column
-    autoSaveContactsReason: string;
-  }
-  
-  export default CompaniesSettings;
+  @Column
+  sendQueuePositionMessage: string
+
+  @Column
+  showNotificationPending: boolean;
+
+  @Column
+  notificameHub: string;
+
+  // Configurações de Contatos - Deduplicação e Salvamento
+  @Default("disabled")
+  @Column
+  autoSaveContacts: string;
+
+  @Default(7)
+  @Column
+  autoSaveContactsScore: number;
+
+  @Default("high_potential")
+  @Column
+  autoSaveContactsReason: string;
+
+  @Default(false)
+  @Column
+  aiAutoMoveEnabled: boolean;
+
+  @Default(0.85)
+  @Column(DataType.FLOAT)
+  aiConfidenceThreshold: number;
+}
+
+export default CompaniesSettings;

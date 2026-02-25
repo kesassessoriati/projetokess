@@ -34,14 +34,30 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const board = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
     const { companyId } = req.user;
-    const { stageId, cursor, limit } = req.query;
+    const {
+        stageId,
+        cursor,
+        limit,
+        riskLevel,
+        minProbability,
+        onlyAI,
+        onlyExpired,
+        sort
+    } = req.query;
 
     const pipelineBoard = await ListPipelineBoardService({
         pipelineId: parseInt(id, 10),
         companyId,
         stageId: stageId ? parseInt(stageId as string, 10) : undefined,
         cursor: cursor as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+        filter: {
+            riskLevel: riskLevel as string,
+            minProbability: minProbability ? parseFloat(minProbability as string) : undefined,
+            onlyAI: onlyAI === "true",
+            onlyExpired: onlyExpired === "true"
+        },
+        sort: sort as any
     });
 
     return res.status(200).json(pipelineBoard);

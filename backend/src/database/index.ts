@@ -112,6 +112,8 @@ import PipelineAutomation from "../models/PipelineAutomation";
 import PipelineAutomationLog from "../models/PipelineAutomationLog";
 import SystemWebhook from "../models/SystemWebhook";
 import WebhookDeliveryLog from "../models/WebhookDeliveryLog";
+import OpportunityPrediction from "../models/OpportunityPrediction";
+import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -257,7 +259,9 @@ const models = [
   PipelineAutomation,
   PipelineAutomationLog,
   SystemWebhook,
-  WebhookDeliveryLog
+  WebhookDeliveryLog,
+  OpportunityPrediction,
+  AISuggestionFeedback
 ];
 
 sequelize.addModels(models);

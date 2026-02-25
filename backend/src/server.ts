@@ -14,6 +14,7 @@ import { startQueueProcess } from "./queues";
 import AutomationEngineService from "./services/PipelineServices/AutomationEngineService";
 import SLASchedulerService from "./services/PipelineServices/SLASchedulerService";
 import WebhookService from "./services/PipelineServices/WebhookService";
+import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 
 if (process.env.CERTIFICADOS == "true") {
 
@@ -48,6 +49,7 @@ if (process.env.CERTIFICADOS == "true") {
     AutomationEngineService.init();
     SLASchedulerService.init();
     WebhookService.init();
+    AIAnalyzerService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -96,6 +98,7 @@ if (process.env.CERTIFICADOS == "true") {
     AutomationEngineService.init();
     SLASchedulerService.init();
     WebhookService.init();
+    AIAnalyzerService.init();
   });
 
   process.on("uncaughtException", err => {

@@ -818,6 +818,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                       onNavigate={handleNavigateFromSubmenu}
                     />
                     <ListItemLink
+                      to="/executive-dashboard"
+                      primary="Executive Dashboard"
+                      icon={<SpeedIcon />}
+                      onNavigate={handleNavigateFromSubmenu}
+                    />
+                    <ListItemLink
                       to="/reports"
                       primary={i18n.t("mainDrawer.listItems.reports")}
                       icon={<ListAltIcon />}
@@ -992,6 +998,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 to="/documentacao"
                 primary={i18n.t("Pipelines Kanban")}
                 icon={<AccountTreeIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/intelligent-board"
+                primary="Pipeline Inteligente"
+                icon={<TrendingUpIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink

@@ -1821,7 +1821,7 @@ const Atendimentos = () => {
 			cleanupTyping();
 			cleanupContact();
 		};
-	}, [isReady, user.companyId, on]);
+	}, [isConnected, user.companyId, on]);
 
 	const hasAssignedUser = (ticket) =>
 		Boolean(ticket?.userId || ticket?.user?.id);

@@ -1,16 +1,24 @@
-import { Op, fn, col } from "sequelize";
+import { Op, fn, col, literal } from "sequelize";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import Contact from "../../models/Contact";
+import OpportunityPrediction from "../../models/OpportunityPrediction";
 import AppError from "../../errors/AppError";
 
 interface Request {
     pipelineId: number;
     companyId: number;
     stageId?: number;
-    cursor?: string; // Base64 ou string formatada: "createdAt_id"
+    cursor?: string;
     limit?: number;
+    filter?: {
+        riskLevel?: string;
+        minProbability?: number;
+        onlyAI?: boolean;
+        onlyExpired?: boolean;
+    };
+    sort?: "AI_PRIORITY" | "CREATED_AT";
 }
 
 interface BoardOpportunity {
@@ -22,6 +30,15 @@ interface BoardOpportunity {
         id: number;
         name: string;
     };
+    prediction?: {
+        probability: number;
+        riskLevel: string;
+        explanation: string;
+    };
+    aiSuggestedStageId?: number;
+    lastMovedBy: string;
+    slaStatus: "NORMAL" | "EXPIRED" | "CRITICAL";
+    slaDeadline: Date;
     createdAt: Date;
 }
 
@@ -31,7 +48,9 @@ interface BoardStage {
     order: number;
     color: string;
     totalValue: number;
+    forecastValue: number;
     opportunitiesCount: number;
+    highRiskCount: number;
     opportunities: BoardOpportunity[];
     hasMore: boolean;
     nextCursor: string | null;
@@ -50,7 +69,9 @@ const ListPipelineBoardService = async ({
     companyId,
     stageId,
     cursor,
-    limit = 50
+    limit = 50,
+    filter,
+    sort = "CREATED_AT"
 }: Request): Promise<BoardResponse> => {
     // 1. Buscar o Pipeline e seus Estágios
     const pipeline = await Pipeline.findOne({
@@ -59,7 +80,7 @@ const ListPipelineBoardService = async ({
             {
                 model: PipelineStage,
                 as: "stages",
-                attributes: ["id", "name", "order", "color", "probability"]
+                attributes: ["id", "name", "order", "color"]
             }
         ],
         order: [[{ model: PipelineStage, as: "stages" }, "order", "ASC"]]
@@ -69,12 +90,22 @@ const ListPipelineBoardService = async ({
         throw new AppError("ERR_NO_PIPELINE_FOUND", 404);
     }
 
-    // 2. Buscar Agregações (Count e Sum) por Estágio em uma única query
+    // 2. Buscar Agregações Avançadas por Estágio
+    // Forecast = Sum(Value * PredictedProbability)
     const stats = await Opportunity.findAll({
         attributes: [
             "stageId",
-            [fn("COUNT", col("id")), "count"],
-            [fn("SUM", col("value")), "totalValue"]
+            [fn("COUNT", col("Opportunity.id")), "count"],
+            [fn("SUM", col("value")), "totalValue"],
+            [literal('SUM(COALESCE("value" * "prediction"."predictedCloseProbability", 0))'), "forecastValue"],
+            [literal('COUNT(CASE WHEN "prediction"."riskLevel" = \'HIGH\' THEN 1 END)'), "highRiskCount"]
+        ],
+        include: [
+            {
+                model: OpportunityPrediction,
+                as: "prediction",
+                attributes: []
+            }
         ],
         where: {
             pipelineId,
@@ -83,17 +114,19 @@ const ListPipelineBoardService = async ({
         },
         group: ["stageId"],
         raw: true
-    }) as unknown as { stageId: number; count: string; totalValue: string }[];
+    }) as any[];
 
     const statsMap = stats.reduce((acc, curr) => {
         acc[curr.stageId] = {
             count: parseInt(curr.count, 10),
-            totalValue: parseFloat(curr.totalValue || "0")
+            totalValue: parseFloat(curr.totalValue || "0"),
+            forecastValue: parseFloat(curr.forecastValue || "0"),
+            highRiskCount: parseInt(curr.highRiskCount || "0", 10)
         };
         return acc;
-    }, {} as Record<number, { count: number; totalValue: number }>);
+    }, {} as any);
 
-    // 3. Função para buscar oportunidades de um estágio com cursor
+    // 3. Função para buscar oportunidades com filtros e IA
     const getOpportunitiesForStage = async (sId: number, sCursor?: string) => {
         const where: any = {
             stageId: sId,
@@ -101,12 +134,57 @@ const ListPipelineBoardService = async ({
             status: "OPEN"
         };
 
+        // Filtros Inteligentes
+        if (filter) {
+            if (filter.riskLevel) {
+                // Filtro via join com predictions (será feito no findAll)
+            }
+            if (filter.onlyAI) {
+                where.lastMovedBy = "AI";
+            }
+            if (filter.onlyExpired) {
+                where.slaDeadline = { [Op.lt]: new Date() };
+            }
+        }
+
+        const include: any[] = [
+            {
+                model: Contact,
+                as: "contact",
+                attributes: ["id", "name"]
+            },
+            {
+                model: OpportunityPrediction,
+                as: "prediction",
+                attributes: ["predictedCloseProbability", "riskLevel", "explanation"]
+            }
+        ];
+
+        // Se houver filtro de riskLevel ou minProbability, aplicar no include/where
+        if (filter?.riskLevel) {
+            include[1].where = { riskLevel: filter.riskLevel };
+        }
+        if (filter?.minProbability) {
+            if (!include[1].where) include[1].where = {};
+            include[1].where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
+        }
+
+        // Ordenação
+        let order: any[] = [["createdAt", "DESC"], ["id", "DESC"]];
+        if (sort === "AI_PRIORITY") {
+            // HIGH RISK primeiro, depois maior probabilidade, depois mais antigo (urgente)
+            order = [
+                [literal('"prediction"."riskLevel" = \'HIGH\''), "DESC"],
+                [literal('"prediction"."predictedCloseProbability"'), "DESC"],
+                ["slaDeadline", "ASC NULLS LAST"],
+                ["createdAt", "DESC"]
+            ];
+        }
+
         if (sCursor) {
             const [createdAt, id] = Buffer.from(sCursor, 'base64').toString('ascii').split('_');
             where[Op.or] = [
-                {
-                    createdAt: { [Op.lt]: new Date(createdAt) }
-                },
+                { createdAt: { [Op.lt]: new Date(createdAt) } },
                 {
                     createdAt: new Date(createdAt),
                     id: { [Op.lt]: parseInt(id, 10) }
@@ -116,19 +194,10 @@ const ListPipelineBoardService = async ({
 
         const opportunities = await Opportunity.findAll({
             where,
-            include: [
-                {
-                    model: Contact,
-                    as: "contact",
-                    attributes: ["id", "name"]
-                }
-            ],
-            limit: limit + 1, // Buscar um a mais para saber se tem próxima página
-            order: [
-                ["createdAt", "DESC"],
-                ["id", "DESC"]
-            ],
-            attributes: ["id", "title", "value", "status", "createdAt"]
+            include,
+            limit: limit + 1,
+            order,
+            attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy"]
         });
 
         const hasMore = opportunities.length > limit;
@@ -140,18 +209,12 @@ const ListPipelineBoardService = async ({
             nextCursor = Buffer.from(`${lastItem.createdAt.toISOString()}_${lastItem.id}`).toString('base64');
         }
 
-        return {
-            results,
-            hasMore,
-            nextCursor
-        };
+        return { results, hasMore, nextCursor };
     };
 
     // 4. Montar o Board
     const boardStages: BoardStage[] = await Promise.all(
         pipeline.stages.map(async (stage) => {
-            // Se stageId foi passado, só carregamos oportunidades para aquele estágio específico
-            // Caso contrário, carregamos a primeira página para todos (ou conforme regra de negócio)
             const shouldLoadOps = !stageId || stageId === stage.id;
 
             let opsData = { results: [], hasMore: false, nextCursor: null };
@@ -159,7 +222,7 @@ const ListPipelineBoardService = async ({
                 opsData = await getOpportunitiesForStage(stage.id, stageId === stage.id ? cursor : undefined);
             }
 
-            const stageStats = statsMap[stage.id] || { count: 0, totalValue: 0 };
+            const stageStats = statsMap[stage.id] || { count: 0, totalValue: 0, forecastValue: 0, highRiskCount: 0 };
 
             return {
                 id: stage.id,
@@ -167,15 +230,39 @@ const ListPipelineBoardService = async ({
                 order: stage.order,
                 color: stage.color,
                 totalValue: stageStats.totalValue,
+                forecastValue: stageStats.forecastValue,
                 opportunitiesCount: stageStats.count,
-                opportunities: opsData.results.map(op => ({
-                    id: op.id,
-                    title: op.title,
-                    value: Number(op.value),
-                    status: op.status,
-                    contact: op.contact,
-                    createdAt: op.createdAt
-                })),
+                highRiskCount: stageStats.highRiskCount,
+                opportunities: opsData.results.map(op => {
+                    const now = new Date();
+                    let slaStatus: "NORMAL" | "EXPIRED" | "CRITICAL" = "NORMAL";
+                    if (op.slaDeadline) {
+                        const deadline = new Date(op.slaDeadline);
+                        if (deadline < now) {
+                            slaStatus = "EXPIRED";
+                        } else if (deadline.getTime() - now.getTime() < 24 * 60 * 60 * 1000) {
+                            slaStatus = "CRITICAL";
+                        }
+                    }
+
+                    return {
+                        id: op.id,
+                        title: op.title,
+                        value: Number(op.value),
+                        status: op.status,
+                        contact: op.contact,
+                        prediction: op.prediction ? {
+                            probability: op.prediction.predictedCloseProbability,
+                            riskLevel: op.prediction.riskLevel,
+                            explanation: op.prediction.explanation
+                        } : undefined,
+                        aiSuggestedStageId: op.aiSuggestedStageId,
+                        lastMovedBy: op.lastMovedBy,
+                        slaStatus,
+                        slaDeadline: op.slaDeadline,
+                        createdAt: op.createdAt
+                    };
+                }),
                 hasMore: opsData.hasMore,
                 nextCursor: opsData.nextCursor
             };

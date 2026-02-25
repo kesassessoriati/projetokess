@@ -10,7 +10,8 @@ import {
     Default,
     ForeignKey,
     BelongsTo,
-    HasMany
+    HasMany,
+    HasOne
 } from "sequelize-typescript";
 import Company from "./Company";
 import Pipeline from "./Pipeline";
@@ -19,6 +20,7 @@ import Contact from "./Contact";
 import User from "./User";
 import OpportunityMovement from "./OpportunityMovement";
 import OpportunityEvent from "./OpportunityEvent";
+import OpportunityPrediction from "./OpportunityPrediction";
 
 @Table({
     tableName: "Opportunities",
@@ -87,12 +89,14 @@ class Opportunity extends Model<Opportunity> {
     @Column(DataType.ENUM("OPEN", "WON", "LOST"))
     status: string;
 
-    @ForeignKey(() => PipelineStage)
     @Column
     aiSuggestedStageId: number;
 
     @BelongsTo(() => PipelineStage, { foreignKey: "aiSuggestedStageId" })
     aiSuggestedStage: PipelineStage;
+
+    @Column
+    lastMovedBy: string;
 
     @Column
     version: number;
@@ -103,8 +107,11 @@ class Opportunity extends Model<Opportunity> {
     @UpdatedAt
     updatedAt: Date;
 
-    @HasMany(() => OpportunityMovement)
+    @HasMany(() => OpportunityMovement, { foreignKey: "opportunityId", as: "movements" })
     movements: OpportunityMovement[];
+
+    @HasOne(() => OpportunityPrediction, { foreignKey: "opportunityId", as: "prediction" })
+    prediction: OpportunityPrediction;
 
     @HasMany(() => OpportunityEvent)
     events: OpportunityEvent[];

@@ -1,0 +1,120 @@
+import { Op, Sequelize } from "sequelize";
+import Opportunity from "../../models/Opportunity";
+import OpportunityMovement from "../../models/OpportunityMovement";
+import AISuggestionFeedback from "../../models/AISuggestionFeedback";
+import RevenueForecastService from "./RevenueForecastService";
+import PipelineHealthScoreService from "./PipelineHealthScoreService";
+import Pipeline from "../../models/Pipeline";
+
+interface DashboardData {
+    revenue: {
+        real: number;
+        forecast: number;
+        target: number;
+        gap: number;
+    };
+    performance: {
+        winRate: number;
+        avgSalesCycle: number;
+        sellerRanking: any[];
+    };
+    risks: {
+        highRiskCount: number;
+        slaExpiredRate: number;
+        idleLeadsCount: number;
+    };
+    aiRoi: {
+        movementRate: number;
+        accuracyRate: number;
+        estimatedEfficiencyGain: number;
+    };
+    pipelineHealth: any[];
+}
+
+class GetExecutiveDashboardService {
+    public static async execute(companyId: number): Promise<DashboardData> {
+        // 1. Receita Real (WON)
+        const realRevenue = await Opportunity.sum("value", { where: { companyId, status: "WON" } }) || 0;
+
+        // 2. Forecast da IA
+        const forecastData = await RevenueForecastService.execute(companyId);
+
+        // 3. Win Rate
+        const wonCount = await Opportunity.count({ where: { companyId, status: "WON" } });
+        const lostCount = await Opportunity.count({ where: { companyId, status: "LOST" } });
+        const winRate = totalCount() > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
+
+        function totalCount() { return wonCount + lostCount; }
+
+        // 4. Ciclo Médio de Vendas (Dias)
+        const avgSalesCycleResult = await Opportunity.findOne({
+            where: { companyId, status: "WON" },
+            attributes: [
+                [Sequelize.fn("AVG", Sequelize.literal("EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400")), "avgDays"]
+            ],
+            raw: true
+        }) as any;
+        const avgSalesCycle = parseFloat(avgSalesCycleResult?.avgDays || 0);
+
+        // 5. Riscos
+        const highRiskCount = await Opportunity.count({
+            where: { companyId, status: "OPEN" },
+            include: [{ association: "prediction", where: { riskLevel: "HIGH" } }]
+        });
+
+        const totalOpen = await Opportunity.count({ where: { companyId, status: "OPEN" } });
+        const slaExpiredCount = await Opportunity.count({
+            where: { companyId, status: "OPEN", slaDeadline: { [Op.lt]: new Date() } }
+        });
+        const slaExpiredRate = totalOpen > 0 ? (slaExpiredCount / totalOpen) * 100 : 0;
+
+        // 6. ROI da IA
+        const totalMovements = await OpportunityMovement.count({ where: { companyId } });
+        const aiMovements = await OpportunityMovement.count({ where: { companyId, movedBy: "AI" } });
+        const movementRate = totalMovements > 0 ? (aiMovements / totalMovements) * 100 : 0;
+
+        const totalFeedback = await AISuggestionFeedback.count({ where: { companyId } });
+        const positiveFeedback = await AISuggestionFeedback.count({ where: { companyId, feedback: "AGREE" } });
+        const accuracyRate = totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
+
+        // 7. Saúde dos Pipelines
+        const pipelines = await Pipeline.findAll({ where: { companyId } });
+        const pipelineHealth = await Promise.all(pipelines.map(async (p) => {
+            const health = await PipelineHealthScoreService.execute(companyId, p.id);
+            return {
+                id: p.id,
+                name: p.name,
+                ...health
+            };
+        }));
+
+        const target = 1000000; // Meta fixa para exemplo, poderia vir de Settings
+
+        return {
+            revenue: {
+                real: realRevenue,
+                forecast: forecastData.currentMonth,
+                target,
+                gap: Math.max(0, target - (realRevenue + forecastData.currentMonth))
+            },
+            performance: {
+                winRate,
+                avgSalesCycle,
+                sellerRanking: forecastData.weightedBySeller
+            },
+            risks: {
+                highRiskCount,
+                slaExpiredRate,
+                idleLeadsCount: 0 // Simplificado
+            },
+            aiRoi: {
+                movementRate,
+                accuracyRate,
+                estimatedEfficiencyGain: (movementRate * 0.5) + (accuracyRate * 0.2) // Heurística de ROI
+            },
+            pipelineHealth
+        };
+    }
+}
+
+export default GetExecutiveDashboardService;

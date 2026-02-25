@@ -7,6 +7,7 @@ import PipelineStage from "../models/PipelineStage";
 import Contact from "../models/Contact";
 import User from "../models/User";
 import OpportunityMovement from "../models/OpportunityMovement";
+import AISuggestionFeedback from "../models/AISuggestionFeedback";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId } = req.query;
@@ -75,4 +76,20 @@ export const move = async (req: Request, res: Response): Promise<Response> => {
     });
 
     return res.status(200).json(opportunity);
+};
+
+export const feedback = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { suggestedStageId, actualStageId, feedback } = req.body;
+    const { companyId } = req.user;
+
+    const record = await AISuggestionFeedback.create({
+        opportunityId: Number(id),
+        companyId,
+        suggestedStageId,
+        actualStageId,
+        feedback
+    } as any);
+
+    return res.status(200).json(record);
 };

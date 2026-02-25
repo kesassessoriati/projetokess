@@ -35,7 +35,8 @@ const MoveOpportunityService = async ({
 
     try {
         await opportunity.update({
-            stageId: toStageId
+            stageId: toStageId,
+            lastMovedBy: movedBy
         });
     } catch (err) {
         if (err.name === "SequelizeOptimisticLockError") {

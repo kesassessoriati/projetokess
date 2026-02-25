@@ -88,6 +88,8 @@ import ProjectDetails from "../pages/ProjectDetails";
 import UserSchedules from "../pages/UserSchedules";
 import Agenda from "../pages/Agenda";
 import CallHistory from "../pages/CallHistory";
+import PipelineBoard from "../pages/PipelineBoard";
+import ExecutiveDashboard from "../pages/ExecutiveDashboard";
 
 import Funil from "../pages/Funil";
 import FeatureDetailPage from "../pages/landingpage/FeatureDetailPage";
@@ -223,6 +225,8 @@ const Routes = () => {
                       <Route exact path="/chats/:id?" component={Chat} isPrivate />
                       <Route exact path="/files" component={Files} isPrivate />
                       <Route exact path="/moments" component={ChatMoments} isPrivate />
+                      <Route exact path="/intelligent-board" component={PipelineBoard} isPrivate />
+                      <Route exact path="/executive-dashboard" component={ExecutiveDashboard} isPrivate />
                       <Route exact path="/Kanban" component={Kanban} isPrivate />
                       <Route exact path="/TagsKanban" component={TagsKanban} isPrivate />
                       <Route exact path="/prompts" component={Agentes} isPrivate />
