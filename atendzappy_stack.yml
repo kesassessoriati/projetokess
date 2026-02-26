@@ -72,6 +72,9 @@ services:
       #- UAZAPI_BASE_URL=https://free.uazapi.com
       #- UAZAPI_WEBHOOK_URL=https://apichat.kesassessoria.com/webhook/uazapi
 
+    command: >
+      sh -c "npx sequelize db:migrate && node dist/server.js"
+
     deploy:
       mode: replicated
       replicas: 1
@@ -81,7 +84,7 @@ services:
       resources:
         limits:
           cpus: "1"
-          memory: 1024M
+          memory: 4024M
       labels:
         - traefik.enable=true
         - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.kesassessoria.com`)
