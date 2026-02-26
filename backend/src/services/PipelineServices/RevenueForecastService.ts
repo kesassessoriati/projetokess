@@ -13,7 +13,11 @@ interface ForecastResult {
 }
 
 class RevenueForecastService {
-    public static async execute(companyId: number): Promise<ForecastResult> {
+    public static async execute(companyId: number, profile: string, userId: number): Promise<ForecastResult> {
+        const admin = profile === "admin";
+        const opWhere: any = { companyId, status: "OPEN" };
+        if (!admin) opWhere.ownerUserId = userId;
+
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -26,10 +30,7 @@ class RevenueForecastService {
 
         // Buscar todas as oportunidades abertas com predições
         const opportunities = await Opportunity.findAll({
-            where: {
-                companyId,
-                status: "OPEN"
-            },
+            where: opWhere,
             include: [
                 { model: OpportunityPrediction, as: "prediction" },
                 { model: User, as: "assignedUser", attributes: ["name"] },

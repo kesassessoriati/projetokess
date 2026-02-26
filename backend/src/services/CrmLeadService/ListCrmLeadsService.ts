@@ -8,6 +8,8 @@ interface Request {
   ownerUserId?: number;
   pageNumber?: number;
   limit?: number;
+  profile: string;
+  userId: number;
 }
 
 const ListCrmLeadsService = async ({
@@ -16,28 +18,36 @@ const ListCrmLeadsService = async ({
   status,
   ownerUserId,
   pageNumber = 1,
-  limit = 20
+  limit = 20,
+  profile,
+  userId
 }: Request) => {
   const where: WhereOptions = {
     companyId
   };
 
+  if (profile !== "admin") {
+    // Agentes só veem seus próprios leads ou leads sem dono (dependendo da regra de negócio, vou restringir aos deles)
+    where.ownerUserId = userId;
+  } else if (ownerUserId) {
+    where.ownerUserId = ownerUserId;
+  }
+
   if (status) {
     where.status = status;
   }
 
-  if (ownerUserId) {
-    where.ownerUserId = ownerUserId;
-  }
-
   if (searchParam) {
     const like = { [Op.iLike]: `%${searchParam}%` };
-    (where as any)[Op.or] = [
-      { name: like },
-      { email: like },
-      { phone: like },
-      { companyName: like }
-    ];
+    const searchCondition = {
+      [Op.or]: [
+        { name: like },
+        { email: like },
+        { phone: like },
+        { companyName: like }
+      ]
+    };
+    Object.assign(where, searchCondition);
   }
 
   const offset = (pageNumber - 1) * limit;

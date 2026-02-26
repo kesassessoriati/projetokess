@@ -5,9 +5,11 @@ import ShowCrmLeadService from "../services/CrmLeadService/ShowCrmLeadService";
 import UpdateCrmLeadService from "../services/CrmLeadService/UpdateCrmLeadService";
 import DeleteCrmLeadService from "../services/CrmLeadService/DeleteCrmLeadService";
 import ConvertCrmLeadService from "../services/CrmLeadService/ConvertCrmLeadService";
+import ImportCrmLeadsService from "../services/CrmLeadService/ImportCrmLeadsService";
+import AppError from "../errors/AppError";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
+  const { companyId, profile, id: userId } = req.user;
   const { searchParam, status, ownerUserId, pageNumber, limit } = req.query as any;
 
   const result = await ListCrmLeadsService({
@@ -16,7 +18,9 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     status,
     ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
     pageNumber: pageNumber ? Number(pageNumber) : undefined,
-    limit: limit ? Number(limit) : undefined
+    limit: limit ? Number(limit) : undefined,
+    profile,
+    userId: Number(userId)
   });
 
   return res.json(result);
@@ -46,7 +50,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     if (utmCampaign) utmParams.push(`campaign: ${utmCampaign}`);
     if (utmTerm) utmParams.push(`term: ${utmTerm}`);
     if (utmContent) utmParams.push(`content: ${utmContent}`);
-    
+
     source = `UTM: ${utmParams.join(' | ')}`;
     campaign = utmCampaign || campaign;
     medium = utmMedium || medium;
@@ -115,4 +119,27 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   });
 
   return res.status(204).send();
+};
+
+export const importLeads = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const file = req.file;
+
+  if (!file) {
+    throw new AppError("O arquivo é obrigatório");
+  }
+
+  const { ownerUserId, pipelineId, stageId, source, autoTag } = req.body;
+
+  const result = await ImportCrmLeadsService({
+    companyId,
+    filePath: file.path,
+    ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
+    pipelineId: pipelineId ? Number(pipelineId) : undefined,
+    stageId: stageId ? Number(stageId) : undefined,
+    source,
+    autoTag,
+  });
+
+  return res.status(200).json(result);
 };

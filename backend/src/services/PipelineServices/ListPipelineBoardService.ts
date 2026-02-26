@@ -19,6 +19,8 @@ interface Request {
         onlyExpired?: boolean;
     };
     sort?: "AI_PRIORITY" | "CREATED_AT";
+    profile?: string;
+    userId?: number;
 }
 
 interface BoardOpportunity {
@@ -71,7 +73,9 @@ const ListPipelineBoardService = async ({
     cursor,
     limit = 50,
     filter,
-    sort = "CREATED_AT"
+    sort = "CREATED_AT",
+    profile,
+    userId
 }: Request): Promise<BoardResponse> => {
     // 1. Buscar o Pipeline e seus Estágios
     const pipeline = await Pipeline.findOne({
@@ -107,11 +111,17 @@ const ListPipelineBoardService = async ({
                 attributes: []
             }
         ],
-        where: {
-            pipelineId,
-            companyId,
-            status: "OPEN"
-        },
+        where: (() => {
+            const w: any = {
+                pipelineId,
+                companyId,
+                status: "OPEN"
+            };
+            if (profile !== "admin" && userId) {
+                w.ownerUserId = userId;
+            }
+            return w;
+        })(),
         group: ["stageId"],
         raw: true
     }) as any[];
@@ -133,6 +143,10 @@ const ListPipelineBoardService = async ({
             companyId,
             status: "OPEN"
         };
+
+        if (profile !== "admin" && userId) {
+            where.ownerUserId = userId;
+        }
 
         // Filtros Inteligentes
         if (filter) {

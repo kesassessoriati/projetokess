@@ -33,7 +33,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const board = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
-    const { companyId } = req.user;
+    const { companyId, profile, id: userId } = req.user;
     const {
         stageId,
         cursor,
@@ -57,7 +57,9 @@ export const board = async (req: Request, res: Response): Promise<Response> => {
             onlyAI: onlyAI === "true",
             onlyExpired: onlyExpired === "true"
         },
-        sort: sort as any
+        sort: sort as any,
+        profile,
+        userId: Number(userId)
     });
 
     return res.status(200).json(pipelineBoard);

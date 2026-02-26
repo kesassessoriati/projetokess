@@ -32,16 +32,20 @@ interface DashboardData {
 }
 
 class GetExecutiveDashboardService {
-    public static async execute(companyId: number): Promise<DashboardData> {
+    public static async execute(companyId: number, profile: string, userId: number): Promise<DashboardData> {
+        const admin = profile === "admin";
+        const opWhere: any = { companyId };
+        if (!admin) opWhere.ownerUserId = userId;
+
         // 1. Receita Real (WON)
-        const realRevenue = await Opportunity.sum("value", { where: { companyId, status: "WON" } }) || 0;
+        const realRevenue = await Opportunity.sum("value", { where: { ...opWhere, status: "WON" } }) || 0;
 
         // 2. Forecast da IA
-        const forecastData = await RevenueForecastService.execute(companyId);
+        const forecastData = await RevenueForecastService.execute(companyId, profile, userId);
 
         // 3. Win Rate
-        const wonCount = await Opportunity.count({ where: { companyId, status: "WON" } });
-        const lostCount = await Opportunity.count({ where: { companyId, status: "LOST" } });
+        const wonCount = await Opportunity.count({ where: { ...opWhere, status: "WON" } });
+        const lostCount = await Opportunity.count({ where: { ...opWhere, status: "LOST" } });
         const winRate = totalCount() > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
 
         function totalCount() { return wonCount + lostCount; }
@@ -49,7 +53,7 @@ class GetExecutiveDashboardService {
         // 4. Ciclo Médio de Vendas (Dias)
         const avgSalesCycleResult = await Opportunity.findOne({
             where: {
-                companyId,
+                ...opWhere,
                 status: "WON"
             },
             attributes: [
@@ -61,13 +65,13 @@ class GetExecutiveDashboardService {
 
         // 5. Riscos
         const highRiskCount = await Opportunity.count({
-            where: { companyId, status: "OPEN" },
+            where: { ...opWhere, status: "OPEN" },
             include: [{ association: "prediction", where: { riskLevel: "HIGH" } }]
         });
 
-        const totalOpen = await Opportunity.count({ where: { companyId, status: "OPEN" } });
+        const totalOpen = await Opportunity.count({ where: { ...opWhere, status: "OPEN" } });
         const slaExpiredCount = await Opportunity.count({
-            where: { companyId, status: "OPEN", slaDeadline: { [Op.lt]: new Date() } }
+            where: { ...opWhere, status: "OPEN", slaDeadline: { [Op.lt]: new Date() } }
         });
         const slaExpiredRate = totalOpen > 0 ? (slaExpiredCount / totalOpen) * 100 : 0;
 
@@ -83,7 +87,7 @@ class GetExecutiveDashboardService {
         // 7. Saúde dos Pipelines
         const pipelines = await Pipeline.findAll({ where: { companyId } });
         const pipelineHealth = await Promise.all(pipelines.map(async (p) => {
-            const health = await PipelineHealthScoreService.execute(companyId, p.id);
+            const health = await PipelineHealthScoreService.execute(companyId, p.id, profile, userId);
             return {
                 id: p.id,
                 name: p.name,

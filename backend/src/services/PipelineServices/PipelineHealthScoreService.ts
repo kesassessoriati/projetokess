@@ -13,15 +13,19 @@ interface HealthScore {
 }
 
 class PipelineHealthScoreService {
-    public static async execute(companyId: number, pipelineId: number): Promise<HealthScore> {
+    public static async execute(companyId: number, pipelineId: number, profile: string, userId: number): Promise<HealthScore> {
+        const admin = profile === "admin";
+        const opWhere: any = { companyId, pipelineId, status: "OPEN" };
+        if (!admin) opWhere.ownerUserId = userId;
+
         // 1. Buscar todas as oportunidades do pipeline
-        const totalOpportunities = await Opportunity.count({ where: { companyId, pipelineId, status: "OPEN" } });
+        const totalOpportunities = await Opportunity.count({ where: opWhere });
 
         if (totalOpportunities === 0) return { score: 100, factors: { highRiskRate: 0, slaExpiredRate: 0, idleLeadsRate: 0, stageConcentration: 0 } };
 
         // 2. High Risk Rate
         const highRiskCount = await Opportunity.count({
-            where: { companyId, pipelineId, status: "OPEN" },
+            where: opWhere,
             include: [{
                 association: "prediction",
                 where: { riskLevel: "HIGH" }
@@ -32,9 +36,7 @@ class PipelineHealthScoreService {
         // 3. SLA Expired Rate
         const slaExpiredCount = await Opportunity.count({
             where: {
-                companyId,
-                pipelineId,
-                status: "OPEN",
+                ...opWhere,
                 slaDeadline: { [Op.lt]: new Date() }
             }
         });
@@ -45,9 +47,7 @@ class PipelineHealthScoreService {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const idleCount = await Opportunity.count({
             where: {
-                companyId,
-                pipelineId,
-                status: "OPEN",
+                ...opWhere,
                 updatedAt: { [Op.lt]: sevenDaysAgo }
             }
         });
@@ -57,7 +57,7 @@ class PipelineHealthScoreService {
         const firstStage = await PipelineStage.findOne({ where: { pipelineId }, order: [["order", "ASC"]] });
         let stageConcentration = 0;
         if (firstStage) {
-            const firstStageCount = await Opportunity.count({ where: { companyId, pipelineId, stageId: firstStage.id, status: "OPEN" } });
+            const firstStageCount = await Opportunity.count({ where: { ...opWhere, stageId: firstStage.id } });
             stageConcentration = (firstStageCount / totalOpportunities) * 100;
         }
 
