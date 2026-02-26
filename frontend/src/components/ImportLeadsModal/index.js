@@ -448,7 +448,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                             </Button>
                         </div>
 
-                        {!rows ? (
+                        {!rows || !columns ? (
                             <div {...getRootProps()} className={classes.uploadContainer}>
                                 <input {...getInputProps()} />
                                 <img src={uploadGif || ""} height={100} alt="Upload" style={{ marginBottom: 16 }} />
@@ -471,7 +471,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                 <Button
                                     variant="text"
                                     color="secondary"
-                                    onClick={() => { setRows(null); setFile(null); setColumnValue({}); }}
+                                    onClick={() => { setRows(null); setColumns(null); setFile(null); setColumnValue({}); setSelectedFields({}); setSelectedRows({}); }}
                                     style={{ marginBottom: 16 }}
                                 >
                                     Trocar Arquivo
