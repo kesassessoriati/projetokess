@@ -477,11 +477,8 @@
         updateSteps(4, true);
       };
 
-      // Remove splash screen when all elements are loaded
       window.addEventListener("load", () => {
-        if (progress < 100) {
-          window.finishProgress();
-        }
+        window.finishProgress();
       });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mic-recorder-to-mp3@2.2.2/dist/index.min.js"></script>
