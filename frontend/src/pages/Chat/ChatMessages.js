@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   Box,
   IconButton,
@@ -9,17 +9,15 @@ import {
   Button,
 } from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
-import InsertEmoticonIcon from "@material-ui/icons/InsertEmoticon"; // Ícone de emoji
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css"; // Estilo do editor
-import EmojiPicker from "emoji-picker-react"; // Seletor de emojis
-import GetAppIcon from "@material-ui/icons/GetApp"; // Ícone de download
+import InsertEmoticonIcon from "@material-ui/icons/InsertEmoticon";
+import EmojiPicker from "emoji-picker-react";
+import GetAppIcon from "@material-ui/icons/GetApp";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useDate } from "../../hooks/useDate";
 import api from "../../services/api";
 
-import waBackground from '../../assets/wa-background.png'; // Importe a imagem de fundo
+import waBackground from '../../assets/wa-background.png';
 
 const useStyles = makeStyles((theme) => ({
   mainContainer: {
@@ -38,9 +36,9 @@ const useStyles = makeStyles((theme) => ({
     height: "100%",
     ...theme.scrollbarStyles,
     backgroundColor: theme.mode === 'light' ? "#f2f2f2" : "#7f7f7f",
-    backgroundImage: `url(${waBackground})`, // Adicione a imagem de fundo aqui
-    backgroundSize: "auto", // Mantém o tamanho original da imagem
-    backgroundRepeat: "repeat", // Repete a imagem tanto horizontal quanto verticalmente
+    backgroundImage: `url(${waBackground})`,
+    backgroundSize: "auto",
+    backgroundRepeat: "repeat",
     "&::before": {
       content: '""',
       position: "absolute",
@@ -48,39 +46,44 @@ const useStyles = makeStyles((theme) => ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(255, 255, 255, 0.5)", // Overlay branco semi-transparente
-      pointerEvents: "none", // Permite interação com os elementos abaixo
+      backgroundColor: "rgba(255, 255, 255, 0.5)",
+      pointerEvents: "none",
     },
   },
   inputArea: {
     position: "relative",
     height: "auto",
     display: "flex",
-    alignItems: "flex-start", // Alinha os itens ao topo
-    padding: "20px",
+    alignItems: "flex-end", // Alinha itens para baixo para acompanhar o crescer do textarea
+    padding: "10px 20px",
+    backgroundColor: theme.palette.background.paper,
+    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
   },
-  editor: {
-    backgroundColor: "#fff",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
-    flex: 1, // Ocupa o espaço restante
-    marginLeft: "10px", // Espaço entre os botões e o editor
-    "& .ql-toolbar": {
-      borderTopLeftRadius: "4px",
-      borderTopRightRadius: "4px",
-      borderBottom: "1px solid #ccc",
-    },
-    "& .ql-container": {
-      borderBottomLeftRadius: "4px",
-      borderBottomRightRadius: "4px",
-      height: "150px", // Altura do editor
-    },
+  textArea: {
+    flex: 1,
+    border: "none",
+    outline: "none",
+    resize: "none",
+    padding: "10px",
+    borderRadius: "20px",
+    backgroundColor: theme.mode === 'light' ? "#f0f2f5" : "#eee",
+    color: theme.palette.text.primary,
+    fontFamily: "inherit",
+    fontSize: "15px",
+    lineHeight: "20px",
+    minHeight: "40px",
+    maxHeight: "180px",
+    overflowY: "auto",
+    margin: "0 10px",
+    "&::placeholder": {
+      color: "#999"
+    }
   },
   buttonContainer: {
     display: "flex",
-    flexDirection: "column", // Organiza os botões em uma coluna
-    alignItems: "center", // Centraliza os botões horizontalmente
-    gap: "10px", // Espaço entre os botões
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "5px",
   },
   boxLeft: {
     padding: "10px 10px 5px",
@@ -88,11 +91,12 @@ const useStyles = makeStyles((theme) => ({
     position: "relative",
     backgroundColor: "#ffffff",
     color: "#303030",
-    maxWidth: 300,
+    maxWidth: "80%",
     borderRadius: 10,
-    borderBottomLeftRadius: 0,
+    borderTopLeftRadius: 0,
     border: "1px solid rgba(0, 0, 0, 0.12)",
-    zIndex: 1, // Garante que as mensagens fiquem acima do overlay
+    zIndex: 1,
+    boxShadow: "0 1px 1px rgba(0,0,0,0.1)",
   },
   boxRight: {
     padding: "10px 10px 5px",
@@ -100,17 +104,31 @@ const useStyles = makeStyles((theme) => ({
     position: "relative",
     backgroundColor: "#dcf8c6",
     color: "#303030",
-    textAlign: "right",
-    maxWidth: 300,
+    textAlign: "left",
+    maxWidth: "80%",
     borderRadius: 10,
-    borderBottomRightRadius: 0,
+    borderTopRightRadius: 0,
     border: "1px solid rgba(0, 0, 0, 0.12)",
-    zIndex: 1, // Garante que as mensagens fiquem acima do overlay
+    zIndex: 1,
+    boxShadow: "0 1px 1px rgba(0,0,0,0.1)",
+  },
+  messageText: {
+    wordBreak: "break-word",
+    whiteSpace: "pre-wrap",
+    lineHeight: "1.4",
+    marginTop: "4px",
+    "& a": {
+      color: "#0366d6",
+      textDecoration: "none",
+      "&:hover": {
+        textDecoration: "underline",
+      }
+    }
   },
   emojiPicker: {
     position: "absolute",
     bottom: "100%",
-    left: 0, // Posiciona o seletor de emojis à esquerda
+    left: 10,
     zIndex: 10,
   },
   modal: {
@@ -129,10 +147,60 @@ const useStyles = makeStyles((theme) => ({
     maxHeight: "80vh",
     marginBottom: theme.spacing(2),
   },
-  downloadButton: {
-    marginTop: theme.spacing(2),
-  },
 }));
+
+const formatMessage = (text) => {
+  if (!text) return "";
+  const escapedText = String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const linkedText = escapedText.replace(urlRegex, function (url) {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
+
+  return linkedText;
+};
+
+const MessageItem = React.memo(({ item, isMine, onImageClick }) => {
+  const classes = useStyles();
+  const { datetimeToClient } = useDate();
+
+  const isHtml = /<\/?[a-z][\s\S]*>/i.test(String(item.message));
+
+  let content = "";
+  if (isHtml) {
+    content = item.message;
+  } else {
+    content = formatMessage(item.message);
+  }
+
+  const handleClick = useCallback((e) => {
+    if (e.target.tagName === "IMG") {
+      onImageClick(e.target.src);
+    }
+  }, [onImageClick]);
+
+  return (
+    <Box className={isMine ? classes.boxRight : classes.boxLeft}>
+      <Typography variant="subtitle2" style={{ fontWeight: "bold", fontSize: "0.80rem" }}>
+        {item.sender?.name || "Usuário"}
+      </Typography>
+      <div
+        className={classes.messageText}
+        onClick={handleClick}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+      <Typography variant="caption" display="block" style={{ textAlign: "right", marginTop: 4, color: "rgba(0,0,0,0.45)" }}>
+        {datetimeToClient(item.createdAt)}
+      </Typography>
+    </Box>
+  );
+});
 
 export default function ChatMessages({
   chat,
@@ -145,26 +213,26 @@ export default function ChatMessages({
 }) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
-  const { datetimeToClient } = useDate();
   const baseRef = useRef();
 
   const [contentMessage, setContentMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const textAreaRef = useRef(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (baseRef.current) {
-      baseRef.current.scrollIntoView({});
+      baseRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  };
+  }, []);
 
-  const unreadMessages = (chat) => {
-    if (chat && Array.isArray(chat.users)) {
-      const currentUser = chat.users.find((u) => u.userId === user.id);
+  const unreadMessages = useCallback((currentChat) => {
+    if (currentChat && Array.isArray(currentChat.users)) {
+      const currentUser = currentChat.users.find((u) => u.userId === user.id);
       return currentUser ? currentUser.unreads > 0 : false;
     }
     return false;
-  };
+  }, [user.id]);
 
   useEffect(() => {
     if (chat?.id && unreadMessages(chat)) {
@@ -176,159 +244,117 @@ export default function ChatMessages({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat?.id]);
 
-  const handleScroll = (e) => {
+  const handleScroll = useCallback((e) => {
     const { scrollTop } = e.currentTarget;
-    if (!pageInfo.hasMore || loading) return;
-    if (scrollTop < 600) {
+    if (!pageInfo?.hasMore || loading) return;
+    if (scrollTop < 300) {
       handleLoadMore();
     }
-  };
+  }, [pageInfo, loading, handleLoadMore]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (contentMessage.trim() !== "") {
       handleSendMessage(contentMessage);
       setContentMessage("");
+      if (textAreaRef.current) {
+        textAreaRef.current.style.height = '40px';
+      }
+    }
+  }, [contentMessage, handleSendMessage]);
+
+  const handleEmojiClick = useCallback((emojiObject) => {
+    setContentMessage((prev) => prev + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  }, []);
+
+  const handleImageClick = useCallback((imageSrc) => {
+    setSelectedImage(imageSrc);
+  }, []);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
-  // Função para adicionar emoji ao conteúdo da mensagem
-  const handleEmojiClick = (emojiObject) => {
-    setContentMessage((prevMessage) => prevMessage + emojiObject.emoji);
-    setShowEmojiPicker(false); // Fecha o seletor de emojis após a seleção
+  const handleChange = (e) => {
+    setContentMessage(e.target.value);
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = '40px';
+      const scrollHeight = textAreaRef.current.scrollHeight;
+      textAreaRef.current.style.height = Math.min(scrollHeight, 180) + 'px';
+    }
   };
 
-  // Função para abrir a imagem no modal
-  const handleImageClick = (imageSrc) => {
-    setSelectedImage(imageSrc);
-  };
-
-  // Função para fechar o modal
-  const handleCloseModal = () => {
-    setSelectedImage(null);
-  };
-
-  // Função para baixar a imagem
   const handleDownloadImage = () => {
     if (selectedImage) {
       const link = document.createElement("a");
       link.href = selectedImage;
-      link.download = "image.png"; // Nome do arquivo para download
+      link.download = "image.png";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
   };
 
-  // Configuração da barra de ferramentas do editor
-  const modules = {
-    toolbar: [
-      ["bold", "italic", "underline", "strike"], // Negrito, Itálico, Sublinhado, Taxado
-      ["image"], // Inserir imagem
-    ],
-  };
-
-  // Efeito para adicionar eventos de clique nas imagens após o render
-  useEffect(() => {
-    const images = document.querySelectorAll(".messageContent img");
-    images.forEach((img) => {
-      img.style.cursor = "pointer";
-      img.addEventListener("click", () => handleImageClick(img.src));
-    });
-
-    return () => {
-      images.forEach((img) => {
-        img.removeEventListener("click", () => handleImageClick(img.src));
-      });
-    };
-  }, [messages]);
-
   return (
     <Paper className={classes.mainContainer}>
       <div onScroll={handleScroll} className={classes.messageList}>
         {Array.isArray(messages) &&
-          messages.map((item, key) => {
-            if (item.senderId === user.id) {
-              return (
-                <Box key={key} className={classes.boxRight}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
-                  <div
-                    className="messageContent"
-                    dangerouslySetInnerHTML={{ __html: item.message }}
-                  />
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
-              );
-            } else {
-              return (
-                <Box key={key} className={classes.boxLeft}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
-                  <div
-                    className="messageContent"
-                    dangerouslySetInnerHTML={{ __html: item.message }}
-                  />
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
-              );
-            }
-          })}
+          messages.map((item, key) => (
+            <MessageItem
+              key={item.id || key}
+              item={item}
+              isMine={item.senderId === user.id}
+              onImageClick={handleImageClick}
+            />
+          ))}
         <div ref={baseRef}></div>
       </div>
+
       <div className={classes.inputArea}>
-        <div className={classes.buttonContainer}>
-          <IconButton
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            style={{
-              backgroundColor: "#40BFFF", // Azul claro
-              padding: "8px",
-              borderRadius: "10px",
-            }}
-          >
-            <InsertEmoticonIcon style={{ color: "#fff" }} />
-          </IconButton>
-          <IconButton
-            style={{
-              backgroundColor: "#4ec24e", // Verde
-              padding: "8px",
-              borderRadius: "10px",
-            }}
-            onClick={handleSend}
-          >
-            <SendIcon style={{ color: "#fff" }} />
-          </IconButton>
-        </div>
         {showEmojiPicker && (
           <div className={classes.emojiPicker}>
             <EmojiPicker onEmojiClick={handleEmojiClick} />
           </div>
         )}
-        <ReactQuill
+        <div className={classes.buttonContainer}>
+          <IconButton
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            style={{ backgroundColor: "transparent", padding: "8px" }}
+          >
+            <InsertEmoticonIcon style={{ color: "#888" }} />
+          </IconButton>
+        </div>
+
+        <textarea
+          ref={textAreaRef}
           value={contentMessage}
-          onChange={setContentMessage}
-          className={classes.editor}
-          modules={modules} // Aplica a configuração da barra de ferramentas
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          className={classes.textArea}
+          placeholder="Digite uma mensagem..."
+          rows={1}
         />
+
+        <div className={classes.buttonContainer}>
+          <IconButton
+            onClick={handleSend}
+            disabled={!contentMessage.trim()}
+            style={{
+              backgroundColor: contentMessage.trim() ? "#4ec24e" : "#e0e0e0",
+              padding: "10px",
+            }}
+          >
+            <SendIcon style={{ color: "#fff", fontSize: "1.2rem" }} />
+          </IconButton>
+        </div>
       </div>
 
-      {/* Modal para exibir a imagem ampliada */}
-      <Modal
-        open={!!selectedImage}
-        onClose={handleCloseModal}
-        className={classes.modal}
-      >
+      <Modal open={!!selectedImage} onClose={() => setSelectedImage(null)} className={classes.modal}>
         <div className={classes.modalContent}>
-          <img
-            src={selectedImage}
-            alt="Ampliada"
-            className={classes.modalImage}
-          />
+          <img src={selectedImage} alt="Ampliada" className={classes.modalImage} />
           <Button
             variant="contained"
             color="primary"
@@ -339,6 +365,7 @@ export default function ChatMessages({
               backgroundColor: "#437db5",
               boxShadow: "none",
               borderRadius: 0,
+              marginTop: 10
             }}
           >
             Baixar Imagem

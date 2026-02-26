@@ -32,7 +32,7 @@ const FindMessages = async ({
     throw new AppError("UNAUTHORIZED", 400);
   }
 
-  const limit = 20;
+  const limit = 30;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: records } = await ChatMessage.findAndCountAll({
