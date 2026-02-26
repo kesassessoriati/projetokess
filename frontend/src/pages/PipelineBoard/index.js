@@ -43,6 +43,8 @@ import api from "../../services/api";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "react-toastify";
+import ImportLeadsModal from "../../components/ImportLeadsModal";
+import GetAppIcon from '@material-ui/icons/GetApp';
 
 const fCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -259,6 +261,9 @@ const PipelineBoard = () => {
     const [loading, setLoading] = useState(false);
     const [sort, setSort] = useState("CREATED_AT");
 
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [importStageId, setImportStageId] = useState("");
+
     // Filtros
     const [filterModalOpen, setFilterModalOpen] = useState(false);
     const [riskFilter, setRiskFilter] = useState("");
@@ -308,6 +313,15 @@ const PipelineBoard = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOpenImport = (stageId = "") => {
+        setImportStageId(stageId);
+        setImportModalOpen(true);
+    };
+
+    const handleImportSuccess = () => {
+        fetchBoard();
     };
 
     const handleAiFeedback = async (feedback) => {
@@ -406,8 +420,15 @@ const PipelineBoard = () => {
                     <Box key={stage.id} className={classes.lane}>
                         <div className={classes.laneHeader} style={{ backgroundColor: stage.color || "#475569" }}>
                             <div className={classes.laneTitle}>
-                                {stage.name}
-                                <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem" }}>{stage.opportunitiesCount}</span>
+                                <Box display="flex" alignItems="center">
+                                    {stage.name}
+                                    <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>{stage.opportunitiesCount}</span>
+                                </Box>
+                                <Tooltip title="Importar Leads para este estágio">
+                                    <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: "rgba(255,255,255,0.7)" }}>
+                                        <GetAppIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
                             </div>
                             <div className={classes.laneStats}>
                                 <span>Real: {fCurrency(stage.totalValue)}</span>
@@ -493,6 +514,14 @@ const PipelineBoard = () => {
                     <Button onClick={() => setFilterModalOpen(false)} color="primary" variant="contained">Aplicar</Button>
                 </DialogActions>
             </Dialog>
+
+            <ImportLeadsModal
+                open={importModalOpen}
+                onClose={() => setImportModalOpen(false)}
+                defaultPipelineId={selectedPipelineId}
+                defaultStageId={importStageId}
+                onSuccess={handleImportSuccess}
+            />
         </Box>
     );
 };

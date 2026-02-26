@@ -21,6 +21,7 @@ import PeopleAltIcon from "@material-ui/icons/PeopleAlt";
 
 import api from "../../services/api";
 import LeadModal from "../../components/LeadModal";
+import ImportLeadsModal from "../../components/ImportLeadsModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 
@@ -267,6 +268,7 @@ const Leads = () => {
   const [searchParam, setSearchParam] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [deletingLead, setDeletingLead] = useState(null);
@@ -387,6 +389,12 @@ const Leads = () => {
         onSuccess={handleModalSuccess}
       />
 
+      <ImportLeadsModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+
       <ConfirmationModal
         open={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
@@ -438,6 +446,14 @@ const Leads = () => {
               </MenuItem>
             ))}
           </TextField>
+          <Button
+            variant="contained"
+            style={{ backgroundColor: "#10b981", color: "#fff", marginRight: 8 }}
+            startIcon={<AddIcon />}
+            onClick={() => setImportModalOpen(true)}
+          >
+            Importar Leads
+          </Button>
           <Button
             variant="contained"
             color="primary"
