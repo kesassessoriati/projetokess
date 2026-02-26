@@ -14,6 +14,12 @@ interface Request {
   document?: string;
   companyName?: string;
   position?: string;
+  decisionMakerName?: string;
+  decisionMakerPhone?: string;
+  gmn?: string;
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
   source?: string;
   campaign?: string;
   medium?: string;

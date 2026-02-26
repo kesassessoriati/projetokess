@@ -11,6 +11,7 @@ interface Request {
     stageId?: number;
     source?: string;
     autoTag?: string;
+    mapping?: Record<string, string>;
 }
 
 const ImportCrmLeadsService = async ({
@@ -20,7 +21,8 @@ const ImportCrmLeadsService = async ({
     pipelineId,
     stageId,
     source,
-    autoTag
+    autoTag,
+    mapping
 }: Request): Promise<{ total: number; imported: number; errors: any[] }> => {
     try {
         const workbook = xlsx.readFile(filePath);
@@ -34,19 +36,35 @@ const ImportCrmLeadsService = async ({
         let imported = 0;
         const errors: any[] = [];
 
-        // Validar os cabeçalhos esperados
-        const firstRow: any = xlData[0];
-        const hasNameOrPhone = firstRow.hasOwnProperty("name") || firstRow.hasOwnProperty("nome") ||
-            firstRow.hasOwnProperty("phone") || firstRow.hasOwnProperty("telefone") ||
-            firstRow.hasOwnProperty("numero");
+        // Ignorando validação estrita se tiver mapping
+        if (!mapping || Object.keys(mapping).length === 0) {
+            const firstRow: any = xlData[0];
+            const hasNameOrPhone = firstRow.hasOwnProperty("name") || firstRow.hasOwnProperty("nome") ||
+                firstRow.hasOwnProperty("phone") || firstRow.hasOwnProperty("telefone") ||
+                firstRow.hasOwnProperty("numero");
 
-        if (!hasNameOrPhone) {
-            throw new AppError("O arquivo deve conter as colunas 'name' (ou 'nome') e 'phone' (ou 'telefone').");
+            if (!hasNameOrPhone) {
+                throw new AppError("O arquivo deve conter as colunas 'name' (ou 'nome') e 'phone' (ou 'telefone').");
+            }
         }
+
+        // Descobrir qual o formato do JSON. Se array of arrays (header: 1) ou objects.
+        // O `xlsx.utils.sheet_to_json` retorna array de objetos com as chaves sendo o cabeçalho.
+        // Porem, se o upload mandou array of arrays o frontend deve tratar isso. No backend assumimos array de docs (objs).
 
         for (let index = 0; index < xlData.length; index++) {
             try {
-                const leadRow: any = xlData[index];
+                const rowOriginal: any = xlData[index];
+
+                // Aplicar mapeamento
+                const leadRow: any = {};
+                if (mapping && Object.keys(mapping).length > 0) {
+                    for (const [colName, fieldKey] of Object.entries(mapping)) {
+                        leadRow[fieldKey] = rowOriginal[colName];
+                    }
+                } else {
+                    Object.assign(leadRow, rowOriginal);
+                }
 
                 const name = leadRow.name || leadRow.nome || `Lead #${index + 1}`;
                 const phone = leadRow.phone || leadRow.telefone || leadRow.numero || null;
@@ -70,12 +88,18 @@ const ImportCrmLeadsService = async ({
                     ownerUserId,
                     pipelineId,
                     stageId,
-                    source: source || String(leadRow.source || leadRow.origem || ""),
+                    source: String(leadRow.source || leadRow.origem || source || ""),
                     campaign: String(leadRow.campaign || leadRow.campanha || ""),
                     notes,
                     temperature: leadRow.temperature || leadRow.temperatura || null,
                     position: String(leadRow.position || leadRow.cargo || ""),
                     companyName: String(leadRow.companyName || leadRow.empresa || ""),
+                    decisionMakerName: leadRow.decisionMakerName ? String(leadRow.decisionMakerName) : undefined,
+                    decisionMakerPhone: leadRow.decisionMakerPhone ? String(leadRow.decisionMakerPhone) : undefined,
+                    gmn: leadRow.gmn ? String(leadRow.gmn) : undefined,
+                    website: leadRow.website ? String(leadRow.website) : undefined,
+                    instagram: leadRow.instagram ? String(leadRow.instagram) : undefined,
+                    linkedin: leadRow.linkedin ? String(leadRow.linkedin) : undefined,
                 });
 
                 imported++;

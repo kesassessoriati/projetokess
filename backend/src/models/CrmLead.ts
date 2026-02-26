@@ -61,6 +61,24 @@ class CrmLead extends Model<CrmLead> {
   @Column
   position: string;
 
+  @Column({ field: "decision_maker_name" })
+  decisionMakerName: string;
+
+  @Column({ field: "decision_maker_phone" })
+  decisionMakerPhone: string;
+
+  @Column
+  gmn: string;
+
+  @Column
+  website: string;
+
+  @Column
+  instagram: string;
+
+  @Column
+  linkedin: string;
+
   @Column
   source: string;
 

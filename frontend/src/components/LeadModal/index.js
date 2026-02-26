@@ -47,7 +47,7 @@ const getUTMParameters = () => {
   const utmCampaign = params.get('utm_campaign');
   const utmTerm = params.get('utm_term');
   const utmContent = params.get('utm_content');
-  
+
   if (utmSource || utmMedium || utmCampaign) {
     const utmParams = [];
     if (utmSource) utmParams.push(`source: ${utmSource}`);
@@ -55,29 +55,35 @@ const getUTMParameters = () => {
     if (utmCampaign) utmParams.push(`campaign: ${utmCampaign}`);
     if (utmTerm) utmParams.push(`term: ${utmTerm}`);
     if (utmContent) utmParams.push(`content: ${utmContent}`);
-    
+
     return {
       source: `UTM: ${utmParams.join(' | ')}`,
       campaign: utmCampaign || ''
     };
   }
-  
+
   return { source: '', campaign: '' };
 };
 
 const defaultForm = {
   name: "",
+  companyName: "",
+  decisionMakerName: "",
   email: "",
   phone: "",
-  birthDate: "",
-  document: "",
-  companyName: "",
+  decisionMakerPhone: "",
+  gmn: "",
+  website: "",
+  instagram: "",
+  linkedin: "",
   position: "",
   source: "",
   campaign: "",
   status: "new",
-  score: 0,
+  pipelineId: "",
+  stageId: "",
   temperature: "",
+  score: 0,
   ownerUserId: "",
   notes: ""
 };
@@ -88,20 +94,26 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState([]);
+  const [pipelines, setPipelines] = useState([]);
+  const [stages, setStages] = useState([]);
 
   useEffect(() => {
     if (!open) return;
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await api.get("/users/");
-        setUsers(data.users || []);
+        const [{ data: usersData }, { data: pipelinesData }] = await Promise.all([
+          api.get("/users/"),
+          api.get("/pipelines")
+        ]);
+        setUsers(usersData.users || []);
+        setPipelines(pipelinesData || []);
       } catch (err) {
         toastError(err);
       }
     };
 
-    fetchUsers();
+    fetchData();
 
     if (leadId) {
       loadLead();
@@ -110,7 +122,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
       const utmData = getUTMParameters();
       console.log('🔍 UTMs detectadas:', utmData);
       console.log('🌐 URL atual:', window.location.search);
-      
+
       setForm({
         ...defaultForm,
         source: utmData.source || defaultForm.source,
@@ -120,25 +132,29 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId, open]);
 
+  useEffect(() => {
+    if (form.pipelineId && pipelines.length > 0) {
+      const selectedPipeline = pipelines.find((p) => p.id === form.pipelineId);
+      if (selectedPipeline && selectedPipeline.stages) {
+        setStages(selectedPipeline.stages);
+      } else {
+        setStages([]);
+      }
+    } else {
+      setStages([]);
+    }
+  }, [form.pipelineId, pipelines]);
+
   const loadLead = async () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/crm/leads/${leadId}`);
       setForm({
-        name: data.name || "",
-        email: data.email || "",
-        phone: data.phone || "",
+        ...defaultForm,
+        ...data,
         birthDate: data.birthDate ? data.birthDate.substring(0, 10) : "",
-        document: data.document || "",
-        companyName: data.companyName || "",
-        position: data.position || "",
-        source: data.source || "",
-        campaign: data.campaign || "",
-        status: data.status || "new",
         score: data.score || 0,
-        temperature: data.temperature || "",
-        ownerUserId: data.ownerUserId || "",
-        notes: data.notes || ""
+        status: data.status || "new"
       });
     } catch (err) {
       toastError(err);
@@ -206,62 +222,16 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
         ) : (
           <form onSubmit={handleSubmit} id="lead-form">
             <Grid container spacing={2}>
+              {/* Row 1 */}
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Nome"
+                  label="Nome Contato"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
                   variant="outlined"
                   fullWidth
                   required
-                  className={classes.formField}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                  type="email"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Telefone"
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Data de nascimento"
-                  name="birthDate"
-                  value={form.birthDate}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Documento"
-                  name="document"
-                  value={form.document}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
                   className={classes.formField}
                 />
               </Grid>
@@ -276,6 +246,105 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
+
+              {/* Row 2 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Nome decisor"
+                  name="decisionMakerName"
+                  value={form.decisionMakerName}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="E-mail"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  type="email"
+                />
+              </Grid>
+
+              {/* Row 3 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Telefone"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Telefone decisor"
+                  name="decisionMakerPhone"
+                  value={form.decisionMakerPhone}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+
+              {/* Row 4 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="GMN"
+                  name="gmn"
+                  value={form.gmn}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Site"
+                  name="website"
+                  value={form.website}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+
+              {/* Row 5 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Instagram"
+                  name="instagram"
+                  value={form.instagram}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Linkedin"
+                  name="linkedin"
+                  value={form.linkedin}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+
+              {/* Row 6 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Cargo"
@@ -289,7 +358,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Fonte"
+                  label="Origem"
                   name="source"
                   value={form.source}
                   onChange={handleChange}
@@ -298,9 +367,11 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
+
+              {/* Row 7 */}
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Campanha"
+                  label="Campanha/Tag"
                   name="campaign"
                   value={form.campaign}
                   onChange={handleChange}
@@ -309,7 +380,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   select
                   label="Status"
@@ -327,7 +398,50 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={4}>
+
+              {/* Row 8 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Funil de Vendas"
+                  name="pipelineId"
+                  value={form.pipelineId}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  <MenuItem value="">Não vincular</MenuItem>
+                  {pipelines.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Estágio Funil"
+                  name="stageId"
+                  value={form.stageId}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  disabled={!form.pipelineId}
+                >
+                  <MenuItem value="">Selecione...</MenuItem>
+                  {stages.map((st) => (
+                    <MenuItem key={st.id} value={st.id}>
+                      {st.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              {/* Row 9 */}
+              <Grid item xs={12} sm={6}>
                 <TextField
                   select
                   label="Temperatura"
@@ -346,7 +460,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="Score"
                   name="score"
@@ -359,10 +473,12 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   inputProps={{ min: 0 }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              {/* Row 10 */}
+              <Grid item xs={12} sm={12}>
                 <TextField
                   select
-                  label="Responsável"
+                  label="Atribuir a"
                   name="ownerUserId"
                   value={form.ownerUserId}
                   onChange={handleChange}
@@ -380,6 +496,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   ))}
                 </TextField>
               </Grid>
+
+              {/* Row 11 */}
               <Grid item xs={12}>
                 <TextField
                   label="Observações"
@@ -393,6 +511,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
                   rows={3}
                 />
               </Grid>
+
             </Grid>
           </form>
         )}

@@ -129,7 +129,16 @@ export const importLeads = async (req: Request, res: Response): Promise<Response
     throw new AppError("O arquivo é obrigatório");
   }
 
-  const { ownerUserId, pipelineId, stageId, source, autoTag } = req.body;
+  const { ownerUserId, pipelineId, stageId, source, autoTag, mapping } = req.body;
+
+  let parsedMapping;
+  if (mapping) {
+    try {
+      parsedMapping = JSON.parse(mapping);
+    } catch (err) {
+      throw new AppError("Mapeamento inválido");
+    }
+  }
 
   const result = await ImportCrmLeadsService({
     companyId,
@@ -139,6 +148,7 @@ export const importLeads = async (req: Request, res: Response): Promise<Response
     stageId: stageId ? Number(stageId) : undefined,
     source,
     autoTag,
+    mapping: parsedMapping,
   });
 
   return res.status(200).json(result);
