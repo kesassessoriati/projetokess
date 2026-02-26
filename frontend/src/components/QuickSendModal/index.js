@@ -28,6 +28,8 @@ import ErrorIcon from '@material-ui/icons/Error';
 import WifiIcon from '@material-ui/icons/Wifi';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import PersonAddIcon from '@material-ui/icons/PersonAdd';
+import AttachFileIcon from '@material-ui/icons/AttachFile';
+import HighlightOffIcon from '@material-ui/icons/HighlightOff';
 import { toast } from 'react-toastify';
 import { useHistory } from 'react-router-dom';
 import api from '../../services/api';
@@ -244,6 +246,7 @@ export default function QuickSendModal({ open, onClose }) {
     const [message, setMessage] = useState('');
     const [whatsappId, setWhatsappId] = useState('');
     const [queueId, setQueueId] = useState('');
+    const [medias, setMedias] = useState([]);
 
     // Estado da operação
     const [loading, setLoading] = useState(false);
@@ -260,6 +263,7 @@ export default function QuickSendModal({ open, onClose }) {
         setMessage('');
         setWhatsappId('');
         setQueueId('');
+        setMedias([]);
         setLoading(false);
 
         const load = async () => {
@@ -281,12 +285,33 @@ export default function QuickSendModal({ open, onClose }) {
         load();
     }, [open]);
 
+    // ─── Manipular Arquivos ───────────────────────────────────────────────
+    const handleChangeMedias = (e) => {
+        if (!e.target.files) return;
+
+        const selectedFiles = Array.from(e.target.files);
+        // Validando tamanho de aprox. 10MB
+        const validFiles = selectedFiles.filter(file => file.size <= 10 * 1024 * 1024);
+
+        if (validFiles.length < selectedFiles.length) {
+            toast.error("Alguns arquivos excedem o tamanho máximo de 10MB.");
+        }
+
+        setMedias([...medias, ...validFiles]);
+    };
+
+    const handleRemoveMedia = (index) => {
+        const newMedias = [...medias];
+        newMedias.splice(index, 1);
+        setMedias(newMedias);
+    };
+
     // ─── Normaliza número ────────────────────────────────────────────────────
     const normalizedNumber = number.replace(/\D/g, '');
 
     // ─── Validação inline ────────────────────────────────────────────────────
     const isNumberValid = normalizedNumber.length >= 10 && normalizedNumber.length <= 15;
-    const canSend = isNumberValid && message.trim().length > 0 && whatsappId;
+    const canSend = isNumberValid && (message.trim().length > 0 || medias.length > 0) && whatsappId;
 
     // ─── Envio ───────────────────────────────────────────────────────────────
     const handleSend = async () => {
@@ -295,18 +320,30 @@ export default function QuickSendModal({ open, onClose }) {
         setResult(null);
 
         try {
-            const resp = await api.post('/quick-send', {
-                number: normalizedNumber,
-                message: message.trim(),
-                whatsappId: Number(whatsappId),
-                name: name.trim() || undefined,
-                queueId: queueId ? Number(queueId) : undefined,
-                createIfNotExists: true,
-            }, { timeout: 20000 });
+            const formData = new FormData();
+            formData.append('number', normalizedNumber);
+            formData.append('message', message.trim());
+            formData.append('whatsappId', Number(whatsappId));
+            if (name.trim()) formData.append('name', name.trim());
+            if (queueId) formData.append('queueId', Number(queueId));
+            formData.append('createIfNotExists', 'true');
+
+            medias.forEach(media => {
+                formData.append('medias', media);
+            });
+
+            const resp = await api.post('/quick-send', formData, {
+                timeout: 30000,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
 
             const { ticket } = resp.data;
             setResult({ type: 'success', msg: 'Mensagem enviada com sucesso! ✓', ticket });
             toast.success('Mensagem enviada!');
+
+            // Clear message and attachments after sending if user wants to send more 
+            setMessage('');
+            setMedias([]);
         } catch (err) {
             if (err?.response?.status === 206) {
                 // Parcial: ticket criado mas mensagem falhou
@@ -489,9 +526,40 @@ export default function QuickSendModal({ open, onClose }) {
 
                     {/* ── Mensagem ──────────────────────────────────────────────────── */}
                     <Box className={classes.messageCard}>
-                        <Typography className={classes.sectionLabel}>
-                            Mensagem
-                        </Typography>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                            <Typography className={classes.sectionLabel} style={{ marginBottom: 0 }}>
+                                Mensagem e Anexos
+                            </Typography>
+                            <input
+                                type="file"
+                                multiple
+                                style={{ display: 'none' }}
+                                id="quick-send-upload"
+                                onChange={handleChangeMedias}
+                            />
+                            <label htmlFor="quick-send-upload">
+                                <IconButton component="span" size="small" style={{ color: '#075E54' }}>
+                                    <AttachFileIcon fontSize="small" />
+                                </IconButton>
+                            </label>
+                        </Box>
+
+                        {medias.length > 0 && (
+                            <Box display="flex" flexWrap="wrap" mb={2} style={{ gap: 4 }}>
+                                {medias.map((media, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        size="small"
+                                        label={media.name}
+                                        onDelete={() => handleRemoveMedia(idx)}
+                                        deleteIcon={<HighlightOffIcon />}
+                                        style={{ maxWidth: '100%' }}
+                                        title={`${(media.size / 1024 / 1024).toFixed(2)} MB`}
+                                    />
+                                ))}
+                            </Box>
+                        )}
+
                         <TextField
                             id="quick-send-message"
                             fullWidth
@@ -555,7 +623,7 @@ export default function QuickSendModal({ open, onClose }) {
                     onClick={handleSend}
                     disabled={!canSend || loading}
                 >
-                    {loading ? 'Enviando...' : 'Enviar mensagem'}
+                    {loading ? 'Enviando...' : 'Enviar'}
                 </Button>
             </DialogActions>
         </Dialog>

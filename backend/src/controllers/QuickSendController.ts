@@ -13,7 +13,10 @@ import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUp
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
+import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
+import fs from "fs";
+import path from "path";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import CreateLogTicketService from "../services/TicketServices/CreateLogTicketService";
 import { Op } from "sequelize";
@@ -54,9 +57,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             number: Yup.string()
                 .matches(/^\d{10,15}$/, "Número inválido. Use apenas dígitos (DDD+número, sem código do país ou com 55)")
                 .required("Número é obrigatório"),
-            message: Yup.string()
-                .min(1, "Mensagem não pode ser vazia")
-                .required("Mensagem é obrigatória"),
+            message: Yup.string().nullable(),
             whatsappId: Yup.number().required("Selecione uma conexão WhatsApp")
         });
 
@@ -168,14 +169,41 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 5. Enviar mensagem ───────────────────────────────────────────────────
+        const medias = req.files as Express.Multer.File[];
+
         try {
-            logger.info({ ticketId: ticket.id }, "QuickSend: Sending message");
-            await SendWhatsAppMessage({
-                body: message,
-                ticket,
-                quotedMsg: null
-            });
-            logger.info({ ticketId: ticket.id }, "QuickSend: Message sent successfully");
+            logger.info({ ticketId: ticket.id }, "QuickSend: Sending message(s)");
+
+            if (medias && medias.length > 0) {
+                await Promise.all(
+                    medias.map(async (media: Express.Multer.File, index: number) => {
+                        const bodyMsg = index === 0 ? (message || "") : "";
+                        await SendWhatsAppMedia({
+                            media,
+                            ticket,
+                            body: bodyMsg,
+                            isPrivate: false,
+                            isForwarded: false
+                        });
+
+                        const filePath = path.resolve("public", `company${companyId}`, media.filename);
+                        const fileExists = fs.existsSync(filePath);
+                        if (fileExists) {
+                            fs.unlinkSync(filePath);
+                        }
+                    })
+                );
+            } else if (message) {
+                await SendWhatsAppMessage({
+                    body: message,
+                    ticket,
+                    quotedMsg: null
+                });
+            } else {
+                return res.status(400).json({ error: "É necessário enviar uma mensagem texto ou um anexo." });
+            }
+
+            logger.info({ ticketId: ticket.id }, "QuickSend: Message/Media sent successfully");
         } catch (sendErr) {
             logger.error({ ticketId: ticket.id, err: sendErr.message }, "QuickSend: Error sending message");
             return res.status(206).json({

@@ -1,8 +1,11 @@
 import express from "express";
+import multer from "multer";
 import isAuth from "../middleware/isAuth";
+import uploadConfig from "../config/upload";
 import * as QuickSendController from "../controllers/QuickSendController";
 
 const quickSendRoutes = express.Router();
+const upload = multer(uploadConfig);
 
 // ─── Lista conexões disponíveis para o dropdown do modal ──────────────────────
 quickSendRoutes.get(
@@ -15,6 +18,7 @@ quickSendRoutes.get(
 quickSendRoutes.post(
     "/quick-send",
     isAuth,
+    upload.array("medias"),
     QuickSendController.quickSend
 );
 
