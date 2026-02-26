@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import {
     makeStyles,
     Typography,
@@ -8,7 +8,14 @@ import {
     CircularProgress,
     Divider,
     LinearProgress,
-    Tooltip
+    Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Button,
+    IconButton
 } from "@material-ui/core";
 import {
     TrendingUp,
@@ -18,11 +25,15 @@ import {
     Timeline,
     EmojiEvents,
     Timer,
-    Info as InfoIcon
+    Info as InfoIcon,
+    Edit,
+    GetApp,
+    EventAvailable
 } from "@mui/icons-material";
 import ReactApexChart from "react-apexcharts";
 import api from "../../services/api";
 import { toast } from "react-toastify";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const fCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -72,13 +83,27 @@ const useStyles = makeStyles((theme) => ({
         height: 10,
         borderRadius: 5,
         backgroundColor: "#e2e8f0"
+    },
+    "@media print": {
+        container: {
+            padding: 0,
+            background: "#fff",
+            "& button": { display: "none" }
+        },
+        card: {
+            boxShadow: "none !important",
+            border: "1px solid #e2e8f0 !important"
+        }
     }
 }));
 
 const ExecutiveDashboard = () => {
     const classes = useStyles();
+    const { user } = useContext(AuthContext);
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
+    const [goalModalOpen, setGoalModalOpen] = useState(false);
+    const [newGoal, setNewGoal] = useState("");
 
     useEffect(() => {
         fetchDashboard();
@@ -92,6 +117,19 @@ const ExecutiveDashboard = () => {
             toast.error("Erro ao carregar dados estratégicos");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveGoal = async () => {
+        try {
+            const key = user.profile === "admin" ? "executive_goal" : `executive_goal_${user.id}`;
+            await api.put(`/settings/${key}`, { value: newGoal.replace(/\D/g, "") });
+            toast.success("Meta atualizada com sucesso!");
+            setGoalModalOpen(false);
+            setLoading(true);
+            fetchDashboard();
+        } catch (err) {
+            toast.error("Erro ao salvar a meta.");
         }
     };
 
@@ -117,7 +155,12 @@ const ExecutiveDashboard = () => {
 
     return (
         <Box className={classes.container}>
-            <Typography variant="h3" className={classes.title}>Revenue Intelligence Hub</Typography>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+                <Typography variant="h3" className={classes.title} style={{ marginBottom: 0 }}>Revenue Intelligence Hub</Typography>
+                <Button variant="contained" color="primary" startIcon={<GetApp />} onClick={() => window.print()}>
+                    Exportar PDF
+                </Button>
+            </Box>
 
             <Grid container spacing={4}>
                 {/* Bloco 1 - Receita */}
@@ -148,9 +191,14 @@ const ExecutiveDashboard = () => {
 
                 <Grid item xs={12} md={3}>
                     <Paper className={classes.card}>
-                        <Box>
-                            <Typography className={classes.metricLabel}>Gap p/ Meta</Typography>
-                            <Typography className={classes.metricValue} style={{ color: "#ef4444" }}>{fCurrency(data.revenue.gap)}</Typography>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                            <Box>
+                                <Typography className={classes.metricLabel}>Gap p/ Meta</Typography>
+                                <Typography className={classes.metricValue} style={{ color: "#ef4444" }}>{fCurrency(data.revenue.gap)}</Typography>
+                            </Box>
+                            <IconButton size="small" onClick={() => { setNewGoal(data.revenue.target); setGoalModalOpen(true); }}>
+                                <Edit fontSize="small" color="primary" />
+                            </IconButton>
                         </Box>
                         <Typography variant="caption" color="textSecondary">Meta: {fCurrency(data.revenue.target)}</Typography>
                     </Paper>
@@ -162,6 +210,36 @@ const ExecutiveDashboard = () => {
                         <Typography variant="h4" style={{ fontWeight: 900, marginTop: 8 }}>+{data.aiRoi.estimatedEfficiencyGain.toFixed(1)}%</Typography>
                         <Typography variant="caption" style={{ opacity: 0.7 }}>Aumento de eficiência operacional detectado pela IA</Typography>
                     </Box>
+                </Grid>
+
+                {/* Bloco de Leads Gerados/Reuniões */}
+                <Grid item xs={12} md={3}>
+                    <Paper className={classes.card} style={{ alignItems: "center", textAlign: "center" }}>
+                        <EventAvailable style={{ fontSize: 40, color: "#8b5cf6" }} />
+                        <Typography variant="h4" style={{ fontWeight: 900, margin: "10px 0" }}>{data.leads.scheduledToday}</Typography>
+                        <Typography className={classes.metricLabel}>Reuniões Hoje</Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                    <Paper className={classes.card} style={{ alignItems: "center", textAlign: "center" }}>
+                        <EventAvailable style={{ fontSize: 40, color: "#10b981" }} />
+                        <Typography variant="h4" style={{ fontWeight: 900, margin: "10px 0" }}>{data.leads.totalScheduled}</Typography>
+                        <Typography className={classes.metricLabel}>Total de Reuniões</Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                    <Paper className={classes.card} style={{ alignItems: "center", textAlign: "center" }}>
+                        <Timeline style={{ fontSize: 40, color: "#3b82f6" }} />
+                        <Typography variant="h4" style={{ fontWeight: 900, margin: "10px 0" }}>{data.leads.totalGenerated}</Typography>
+                        <Typography className={classes.metricLabel}>Total de Leads Gerados</Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                    <Paper className={classes.card} style={{ alignItems: "center", textAlign: "center" }}>
+                        <TrendingUp style={{ fontSize: 40, color: "#f59e0b" }} />
+                        <Typography variant="h4" style={{ fontWeight: 900, margin: "10px 0" }}>{data.leads.totalConverted}</Typography>
+                        <Typography className={classes.metricLabel}>Leads Convertidos</Typography>
+                    </Paper>
                 </Grid>
 
                 {/* Bloco 2 - Gráficos e Saúde */}
@@ -248,6 +326,34 @@ const ExecutiveDashboard = () => {
                 </Grid>
 
             </Grid>
+
+            {/* Modal de Editar Meta */}
+            <Dialog open={goalModalOpen} onClose={() => setGoalModalOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Ajustar Meta</DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                        {user.profile === "admin" ? "Defina a meta geral do negócio. Todos os usuários visualizarão essa meta, a menos que uma meta individual (gap) seja definida pra eles." : "Defina sua meta individual (gap) para não depender da meta global."}
+                    </Typography>
+                    <TextField
+                        label="Valor da Meta (R$)"
+                        fullWidth
+                        variant="outlined"
+                        value={newGoal}
+                        onChange={(e) => setNewGoal(e.target.value)}
+                        type="number"
+                        placeholder="Ex: 1000000"
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setGoalModalOpen(false)} color="default">
+                        Cancelar
+                    </Button>
+                    <Button onClick={handleSaveGoal} color="primary" variant="contained">
+                        Salvar Meta
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </Box>
     );
 };

@@ -443,11 +443,12 @@ const Reports = () => {
           const dayData = await find({ date_from: day, date_to: day });
           dailyData.push({
             date: moment().subtract(i, 'days').format('DD/MM'),
-            tickets: dayData?.counters?.supportFinished || 0,
-            leads: dayData?.counters?.leads || 0,
+            tickets: (dayData && dayData.counters && dayData.counters.supportFinished) || 0,
+            leads: (dayData && dayData.counters && dayData.counters.crmLeadsGenerated) || 0,
+            meetings: (dayData && dayData.counters && dayData.counters.crmMeetingsScheduled) || 0,
           });
         } catch {
-          dailyData.push({ date: moment().subtract(i, 'days').format('DD/MM'), tickets: 0, leads: 0 });
+          dailyData.push({ date: moment().subtract(i, 'days').format('DD/MM'), tickets: 0, leads: 0, meetings: 0 });
         }
       }
       setTicketsPerDay(dailyData);
@@ -568,8 +569,38 @@ const Reports = () => {
         <Grid container spacing={3} style={{ marginBottom: 24 }}>
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
-              icon={<AssignmentIcon style={{ color: '#fff', fontSize: 28 }} />}
+              icon={<PeopleIcon style={{ color: '#fff', fontSize: 28 }} />}
+              iconBg="#10b981"
+              label="Novos Leads (CRM)"
+              value={counters.crmLeadsGenerated || 0}
+              classes={classes}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <IndicatorCard
+              icon={<ScheduleIcon style={{ color: '#fff', fontSize: 28 }} />}
+              iconBg="#8b5cf6"
+              label="Reuniões Agendadas"
+              value={counters.crmMeetingsScheduled || 0}
+              classes={classes}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <IndicatorCard
+              icon={<TrendingUpIcon style={{ color: '#fff', fontSize: 28 }} />}
               iconBg="#3b82f6"
+              label="Leads Convertidos"
+              value={counters.crmConversions || 0}
+              classes={classes}
+            />
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={3} style={{ marginBottom: 24 }}>
+          <Grid item xs={12} sm={6} md={4}>
+            <IndicatorCard
+              icon={<AssignmentIcon style={{ color: '#fff', fontSize: 28 }} />}
+              iconBg="#2563eb"
               label="Total de Tickets"
               value={counters.supportFinished || 0}
               trend={ticketsTrend.isUp}
@@ -577,30 +608,19 @@ const Reports = () => {
               classes={classes}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <IndicatorCard
-              icon={<PeopleIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#10b981"
-              label="Novos Leads"
-              value={counters.leads || 0}
-              trend={leadsTrend.isUp}
-              trendValue={`${leadsTrend.value}% vs período anterior`}
-              classes={classes}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <IndicatorCard
               icon={<AccessTimeIcon style={{ color: '#fff', fontSize: 28 }} />}
               iconBg="#f59e0b"
-              label="Tempo Médio de Espera"
+              label="TME"
               value={formatTime(counters.avgWaitTime)}
               classes={classes}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <IndicatorCard
               icon={<CheckCircleIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#8b5cf6"
+              iconBg="#dc2626"
               label="Em Atendimento"
               value={counters.supportHappening || 0}
               classes={classes}
@@ -616,7 +636,7 @@ const Reports = () => {
           <Chart
             options={{
               chart: { type: 'bar', toolbar: { show: false } },
-              colors: ['#3b82f6', '#10b981'],
+              colors: ['#3b82f6', '#10b981', '#8b5cf6'],
               plotOptions: {
                 bar: { borderRadius: 6, columnWidth: '60%' }
               },
@@ -631,7 +651,8 @@ const Reports = () => {
             }}
             series={[
               { name: 'Tickets', data: ticketsPerDay.map(d => d.tickets) },
-              { name: 'Leads', data: ticketsPerDay.map(d => d.leads) },
+              { name: 'Leads (CRM)', data: ticketsPerDay.map(d => d.leads) },
+              { name: 'Reuniões', data: ticketsPerDay.map(d => d.meetings) },
             ]}
             type="bar"
             height={320}

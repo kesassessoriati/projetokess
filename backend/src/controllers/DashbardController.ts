@@ -7,6 +7,8 @@ import TicketsQueuesService from "../services/TicketServices/TicketsQueuesServic
 import Tag from "../models/Tag";
 import TicketTag from "../models/TicketTag";
 import ContactTag from "../models/ContactTag";
+import CrmLead from "../models/CrmLead";
+import moment from "moment";
 
 type IndexQuery = {
   initialDate: string;
@@ -30,6 +32,31 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     companyId,
     params
   );
+
+  // ==============================
+  // Métricas CRM Lead
+  // ==============================
+  const whereCrm: any = { companyId };
+  if (params.date_from && params.date_to) {
+    whereCrm.createdAt = {
+      [Op.between]: [
+        moment(params.date_from).startOf("day").toDate(),
+        moment(params.date_to).endOf("day").toDate()
+      ]
+    };
+  }
+
+  const crmLeadsGenerated = await CrmLead.count({ where: whereCrm });
+  const crmMeetingsScheduled = await CrmLead.count({
+    where: { ...whereCrm, status: "scheduled" }
+  });
+  const crmConversions = await CrmLead.count({
+    where: { ...whereCrm, status: "converted" }
+  });
+
+  dashboardData.counters.crmLeadsGenerated = crmLeadsGenerated;
+  dashboardData.counters.crmMeetingsScheduled = crmMeetingsScheduled;
+  dashboardData.counters.crmConversions = crmConversions;
 
   // ==============================
   // Métricas adicionais: Tags e Kanban
@@ -196,33 +223,33 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 // Mapeamento DDD → Estado brasileiro
 const dddToState: Record<string, string> = {
-  "11":"SP","12":"SP","13":"SP","14":"SP","15":"SP","16":"SP","17":"SP","18":"SP","19":"SP",
-  "21":"RJ","22":"RJ","24":"RJ",
-  "27":"ES","28":"ES",
-  "31":"MG","32":"MG","33":"MG","34":"MG","35":"MG","37":"MG","38":"MG",
-  "41":"PR","42":"PR","43":"PR","44":"PR","45":"PR","46":"PR",
-  "47":"SC","48":"SC","49":"SC",
-  "51":"RS","53":"RS","54":"RS","55":"RS",
-  "61":"DF",
-  "62":"GO","64":"GO",
-  "63":"TO",
-  "65":"MT","66":"MT",
-  "67":"MS",
-  "68":"AC",
-  "69":"RO",
-  "71":"BA","73":"BA","74":"BA","75":"BA","77":"BA",
-  "79":"SE",
-  "81":"PE","87":"PE",
-  "82":"AL",
-  "83":"PB",
-  "84":"RN",
-  "85":"CE","88":"CE",
-  "86":"PI","89":"PI",
-  "91":"PA","93":"PA","94":"PA",
-  "92":"AM","97":"AM",
-  "95":"RR",
-  "96":"AP",
-  "98":"MA","99":"MA",
+  "11": "SP", "12": "SP", "13": "SP", "14": "SP", "15": "SP", "16": "SP", "17": "SP", "18": "SP", "19": "SP",
+  "21": "RJ", "22": "RJ", "24": "RJ",
+  "27": "ES", "28": "ES",
+  "31": "MG", "32": "MG", "33": "MG", "34": "MG", "35": "MG", "37": "MG", "38": "MG",
+  "41": "PR", "42": "PR", "43": "PR", "44": "PR", "45": "PR", "46": "PR",
+  "47": "SC", "48": "SC", "49": "SC",
+  "51": "RS", "53": "RS", "54": "RS", "55": "RS",
+  "61": "DF",
+  "62": "GO", "64": "GO",
+  "63": "TO",
+  "65": "MT", "66": "MT",
+  "67": "MS",
+  "68": "AC",
+  "69": "RO",
+  "71": "BA", "73": "BA", "74": "BA", "75": "BA", "77": "BA",
+  "79": "SE",
+  "81": "PE", "87": "PE",
+  "82": "AL",
+  "83": "PB",
+  "84": "RN",
+  "85": "CE", "88": "CE",
+  "86": "PI", "89": "PI",
+  "91": "PA", "93": "PA", "94": "PA",
+  "92": "AM", "97": "AM",
+  "95": "RR",
+  "96": "AP",
+  "98": "MA", "99": "MA",
 };
 
 export const charts = async (req: Request, res: Response): Promise<Response> => {
@@ -251,7 +278,7 @@ export const charts = async (req: Request, res: Response): Promise<Response> => 
 
     // Preencher meses sem dados
     const monthsData: { month: string; label: string; count: number }[] = [];
-    const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

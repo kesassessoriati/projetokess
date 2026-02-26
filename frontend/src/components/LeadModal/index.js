@@ -32,6 +32,7 @@ const STATUS_OPTIONS = [
   { value: "new", label: "Novo" },
   { value: "contacted", label: "Contactado" },
   { value: "qualified", label: "Qualificado" },
+  { value: "scheduled", label: "Reunião Agendada" },
   { value: "unqualified", label: "Não qualificado" },
   { value: "converted", label: "Convertido" },
   { value: "lost", label: "Perdido" }

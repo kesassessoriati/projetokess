@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { makeStyles, Typography, Box, Paper, Button, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Chip } from "@material-ui/core";
-import { Add as AddIcon, Delete as DeleteIcon, History as HistoryIcon } from "@material-ui/icons";
+import { Add as AddIcon, Delete as DeleteIcon, History as HistoryIcon, Edit as EditIcon } from "@material-ui/icons";
+import CRMWebhookModal from "../../components/CRMWebhookModal";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 
@@ -26,6 +27,8 @@ const CRMWebhooks = () => {
     const classes = useStyles();
     const [webhooks, setWebhooks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [selectedWebhookId, setSelectedWebhookId] = useState(null);
 
     useEffect(() => {
         fetchWebhooks();
@@ -33,21 +36,42 @@ const CRMWebhooks = () => {
 
     const fetchWebhooks = async () => {
         try {
-            const { data } = await api.get("/crm/webhooks"); // To be implemented
+            const { data } = await api.get("/crm/webhooks");
             setWebhooks(data);
         } catch (err) {
-            // toast.error("Erro ao carregar webhooks");
+            toast.error("Erro ao carregar webhooks");
             setWebhooks([]);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm("Deseja realmente excluir este webhook?")) return;
+        try {
+            await api.delete(`/crm/webhooks/${id}`);
+            toast.success("Webhook excluído");
+            fetchWebhooks();
+        } catch (err) {
+            toast.error("Erro ao excluir webhook");
+        }
+    };
+
+    const handleOpenModal = (id = null) => {
+        setSelectedWebhookId(id);
+        setModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setModalOpen(false);
+        setSelectedWebhookId(null);
+    };
+
     return (
         <Box className={classes.container}>
             <Box className={classes.header}>
                 <Typography variant="h4" style={{ fontWeight: 900 }}>Webhooks (CRM)</Typography>
-                <Button variant="contained" color="primary" startIcon={<AddIcon />}>Novo Webhook</Button>
+                <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>Novo Webhook</Button>
             </Box>
 
             <Paper className={classes.paper}>
@@ -72,8 +96,8 @@ const CRMWebhooks = () => {
                                     <TableCell>{webhook.url}</TableCell>
                                     <TableCell><Chip size="small" label={webhook.isActive ? "Ativo" : "Inativo"} color={webhook.isActive ? "primary" : "secondary"} /></TableCell>
                                     <TableCell align="right">
-                                        <IconButton size="small"><HistoryIcon /></IconButton>
-                                        <IconButton size="small" color="secondary"><DeleteIcon /></IconButton>
+                                        <IconButton size="small" onClick={() => handleOpenModal(webhook.id)}><EditIcon /></IconButton>
+                                        <IconButton size="small" color="secondary" onClick={() => handleDelete(webhook.id)}><DeleteIcon /></IconButton>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -81,6 +105,13 @@ const CRMWebhooks = () => {
                     </TableBody>
                 </Table>
             </Paper>
+
+            <CRMWebhookModal
+                open={modalOpen}
+                onClose={handleCloseModal}
+                webhookId={selectedWebhookId}
+                onSave={fetchWebhooks}
+            />
         </Box>
     );
 };

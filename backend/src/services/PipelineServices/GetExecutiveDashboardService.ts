@@ -5,6 +5,9 @@ import AISuggestionFeedback from "../../models/AISuggestionFeedback";
 import RevenueForecastService from "./RevenueForecastService";
 import PipelineHealthScoreService from "./PipelineHealthScoreService";
 import Pipeline from "../../models/Pipeline";
+import CrmLead from "../../models/CrmLead";
+import moment from "moment";
+import Setting from "../../models/Setting";
 
 interface DashboardData {
     revenue: {
@@ -22,6 +25,12 @@ interface DashboardData {
         highRiskCount: number;
         slaExpiredRate: number;
         idleLeadsCount: number;
+    };
+    leads: {
+        scheduledToday: number;
+        totalScheduled: number;
+        totalGenerated: number;
+        totalConverted: number;
     };
     aiRoi: {
         movementRate: number;
@@ -95,7 +104,43 @@ class GetExecutiveDashboardService {
             };
         }));
 
-        const target = 1000000; // Meta fixa para exemplo, poderia vir de Settings
+        // 8. Lead Metrics (Reuniões e Conversões)
+        const todayStart = moment().startOf('day').toDate();
+        const todayEnd = moment().endOf('day').toDate();
+
+        const scheduledToday = await CrmLead.count({
+            where: {
+                ...opWhere,
+                status: "scheduled",
+                updatedAt: {
+                    [Op.between]: [todayStart, todayEnd]
+                }
+            }
+        });
+
+        const totalScheduled = await CrmLead.count({
+            where: { ...opWhere, status: "scheduled" }
+        });
+
+        const totalGenerated = await CrmLead.count({
+            where: opWhere
+        });
+
+        const totalConverted = await CrmLead.count({
+            where: { ...opWhere, status: "converted" }
+        });
+
+        // 9. Goal (Meta)
+        // Check if there is a meta setting in DB
+        let target = 1000000; // Default fallback
+        const adminGoalSetting = await Setting.findOne({ where: { companyId, key: "executive_goal" } });
+        const userGoalSetting = await Setting.findOne({ where: { companyId, key: `executive_goal_${userId}` } });
+
+        if (!admin && userGoalSetting && userGoalSetting.value) {
+            target = Number(userGoalSetting.value);
+        } else if (adminGoalSetting && adminGoalSetting.value) {
+            target = Number(adminGoalSetting.value);
+        }
 
         return {
             revenue: {
@@ -113,6 +158,12 @@ class GetExecutiveDashboardService {
                 highRiskCount,
                 slaExpiredRate,
                 idleLeadsCount: 0 // Simplificado
+            },
+            leads: {
+                scheduledToday,
+                totalScheduled,
+                totalGenerated,
+                totalConverted
             },
             aiRoi: {
                 movementRate,

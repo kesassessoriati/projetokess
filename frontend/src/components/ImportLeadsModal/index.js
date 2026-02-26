@@ -207,7 +207,8 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         }
 
         if (selectedFields[newValue]) {
-            toast.error(`O campo ${LEAD_FIELDS.find(f => f.id === newValue)?.label} já foi mapeado para outra coluna.`);
+            const matchedField = LEAD_FIELDS.find(f => f.id === newValue);
+            toast.error(`O campo ${matchedField ? matchedField.label : ""} já foi mapeado para outra coluna.`);
             return;
         }
 
@@ -459,7 +460,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                         ) : (
                             <>
                                 <Typography variant="subtitle1" style={{ fontWeight: 'bold' }}>
-                                    Mapeamento de Colunas ({file?.name})
+                                    Mapeamento de Colunas ({(file && file.name) || ""})
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary" style={{ marginBottom: 8 }}>
                                     Atribua o campo correto para cada coluna da planilha abaixo.

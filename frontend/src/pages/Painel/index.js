@@ -1028,10 +1028,47 @@ const Dashboard = () => {
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Estados Alcançados</Typography>
                       <Typography className={classes.indicatorValue}>
-                        {(chartData.contactsByState?.length || 0)}
+                        {(chartData.contactsByState && chartData.contactsByState.length) || 0}
                       </Typography>
                       <div className={classes.indicatorTrend}>
                         <span className={classes.trendNeutral}>de 27 estados</span>
+                      </div>
+                    </div>
+                  </Grid>
+                </Grid>
+
+                {/* Novos Cards CRM */}
+                <Grid container spacing={2} style={{ marginBottom: 24 }}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Leads Gerados (Mês)</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        {(counters.crmLeadsGenerated || 0).toLocaleString("pt-BR")}
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        <span className={classes.trendNeutral}>No período selecionado</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Reuniões Agendadas</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        {(counters.crmMeetingsScheduled || 0).toLocaleString("pt-BR")}
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        <span className={classes.trendNeutral}>No período selecionado</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Conversões CRM</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        {(counters.crmConversions || 0).toLocaleString("pt-BR")}
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        <span className={classes.trendNeutral}>No período selecionado</span>
                       </div>
                     </div>
                   </Grid>
