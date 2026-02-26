@@ -75,6 +75,8 @@ const PipelineConfig = () => {
     const [selectedPipeline, setSelectedPipeline] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
+    const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
+    const [newPipelineName, setNewPipelineName] = useState("");
     const [editingStage, setEditingStage] = useState(null);
 
     useEffect(() => {
@@ -140,6 +142,21 @@ const PipelineConfig = () => {
         }
     };
 
+    const handleCreatePipeline = async () => {
+        if (!newPipelineName.trim()) {
+            return toast.error("Por favor, digite um nome para o funil.");
+        }
+        try {
+            await api.post("/pipelines", { name: newPipelineName });
+            toast.success("Funil criado com sucesso!");
+            setPipelineModalOpen(false);
+            setNewPipelineName("");
+            fetchPipelines();
+        } catch (err) {
+            toast.error("Erro ao criar funil.");
+        }
+    };
+
     if (loading) return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>;
 
     return (
@@ -155,7 +172,15 @@ const PipelineConfig = () => {
                     >
                         Migrar Kanban Legado
                     </Button>
-                    <Button variant="contained" color="primary" startIcon={<AddIcon />} style={{ borderRadius: 12 }}>Novo Funil</Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<AddIcon />}
+                        onClick={() => setPipelineModalOpen(true)}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Novo Funil
+                    </Button>
                 </Box>
             </Box>
 
@@ -248,6 +273,25 @@ const PipelineConfig = () => {
                 <DialogActions>
                     <Button onClick={() => setModalOpen(false)}>Cancelar</Button>
                     <Button color="primary" variant="contained" onClick={() => handleSaveStage({})}>Salvar</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={pipelineModalOpen} onClose={() => setPipelineModalOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle>Novo Funil</DialogTitle>
+                <DialogContent>
+                    <Box display="flex" flexDirection="column" gap={2} pt={1}>
+                        <TextField
+                            label="Nome do Funil"
+                            fullWidth
+                            variant="outlined"
+                            value={newPipelineName}
+                            onChange={(e) => setNewPipelineName(e.target.value)}
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPipelineModalOpen(false)}>Cancelar</Button>
+                    <Button color="primary" variant="contained" onClick={handleCreatePipeline}>Criar</Button>
                 </DialogActions>
             </Dialog>
         </Box>
