@@ -16,6 +16,7 @@ import Company from "./Company";
 import PipelineStage from "./PipelineStage";
 import PipelineTemplate from "./PipelineTemplate";
 import Opportunity from "./Opportunity";
+import CrmLead from "./CrmLead";
 
 @Table({
     tableName: "Pipelines"
@@ -62,6 +63,9 @@ class Pipeline extends Model<Pipeline> {
 
     @HasMany(() => Opportunity)
     opportunities: Opportunity[];
+
+    @HasMany(() => CrmLead)
+    leads: CrmLead[];
 }
 
 export default Pipeline;

@@ -34,6 +34,8 @@ interface Request {
     trackingUrl: string;
     trackingId: string;
   };
+  pipelineId?: number;
+  stageId?: number;
 }
 
 const normalizeNumber = (phone?: string): string | null => {
@@ -155,11 +157,11 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   if (!enrichedData.source || enrichedData.source === '') {
     enrichedData.source = data.adMetadata?.platform || 'Facebook/Instagram Ads';
   }
-  
+
   if (!enrichedData.campaign || enrichedData.campaign === '') {
     enrichedData.campaign = data.adMetadata?.adTitle || 'Anúncio Patrocinado';
   }
-  
+
   if (!enrichedData.medium || enrichedData.medium === '') {
     enrichedData.medium = 'paid_social';
   }
@@ -169,7 +171,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     if (data.adMetadata.adTitle && data.adMetadata.adDescription) {
       score = Math.min(score + 20, 100);
     }
-    
+
     // Força sobreescrever com dados do anúncio se existirem
     if (data.adMetadata.platform) {
       enrichedData.source = data.adMetadata.platform;
@@ -177,14 +179,14 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     if (data.adMetadata.adTitle) {
       enrichedData.campaign = data.adMetadata.adTitle;
     }
-    
+
     // Adiciona insights aos notes (campo existente)
     const insights = `\n\n📊 Insights do Anúncio:\n` +
-                   `• Plataforma: ${data.adMetadata.platform}\n` +
-                   `• Título: ${data.adMetadata.adTitle}\n` +
-                   `• Descrição: ${data.adMetadata.adDescription}\n` +
-                   `• Tracking: ${data.adMetadata.trackingUrl}\n` +
-                   `• Tracking ID: ${data.adMetadata.trackingId}`;
+      `• Plataforma: ${data.adMetadata.platform}\n` +
+      `• Título: ${data.adMetadata.adTitle}\n` +
+      `• Descrição: ${data.adMetadata.adDescription}\n` +
+      `• Tracking: ${data.adMetadata.trackingUrl}\n` +
+      `• Tracking ID: ${data.adMetadata.trackingId}`;
     notes = notes + insights;
   }
 
@@ -195,11 +197,28 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     leadStatus: data.leadStatus || "novo",
     score,
     notes,
-    lastActivityAt: data.lastActivityAt || new Date()
+    lastActivityAt: data.lastActivityAt || new Date(),
+    pipelineId: data.pipelineId,
+    stageId: data.stageId
   });
 
   if (lead.status === "converted" || lead.leadStatus === "convertido") {
     await syncLeadToClient(lead);
+  }
+
+  // Create Opportunity if pipeline info is given
+  if (data.pipelineId && data.stageId) {
+    const Opportunity = (await import("../../models/Opportunity")).default;
+    await Opportunity.create({
+      companyId: data.companyId,
+      pipelineId: data.pipelineId,
+      stageId: data.stageId,
+      contactId: contactId,
+      title: data.name,
+      value: 0,
+      assignedUserId: data.ownerUserId,
+      status: "OPEN"
+    });
   }
 
   return lead;

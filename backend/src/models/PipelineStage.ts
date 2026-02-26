@@ -15,6 +15,7 @@ import {
 import Company from "./Company";
 import Pipeline from "./Pipeline";
 import Opportunity from "./Opportunity";
+import CrmLead from "./CrmLead";
 
 @Table({
     tableName: "PipelineStages"
@@ -66,6 +67,9 @@ class PipelineStage extends Model<PipelineStage> {
 
     @HasMany(() => Opportunity, { foreignKey: "stageId" })
     opportunities: Opportunity[];
+
+    @HasMany(() => CrmLead, { foreignKey: "stageId" })
+    leads: CrmLead[];
 }
 
 export default PipelineStage;

@@ -26,6 +26,7 @@ import Whatsapp from "./Whatsapp";
 import Chatbot from "./Chatbot";
 import Servico from "./Servico";
 import UserService from "./UserService";
+import CrmLead from "./CrmLead";
 
 @Table
 class User extends Model<User> {
@@ -57,14 +58,14 @@ class User extends Model<User> {
   @Default(null)
   @Column
   profileImage: string;
-  
+
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
-  
+
   @Column
   super: boolean;
 
@@ -145,6 +146,9 @@ class User extends Model<User> {
     hooks: true
   })
   quickMessages: QuickMessage[];
+
+  @HasMany(() => CrmLead, { foreignKey: "ownerUserId", as: "leads" })
+  leads: CrmLead[];
 
   @BeforeUpdate
   @BeforeCreate

@@ -18,6 +18,8 @@ import User from "./User";
 import Contact from "./Contact";
 import Ticket from "./Ticket";
 import CrmClient from "./CrmClient";
+import Pipeline from "./Pipeline";
+import PipelineStage from "./PipelineStage";
 
 @Table({
   tableName: "crm_leads"
@@ -86,6 +88,20 @@ class CrmLead extends Model<CrmLead> {
   @BelongsTo(() => User, "ownerUserId")
   owner: User;
 
+  @ForeignKey(() => Pipeline)
+  @Column({ field: "pipeline_id" })
+  pipelineId: number;
+
+  @BelongsTo(() => Pipeline)
+  pipeline: Pipeline;
+
+  @ForeignKey(() => PipelineStage)
+  @Column({ field: "stage_id" })
+  stageId: number;
+
+  @BelongsTo(() => PipelineStage, "stageId")
+  stage: PipelineStage;
+
   @ForeignKey(() => Contact)
   @Column({ field: "contact_id" })
   contactId: number;
@@ -132,7 +148,7 @@ class CrmLead extends Model<CrmLead> {
   static async syncToContact(instance: CrmLead) {
     // Import dinâmico para evitar circular dependency
     const { default: syncLeadToContact } = await import("../services/CrmLeadService/helpers/syncLeadToContact");
-    
+
     try {
       await syncLeadToContact({
         lead: instance,
@@ -147,7 +163,7 @@ class CrmLead extends Model<CrmLead> {
   static async syncToClient(instance: CrmLead) {
     // Import dinâmico para evitar circular dependency
     const { default: syncLeadToClient } = await import("../services/CrmClientService/helpers/syncLeadToClient");
-    
+
     try {
       await syncLeadToClient({
         lead: instance,
