@@ -16,7 +16,8 @@ COPY . .
 
 # Variáveis para BUILD (serão usadas apenas como fallback)
 ENV NODE_OPTIONS=--openssl-legacy-provider \
-    GENERATE_SOURCEMAP=false
+    GENERATE_SOURCEMAP=false \
+    SKIP_PREFLIGHT_CHECK=true
 
 # Build da aplicação
 RUN npm run build
