@@ -111,8 +111,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
 
-    if (!op && !leadId && open) {
-        return null; // or loading
+    if (!op && !leadId && open && false) {
+        return null; // bloqueio removido para permitir a criação de um Novo Lead
     }
 
     const handleTabChange = (event, newValue) => {
