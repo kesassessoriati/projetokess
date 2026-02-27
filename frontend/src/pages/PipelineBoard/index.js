@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useContext } from "react";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import {
     makeStyles,
     Typography,
@@ -248,6 +250,8 @@ const IntelligentCard = ({ op, onClick }) => {
 
 const PipelineBoard = () => {
     const classes = useStyles();
+    const { user } = useContext(AuthContext);
+    const socketContext = useSocket();
     const [pipelines, setPipelines] = useState([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState("");
     const [board, setBoard] = useState({ stages: [] });
@@ -285,7 +289,22 @@ const PipelineBoard = () => {
         if (selectedPipelineId) {
             fetchBoard();
         }
-    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort]);
+
+        if (!user || !user.companyId || !socketContext) return;
+
+        const onEvent = () => fetchBoard();
+
+        const oppEv = `company-${user.companyId}-opportunity`;
+        const leadEv = `company-${user.companyId}-lead`;
+
+        let offOpp = socketContext.on(oppEv, onEvent);
+        let offLead = socketContext.on(leadEv, onEvent);
+
+        return () => {
+            if (offOpp) offOpp();
+            if (offLead) offLead();
+        };
+    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort, user, socketContext]);
 
     const fetchPipelines = async () => {
         try {

@@ -27,8 +27,11 @@ const ListCrmLeadsService = async ({
   };
 
   if (profile !== "admin") {
-    // Agentes só veem seus próprios leads ou leads sem dono (dependendo da regra de negócio, vou restringir aos deles)
-    where.ownerUserId = userId;
+    // Agentes veem seus próprios leads E leads não atribuídos (ownerUserId = null)
+    (where as any)[Op.or] = [
+      { ownerUserId: userId },
+      { ownerUserId: null }
+    ];
   } else if (ownerUserId) {
     where.ownerUserId = ownerUserId;
   }

@@ -42,6 +42,8 @@ import ShowTicketLogModal from "../ShowTicketLogModal";
 import TicketMessagesDialog from "../TicketMessagesDialog";
 import { useTheme } from "@material-ui/styles";
 import TicketTagsKanbanModal from "../TicketTagsKanbanModal";
+import AssessmentIcon from "@material-ui/icons/Assessment";
+import UniversalLeadModal from "../UniversalLeadModal";
 
 const useStyles = makeStyles(theme => ({
     actionButtons: {
@@ -131,6 +133,7 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 
     const [openModal, setOpenModal] = useState(false); // Controle do modal de chamada
     const [wavoipUrl, setWavoipUrl] = useState(""); // URL do WAVoIP
+    const [openLeadModal, setOpenLeadModal] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -498,12 +501,21 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                 )}
                 {(ticket.status === "open" || ticket.status === "group") && (
                     <>
-                        <IconButton 
-                            className={classes.bottomButtonVisibilityIcon} 
+                        <IconButton
+                            className={classes.bottomButtonVisibilityIcon}
                             onClick={handleOpenWavoipCall}
                         >
                             <Tooltip title="Iniciar chamada">
                                 <CallIcon />
+                            </Tooltip>
+                        </IconButton>
+
+                        <IconButton
+                            className={classes.bottomButtonVisibilityIcon}
+                            onClick={() => setOpenLeadModal(true)}
+                        >
+                            <Tooltip title="Dados do Lead (CRM)">
+                                <AssessmentIcon />
                             </Tooltip>
                         </IconButton>
 
@@ -617,9 +629,9 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                         role={user.profile}
                         perform="ticket-options:deleteTicket"
                         yes={() => (
-                            <MenuItem onClick={handleOpenConfirmationModal}>                    
-                                {i18n.t("tickets.buttons.deleteTicket")}                        
-                            </MenuItem> 
+                            <MenuItem onClick={handleOpenConfirmationModal}>
+                                {i18n.t("tickets.buttons.deleteTicket")}
+                            </MenuItem>
                         )}
                     />
                     <MenuItem onClick={handleEnableIntegration}>
@@ -679,6 +691,23 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                 contact={ticket.contact}
                 ticket={ticket}
             />
+
+            {openLeadModal && ticket?.contact?.id && (
+                <UniversalLeadModal
+                    open={openLeadModal}
+                    onClose={() => setOpenLeadModal(false)}
+                    op={{
+                        contact: ticket.contact,
+                        title: ticket.contact.name || "Lead",
+                        id: null, // Sem Oportunidade ainda na aba Ticket
+                        contactId: ticket.contact.id,
+                        leadId: null
+                    }}
+                    leadId={null}
+                    onSuccess={() => { }}
+                />
+            )}
+
             {/* Modal para o WAVoIP */}
             <Dialog
                 open={openModal}

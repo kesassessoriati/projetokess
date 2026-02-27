@@ -43,6 +43,8 @@ import { useSystemAlert } from "../SystemAlert";
 import { Done, HighlightOff, Replay, SwapHoriz, LocalOffer, DeleteOutline, Label } from "@material-ui/icons";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import TicketTagsKanbanModal from "../TicketTagsKanbanModal";
+import QuickLeadPreview from "../QuickLeadPreview";
+import { TrendingUp as TrendingUpIcon } from "@material-ui/icons";
 
 const useStyles = makeStyles((theme) => ({
   ticket: {
@@ -209,26 +211,26 @@ const useStyles = makeStyles((theme) => ({
   },
 
   contactLastMessage: {
-  paddingRight: "0%",
-  marginLeft: "4px",
-  color: theme.mode === "light" ? grey[500] : grey[400],
-  fontWeight: 400,
-  fontSize: 11,
-},
+    paddingRight: "0%",
+    marginLeft: "4px",
+    color: theme.mode === "light" ? grey[500] : grey[400],
+    fontWeight: 400,
+    fontSize: 11,
+  },
 
-contactLastMessageUnread: {
-  paddingRight: 16,
-  color: theme.mode === "light" ? "#9054BC" : grey[200],
-  width: "50%",
-  fontWeight: 400,
-  fontSize: 11,
-},
+  contactLastMessageUnread: {
+    paddingRight: 16,
+    color: theme.mode === "light" ? "#9054BC" : grey[200],
+    width: "50%",
+    fontWeight: 400,
+    fontSize: 11,
+  },
 
 
   badgeStyle: {
-  color: "#fff",
-  backgroundColor: "#9054bc", // CORES roxo
-},
+    color: "#fff",
+    backgroundColor: "#9054bc", // CORES roxo
+  },
 
   acceptButton: {
     position: "absolute",
@@ -341,6 +343,9 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
   const [openTagsKanbanModal, setOpenTagsKanbanModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
 
+  // Quick Lead Preview State
+  const [leadAnchorEl, setLeadAnchorEl] = useState(null);
+
   const { ticketId } = useParams();
   const isMounted = useRef(true);
   const { setCurrentTicket } = useContext(TicketsContext);
@@ -396,11 +401,11 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
     }
   };
 
-	const getDisplayName = c => {
-		if (!c || !c.name) return "Contato sem nome";
-		const onlyDigits = /^\+?\d+$/.test(c.name.replace(/\s+/g, ""));
-		return onlyDigits ? "Contato sem nome" : c.name;
-	};
+  const getDisplayName = c => {
+    if (!c || !c.name) return "Contato sem nome";
+    const onlyDigits = /^\+?\d+$/.test(c.name.replace(/\s+/g, ""));
+    return onlyDigits ? "Contato sem nome" : c.name;
+  };
 
   const handleCloseIgnoreTicket = async (id) => {
     setLoading(true);
@@ -546,7 +551,7 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
 
   const handleSelectTicket = (ticket) => {
     const code = uuidv4();
-       const { id, uuid } = ticket;
+    const { id, uuid } = ticket;
     setCurrentTicket({ id, uuid, code });
   };
 
@@ -579,33 +584,69 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
         />
       )}
 
-      <ListItem
-  button
-  dense
-  onClick={(e) => {
-    const tag = e.target.tagName.toLowerCase();
-    const isIconClick =
-      (tag === "input" && e.target.type === "checkbox") ||
-      tag === "svg" ||
-      tag === "path";
-    if (isIconClick) return;
+      {/* QUICK LEAD PREVIEW */}
+      {Boolean(leadAnchorEl) && (
+        <QuickLeadPreview
+          leadId={ticket.crmLeadId}
+          anchorEl={leadAnchorEl}
+          onClose={(e) => {
+            if (e) e.stopPropagation();
+            setLeadAnchorEl(null);
+          }}
+        />
+      )}
 
-    handleSelectTicket(ticket);
-    // opcional: se quiser já navegar ao clicar no item:
-    // history.push(`/tickets/${ticket.uuid}`);
-  }}
-  selected={ticketId && ticketId === ticket.uuid}
-  className={clsx(classes.ticket, {
-    [classes.pendingTicket]: ticket.status === "pending",
-    [classes.ticketUnread]: hasUnread,
-  })}
->
+      <ListItem
+        button
+        dense
+        onClick={(e) => {
+          const tag = e.target.tagName.toLowerCase();
+          const isIconClick =
+            (tag === "input" && e.target.type === "checkbox") ||
+            tag === "svg" ||
+            tag === "path";
+          if (isIconClick) return;
+
+          handleSelectTicket(ticket);
+          // opcional: se quiser já navegar ao clicar no item:
+          // history.push(`/tickets/${ticket.uuid}`);
+        }}
+        selected={ticketId && ticketId === ticket.uuid}
+        className={clsx(classes.ticket, {
+          [classes.pendingTicket]: ticket.status === "pending",
+          [classes.ticketUnread]: hasUnread,
+        })}
+      >
 
         <ListItemAvatar style={{ marginLeft: "-15px" }}>
-          <Avatar
-            className={clsx(classes.avatar, { [classes.avatarRing]: hasUnread })}
-            src={`${ticket?.contact?.urlPicture}`}
-          />
+          <Badge
+            badgeContent={ticket.crmLeadId ? (
+              <div
+                style={{ backgroundColor: '#1d4ed8', borderRadius: '50%', padding: '2px', cursor: 'pointer', display: 'flex', border: '2px solid white' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLeadAnchorEl(e.currentTarget);
+                }}
+              >
+                <TrendingUpIcon style={{ fontSize: 10, color: 'white' }} />
+              </div>
+            ) : null}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            overlap="circular"
+          >
+            <Avatar
+              className={clsx(classes.avatar, { [classes.avatarRing]: hasUnread })}
+              src={`${ticket?.contact?.urlPicture}`}
+              onClick={(e) => {
+                // Se preferir que clique na foto toda abra:
+                if (ticket.crmLeadId) {
+                  e.stopPropagation();
+                  setLeadAnchorEl(e.currentTarget);
+                }
+              }}
+              style={{ cursor: ticket.crmLeadId ? "pointer" : "default" }}
+            />
+          </Badge>
         </ListItemAvatar>
 
         <ListItemText
@@ -673,8 +714,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                           ticket.channel === "facebook"
                             ? "#1877F2"
                             : ticket.channel === "instagram"
-                            ? "#E4405F"
-                            : "#25D366",
+                              ? "#E4405F"
+                              : "#25D366",
                         display: "flex",
                         alignItems: "center",
                         gap: 2,
@@ -697,8 +738,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                     {ticket.queueId
                       ? ticket.queue?.name
                       : ticket.status === "lgpd"
-                      ? "LGPD"
-                      : "Sem fila"}
+                        ? "LGPD"
+                        : "Sem fila"}
                   </span>
                   {ticket?.user && (
                     <span className={classes.userTagText}>
@@ -776,8 +817,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                       ticket.status === "closed"
                         ? handleAcepptTicket(ticket.id)
                         : ticket.queueId
-                        ? handleAcepptTicket(ticket.id)
-                        : handleOpenAcceptTicketWithouSelectQueue();
+                          ? handleAcepptTicket(ticket.id)
+                          : handleOpenAcceptTicketWithouSelectQueue();
                     }}
                   >
                     {ticket.status === "closed" ? <Replay fontSize="small" style={{ marginRight: 8 }} /> : <Done fontSize="small" style={{ marginRight: 8 }} />}
@@ -826,8 +867,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                     ticket.status === "closed"
                       ? handleAcepptTicket(ticket.id)
                       : ticket.queueId
-                      ? handleAcepptTicket(ticket.id)
-                      : handleOpenAcceptTicketWithouSelectQueue()
+                        ? handleAcepptTicket(ticket.id)
+                        : handleOpenAcceptTicketWithouSelectQueue()
                   }
                   variant="contained"
                 >

@@ -186,7 +186,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => 
       const payload = {
         ...form,
         score: Number(form.score) || 0,
-        ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : undefined,
+        ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,
         birthDate: form.birthDate || undefined
       };

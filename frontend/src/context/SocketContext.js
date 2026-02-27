@@ -19,7 +19,7 @@ export const SocketProvider = ({ children }) => {
                 setSocket(io);
 
                 io.on("connect", () => {
-                    console.log("[SocketProvider] Socket conectado com ID:", io.id);
+                    console.log("[SocketProvider] Socket conectado com ID:", io.socket?.id || io?.id || "unknown");
                     setIsConnected(true);
                 });
 

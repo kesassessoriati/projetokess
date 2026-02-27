@@ -653,7 +653,8 @@ const ListTicketsService = async ({
       "channel",
       "useIntegration",
       "integrationId",
-      "crmClientId"
+      "crmClientId",
+      "crmLeadId"
     ],
     distinct: true,
     limit,

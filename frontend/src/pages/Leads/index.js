@@ -274,11 +274,7 @@ const Leads = () => {
   const [deletingLead, setDeletingLead] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
-  useEffect(() => {
-    dispatch({ type: "RESET" });
-    setPageNumber(1);
-    setRefreshToken((prev) => prev + 1);
-  }, [searchParam, statusFilter]);
+  // Removido useEffect que causava double-fetch e loops no mount
 
   useEffect(() => {
     let isMounted = true;
@@ -352,7 +348,13 @@ const Leads = () => {
     handleCloseModal();
     dispatch({ type: "RESET" });
     setPageNumber(1);
-    setRefreshToken((prev) => prev + 1);
+    // Para recarregar os dados imediatamente
+    if (pageNumber === 1 && searchParam === "" && statusFilter === "") {
+      setRefreshToken((prev) => prev + 1);
+    } else {
+      setSearchParam("");
+      setStatusFilter("");
+    }
   };
 
   const handleDeleteLead = async () => {
@@ -421,7 +423,11 @@ const Leads = () => {
             variant="outlined"
             placeholder="Pesquisar por nome, e-mail ou telefone"
             value={searchParam}
-            onChange={(event) => setSearchParam(event.target.value)}
+            onChange={(event) => {
+              setSearchParam(event.target.value);
+              setPageNumber(1);
+              dispatch({ type: "RESET" });
+            }}
             className={classes.searchField}
             InputProps={{
               startAdornment: (
@@ -437,7 +443,11 @@ const Leads = () => {
             label="Status"
             variant="outlined"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPageNumber(1);
+              dispatch({ type: "RESET" });
+            }}
             className={classes.selectField}
           >
             {STATUS_OPTIONS.map((option) => (

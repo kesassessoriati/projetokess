@@ -36,6 +36,8 @@ interface Request {
   lastActivityAt?: Date;
   contactId?: number;
   primaryTicketId?: number;
+  pipelineId?: number;
+  stageId?: number;
 }
 
 const UpdateCrmLeadService = async ({
@@ -114,6 +116,54 @@ const UpdateCrmLeadService = async ({
   if (shouldSyncByStatus || shouldSyncByLeadStatus) {
     await syncLeadToClient(lead);
   }
+
+  const { getIO } = await import("../../libs/socket");
+  const io = getIO();
+
+  // Update existing Opportunity if pipeline or owner changed
+  const Opportunity = (await import("../../models/Opportunity")).default;
+  const opp = await Opportunity.findOne({ where: { leadId: lead.id, companyId } });
+
+  if (opp) {
+    const oppUpdates: any = {};
+    if (data.pipelineId !== undefined) oppUpdates.pipelineId = data.pipelineId;
+    if (data.stageId !== undefined) oppUpdates.stageId = data.stageId;
+    // Permitir enviar null para ownerUserId se remover
+    if (data.ownerUserId !== undefined) oppUpdates.assignedUserId = data.ownerUserId === null ? null : data.ownerUserId;
+    if (data.contactId !== undefined) oppUpdates.contactId = data.contactId;
+
+    if (Object.keys(oppUpdates).length > 0) {
+      await opp.update(oppUpdates);
+      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "update",
+        opportunity: opp
+      });
+    }
+  } else {
+    // If no Opportunity exists but pipeline and stage are provided, create one
+    if (data.pipelineId && data.stageId) {
+      const newOpp = await Opportunity.create({
+        companyId: companyId,
+        pipelineId: data.pipelineId,
+        stageId: data.stageId,
+        contactId: contactId,
+        title: data.name || lead.name,
+        value: 0,
+        assignedUserId: data.ownerUserId,
+        status: "OPEN",
+        leadId: lead.id
+      });
+      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "create",
+        opportunity: newOpp
+      });
+    }
+  }
+
+  io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+    action: "update",
+    lead
+  });
 
   return lead;
 };
