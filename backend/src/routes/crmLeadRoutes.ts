@@ -15,4 +15,7 @@ crmLeadRoutes.put("/crm/leads/:leadId", isAuth, CrmLeadController.update);
 crmLeadRoutes.post("/crm/leads/:leadId/convert", isAuth, CrmLeadController.convert);
 crmLeadRoutes.delete("/crm/leads/:leadId", isAuth, CrmLeadController.remove);
 
+crmLeadRoutes.get("/crm/leads/:leadId/messages", isAuth, CrmLeadController.listMessages);
+crmLeadRoutes.post("/crm/leads/:leadId/messages", isAuth, CrmLeadController.createMessage);
+
 export default crmLeadRoutes;

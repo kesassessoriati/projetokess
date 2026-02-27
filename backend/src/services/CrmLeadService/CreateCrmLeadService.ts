@@ -196,6 +196,28 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     notes = notes + insights;
   }
 
+  let { pipelineId, stageId } = data;
+
+  if (!pipelineId || !stageId) {
+    const Pipeline = (await import("../../models/Pipeline")).default;
+    const PipelineStage = (await import("../../models/PipelineStage")).default;
+
+    const activePipeline = await Pipeline.findOne({
+      where: { companyId: data.companyId, isActive: true },
+      include: [{ model: PipelineStage, as: "stages" }],
+      order: [
+        ["isDefault", "DESC"],
+        ["id", "ASC"],
+        [{ model: PipelineStage, as: "stages" }, "order", "ASC"]
+      ]
+    });
+
+    if (activePipeline && activePipeline.stages && activePipeline.stages.length > 0) {
+      pipelineId = activePipeline.id;
+      stageId = activePipeline.stages[0].id;
+    }
+  }
+
   const lead = await CrmLead.create({
     ...enrichedData,
     contactId,
@@ -204,8 +226,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     score,
     notes,
     lastActivityAt: data.lastActivityAt || new Date(),
-    pipelineId: data.pipelineId,
-    stageId: data.stageId
+    pipelineId,
+    stageId
   });
 
   if (lead.status === "converted" || lead.leadStatus === "convertido") {
@@ -213,12 +235,12 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   }
 
   // Create Opportunity if pipeline info is given
-  if (data.pipelineId && data.stageId) {
+  if (pipelineId && stageId) {
     const Opportunity = (await import("../../models/Opportunity")).default;
     await Opportunity.create({
       companyId: data.companyId,
-      pipelineId: data.pipelineId,
-      stageId: data.stageId,
+      pipelineId,
+      stageId,
       contactId: contactId,
       title: data.name,
       value: 0,

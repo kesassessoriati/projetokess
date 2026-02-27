@@ -112,13 +112,40 @@ export const convert = async (req: Request, res: Response): Promise<Response> =>
 export const remove = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { leadId } = req.params;
+  const leadIdNumber = Number(leadId); // Added this line to define leadIdNumber
 
-  await DeleteCrmLeadService({
-    id: Number(leadId),
-    companyId
+  await DeleteCrmLeadService({ id: leadIdNumber, companyId }); // Changed 'leadId' to 'id' to match service expectation
+
+  return res.status(200).json({ message: "Lead removido com sucesso." });
+};
+
+export const listMessages = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+
+  // Simple query, directly in controller for expediency
+  const LeadMessage = (await import("../models/LeadMessage")).default;
+  const messages = await LeadMessage.findAll({
+    where: { leadId },
+    order: [["createdAt", "ASC"]]
   });
 
-  return res.status(204).send();
+  return res.status(200).json(messages);
+};
+
+export const createMessage = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+  const { message, senderType } = req.body;
+
+  const LeadMessage = (await import("../models/LeadMessage")).default;
+  const msg = await LeadMessage.create({
+    leadId: Number(leadId),
+    senderType: senderType || 'agent',
+    message
+  });
+
+  return res.status(201).json(msg);
 };
 
 export const importLeads = async (req: Request, res: Response): Promise<Response> => {

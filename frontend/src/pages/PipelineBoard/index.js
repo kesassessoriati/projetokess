@@ -224,7 +224,7 @@ const IntelligentCard = ({ op, onClick }) => {
 
             <Box display="flex" alignItems="center" gap={1} mb={1}>
                 <Typography variant="caption" style={{ fontWeight: 600, color: "#64748b" }}>
-                    {op.contact?.name || "Sem contato"}
+                    {op.contact?.name || op.lead?.name || "Sem contato"}
                 </Typography>
             </Box>
 

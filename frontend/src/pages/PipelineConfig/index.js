@@ -32,6 +32,7 @@ import {
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -163,6 +164,28 @@ const PipelineConfig = () => {
         setIsEditingPipeline(true);
         setPipelineModalOpen(true);
         handleClosePipelineMenu();
+    };
+
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [pipelineToDelete, setPipelineToDelete] = useState(null);
+
+    const handleDeletePipelineAction = () => {
+        setPipelineToDelete(menuPipeline);
+        setConfirmModalOpen(true);
+        handleClosePipelineMenu();
+    };
+
+    const handleConfirmDeletePipeline = async () => {
+        try {
+            await api.delete(`/pipelines/${pipelineToDelete.id}`);
+            toast.success("Funil excluído com sucesso!");
+            fetchPipelines();
+        } catch (err) {
+            toast.error(err.response?.data?.error || "Erro ao excluir funil.");
+        } finally {
+            setConfirmModalOpen(false);
+            setPipelineToDelete(null);
+        }
     };
 
     const handleOpenCreatePipeline = () => {
@@ -314,7 +337,20 @@ const PipelineConfig = () => {
                 <MenuItem onClick={handleEditPipelineAction}>
                     Editar nome do funil
                 </MenuItem>
+                <MenuItem onClick={handleDeletePipelineAction} style={{ color: "red" }}>
+                    Excluir funil
+                </MenuItem>
             </Menu>
+
+            <ConfirmationModal
+                title={`Excluir Funil ${pipelineToDelete?.name}?`}
+                open={confirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                onConfirm={handleConfirmDeletePipeline}
+            >
+                Tem certeza que deseja excluir o funil <b>{pipelineToDelete?.name}</b>?<br /><br />
+                <b>Atenção:</b> Você não poderá excluir casos existam oportunidades atualmente neste funil.
+            </ConfirmationModal>
 
             <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>{editingStage?.id ? "Editar Estágio" : "Novo Estágio"}</DialogTitle>

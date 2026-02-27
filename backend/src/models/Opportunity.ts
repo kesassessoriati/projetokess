@@ -23,6 +23,7 @@ import OpportunityEvent from "./OpportunityEvent";
 import OpportunityPrediction from "./OpportunityPrediction";
 import Ticket from "./Ticket";
 import PipelineTemplate from "./PipelineTemplate";
+import CrmLead from "./CrmLead";
 
 @Table({
     tableName: "Opportunities",
@@ -107,8 +108,12 @@ class Opportunity extends Model<Opportunity> {
     @Column
     lastMovedBy: string;
 
+    @ForeignKey(() => CrmLead)
     @Column
     leadId: number;
+
+    @BelongsTo(() => CrmLead)
+    lead: CrmLead;
 
     @Column
     version: number;

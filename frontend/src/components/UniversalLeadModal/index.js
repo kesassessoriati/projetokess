@@ -24,6 +24,7 @@ import AttachFileIcon from "@material-ui/icons/AttachFile";
 import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
+import LeadChat from "../LeadChat";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -135,14 +136,14 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 <Box width={{ xs: "100%", md: "30%" }} className={classes.leftPanel}>
                     <Box display="flex" alignItems="center" mb={3}>
                         <Avatar style={{ width: 48, height: 48, marginRight: 16, backgroundColor: "#10b981" }}>
-                            {op?.contact?.name?.[0] || "L"}
+                            {op?.contact?.name?.[0] || op?.lead?.name?.[0] || "L"}
                         </Avatar>
                         <Box>
                             <Typography variant="h6" style={{ fontWeight: 800, lineHeight: 1.1 }}>
-                                {op?.title || op?.name || "Novo Lead"}
+                                {op?.title || op?.name || op?.lead?.name || "Novo Lead"}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                                {op?.contact?.name || "Sem Contato Associado"}
+                                {op?.contact?.name || op?.lead?.name || "Sem contato associado"}
                             </Typography>
                         </Box>
                     </Box>
@@ -284,23 +285,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
                         {/* Chat (Simulacao) */}
                         <TabPanel value={tabValue} index={5}>
-                            <Typography className={classes.sectionTitle}>
-                                <ChatBubbleOutlineIcon style={{ marginRight: 8 }} /> Chat com Agente
-                            </Typography>
-                            <Box display="flex" flexDirection="column" style={{ height: 300, border: "1px solid #e0e0e0", borderRadius: 8, backgroundColor: "#ece5dd", position: "relative" }}>
-                                <Box p={2} style={{ flexGrow: 1, overflowY: "auto" }}>
-                                    {/* Placeholder para area de mensagens */}
-                                    <Box display="flex" justifyContent="center">
-                                        <Typography variant="caption" style={{ backgroundColor: "rgba(255,255,255,0.8)", padding: "2px 8px", borderRadius: 8 }}>Hoje</Typography>
-                                    </Box>
-                                </Box>
-                                {/* Input area */}
-                                <Box display="flex" p={1} style={{ backgroundColor: "#f0f0f0", borderTop: "1px solid #ccc" }}>
-                                    <TextField fullWidth variant="outlined" size="small" placeholder="Digite uma mensagem..." style={{ backgroundColor: "#fff", borderRadius: 20 }} />
-                                    <Button variant="contained" color="primary" style={{ minWidth: 40, borderRadius: "50%", marginLeft: 8, boxShadow: "none", padding: 8 }}>
-                                        <ChatBubbleOutlineIcon fontSize="small" />
-                                    </Button>
-                                </Box>
+                            <Box height="500px">
+                                <LeadChat leadId={leadId || op?.leadId || op?.id || null} />
                             </Box>
                         </TabPanel>
 

@@ -115,6 +115,7 @@ import WebhookDeliveryLog from "../models/WebhookDeliveryLog";
 import OpportunityPrediction from "../models/OpportunityPrediction";
 import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import PipelineTemplate from "../models/PipelineTemplate";
+import LeadMessage from "../models/LeadMessage";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -263,7 +264,8 @@ const models = [
   SystemWebhook,
   WebhookDeliveryLog,
   OpportunityPrediction,
-  AISuggestionFeedback
+  AISuggestionFeedback,
+  LeadMessage
 ];
 
 sequelize.addModels(models);

@@ -3,6 +3,7 @@ import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import Contact from "../../models/Contact";
+import CrmLead from "../../models/CrmLead";
 import OpportunityPrediction from "../../models/OpportunityPrediction";
 import AppError from "../../errors/AppError";
 
@@ -28,7 +29,11 @@ interface BoardOpportunity {
     title: string;
     value: number;
     status: string;
-    contact: {
+    contact?: {
+        id: number;
+        name: string;
+    };
+    lead?: {
         id: number;
         name: string;
     };
@@ -168,6 +173,11 @@ const ListPipelineBoardService = async ({
                 attributes: ["id", "name"]
             },
             {
+                model: CrmLead,
+                as: "lead",
+                attributes: ["id", "name"]
+            },
+            {
                 model: OpportunityPrediction,
                 as: "prediction",
                 attributes: ["predictedCloseProbability", "riskLevel", "explanation"]
@@ -176,11 +186,11 @@ const ListPipelineBoardService = async ({
 
         // Se houver filtro de riskLevel ou minProbability, aplicar no include/where
         if (filter?.riskLevel) {
-            include[1].where = { riskLevel: filter.riskLevel };
+            include[2].where = { riskLevel: filter.riskLevel };
         }
         if (filter?.minProbability) {
-            if (!include[1].where) include[1].where = {};
-            include[1].where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
+            if (!include[2].where) include[2].where = {};
+            include[2].where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
         }
 
         // Ordenação
@@ -265,6 +275,7 @@ const ListPipelineBoardService = async ({
                         value: Number(op.value),
                         status: op.status,
                         contact: op.contact,
+                        lead: op.lead,
                         prediction: op.prediction ? {
                             probability: op.prediction.predictedCloseProbability,
                             riskLevel: op.prediction.riskLevel,
