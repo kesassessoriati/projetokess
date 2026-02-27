@@ -25,6 +25,7 @@ import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
 import LeadChat from "../LeadChat";
+import LeadAppointmentModal from "../LeadAppointmentModal";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -113,6 +114,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
     const [activityType, setActivityType] = useState("LIGACAO");
+    const [leadAppointmentOpen, setLeadAppointmentOpen] = useState(false);
     const [activities, setActivities] = useState([]);
     const [loadingActivities, setLoadingActivities] = useState(false);
 
@@ -389,10 +391,17 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <Typography className={classes.sectionTitle}>
                                 <ScheduleIcon style={{ marginRight: 8 }} /> Agendador de Reunião
                             </Typography>
-                            <Typography variant="body2" color="textSecondary" mb={2}>
-                                Marque reuniões e eventos para esta oportunidade. A integração com a Agenda estará vinculada a este painel.
+                            <Typography variant="body2" color="textSecondary" mb={2} style={{ marginBottom: "16px" }}>
+                                Marque reuniões e eventos para esta oportunidade. A integração com a Agenda estará vinculada a este painel e sincronizada via Google Calendar.
                             </Typography>
-                            <Button variant="outlined" color="primary" style={{ textTransform: "none" }}>+ Propor horários (Agenda)</Button>
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                style={{ textTransform: "none", alignSelf: "flex-start" }}
+                                onClick={() => setLeadAppointmentOpen(true)}
+                            >
+                                + Propor horários (Agenda)
+                            </Button>
                         </TabPanel>
 
                         {/* E-mail */}
@@ -428,6 +437,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                     </Paper>
                 </Box>
             </Box>
+
+            <LeadAppointmentModal
+                open={leadAppointmentOpen}
+                onClose={() => setLeadAppointmentOpen(false)}
+                op={op}
+            />
+
         </Dialog>
     );
 };
