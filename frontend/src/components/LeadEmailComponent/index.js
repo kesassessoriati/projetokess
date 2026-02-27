@@ -102,12 +102,12 @@ const LeadEmailComponent = ({ op, lead, onEmailSent }) => {
             const { data: smtp } = await api.get("/smtp");
             setHasSmtp(!!smtp);
 
-            if (lead?.email) {
+            if (lead && lead.email) {
                 setEmailData(prev => ({ ...prev, to: lead.email }));
             }
 
             // Fetch history from events
-            const leadId = lead?.id || op?.leadId;
+            const leadId = (lead && lead.id) || (op && op.leadId);
             if (leadId) {
                 const { data: events } = await api.get(`/opportunity-events/${leadId}`);
                 const emailHistory = events.filter(e => e.type === "EMAIL");
@@ -132,8 +132,8 @@ const LeadEmailComponent = ({ op, lead, onEmailSent }) => {
             formData.append("to", emailData.to);
             formData.append("subject", emailData.subject);
             formData.append("body", emailData.body);
-            formData.append("leadId", lead?.id || op?.leadId);
-            if (op?.id) formData.append("opportunityId", op.id);
+            formData.append("leadId", (lead && lead.id) || (op && op.leadId));
+            if (op && op.id) formData.append("opportunityId", op.id);
 
             attachments.forEach(file => {
                 formData.append("attachments", file);
@@ -180,7 +180,7 @@ const LeadEmailComponent = ({ op, lead, onEmailSent }) => {
                 <Typography variant="h6" gutterBottom>SMTP não configurado</Typography>
                 <Typography variant="body2" color="textSecondary">
                     Você precisa configurar o servidor de e-mail (SMTP) antes de enviar e-mails para este Lead.
-                    Vá em <b>Sistema -> SMTP (E-mail)</b> para configurar.
+                    Vá em <b>Sistema {"->"} SMTP (E-mail)</b> para configurar.
                 </Typography>
             </Box>
         );
@@ -261,15 +261,15 @@ const LeadEmailComponent = ({ op, lead, onEmailSent }) => {
                                 <ListItemText
                                     primary={
                                         <Typography variant="body2" style={{ fontWeight: 600 }}>
-                                            {item.metadata?.subject || "(Sem assunto)"}
+                                            {(item.metadata && item.metadata.subject) || "(Sem assunto)"}
                                         </Typography>
                                     }
                                     secondary={
                                         <>
                                             <Typography variant="caption" color="textSecondary">
-                                                Enviado para: {item.metadata?.to} • {new Date(item.createdAt).toLocaleString()}
+                                                Enviado para: {item.metadata && item.metadata.to} • {new Date(item.createdAt).toLocaleString()}
                                             </Typography>
-                                            {item.metadata?.attachments?.length > 0 && (
+                                            {item.metadata && item.metadata.attachments && item.metadata.attachments.length > 0 && (
                                                 <Box display="flex" mt={0.5} gap={1}>
                                                     <Typography variant="caption" color="primary">
                                                         📎 {item.metadata.attachments.length} anexo(s)

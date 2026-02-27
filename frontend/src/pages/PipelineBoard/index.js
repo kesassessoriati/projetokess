@@ -207,8 +207,8 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const IntelligentCard = ({ op, onClick }) => {
-    const riskColor = op.prediction?.riskLevel === "HIGH" ? "#ef4444" : op.prediction?.riskLevel === "MEDIUM" ? "#f59e0b" : "#10b981";
-    const probability = (op.prediction?.probability * 100).toFixed(0) || 0;
+    const riskColor = (op.prediction && op.prediction.riskLevel === "HIGH") ? "#ef4444" : (op.prediction && op.prediction.riskLevel === "MEDIUM") ? "#f59e0b" : "#10b981";
+    const probability = (op.prediction && (op.prediction.probability * 100).toFixed(0)) || 0;
     const classes = useStyles({ riskColor });
 
     return (
@@ -217,7 +217,7 @@ const IntelligentCard = ({ op, onClick }) => {
                 <Typography variant="body2" style={{ fontWeight: 700, color: "#334155", lineHeight: 1.2 }}>
                     {op.title}
                 </Typography>
-                {op.prediction?.riskLevel === "HIGH" && (
+                {(op.prediction && op.prediction.riskLevel === "HIGH") && (
                     <Tooltip title="Alto Risco">
                         <WarningIcon style={{ fontSize: 16, color: riskColor }} />
                     </Tooltip>
@@ -226,7 +226,7 @@ const IntelligentCard = ({ op, onClick }) => {
 
             <Box display="flex" alignItems="center" gap={1} mb={1}>
                 <Typography variant="caption" style={{ fontWeight: 600, color: "#64748b" }}>
-                    {op.contact?.name || op.lead?.name || "Sem contato"}
+                    {(op.contact && op.contact.name) || (op.lead && op.lead.name) || "Sem contato"}
                 </Typography>
             </Box>
 
@@ -547,7 +547,7 @@ const PipelineBoard = () => {
                         <Box>
                             <Typography variant="body2" paragraph style={{ backgroundColor: "#f8fafc", padding: 16, borderRadius: 12, border: "1px solid #e2e8f0" }}>
                                 <LightbulbIcon style={{ fontSize: 16, color: "#6366f1", marginBottom: -3, marginRight: 4 }} />
-                                <strong>Análise do Sistema:</strong> {selectedOp.prediction?.explanation || "Aguardando processamento heurístico..."}
+                                <strong>Análise do Sistema:</strong> {(selectedOp.prediction && selectedOp.prediction.explanation) || "Aguardando processamento heurístico..."}
                             </Typography>
 
                             <Box mt={3} p={2} style={{ backgroundColor: "#eff6ff", borderRadius: 12 }}>

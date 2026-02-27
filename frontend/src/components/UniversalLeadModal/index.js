@@ -412,7 +412,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             </Typography>
                             <LeadEmailComponent
                                 op={op}
-                                lead={op?.contact || op?.lead || {}}
+                                lead={(op && (op.contact || op.lead)) || {}}
                                 onEmailSent={fetchActivities}
                             />
                         </TabPanel>
@@ -420,7 +420,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         {/* Chat (Simulacao) */}
                         <TabPanel value={tabValue} index={5}>
                             <Box height="500px">
-                                <LeadChat leadId={leadId || op?.leadId || op?.id || null} />
+                                <LeadChat leadId={leadId || (op && (op.leadId || op.id)) || null} />
                             </Box>
                         </TabPanel>
 
