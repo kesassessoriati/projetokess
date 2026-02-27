@@ -112,6 +112,7 @@ import performanceRoutes from "./performanceRoutes";
 import pipelineRoutes from "./pipelineRoutes";
 import crmWebhookRoutes from "./crmWebhookRoutes";
 import migrationRoutes from "./migrationRoutes";
+import smtpSettingRoutes from "./smtpSettingRoutes";
 
 const routes = Router();
 
@@ -243,5 +244,6 @@ routes.use(performanceRoutes);
 routes.use(pipelineRoutes);
 routes.use(crmWebhookRoutes);
 routes.use(migrationRoutes);
+routes.use(smtpSettingRoutes);
 
 export default routes;

@@ -944,6 +944,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Financeiro", path: "/financeiro" },
           { title: "Configurações", path: "/settings" },
+          { title: "SMTP (E-mail)", path: "/smtp" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
         ],

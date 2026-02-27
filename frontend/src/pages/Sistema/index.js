@@ -21,6 +21,7 @@ import ListAltIcon from "@mui/icons-material/ListAlt";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import SmsOutlinedIcon from "@mui/icons-material/SmsOutlined";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import PsychologyIcon from "@mui/icons-material/Psychology";
@@ -341,6 +342,12 @@ const categories = [
         description: "Visualize estatísticas e relatórios de contatos.",
         route: "/contact-analytics",
         icon: AssessmentIcon,
+      },
+      {
+        title: "SMTP (E-mail)",
+        description: "Configure o servidor de saída de e-mail para o Lead.",
+        route: "/smtp",
+        icon: MailOutlineIcon,
       },
     ],
   },

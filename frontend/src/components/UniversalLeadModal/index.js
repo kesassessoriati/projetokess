@@ -18,14 +18,15 @@ import CloseIcon from "@material-ui/icons/Close";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
-import MailOutlineIcon from "@material-ui/icons/MailOutline";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
-import AttachFileIcon from "@material-ui/icons/AttachFile";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
 import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
 import LeadChat from "../LeadChat";
 import LeadAppointmentModal from "../LeadAppointmentModal";
+import LeadEmailComponent from "../LeadEmailComponent";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -119,7 +120,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [loadingActivities, setLoadingActivities] = useState(false);
 
     useEffect(() => {
-        if (open && op?.id && (tabValue === 1 || tabValue === 2)) {
+        if (open && op?.id && (tabValue === 1 || tabValue === 2 || tabValue === 4)) {
             fetchActivities();
         }
     }, [open, op?.id, tabValue]);
@@ -407,14 +408,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         {/* E-mail */}
                         <TabPanel value={tabValue} index={4}>
                             <Typography className={classes.sectionTitle}>
-                                <MailOutlineIcon style={{ marginRight: 8 }} /> Envios de E-mail (Beta)
+                                <MailOutlineIcon style={{ marginRight: 8 }} /> Comunicação por E-mail
                             </Typography>
-                            <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 16 }}>
-                                <TextField fullWidth variant="outlined" size="small" placeholder="Para: lead@exemplo.com" style={{ marginBottom: 8 }} />
-                                <TextField fullWidth variant="outlined" size="small" placeholder="Assunto: Proposta Comercial" style={{ marginBottom: 8 }} />
-                                <TextField fullWidth variant="outlined" size="small" multiline rows={4} placeholder="Digite seu email..." style={{ marginBottom: 8 }} />
-                                <Button variant="contained" color="primary" size="small" style={{ textTransform: "none", boxShadow: "none" }}>Enviar E-mail</Button>
-                            </Box>
+                            <LeadEmailComponent
+                                op={op}
+                                lead={op?.contact || op?.lead || {}}
+                                onEmailSent={fetchActivities}
+                            />
                         </TabPanel>
 
                         {/* Chat (Simulacao) */}
