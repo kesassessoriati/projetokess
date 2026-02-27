@@ -279,7 +279,12 @@ const PipelineConfig = () => {
                             <Card className={classes.pipelineCard} onClick={() => setSelectedPipeline(pipe)} style={{ cursor: "pointer" }}>
                                 <CardContent>
                                     <Box display="flex" justifyContent="space-between" alignItems="center">
-                                        <Typography variant="h6" style={{ fontWeight: 700 }}>{pipe.name}</Typography>
+                                        <Typography variant="h6" style={{ fontWeight: 700 }}>
+                                            {pipe.name}
+                                            <Typography component="span" variant="caption" color="textSecondary" style={{ marginLeft: 8, fontWeight: 500 }}>
+                                                | ID: {pipe.id}
+                                            </Typography>
+                                        </Typography>
                                         <IconButton size="small" onClick={(e) => handleOpenPipelineMenu(e, pipe)}>
                                             <SettingsIcon color="action" />
                                         </IconButton>
@@ -302,7 +307,12 @@ const PipelineConfig = () => {
                 <Box>
                     <Box mb={4} display="flex" alignItems="center" gap={2}>
                         <Button onClick={() => setSelectedPipeline(null)}>← Voltar para listagem</Button>
-                        <Typography variant="h5" style={{ fontWeight: 800 }}>Configurando Estágios: {selectedPipeline.name}</Typography>
+                        <Typography variant="h5" style={{ fontWeight: 800 }}>
+                            Configurando Estágios: {selectedPipeline.name}
+                            <Typography component="span" variant="h6" color="textSecondary" style={{ marginLeft: 8, fontWeight: 500 }}>
+                                | ID: {selectedPipeline.id}
+                            </Typography>
+                        </Typography>
                     </Box>
 
                     <Paper style={{ padding: 24, borderRadius: 16 }}>
@@ -322,7 +332,12 @@ const PipelineConfig = () => {
                                                         <div {...provided.dragHandleProps}><DragIcon color="action" /></div>
                                                         <div className={classes.colorDot} style={{ backgroundColor: stage.color || "#ccc" }} />
                                                         <Box flex={1}>
-                                                            <Typography style={{ fontWeight: 700 }}>{stage.name}</Typography>
+                                                            <Box display="flex" alignItems="center" gap={1}>
+                                                                <Typography style={{ fontWeight: 700 }}>{stage.name}</Typography>
+                                                                <Typography variant="caption" color="textSecondary" style={{ fontSize: "0.8rem" }}>
+                                                                    | ID: {stage.id}
+                                                                </Typography>
+                                                            </Box>
                                                             <Box display="flex" gap={2} mt={0.5}>
                                                                 <Typography variant="caption" color="textSecondary">
                                                                     <TimerIcon style={{ fontSize: 12, verticalAlign: "middle", marginRight: 4 }} />

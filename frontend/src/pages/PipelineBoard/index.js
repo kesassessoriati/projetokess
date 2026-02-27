@@ -417,7 +417,7 @@ const PipelineBoard = () => {
                             <FormControl variant="outlined" size="small" style={{ minWidth: 220 }}>
                                 <InputLabel>Funil de Vendas</InputLabel>
                                 <Select value={selectedPipelineId} onChange={(e) => setSelectedPipelineId(e.target.value)} label="Funil de Vendas">
-                                    {pipelines.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                                    {pipelines.map(p => <MenuItem key={p.id} value={p.id}>{p.name} (ID: {p.id})</MenuItem>)}
                                 </Select>
                             </FormControl>
 
@@ -477,7 +477,7 @@ const PipelineBoard = () => {
                                     <div className={classes.laneHeader} style={{ backgroundColor: stage.color || "#475569" }}>
                                         <div className={classes.laneTitle}>
                                             <Box display="flex" alignItems="center">
-                                                {stage.name}
+                                                {stage.name} <span style={{ fontSize: "0.7rem", opacity: 0.8, marginLeft: 6 }}>| ID: {stage.id}</span>
                                                 <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>{stage.opportunitiesCount}</span>
                                             </Box>
                                             <Tooltip title="Importar Leads para este estágio">
