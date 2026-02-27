@@ -11,7 +11,13 @@ ticketRoutes.get("/tickets/:ticketId", isAuth, TicketController.show);
 
 ticketRoutes.get("/tickets-log/:ticketId", isAuth, TicketController.showLog);
 
-ticketRoutes.get("/ticket/kanban", isAuth, TicketController.kanban);
+// [DEPRECATED] Funil Legado - retorna 410 Gone
+ticketRoutes.get("/ticket/kanban", isAuth, (_req, res) => {
+    return res.status(410).json({
+        error: "Gone",
+        message: "Este módulo foi desativado. Utilize a nova API do Board Inteligente: GET /pipelines e GET /pipelines/:id/board."
+    });
+});
 
 ticketRoutes.get("/ticketreport/reports", isAuth, TicketController.report);
 

@@ -878,7 +878,8 @@ const LoggedInLayout = ({ children }) => {
           { title: "Dashboard Executivo", path: "/executive-dashboard" },
           { title: "Configuração de Funil", path: "/pipeline-config" },
           { title: "Webhooks (CRM)", path: "/crm-webhooks" },
-          { title: "Funil Legado", path: "/funil" },
+          // [DEPRECATED] Funil Legado removido - migrado para Board Inteligente
+          // { title: "Funil Legado", path: "/funil" },
           { title: "Etiquetas", path: "/etiquetas" },
         ],
       },

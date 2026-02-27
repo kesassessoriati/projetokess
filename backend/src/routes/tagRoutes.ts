@@ -8,7 +8,14 @@ const tagRoutes = express.Router();
 tagRoutes.get("/tags/list", isAuth, TagController.list);
 tagRoutes.get("/tags", isAuth, TagController.index);
 tagRoutes.get("/tags/:tagId", isAuth, TagController.show);
-tagRoutes.get("/tag/kanban", isAuth, TagController.kanban);
+
+// [DEPRECATED] Funil Legado - retorna 410 Gone
+tagRoutes.get("/tag/kanban", isAuth, (_req, res) => {
+    return res.status(410).json({
+        error: "Gone",
+        message: "Este módulo foi desativado. Utilize a nova API do Board Inteligente: GET /pipelines e GET /pipelines/:id/board."
+    });
+});
 
 tagRoutes.post("/tags", isAuth, TagController.store);
 tagRoutes.post("/tags/sync", isAuth, TagController.syncTags);
@@ -19,3 +26,4 @@ tagRoutes.delete("/tags/:tagId", isAuth, TagController.remove);
 tagRoutes.delete("/tags-contacts/:tagId/:contactId", isAuth, TagController.removeContactTag);
 
 export default tagRoutes;
+

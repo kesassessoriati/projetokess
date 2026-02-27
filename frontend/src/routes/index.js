@@ -93,7 +93,8 @@ import CallHistory from "../pages/CallHistory";
 import PipelineBoard from "../pages/PipelineBoard";
 import ExecutiveDashboard from "../pages/ExecutiveDashboard";
 
-import Funil from "../pages/Funil";
+// [DEPRECATED] Funil Legado - migrado para Board Inteligente
+// import Funil from "../pages/Funil";
 import FeatureDetailPage from "../pages/landingpage/FeatureDetailPage";
 import TermsOfService from "../pages/landingpage/TermsOfService";
 import UsagePolicy from "../pages/landingpage/UsagePolicy";
@@ -195,8 +196,9 @@ const Routes = () => {
                       <Route exact path="/integracao" component={QueueIntegration} isPrivate />
                       <Route exact path="/announcements" component={Annoucements} isPrivate />
                       <Route exact path="/faturas" component={Faturas} isPrivate />
-                      <Route exact path="/documentacao" component={Funil} isPrivate />
-                      <Route exact path="/funil" component={Funil} isPrivate />
+                      {/* [DEPRECATED] Funil Legado - rotas desativadas, migradas para Board Inteligente */}
+                      {/* <Route exact path="/documentacao" component={Funil} isPrivate /> */}
+                      {/* <Route exact path="/funil" component={Funil} isPrivate /> */}
                       <Route exact path="/empresa" component={empresa} isPrivate />
                       <Route exact path="/payment-settings" component={PaymentSettings} isPrivate />
                       <Route
@@ -232,7 +234,8 @@ const Routes = () => {
                       <Route exact path="/pipeline-config" component={PipelineConfig} isPrivate />
                       <Route exact path="/crm-webhooks" component={CRMWebhooks} isPrivate />
                       <Route exact path="/kanban" component={PipelineBoard} isPrivate />
-                      <Route exact path="/TagsKanban" component={TagsKanban} isPrivate />
+                      {/* [DEPRECATED] TagsKanban - migrado para Board Inteligente */}
+                      {/* <Route exact path="/TagsKanban" component={TagsKanban} isPrivate /> */}
                       <Route exact path="/prompts" component={Agentes} isPrivate />
                       <Route exact path="/agentes" component={Agentes} isPrivate />
                       <Route exact path="/ia-workflows" component={IaWorkflows} isPrivate />

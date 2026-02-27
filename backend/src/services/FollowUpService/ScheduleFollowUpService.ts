@@ -24,15 +24,15 @@ interface FollowUpData {
 }
 
 class ScheduleFollowUpService {
-  
+
   constructor() {
   }
 
   public async scheduleFollowUp(data: FollowUpData): Promise<FollowUp> {
     const { delayMinutes, action, ticketId, companyId, flowNodeId } = data;
-    
+
     const scheduledAt = moment().add(delayMinutes, 'minutes').toDate();
-    
+
     const followUp = await FollowUp.create({
       ticketId,
       companyId,
@@ -44,14 +44,14 @@ class ScheduleFollowUpService {
     });
 
     logger.info(`Follow-up scheduled: ${followUp.id} for ticket ${ticketId} at ${scheduledAt}`);
-    
+
     return followUp;
   }
 
   public async processPendingFollowUps(): Promise<void> {
     try {
       const now = moment().toDate();
-      
+
       const pendingFollowUps = await FollowUp.findAll({
         where: {
           status: 'pending',
@@ -89,10 +89,10 @@ class ScheduleFollowUpService {
           await followUp.update({ status: 'completed', executedAt: new Date() });
           logger.info(`Follow-up ${followUp.id} executed successfully`);
         } catch (error) {
-          await followUp.update({ 
-            status: 'failed', 
+          await followUp.update({
+            status: 'failed',
             executedAt: new Date(),
-            error: error.message 
+            error: error.message
           });
           logger.error(`Failed to execute follow-up ${followUp.id}: ${error.message}`);
         }
@@ -104,7 +104,7 @@ class ScheduleFollowUpService {
 
   private async executeFollowUp(followUp: FollowUp): Promise<void> {
     const { ticket, actionType, actionPayload } = followUp;
-    
+
     if (!ticket) {
       throw new Error('Ticket not found for follow-up');
     }
@@ -146,14 +146,14 @@ class ScheduleFollowUpService {
 
         break;
       }
-      
+
       case 'addTag':
         // Implement addTag logic - Adicionar tags normais
         if (actionPayload.tags && Array.isArray(actionPayload.tags)) {
           const Tag = require("../../models/Tag").default;
           const TicketTag = require("../../models/TicketTag").default;
           const ContactTag = require("../../models/ContactTag").default;
-          
+
           for (const tagId of actionPayload.tags) {
             try {
               const tag = await Tag.findByPk(tagId);
@@ -163,13 +163,13 @@ class ScheduleFollowUpService {
                   where: { ticketId: ticket.id, tagId },
                   defaults: { ticketId: ticket.id, tagId }
                 });
-                
+
                 // Adicionar tag ao contato
                 await ContactTag.findOrCreate({
                   where: { contactId: ticket.contactId, tagId },
                   defaults: { contactId: ticket.contactId, tagId }
                 });
-                
+
                 logger.info(`Tag ${tag.name} added to ticket ${ticket.id}`);
               }
             } catch (error) {
@@ -178,61 +178,84 @@ class ScheduleFollowUpService {
           }
         }
         break;
-      
+
       case 'addTagKanban':
-        // Implement addTagKanban logic - Adicionar tag kanban (substitui todas)
-        if (actionPayload.kanbanTagId) {
-          const Tag = require("../../models/Tag").default;
-          const TicketTag = require("../../models/TicketTag").default;
-          const ContactTag = require("../../models/ContactTag").default;
-          
+        // [MIGRADO] addTagKanban → Board Inteligente (Pipelines/Opportunities)
+        if (actionPayload.kanbanTagId || actionPayload.stageId) {
+          const PipelineStage = require("../../models/PipelineStage").default;
+          const Opportunity = require("../../models/Opportunity").default;
+          const CreateOpportunityService = require("../OpportunityServices/CreateOpportunityService").default;
+
+          const stageId = actionPayload.stageId || actionPayload.kanbanTagId;
+
           try {
-            const kanbanTag = await Tag.findByPk(actionPayload.kanbanTagId);
-            if (kanbanTag && kanbanTag.kanban === 1) { // Apenas tags kanban
-              
-              // Remover todas as tags kanban existentes do ticket
-              const existingKanbanTags = await Tag.findAll({
-                where: { kanban: 1 },
-                include: [{
-                  model: TicketTag,
-                  where: { ticketId: ticket.id },
-                  required: true
-                }]
+            // Tentar usar o Board Inteligente primeiro
+            const stage = await PipelineStage.findOne({
+              where: { id: stageId, companyId: ticket.companyId }
+            });
+
+            if (stage) {
+              // Verificar se já existe oportunidade aberta para este contato
+              const existingOpp = await Opportunity.findOne({
+                where: {
+                  contactId: ticket.contactId,
+                  companyId: ticket.companyId,
+                  status: "OPEN"
+                }
               });
-              
-              for (const existingTag of existingKanbanTags) {
-                await TicketTag.destroy({
-                  where: { ticketId: ticket.id, tagId: existingTag.id }
+
+              if (existingOpp) {
+                await existingOpp.update({
+                  stageId: stage.id,
+                  pipelineId: stage.pipelineId,
+                  lastMovedBy: "FOLLOW_UP"
                 });
-                await ContactTag.destroy({
-                  where: { contactId: ticket.contactId, tagId: existingTag.id }
+                logger.info(`Follow-up: Oportunidade ${existingOpp.id} movida para estágio ${stage.name}`);
+              } else {
+                await CreateOpportunityService({
+                  companyId: ticket.companyId,
+                  pipelineId: stage.pipelineId,
+                  stageId: stage.id,
+                  contactId: ticket.contactId,
+                  title: ticket.contact?.name || "Lead Follow-up",
+                  value: 0
                 });
+                logger.info(`Follow-up: Nova oportunidade criada no Board Inteligente para ticket ${ticket.id}`);
               }
-              
-              // Adicionar nova tag kanban
-              await TicketTag.findOrCreate({
-                where: { ticketId: ticket.id, tagId: kanbanTag.id },
-                defaults: { ticketId: ticket.id, tagId: kanbanTag.id }
-              });
-              
-              await ContactTag.findOrCreate({
-                where: { contactId: ticket.contactId, tagId: kanbanTag.id },
-                defaults: { contactId: ticket.contactId, tagId: kanbanTag.id }
-              });
-              
-              logger.info(`Kanban tag ${kanbanTag.name} set for ticket ${ticket.id}`);
+            } else {
+              // FALLBACK LEGADO: usar tag kanban se PipelineStage não encontrado
+              const Tag = require("../../models/Tag").default;
+              const TicketTag = require("../../models/TicketTag").default;
+              const ContactTag = require("../../models/ContactTag").default;
+
+              const kanbanTag = await Tag.findByPk(stageId);
+              if (kanbanTag && kanbanTag.kanban === 1) {
+                const existingKanbanTags = await Tag.findAll({
+                  where: { kanban: 1 },
+                  include: [{ model: TicketTag, where: { ticketId: ticket.id }, required: true }]
+                });
+                for (const existingTag of existingKanbanTags) {
+                  await TicketTag.destroy({ where: { ticketId: ticket.id, tagId: existingTag.id } });
+                  await ContactTag.destroy({ where: { contactId: ticket.contactId, tagId: existingTag.id } });
+                }
+                await TicketTag.findOrCreate({
+                  where: { ticketId: ticket.id, tagId: kanbanTag.id },
+                  defaults: { ticketId: ticket.id, tagId: kanbanTag.id }
+                });
+                logger.info(`Follow-up (Fallback Legado): Kanban tag ${kanbanTag.name} set for ticket ${ticket.id}`);
+              }
             }
           } catch (error) {
-            logger.error(`Error setting kanban tag for ticket ${ticket.id}:`, error);
+            logger.error(`Error in addTagKanban follow-up for ticket ${ticket.id}:`, error);
           }
         }
         break;
-      
+
       case 'transferQueue':
         // Implement transferQueue logic - Transferir para fila
         if (actionPayload.queueId) {
           const Queue = require("../../models/Queue").default;
-          
+
           try {
             const queue = await Queue.findByPk(actionPayload.queueId);
             if (queue) {
@@ -240,7 +263,7 @@ class ScheduleFollowUpService {
                 queueId: queue.id,
                 userId: null // Limpa usuário ao transferir para fila
               });
-              
+
               logger.info(`Ticket ${ticket.id} transferred to queue ${queue.name}`);
             }
           } catch (error) {
@@ -248,7 +271,7 @@ class ScheduleFollowUpService {
           }
         }
         break;
-      
+
       case 'closeTicket':
         // Implement closeTicket logic - Fechar ticket
         try {
@@ -256,13 +279,13 @@ class ScheduleFollowUpService {
             status: 'closed',
             closedAt: new Date()
           });
-          
+
           logger.info(`Ticket ${ticket.id} closed`);
         } catch (error) {
           logger.error(`Error closing ticket ${ticket.id}:`, error);
         }
         break;
-      
+
       case 'transferFlow':
         // Implement transferFlow logic - Transferir para outro fluxo
         if (actionPayload.flowId) {
@@ -271,7 +294,7 @@ class ScheduleFollowUpService {
           logger.info(`Transfer flow action for ticket ${ticket.id} to flow ${actionPayload.flowId}`);
         }
         break;
-      
+
       default:
         throw new Error(`Unsupported action type: ${actionType}`);
     }

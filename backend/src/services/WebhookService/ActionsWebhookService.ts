@@ -60,21 +60,25 @@ import axios from "axios";
 import { FlowBuilderModel } from "../../models/FlowBuilder";
 import FollowUpNodeService from "../FlowBuilderService/FollowUpNodeService";
 import WaitQuestionService from "../FlowBuilderService/WaitQuestionService";
+import Pipeline from "../../models/Pipeline";
+import PipelineStage from "../../models/PipelineStage";
+import Opportunity from "../../models/Opportunity";
+import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
 
 // Função para extrair valores de objetos JSON usando path
 const getNestedValue = (obj: any, path: string): any => {
   if (!path || !obj) return undefined;
-  
+
   const keys = path.split('.');
   let current = obj;
-  
+
   for (const key of keys) {
     if (current === null || current === undefined) {
       return undefined;
     }
     current = current[key];
   }
-  
+
   return current;
 };
 import { getAsaasSecondCopyByCpf } from "../PaymentGatewayService";
@@ -121,7 +125,7 @@ export const ActionsWebhookService = async (
   try {
     const io = getIO();
     let next = nextStage;
-    
+
     // BLOQUEAR VOLTAR AO NÓ START quando já está em progresso
     if (String(next) === '1') {
       // Verificar se já existe um ticket com fluxo ativo
@@ -129,7 +133,7 @@ export const ActionsWebhookService = async (
         const activeTicket = await Ticket.findOne({
           where: { id: idTicket, flowWebhook: true, lastFlowId: { [Op.ne]: null } }
         });
-        
+
         if (activeTicket && activeTicket.lastFlowId && String(activeTicket.lastFlowId) !== '1') {
           console.log(`🚫 BLOQUEADO: Impedindo volta ao nó start. Usando lastFlowId: ${activeTicket.lastFlowId}`);
           next = activeTicket.lastFlowId;
@@ -219,10 +223,10 @@ export const ActionsWebhookService = async (
           if (!lineToDataEmail) {
             sumRes = dataN;
           } else {
-          sumRes = constructJsonLine(lineToDataEmail, dataWebhook);
-        }
+            sumRes = constructJsonLine(lineToDataEmail, dataWebhook);
+          }
 
-        createFieldJsonEmail = createFieldJsonEmail + sumRes;
+          createFieldJsonEmail = createFieldJsonEmail + sumRes;
         });
       }
     } else {
@@ -242,7 +246,7 @@ export const ActionsWebhookService = async (
 
         if (ticket && ticket.userId) {
           console.log(`Ticket ${ticketId} está com usuário ${ticket.user.name}, encerrando fluxo automático`);
-          
+
           // Atualizar status para closed
           await ticket.update({
             status: "closed",
@@ -260,7 +264,7 @@ export const ActionsWebhookService = async (
 
           return true; // Indica que o fluxo deve parar
         }
-        
+
         return false; // Continua o fluxo normalmente
       } catch (error) {
         console.error("Erro ao verificar status do ticket:", error);
@@ -302,7 +306,7 @@ export const ActionsWebhookService = async (
         console.log("UPDATE2... pressKey:", pressKey);
         console.log("UPDATE2... execFn:", execFn);
         console.log("UPDATE2... next:", next);
-        
+
         if (pressKey === "parar") {
           console.log("UPDATE3...");
           if (idTicket) {
@@ -392,25 +396,25 @@ export const ActionsWebhookService = async (
         console.log("650 menu");
         console.log("Menu data:", nodeSelected.data);
         console.log("PressKey:", pressKey);
-        
+
         // Verificar se nodeSelected.data existe
         if (!nodeSelected.data || !nodeSelected.data.arrayOption) {
           console.log("ERRO: Menu não possui dados ou arrayOption", nodeSelected);
           break;
         }
-        
+
         console.log("Array options:", nodeSelected.data.arrayOption);
-        
+
         if (pressKey) {
           const selectedOption = nodeSelected.data.arrayOption.find(
             option => option.number == pressKey
           );
-          
+
           if (selectedOption) {
             console.log("Opção selecionada:", selectedOption);
             next = selectedOption.next;
             console.log("Próximo nó definido:", next);
-            
+
             // Se next não estiver definido, usar as conexões do flow
             if (!next && connects) {
               console.log("Next undefined, buscando nas conexões...");
@@ -418,7 +422,7 @@ export const ActionsWebhookService = async (
                 opt => opt.number == pressKey
               );
               const sourceHandle = `a${optionIndex + 1}`;
-              const connection = connects.find(conn => 
+              const connection = connects.find(conn =>
                 conn.source === nodeSelected.id && conn.sourceHandle === sourceHandle
               );
               if (connection) {
@@ -432,7 +436,7 @@ export const ActionsWebhookService = async (
         } else {
           console.log("Nenhum pressKey fornecido");
         }
-        
+
         // Se encontrou um próximo nó, processá-lo recursivamente
         if (next && next !== nodeSelected.id) {
           console.log("Menu: Processando próximo nó recursivamente:", next);
@@ -461,7 +465,7 @@ export const ActionsWebhookService = async (
       if (nodeSelected.type === "openai") {
         console.log(`=== PROCESSANDO NÓ openai (AGENTE IA) ===`);
         console.log(`OpenAI: nodeSelected.data=`, JSON.stringify(nodeSelected.data, null, 2));
-        
+
         try {
           const cfg: any = nodeSelected.data.typebotIntegration || {};
           console.log(`OpenAI: Configuração extraída=`, JSON.stringify(cfg, null, 2));
@@ -479,7 +483,7 @@ export const ActionsWebhookService = async (
 
           if (cfg.iaMode === "system" && !Number.isNaN(promptIdNumber)) {
             console.log(`OpenAI: Buscando prompt do sistema ID=${promptIdNumber}`);
-            
+
             const prompt = await ShowPromptService({
               promptId: promptIdNumber,
               companyId
@@ -590,7 +594,7 @@ export const ActionsWebhookService = async (
             null,
             ticketTraking
           );
-          
+
           console.log(`OpenAI: Processamento concluído com sucesso`);
         } catch (error: any) {
           console.error(`OpenAI: ERRO CRÍTICO NO PROCESSAMENTO:`, error);
@@ -602,7 +606,7 @@ export const ActionsWebhookService = async (
       if (nodeSelected.type === "directOpenai") {
         console.log(`=== PROCESSANDO NÓ directOpenai (AGENTE DIRETO) ===`);
         console.log(`DirectOpenAI: nodeSelected.data=`, JSON.stringify(nodeSelected.data, null, 2));
-        
+
         try {
           const cfg = nodeSelected.data;
           console.log(`DirectOpenAI: Configuração extraída=`, JSON.stringify(cfg, null, 2));
@@ -733,17 +737,17 @@ export const ActionsWebhookService = async (
                   null,
                   buffer.ticketTraking
                 );
-                
+
                 console.log(`DirectOpenAI: Processamento concluído com sucesso`);
               } catch (error: any) {
                 console.error(`DirectOpenAI: ERRO ao processar mensagens agrupadas:`, error);
                 console.error(`DirectOpenAI: Stack trace:`, error.stack);
               }
             }, 8000); // 8 segundos
-            
+
             // Não usar continue para permitir que o fluxo continue normalmente após processar a IA
           }
-          
+
           // Se NÃO houver mensagem (primeira execução do nó), apenas continua o fluxo
           console.log(`DirectOpenAI: Nó ativado, aguardando mensagens do usuário...`);
 
@@ -797,10 +801,10 @@ export const ActionsWebhookService = async (
 
         try {
           const { waitTime, waitUnit, question, mediaType, mediaUrl, mediaName, optionX, optionY, timeoutEnabled, timeoutTime, timeoutUnit } = nodeSelected.data;
-          
+
           // Calcular tempo em segundos (igual ao interval)
           const totalSeconds = waitUnit === "hours" ? waitTime * 3600 : waitTime * 60;
-          
+
           // Aguardar o tempo configurado (igual ao interval)
           console.log(`WaitQuestion: Aguardando ${totalSeconds} segundos...`);
           await new Promise((resolve) => {
@@ -809,7 +813,7 @@ export const ActionsWebhookService = async (
               resolve(true);
             }, totalSeconds * 1000);
           });
-          
+
           // Enviar mídia se existir
           if (mediaType && mediaType !== "none" && mediaUrl) {
             try {
@@ -822,7 +826,7 @@ export const ActionsWebhookService = async (
               console.error(`WaitQuestion: Erro ao enviar mídia:`, mediaErr);
             }
           }
-          
+
           // Enviar a pergunta (igual ao message)
           if (question) {
             await SendMessage(whatsapp, {
@@ -831,7 +835,7 @@ export const ActionsWebhookService = async (
             });
             console.log(`WaitQuestion: Pergunta enviada para ticket ${ticket.id}`);
           }
-          
+
           // Salvar estado de espera no ticket
           const totalMinutes = waitUnit === "hours" ? waitTime * 60 : waitTime;
           await ticket.update({
@@ -841,12 +845,12 @@ export const ActionsWebhookService = async (
             timeoutEnabled: !!timeoutEnabled,
             timeoutAt: timeoutEnabled ? new Date(Date.now() + ((timeoutUnit === "hours" ? timeoutTime * 60 : timeoutTime)) * 60000) : null
           });
-          
+
           console.log(`WaitQuestion: Ticket ${ticket.id} aguardando resposta`);
-          
+
           // Pausar fluxo - aguardar resposta do usuário
           next = null;
-          
+
         } catch (error) {
           console.error("WaitQuestion: erro ao processar", error);
           next = null;
@@ -856,7 +860,7 @@ export const ActionsWebhookService = async (
       if (nodeSelected.type === "question") {
         console.log("Question: Debug - idTicket:", idTicket);
         console.log("Question: Debug - ticket antes:", ticket?.id);
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           console.log("Question: Carregando ticket do banco...");
@@ -865,7 +869,7 @@ export const ActionsWebhookService = async (
           });
           console.log("Question: Ticket carregado:", ticket?.id);
         }
-        
+
         const questionData = nodeSelected.data?.typebotIntegration || {};
         const { message } = questionData;
         const answerKey =
@@ -886,10 +890,10 @@ export const ActionsWebhookService = async (
         console.log("Question: Debug - ticket existe:", !!ticket);
         console.log("Question: Debug - ticket.contact existe:", !!ticket?.contact);
         console.log("Question: Debug - ticket.contactId:", ticket?.contactId);
-        
+
         if (!ticket || !ticket.contact) {
           console.log("Question: ticket ou contact é nulo, tentando carregar contact...");
-          
+
           // Tentar carregar o contact separadamente
           if (ticket && ticket.contactId && !ticket.contact) {
             console.log("Question: Carregando contact do banco...");
@@ -897,13 +901,13 @@ export const ActionsWebhookService = async (
             ticket.contact = await Contact.findByPk(ticket.contactId);
             console.log("Question: Contact carregado:", !!ticket.contact);
           }
-          
+
           if (!ticket.contact) {
             console.log("Question: Impossível continuar sem contact");
             break;
           }
         }
-        
+
         const questionMessage = formatBody(`${message || ""}`, ticket.contact);
         const ticketDetails = await ShowTicketService(ticket.id, companyId);
 
@@ -1023,7 +1027,7 @@ export const ActionsWebhookService = async (
             console.log("Fila: ticket.contact é nulo, pulando mensagem");
             break;
           }
-          
+
           const bodyFila = formatBody(`${msgFila}`, ticket.contact);
 
           await typeSimulation(ticket, "composing");
@@ -1117,19 +1121,17 @@ export const ActionsWebhookService = async (
               body: "",
               mediaPath:
                 (await getBackendUrl(companyId)) === "https://localhost:8090"
-                  ? `${__dirname.split("src")[0].split("\\").join("/")}public/${
-                      nodeSelected.data.elements.filter(
-                        item => item.number === elementNowSelected
-                      )[0].value
-                    }`
+                  ? `${__dirname.split("src")[0].split("\\").join("/")}public/${nodeSelected.data.elements.filter(
+                    item => item.number === elementNowSelected
+                  )[0].value
+                  }`
                   : `${__dirname
-                      .split("dist")[0]
-                      .split("\\")
-                      .join("/")}public/${
-                      nodeSelected.data.elements.filter(
-                        item => item.number === elementNowSelected
-                      )[0].value
-                    }`
+                    .split("dist")[0]
+                    .split("\\")
+                    .join("/")}public/${nodeSelected.data.elements.filter(
+                      item => item.number === elementNowSelected
+                    )[0].value
+                  }`
             });
             await intervalWhats("1");
           }
@@ -1137,16 +1139,14 @@ export const ActionsWebhookService = async (
           if (elementNowSelected.includes("audio")) {
             const mediaDirectory =
               (await getBackendUrl(companyId)) === "https://localhost:8090"
-                ? `${__dirname.split("src")[0].split("\\").join("/")}public/${
-                    nodeSelected.data.elements.filter(
-                      item => item.number === elementNowSelected
-                    )[0].value
-                  }`
-                : `${__dirname.split("dist")[0].split("\\").join("/")}public/${
-                    nodeSelected.data.elements.filter(
-                      item => item.number === elementNowSelected
-                    )[0].value
-                  }`;
+                ? `${__dirname.split("src")[0].split("\\").join("/")}public/${nodeSelected.data.elements.filter(
+                  item => item.number === elementNowSelected
+                )[0].value
+                }`
+                : `${__dirname.split("dist")[0].split("\\").join("/")}public/${nodeSelected.data.elements.filter(
+                  item => item.number === elementNowSelected
+                )[0].value
+                }`;
             const ticketInt = await Ticket.findOne({
               where: { id: ticket.id }
             });
@@ -1166,16 +1166,14 @@ export const ActionsWebhookService = async (
           if (elementNowSelected.includes("video")) {
             const mediaDirectory =
               (await getBackendUrl(companyId)) === "https://localhost:8090"
-                ? `${__dirname.split("src")[0].split("\\").join("/")}public/${
-                    nodeSelected.data.elements.filter(
-                      item => item.number === elementNowSelected
-                    )[0].value
-                  }`
-                : `${__dirname.split("dist")[0].split("\\").join("/")}public/${
-                    nodeSelected.data.elements.filter(
-                      item => item.number === elementNowSelected
-                    )[0].value
-                  }`;
+                ? `${__dirname.split("src")[0].split("\\").join("/")}public/${nodeSelected.data.elements.filter(
+                  item => item.number === elementNowSelected
+                )[0].value
+                }`
+                : `${__dirname.split("dist")[0].split("\\").join("/")}public/${nodeSelected.data.elements.filter(
+                  item => item.number === elementNowSelected
+                )[0].value
+                }`;
             const ticketInt = await Ticket.findOne({
               where: { id: ticket.id }
             });
@@ -1302,17 +1300,17 @@ export const ActionsWebhookService = async (
         await typeSimulation(ticket, "paused");
       }
 
-            if (nodeSelected.type === "interval") {
+      if (nodeSelected.type === "interval") {
         const timerSeconds = parseInt(nodeSelected.data.sec, 10);
         console.log(`Timer dedicado: Iniciando ${timerSeconds} segundos...`);
-        
+
         await new Promise((resolve) => {
           setTimeout(() => {
             console.log(`Timer dedicado: ${timerSeconds} segundos finalizado.`);
             resolve(true);
           }, timerSeconds * 1000);
         });
-        
+
         console.log(`Timer dedicado: Prosseguindo para próximo node...`);
       }
 
@@ -1324,47 +1322,47 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const targetFlowId = nodeSelected.data?.data?.flowId || nodeSelected.data?.flowId;
-        
+
         console.log(`TransferFlow: Dados do nó:`, JSON.stringify(nodeSelected.data, null, 2));
         console.log(`TransferFlow: targetFlowId extraído: ${targetFlowId}`);
-        
+
         if (targetFlowId) {
           console.log(`TransferFlow: Transferindo para fluxo ID ${targetFlowId}`);
-          
+
           const targetFlow = await FlowBuilderModel.findOne({
             where: { id: targetFlowId, company_id: companyId }
           });
-          
+
           if (targetFlow && targetFlow.flow) {
             console.log(`TransferFlow: Fluxo encontrado, processando dados...`);
-            const flowData = typeof targetFlow.flow === 'string' 
-              ? JSON.parse(targetFlow.flow) 
+            const flowData = typeof targetFlow.flow === 'string'
+              ? JSON.parse(targetFlow.flow)
               : targetFlow.flow;
-            
+
             const newNodes = flowData.nodes || [];
             const newConnects = flowData.connections || [];
-            
+
             console.log(`TransferFlow: Nó encontrados: ${newNodes.length}, Conexões: ${newConnects.length}`);
-            
+
             // Encontrar o nó de início do novo fluxo
             const startNode = newNodes.find((n: any) => n.type === "start");
-            
+
             console.log(`TransferFlow: Nó start encontrado: ${startNode ? startNode.id : 'NÃO'}`);
-            
+
             if (startNode) {
               // Encontrar a conexão que sai do start
               const startConnection = newConnects.find((c: any) => c.source === startNode.id);
-              
+
               console.log(`TransferFlow: Conexão start encontrada: ${startConnection ? startConnection.target : 'NÃO'}`);
-              
+
               if (startConnection) {
                 // Gerar novo hash para o novo fluxo
                 const newHashFlowId = randomString(42);
-                
+
                 console.log(`TransferFlow: Gerando novo hash: ${newHashFlowId}`);
-                
+
                 // Atualizar ticket com novo fluxo
                 await ticket.update({
                   flowWebhook: true,
@@ -1372,9 +1370,9 @@ export const ActionsWebhookService = async (
                   hashFlowId: newHashFlowId,
                   flowStopped: targetFlowId.toString()
                 });
-                
+
                 console.log(`TransferFlow: Ticket atualizado, executando novo fluxo...`);
-                
+
                 // Executar o novo fluxo recursivamente
                 return await ActionsWebhookService(
                   whatsappId,
@@ -1405,7 +1403,7 @@ export const ActionsWebhookService = async (
       // Nó: Enviar Mensagem API Externa
       if (nodeSelected.type === "sendMessage") {
         console.log(`SendMessage: Processando envio de mensagem via API`);
-        
+
         const messageData = nodeSelected.data?.data || nodeSelected.data;
         const apiToken = messageData?.apiToken;
         const message = messageData?.message;
@@ -1413,18 +1411,18 @@ export const ActionsWebhookService = async (
         const queueId = messageData?.queueId || "";
         const sendSignature = messageData?.sendSignature || false;
         const closeTicket = messageData?.closeTicket || false;
-        
+
         if (!apiToken || !message || !phoneNumber) {
           console.log(`SendMessage: Dados incompletos - apiToken: ${!!apiToken}, message: ${!!message}, phoneNumber: ${phoneNumber}`);
           return;
         }
-        
+
         try {
           console.log(`SendMessage: Enviando mensagem para ${phoneNumber} via API externa`);
-          
+
           // Buscar informações do contato e ticket para substituir variáveis
           let processedMessage = message;
-          
+
           if (idTicket) {
             const ticket = await Ticket.findOne({
               where: { id: idTicket, companyId },
@@ -1434,12 +1432,12 @@ export const ActionsWebhookService = async (
                 { model: Queue, as: "queue" }
               ]
             });
-            
+
             if (ticket) {
               const contact = ticket.contact;
               const user = ticket.user;
               const queue = ticket.queue;
-              
+
               // Substituir variáveis padrão na mensagem
               processedMessage = message
                 .replace(/\{\{name\}\}/g, contact?.name || "")
@@ -1449,22 +1447,22 @@ export const ActionsWebhookService = async (
                 .replace(/\{\{queue\}\}/g, queue?.name || "")
                 .replace(/\{\{protocol\}\}/g, ticket.uuid || "")
                 .replace(/\{\{connection\}\}/g, ticket.whatsapp?.name || "");
-              
+
               // Adicionar saudação
               const hour = new Date().getHours();
               let greeting = "Boa madrugada";
               if (hour >= 5 && hour < 12) greeting = "Bom dia";
               else if (hour >= 12 && hour < 18) greeting = "Boa tarde";
               else if (hour >= 18 && hour < 24) greeting = "Boa noite";
-              
+
               processedMessage = processedMessage.replace(/\{\{ms\}\}/g, greeting);
-              
+
               // Adicionar data e hora
               const now = new Date();
               processedMessage = processedMessage
                 .replace(/\{\{date\}\}/g, now.toLocaleDateString("pt-BR"))
                 .replace(/\{\{hour\}\}/g, now.toLocaleTimeString("pt-BR"));
-              
+
               // Substituir variáveis do dataWebhook (nós de pergunta e API)
               const dataWebhook = ticket.dataWebhook as any;
               if (dataWebhook) {
@@ -1475,7 +1473,7 @@ export const ActionsWebhookService = async (
                     processedMessage = processedMessage.replace(regex, String(value || ""));
                   });
                 }
-                
+
                 // Variáveis salvas de APIs e outras fontes
                 if (dataWebhook.variables) {
                   Object.entries(dataWebhook.variables).forEach(([key, value]) => {
@@ -1483,7 +1481,7 @@ export const ActionsWebhookService = async (
                     processedMessage = processedMessage.replace(regex, String(value || ""));
                   });
                 }
-                
+
                 // Variáveis de estado específicas (ex: respostas recentes)
                 if (dataWebhook.questionState && dataWebhook.questionState.answerValue) {
                   const answerKey = dataWebhook.questionState.answerKey;
@@ -1493,13 +1491,13 @@ export const ActionsWebhookService = async (
                   }
                 }
               }
-              
+
               console.log(`SendMessage: Mensagem processada com variáveis: ${processedMessage}`);
               console.log(`SendMessage: Variáveis disponíveis:`, dataWebhook?.variables || {});
               console.log(`SendMessage: Respostas de perguntas:`, dataWebhook?.questionAnswers || {});
             }
           }
-          
+
           // Preparar body da requisição
           const requestBody = {
             number: phoneNumber,
@@ -1509,7 +1507,7 @@ export const ActionsWebhookService = async (
             sendSignature: sendSignature,
             closeTicket: closeTicket
           };
-          
+
           // Enviar requisição para API externa
           const response = await fetch("https://api.faedeveloper.com.br/api/messages/send", {
             method: "POST",
@@ -1519,14 +1517,14 @@ export const ActionsWebhookService = async (
             },
             body: JSON.stringify(requestBody)
           });
-          
+
           if (!response.ok) {
             throw new Error(`API Error: ${response.status} - ${response.statusText}`);
           }
-          
+
           const responseData = await response.json();
           console.log(`SendMessage: Mensagem enviada com sucesso via API externa`, responseData);
-          
+
         } catch (error) {
           console.error(`SendMessage: Erro ao enviar mensagem via API externa:`, error);
         }
@@ -1540,7 +1538,7 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const apiData = nodeSelected.data?.data || nodeSelected.data;
         const method = apiData?.method || "GET";
         const url = apiData?.url;
@@ -1548,33 +1546,33 @@ export const ActionsWebhookService = async (
         const body = apiData?.body;
         const saveResponse = apiData?.saveResponse;
         const savedVariables = apiData?.savedVariables || [];
-        
+
         if (url) {
           console.log(`ApiRequest: ${method} ${url}`);
-          
+
           try {
             // Substituir variáveis na URL e body
             let processedUrl = url;
             let processedBody = body;
-            
+
             const contact = await Contact.findOne({
               where: { number: numberClient, companyId }
             });
-            
+
             if (contact) {
               const variables: Record<string, string> = {
                 "{{name}}": contact.name || "",
                 "{{number}}": contact.number || "",
                 "{{email}}": contact.email || "",
               };
-              
+
               // Adicionar variáveis do webhook
               if (ticket?.dataWebhook?.variables) {
                 Object.entries(ticket.dataWebhook.variables).forEach(([key, value]) => {
                   variables[`{{${key}}}`] = String(value);
                 });
               }
-              
+
               Object.entries(variables).forEach(([key, value]) => {
                 // Usar split/join para substituição robusta
                 processedUrl = processedUrl.split(key).join(value);
@@ -1583,7 +1581,7 @@ export const ActionsWebhookService = async (
                 }
               });
             }
-            
+
             // Parsear headers
             let parsedHeaders = {};
             if (headers) {
@@ -1593,7 +1591,7 @@ export const ActionsWebhookService = async (
                 console.log("ApiRequest: Erro ao parsear headers", e);
               }
             }
-            
+
             // Parsear body
             let parsedBody = undefined;
             if (processedBody && ["POST", "PUT", "PATCH"].includes(method)) {
@@ -1603,7 +1601,7 @@ export const ActionsWebhookService = async (
                 parsedBody = processedBody;
               }
             }
-            
+
             const response = await axios({
               method: method.toLowerCase(),
               url: processedUrl,
@@ -1611,16 +1609,16 @@ export const ActionsWebhookService = async (
               data: parsedBody,
               timeout: 30000
             });
-            
+
             console.log(`ApiRequest: Resposta ${response.status}`);
             console.log(`ApiRequest: Salvando ${savedVariables.length} variáveis da resposta`);
-            
+
             // Salvar variáveis extraídas da resposta
             if (savedVariables.length > 0 && ticket) {
               const currentWebhook = ticket.dataWebhook || {};
               const currentVariables = currentWebhook.variables || {};
               const newVariables = {};
-              
+
               savedVariables.forEach(variable => {
                 try {
                   // Extrair valor do JSON usando o path
@@ -1633,12 +1631,12 @@ export const ActionsWebhookService = async (
                   console.log(`ApiRequest: Erro ao extrair variável ${variable.path}:`, error);
                 }
               });
-              
+
               // Salvar resposta completa se configurado
               if (saveResponse) {
                 newVariables[saveResponse] = response.data;
               }
-              
+
               await ticket.update({
                 dataWebhook: {
                   ...currentWebhook,
@@ -1653,7 +1651,7 @@ export const ActionsWebhookService = async (
             else if (saveResponse && ticket) {
               const currentWebhook = ticket.dataWebhook || {};
               const currentVariables = currentWebhook.variables || {};
-              
+
               await ticket.update({
                 dataWebhook: {
                   ...currentWebhook,
@@ -1673,38 +1671,38 @@ export const ActionsWebhookService = async (
       // Nó: Adicionar Tag (normal)
       if (nodeSelected.type === "addTag") {
         console.log(`=== PROCESSANDO NÓ addTag (TAG NORMAL) ===`);
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const tagData = nodeSelected.data?.data || nodeSelected.data;
         const tagId = tagData?.id;
-        
+
         console.log(`addTag: tagId=${tagId}, ticketId=${ticket?.id}`);
-        
+
         if (tagId && ticket) {
           console.log(`AddTag: Adicionando tag NORMAL ${tagId} ao ticket ${ticket.id}`);
-          
+
           try {
             // Verificar se a tag normal existe (com filtro kanban: 0)
             const tag = await Tag.findOne({
               where: { id: tagId, companyId, kanban: 0 }
             });
-            
+
             console.log(`addTag: Tag NORMAL encontrada:`, tag ? { id: tag.id, name: tag.name, kanban: tag.kanban } : null);
-            
+
             if (tag) {
               // Verificar se a tag já está associada ao ticket
               const existingTag = await TicketTag.findOne({
                 where: { ticketId: ticket.id, tagId: tag.id }
               });
-              
+
               console.log(`addTag: Tag já existe?`, existingTag ? 'SIM' : 'NÃO');
-              
+
               if (!existingTag) {
                 console.log(`addTag: Criando ContactTag (como o frontend)...`);
                 try {
@@ -1714,10 +1712,10 @@ export const ActionsWebhookService = async (
                     tagId: tag.id,
                     companyId: companyId
                   });
-                  
+
                   console.log(`addTag: ContactTag criada com ID:`, newContactTag?.id);
                   console.log(`addTag: ContactTag completa:`, JSON.stringify(newContactTag, null, 2));
-                  
+
                   // Também criar TicketTag para consistência
                   const newTicketTag = await TicketTag.create({
                     ticketId: ticket.id,
@@ -1725,12 +1723,12 @@ export const ActionsWebhookService = async (
                   });
                   console.log(`addTag: TicketTag criada com ID:`, newTicketTag?.id);
                   console.log(`AddTag: Tag NORMAL "${tag.name}" adicionada com sucesso`);
-                  
+
                 } catch (createError: any) {
                   console.error(`addTag: Erro ao criar tags:`, createError.message);
                   console.error(`addTag: Stack:`, createError.stack);
                 }
-                
+
                 // Emitir evento de atualização
                 const io = getIO();
                 const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -1753,57 +1751,67 @@ export const ActionsWebhookService = async (
         }
       }
 
-      // Nó: Adicionar Tag Kanban
+      // Nó: Adicionar Tag Kanban → [MIGRADO] Agora cria/move Opportunity no Board Inteligente
       if (nodeSelected.type === "addTagKanban") {
-        console.log(`=== PROCESSANDO NÓ addTagKanban (TAG KANBAN) ===`);
-        
+        console.log(`=== PROCESSANDO NÓ addTagKanban → BOARD INTELIGENTE ===`);
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
-            where: { id: idTicket, companyId }
+            where: { id: idTicket, companyId },
+            include: [{ model: Contact, as: "contact" }]
           });
         }
-        
+
         const tagData = nodeSelected.data?.data || nodeSelected.data;
-        const tagId = tagData?.id;
-        
-        console.log(`addTagKanban: tagId=${tagId}, ticketId=${ticket?.id}`);
-        
-        if (tagId && ticket) {
-          console.log(`AddTagKanban: Adicionando tag KANBAN ${tagId} ao ticket ${ticket.id}`);
-          
+        const stageId = tagData?.stageId || tagData?.id;
+        const pipelineId = tagData?.pipelineId;
+
+        console.log(`addTagKanban (Board): stageId=${stageId}, pipelineId=${pipelineId}, ticketId=${ticket?.id}`);
+
+        if (stageId && ticket) {
           try {
-            // Verificar se a tag kanban existe (com filtro kanban: 1)
-            const tag = await Tag.findOne({
-              where: { id: tagId, companyId, kanban: 1 }
-            });
-            
-            console.log(`addTagKanban: Tag Kanban encontrada:`, tag ? { id: tag.id, name: tag.name, kanban: tag.kanban } : null);
-            
-            if (tag) {
-              // Remover tags kanban anteriores
-              const existingKanbanTags = await TicketTag.findAll({
-                where: { ticketId: ticket.id },
-                include: [{
-                  model: Tag,
-                  where: { kanban: 1 }
-                }]
+            // Tentar resolver o pipeline se não foi informado
+            let resolvedPipelineId = pipelineId;
+            if (!resolvedPipelineId) {
+              const stage = await PipelineStage.findOne({
+                where: { id: stageId, companyId }
               });
-              
-              console.log(`addTagKanban: Removendo ${existingKanbanTags.length} tags kanban anteriores`);
-              
-              for (const existingTag of existingKanbanTags) {
-                await existingTag.destroy();
+              resolvedPipelineId = stage?.pipelineId;
+            }
+
+            if (resolvedPipelineId) {
+              // Verificar se já existe uma oportunidade para este contato
+              const existingOpp = await Opportunity.findOne({
+                where: {
+                  contactId: ticket.contactId,
+                  companyId,
+                  status: "OPEN"
+                }
+              });
+
+              if (existingOpp) {
+                // Mover oportunidade existente para novo estágio
+                await existingOpp.update({
+                  stageId: stageId,
+                  pipelineId: resolvedPipelineId,
+                  lastMovedBy: "AUTOMATION"
+                });
+                console.log(`addTagKanban (Board): Oportunidade ${existingOpp.id} movida para estágio ${stageId}`);
+              } else {
+                // Criar nova oportunidade no Board Inteligente
+                const contactName = ticket.contact?.name || ticket.contact?.number || "Lead Automação";
+                await CreateOpportunityService({
+                  companyId,
+                  pipelineId: resolvedPipelineId,
+                  stageId,
+                  contactId: ticket.contactId,
+                  title: contactName,
+                  value: 0
+                });
+                console.log(`addTagKanban (Board): Nova oportunidade criada no Board Inteligente`);
               }
-              
-              // Adicionar nova tag kanban
-              await TicketTag.create({
-                ticketId: ticket.id,
-                tagId: tag.id
-              });
-              
-              console.log(`AddTagKanban: Tag KANBAN "${tag.name}" adicionada com sucesso`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -1813,10 +1821,22 @@ export const ActionsWebhookService = async (
                   ticket: ticketUpdated
                 });
             } else {
-              console.log(`AddTagKanban: Tag KANBAN ${tagId} não encontrada (deve ter kanban=1)`);
+              console.log(`addTagKanban (Board): Pipeline não encontrado para estágio ${stageId}`);
+
+              // FALLBACK LEGADO: se não encontrar pipeline, tenta com tag kanban
+              const tag = await Tag.findOne({ where: { id: stageId, companyId, kanban: 1 } });
+              if (tag) {
+                const existingKanbanTags = await TicketTag.findAll({
+                  where: { ticketId: ticket.id },
+                  include: [{ model: Tag, where: { kanban: 1 } }]
+                });
+                for (const existingTag of existingKanbanTags) { await existingTag.destroy(); }
+                await TicketTag.create({ ticketId: ticket.id, tagId: tag.id });
+                console.log(`addTagKanban (Fallback Legado): Tag KANBAN "${tag.name}" adicionada`);
+              }
             }
           } catch (error: any) {
-            console.error(`AddTagKanban: Erro ao adicionar tag KANBAN`, error.message);
+            console.error(`addTagKanban (Board): Erro`, error.message);
           }
         }
       }
@@ -1829,17 +1849,17 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const queueData = nodeSelected.data?.data || nodeSelected.data;
         const queueId = queueData?.queueId;
-        
+
         if (queueId && ticket) {
           console.log(`TransferQueue: Transferindo ticket ${ticket.id} para fila ${queueId}`);
-          
+
           try {
             // Verificar se a fila existe
             const queue = await ShowQueueService(queueId, companyId);
-            
+
             if (queue) {
               // Atualizar ticket com nova fila
               await UpdateTicketService({
@@ -1850,16 +1870,16 @@ export const ActionsWebhookService = async (
                 ticketId: ticket.id,
                 companyId
               });
-              
+
               // Criar log da transferência
               await CreateLogTicketService({
                 ticketId: ticket.id,
                 type: "queue",
                 queueId: queueId
               });
-              
+
               console.log(`TransferQueue: Ticket transferido para fila ${queue.name}`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -1881,58 +1901,58 @@ export const ActionsWebhookService = async (
       if (nodeSelected.type === "ticket") {
         console.log(`=== PROCESSANDO NÓ ticket (TRANSFERÊNCIA PARA FILA) ===`);
         console.log(`ticket: nodeSelected.data=`, JSON.stringify(nodeSelected.data, null, 2));
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const ticketData = nodeSelected.data?.data || nodeSelected.data;
         const queueId = ticketData?.id; // O queueId está em .id não .queueId
-        
+
         console.log(`ticket: queueId=${queueId}, ticketId=${ticket?.id}`);
-        
+
         if (queueId && ticket) {
           console.log(`Ticket: Transferindo ticket ${ticket.id} para fila ${queueId}`);
-          
+
           try {
             // Verificar se a fila existe
             const queue = await ShowQueueService(queueId, companyId);
-            
+
             if (queue) {
               console.log(`Ticket: Status ANTES da transferência: ${ticket.status}`);
-              
+
               // Usar a mesma lógica da IA: só atualiza queueId, não remove usuário
               await UpdateTicketService({
-                ticketData: { 
+                ticketData: {
                   queueId: queueId,
                   status: "pending" // Mudar status para "aguardando" ao transferir para fila
                 },
                 ticketId: ticket.id,
                 companyId
               });
-              
+
               // Sair do modo fluxo/automação
               await ticket.update({
                 flowWebhook: false, // Sair do modo fluxo/automação
                 flowStopped: null // Limpar parada do fluxo
               });
-              
+
               // Verificar status após atualização
               const ticketAfterUpdate = await ShowTicketService(ticket.id, companyId);
               console.log(`Ticket: Status DEPOIS da transferência: ${ticketAfterUpdate.status}`);
-              
+
               // Criar log da transferência
               await CreateLogTicketService({
                 ticketId: ticket.id,
                 type: "queue",
                 queueId: queueId
               });
-              
+
               console.log(`Ticket: Ticket transferido para fila ${queue.name} (mantendo usuário)`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -1958,19 +1978,19 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const userData = nodeSelected.data?.data || nodeSelected.data;
         const userId = userData?.userId;
-        
+
         if (userId && ticket) {
           console.log(`TransferUser: Transferindo ticket ${ticket.id} para usuário ${userId}`);
-          
+
           try {
             // Verificar se o usuário existe
             const user = await User.findOne({
               where: { id: userId, companyId }
             });
-            
+
             if (user) {
               // Atualizar ticket com novo usuário
               await UpdateTicketService({
@@ -1981,16 +2001,16 @@ export const ActionsWebhookService = async (
                 ticketId: ticket.id,
                 companyId
               });
-              
+
               // Criar log da transferência
               await CreateLogTicketService({
                 ticketId: ticket.id,
                 type: "userDefine",
                 userId: userId
               });
-              
+
               console.log(`TransferUser: Ticket transferido para usuário ${user.name}`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -1999,7 +2019,7 @@ export const ActionsWebhookService = async (
                   action: "update",
                   ticket: ticketUpdated
                 });
-              
+
               // Enviar mensagem de notificação
               const notificationMessage = `Ticket transferido para ${user.name}`;
               await SendWhatsAppMessage({
@@ -2024,39 +2044,39 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const tagData = nodeSelected.data?.data || nodeSelected.data;
         const tagId = tagData?.tagId;
-        
+
         if (tagId && ticket) {
           console.log(`addTag: Adicionando tag ${tagId} ao ticket ${ticket.id}`);
-          
+
           try {
             // Verificar se a tag existe
             const tag = await Tag.findOne({
               where: { id: tagId, companyId }
             });
-            
+
             if (tag) {
               // Remover tags anteriores do contato
               await TicketTag.destroy({
                 where: { ticketId: ticket.id }
               });
-              
+
               // Adicionar nova tag ao ticket
               await TicketTag.create({
                 ticketId: ticket.id,
                 tagId: tagId
               });
-              
+
               // Adicionar tag ao contato também
               await ContactTag.create({
                 contactId: ticket.contactId,
                 tagId: tagId
               });
-              
+
               console.log(`addTag: Tag "${tag.name}" adicionada com sucesso`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -2074,49 +2094,65 @@ export const ActionsWebhookService = async (
         }
       }
 
-      // Nó: Etapa Kanban
+      // Nó: Etapa Kanban → [MIGRADO] Agora cria/move Opportunity no Board Inteligente
       if (nodeSelected.type === "kanbanStage") {
+        console.log(`=== PROCESSANDO NÓ kanbanStage → BOARD INTELIGENTE ===`);
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
-            where: { id: idTicket, companyId }
+            where: { id: idTicket, companyId },
+            include: [{ model: Contact, as: "contact" }]
           });
         }
-        
+
         const kanbanData = nodeSelected.data?.data || nodeSelected.data;
-        const tagId = kanbanData?.tagId;
-        
-        if (tagId && ticket) {
-          console.log(`KanbanStage: Definindo etapa kanban ${tagId} para ticket ${ticket.id}`);
-          
+        const stageId = kanbanData?.stageId || kanbanData?.tagId;
+        const pipelineId = kanbanData?.pipelineId;
+
+        if (stageId && ticket) {
+          console.log(`KanbanStage (Board): Definindo estágio ${stageId} para ticket ${ticket.id}`);
+
           try {
-            // Verificar se a tag kanban existe
-            const tag = await Tag.findOne({
-              where: { id: tagId, companyId, kanban: 1 }
-            });
-            
-            if (tag) {
-              // Remover todas as tags kanban anteriores
-              const existingKanbanTags = await TicketTag.findAll({
-                where: { ticketId: ticket.id },
-                include: [{
-                  model: Tag,
-                  where: { kanban: 1 }
-                }]
+            // Tentar resolver o pipeline se não foi informado
+            let resolvedPipelineId = pipelineId;
+            if (!resolvedPipelineId) {
+              const stage = await PipelineStage.findOne({
+                where: { id: stageId, companyId }
               });
-              
-              for (const existingTag of existingKanbanTags) {
-                await existingTag.destroy();
+              resolvedPipelineId = stage?.pipelineId;
+            }
+
+            if (resolvedPipelineId) {
+              // Verificar se já existe uma oportunidade para este contato
+              const existingOpp = await Opportunity.findOne({
+                where: {
+                  contactId: ticket.contactId,
+                  companyId,
+                  status: "OPEN"
+                }
+              });
+
+              if (existingOpp) {
+                await existingOpp.update({
+                  stageId: stageId,
+                  pipelineId: resolvedPipelineId,
+                  lastMovedBy: "AUTOMATION"
+                });
+                console.log(`KanbanStage (Board): Oportunidade ${existingOpp.id} movida para estágio ${stageId}`);
+              } else {
+                const contactName = ticket.contact?.name || ticket.contact?.number || "Lead Automação";
+                await CreateOpportunityService({
+                  companyId,
+                  pipelineId: resolvedPipelineId,
+                  stageId,
+                  contactId: ticket.contactId,
+                  title: contactName,
+                  value: 0
+                });
+                console.log(`KanbanStage (Board): Nova oportunidade criada no Board Inteligente`);
               }
-              
-              // Adicionar nova tag kanban
-              await TicketTag.create({
-                ticketId: ticket.id,
-                tagId: tag.id
-              });
-              
-              console.log(`KanbanStage: Etapa ${tag.name} definida com sucesso`);
-              
+
               // Emitir evento de atualização
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -2126,10 +2162,24 @@ export const ActionsWebhookService = async (
                   ticket: ticketUpdated
                 });
             } else {
-              console.log(`KanbanStage: Tag kanban ${tagId} não encontrada`);
+              console.log(`KanbanStage (Board): Pipeline não encontrado para estágio ${stageId}`);
+
+              // FALLBACK LEGADO
+              const tag = await Tag.findOne({ where: { id: stageId, companyId, kanban: 1 } });
+              if (tag) {
+                const existingKanbanTags = await TicketTag.findAll({
+                  where: { ticketId: ticket.id },
+                  include: [{ model: Tag, where: { kanban: 1 } }]
+                });
+                for (const existingTag of existingKanbanTags) { await existingTag.destroy(); }
+                await TicketTag.create({ ticketId: ticket.id, tagId: tag.id });
+                console.log(`KanbanStage (Fallback Legado): Tag "${tag.name}" definida`);
+              } else {
+                console.log(`KanbanStage: Estágio ${stageId} não encontrado em nenhum sistema`);
+              }
             }
           } catch (error: any) {
-            console.error(`KanbanStage: Erro ao definir etapa kanban`, error.message);
+            console.error(`KanbanStage (Board): Erro ao definir estágio`, error.message);
           }
         }
       }
@@ -2148,18 +2198,18 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const conditionData = nodeSelected.data?.data || nodeSelected.data;
         const key = conditionData?.key;
         const normalizedKey = normalizeVariableKey(key);
         const condition = conditionData?.condition;
         const value = conditionData?.value;
-        
+
         console.log(`Condition: Avaliando ${normalizedKey || key} ${condition} ${value}`);
-        
+
         // Obter valor da variável
         let variableValue: any = "";
-        
+
         if (ticket?.dataWebhook?.variables) {
           if (normalizedKey && ticket.dataWebhook.variables[normalizedKey] !== undefined) {
             variableValue = ticket.dataWebhook.variables[normalizedKey];
@@ -2167,10 +2217,10 @@ export const ActionsWebhookService = async (
             variableValue = ticket.dataWebhook.variables[key];
           }
         }
-        
+
         // Avaliar condição
         let conditionResult = false;
-        
+
         switch (parseInt(condition)) {
           case 1: // ==
             conditionResult = String(variableValue) === String(value);
@@ -2195,14 +2245,14 @@ export const ActionsWebhookService = async (
           default:
             conditionResult = String(variableValue) === String(value);
         }
-        
+
         console.log(`Condition: Resultado = ${conditionResult}`);
-        
+
         // Encontrar a conexão correta baseada no resultado
         const resultConnect = connects.filter(
           connect => connect.source === nodeSelected.id
         );
-        
+
         if (conditionResult) {
           // Caminho "true" (Sim)
           const trueConnection = resultConnect.find(item => item.sourceHandle === "true");
@@ -2218,7 +2268,7 @@ export const ActionsWebhookService = async (
             noAlterNext = true;
           }
         }
-        
+
         isCondition = true;
       }
 
@@ -2231,14 +2281,14 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId }
           });
         }
-        
+
         const asaasData = nodeSelected.data?.data || nodeSelected.data;
         const message = asaasData?.message || "Por favor, informe seu CPF para buscarmos seu boleto:";
         const successMessage = asaasData?.successMessage || "Encontramos seu boleto! Enviando os dados...";
         const errorMessage = asaasData?.errorMessage || "Desculpe, não encontramos nenhum boleto pendente para este CPF.";
-        
+
         console.log(`Asaas: Iniciando fluxo de 2ª via de boleto`);
-        
+
         const currentWebhookData = ticket?.dataWebhook || {};
         const asaasState = currentWebhookData?.asaasState || {};
         const awaitingCpf =
@@ -2276,17 +2326,17 @@ export const ActionsWebhookService = async (
           break;
         }
 
-       
-        
+
+
         if (pressKey && pressKey !== "999") {
           // Cliente respondeu com o CPF
           const cpf = pressKey.replace(/\D/g, ''); // Remove caracteres não numéricos
           console.log(`Asaas: CPF recebido: ${cpf}`);
-          
+
           const resultConnect = connects.filter(
             connect => connect.source === nodeSelected.id
           );
-          
+
           try {
             const boletoData = await getAsaasSecondCopyByCpf(companyId, cpf);
             if (ticket?.dataWebhook?.asaasState) {
@@ -2295,13 +2345,13 @@ export const ActionsWebhookService = async (
               await ticket.update({ dataWebhook: updatedWebhook });
               ticket.dataWebhook = updatedWebhook;
             }
-            
+
             // Não enviar mensagem de sucesso aqui, apenas o resumo abaixo
             // await SendMessageFlow(whatsapp, {
             //   number: numberClient,
             //   body: successMessage
             // }, ticket?.id, ticket);
-            
+
             const boletoFileSources = [
               boletoData.invoicePdfUrl,
               boletoData.bankSlipUrl,
@@ -2311,52 +2361,50 @@ export const ActionsWebhookService = async (
             const boletoLink = boletoFileSources[0] || null;
             const boletoFileSource = boletoLink;
             const wbot = getWbot(whatsapp.id);
-            const contactNumber = `${ticket?.contact?.number || numberClient}${
-              ticket?.isGroup ? "@g.us" : "@s.whatsapp.net"
-            }`;
-            
+            const contactNumber = `${ticket?.contact?.number || numberClient}${ticket?.isGroup ? "@g.us" : "@s.whatsapp.net"
+              }`;
+
             // Enviar PDF do boleto se disponível
             if (boletoFileSource) {
               try {
                 console.log(`Asaas: Tentando enviar PDF do boleto: ${boletoFileSource}`);
-                
+
                 const { buffer: pdfBuffer, contentType } = await fetchPdfBufferFromUrl(
                   boletoFileSource
                 );
-                
+
                 const fileName = `boleto-${boletoData.paymentId || "asaas"}.pdf`;
-                
+
                 // Garantir mimetype compatível com Android
                 const mimetype = "application/pdf";
-                
+
                 console.log(`Asaas: Enviando PDF - Tamanho: ${pdfBuffer.length} bytes, ContentType: ${mimetype}`);
-                
+
                 const messagePayload = {
                   document: pdfBuffer,
                   fileName,
                   mimetype
                 };
-                
+
                 await wbot.sendMessage(contactNumber, messagePayload);
                 console.log(`Asaas: PDF enviado com sucesso`);
-                
+
               } catch (pdfError: any) {
                 console.error(`Asaas: Erro ao enviar PDF do boleto`, pdfError.message);
-                
+
                 // Fallback: enviar link do boleto se PDF falhar
                 try {
                   console.log(`Asaas: Enviando link do boleto como fallback`);
                   await wbot.sendMessage(contactNumber, {
-                    text: `📄 Boleto - Vencimento: ${boletoData.dueDate || "N/A"} - Valor: R$ ${
-                      boletoData.value?.toFixed(2) || "0.00"
-                    }\n\n🔗 Link para o boleto: ${boletoFileSource}\n\n💡 Copie e cole o link no navegador para baixar o PDF.`
+                    text: `📄 Boleto - Vencimento: ${boletoData.dueDate || "N/A"} - Valor: R$ ${boletoData.value?.toFixed(2) || "0.00"
+                      }\n\n🔗 Link para o boleto: ${boletoFileSource}\n\n💡 Copie e cole o link no navegador para baixar o PDF.`
                   });
                 } catch (linkError: any) {
                   console.error(`Asaas: Erro ao enviar link do boleto`, linkError.message);
                 }
               }
             }
-            
+
             // Enviar mensagem curta com código PIX e link
             const pixMessage = [];
             if (boletoData.pixCopyPaste) {
@@ -2365,14 +2413,14 @@ export const ActionsWebhookService = async (
             if (boletoLink) {
               pixMessage.push(`🔗 Link: ${boletoLink}`);
             }
-            
+
             if (pixMessage.length > 0) {
               await SendMessageFlow(whatsapp, {
                 number: numberClient,
                 body: pixMessage.join('\n')
               }, ticket?.id, ticket);
             }
-            
+
             // Enviar imagem do QR Code PIX se disponível
             if (boletoData.pixQrCodeImage) {
               try {
@@ -2384,9 +2432,9 @@ export const ActionsWebhookService = async (
                 console.error("Asaas: Falha ao enviar imagem do QR Code PIX", err);
               }
             }
-            
+
             console.log(`Asaas: Boleto enviado com sucesso`);
-            
+
             // Seguir caminho de sucesso
             const successConnection = resultConnect.find(item => item.sourceHandle === "success");
             if (successConnection) {
@@ -2402,13 +2450,13 @@ export const ActionsWebhookService = async (
               await ticket.update({ dataWebhook: updatedWebhook });
               ticket.dataWebhook = updatedWebhook;
             }
-            
+
             // Enviar mensagem de erro
             await SendMessageFlow(whatsapp, {
               number: numberClient,
               body: errorMessage
             }, ticket?.id, ticket);
-            
+
             // Seguir caminho de erro
             const errorConnection = resultConnect.find(item => item.sourceHandle === "error");
             if (errorConnection) {
@@ -2417,7 +2465,7 @@ export const ActionsWebhookService = async (
             }
             pressKey = "999";
           }
-          
+
           isAsaas = true;
         } else {
           // Aguardando resposta do cliente - pausar fluxo
@@ -2450,46 +2498,46 @@ export const ActionsWebhookService = async (
       // Nó: Envio de Email SMTP
       if (nodeSelected.type === "smtp") {
         console.log("SMTP: Iniciando envio de email");
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
             where: { id: idTicket, companyId }
           });
         }
-        
+
         if (!ticket) {
           console.log("SMTP: Ticket não encontrado");
           break;
         }
-        
+
         const smtpConfig = nodeSelected.data?.smtpConfig || {};
         const emailConfig = nodeSelected.data?.emailConfig || {};
-        
+
         // Obter conexões para caminhos de erro
         const resultConnect = connects.filter(
           connect => connect.source === nodeSelected.id
         );
-        
+
         // Extrair variáveis do dataWebhook
         const variables = ticket?.dataWebhook?.variables || {};
         console.log("SMTP: Variáveis disponíveis:", variables);
-        
+
         // Formatar mensagem com variáveis
         let emailBody = emailConfig?.content || emailConfig?.body || "";
         let emailSubject = emailConfig?.subject || "";
         let recipientEmail = emailConfig?.to || "";
-        
+
         // Substituir variáveis no conteúdo
         console.log("SMTP: Antes da substituição - recipientEmail:", JSON.stringify(recipientEmail));
         console.log("SMTP: Variáveis disponíveis:", JSON.stringify(variables));
-        
+
         Object.keys(variables).forEach(key => {
           const placeholder = `{{${key}}}`;
           const value = variables[key];
           console.log(`SMTP: Substituindo ${placeholder} por ${value}`);
           console.log(`SMTP: recipientEmail antes: ${JSON.stringify(recipientEmail)}`);
-          
+
           // Verificar se o placeholder existe na string
           if (recipientEmail.includes(placeholder)) {
             console.log(`SMTP: Placeholder ${placeholder} encontrado!`);
@@ -2499,19 +2547,19 @@ export const ActionsWebhookService = async (
           } else {
             console.log(`SMTP: Placeholder ${placeholder} NÃO encontrado em ${JSON.stringify(recipientEmail)}`);
           }
-          
+
           emailBody = emailBody.split(placeholder).join(value);
           emailSubject = emailSubject.split(placeholder).join(value);
         });
         console.log("SMTP: Após substituição - recipientEmail:", JSON.stringify(recipientEmail));
-        
+
         console.log("SMTP: Enviando email para:", recipientEmail);
         console.log("SMTP: Assunto:", emailSubject);
-        
+
         try {
           // Importar serviço de email
           const nodemailer = require('nodemailer');
-          
+
           // Configurar transporter - MÉTODO CORRETO: createTransport
           const transporter = nodemailer.createTransport({
             host: smtpConfig.host,
@@ -2522,7 +2570,7 @@ export const ActionsWebhookService = async (
               pass: smtpConfig.password  // usar password do formulário
             }
           });
-          
+
           // Enviar email
           await transporter.sendMail({
             from: smtpConfig.fromEmail || smtpConfig.username, // usar fromEmail do formulário
@@ -2531,9 +2579,9 @@ export const ActionsWebhookService = async (
             html: emailBody,
             text: emailBody.replace(/<[^>]*>/g, '') // Versão texto
           });
-          
+
           console.log("SMTP: Email enviado com sucesso");
-          
+
           // Enviar confirmação para o WhatsApp - VERIFICAR SE EXISTE CONTACT
           if (ticket && ticket.contact && ticket.contact.number) {
             const confirmationMessage = `✅ Email enviado com sucesso para ${recipientEmail}`;
@@ -2544,10 +2592,10 @@ export const ActionsWebhookService = async (
           } else {
             console.log("SMTP: Contact não disponível para enviar confirmação");
           }
-          
+
         } catch (error) {
           console.error("SMTP: Erro ao enviar email:", error);
-          
+
           // Enviar mensagem de erro para o WhatsApp - VERIFICAR SE EXISTE CONTACT
           if (ticket && ticket.contact && ticket.contact.number) {
             const errorMessage = `❌ Falha ao enviar email. Tente novamente mais tarde.`;
@@ -2558,7 +2606,7 @@ export const ActionsWebhookService = async (
           } else {
             console.log("SMTP: Contact não disponível para enviar mensagem de erro");
           }
-          
+
           // Seguir caminho de erro se existir
           const errorConnection = resultConnect.find(item => item.sourceHandle === "error");
           if (errorConnection) {
@@ -2571,7 +2619,7 @@ export const ActionsWebhookService = async (
       // Nó: Encerrar Ticket
       if (nodeSelected.type === "closeTicket") {
         console.log(`=== PROCESSANDO NÓ closeTicket (ENCERRAR TICKET) ===`);
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
@@ -2586,55 +2634,55 @@ export const ActionsWebhookService = async (
         // Nó: Google Sheets
         if (nodeSelected.type === "googleSheets") {
           console.log("GoogleSheets: Iniciando operação");
-          
+
           // Garantir que o ticket existe
           if (!ticket && idTicket) {
             ticket = await ShowTicketService(idTicket, companyId);
           }
-          
+
           if (!ticket) {
             console.log("GoogleSheets: Ticket não encontrado");
             break;
           }
-          
+
           const sheetsConfig = nodeSelected.data?.sheetsConfig || {};
           const operation = nodeSelected.data?.operation || "list";
-          
+
           // Obter conexões para caminhos de erro
           const resultConnect = connects.filter(
             (connect) => connect.source === nodeSelected.id && connect.sourceHandle === "error"
           );
-          
+
           // Extrair variáveis do dataWebhook
           const variables = ticket?.dataWebhook?.variables || {};
           console.log("GoogleSheets: Variáveis disponíveis:", variables);
-          
+
           try {
             // Importar serviço Google Sheets
             const GoogleSheetsService = require("../GoogleSheetsService").default;
             const sheetsService = new GoogleSheetsService();
-            
+
             let result;
-            
+
             switch (operation) {
               case "list":
                 result = await sheetsService.listData(sheetsConfig, variables);
                 break;
-                
+
               case "add":
                 result = await sheetsService.addRow(sheetsConfig, nodeSelected.data?.rowData || {}, variables);
                 break;
-                
+
               case "edit":
                 result = await sheetsService.editRow(
-                  sheetsConfig, 
+                  sheetsConfig,
                   nodeSelected.data?.searchColumn || "",
                   nodeSelected.data?.searchValue || "",
                   nodeSelected.data?.rowData || {},
                   variables
                 );
                 break;
-                
+
               case "delete":
                 result = await sheetsService.deleteRow(
                   sheetsConfig,
@@ -2643,7 +2691,7 @@ export const ActionsWebhookService = async (
                   variables
                 );
                 break;
-                
+
               case "search":
                 result = await sheetsService.searchData(
                   sheetsConfig,
@@ -2652,20 +2700,20 @@ export const ActionsWebhookService = async (
                   variables
                 );
                 break;
-                
+
               default:
                 throw new Error(`Operação "${operation}" não suportada`);
             }
-            
+
             console.log("GoogleSheets: Operação executada com sucesso:", result);
-            
+
             // Armazenar resultado na variável de saída se especificada
             const outputVariable = nodeSelected.data?.outputVariable;
             if (outputVariable && ticket.dataWebhook) {
               ticket.dataWebhook.variables[outputVariable] = JSON.stringify(result);
               await ticket.save();
             }
-            
+
             // Enviar confirmação para o WhatsApp
             if (ticket && ticket.contact && ticket.contact.number) {
               const confirmationMessage = `✅ Operação "${operation}" no Google Sheets executada com sucesso!`;
@@ -2674,10 +2722,10 @@ export const ActionsWebhookService = async (
                 body: confirmationMessage
               }, ticket?.id, ticket);
             }
-            
+
           } catch (error) {
             console.error("GoogleSheets: Erro na operação:", error);
-            
+
             // Enviar mensagem de erro para o WhatsApp
             if (ticket && ticket.contact && ticket.contact.number) {
               const errorMessage = `❌ Erro na operação do Google Sheets: ${error.message}`;
@@ -2686,7 +2734,7 @@ export const ActionsWebhookService = async (
                 body: errorMessage
               }, ticket?.id, ticket);
             }
-            
+
             // Seguir caminho de erro se existir
             if (resultConnect.length > 0) {
               const nextNode = nodes.find(
@@ -2710,7 +2758,7 @@ export const ActionsWebhookService = async (
                 );
               }
             }
-            
+
             break;
           }
         }
@@ -2720,38 +2768,38 @@ export const ActionsWebhookService = async (
           const message = nodeSelected.data?.message;
           if (message) {
             console.log(`closeTicket: Enviando mensagem de encerramento: ${message}`);
-            
+
             // Substituir variáveis na mensagem
             let processedMessage = message;
             const contact = await Contact.findOne({
               where: { number: numberClient, companyId }
             });
-            
+
             if (contact) {
               const variables: Record<string, string> = {
                 "{{name}}": contact.name || "",
                 "{{number}}": contact.number || "",
                 "{{email}}": contact.email || "",
               };
-              
+
               // Adicionar variáveis do webhook
               if (ticket?.dataWebhook?.variables) {
                 Object.entries(ticket.dataWebhook.variables).forEach(([key, value]) => {
                   variables[`{{${key}}}`] = String(value);
                 });
               }
-              
+
               Object.entries(variables).forEach(([key, value]) => {
                 processedMessage = processedMessage.split(key).join(value);
               });
             }
-            
+
             // Enviar mensagem
             const wbot = getWbot(whatsapp.id);
             await wbot.sendMessage(`${numberClient}@s.whatsapp.net`, {
               text: processedMessage
             });
-            
+
             // Criar registro da mensagem
             const messageData: MessageData = {
               wid: randomString(50),
@@ -2762,11 +2810,11 @@ export const ActionsWebhookService = async (
             };
             await CreateMessageService({ messageData: messageData, companyId });
           }
-          
+
           // Encerrar o ticket
           console.log(`closeTicket: Encerrando ticket ${ticket.id}`);
           console.log(`closeTicket: Status antes: ${ticket.status}`);
-          
+
           // Tentar método alternativo direto
           console.log(`closeTicket: Tentando método alternativo...`);
           ticket.status = "closed";
@@ -2776,14 +2824,14 @@ export const ActionsWebhookService = async (
           ticket.lastFlowId = nodeSelected.type === "directOpenai" ? ticket.lastFlowId : nodeSelected.id;
           ticket.hashFlowId = hashWebhookId;
           ticket.flowStopped = idFlowDb.toString();
-          
+
           await ticket.save();
-          
+
           // Forçar reload para verificar
           await ticket.reload();
           console.log(`closeTicket: Status depois: ${ticket.status}`);
           console.log(`closeTicket: Ticket ${ticket.id} encerrado com sucesso`);
-          
+
           // Emitir WebSocket para atualizar frontend
           const io = getIO();
           const ticketUpdated = await ShowTicketService(ticket.id, companyId);
@@ -2792,7 +2840,7 @@ export const ActionsWebhookService = async (
               action: "update",
               ticket: ticketUpdated
             });
-          
+
           console.log(`closeTicket: WebSocket emitido para ticket ${ticket.id}`);
         }
       }
@@ -2800,14 +2848,14 @@ export const ActionsWebhookService = async (
       // Nó: Lista de Produtos
       if (nodeSelected.type === "productList") {
         console.log(`=== PROCESSANDO NÓ productList (LISTA DE PRODUTOS) ===`);
-        
+
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
             where: { id: idTicket, whatsappId }
           });
         }
-        
+
         if (!ticket) {
           console.error("productList: Ticket não encontrado");
           return;
@@ -2817,37 +2865,37 @@ export const ActionsWebhookService = async (
           const title = nodeSelected.data.title || "🛍️ Nossos Produtos e Serviços";
           const listType = nodeSelected.data.listType || "all";
           const selectedItems = nodeSelected.data.selectedItems || [];
-          
+
           console.log(`productList: Título="${title}", Tipo=${listType}, Itens selecionados=${selectedItems.length}`);
-          
+
           // Buscar produtos diretamente do banco
           let products = [];
           if (listType === "all" || selectedItems.some(id => id.startsWith("product_"))) {
             const Produto = require("../../models/Produto").default;
-            products = await Produto.findAll({ 
+            products = await Produto.findAll({
               where: { companyId: ticket.companyId },
               order: [['nome', 'ASC']]
             });
           }
-          
+
           // Buscar serviços diretamente do banco
           let services = [];
           if (listType === "all" || selectedItems.some(id => id.startsWith("service_"))) {
             const Servico = require("../../models/Servico").default;
-            services = await Servico.findAll({ 
+            services = await Servico.findAll({
               where: { companyId: ticket.companyId },
               order: [['nome', 'ASC']]
             });
           }
-          
+
           // Montar mensagem com título personalizado
           let message = `${title}\n\n`;
-          
+
           // Adicionar produtos
-          const filteredProducts = listType === "all" 
-            ? products 
+          const filteredProducts = listType === "all"
+            ? products
             : products.filter(p => selectedItems.includes(`product_${p.id}`));
-            
+
           if (filteredProducts.length > 0) {
             message += "*📦 Produtos:*\n";
             filteredProducts.forEach((product, index) => {
@@ -2857,45 +2905,45 @@ export const ActionsWebhookService = async (
             });
             message += "\n";
           }
-          
+
           // Adicionar serviços
-          const filteredServices = listType === "all" 
-            ? services 
+          const filteredServices = listType === "all"
+            ? services
             : services.filter(s => selectedItems.includes(`service_${s.id}`));
-            
+
           if (filteredServices.length > 0) {
             message += "*🔧 Serviços:*\n";
             filteredServices.forEach((service, index) => {
               const name = service.nome || "Serviço sem nome";
               let price = "Preço não definido";
-              
+
               if (service.possuiDesconto && service.valorComDesconto) {
                 price = `R$ ${parseFloat(service.valorComDesconto).toFixed(2)} (com desconto)`;
               } else if (service.valorOriginal) {
                 price = `R$ ${parseFloat(service.valorOriginal).toFixed(2)}`;
               }
-              
+
               message += `${index + 1}. ${name} - ${price}\n`;
             });
           }
-          
+
           if (filteredProducts.length === 0 && filteredServices.length === 0) {
             message = "🛍️ No momento não temos produtos ou serviços disponíveis.";
           }
-          
+
           // Enviar mensagem
           await SendMessage(whatsapp, {
             number: numberClient,
             body: message
           });
-          
+
           await intervalWhats("1");
-          
+
           console.log(`productList: Mensagem enviada com ${filteredProducts.length} produtos e ${filteredServices.length} serviços`);
-          
+
         } catch (error) {
           console.error("productList: Erro ao processar lista de produtos:", error);
-          
+
           await SendMessage(whatsapp, {
             number: numberClient,
             body: "❌ Ocorreu um erro ao carregar nossos produtos. Tente novamente mais tarde."
@@ -3176,14 +3224,14 @@ export const ActionsWebhookService = async (
         hashFlowId: hashWebhookId,
         flowStopped: idFlowDb.toString()
       };
-      
+
       // Só atualizar lastFlowId se não for nó directOpenai
       if (nodeSelected.type !== "directOpenai") {
         updateData.lastFlowId = nodeSelected.id;
       }
-      
+
       await ticket.update(updateData);
-      
+
       if (!hasNextNodes) {
         console.log(
           "Finalizando fluxo no nó",
