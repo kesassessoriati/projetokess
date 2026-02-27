@@ -285,26 +285,28 @@ const PipelineBoard = () => {
         fetchPipelines();
     }, []);
 
+    const { socket } = useSocket();
+
     useEffect(() => {
         if (selectedPipelineId) {
             fetchBoard();
         }
 
-        if (!user || !user.companyId || !socketContext) return;
+        if (!user || !user.companyId || !socket) return;
 
         const onEvent = () => fetchBoard();
 
         const oppEv = `company-${user.companyId}-opportunity`;
         const leadEv = `company-${user.companyId}-lead`;
 
-        let offOpp = socketContext.on(oppEv, onEvent);
-        let offLead = socketContext.on(leadEv, onEvent);
+        socket.on(oppEv, onEvent);
+        socket.on(leadEv, onEvent);
 
         return () => {
-            if (offOpp) offOpp();
-            if (offLead) offLead();
+            socket.off(oppEv, onEvent);
+            socket.off(leadEv, onEvent);
         };
-    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort, user, socketContext]);
+    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort, user, socket]);
 
     const fetchPipelines = async () => {
         try {
