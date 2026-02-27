@@ -55,22 +55,12 @@ services:
       - CONNECTIONS_LIMIT=999
       - CLOSED_SEND_BY_ME=true
 
-      ## 🔑 Webhooks (descomente se necessário)
-      #- VERIFY_TOKEN=whaticket
+      ## 🔑 Webhooks (ticket conforme informado no outro stack)
+      - VERIFY_TOKEN=ticket
 
-      ## 📱 Facebook / Meta (descomente e preencha se necessário)
-      #- FACEBOOK_APP_ID=SEU_FACEBOOK_APP_ID
-      #- FACEBOOK_APP_SECRET=SEU_FACEBOOK_APP_SECRET
-
-      ## 🌐 Google (descomente e preencha se necessário)
-      #- GOOGLE_CLIENT_ID=SEU_GOOGLE_CLIENT_ID
-      #- GOOGLE_CLIENT_SECRET=SEU_GOOGLE_CLIENT_SECRET
-      #- GOOGLE_REDIRECT_URI=https://apichat.kesassessoria.com/google-calendar/oauth/callback
-
-      ## 📡 UAZAPI (descomente e preencha se necessário)
-      #- UAZAPI_ADMIN_TOKEN=SEU_UAZAPI_TOKEN
-      #- UAZAPI_BASE_URL=https://free.uazapi.com
-      #- UAZAPI_WEBHOOK_URL=https://apichat.kesassessoria.com/webhook/uazapi
+      ## 📱 Facebook / Meta
+      - FACEBOOK_APP_ID=1509402056959084
+      - FACEBOOK_APP_SECRET=5fee29a36e3697f4e57976f2ddfa0a60
 
     command: >
       sh -c "npx sequelize db:migrate && node dist/server.js"
@@ -83,8 +73,11 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "1"
-          memory: 4024M
+          cpus: "1.0"
+          memory: 4G
+        reservations:
+          cpus: "0.2"
+          memory: 512M
       labels:
         - traefik.enable=true
         - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.kesassessoria.com`)
@@ -104,7 +97,7 @@ services:
     networks:
       - kesnet
     environment:
-      ## URL do backend injetada em runtime via env.sh (não precisa rebuildar a imagem)
+      ## URL do backend injetada em runtime via env.sh
       - REACT_APP_BACKEND_URL=https://apichat.kesassessoria.com
       - NODE_ENV=production
     deploy:
@@ -116,7 +109,9 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 1024M
+          memory: 1G
+        reservations:
+          memory: 128M
       labels:
         - traefik.enable=true
         - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.kesassessoria.com`)
@@ -166,17 +161,14 @@ services:
 volumes:
   atendzappy_public:
     external: true
-    name: atendzappy_public
   atendzappy_logs:
     external: true
-    name: atendzappy_logs
   atendzappy_redis:
     external: true
-    name: atendzappy_redis
 
 ## ========================= NETWORK ========================= ##
 
 networks:
   kesnet:
     external: true
-    name: kesnet
+

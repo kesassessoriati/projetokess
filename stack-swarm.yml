@@ -1,26 +1,27 @@
 version: "3.7"
+
 services:
 ## --------------------------- ATENDZAPPY BACKEND --------------------------- ##
   atendzappy_backend:
-    image: williamwilmer10/atendzappy-backend:v1.9
+    image: williamprado/atendzappy-backend:latest
     volumes:
       - atendzappy_public:/app/public
       - atendzappy_logs:/app/logs
     networks:
-      - waianet
+      - kesnet
     environment:
       - NODE_ENV=production
       - PORT=8080
       - TZ=America/Sao_Paulo
-      - APP_URL=https://apichat.wapainel.site
-      - BACKEND_URL=https://apichat.wapainel.site
-      - FRONTEND_URL=https://chat.wapainel.site
+      - APP_URL=https://apichat.kesassessoria.com
+      - BACKEND_URL=https://apichat.kesassessoria.com
+      - FRONTEND_URL=https://chat.kesassessoria.com
       
       - DB_DIALECT=postgres
       - DB_HOST=pgvector
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASS=c2ff57d28b649ef109556e732aff336e
+      - DB_PASS=9b383b03c79359d5a08e5791c3793165
       - DB_NAME=atendzappy
       
       - JWT_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4
@@ -37,13 +38,8 @@ services:
       - FACEBOOK_APP_SECRET=5fee29a36e3697f4e57976f2ddfa0a60
       - VERIFY_TOKEN=ticket
       
-      #- GOOGLE_CLIENT_ID=604305494657...
-      #- GOOGLE_CLIENT_SECRET=GOCSPX-...
-      #- GOOGLE_REDIRECT_URI=https://apiatendzappy.waiasolutions.site/google-calendar/oauth/callback
-      
-      #- UAZAPI_ADMIN_TOKEN=ZaW1qwTEkuq7...
-      #- UAZAPI_BASE_URL=https://free.uazapi.com
-      #- UAZAPI_WEBHOOK_URL=https://chat.wapainel.site/webhook/uazapi
+    command: >
+      sh -c "npx sequelize db:migrate && node dist/server.js"
       
     deploy:
       mode: replicated
@@ -53,11 +49,14 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "1"
-          memory: 1024M
+          cpus: "1.0"
+          memory: 4G
+        reservations:
+          cpus: "0.2"
+          memory: 512M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.wapainel.site`)
+        - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.kesassessoria.com`)
         - traefik.http.routers.atendzappy_backend.entrypoints=websecure
         - traefik.http.routers.atendzappy_backend.tls.certresolver=letsencryptresolver
         - traefik.http.routers.atendzappy_backend.priority=1
@@ -69,13 +68,11 @@ services:
         
 ## --------------------------- ATENDZAPPY FRONTEND --------------------------- ##
   atendzappy_frontend:
-    image: williamwilmer10/atendzappy-frontend:v1.9
+    image: williamprado/atendzappy-frontend:latest
     networks:
-      - waianet
+      - kesnet
     environment:
-      - REACT_APP_BACKEND_URL=https://apichat.wapainel.site
-      - REACT_APP_FACEBOOK_APP_ID=1509402056959084
-      - REACT_APP_VERIFY_TOKEN=ticket
+      - REACT_APP_BACKEND_URL=https://apichat.kesassessoria.com
       - NODE_ENV=production
     deploy:
       mode: replicated
@@ -86,10 +83,12 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 1024M
+          memory: 1G
+        reservations:
+          memory: 128M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.wapainel.site`)
+        - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.kesassessoria.com`)
         - traefik.http.routers.atendzappy_frontend.entrypoints=websecure
         - traefik.http.routers.atendzappy_frontend.tls.certresolver=letsencryptresolver
         - traefik.http.routers.atendzappy_frontend.priority=1
@@ -120,7 +119,7 @@ services:
     volumes:
       - atendzappy_redis:/data
     networks:
-      - waianet
+      - kesnet
     deploy:
       placement:
         constraints:
@@ -129,19 +128,18 @@ services:
         limits:
           cpus: "0.5"
           memory: 512M
+
 ## --------------------------- VOLUMES --------------------------- ##
 volumes:
   atendzappy_public:
     external: true
-    name: atendzappy_public
   atendzappy_logs:
     external: true
-    name: atendzappy_logs
   atendzappy_redis:
     external: true
-    name: atendzappy_redis
+
 ## --------------------------- NETWORK --------------------------- ##
 networks:
-  waianet:
+  kesnet:
     external: true
-    name: waianet
+
