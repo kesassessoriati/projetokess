@@ -111,12 +111,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
+    const [noteText, setNoteText] = useState("");
     const [activityType, setActivityType] = useState("LIGACAO");
     const [activities, setActivities] = useState([]);
     const [loadingActivities, setLoadingActivities] = useState(false);
 
     useEffect(() => {
-        if (open && op?.id && tabValue === 1) {
+        if (open && op?.id && (tabValue === 1 || tabValue === 2)) {
             fetchActivities();
         }
     }, [open, op?.id, tabValue]);
@@ -158,6 +159,26 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             fetchActivities();
         } catch (err) {
             toast.error("Erro ao salvar atividade");
+        }
+    };
+
+    const handleSaveNote = async () => {
+        if (!noteText.trim()) return;
+        if (!op?.id) {
+            toast.error("Salve a oportunidade primeiro para adicionar anotações.");
+            return;
+        }
+
+        try {
+            await api.post(`/opportunities/${op.id}/events`, {
+                type: "ANOTACAO",
+                metadata: { text: noteText }
+            });
+            toast.success("Anotação adicionada");
+            setNoteText("");
+            fetchActivities();
+        } catch (err) {
+            toast.error("Erro ao salvar anotação");
         }
     };
 
@@ -299,8 +320,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <Box style={{ borderLeft: "2px solid #e0e0e0", paddingLeft: 16 }}>
                                 {loadingActivities ? (
                                     <Typography variant="body2" color="textSecondary">Carregando atividades...</Typography>
-                                ) : activities.length > 0 ? (
-                                    activities.map(act => (
+                                ) : activities.filter(a => a.type !== "ANOTACAO").length > 0 ? (
+                                    activities.filter(a => a.type !== "ANOTACAO").map(act => (
                                         <Box key={act.id} mb={2}>
                                             <Typography variant="caption" color="textSecondary">
                                                 {new Date(act.createdAt).toLocaleString()} • {act.type}
@@ -316,7 +337,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             </Box>
                         </TabPanel>
 
-                        {/* Anotações Geriais */}
+                        {/* Anotações Gerais */}
                         <TabPanel value={tabValue} index={2}>
                             <Typography className={classes.sectionTitle}>
                                 <EventNoteIcon style={{ marginRight: 8 }} /> Anotações
@@ -328,9 +349,38 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 multiline
                                 rows={4}
                                 style={{ backgroundColor: "#fef3c7" }}
+                                value={noteText}
+                                onChange={(e) => setNoteText(e.target.value)}
                             />
-                            <Box display="flex" justifyContent="flex-end" mt={1}>
-                                <Button variant="contained" size="small" style={{ backgroundColor: "#f59e0b", color: "white", boxShadow: "none", textTransform: "none" }}>Adicionar anotação</Button>
+                            <Box display="flex" justifyContent="flex-end" mt={1} mb={3}>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    style={{ backgroundColor: "#f59e0b", color: "white", boxShadow: "none", textTransform: "none" }}
+                                    onClick={handleSaveNote}
+                                >
+                                    Adicionar anotação
+                                </Button>
+                            </Box>
+
+                            <Typography variant="subtitle2" style={{ fontWeight: 600, color: "#999", marginBottom: 8 }}>MURAL DE ANOTAÇÕES</Typography>
+                            <Box>
+                                {loadingActivities ? (
+                                    <Typography variant="body2" color="textSecondary">Carregando anotações...</Typography>
+                                ) : activities.filter(a => a.type === "ANOTACAO").length > 0 ? (
+                                    activities.filter(a => a.type === "ANOTACAO").map(note => (
+                                        <Box key={note.id} mb={2} p={2} style={{ backgroundColor: "#fef9c3", borderRadius: 8, border: "1px solid #fde047" }}>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {new Date(note.createdAt).toLocaleString()}
+                                            </Typography>
+                                            <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4, whiteSpace: "pre-wrap" }}>
+                                                {note.metadata?.text || "-"}
+                                            </Typography>
+                                        </Box>
+                                    ))
+                                ) : (
+                                    <Typography variant="body2" style={{ fontWeight: 600, color: "#777" }}>Nenhuma anotação registrada ainda.</Typography>
+                                )}
                             </Box>
                         </TabPanel>
 
