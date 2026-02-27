@@ -120,10 +120,10 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [loadingActivities, setLoadingActivities] = useState(false);
 
     useEffect(() => {
-        if (open && op?.id && (tabValue === 1 || tabValue === 2 || tabValue === 4)) {
+        if (open && op && op.id && (tabValue === 1 || tabValue === 2 || tabValue === 4)) {
             fetchActivities();
         }
-    }, [open, op?.id, tabValue]);
+    }, [open, (op && op.id), tabValue]);
 
     const fetchActivities = async () => {
         try {
@@ -147,7 +147,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
     const handleSaveActivity = async () => {
         if (!activityText.trim()) return;
-        if (!op?.id) {
+        if (!op || !op.id) {
             toast.error("Salve a oportunidade primeiro para registrar atividades.");
             return;
         }
@@ -167,7 +167,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
     const handleSaveNote = async () => {
         if (!noteText.trim()) return;
-        if (!op?.id) {
+        if (!op || !op.id) {
             toast.error("Salve a oportunidade primeiro para adicionar anotações.");
             return;
         }
@@ -196,14 +196,14 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 <Box width={{ xs: "100%", md: "30%" }} className={classes.leftPanel}>
                     <Box display="flex" alignItems="center" mb={3}>
                         <Avatar style={{ width: 48, height: 48, marginRight: 16, backgroundColor: "#10b981" }}>
-                            {op?.contact?.name?.[0] || op?.lead?.name?.[0] || "L"}
+                            {(op && op.contact && op.contact.name && op.contact.name[0]) || (op && op.lead && op.lead.name && op.lead.name[0]) || "L"}
                         </Avatar>
                         <Box>
                             <Typography variant="h6" style={{ fontWeight: 800, lineHeight: 1.1 }}>
-                                {op?.title || op?.name || op?.lead?.name || "Novo Lead"}
+                                {(op && op.title) || (op && op.name) || (op && op.lead && op.lead.name) || "Novo Lead"}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                                {op?.contact?.name || op?.lead?.name || "Sem contato associado"}
+                                {(op && op.contact && op.contact.name) || (op && op.lead && op.lead.name) || "Sem contato associado"}
                             </Typography>
                         </Box>
                     </Box>
@@ -213,7 +213,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                     <Box mt={2} mb={2}>
                         <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600 }}>VALOR DA OPORTUNIDADE</Typography>
                         <Typography variant="h5" style={{ fontWeight: 800, color: "#1e293b" }}>
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(op?.value || 0)}
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((op && op.value) || 0)}
                         </Typography>
                     </Box>
 
@@ -221,9 +221,9 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
                     <Box mt={2}>
                         <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600, marginBottom: 8 }}>INFORMAÇÕES ADICIONAIS</Typography>
-                        <Typography variant="body2"><strong>Status:</strong> {op?.status || "Novo"}</Typography>
-                        <Typography variant="body2"><strong>Risco IA:</strong> {op?.prediction?.riskLevel || "N/A"}</Typography>
-                        <Typography variant="body2"><strong>Criado em:</strong> {op?.createdAt ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
+                        <Typography variant="body2"><strong>Status:</strong> {(op && op.status) || "Novo"}</Typography>
+                        <Typography variant="body2"><strong>Risco IA:</strong> {(op && op.prediction && op.prediction.riskLevel) || "N/A"}</Typography>
+                        <Typography variant="body2"><strong>Criado em:</strong> {(op && op.createdAt) ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
                     </Box>
                 </Box>
 
@@ -255,11 +255,11 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <LeadModal
                                 open={true}
                                 onClose={onClose}
-                                leadId={leadId || op?.leadId || null}
-                                contactId={op?.contact?.id || null}
+                                leadId={leadId || (op && op.leadId) || null}
+                                contactId={(op && op.contact && op.contact.id) || null}
                                 onSuccess={onSuccess}
                                 isEmbedded={true}
-                                opId={op?.id || null}
+                                opId={(op && op.id) || null}
                             />
                         </TabPanel>
 

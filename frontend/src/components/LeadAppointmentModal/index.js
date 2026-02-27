@@ -44,10 +44,10 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     };
 
     const resetForm = () => {
-        setTitle(`Reunião: ${op?.title || op?.name || "Novo Lead"}`);
+        setTitle(`Reunião: ${(op && op.title) || (op && op.name) || "Novo Lead"}`);
         setDescription("Reunião de negócios para consultoria e análise estratégica.");
-        setClientEmail(op?.contact?.email || op?.lead?.email || "");
-        setOrganizerEmail(user?.email || "");
+        setClientEmail((op && op.contact && op.contact.email) || (op && op.lead && op.lead.email) || "");
+        setOrganizerEmail((user && user.email) || "");
         setStartDatetime("");
         setDurationMinutes("60");
         setScheduleId("");
@@ -85,8 +85,8 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                 durationMinutes: parseInt(durationMinutes, 10) || 60,
                 status: "scheduled",
                 scheduleId: parseInt(scheduleId, 10),
-                contactId: op?.contact?.id || null, // Vínculo com o lead via contact
-                clientId: op?.leadId || null
+                contactId: (op && op.contact && op.contact.id) || null, // Vínculo com o lead via contact
+                clientId: (op && op.leadId) || null
             };
 
             await api.post("/appointments", payload);
