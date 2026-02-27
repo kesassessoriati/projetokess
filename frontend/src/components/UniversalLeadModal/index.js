@@ -23,6 +23,7 @@ import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
+import LeadModal from "../LeadModal";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -104,12 +105,12 @@ function TabPanel(props) {
     );
 }
 
-const UniversalLeadModal = ({ open, onClose, op }) => {
+const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
 
-    if (!op && open) {
+    if (!op && !leadId && open) {
         return null; // or loading
     }
 
@@ -188,12 +189,17 @@ const UniversalLeadModal = ({ open, onClose, op }) => {
 
                     <Paper className={classes.tabContent} elevation={0}>
 
-                        {/* Informações: Futuramente formulário completo da oportunidade */}
+                        {/* Informações: Formulário completo usando LeadModal (isEmbedded) */}
                         <TabPanel value={tabValue} index={0}>
-                            <Typography className={classes.sectionTitle}>Resumo da Oportunidade / Lead</Typography>
-                            <Typography variant="body2" color="textSecondary">
-                                Aqui você poderá editar os dados principais deste card (Nome, Empresa, GMN, Tags, etc), usando o mesmo formulário que já existia.
-                            </Typography>
+                            <LeadModal
+                                open={true}
+                                onClose={onClose}
+                                leadId={leadId || op?.leadId || null}
+                                contactId={op?.contact?.id || null}
+                                onSuccess={onSuccess}
+                                isEmbedded={true}
+                                opId={op?.id || null}
+                            />
                         </TabPanel>
 
                         {/* Atividade / Ligações */}

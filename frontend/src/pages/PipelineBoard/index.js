@@ -363,7 +363,7 @@ const PipelineBoard = () => {
         }
 
         try {
-            await api.put(`/crm/opportunities/${draggableId}`, { stageId: destStageId });
+            await api.post(`/opportunities/${draggableId}/move`, { toStageId: destStageId });
         } catch (err) {
             toast.error("Erro ao mover card.");
             fetchBoard(); // Revert
@@ -515,6 +515,7 @@ const PipelineBoard = () => {
                 open={universalModalOpen}
                 onClose={() => setUniversalModalOpen(false)}
                 op={selectedOp}
+                onSuccess={fetchBoard}
             />
 
             {/* Modal de Detalhes e Feedback da IA */}

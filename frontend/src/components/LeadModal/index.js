@@ -89,7 +89,7 @@ const defaultForm = {
   notes: ""
 };
 
-const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
+const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => {
   const classes = useStyles();
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -210,12 +210,9 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
     }
   };
 
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle className={classes.dialogTitle}>
-        {leadId ? "Editar Lead" : "Novo Lead"}
-      </DialogTitle>
-      <DialogContent dividers>
+  const content = (
+    <>
+      <div style={{ padding: isEmbedded ? 0 : 24 }}>
         {loading ? (
           <Grid container justifyContent="center">
             <CircularProgress size={24} />
@@ -516,8 +513,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
             </Grid>
           </form>
         )}
-      </DialogContent>
-      <DialogActions className={classes.dialogActions}>
+      </div>
+      <div className={classes.dialogActions} style={{ padding: isEmbedded ? '16px 0 0 0' : undefined, display: 'flex', justifyContent: 'space-between' }}>
         <Button onClick={onClose} disabled={submitting}>
           Cancelar
         </Button>
@@ -530,7 +527,22 @@ const LeadModal = ({ open, onClose, leadId, onSuccess }) => {
         >
           {submitting ? <CircularProgress size={20} color="inherit" /> : "Salvar"}
         </Button>
-      </DialogActions>
+      </div>
+    </>
+  );
+
+  if (isEmbedded) {
+    return content;
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle className={classes.dialogTitle}>
+        {leadId ? "Editar Lead" : "Novo Lead"}
+      </DialogTitle>
+      <DialogContent dividers>
+        {content}
+      </DialogContent>
     </Dialog>
   );
 };

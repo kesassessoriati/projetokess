@@ -223,7 +223,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       title: data.name,
       value: 0,
       assignedUserId: data.ownerUserId,
-      status: "OPEN"
+      status: "OPEN",
+      leadId: lead.id
     });
   }
 

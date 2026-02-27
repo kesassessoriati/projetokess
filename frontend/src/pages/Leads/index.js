@@ -20,7 +20,7 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import PeopleAltIcon from "@material-ui/icons/PeopleAlt";
 
 import api from "../../services/api";
-import LeadModal from "../../components/LeadModal";
+import UniversalLeadModal from "../../components/UniversalLeadModal";
 import ImportLeadsModal from "../../components/ImportLeadsModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
@@ -382,7 +382,7 @@ const Leads = () => {
 
   return (
     <Box className={classes.root} onScroll={handleScroll}>
-      <LeadModal
+      <UniversalLeadModal
         open={leadModalOpen}
         onClose={handleCloseModal}
         leadId={selectedLeadId}

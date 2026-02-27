@@ -6,7 +6,8 @@ interface Request {
     companyId: number;
     pipelineId: number;
     stageId: number;
-    contactId: number;
+    contactId?: number;
+    leadId?: number;
     title: string;
     value?: number;
     assignedUserId?: number;
@@ -17,6 +18,7 @@ const CreateOpportunityService = async ({
     pipelineId,
     stageId,
     contactId,
+    leadId,
     title,
     value = 0,
     assignedUserId
@@ -26,6 +28,7 @@ const CreateOpportunityService = async ({
         pipelineId,
         stageId,
         contactId,
+        leadId,
         title,
         value,
         assignedUserId,

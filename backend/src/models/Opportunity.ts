@@ -108,6 +108,9 @@ class Opportunity extends Model<Opportunity> {
     lastMovedBy: string;
 
     @Column
+    leadId: number;
+
+    @Column
     version: number;
 
     @CreatedAt
