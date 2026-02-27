@@ -123,7 +123,7 @@ const ListPipelineBoardService = async ({
                 status: "OPEN"
             };
             if (profile !== "admin" && userId) {
-                w.ownerUserId = userId;
+                w.assignedUserId = userId;
             }
             return w;
         })(),
@@ -150,7 +150,7 @@ const ListPipelineBoardService = async ({
         };
 
         if (profile !== "admin" && userId) {
-            where.ownerUserId = userId;
+            where.assignedUserId = userId;
         }
 
         // Filtros Inteligentes
