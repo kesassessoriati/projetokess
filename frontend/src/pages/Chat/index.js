@@ -287,9 +287,18 @@ function Chat(props) {
     }
   }, [currentChat.id]);
 
-  const handleSendMessage = async (content) => {
+  const handleSendMessage = async (content, medias) => {
     try {
-      await api.post(`/chats/${currentChat.id}/messages`, { message: content });
+      if (medias && medias.length > 0) {
+        const formData = new FormData();
+        formData.append("message", content || " ");
+        medias.forEach((media) => {
+          formData.append("medias", media);
+        });
+        await api.post(`/chats/${currentChat.id}/messages`, formData);
+      } else {
+        await api.post(`/chats/${currentChat.id}/messages`, { message: content });
+      }
     } catch (err) {
       toastError(err);
     }
@@ -341,12 +350,12 @@ function Chat(props) {
                   fullWidth
                   style={{
                     color: "white",
-                    backgroundColor: "#FFA500",
+                    backgroundColor: "#4ec24e",
                     boxShadow: "none",
                     borderRadius: "5px",
                   }}
                 >
-                  {i18n.t("chatInternal.main.addChat")}
+                  Adicionar chat
                 </Button>
               </div>
 

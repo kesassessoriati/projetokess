@@ -7,9 +7,11 @@ import {
   Typography,
   Modal,
   Button,
+  Chip,
 } from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
 import InsertEmoticonIcon from "@material-ui/icons/InsertEmoticon";
+import AttachFileIcon from "@material-ui/icons/AttachFile";
 import EmojiPicker from "emoji-picker-react";
 import GetAppIcon from "@material-ui/icons/GetApp";
 
@@ -55,7 +57,7 @@ const useStyles = makeStyles((theme) => ({
     height: "auto",
     display: "flex",
     alignItems: "flex-end", // Alinha itens para baixo para acompanhar o crescer do textarea
-    padding: "10px 20px",
+    padding: "8px 15px",
     backgroundColor: theme.palette.background.paper,
     borderTop: "1px solid rgba(0, 0, 0, 0.12)",
   },
@@ -86,27 +88,27 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: "5px",
   },
   boxLeft: {
-    padding: "10px 10px 5px",
-    margin: "10px",
+    padding: "6px 8px",
+    margin: "8px",
     position: "relative",
     backgroundColor: "#ffffff",
     color: "#303030",
     maxWidth: "80%",
-    borderRadius: 10,
+    borderRadius: 8,
     borderTopLeftRadius: 0,
     border: "1px solid rgba(0, 0, 0, 0.12)",
     zIndex: 1,
     boxShadow: "0 1px 1px rgba(0,0,0,0.1)",
   },
   boxRight: {
-    padding: "10px 10px 5px",
-    margin: "10px 10px 10px auto",
+    padding: "6px 8px",
+    margin: "8px 8px 8px auto",
     position: "relative",
     backgroundColor: "#dcf8c6",
     color: "#303030",
     textAlign: "left",
     maxWidth: "80%",
-    borderRadius: 10,
+    borderRadius: 8,
     borderTopRightRadius: 0,
     border: "1px solid rgba(0, 0, 0, 0.12)",
     zIndex: 1,
@@ -115,7 +117,8 @@ const useStyles = makeStyles((theme) => ({
   messageText: {
     wordBreak: "break-word",
     whiteSpace: "pre-wrap",
-    lineHeight: "1.4",
+    lineHeight: "1.3",
+    fontSize: "14px",
     marginTop: "4px",
     "& a": {
       color: "#0366d6",
@@ -123,6 +126,15 @@ const useStyles = makeStyles((theme) => ({
       "&:hover": {
         textDecoration: "underline",
       }
+    },
+    "& img": {
+      maxWidth: "100%",
+      maxHeight: "250px",
+      objectFit: "contain",
+      borderRadius: 8,
+      cursor: "zoom-in",
+      display: "block",
+      margin: "4px 0"
     }
   },
   emojiPicker: {
@@ -216,9 +228,11 @@ export default function ChatMessages({
   const baseRef = useRef();
 
   const [contentMessage, setContentMessage] = useState("");
+  const [medias, setMedias] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const textAreaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     if (baseRef.current) {
@@ -253,14 +267,15 @@ export default function ChatMessages({
   }, [pageInfo, loading, handleLoadMore]);
 
   const handleSend = useCallback(() => {
-    if (contentMessage.trim() !== "") {
-      handleSendMessage(contentMessage);
+    if (contentMessage.trim() !== "" || medias.length > 0) {
+      handleSendMessage(contentMessage, medias);
       setContentMessage("");
+      setMedias([]);
       if (textAreaRef.current) {
         textAreaRef.current.style.height = '40px';
       }
     }
-  }, [contentMessage, handleSendMessage]);
+  }, [contentMessage, medias, handleSendMessage]);
 
   const handleEmojiClick = useCallback((emojiObject) => {
     setContentMessage((prev) => prev + emojiObject.emoji);
@@ -270,6 +285,12 @@ export default function ChatMessages({
   const handleImageClick = useCallback((imageSrc) => {
     setSelectedImage(imageSrc);
   }, []);
+
+  const handleChangeMedias = (e) => {
+    if (!e.target.files) return;
+    const selectedFiles = Array.from(e.target.files);
+    setMedias((prev) => [...prev, ...selectedFiles]);
+  };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -321,6 +342,14 @@ export default function ChatMessages({
         )}
         <div className={classes.buttonContainer}>
           <IconButton
+            onClick={() => fileInputRef.current?.click()}
+            style={{ backgroundColor: "transparent", padding: "8px" }}
+            title="Anexar arquivo"
+          >
+            <AttachFileIcon style={{ color: "#888" }} />
+          </IconButton>
+
+          <IconButton
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             style={{ backgroundColor: "transparent", padding: "8px" }}
           >
@@ -328,22 +357,46 @@ export default function ChatMessages({
           </IconButton>
         </div>
 
-        <textarea
-          ref={textAreaRef}
-          value={contentMessage}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          className={classes.textArea}
-          placeholder="Digite uma mensagem..."
-          rows={1}
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={handleChangeMedias}
         />
 
-        <div className={classes.buttonContainer}>
+        <Box display="flex" flexDirection="column" style={{ flex: 1 }}>
+          {medias.length > 0 && (
+            <Box display="flex" flexWrap="wrap" gap={1} mb={1}>
+              {medias.map((media, index) => (
+                <Chip
+                  key={index}
+                  label={media.name}
+                  size="small"
+                  onDelete={() => setMedias(medias.filter((_, i) => i !== index))}
+                  style={{ margin: "2px" }}
+                />
+              ))}
+            </Box>
+          )}
+          <textarea
+            ref={textAreaRef}
+            value={contentMessage}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            className={classes.textArea}
+            placeholder="Digite uma mensagem..."
+            rows={1}
+            style={{ margin: 0, width: "100%" }}
+          />
+        </Box>
+
+        <div className={classes.buttonContainer} style={{ marginLeft: "10px" }}>
           <IconButton
             onClick={handleSend}
-            disabled={!contentMessage.trim()}
+            disabled={!contentMessage.trim() && medias.length === 0}
             style={{
-              backgroundColor: contentMessage.trim() ? "#4ec24e" : "#e0e0e0",
+              backgroundColor: (contentMessage.trim() || medias.length > 0) ? "#4ec24e" : "#e0e0e0",
               padding: "10px",
             }}
           >
