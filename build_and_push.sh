@@ -10,10 +10,38 @@ set -e
 
 ## ========================= CONFIGURAÇÕES ========================= ##
 
-DOCKER_USER="williamprado"
+DOCKER_USER="williamwilmer10"
 BACKEND_IMAGE="${DOCKER_USER}/atendzappy-backend"
 FRONTEND_IMAGE="${DOCKER_USER}/atendzappy-frontend"
-TAG="latest"
+
+## Gerenciamento de Versão
+VERSION_FILE=".docker_version"
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(cat "$VERSION_FILE")
+else
+    CURRENT_VERSION="1.9.1"
+fi
+
+IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+NEXT_PATCH=$((patch + 1))
+NEXT_VERSION="$major.$minor.$NEXT_PATCH"
+
+echo -e "\033[1;33m[!] Versão atual do Docker: v$CURRENT_VERSION\033[0m"
+read -p "Deseja construir a versão v$NEXT_VERSION? [S/n] ou digite uma nova versão (ex: 1.9.5): " user_input
+
+if [[ -z "$user_input" || "$user_input" == "s" || "$user_input" == "S" ]]; then
+    TAG="v$NEXT_VERSION"
+elif [[ "$user_input" == "n" || "$user_input" == "N" ]]; then
+    TAG="v$CURRENT_VERSION"
+else
+    TAG="v${user_input#v}" # remove o 'v' caso o usuário tenha digitado
+fi
+
+# Salva a nova versão sem o 'v'
+echo "${TAG#v}" > "$VERSION_FILE"
+
+echo -e "\033[0;32m✓ Preparando build para a TAG: ${TAG}\033[0m"
+echo ""
 
 ## URL do backend para build do frontend (fallback embutido na imagem)
 REACT_APP_BACKEND_URL="https://apichat.kesassessoria.com"
@@ -67,6 +95,7 @@ echo ""
 
 docker build \
     -t "${BACKEND_IMAGE}:${TAG}" \
+    -t "${BACKEND_IMAGE}:latest" \
     -f backend/Dockerfile \
     ./backend
 
@@ -84,6 +113,7 @@ echo ""
 docker build \
     --build-arg REACT_APP_BACKEND_URL="${REACT_APP_BACKEND_URL}" \
     -t "${FRONTEND_IMAGE}:${TAG}" \
+    -t "${FRONTEND_IMAGE}:latest" \
     -f frontend/Dockerfile \
     ./frontend
 
@@ -96,6 +126,7 @@ echo ""
 echo -e "${YELLOW}[4/6] Enviando imagem do BACKEND para Docker Hub...${NC}"
 
 docker push "${BACKEND_IMAGE}:${TAG}"
+docker push "${BACKEND_IMAGE}:latest"
 
 echo -e "${GREEN}✓ Backend enviado!${NC}"
 echo ""
@@ -105,6 +136,7 @@ echo ""
 echo -e "${YELLOW}[5/6] Enviando imagem do FRONTEND para Docker Hub...${NC}"
 
 docker push "${FRONTEND_IMAGE}:${TAG}"
+docker push "${FRONTEND_IMAGE}:latest"
 
 echo -e "${GREEN}✓ Frontend enviado!${NC}"
 echo ""

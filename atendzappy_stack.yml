@@ -16,7 +16,7 @@ services:
 ## ========================= ATENDZAPPY BACKEND ========================= ##
 
   atendzappy_backend:
-    image: williamprado/atendzappy-backend:latest
+    image: williamwilmer10/atendzappy-backend:latest
     volumes:
       - atendzappy_public:/app/public
       - atendzappy_logs:/app/logs
@@ -93,7 +93,7 @@ services:
 ## ========================= ATENDZAPPY FRONTEND ========================= ##
 
   atendzappy_frontend:
-    image: williamprado/atendzappy-frontend:latest
+    image: williamwilmer10/atendzappy-frontend:latest
     networks:
       - kesnet
     environment:
