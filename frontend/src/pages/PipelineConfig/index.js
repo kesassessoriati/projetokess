@@ -84,6 +84,8 @@ const PipelineConfig = () => {
     const [pipelineMenuAnchorEl, setPipelineMenuAnchorEl] = useState(null);
     const [menuPipeline, setMenuPipeline] = useState(null);
     const [editingStage, setEditingStage] = useState(null);
+    const [stageConfirmModalOpen, setStageConfirmModalOpen] = useState(false);
+    const [stageToDelete, setStageToDelete] = useState(null);
 
     useEffect(() => {
         fetchPipelines();
@@ -185,6 +187,30 @@ const PipelineConfig = () => {
         } finally {
             setConfirmModalOpen(false);
             setPipelineToDelete(null);
+        }
+    };
+
+    const handleDeleteStageAction = (stage) => {
+        setStageToDelete(stage);
+        setStageConfirmModalOpen(true);
+    };
+
+    const handleConfirmDeleteStage = async () => {
+        if (!stageToDelete) return;
+        try {
+            await api.delete(`/pipelines/stages/${stageToDelete.id}`);
+            toast.success("Estágio excluído com sucesso!");
+
+            const updatedStages = selectedPipeline.stages.filter(s => s.id !== stageToDelete.id);
+            const reorderedStages = updatedStages.map((stage, index) => ({ ...stage, order: index }));
+
+            setSelectedPipeline({ ...selectedPipeline, stages: reorderedStages });
+            setPipelines(pipelines.map(p => p.id === selectedPipeline.id ? { ...p, stages: reorderedStages } : p));
+        } catch (err) {
+            toast.error(err.response?.data?.error || "Erro ao excluir estágio.");
+        } finally {
+            setStageConfirmModalOpen(false);
+            setStageToDelete(null);
         }
     };
 
@@ -309,7 +335,7 @@ const PipelineConfig = () => {
                                                         </Box>
                                                         <Box>
                                                             <IconButton size="small" onClick={() => { setEditingStage(stage); setModalOpen(true); }}><EditIcon /></IconButton>
-                                                            <IconButton size="small" color="secondary"><DeleteIcon /></IconButton>
+                                                            <IconButton size="small" color="secondary" onClick={() => handleDeleteStageAction(stage)}><DeleteIcon /></IconButton>
                                                         </Box>
                                                     </div>
                                                 )}
@@ -350,6 +376,16 @@ const PipelineConfig = () => {
             >
                 Tem certeza que deseja excluir o funil <b>{pipelineToDelete?.name}</b>?<br /><br />
                 <b>Atenção:</b> Você não poderá excluir casos existam oportunidades atualmente neste funil.
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                title={`Excluir Estágio ${stageToDelete?.name}?`}
+                open={stageConfirmModalOpen}
+                onClose={() => setStageConfirmModalOpen(false)}
+                onConfirm={handleConfirmDeleteStage}
+            >
+                Tem certeza que deseja excluir o estágio <b>{stageToDelete?.name}</b>? Esta ação não pode ser desfeita.<br /><br />
+                <b>Atenção:</b> Você não poderá excluir se houver contatos vinculados a este estágio.
             </ConfirmationModal>
 
             <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>

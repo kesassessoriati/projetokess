@@ -128,9 +128,31 @@ export const deleteStage = async (req: Request, res: Response): Promise<Response
     const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
     if (!stage) return res.status(404).json({ error: "Stage not found" });
 
+    const Opportunity = (await import("../models/Opportunity")).default;
+    const CrmLead = (await import("../models/CrmLead")).default;
+
+    const opCount = await Opportunity.count({ where: { stageId, companyId } });
+    const leadCount = await CrmLead.count({ where: { stageId, companyId } });
+
+    if (opCount > 0 || leadCount > 0) {
+        return res.status(400).json({ error: "Não é possível excluir este estágio pois existem contatos vinculados a ele. Mova-os para outro estágio primeiro." });
+    }
+
+    const pipelineId = stage.pipelineId;
     await stage.destroy();
 
-    return res.status(200).json({ message: "Stage deleted" });
+    const remainingStages = await PipelineStage.findAll({
+        where: { pipelineId, companyId },
+        order: [["order", "ASC"]]
+    });
+
+    for (let i = 0; i < remainingStages.length; i++) {
+        if (remainingStages[i].order !== i) {
+            await remainingStages[i].update({ order: i });
+        }
+    }
+
+    return res.status(200).json({ message: "Stage deleted successfully" });
 };
 
 export const remove = async (req: Request, res: Response): Promise<Response> => {
