@@ -7,8 +7,11 @@ import PipelineStage from "../models/PipelineStage";
 import Contact from "../models/Contact";
 import User from "../models/User";
 import OpportunityMovement from "../models/OpportunityMovement";
+import OpportunityEvent from "../models/OpportunityEvent";
 import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import AppError from "../errors/AppError";
+import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId } = req.query;
@@ -98,4 +101,31 @@ export const feedback = async (req: Request, res: Response): Promise<Response> =
     } as any);
 
     return res.status(200).json(record);
+};
+
+export const addEvent = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { type, metadata } = req.body;
+    const { companyId } = req.user;
+
+    const event = await CreateOpportunityEventService({
+        opportunityId: Number(id),
+        companyId,
+        type,
+        metadata
+    });
+
+    return res.status(201).json(event);
+};
+
+export const listEvents = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const events = await ListOpportunityEventsService({
+        opportunityId: Number(id),
+        companyId
+    });
+
+    return res.status(200).json(events);
 };

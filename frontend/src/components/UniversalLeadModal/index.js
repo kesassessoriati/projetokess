@@ -25,6 +25,7 @@ import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
 import LeadChat from "../LeadChat";
+import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -110,6 +111,27 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
+    const [activityType, setActivityType] = useState("LIGACAO");
+    const [activities, setActivities] = useState([]);
+    const [loadingActivities, setLoadingActivities] = useState(false);
+
+    useEffect(() => {
+        if (open && op?.id && tabValue === 1) {
+            fetchActivities();
+        }
+    }, [open, op?.id, tabValue]);
+
+    const fetchActivities = async () => {
+        try {
+            setLoadingActivities(true);
+            const { data } = await api.get(`/opportunities/${op.id}/events`);
+            setActivities(data);
+        } catch (err) {
+            toast.error("Erro ao carregar atividades");
+        } finally {
+            setLoadingActivities(false);
+        }
+    };
 
     if (!op && !leadId && open && false) {
         return null; // bloqueio removido para permitir a criação de um Novo Lead
@@ -119,10 +141,24 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         setTabValue(newValue);
     };
 
-    const handleSaveActivity = () => {
+    const handleSaveActivity = async () => {
         if (!activityText.trim()) return;
-        toast.success("Atividade registrada (Simulação)");
-        setActivityText("");
+        if (!op?.id) {
+            toast.error("Salve a oportunidade primeiro para registrar atividades.");
+            return;
+        }
+
+        try {
+            await api.post(`/opportunities/${op.id}/events`, {
+                type: activityType,
+                metadata: { text: activityText }
+            });
+            toast.success("Atividade registrada");
+            setActivityText("");
+            fetchActivities();
+        } catch (err) {
+            toast.error("Erro ao salvar atividade");
+        }
     };
 
     return (
@@ -219,9 +255,33 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                     onChange={(e) => setActivityText(e.target.value)}
                                 />
                                 <Box className={classes.actionBox}>
-                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>📱 Ligação</Button>
-                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>👥 Reunião</Button>
-                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>🎯 Tarefa</Button>
+                                    <Button
+                                        variant={activityType === "LIGACAO" ? "contained" : "outlined"}
+                                        color={activityType === "LIGACAO" ? "primary" : "default"}
+                                        size="small"
+                                        style={{ textTransform: "none", boxShadow: "none" }}
+                                        onClick={() => setActivityType("LIGACAO")}
+                                    >
+                                        📱 Ligação
+                                    </Button>
+                                    <Button
+                                        variant={activityType === "REUNIAO" ? "contained" : "outlined"}
+                                        color={activityType === "REUNIAO" ? "primary" : "default"}
+                                        size="small"
+                                        style={{ textTransform: "none", boxShadow: "none" }}
+                                        onClick={() => setActivityType("REUNIAO")}
+                                    >
+                                        👥 Reunião
+                                    </Button>
+                                    <Button
+                                        variant={activityType === "TAREFA" ? "contained" : "outlined"}
+                                        color={activityType === "TAREFA" ? "primary" : "default"}
+                                        size="small"
+                                        style={{ textTransform: "none", boxShadow: "none" }}
+                                        onClick={() => setActivityType("TAREFA")}
+                                    >
+                                        🎯 Tarefa
+                                    </Button>
                                     <Box flexGrow={1} />
                                     <Button
                                         variant="contained"
@@ -237,7 +297,22 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
                             <Typography variant="subtitle2" style={{ fontWeight: 600, color: "#999", marginBottom: 8 }}>HISTÓRICO</Typography>
                             <Box style={{ borderLeft: "2px solid #e0e0e0", paddingLeft: 16 }}>
-                                <Typography variant="body2" style={{ fontWeight: 600 }}>Nenhuma atividade registrada ainda.</Typography>
+                                {loadingActivities ? (
+                                    <Typography variant="body2" color="textSecondary">Carregando atividades...</Typography>
+                                ) : activities.length > 0 ? (
+                                    activities.map(act => (
+                                        <Box key={act.id} mb={2}>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {new Date(act.createdAt).toLocaleString()} • {act.type}
+                                            </Typography>
+                                            <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4 }}>
+                                                {act.metadata?.text || "-"}
+                                            </Typography>
+                                        </Box>
+                                    ))
+                                ) : (
+                                    <Typography variant="body2" style={{ fontWeight: 600 }}>Nenhuma atividade registrada ainda.</Typography>
+                                )}
                             </Box>
                         </TabPanel>
 
