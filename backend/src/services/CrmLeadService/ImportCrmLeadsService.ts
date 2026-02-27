@@ -66,6 +66,10 @@ const ImportCrmLeadsService = async ({
                     Object.assign(leadRow, rowOriginal);
                 }
 
+                // Ignorar linhas onde tudo é nulo ou string vazia
+                const hasAnyData = Object.values(leadRow).some(v => v !== null && v !== "" && v !== undefined);
+                if (!hasAnyData) continue;
+
                 const name = leadRow.name || leadRow.nome || `Lead #${index + 1}`;
                 const phone = leadRow.phone || leadRow.telefone || leadRow.numero || null;
                 const email = leadRow.email || leadRow.Email || null;

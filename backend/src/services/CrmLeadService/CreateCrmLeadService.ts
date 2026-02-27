@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import { Op } from "sequelize";
 import syncLeadToClient from "./helpers/syncLeadToClient";
 
 interface Request {
@@ -46,7 +47,10 @@ interface Request {
 
 const normalizeNumber = (phone?: string): string | null => {
   if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
+  let digits = phone.replace(/\D/g, "");
+
+  // Remove leading zeros that some users type (e.g. 011999999999)
+  digits = digits.replace(/^0+/, "");
 
   if (digits.length === 10 || digits.length === 11) {
     return digits.startsWith("55") ? digits : `55${digits}`;
@@ -152,6 +156,37 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     data.contactId,
     data.phone
   );
+
+  if (contactId) {
+    const existingLeadByContact = await CrmLead.findOne({
+      where: {
+        companyId: data.companyId,
+        contactId
+      }
+    });
+
+    if (existingLeadByContact) {
+      throw new AppError("Lead já cadastrado com esse telefone (Contato existente) para esta empresa.");
+    }
+  } else if (data.phone) {
+    const normPhone = normalizeNumber(data.phone) || data.phone;
+
+    // Testa variações comuns usando Op.or
+    const existingLeadByPhone = await CrmLead.findOne({
+      where: {
+        companyId: data.companyId,
+        [Op.or]: [
+          { phone: normPhone },
+          { phone: data.phone },
+          { phone: normPhone.replace(/^55/, "") }
+        ]
+      }
+    });
+
+    if (existingLeadByPhone) {
+      throw new AppError("Lead já cadastrado com esse telefone para esta empresa.");
+    }
+  }
 
   const primaryTicketId = await resolvePrimaryTicketId(
     data.companyId,
