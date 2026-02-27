@@ -31,6 +31,25 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     return res.status(200).json(pipelines);
 };
 
+export const update = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { companyId } = req.user;
+    const { name, isDefault } = req.body;
+
+    const pipeline = await Pipeline.findOne({ where: { id, companyId } });
+    if (!pipeline) {
+        return res.status(404).json({ error: "Pipeline not found" });
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (isDefault !== undefined) updateData.isDefault = isDefault;
+
+    await pipeline.update(updateData);
+
+    return res.status(200).json(pipeline);
+};
+
 export const board = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
     const { companyId, profile, id: userId } = req.user;

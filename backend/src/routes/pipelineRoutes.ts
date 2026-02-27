@@ -9,6 +9,7 @@ const pipelineRoutes = Router();
 // Pipelines
 pipelineRoutes.get("/pipelines", isAuth, PipelineController.index);
 pipelineRoutes.post("/pipelines", isAuth, PipelineController.store);
+pipelineRoutes.put("/pipelines/:id", isAuth, PipelineController.update);
 pipelineRoutes.get("/pipelines/:id/board", isAuth, PipelineController.board);
 pipelineRoutes.get("/pipelines/:id/metrics", isAuth, PipelineController.metrics);
 pipelineRoutes.delete("/pipelines/:id", isAuth, PipelineController.remove);

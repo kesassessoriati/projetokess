@@ -8,6 +8,7 @@ import Contact from "../models/Contact";
 import User from "../models/User";
 import OpportunityMovement from "../models/OpportunityMovement";
 import AISuggestionFeedback from "../models/AISuggestionFeedback";
+import AppError from "../errors/AppError";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId } = req.query;
@@ -23,19 +24,24 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
-    const { pipelineId, stageId, contactId, title, value, assignedUserId } = req.body;
+    const { pipelineId, stageId, contactId, leadId, title, value, assignedUserId } = req.body;
+
+    if (!pipelineId || !stageId) {
+        throw new AppError("O estágio (stageId) e o funil (pipelineId) devem ser informados.", 400);
+    }
 
     const opportunity = await CreateOpportunityService({
         companyId,
         pipelineId,
         stageId,
         contactId,
+        leadId,
         title,
         value,
         assignedUserId
     });
 
-    return res.status(200).json(opportunity);
+    return res.status(201).json(opportunity);
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {

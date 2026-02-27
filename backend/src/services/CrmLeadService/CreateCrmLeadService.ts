@@ -115,9 +115,13 @@ const resolvePrimaryTicketId = async (
 const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   const schema = Yup.object().shape({
     companyId: Yup.number().required(),
-    name: Yup.string().required().min(2),
-    email: Yup.string().email().nullable(),
-    phone: Yup.string().nullable(),
+    name: Yup.string().required(),
+    email: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .nullable(),
+    phone: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .nullable(),
     status: Yup.string()
       .oneOf(["new", "contacted", "qualified", "unqualified", "converted", "lost"])
       .default("new"),

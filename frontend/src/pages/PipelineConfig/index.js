@@ -127,7 +127,7 @@ const PipelineConfig = () => {
     const handleSaveStage = async (stageData) => {
         try {
             if (editingStage && editingStage.id) {
-                await api.put(`/pipelines/${selectedPipeline.id}/stages/${editingStage.id}`, stageData);
+                await api.put(`/pipelines/stages/${editingStage.id}`, stageData);
                 toast.success("Estágio atualizado");
             } else {
                 await api.post(`/pipelines/${selectedPipeline.id}/stages`, stageData);
