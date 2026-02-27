@@ -16,7 +16,9 @@ import {
     DialogContent,
     DialogActions,
     CircularProgress,
-    Chip
+    Chip,
+    Menu,
+    MenuItem
 } from "@material-ui/core";
 import {
     Add as AddIcon,
@@ -77,6 +79,9 @@ const PipelineConfig = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
     const [newPipelineName, setNewPipelineName] = useState("");
+    const [isEditingPipeline, setIsEditingPipeline] = useState(false);
+    const [pipelineMenuAnchorEl, setPipelineMenuAnchorEl] = useState(null);
+    const [menuPipeline, setMenuPipeline] = useState(null);
     const [editingStage, setEditingStage] = useState(null);
 
     useEffect(() => {
@@ -142,18 +147,52 @@ const PipelineConfig = () => {
         }
     };
 
-    const handleCreatePipeline = async () => {
+    const handleOpenPipelineMenu = (e, pipe) => {
+        e.stopPropagation();
+        setPipelineMenuAnchorEl(e.currentTarget);
+        setMenuPipeline(pipe);
+    };
+
+    const handleClosePipelineMenu = () => {
+        setPipelineMenuAnchorEl(null);
+        setMenuPipeline(null);
+    };
+
+    const handleEditPipelineAction = () => {
+        setNewPipelineName(menuPipeline.name);
+        setIsEditingPipeline(true);
+        setPipelineModalOpen(true);
+        handleClosePipelineMenu();
+    };
+
+    const handleOpenCreatePipeline = () => {
+        setNewPipelineName("");
+        setIsEditingPipeline(false);
+        setPipelineModalOpen(true);
+    };
+
+    const handleSavePipeline = async () => {
         if (!newPipelineName.trim()) {
             return toast.error("Por favor, digite um nome para o funil.");
         }
         try {
-            await api.post("/pipelines", { name: newPipelineName });
-            toast.success("Funil criado com sucesso!");
+            if (isEditingPipeline && menuPipeline) {
+                await api.put(`/pipelines/${menuPipeline.id}`, { name: newPipelineName });
+                toast.success("Funil atualizado com sucesso!");
+                setPipelines(pipelines.map(p => p.id === menuPipeline.id ? { ...p, name: newPipelineName } : p));
+                if (selectedPipeline && selectedPipeline.id === menuPipeline.id) {
+                    setSelectedPipeline({ ...selectedPipeline, name: newPipelineName });
+                }
+            } else {
+                await api.post("/pipelines", { name: newPipelineName });
+                toast.success("Funil criado com sucesso!");
+                fetchPipelines();
+            }
             setPipelineModalOpen(false);
             setNewPipelineName("");
-            fetchPipelines();
+            setIsEditingPipeline(false);
         } catch (err) {
-            toast.error("Erro ao criar funil.");
+            toast.error("Erro ao salvar funil.");
         }
     };
 
@@ -176,7 +215,7 @@ const PipelineConfig = () => {
                         variant="contained"
                         color="primary"
                         startIcon={<AddIcon />}
-                        onClick={() => setPipelineModalOpen(true)}
+                        onClick={handleOpenCreatePipeline}
                         style={{ borderRadius: 12 }}
                     >
                         Novo Funil
@@ -192,7 +231,9 @@ const PipelineConfig = () => {
                                 <CardContent>
                                     <Box display="flex" justifyContent="space-between" alignItems="center">
                                         <Typography variant="h6" style={{ fontWeight: 700 }}>{pipe.name}</Typography>
-                                        <SettingsIcon color="action" />
+                                        <IconButton size="small" onClick={(e) => handleOpenPipelineMenu(e, pipe)}>
+                                            <SettingsIcon color="action" />
+                                        </IconButton>
                                     </Box>
                                     <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>{pipe.stages?.length || 0} estágios configurados</Typography>
                                     {pipe.isDefault && <Chip label="Padrão" size="small" color="primary" style={{ marginTop: 12 }} />}
@@ -260,6 +301,21 @@ const PipelineConfig = () => {
                 </Box>
             )}
 
+            <Menu
+                anchorEl={pipelineMenuAnchorEl}
+                keepMounted
+                open={Boolean(pipelineMenuAnchorEl)}
+                onClose={handleClosePipelineMenu}
+                PaperProps={{ style: { borderRadius: 12 } }}
+            >
+                <MenuItem onClick={() => { handleClosePipelineMenu(); setSelectedPipeline(menuPipeline); }}>
+                    Configurar estágios
+                </MenuItem>
+                <MenuItem onClick={handleEditPipelineAction}>
+                    Editar nome do funil
+                </MenuItem>
+            </Menu>
+
             <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>{editingStage?.id ? "Editar Estágio" : "Novo Estágio"}</DialogTitle>
                 <DialogContent>
@@ -277,7 +333,7 @@ const PipelineConfig = () => {
             </Dialog>
 
             <Dialog open={pipelineModalOpen} onClose={() => setPipelineModalOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>Novo Funil</DialogTitle>
+                <DialogTitle>{isEditingPipeline ? "Editar Nome do Funil" : "Novo Funil"}</DialogTitle>
                 <DialogContent>
                     <Box display="flex" flexDirection="column" gap={2} pt={1}>
                         <TextField
@@ -291,7 +347,7 @@ const PipelineConfig = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setPipelineModalOpen(false)}>Cancelar</Button>
-                    <Button color="primary" variant="contained" onClick={handleCreatePipeline}>Criar</Button>
+                    <Button color="primary" variant="contained" onClick={handleSavePipeline}>Salvar</Button>
                 </DialogActions>
             </Dialog>
         </Box>
