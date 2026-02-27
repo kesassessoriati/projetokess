@@ -9,6 +9,6 @@ const upload = multer(uploadConfig);
 const emailRoutes = express.Router();
 
 emailRoutes.post("/send-crm-email", sendCrmEmail);
-emailRoutes.post("/send-lead-email", isAuth, upload.array("files"), sendLeadEmail);
+emailRoutes.post("/send-lead-email", isAuth, upload.array("attachments"), sendLeadEmail);
 
 export default emailRoutes;
