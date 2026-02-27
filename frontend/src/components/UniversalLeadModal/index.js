@@ -1,0 +1,318 @@
+import React, { useState, useEffect } from "react";
+import {
+    Dialog,
+    DialogContent,
+    IconButton,
+    makeStyles,
+    Box,
+    Typography,
+    Tabs,
+    Tab,
+    Button,
+    TextField,
+    Avatar,
+    Paper,
+    Divider,
+} from "@material-ui/core";
+import CloseIcon from "@material-ui/icons/Close";
+import ListAltIcon from "@material-ui/icons/ListAlt";
+import EventNoteIcon from "@material-ui/icons/EventNote";
+import ScheduleIcon from "@material-ui/icons/Schedule";
+import MailOutlineIcon from "@material-ui/icons/MailOutline";
+import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
+import AttachFileIcon from "@material-ui/icons/AttachFile";
+import InfoIcon from "@material-ui/icons/Info";
+import { toast } from "react-toastify";
+
+const useStyles = makeStyles((theme) => ({
+    dialogPaper: {
+        borderRadius: 8,
+        backgroundColor: "#f4f5f7",
+        minHeight: "85vh",
+    },
+    closeButton: {
+        position: "absolute",
+        right: theme.spacing(1),
+        top: theme.spacing(1),
+        color: theme.palette.grey[500],
+        zIndex: 10,
+    },
+    leftPanel: {
+        backgroundColor: "#ffffff",
+        borderRight: "1px solid #e0e0e0",
+        padding: theme.spacing(3),
+        height: "100%",
+        [theme.breakpoints.down("sm")]: {
+            borderRight: "none",
+            borderBottom: "1px solid #e0e0e0",
+            height: "auto",
+        },
+    },
+    rightPanel: {
+        padding: theme.spacing(3),
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+    },
+    tabsContainer: {
+        backgroundColor: "#ffffff",
+        borderRadius: "8px 8px 0 0",
+        border: "1px solid #e0e0e0",
+        borderBottom: "none",
+    },
+    tabContent: {
+        backgroundColor: "#ffffff",
+        border: "1px solid #e0e0e0",
+        borderRadius: "0 8px 8px 8px",
+        padding: theme.spacing(3),
+        flexGrow: 1,
+        overflowY: "auto",
+    },
+    sectionTitle: {
+        fontWeight: 700,
+        color: "#303030",
+        marginBottom: theme.spacing(2),
+        display: "flex",
+        alignItems: "center",
+    },
+    activityInput: {
+        backgroundColor: "#fff",
+        borderRadius: 4,
+        "& fieldset": {
+            borderColor: "#dcdcdc",
+        },
+    },
+    actionBox: {
+        display: "flex",
+        gap: 8,
+        marginTop: 8,
+        alignItems: "center",
+    },
+}));
+
+function TabPanel(props) {
+    const { children, value, index, ...other } = props;
+    return (
+        <div
+            role="tabpanel"
+            hidden={value !== index}
+            {...other}
+            style={{ height: "100%", display: value === index ? "flex" : "none", flexDirection: "column" }}
+        >
+            {value === index && children}
+        </div>
+    );
+}
+
+const UniversalLeadModal = ({ open, onClose, op }) => {
+    const classes = useStyles();
+    const [tabValue, setTabValue] = useState(0);
+    const [activityText, setActivityText] = useState("");
+
+    if (!op && open) {
+        return null; // or loading
+    }
+
+    const handleTabChange = (event, newValue) => {
+        setTabValue(newValue);
+    };
+
+    const handleSaveActivity = () => {
+        if (!activityText.trim()) return;
+        toast.success("Atividade registrada (Simulação)");
+        setActivityText("");
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" PaperProps={{ className: classes.dialogPaper }}>
+            <IconButton onClick={onClose} className={classes.closeButton}>
+                <CloseIcon />
+            </IconButton>
+            <Box display="flex" flexDirection={{ xs: "column", md: "row" }} height="100%">
+
+                {/* LEFT PANEL - DETALHES DO LEAD / OPORTUNIDADE */}
+                <Box width={{ xs: "100%", md: "30%" }} className={classes.leftPanel}>
+                    <Box display="flex" alignItems="center" mb={3}>
+                        <Avatar style={{ width: 48, height: 48, marginRight: 16, backgroundColor: "#10b981" }}>
+                            {op?.contact?.name?.[0] || "L"}
+                        </Avatar>
+                        <Box>
+                            <Typography variant="h6" style={{ fontWeight: 800, lineHeight: 1.1 }}>
+                                {op?.title || op?.name || "Novo Lead"}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                                {op?.contact?.name || "Sem Contato Associado"}
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <Divider style={{ my: 2 }} />
+
+                    <Box mt={2} mb={2}>
+                        <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600 }}>VALOR DA OPORTUNIDADE</Typography>
+                        <Typography variant="h5" style={{ fontWeight: 800, color: "#1e293b" }}>
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(op?.value || 0)}
+                        </Typography>
+                    </Box>
+
+                    <Divider style={{ my: 2 }} />
+
+                    <Box mt={2}>
+                        <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600, marginBottom: 8 }}>INFORMAÇÕES ADICIONAIS</Typography>
+                        <Typography variant="body2"><strong>Status:</strong> {op?.status || "Novo"}</Typography>
+                        <Typography variant="body2"><strong>Risco IA:</strong> {op?.prediction?.riskLevel || "N/A"}</Typography>
+                        <Typography variant="body2"><strong>Criado em:</strong> {op?.createdAt ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
+                    </Box>
+                </Box>
+
+                {/* RIGHT PANEL - ABAS DE AÇÃO (ESTILO PIPEDRIVE) */}
+                <Box width={{ xs: "100%", md: "70%" }} className={classes.rightPanel}>
+                    <Paper className={classes.tabsContainer} elevation={0}>
+                        <Tabs
+                            value={tabValue}
+                            onChange={handleTabChange}
+                            indicatorColor="primary"
+                            textColor="primary"
+                            variant="scrollable"
+                            scrollButtons="auto"
+                        >
+                            <Tab icon={<InfoIcon fontSize="small" />} label="Informações" style={{ minWidth: 100 }} />
+                            <Tab icon={<ListAltIcon fontSize="small" />} label="Atividade" style={{ minWidth: 100 }} />
+                            <Tab icon={<EventNoteIcon fontSize="small" />} label="Anotações" style={{ minWidth: 100 }} />
+                            <Tab icon={<ScheduleIcon fontSize="small" />} label="Agendador" style={{ minWidth: 100 }} />
+                            <Tab icon={<MailOutlineIcon fontSize="small" />} label="E-mail" style={{ minWidth: 100 }} />
+                            <Tab icon={<ChatBubbleOutlineIcon fontSize="small" />} label="Chat" style={{ minWidth: 100 }} />
+                            <Tab icon={<AttachFileIcon fontSize="small" />} label="Arquivos" style={{ minWidth: 100 }} />
+                        </Tabs>
+                    </Paper>
+
+                    <Paper className={classes.tabContent} elevation={0}>
+
+                        {/* Informações: Futuramente formulário completo da oportunidade */}
+                        <TabPanel value={tabValue} index={0}>
+                            <Typography className={classes.sectionTitle}>Resumo da Oportunidade / Lead</Typography>
+                            <Typography variant="body2" color="textSecondary">
+                                Aqui você poderá editar os dados principais deste card (Nome, Empresa, GMN, Tags, etc), usando o mesmo formulário que já existia.
+                            </Typography>
+                        </TabPanel>
+
+                        {/* Atividade / Ligações */}
+                        <TabPanel value={tabValue} index={1}>
+                            <Typography className={classes.sectionTitle}>
+                                <ListAltIcon style={{ marginRight: 8 }} /> Registro de Atividades e Ligações
+                            </Typography>
+                            <Box mb={3} p={2} style={{ border: "1px solid #e0e0e0", borderRadius: 8, backgroundColor: "#fafafa" }}>
+                                <TextField
+                                    fullWidth
+                                    variant="outlined"
+                                    placeholder="Ex: Ligou 2 vezes, não atendeu. / Apresentação realizada..."
+                                    size="small"
+                                    className={classes.activityInput}
+                                    value={activityText}
+                                    onChange={(e) => setActivityText(e.target.value)}
+                                />
+                                <Box className={classes.actionBox}>
+                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>📱 Ligação</Button>
+                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>👥 Reunião</Button>
+                                    <Button variant="outlined" size="small" style={{ textTransform: "none" }}>🎯 Tarefa</Button>
+                                    <Box flexGrow={1} />
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        size="small"
+                                        style={{ textTransform: "none", backgroundColor: "#10b981", boxShadow: "none" }}
+                                        onClick={handleSaveActivity}
+                                    >
+                                        Salvar
+                                    </Button>
+                                </Box>
+                            </Box>
+
+                            <Typography variant="subtitle2" style={{ fontWeight: 600, color: "#999", marginBottom: 8 }}>HISTÓRICO</Typography>
+                            <Box style={{ borderLeft: "2px solid #e0e0e0", paddingLeft: 16 }}>
+                                <Typography variant="body2" style={{ fontWeight: 600 }}>Nenhuma atividade registrada ainda.</Typography>
+                            </Box>
+                        </TabPanel>
+
+                        {/* Anotações Geriais */}
+                        <TabPanel value={tabValue} index={2}>
+                            <Typography className={classes.sectionTitle}>
+                                <EventNoteIcon style={{ marginRight: 8 }} /> Anotações
+                            </Typography>
+                            <TextField
+                                fullWidth
+                                variant="outlined"
+                                placeholder="Comece a digitar uma anotação..."
+                                multiline
+                                rows={4}
+                                style={{ backgroundColor: "#fef3c7" }}
+                            />
+                            <Box display="flex" justifyContent="flex-end" mt={1}>
+                                <Button variant="contained" size="small" style={{ backgroundColor: "#f59e0b", color: "white", boxShadow: "none", textTransform: "none" }}>Adicionar anotação</Button>
+                            </Box>
+                        </TabPanel>
+
+                        {/* Agendador */}
+                        <TabPanel value={tabValue} index={3}>
+                            <Typography className={classes.sectionTitle}>
+                                <ScheduleIcon style={{ marginRight: 8 }} /> Agendador de Reunião
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" mb={2}>
+                                Marque reuniões e eventos para esta oportunidade. A integração com a Agenda estará vinculada a este painel.
+                            </Typography>
+                            <Button variant="outlined" color="primary" style={{ textTransform: "none" }}>+ Propor horários (Agenda)</Button>
+                        </TabPanel>
+
+                        {/* E-mail */}
+                        <TabPanel value={tabValue} index={4}>
+                            <Typography className={classes.sectionTitle}>
+                                <MailOutlineIcon style={{ marginRight: 8 }} /> Envios de E-mail (Beta)
+                            </Typography>
+                            <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 16 }}>
+                                <TextField fullWidth variant="outlined" size="small" placeholder="Para: lead@exemplo.com" style={{ marginBottom: 8 }} />
+                                <TextField fullWidth variant="outlined" size="small" placeholder="Assunto: Proposta Comercial" style={{ marginBottom: 8 }} />
+                                <TextField fullWidth variant="outlined" size="small" multiline rows={4} placeholder="Digite seu email..." style={{ marginBottom: 8 }} />
+                                <Button variant="contained" color="primary" size="small" style={{ textTransform: "none", boxShadow: "none" }}>Enviar E-mail</Button>
+                            </Box>
+                        </TabPanel>
+
+                        {/* Chat (Simulacao) */}
+                        <TabPanel value={tabValue} index={5}>
+                            <Typography className={classes.sectionTitle}>
+                                <ChatBubbleOutlineIcon style={{ marginRight: 8 }} /> Chat com Agente
+                            </Typography>
+                            <Box display="flex" flexDirection="column" style={{ height: 300, border: "1px solid #e0e0e0", borderRadius: 8, backgroundColor: "#ece5dd", position: "relative" }}>
+                                <Box p={2} style={{ flexGrow: 1, overflowY: "auto" }}>
+                                    {/* Placeholder para area de mensagens */}
+                                    <Box display="flex" justifyContent="center">
+                                        <Typography variant="caption" style={{ backgroundColor: "rgba(255,255,255,0.8)", padding: "2px 8px", borderRadius: 8 }}>Hoje</Typography>
+                                    </Box>
+                                </Box>
+                                {/* Input area */}
+                                <Box display="flex" p={1} style={{ backgroundColor: "#f0f0f0", borderTop: "1px solid #ccc" }}>
+                                    <TextField fullWidth variant="outlined" size="small" placeholder="Digite uma mensagem..." style={{ backgroundColor: "#fff", borderRadius: 20 }} />
+                                    <Button variant="contained" color="primary" style={{ minWidth: 40, borderRadius: "50%", marginLeft: 8, boxShadow: "none", padding: 8 }}>
+                                        <ChatBubbleOutlineIcon fontSize="small" />
+                                    </Button>
+                                </Box>
+                            </Box>
+                        </TabPanel>
+
+                        {/* Arquivos */}
+                        <TabPanel value={tabValue} index={6}>
+                            <Typography className={classes.sectionTitle}>
+                                <AttachFileIcon style={{ marginRight: 8 }} /> Anexar Arquivos
+                            </Typography>
+                            <Box display="flex" alignItems="center" justifyContent="center" style={{ border: "2px dashed #ccc", padding: 32, borderRadius: 8, backgroundColor: "#fafafa", cursor: "pointer" }}>
+                                <Typography variant="body2" color="textSecondary">Arraste arquivos para cá ou clique para anexar documentos, PDF, Faturas, etc.</Typography>
+                            </Box>
+                        </TabPanel>
+
+                    </Paper>
+                </Box>
+            </Box>
+        </Dialog>
+    );
+};
+
+export default UniversalLeadModal;

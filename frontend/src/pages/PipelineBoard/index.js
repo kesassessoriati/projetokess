@@ -45,6 +45,8 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "react-toastify";
 import ImportLeadsModal from "../../components/ImportLeadsModal";
 import GetAppIcon from '@material-ui/icons/GetApp';
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import UniversalLeadModal from "../../components/UniversalLeadModal";
 
 const fCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -202,52 +204,43 @@ const useStyles = makeStyles((theme) => ({
     }
 }));
 
-const IntelligentCard = ({ op, onFeedback }) => {
+const IntelligentCard = ({ op, onClick }) => {
     const riskColor = op.prediction?.riskLevel === "HIGH" ? "#ef4444" : op.prediction?.riskLevel === "MEDIUM" ? "#f59e0b" : "#10b981";
     const probability = (op.prediction?.probability * 100).toFixed(0) || 0;
     const classes = useStyles({ riskColor });
 
     return (
-        <Box className={classes.card} onClick={() => onFeedback(op)}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                <Typography variant="body2" style={{ fontWeight: 700, color: "#334155" }}>{op.title}</Typography>
-                {op.lastMovedBy === "AI" && (
-                    <span className={classes.aiIndicator}><RobotIcon style={{ fontSize: 14 }} /> AI MOVADO</span>
+        <Box className={classes.card} onClick={() => onClick(op)}>
+            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                <Typography variant="body2" style={{ fontWeight: 700, color: "#334155", lineHeight: 1.2 }}>
+                    {op.title}
+                </Typography>
+                {op.prediction?.riskLevel === "HIGH" && (
+                    <Tooltip title="Alto Risco">
+                        <WarningIcon style={{ fontSize: 16, color: riskColor }} />
+                    </Tooltip>
                 )}
             </Box>
 
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <Avatar style={{ width: 28, height: 28, fontSize: 12, backgroundColor: "#6366f1" }}>{op.contact.name[0]}</Avatar>
-                <Typography variant="caption" style={{ fontWeight: 600 }}>{op.contact.name}</Typography>
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <Typography variant="caption" style={{ fontWeight: 600, color: "#64748b" }}>
+                    {op.contact?.name || "Sem contato"}
+                </Typography>
             </Box>
 
-            <Typography variant="h5" style={{ fontWeight: 800, color: "#1e293b", letterSpacing: "-0.5px" }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: "#1e293b" }}>
                 {fCurrency(op.value)}
             </Typography>
 
-            <Box mt={2}>
-                <Box display="flex" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Cenário de Fechamento</Typography>
-                    <Typography variant="caption" style={{ fontWeight: 800, color: riskColor }}>{probability}%</Typography>
-                </Box>
-                <div className={classes.progressBar}>
-                    <div className={classes.progressFill} style={{ width: `${probability}%`, backgroundColor: riskColor }} />
-                </div>
-            </Box>
-
-            {op.slaStatus === "EXPIRED" && (
-                <Box mt={1.5} display="flex" alignItems="center" gap={0.5} style={{ color: "#ef4444", fontSize: "0.75rem", fontWeight: 800 }}>
-                    <ClockIcon style={{ fontSize: 16 }} /> SLA EXPIRADO
-                </Box>
-            )}
-
-            <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
+            <Box mt={1} display="flex" justifyContent="space-between" alignItems="center">
                 <span className={classes.riskChip} style={{ backgroundColor: riskColor + '15', color: riskColor }}>
-                    Risco {op.prediction?.riskLevel || "LOW"}
+                    Win: {probability}%
                 </span>
-                <Tooltip title="Ver Detalhes IA">
-                    <IconButton size="small"><FlashIcon style={{ fontSize: 18, color: "#fbbf24" }} /></IconButton>
-                </Tooltip>
+                {op.slaStatus === "EXPIRED" && (
+                    <Box display="flex" alignItems="center" gap={0.5} style={{ color: "#ef4444", fontSize: "0.65rem", fontWeight: 800 }}>
+                        <ClockIcon style={{ fontSize: 14 }} /> SLA EXP.
+                    </Box>
+                )}
             </Box>
         </Box>
     );
@@ -262,7 +255,8 @@ const PipelineBoard = () => {
     const [sort, setSort] = useState("CREATED_AT");
 
     const [importModalOpen, setImportModalOpen] = useState(false);
-    const [importStageId, setImportStageId] = useState("");
+    const [selectedStageToImport, setSelectedStageToImport] = useState(null);
+    const [universalModalOpen, setUniversalModalOpen] = useState(false);
 
     // Filtros
     const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -316,7 +310,7 @@ const PipelineBoard = () => {
     };
 
     const handleOpenImport = (stageId = "") => {
-        setImportStageId(stageId);
+        setSelectedStageToImport(stageId);
         setImportModalOpen(true);
     };
 
@@ -335,6 +329,44 @@ const PipelineBoard = () => {
             setFeedbackOpen(false);
         } catch (e) {
             toast.error("Erro ao enviar feedback");
+        }
+    };
+
+    const handleDragEnd = async (result) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination) return;
+        if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+        const sourceStageId = parseInt(source.droppableId);
+        const destStageId = parseInt(destination.droppableId);
+
+        // Optimistic UI update
+        const newBoard = { ...board };
+        let draggedOp, sourceStageIdx, destStageIdx;
+
+        newBoard.stages.forEach((stage, idx) => {
+            if (stage.id === sourceStageId) sourceStageIdx = idx;
+            if (stage.id === destStageId) destStageIdx = idx;
+        });
+
+        if (sourceStageIdx !== undefined) {
+            draggedOp = newBoard.stages[sourceStageIdx].opportunities.find(op => op.id === parseInt(draggableId));
+            if (draggedOp) {
+                newBoard.stages[sourceStageIdx].opportunities.splice(source.index, 1);
+            }
+        }
+
+        if (draggedOp && destStageIdx !== undefined) {
+            newBoard.stages[destStageIdx].opportunities.splice(destination.index, 0, draggedOp);
+            setBoard(newBoard);
+        }
+
+        try {
+            await api.put(`/crm/opportunities/${draggableId}`, { stageId: destStageId });
+        } catch (err) {
+            toast.error("Erro ao mover card.");
+            fetchBoard(); // Revert
         }
     };
 
@@ -409,53 +441,81 @@ const PipelineBoard = () => {
                 />
             </div>
 
-            <Box
-                className={classes.boardArea}
-                ref={boardScrollRef}
-                onScroll={() => syncScroll(boardScrollRef, topScrollRef)}
-            >
-                {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <Box
+                    className={classes.boardArea}
+                    ref={boardScrollRef}
+                    onScroll={() => syncScroll(boardScrollRef, topScrollRef)}
+                >
+                    {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
 
-                {!loading && (board.stages || []).map(stage => (
-                    <Box key={stage.id} className={classes.lane}>
-                        <div className={classes.laneHeader} style={{ backgroundColor: stage.color || "#475569" }}>
-                            <div className={classes.laneTitle}>
-                                <Box display="flex" alignItems="center">
-                                    {stage.name}
-                                    <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>{stage.opportunitiesCount}</span>
-                                </Box>
-                                <Tooltip title="Importar Leads para este estágio">
-                                    <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: "rgba(255,255,255,0.7)" }}>
-                                        <GetAppIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
-                            </div>
-                            <div className={classes.laneStats}>
-                                <span>Real: {fCurrency(stage.totalValue)}</span>
-                                <span style={{ color: "#4ade80" }}>{fCurrency(stage.forecastValue)}</span>
-                            </div>
-                            {stage.highRiskCount > 0 && (
-                                <Box display="flex" alignItems="center" gap={0.5} style={{ fontSize: "0.7rem", backgroundColor: "rgba(239, 68, 68, 0.4)", backdropFilter: "blur(4px)", padding: "4px 8px", borderRadius: 8, marginTop: 4 }}>
-                                    <WarningIcon style={{ fontSize: 12 }} /> {stage.highRiskCount} leads críticos
+                    {!loading && (board.stages || []).map(stage => (
+                        <Droppable key={stage.id} droppableId={String(stage.id)}>
+                            {(provided) => (
+                                <Box className={classes.lane} ref={provided.innerRef} {...provided.droppableProps}>
+                                    <div className={classes.laneHeader} style={{ backgroundColor: stage.color || "#475569" }}>
+                                        <div className={classes.laneTitle}>
+                                            <Box display="flex" alignItems="center">
+                                                {stage.name}
+                                                <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>{stage.opportunitiesCount}</span>
+                                            </Box>
+                                            <Tooltip title="Importar Leads para este estágio">
+                                                <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: "rgba(255,255,255,0.7)" }}>
+                                                    <GetAppIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </div>
+                                        <div className={classes.laneStats}>
+                                            <span>Real: {fCurrency(stage.totalValue)}</span>
+                                            <span style={{ color: "#4ade80" }}>{fCurrency(stage.forecastValue)}</span>
+                                        </div>
+                                        {stage.highRiskCount > 0 && (
+                                            <Box display="flex" alignItems="center" gap={0.5} style={{ fontSize: "0.7rem", backgroundColor: "rgba(239, 68, 68, 0.4)", backdropFilter: "blur(4px)", padding: "4px 8px", borderRadius: 8, marginTop: 4 }}>
+                                                <WarningIcon style={{ fontSize: 12 }} /> {stage.highRiskCount} leads críticos
+                                            </Box>
+                                        )}
+                                    </div>
+
+                                    <div className={classes.cardList}>
+                                        {stage.opportunities.map((op, index) => (
+                                            <Draggable key={op.id} draggableId={String(op.id)} index={index}>
+                                                {(provided, snapshot) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        {...provided.dragHandleProps}
+                                                        style={{
+                                                            ...provided.draggableProps.style,
+                                                            marginBottom: 16,
+                                                            opacity: snapshot.isDragging ? 0.8 : 1
+                                                        }}
+                                                    >
+                                                        <IntelligentCard
+                                                            op={op}
+                                                            onClick={(o) => { setSelectedOp(o); setUniversalModalOpen(true); }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                        {stage.hasMore && (
+                                            <Typography className={classes.loadMore}>Carregar mais...</Typography>
+                                        )}
+                                    </div>
                                 </Box>
                             )}
-                        </div>
+                        </Droppable>
+                    ))}
+                </Box>
+            </DragDropContext>
 
-                        <div className={classes.cardList}>
-                            {stage.opportunities.map(op => (
-                                <IntelligentCard
-                                    key={op.id}
-                                    op={op}
-                                    onFeedback={(o) => { setSelectedOp(o); setFeedbackOpen(true); }}
-                                />
-                            ))}
-                            {stage.hasMore && (
-                                <Typography className={classes.loadMore}>Carregar mais...</Typography>
-                            )}
-                        </div>
-                    </Box>
-                ))}
-            </Box>
+            {/* Universal Lead Modal */}
+            <UniversalLeadModal
+                open={universalModalOpen}
+                onClose={() => setUniversalModalOpen(false)}
+                op={selectedOp}
+            />
 
             {/* Modal de Detalhes e Feedback da IA */}
             <Dialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} maxWidth="xs" fullWidth PaperProps={{ style: { borderRadius: 20 } }}>
@@ -519,7 +579,7 @@ const PipelineBoard = () => {
                 open={importModalOpen}
                 onClose={() => setImportModalOpen(false)}
                 defaultPipelineId={selectedPipelineId}
-                defaultStageId={importStageId}
+                stageId={selectedStageToImport}
                 onSuccess={handleImportSuccess}
             />
         </Box>
