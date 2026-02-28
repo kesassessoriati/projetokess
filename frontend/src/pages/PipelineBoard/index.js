@@ -322,6 +322,17 @@ const PipelineBoard = () => {
             const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, {
                 params: { riskLevel: riskFilter, onlyAI, onlyExpired, sort }
             });
+
+            // Deduplicação global por ID em cada estágio
+            if (data && data.stages) {
+                data.stages = data.stages.map(stage => {
+                    const uniqueCards = Array.from(
+                        new Map((stage.opportunities || []).map(c => [c.id, c])).values()
+                    );
+                    return { ...stage, opportunities: uniqueCards };
+                });
+            }
+
             setBoard(data);
         } catch (err) {
             toast.error("Impossível conectar ao serviço de inteligência");
@@ -362,8 +373,14 @@ const PipelineBoard = () => {
         const sourceStageId = parseInt(source.droppableId);
         const destStageId = parseInt(destination.droppableId);
 
-        // Optimistic UI update
-        const newBoard = { ...board };
+        // Deep clone safe for optimistic UI
+        const newBoard = {
+            ...board,
+            stages: board.stages.map(stage => ({
+                ...stage,
+                opportunities: [...stage.opportunities]
+            }))
+        };
         let draggedOp, sourceStageIdx, destStageIdx;
 
         newBoard.stages.forEach((stage, idx) => {
@@ -379,6 +396,8 @@ const PipelineBoard = () => {
         }
 
         if (draggedOp && destStageIdx !== undefined) {
+            // Deduplication na inserção pra garantir
+            newBoard.stages[destStageIdx].opportunities = newBoard.stages[destStageIdx].opportunities.filter(o => o.id !== draggedOp.id);
             newBoard.stages[destStageIdx].opportunities.splice(destination.index, 0, draggedOp);
             setBoard(newBoard);
         }
