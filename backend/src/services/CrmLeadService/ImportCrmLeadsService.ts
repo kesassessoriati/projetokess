@@ -12,6 +12,7 @@ interface Request {
     source?: string;
     autoTag?: string;
     mapping?: Record<string, string>;
+    selectedRows?: string[];
 }
 
 const ImportCrmLeadsService = async ({
@@ -22,12 +23,15 @@ const ImportCrmLeadsService = async ({
     stageId,
     source,
     autoTag,
-    mapping
+    mapping,
+    selectedRows
 }: Request): Promise<{ total: number; imported: number; errors: any[] }> => {
     try {
         const workbook = xlsx.readFile(filePath);
         const sheetNameList = workbook.SheetNames;
-        const xlData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
+        const useMapping = mapping && Object.keys(mapping).length > 0;
+
+        const xlData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], useMapping ? { header: 1 } : {});
 
         if (!xlData || xlData.length === 0) {
             throw new AppError("O arquivo de importação está vazio ou inválido.");
@@ -37,7 +41,7 @@ const ImportCrmLeadsService = async ({
         const errors: any[] = [];
 
         // Ignorando validação estrita se tiver mapping
-        if (!mapping || Object.keys(mapping).length === 0) {
+        if (!useMapping) {
             const firstRow: any = xlData[0];
             const hasNameOrPhone = firstRow.hasOwnProperty("name") || firstRow.hasOwnProperty("nome") ||
                 firstRow.hasOwnProperty("phone") || firstRow.hasOwnProperty("telefone") ||
@@ -48,19 +52,25 @@ const ImportCrmLeadsService = async ({
             }
         }
 
-        // Descobrir qual o formato do JSON. Se array of arrays (header: 1) ou objects.
-        // O `xlsx.utils.sheet_to_json` retorna array de objetos com as chaves sendo o cabeçalho.
-        // Porem, se o upload mandou array of arrays o frontend deve tratar isso. No backend assumimos array de docs (objs).
+        const startIndex = useMapping ? 1 : 0;
 
-        for (let index = 0; index < xlData.length; index++) {
+        for (let index = startIndex; index < xlData.length; index++) {
             try {
+                // Se selectedRows foi fornecido, o frontend baseou-se no array do xls (onde a primeira linha de dados tem índice 1 no grid do frontend)
+                // O frontend passa o índice do row no grid (ex: "1", "2"). 
+                if (selectedRows && Array.isArray(selectedRows)) {
+                    if (!selectedRows.includes(String(index))) {
+                        continue;
+                    }
+                }
+
                 const rowOriginal: any = xlData[index];
 
                 // Aplicar mapeamento
                 const leadRow: any = {};
-                if (mapping && Object.keys(mapping).length > 0) {
+                if (useMapping) {
                     for (const [colName, fieldKey] of Object.entries(mapping)) {
-                        leadRow[fieldKey] = rowOriginal[colName];
+                        leadRow[fieldKey] = rowOriginal[parseInt(colName, 10)];
                     }
                 } else {
                     Object.assign(leadRow, rowOriginal);

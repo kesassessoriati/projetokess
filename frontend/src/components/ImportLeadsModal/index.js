@@ -325,6 +325,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
             // Adiciona mapeamento (apenas usando isso enviaremos o mapping para o backend e a validação flexível fará efeito)
             formData.append("mapping", JSON.stringify(columnValue));
+            formData.append("selectedRows", JSON.stringify(selectedRowIndexes));
 
             const { data } = await api.post("/crm/leads/import", formData, {
                 headers: {
