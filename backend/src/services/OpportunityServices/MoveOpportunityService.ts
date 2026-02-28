@@ -3,6 +3,8 @@ import OpportunityMovement from "../../models/OpportunityMovement";
 import OpportunityEvent from "../../models/OpportunityEvent";
 import AppError from "../../errors/AppError";
 import EventBus from "../../libs/EventBus";
+import Contact from "../../models/Contact";
+import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 
 interface Request {
     opportunityId: number;
@@ -34,10 +36,24 @@ const MoveOpportunityService = async ({
     }
 
     try {
-        await opportunity.update({
+        const updateData: any = {
             stageId: toStageId,
             lastMovedBy: movedBy
-        });
+        };
+
+        if (opportunity.contactId) {
+            const contact = await Contact.findOne({
+                where: { id: opportunity.contactId, companyId }
+            });
+            if (contact) {
+                const lead = await findOrCreateLeadByContact({ contact, companyId });
+                if (lead && lead.id !== opportunity.leadId) {
+                    updateData.leadId = lead.id;
+                }
+            }
+        }
+
+        await opportunity.update(updateData);
     } catch (err) {
         if (err.name === "SequelizeOptimisticLockError") {
             throw new AppError("ERR_CONCURRENT_UPDATE_DETECTED", 409);

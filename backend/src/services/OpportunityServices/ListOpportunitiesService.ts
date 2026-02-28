@@ -2,18 +2,35 @@ import Opportunity from "../../models/Opportunity";
 import PipelineStage from "../../models/PipelineStage";
 import Contact from "../../models/Contact";
 import User from "../../models/User";
+import CrmLead from "../../models/CrmLead";
 
 interface Request {
     companyId: number;
-    pipelineId: number;
+    pipelineId?: number;
+    contactId?: number;
+    ticketId?: number;
 }
 
 const ListOpportunitiesService = async ({
     companyId,
-    pipelineId
+    pipelineId,
+    contactId,
+    ticketId
 }: Request): Promise<Opportunity[]> => {
+    const whereCondition: any = { companyId };
+
+    if (pipelineId) {
+        whereCondition.pipelineId = pipelineId;
+    }
+    if (contactId) {
+        whereCondition.contactId = contactId;
+    }
+    if (ticketId) {
+        whereCondition.ticketId = ticketId;
+    }
+
     const opportunities = await Opportunity.findAll({
-        where: { companyId, pipelineId },
+        where: whereCondition,
         include: [
             {
                 model: Contact,
@@ -29,6 +46,11 @@ const ListOpportunitiesService = async ({
                 model: PipelineStage,
                 as: "stage",
                 attributes: ["id", "name", "color"]
+            },
+            {
+                model: CrmLead,
+                as: "lead",
+                attributes: ["id", "name", "email", "phone", "document", "status", "leadStatus", "source"]
             }
         ],
         order: [["createdAt", "DESC"]]

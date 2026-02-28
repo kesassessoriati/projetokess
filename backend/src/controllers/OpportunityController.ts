@@ -14,12 +14,14 @@ import CreateOpportunityEventService from "../services/OpportunityServices/Creat
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-    const { pipelineId } = req.query;
+    const { pipelineId, contactId, ticketId } = req.query;
     const { companyId } = req.user;
 
     const opportunities = await ListOpportunitiesService({
         companyId,
-        pipelineId: Number(pipelineId)
+        pipelineId: pipelineId ? Number(pipelineId) : undefined,
+        contactId: contactId ? Number(contactId) : undefined,
+        ticketId: ticketId ? Number(ticketId) : undefined
     });
 
     return res.status(200).json(opportunities);

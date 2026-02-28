@@ -1,6 +1,8 @@
 import Opportunity from "../../models/Opportunity";
 import OpportunityEvent from "../../models/OpportunityEvent";
 import EventBus from "../../libs/EventBus";
+import Contact from "../../models/Contact";
+import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 
 interface Request {
     companyId: number;
@@ -23,6 +25,19 @@ const CreateOpportunityService = async ({
     value = 0,
     assignedUserId
 }: Request): Promise<Opportunity> => {
+
+    if (contactId && !leadId) {
+        const contact = await Contact.findOne({
+            where: { id: contactId, companyId }
+        });
+        if (contact) {
+            const lead = await findOrCreateLeadByContact({ contact, companyId });
+            if (lead) {
+                leadId = lead.id;
+            }
+        }
+    }
+
     const opportunity = await Opportunity.create({
         companyId,
         pipelineId,
