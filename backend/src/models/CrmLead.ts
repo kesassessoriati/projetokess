@@ -167,6 +167,9 @@ class CrmLead extends Model<CrmLead> {
   @Column({ field: "updated_at" })
   updatedAt: Date;
 
+  @Column({ field: "meeting_scheduled_at", type: DataType.DATE })
+  meetingScheduledAt: Date;
+
   @AfterUpdate
   static async syncToContact(instance: CrmLead) {
     // Import dinâmico para evitar circular dependency

@@ -67,6 +67,7 @@ interface BoardResponse {
     pipeline: {
         id: number;
         name: string;
+        scheduledMeetingsCount: number;
     };
     stages: BoardStage[];
 }
@@ -295,10 +296,19 @@ const ListPipelineBoardService = async ({
         })
     );
 
+    const scheduledMeetingsCount = await CrmLead.count({
+        where: {
+            pipelineId,
+            companyId,
+            meetingScheduledAt: { [Op.not]: null }
+        }
+    });
+
     return {
         pipeline: {
             id: pipeline.id,
-            name: pipeline.name
+            name: pipeline.name,
+            scheduledMeetingsCount
         },
         stages: boardStages
     };

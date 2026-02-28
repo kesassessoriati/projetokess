@@ -257,6 +257,11 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
   }
 
+  let meetingScheduledAt = undefined;
+  if (enrichedData.status === "reuniao_agendada" || (data.leadStatus && data.leadStatus === "reuniao_agendada")) {
+    meetingScheduledAt = new Date();
+  }
+
   const lead = await CrmLead.create({
     ...enrichedData,
     contactId,
@@ -266,7 +271,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     notes,
     lastActivityAt: data.lastActivityAt || new Date(),
     pipelineId,
-    stageId
+    stageId,
+    meetingScheduledAt
   });
 
   if (lead.status === "convertido" || lead.leadStatus === "convertido") {

@@ -1,27 +1,27 @@
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable camelcase */
-import {QueryTypes} from "sequelize";
+import { QueryTypes } from "sequelize";
 import * as _ from "lodash";
 import sequelize from "../../database";
 
 export interface DashboardData {
-  counters: any;
-  attendants: [];
+       counters: any;
+       attendants: [];
 }
 
 export interface Params {
-  days?: number;
-  date_from?: string;
-  date_to?: string;
+       days?: number;
+       date_from?: string;
+       date_to?: string;
 }
 
 export default async function DashboardDataService(
-  companyId: string | number,
-  params: Params
+       companyId: string | number,
+       params: Params
 ): Promise<DashboardData> {
 
 
-  const query = `   with traking as
+       const query = `   with traking as
                            (select c.name                                                                    "companyName",
                                    u.name                                                                    "userName",
                                    u.online                                                                  "userOnline",
@@ -140,31 +140,73 @@ export default async function DashboardDataService(
                             from counters c)                                               counters,
                            (select coalesce(json_agg(a.*), '[]') ::jsonb from attedants a) attendants; `;
 
-  let where = "where tt.\"companyId\" = ?";
-  const replacements = [companyId];
-  if (_.has(params, "days")) {
-    where += " and tt.\"createdAt\" >= (now() - '? days'::interval)";
-    replacements.push(parseInt(("" + params.days).replace(/\D/g, ""), 10));
-  }
-  if (_.has(params, "date_from")) {
-    where += " and tt.\"createdAt\" >= ?";
-    replacements.push(params.date_from + " 00:00:00");
-  }
-  if (_.has(params, "date_to")) {
-    where += " and tt.\"createdAt\" <= ?";
-    replacements.push(params.date_to + " 23:59:59");
-  }
-  replacements.push(companyId);
-  replacements.push(companyId);
-  replacements.push(companyId);
+       let where = "where tt.\"companyId\" = ?";
+       const replacements = [companyId];
+       if (_.has(params, "days")) {
+              where += " and tt.\"createdAt\" >= (now() - '? days'::interval)";
+              replacements.push(parseInt(("" + params.days).replace(/\D/g, ""), 10));
+       }
+       if (_.has(params, "date_from")) {
+              where += " and tt.\"createdAt\" >= ?";
+              replacements.push(params.date_from + " 00:00:00");
+       }
+       if (_.has(params, "date_to")) {
+              where += " and tt.\"createdAt\" <= ?";
+              replacements.push(params.date_to + " 23:59:59");
+       }
+       replacements.push(companyId);
+       replacements.push(companyId);
+       replacements.push(companyId);
 
-  const finalQuery = query.replace("--filterPeriod", where);
+       const finalQuery = query.replace("--filterPeriod", where);
 
-  const responseData: DashboardData = await sequelize.query(finalQuery, {
-    replacements,
-    type: QueryTypes.SELECT,
-    plain: true
-  });
+       const responseData: DashboardData = await sequelize.query(finalQuery, {
+              replacements,
+              type: QueryTypes.SELECT,
+              plain: true
+       });
 
-  return responseData;
+       const { Op } = require("sequelize");
+       const CrmLead = require("../../models/CrmLead").default;
+
+       let leadDateFilter: any = {};
+       if (_.has(params, "date_from") && _.has(params, "date_to")) {
+              leadDateFilter = {
+                     [Op.between]: [new Date(params.date_from + " 00:00:00"), new Date(params.date_to + " 23:59:59")]
+              };
+       } else if (_.has(params, "days")) {
+              const days = parseInt(("" + params.days).replace(/\D/g, ""), 10);
+              leadDateFilter = {
+                     [Op.gte]: new Date(new Date().getTime() - days * 24 * 60 * 60 * 1000)
+              };
+       }
+
+       const crmLeadsGenerated = await CrmLead.count({
+              where: {
+                     companyId,
+                     ...(Object.keys(leadDateFilter).length > 0 ? { createdAt: leadDateFilter } : {})
+              }
+       });
+
+       const crmMeetingsScheduled = await CrmLead.count({
+              where: {
+                     companyId,
+                     ...(Object.keys(leadDateFilter).length > 0 ? { meetingScheduledAt: leadDateFilter } : { meetingScheduledAt: { [Op.not]: null } })
+              }
+       });
+
+       const crmConversions = await CrmLead.count({
+              where: {
+                     companyId,
+                     ...(Object.keys(leadDateFilter).length > 0 ? { updatedAt: leadDateFilter, status: 'convertido' } : { status: 'convertido' })
+              }
+       });
+
+       if (responseData && responseData.counters) {
+              responseData.counters.crmLeadsGenerated = crmLeadsGenerated;
+              responseData.counters.crmMeetingsScheduled = crmMeetingsScheduled;
+              responseData.counters.crmConversions = crmConversions;
+       }
+
+       return responseData;
 }

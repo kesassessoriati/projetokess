@@ -457,6 +457,10 @@ const PipelineBoard = () => {
 
                             <Box display="flex" gap={4}>
                                 <Box>
+                                    <Typography variant="caption" display="block" color="textSecondary" style={{ fontWeight: 600 }}>REUNIÕES AGENDADAS</Typography>
+                                    <Typography variant="h6" style={{ fontWeight: 900, color: "#8b5cf6", lineHeight: 1 }}>{board.pipeline?.scheduledMeetingsCount || 0}</Typography>
+                                </Box>
+                                <Box>
                                     <Typography variant="caption" display="block" color="textSecondary" style={{ fontWeight: 600 }}>TOTAL FORECAST</Typography>
                                     <Typography variant="h6" style={{ fontWeight: 900, color: "#10b981", lineHeight: 1 }}>{fCurrency(totals.forecastValue)}</Typography>
                                 </Box>

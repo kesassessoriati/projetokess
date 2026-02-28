@@ -99,12 +99,20 @@ const UpdateCrmLeadService = async ({
     currentPrimaryTicketId: lead.primaryTicketId
   });
 
+  let meetingScheduledAt = lead.meetingScheduledAt;
+  if (data.status === "reuniao_agendada" && previousStatus !== "reuniao_agendada") {
+    meetingScheduledAt = new Date();
+  } else if (data.leadStatus === "reuniao_agendada" && previousLeadStatus !== "reuniao_agendada") {
+    meetingScheduledAt = new Date();
+  }
+
   await lead.update({
     ...data,
     contactId,
     primaryTicketId,
     leadStatus: data.leadStatus ?? lead.leadStatus,
-    lastActivityAt: data.lastActivityAt || lead.lastActivityAt
+    lastActivityAt: data.lastActivityAt || lead.lastActivityAt,
+    meetingScheduledAt
   });
 
   const shouldSyncByStatus =

@@ -47,11 +47,35 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   }
 
   const crmLeadsGenerated = await CrmLead.count({ where: whereCrm });
+
+  const whereMeeting: any = { companyId };
+  if (params.date_from && params.date_to) {
+    whereMeeting.meetingScheduledAt = {
+      [Op.between]: [
+        moment(params.date_from).startOf("day").toDate(),
+        moment(params.date_to).endOf("day").toDate()
+      ]
+    };
+  } else {
+    whereMeeting.meetingScheduledAt = { [Op.not]: null };
+  }
+
   const crmMeetingsScheduled = await CrmLead.count({
-    where: { ...whereCrm, status: "scheduled" }
+    where: whereMeeting
   });
+
+  const whereConverted: any = { companyId, status: "convertido" };
+  if (params.date_from && params.date_to) {
+    whereConverted.updatedAt = {
+      [Op.between]: [
+        moment(params.date_from).startOf("day").toDate(),
+        moment(params.date_to).endOf("day").toDate()
+      ]
+    };
+  }
+
   const crmConversions = await CrmLead.count({
-    where: { ...whereCrm, status: "converted" }
+    where: whereConverted
   });
 
   dashboardData.counters.crmLeadsGenerated = crmLeadsGenerated;

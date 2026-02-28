@@ -111,15 +111,14 @@ class GetExecutiveDashboardService {
         const scheduledToday = await CrmLead.count({
             where: {
                 ...opWhere,
-                status: "scheduled",
-                updatedAt: {
+                meetingScheduledAt: {
                     [Op.between]: [todayStart, todayEnd]
                 }
             }
         });
 
         const totalScheduled = await CrmLead.count({
-            where: { ...opWhere, status: "scheduled" }
+            where: { ...opWhere, meetingScheduledAt: { [Op.not]: null } }
         });
 
         const totalGenerated = await CrmLead.count({
@@ -127,7 +126,7 @@ class GetExecutiveDashboardService {
         });
 
         const totalConverted = await CrmLead.count({
-            where: { ...opWhere, status: "converted" }
+            where: { ...opWhere, status: "convertido" }
         });
 
         // 9. Goal (Meta)
