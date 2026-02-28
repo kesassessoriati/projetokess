@@ -27,15 +27,7 @@ NEXT_PATCH=$((patch + 1))
 NEXT_VERSION="$major.$minor.$NEXT_PATCH"
 
 echo -e "\033[1;33m[!] Versão atual do Docker: v$CURRENT_VERSION\033[0m"
-read -p "Deseja construir a versão v$NEXT_VERSION? [S/n] ou digite uma nova versão (ex: 1.9.5): " user_input
-
-if [[ -z "$user_input" || "$user_input" == "s" || "$user_input" == "S" ]]; then
-    TAG="v$NEXT_VERSION"
-elif [[ "$user_input" == "n" || "$user_input" == "N" ]]; then
-    TAG="v$CURRENT_VERSION"
-else
-    TAG="v${user_input#v}" # remove o 'v' caso o usuário tenha digitado
-fi
+TAG="v$NEXT_VERSION"
 
 # Salva a nova versão sem o 'v'
 echo "${TAG#v}" > "$VERSION_FILE"
@@ -72,16 +64,8 @@ echo -e "${GREEN}✓ Docker encontrado${NC}"
 
 ## Verificar login no Docker Hub
 if ! docker info 2>/dev/null | grep -q "Username"; then
-    echo -e "${YELLOW}⚠ Você não está logado no Docker Hub.${NC}"
-    echo -e "${YELLOW}  Execute: docker login${NC}"
-    echo ""
-    read -p "Deseja fazer login agora? (s/n): " do_login
-    if [[ "$do_login" == "s" || "$do_login" == "S" ]]; then
-        docker login
-    else
-        echo -e "${RED}ERRO: Login no Docker Hub é necessário para push.${NC}"
-        exit 1
-    fi
+    echo -e "${RED}ERRO: Você não está logado no Docker Hub. Execute 'docker login' primeiro.${NC}"
+    exit 1
 fi
 
 echo -e "${GREEN}✓ Docker Hub autenticado${NC}"
