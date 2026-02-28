@@ -150,17 +150,21 @@ const UpdateCrmLeadService = async ({
   } else {
     // If no Opportunity exists but pipeline and stage are provided, create one
     if (data.pipelineId && data.stageId) {
-      const newOpp = await Opportunity.create({
+      const oppData: any = {
         companyId: companyId,
         pipelineId: data.pipelineId,
         stageId: data.stageId,
-        contactId: contactId,
         title: data.name || lead.name,
         value: 0,
-        assignedUserId: data.ownerUserId,
+        assignedUserId: data.ownerUserId || null,
         status: "OPEN",
         leadId: lead.id
-      });
+      };
+      // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
+      if (contactId) {
+        oppData.contactId = contactId;
+      }
+      const newOpp = await Opportunity.create(oppData);
       io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
         action: "create",
         opportunity: newOpp

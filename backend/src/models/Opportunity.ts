@@ -57,7 +57,7 @@ class Opportunity extends Model<Opportunity> {
     stage: PipelineStage;
 
     @ForeignKey(() => Contact)
-    @Column
+    @Column({ allowNull: true })
     contactId: number;
 
     @BelongsTo(() => Contact)

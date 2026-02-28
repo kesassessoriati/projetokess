@@ -138,16 +138,17 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
   await schema.validate(data);
 
-  if (data.email) {
+  if (data.email && data.email.trim() !== "") {
     const existingLead = await CrmLead.findOne({
       where: {
         companyId: data.companyId,
-        email: data.email
+        email: data.email.trim()
       }
     });
 
     if (existingLead) {
-      throw new AppError("Lead já cadastrado com esse e-mail para esta empresa.");
+      // Retorna o lead existente ao invés de bloquear
+      return existingLead;
     }
   }
 
@@ -166,12 +167,12 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     });
 
     if (existingLeadByContact) {
-      throw new AppError("Lead já cadastrado com esse telefone (Contato existente) para esta empresa.");
+      // Retorna o lead existente ao invés de bloquear
+      return existingLeadByContact;
     }
   } else if (data.phone) {
     const normPhone = normalizeNumber(data.phone) || data.phone;
 
-    // Testa variações comuns usando Op.or
     const existingLeadByPhone = await CrmLead.findOne({
       where: {
         companyId: data.companyId,
@@ -184,7 +185,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     });
 
     if (existingLeadByPhone) {
-      throw new AppError("Lead já cadastrado com esse telefone para esta empresa.");
+      // Retorna o lead existente ao invés de bloquear
+      return existingLeadByPhone;
     }
   }
 
@@ -282,17 +284,21 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   // Create Opportunity if pipeline info is given
   if (pipelineId && stageId) {
     const Opportunity = (await import("../../models/Opportunity")).default;
-    await Opportunity.create({
+    const oppData: any = {
       companyId: data.companyId,
       pipelineId,
       stageId,
-      contactId: contactId,
       title: data.name,
       value: 0,
-      assignedUserId: data.ownerUserId,
+      assignedUserId: data.ownerUserId || null,
       status: "OPEN",
       leadId: lead.id
-    });
+    };
+    // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
+    if (contactId) {
+      oppData.contactId = contactId;
+    }
+    await Opportunity.create(oppData);
   }
 
   return lead;
