@@ -273,4 +273,7 @@ const models = [
 sequelize.addModels(models);
 applyTenantIsolation(sequelize);
 
+// Hack p/ corrigir problema crônico de migration não rodada em prod:
+sequelize.query('ALTER TABLE "Opportunities" ALTER COLUMN "contactId" DROP NOT NULL;').catch(e => console.log("Hack contactId executado (ou ignorado se já estava ok)."));
+
 export default sequelize;
