@@ -174,8 +174,7 @@ const ListPipelineBoardService = async ({
             },
             {
                 model: CrmLead,
-                as: "lead",
-                attributes: ["id", "name"]
+                as: "lead"
             },
             {
                 model: OpportunityPrediction,
@@ -221,7 +220,7 @@ const ListPipelineBoardService = async ({
             include,
             limit: limit + 1,
             order,
-            attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy"]
+            attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy", "leadId", "contactId"]
         });
 
         const hasMore = opportunities.length > limit;
@@ -283,6 +282,8 @@ const ListPipelineBoardService = async ({
                         } : undefined,
                         aiSuggestedStageId: op.aiSuggestedStageId,
                         lastMovedBy: op.lastMovedBy,
+                        leadId: op.leadId,
+                        contactId: op.contactId,
                         slaStatus,
                         slaDeadline: op.slaDeadline,
                         createdAt: op.createdAt

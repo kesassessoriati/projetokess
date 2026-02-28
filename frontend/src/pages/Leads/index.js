@@ -24,33 +24,23 @@ import UniversalLeadModal from "../../components/UniversalLeadModal";
 import ImportLeadsModal from "../../components/ImportLeadsModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
+import { LEAD_STATUS } from "../../constants/leadStatus";
 
-const STATUS_OPTIONS = [
-  { label: "Todos", value: "" },
-  { label: "Novo", value: "new" },
-  { label: "Contactado", value: "contacted" },
-  { label: "Qualificado", value: "qualified" },
-  { label: "Não qualificado", value: "unqualified" },
-  { label: "Convertido", value: "converted" },
-  { label: "Perdido", value: "lost" }
-];
+const STATUS_OPTIONS = [{ label: "Todos", value: "" }, ...LEAD_STATUS];
 
-const STATUS_LABEL = {
-  new: "Novo",
-  contacted: "Contactado",
-  qualified: "Qualificado",
-  unqualified: "Não qualificado",
-  converted: "Convertido",
-  lost: "Perdido"
-};
+const STATUS_LABEL = LEAD_STATUS.reduce((acc, status) => {
+  acc[status.value] = status.label;
+  return acc;
+}, {});
 
 const STATUS_COLORS = {
-  new: "#3b82f6",
-  contacted: "#6366f1",
-  qualified: "#059669",
-  unqualified: "#f97316",
-  converted: "#0f766e",
-  lost: "#dc2626"
+  novo: "#3b82f6",
+  contactado: "#6366f1",
+  qualificado: "#059669",
+  reuniao_agendada: "#8b5cf6",
+  nao_qualificado: "#f97316",
+  convertido: "#0f766e",
+  perdido: "#dc2626"
 };
 
 const reducer = (state, action) => {
@@ -380,7 +370,7 @@ const Leads = () => {
 
   const formatStatus = (status) => STATUS_LABEL[status] || "Novo";
 
-  const statusColor = (status) => STATUS_COLORS[status] || STATUS_COLORS.new;
+  const statusColor = (status) => STATUS_COLORS[status] || STATUS_COLORS.novo;
 
   return (
     <Box className={classes.root} onScroll={handleScroll}>

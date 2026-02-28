@@ -10,7 +10,8 @@ import {
   BelongsTo,
   DataType,
   Default,
-  AfterUpdate
+  AfterUpdate,
+  HasOne
 } from "sequelize-typescript";
 
 import Company from "./Company";
@@ -20,6 +21,7 @@ import Ticket from "./Ticket";
 import CrmClient from "./CrmClient";
 import Pipeline from "./Pipeline";
 import PipelineStage from "./PipelineStage";
+import Opportunity from "./Opportunity";
 
 @Table({
   tableName: "crm_leads"
@@ -146,6 +148,9 @@ class CrmLead extends Model<CrmLead> {
 
   @Column(DataType.TEXT)
   notes: string;
+
+  @HasOne(() => Opportunity, "leadId")
+  opportunity: Opportunity;
 
   @Column({ field: "last_activity_at", type: DataType.DATE })
   lastActivityAt: Date;

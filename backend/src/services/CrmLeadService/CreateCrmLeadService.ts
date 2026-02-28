@@ -127,8 +127,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
     status: Yup.string()
-      .oneOf(["new", "contacted", "qualified", "unqualified", "converted", "lost"])
-      .default("new"),
+      .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido"])
+      .default("novo"),
     leadStatus: Yup.string().default("novo").nullable(),
     score: Yup.number().min(0).default(0),
     temperature: Yup.string().oneOf([null, "frio", "morno", "quente"]).nullable(),
@@ -269,7 +269,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     stageId
   });
 
-  if (lead.status === "converted" || lead.leadStatus === "convertido") {
+  if (lead.status === "convertido" || lead.leadStatus === "convertido") {
     await syncLeadToClient(lead);
   }
 

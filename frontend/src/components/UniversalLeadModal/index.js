@@ -260,6 +260,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 onSuccess={onSuccess}
                                 isEmbedded={true}
                                 opId={(op && op.id) || null}
+                                leadData={(op && op.lead) || null}
                             />
                         </TabPanel>
 

@@ -58,7 +58,7 @@ const UpdateCrmLeadService = async ({
     email: Yup.string().email().nullable(),
     phone: Yup.string().nullable(),
     status: Yup.string()
-      .oneOf(["new", "contacted", "qualified", "unqualified", "converted", "lost"])
+      .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido"])
       .nullable(),
     leadStatus: Yup.string().nullable(),
     score: Yup.number().min(0).nullable(),
@@ -108,7 +108,7 @@ const UpdateCrmLeadService = async ({
   });
 
   const shouldSyncByStatus =
-    data.status === "converted" && previousStatus !== "converted";
+    data.status === "convertido" && previousStatus !== "convertido";
   const shouldSyncByLeadStatus =
     (data.leadStatus === "convertido" && previousLeadStatus !== "convertido") ||
     (lead.leadStatus === "convertido" && previousLeadStatus !== "convertido");

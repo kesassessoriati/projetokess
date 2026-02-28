@@ -14,6 +14,7 @@ import {
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { LEAD_STATUS } from "../../constants/leadStatus";
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
@@ -28,15 +29,7 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-const STATUS_OPTIONS = [
-  { value: "new", label: "Novo" },
-  { value: "contacted", label: "Contactado" },
-  { value: "qualified", label: "Qualificado" },
-  { value: "scheduled", label: "Reunião Agendada" },
-  { value: "unqualified", label: "Não qualificado" },
-  { value: "converted", label: "Convertido" },
-  { value: "lost", label: "Perdido" }
-];
+
 
 const TEMPERATURE_OPTIONS = ["frio", "morno", "quente"];
 
@@ -80,7 +73,7 @@ const defaultForm = {
   position: "",
   source: "",
   campaign: "",
-  status: "new",
+  status: "novo",
   pipelineId: "",
   stageId: "",
   temperature: "",
@@ -89,7 +82,7 @@ const defaultForm = {
   notes: ""
 };
 
-const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => {
+const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null }) => {
   const classes = useStyles();
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -116,7 +109,15 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => 
 
     fetchData();
 
-    if (leadId) {
+    if (leadData && leadData.name) {
+      setForm({
+        ...defaultForm,
+        ...leadData,
+        birthDate: leadData.birthDate ? leadData.birthDate.substring(0, 10) : "",
+        score: leadData.score || 0,
+        status: leadData.status || "novo"
+      });
+    } else if (leadId) {
       loadLead();
     } else {
       // Para novos leads, preencher automaticamente com UTMs da URL
@@ -131,7 +132,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => 
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId, open]);
+  }, [leadId, leadData, open]);
 
   useEffect(() => {
     if (form.pipelineId && pipelines.length > 0) {
@@ -155,7 +156,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => 
         ...data,
         birthDate: data.birthDate ? data.birthDate.substring(0, 10) : "",
         score: data.score || 0,
-        status: data.status || "new"
+        status: data.status || "novo"
       });
     } catch (err) {
       toastError(err);
@@ -389,7 +390,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false }) => 
                   fullWidth
                   className={classes.formField}
                 >
-                  {STATUS_OPTIONS.map((status) => (
+                  {LEAD_STATUS.map((status) => (
                     <MenuItem key={status.value} value={status.value}>
                       {status.label}
                     </MenuItem>
