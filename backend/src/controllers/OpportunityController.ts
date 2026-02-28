@@ -12,6 +12,7 @@ import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import AppError from "../errors/AppError";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
+import { getIO } from "../libs/socket";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId, contactId, ticketId } = req.query;
@@ -130,4 +131,33 @@ export const listEvents = async (req: Request, res: Response): Promise<Response>
     });
 
     return res.status(200).json(events);
+};
+
+export const update = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { status, title, value } = req.body;
+    const { companyId } = req.user;
+
+    const opportunity = await Opportunity.findOne({
+        where: { id, companyId }
+    });
+
+    if (!opportunity) {
+        throw new AppError("Oportunidade não encontrada", 404);
+    }
+
+    const updateData: any = {};
+    if (status !== undefined) updateData.status = status;
+    if (title !== undefined) updateData.title = title;
+    if (value !== undefined) updateData.value = value;
+
+    await opportunity.update(updateData);
+
+    const io = getIO();
+    io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "update",
+        opportunity
+    });
+
+    return res.status(200).json(opportunity);
 };

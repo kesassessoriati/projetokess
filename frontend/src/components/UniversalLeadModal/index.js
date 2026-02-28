@@ -225,7 +225,68 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         <Typography variant="body2"><strong>Risco IA:</strong> {(op && op.prediction && op.prediction.riskLevel) || "N/A"}</Typography>
                         <Typography variant="body2"><strong>Criado em:</strong> {(op && op.createdAt) ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
                     </Box>
+
+                    {op && op.id && (
+                        <Box mt={3} display="flex" flexDirection="column" gap={1}>
+                            {op.status === "OPEN" ? (
+                                <>
+                                    <Button
+                                        variant="contained"
+                                        style={{ backgroundColor: "#10b981", color: "#fff", fontWeight: "bold" }}
+                                        onClick={async () => {
+                                            try {
+                                                await api.put(`/opportunities/${op.id}`, { status: "WON" });
+                                                toast.success("Oportunidade marcada como GANHA! 🎉");
+                                                if (onSuccess) onSuccess();
+                                                onClose();
+                                            } catch (err) {
+                                                toast.error("Erro ao fechar negócio.");
+                                            }
+                                        }}
+                                    >
+                                        Marcar como GANHO
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        style={{ backgroundColor: "#ef4444", color: "#fff", fontWeight: "bold" }}
+                                        onClick={async () => {
+                                            try {
+                                                await api.put(`/opportunities/${op.id}`, { status: "LOST" });
+                                                toast.success("Oportunidade marcada como PERDIDA.");
+                                                if (onSuccess) onSuccess();
+                                                onClose();
+                                            } catch (err) {
+                                                toast.error("Erro ao fechar negócio.");
+                                            }
+                                        }}
+                                    >
+                                        Marcar como PERDIDO
+                                    </Button>
+                                    <Typography variant="caption" color="textSecondary" style={{ textAlign: "center", marginTop: 4 }}>
+                                        Isso fará com que o card saia do Kanban aberto.
+                                    </Typography>
+                                </>
+                            ) : (
+                                <Box p={2} style={{ backgroundColor: op.status === "WON" ? "#d1fae5" : "#fee2e2", borderRadius: 8, textAlign: "center" }}>
+                                    <Typography variant="subtitle2" style={{ color: op.status === "WON" ? "#065f46" : "#991b1b", fontWeight: "bold" }}>
+                                        NEGÓCIO FECHADO ({op.status === "WON" ? "GANHO 🎉" : "PERDIDO 😢"})
+                                    </Typography>
+                                    <Button size="small" variant="text" style={{ marginTop: 8 }} onClick={async () => {
+                                        try {
+                                            await api.put(`/opportunities/${op.id}`, { status: "OPEN" });
+                                            toast.success("Oportunidade reaberta!");
+                                            if (onSuccess) onSuccess();
+                                            onClose();
+                                        } catch (err) { }
+                                    }}>
+                                        Reabrir Negócio
+                                    </Button>
+                                </Box>
+                            )}
+                        </Box>
+                    )}
                 </Box>
+
 
                 {/* RIGHT PANEL - ABAS DE AÇÃO (ESTILO PIPEDRIVE) */}
                 <Box width={{ xs: "100%", md: "70%" }} className={classes.rightPanel}>
