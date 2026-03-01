@@ -81,6 +81,8 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
             const payload = {
                 title: title.trim(),
                 description: finalDescription,
+                clientEmail: clientEmail ? clientEmail.trim() : null,
+                organizerEmail: organizerEmail ? organizerEmail.trim() : null,
                 startDatetime: startDatetime,
                 durationMinutes: parseInt(durationMinutes, 10) || 60,
                 status: "scheduled",

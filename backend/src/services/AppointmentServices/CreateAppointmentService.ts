@@ -18,6 +18,8 @@ interface CreateAppointmentData {
   clientId?: number;
   contactId?: number;
   companyId: number;
+  clientEmail?: string;
+  organizerEmail?: string;
 }
 
 const CreateAppointmentService = async (
@@ -68,7 +70,7 @@ const CreateAppointmentService = async (
   // Validar dia de trabalho
   const dayOfWeek = startDatetime.getDay(); // 0 = Domingo, 6 = Sábado
   const workDaysArray = userWorkDays.split(",").map(d => parseInt(d.trim(), 10));
-  
+
   if (!workDaysArray.includes(dayOfWeek)) {
     const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     throw new AppError(
@@ -93,7 +95,7 @@ const CreateAppointmentService = async (
     // Verificar se o compromisso conflita com o horário de almoço
     const lunchStartMinutes = parseInt(userLunchStart.split(":")[0], 10) * 60 + parseInt(userLunchStart.split(":")[1], 10);
     const lunchEndMinutes = parseInt(userLunchEnd.split(":")[0], 10) * 60 + parseInt(userLunchEnd.split(":")[1], 10);
-    
+
     const appointmentStartMinutes = startDatetime.getHours() * 60 + startDatetime.getMinutes();
     const appointmentEndMinutes = endDatetime.getHours() * 60 + endDatetime.getMinutes();
 
@@ -151,7 +153,7 @@ const CreateAppointmentService = async (
   if (schedule.userGoogleCalendarIntegrationId) {
     try {
       console.log("DEBUG - Criando evento no Google Calendar para appointment:", appointment.id);
-      
+
       const integration = await UserGoogleCalendarIntegration.findOne({
         where: { id: schedule.userGoogleCalendarIntegrationId }
       });
@@ -162,22 +164,22 @@ const CreateAppointmentService = async (
           calendarId: integration.calendarId,
           googleUserId: integration.googleUserId
         });
-        
+
         // Buscar informações adicionais para descrição completa
         let fullDescription = data.description || "";
-        
+
         if (data.serviceId) {
           // TODO: Buscar informações do serviço
           fullDescription += fullDescription ? "\n\n" : "";
           fullDescription += `Serviço ID: ${data.serviceId}`;
         }
-        
+
         if (data.clientId) {
           // TODO: Buscar informações do cliente
           fullDescription += fullDescription ? "\n\n" : "";
           fullDescription += `Cliente ID: ${data.clientId}`;
         }
-        
+
         if (data.contactId) {
           // TODO: Buscar informações do contato
           fullDescription += fullDescription ? "\n\n" : "";
@@ -188,21 +190,38 @@ const CreateAppointmentService = async (
         fullDescription += `Status: ${appointment.status}`;
         fullDescription += `\nAgendado via sistema em: ${appointment.createdAt.toLocaleDateString('pt-BR')}`;
 
+        const attendees: any[] = [];
+        if (data.clientEmail) attendees.push({ email: data.clientEmail });
+        if (data.organizerEmail) attendees.push({ email: data.organizerEmail });
+
+        const crypto = require("crypto");
+        const eventBody: any = {
+          summary: data.title,
+          description: fullDescription,
+          start: {
+            dateTime: startDatetime.toISOString(),
+            timeZone: 'America/Sao_Paulo'
+          },
+          end: {
+            dateTime: endDatetime.toISOString(),
+            timeZone: 'America/Sao_Paulo'
+          },
+          conferenceData: {
+            createRequest: {
+              requestId: crypto.randomBytes(10).toString("hex"),
+              conferenceSolutionKey: { type: "hangoutsMeet" }
+            }
+          }
+        };
+
+        if (attendees.length > 0) {
+          eventBody.attendees = attendees;
+        }
+
         const googleEvent = await createGoogleCalendarEvent(
           integration.accessToken,
           integration.refreshToken,
-          {
-            summary: data.title,
-            description: fullDescription,
-            start: {
-              dateTime: startDatetime.toISOString(),
-              timeZone: 'America/Sao_Paulo'
-            },
-            end: {
-              dateTime: endDatetime.toISOString(),
-              timeZone: 'America/Sao_Paulo'
-            }
-          },
+          eventBody,
           integration.calendarId
         );
 

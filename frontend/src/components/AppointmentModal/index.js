@@ -213,6 +213,8 @@ const AppointmentModal = (props) => {
       const payload = {
         title: title.trim(),
         description: finalDescription || null,
+        clientEmail: clientEmail ? clientEmail.trim() : null,
+        organizerEmail: organizerEmail ? organizerEmail.trim() : null,
         startDatetime: startDatetime,
         durationMinutes: parseInt(durationMinutes, 10) || 60,
         status: status,

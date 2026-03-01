@@ -91,6 +91,8 @@ export const createGoogleCalendarEvent = async (
 
     const event = await calendar.events.insert({
       calendarId,
+      conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: eventData
     });
 
@@ -147,6 +149,8 @@ export const updateGoogleCalendarEvent = async (
     const event = await calendar.events.update({
       calendarId,
       eventId,
+      conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: eventData
     });
 

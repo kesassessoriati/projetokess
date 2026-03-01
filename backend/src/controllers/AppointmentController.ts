@@ -43,7 +43,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     scheduleId,
     serviceId,
     clientId,
-    contactId
+    contactId,
+    clientEmail,
+    organizerEmail
   } = req.body;
 
   console.log("Creating appointment:", {
@@ -65,7 +67,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       serviceId: serviceId ? Number(serviceId) : undefined,
       clientId: clientId ? Number(clientId) : undefined,
       contactId: contactId ? Number(contactId) : undefined,
-      companyId: Number(companyId)
+      companyId: Number(companyId),
+      clientEmail,
+      organizerEmail
     });
 
     return res.status(201).json(appointment);
