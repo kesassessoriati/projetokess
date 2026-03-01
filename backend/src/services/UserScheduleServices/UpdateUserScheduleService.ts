@@ -7,6 +7,7 @@ interface UpdateUserScheduleData {
   name?: string;
   description?: string;
   active?: boolean;
+  userIds?: number[];
   companyId: number;
 }
 
@@ -16,7 +17,8 @@ const UpdateUserScheduleService = async (
   const schema = Yup.object().shape({
     name: Yup.string().max(100),
     description: Yup.string().nullable(),
-    active: Yup.boolean()
+    active: Yup.boolean(),
+    userIds: Yup.array().of(Yup.number())
   });
 
   try {
@@ -37,6 +39,14 @@ const UpdateUserScheduleService = async (
     name: data.name ?? schedule.name,
     description: data.description !== undefined ? data.description : schedule.description,
     active: data.active !== undefined ? data.active : schedule.active
+  });
+
+  if (data.userIds) {
+    await schedule.$set("users", data.userIds);
+  }
+
+  await schedule.reload({
+    include: ["users"]
   });
 
   return schedule;

@@ -27,9 +27,16 @@ const ListUserSchedulesService = async ({
 }: ListUserSchedulesQuery): Promise<ListUserSchedulesResponse> => {
   const where: any = { companyId };
 
-  // Se não for admin, filtra apenas as agendas do próprio usuário
+  let userIncludeParam: any = {
+    model: User,
+    as: "users",
+    attributes: ["id", "name", "email", "startWork", "endWork"]
+  };
+
+  // Se não for admin, filtra as agendas onde este usuário está incluído
   if (profile !== "admin" && userId) {
-    where.userId = userId;
+    userIncludeParam.where = { id: userId };
+    userIncludeParam.required = true;
   }
 
   if (searchParam) {
@@ -48,13 +55,8 @@ const ListUserSchedulesService = async ({
 
   const { rows, count } = await UserSchedule.findAndCountAll({
     where,
-    include: [
-      {
-        model: User,
-        as: "user",
-        attributes: ["id", "name", "email", "startWork", "endWork"]
-      }
-    ],
+    distinct: true,
+    include: [userIncludeParam],
     limit,
     offset,
     order: [["name", "ASC"]]

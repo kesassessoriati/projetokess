@@ -32,19 +32,19 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: currentUserId, profile } = req.user;
-  const { name, description, active, userId } = req.body;
+  const { name, description, active, userIds } = req.body;
 
   // Se não for admin, só pode criar agenda para si mesmo
-  let targetUserId = userId;
+  let targetUserIds = userIds;
   if (profile !== "admin") {
-    targetUserId = Number(currentUserId);
+    targetUserIds = [Number(currentUserId)];
   }
 
   const schedule = await CreateUserScheduleService({
     name,
     description,
     active,
-    userId: targetUserId,
+    userIds: targetUserIds && targetUserIds.length > 0 ? targetUserIds : [Number(currentUserId)],
     companyId: Number(companyId)
   });
 
@@ -54,13 +54,22 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-  const { name, description, active } = req.body;
+  const { name, description, active, userIds } = req.body;
+
+  // Se for admin, passa a lista, garantindo que seja um array
+  let targetUserIds = userIds;
+  if (req.user.profile !== "admin" && userIds) {
+    // se não for admin e tentar de alguma forma passar `userIds`, ignora as outras.
+    // apenas atualizamos dados sem trocar os donos, então não passa userIds pra não dar override indesejado.
+    targetUserIds = undefined;
+  }
 
   const schedule = await UpdateUserScheduleService({
     id,
     name,
     description,
     active,
+    userIds: targetUserIds,
     companyId: Number(companyId)
   });
 
@@ -85,9 +94,9 @@ export const linkGoogleIntegration = async (req: Request, res: Response): Promis
     // Verificar se a integração pertence ao usuário logado
     const UserGoogleCalendarIntegration = require("../models/UserGoogleCalendarIntegration").default;
     const UserSchedule = require("../models/UserSchedule").default;
-    
+
     const integration = await UserGoogleCalendarIntegration.findOne({
-      where: { 
+      where: {
         id: userGoogleCalendarIntegrationId,
         userId: userId
       }
@@ -109,7 +118,7 @@ export const linkGoogleIntegration = async (req: Request, res: Response): Promis
     // Vincular a integração à agenda
     await schedule.update({ userGoogleCalendarIntegrationId });
 
-    return res.json({ 
+    return res.json({
       message: "Agenda vinculada ao Google Calendar com sucesso",
       schedule: schedule
     });

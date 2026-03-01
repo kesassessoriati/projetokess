@@ -9,12 +9,12 @@ import {
   DataType,
   BelongsTo,
   ForeignKey,
-  Default,
   HasMany,
-  Unique
+  BelongsToMany
 } from "sequelize-typescript";
 import Company from "./Company";
 import User from "./User";
+import UserScheduleUser from "./UserScheduleUser";
 import Appointment from "./Appointment";
 import UserGoogleCalendarIntegration from "./UserGoogleCalendarIntegration";
 
@@ -35,13 +35,15 @@ class UserSchedule extends Model<UserSchedule> {
   @Column
   active: boolean;
 
-  @Unique
   @ForeignKey(() => User)
   @Column({ field: "user_id" })
   userId: number;
 
   @BelongsTo(() => User)
   user: User;
+
+  @BelongsToMany(() => User, () => UserScheduleUser)
+  users: User[];
 
   @ForeignKey(() => Company)
   @Column({ field: "company_id" })

@@ -20,7 +20,12 @@ import {
   Switch,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  Checkbox,
+  ListItemText
 } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
 import EditIcon from "@material-ui/icons/Edit";
@@ -154,7 +159,7 @@ const UserSchedules = () => {
     name: "",
     description: "",
     active: true,
-    userId: ""
+    userIds: []
   });
 
   const fetchSchedules = useCallback(async () => {
@@ -193,7 +198,7 @@ const UserSchedules = () => {
 
   // Removido - não precisamos mais de integrações empresariais
   // Cada usuário terá sua própria integração
-  
+
   // Removendo funções desnecessárias
   const handleCloseIntegrationModal = () => {
     setIntegrationModalOpen(false);
@@ -209,16 +214,16 @@ const UserSchedules = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const googleCalendarSuccess = urlParams.get('google-calendar-success');
-    
+
     if (googleCalendarSuccess === 'true') {
       toast.success('Google Calendar conectado com sucesso!');
       // Limpar URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      
+
       // Verificar se tinha uma integração de agenda pendente
       const pendingScheduleId = sessionStorage.getItem('pendingScheduleIntegration');
       console.log("DEBUG - pendingScheduleId:", pendingScheduleId);
-      
+
       if (pendingScheduleId) {
         // Vincular agenda diretamente com a integração do usuário
         console.log("DEBUG - Vinculando agenda diretamente...");
@@ -246,7 +251,7 @@ const UserSchedules = () => {
             toast.error('Erro ao integrar agenda automaticamente');
           });
       }
-      
+
       // Atualizar integração e agendas
       fetchGoogleIntegration();
       fetchSchedules();
@@ -260,7 +265,7 @@ const UserSchedules = () => {
         name: schedule.name || "",
         description: schedule.description || "",
         active: schedule.active ?? true,
-        userId: schedule.userId || ""
+        userIds: schedule.users?.map(u => u.id) || [schedule.userId].filter(Boolean)
       });
     } else {
       setSelectedSchedule(null);
@@ -269,7 +274,7 @@ const UserSchedules = () => {
         name: "",
         description: "",
         active: true,
-        userId: isAdmin ? "" : loggedUser?.id
+        userIds: isAdmin ? [] : [loggedUser?.id].filter(Boolean)
       });
     }
     setModalOpen(true);
@@ -291,8 +296,8 @@ const UserSchedules = () => {
       return;
     }
 
-    if (!selectedSchedule && !formData.userId) {
-      toast.error("Selecione um usuário");
+    if (!selectedSchedule && (!formData.userIds || formData.userIds.length === 0)) {
+      toast.error("Selecione pelo menos um usuário");
       return;
     }
 
@@ -301,7 +306,8 @@ const UserSchedules = () => {
         await updateUserSchedule(selectedSchedule.id, {
           name: formData.name,
           description: formData.description,
-          active: formData.active
+          active: formData.active,
+          userIds: formData.userIds
         });
         toast.success("Agenda atualizada com sucesso");
       } else {
@@ -364,8 +370,8 @@ const UserSchedules = () => {
 
   const handleUnlinkGoogleCalendar = async (scheduleId) => {
     try {
-      await api.delete("/user-google-calendar/unlink-schedule", { 
-        data: { scheduleId } 
+      await api.delete("/user-google-calendar/unlink-schedule", {
+        data: { scheduleId }
       });
       toast.success("Google Calendar desvinculado da agenda");
       fetchSchedules(); // Atualizar agendas
@@ -378,7 +384,7 @@ const UserSchedules = () => {
     try {
       // Verificar se o usuário já tem integração pessoal
       const { data: userIntegration } = await api.get("/user-google-calendar/integration");
-      
+
       if (userIntegration) {
         // Usuário já tem integração, vincular diretamente
         await api.post(`/user-schedules/${schedule.id}/google-integration`, {
@@ -402,8 +408,7 @@ const UserSchedules = () => {
   // Cada usuário tem sua própria integração
 
   const getAvailableUsers = () => {
-    const usedUserIds = schedules.map((s) => s.userId);
-    return users.filter((u) => !usedUserIds.includes(u.id) || (selectedSchedule && selectedSchedule.userId === u.id));
+    return users; // Agora permitimos múltiplos usuários sem remover
   };
 
   // Verifica se o usuário comum já tem uma agenda
@@ -481,27 +486,38 @@ const UserSchedules = () => {
                   <Box className={classes.cardInfo}>
                     <PersonIcon fontSize="small" />
                     <Typography variant="body2">
-                      {schedule.user?.name || "Usuário não definido"}
+                      {schedule.users?.length > 0
+                        ? schedule.users.map(u => u.name).join(", ")
+                        : (schedule.user?.name || "Usuário não definido")}
                     </Typography>
                   </Box>
 
-                  {schedule.user && (
+                  {schedule.users?.length > 0 ? (
+                    <Box className={classes.workHours} style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                      {schedule.users.map(u => (
+                        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <ScheduleIcon fontSize="small" />
+                          <span>{u.name}: {u.startWork || "00:00"} - {u.endWork || "23:59"}</span>
+                        </div>
+                      ))}
+                    </Box>
+                  ) : schedule.user ? (
                     <Box className={classes.workHours}>
                       <ScheduleIcon fontSize="small" />
                       <span>
                         Horário: {schedule.user.startWork || "00:00"} - {schedule.user.endWork || "23:59"}
                       </span>
                     </Box>
-                  )}
+                  ) : null}
 
                   {/* Status da integração Google Calendar */}
                   {!isAdmin && (
                     <Box className={classes.cardInfo} style={{ marginTop: 8 }}>
-                      <LanguageIcon fontSize="small" style={{ 
-                        color: schedule.googleCalendarIntegration ? '#4285f4' : '#999' 
+                      <LanguageIcon fontSize="small" style={{
+                        color: schedule.googleCalendarIntegration ? '#4285f4' : '#999'
                       }} />
                       <Typography variant="body2">
-                        {schedule.googleCalendarIntegration 
+                        {schedule.googleCalendarIntegration
                           ? `Conectado: ${schedule.googleCalendarIntegration.email}`
                           : "Google Calendar não conectado"
                         }
@@ -526,7 +542,7 @@ const UserSchedules = () => {
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    
+
                     {/* Botões de integração Google Calendar por agenda - SEMPRE VISÍVEL */}
                     {schedule.userGoogleCalendarIntegrationId ? (
                       <Button
@@ -551,7 +567,7 @@ const UserSchedules = () => {
                         Google
                       </Button>
                     )}
-                    
+
                     <Button
                       size="small"
                       color="primary"
@@ -593,38 +609,46 @@ const UserSchedules = () => {
                 onChange={handleChange("description")}
               />
             </Grid>
-            {!selectedSchedule && (
-              <Grid item xs={12}>
-                {isAdmin ? (
-                  <TextField
-                    select
-                    label="Usuário"
-                    fullWidth
-                    required
-                    value={formData.userId}
-                    onChange={handleChange("userId")}
-                    helperText="Cada usuário pode ter apenas uma agenda"
+            <Grid item xs={12}>
+              {isAdmin ? (
+                <FormControl fullWidth variant="outlined" required>
+                  <InputLabel id="users-select-label">Usuários</InputLabel>
+                  <Select
+                    labelId="users-select-label"
+                    multiple
+                    value={formData.userIds || []}
+                    onChange={handleChange("userIds")}
+                    label="Usuários"
+                    renderValue={(selected) => (
+                      <Box style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {selected.map((value) => {
+                          const user = users.find(u => u.id === value);
+                          return <Chip key={value} label={user?.name || ''} size="small" />;
+                        })}
+                      </Box>
+                    )}
                   >
-                    <MenuItem value="">
-                      <em>Selecione um usuário</em>
-                    </MenuItem>
                     {getAvailableUsers().map((user) => (
                       <MenuItem key={user.id} value={user.id}>
-                        {user.name} ({user.startWork || "00:00"} - {user.endWork || "23:59"})
+                        <Checkbox checked={(formData.userIds || []).indexOf(user.id) > -1} />
+                        <ListItemText primary={`${user.name} (${user.startWork || "00:00"} - ${user.endWork || "23:59"})`} />
                       </MenuItem>
                     ))}
-                  </TextField>
-                ) : (
-                  <TextField
-                    label="Usuário"
-                    fullWidth
-                    value={loggedUser?.name || ""}
-                    disabled
-                    helperText="A agenda será criada para você"
-                  />
-                )}
-              </Grid>
-            )}
+                  </Select>
+                  <Typography variant="caption" color="textSecondary" style={{ marginTop: 4 }}>
+                    Selecione um ou mais usuários para esta agenda
+                  </Typography>
+                </FormControl>
+              ) : (
+                <TextField
+                  label="Usuário"
+                  fullWidth
+                  value={loggedUser?.name || ""}
+                  disabled
+                  helperText="Você só pode editar suas próprias agendas"
+                />
+              )}
+            </Grid>
             <Grid item xs={12}>
               <FormControlLabel
                 control={
