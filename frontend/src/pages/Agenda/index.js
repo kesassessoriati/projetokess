@@ -157,7 +157,9 @@ const Agenda = () => {
     endDate: ""
   });
 
-  const { data: appointmentData, loading: loadingAppointments, error: errorAppointments, request: fetchAppointmentsApi } = useSafeApi(null, { manual: true });
+  const [appointmentData, setAppointmentData] = useState({ appointments: [] });
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [errorAppointments, setErrorAppointments] = useState(null);
   const { data: schedulesData, loading: loadingSchedules } = useSafeApi("/user-schedules", { manual: false });
 
   const appointments = appointmentData?.appointments || [];
@@ -174,6 +176,8 @@ const Agenda = () => {
   }, [location]);
 
   const fetchAppointments = useCallback(async () => {
+    setLoadingAppointments(true);
+    setErrorAppointments(null);
     try {
       const params = {};
       if (filters.scheduleId) params.scheduleId = filters.scheduleId;
@@ -181,14 +185,15 @@ const Agenda = () => {
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
-      await fetchAppointmentsApi({
-        url: "/appointments",
-        params
-      });
+      const data = await listAppointments(params);
+      setAppointmentData(data);
     } catch (err) {
+      setErrorAppointments(err);
       toastError(err);
+    } finally {
+      setLoadingAppointments(false);
     }
-  }, [filters, fetchAppointmentsApi]);
+  }, [filters]);
 
   useEffect(() => {
     fetchAppointments();
