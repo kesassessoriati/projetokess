@@ -24,7 +24,7 @@ export const getUserAuthUrl = async (req: Request, res: Response): Promise<Respo
 
   const state = `${userId}-${companyId}`;
   console.log("DEBUG Generated state:", state);
-  const url = getGoogleAuthUrl(SCOPES, state);
+  const url = await getGoogleAuthUrl(SCOPES, state);
 
   return res.status(200).json({ url });
 };
@@ -43,10 +43,10 @@ export const userOauthCallback = async (req: Request, res: Response): Promise<vo
     }
 
     const [userId, companyId] = (state as string).split("-");
-    
+
     console.log("DEBUG OAuth Callback - parsed userId:", userId);
     console.log("DEBUG OAuth Callback - parsed companyId:", companyId);
-    
+
     if (!userId || !companyId) {
       res.status(400).json({ error: "Missing userId or companyId in state" });
       return;
@@ -172,8 +172,8 @@ export const createFromCompanyIntegration = async (req: Request, res: Response):
     });
   } catch (err) {
     console.error("DEBUG createFromCompanyIntegration - Erro:", err);
-    return res.status(400).json({ 
-      error: err.message || "Erro ao criar integração do usuário" 
+    return res.status(400).json({
+      error: err.message || "Erro ao criar integração do usuário"
     });
   }
 };
@@ -198,8 +198,8 @@ export const linkCalendarToSchedule = async (req: Request, res: Response): Promi
     });
   } catch (err) {
     console.error("Erro ao vincular Google Calendar à agenda:", err);
-    return res.status(400).json({ 
-      error: err.message || "Erro ao vincular Google Calendar à agenda" 
+    return res.status(400).json({
+      error: err.message || "Erro ao vincular Google Calendar à agenda"
     });
   }
 };
@@ -224,8 +224,8 @@ export const unlinkCalendarFromSchedule = async (req: Request, res: Response): P
     });
   } catch (err) {
     console.error("Erro ao desvincular Google Calendar da agenda:", err);
-    return res.status(400).json({ 
-      error: err.message || "Erro ao desvincular Google Calendar da agenda" 
+    return res.status(400).json({
+      error: err.message || "Erro ao desvincular Google Calendar da agenda"
     });
   }
 };

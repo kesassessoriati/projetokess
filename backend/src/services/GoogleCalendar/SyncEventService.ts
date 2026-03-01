@@ -34,7 +34,7 @@ const SyncEventService = async ({ schedule }: SyncEventRequest): Promise<void> =
     expiry_date: expiryDate ? expiryDate.getTime() : undefined
   };
 
-  const calendar = buildCalendarClient(tokens);
+  const calendar = await buildCalendarClient(tokens);
 
   const calendarIdToUse = calendarId || "primary";
 

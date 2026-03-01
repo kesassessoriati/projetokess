@@ -15,7 +15,7 @@ export const getAuthUrl = async (req: Request, res: Response): Promise<Response>
   const { companyId, id: userId } = req.user;
 
   const state = `${userId}-${companyId}`;
-  const url = getGoogleAuthUrl(SCOPES, state);
+  const url = await getGoogleAuthUrl(SCOPES, state);
 
   return res.status(200).json({ url });
 };
@@ -34,7 +34,7 @@ export const oauthCallback = async (req: Request, res: Response): Promise<void> 
 
     // Para compatibilidade com integrações antigas, verificar se state é apenas companyId
     let userIdFromState, companyIdFromState;
-    
+
     if (state && !(state as string).includes("-")) {
       // Formato antigo: apenas companyId
       companyIdFromState = state;
@@ -45,7 +45,7 @@ export const oauthCallback = async (req: Request, res: Response): Promise<void> 
       [userIdFromState, companyIdFromState] = state ? (state as string).split("-") : [null, null];
       console.log("DEBUG Google OAuth Callback - Usando formato novo (userId-companyId)");
     }
-    
+
     if (!companyIdFromState) {
       res.status(400).json({ error: "Missing companyId in state" });
       return;
@@ -81,13 +81,13 @@ export const oauthCallback = async (req: Request, res: Response): Promise<void> 
       expiryDate,
       calendarId: "primary"
     };
-    
+
     if (userIdFromState) {
       integrationData.userId = Number(userIdFromState);
     }
-    
+
     console.log("DEBUG Google OAuth Callback - integrationData:", integrationData);
-    
+
     await UpsertIntegrationService(integrationData);
 
     const redirectUrl = process.env.FRONTEND_URL

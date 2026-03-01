@@ -23,7 +23,7 @@ const DeleteEventService = async ({ schedule }: DeleteEventRequest): Promise<voi
     expiry_date: expiryDate ? expiryDate.getTime() : undefined
   };
 
-  const calendar = buildCalendarClient(tokens);
+  const calendar = await buildCalendarClient(tokens);
   const calendarIdToUse = calendarId || "primary";
 
   const googleEventId = (schedule as any).googleEventId;

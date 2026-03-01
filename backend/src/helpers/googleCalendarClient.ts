@@ -1,21 +1,37 @@
 import { google } from "googleapis";
+import Setting from "../models/Setting";
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET as string;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI as string;
+export const createOAuth2Client = async () => {
+  // Tentar buscar do banco primeiro (Whitelabel/Global com companyId 1 ou sem filtro)
+  // Conforme Whitelabel.js, essas chaves são salvas como configurações globais
 
-export const createOAuth2Client = () => {
+  let clientId = process.env.GOOGLE_CLIENT_ID as string;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET as string;
+  let redirectUri = process.env.GOOGLE_REDIRECT_URI as string;
+
+  try {
+    const googleClientIdSet = await Setting.findOne({ where: { key: "googleClientId" } });
+    const googleClientSecretSet = await Setting.findOne({ where: { key: "googleClientSecret" } });
+    const googleRedirectUriSet = await Setting.findOne({ where: { key: "googleRedirectUri" } });
+
+    if (googleClientIdSet?.value) clientId = googleClientIdSet.value;
+    if (googleClientSecretSet?.value) clientSecret = googleClientSecretSet.value;
+    if (googleRedirectUriSet?.value) redirectUri = googleRedirectUriSet.value;
+  } catch (err) {
+    console.error("Erro ao carregar configurações do Google Calendar do banco", err);
+  }
+
   const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI
+    clientId,
+    clientSecret,
+    redirectUri
   );
 
   return oauth2Client;
 };
 
-export const getGoogleAuthUrl = (scopes: string[], state?: string) => {
-  const oauth2Client = createOAuth2Client();
+export const getGoogleAuthUrl = async (scopes: string[], state?: string) => {
+  const oauth2Client = await createOAuth2Client();
 
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
@@ -28,15 +44,15 @@ export const getGoogleAuthUrl = (scopes: string[], state?: string) => {
 };
 
 export const getTokensFromCode = async (code: string) => {
-  const oauth2Client = createOAuth2Client();
+  const oauth2Client = await createOAuth2Client();
 
   const { tokens } = await oauth2Client.getToken(code);
 
   return tokens;
 };
 
-export const buildCalendarClient = (tokens: any) => {
-  const oauth2Client = createOAuth2Client();
+export const buildCalendarClient = async (tokens: any) => {
+  const oauth2Client = await createOAuth2Client();
   oauth2Client.setCredentials(tokens);
 
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
@@ -51,14 +67,14 @@ export const createGoogleCalendarEvent = async (
   calendarId: string = "primary"
 ) => {
   try {
-    const oauth2Client = createOAuth2Client();
-    
+    const oauth2Client = await createOAuth2Client();
+
     // Configurar credenciais com access e refresh tokens
     const credentials: any = { access_token: accessToken };
     if (refreshToken) {
       credentials.refresh_token = refreshToken;
     }
-    
+
     oauth2Client.setCredentials(credentials);
 
     // Configurar refresh automático se tiver refresh token
@@ -81,16 +97,16 @@ export const createGoogleCalendarEvent = async (
     return event.data;
   } catch (error: any) {
     console.error("Erro ao criar evento no Google Calendar:", error);
-    
+
     // Se for erro de token expirado, tentar refresh
     if (error.code === 401 && refreshToken) {
       try {
         console.log("DEBUG - Tentando refresh do token...");
-        const oauth2Client = createOAuth2Client();
+        const oauth2Client = await createOAuth2Client();
         oauth2Client.setCredentials({ refresh_token: refreshToken });
-        
+
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
+
         // Tentar novamente com o novo token
         return await createGoogleCalendarEvent(
           credentials.access_token!,
@@ -103,7 +119,7 @@ export const createGoogleCalendarEvent = async (
         throw refreshError;
       }
     }
-    
+
     throw error;
   }
 };
@@ -116,14 +132,14 @@ export const updateGoogleCalendarEvent = async (
   calendarId: string = "primary"
 ) => {
   try {
-    const oauth2Client = createOAuth2Client();
-    
+    const oauth2Client = await createOAuth2Client();
+
     // Configurar credenciais com access e refresh tokens
     const credentials: any = { access_token: accessToken };
     if (refreshToken) {
       credentials.refresh_token = refreshToken;
     }
-    
+
     oauth2Client.setCredentials(credentials);
 
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
@@ -137,16 +153,16 @@ export const updateGoogleCalendarEvent = async (
     return event.data;
   } catch (error: any) {
     console.error("Erro ao atualizar evento no Google Calendar:", error);
-    
+
     // Se for erro de token expirado, tentar refresh
     if (error.code === 401 && refreshToken) {
       try {
         console.log("DEBUG - Tentando refresh do token para update...");
-        const oauth2Client = createOAuth2Client();
+        const oauth2Client = await createOAuth2Client();
         oauth2Client.setCredentials({ refresh_token: refreshToken });
-        
+
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
+
         // Tentar novamente com o novo token
         return await updateGoogleCalendarEvent(
           credentials.access_token!,
@@ -160,7 +176,7 @@ export const updateGoogleCalendarEvent = async (
         throw refreshError;
       }
     }
-    
+
     throw error;
   }
 };
@@ -172,14 +188,14 @@ export const deleteGoogleCalendarEvent = async (
   calendarId: string = "primary"
 ) => {
   try {
-    const oauth2Client = createOAuth2Client();
-    
+    const oauth2Client = await createOAuth2Client();
+
     // Configurar credenciais com access e refresh tokens
     const credentials: any = { access_token: accessToken };
     if (refreshToken) {
       credentials.refresh_token = refreshToken;
     }
-    
+
     oauth2Client.setCredentials(credentials);
 
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
@@ -192,16 +208,16 @@ export const deleteGoogleCalendarEvent = async (
     return true;
   } catch (error: any) {
     console.error("Erro ao excluir evento no Google Calendar:", error);
-    
+
     // Se for erro de token expirado, tentar refresh
     if (error.code === 401 && refreshToken) {
       try {
         console.log("DEBUG - Tentando refresh do token para delete...");
-        const oauth2Client = createOAuth2Client();
+        const oauth2Client = await createOAuth2Client();
         oauth2Client.setCredentials({ refresh_token: refreshToken });
-        
+
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
+
         // Tentar novamente com o novo token
         return await deleteGoogleCalendarEvent(
           credentials.access_token!,
@@ -214,7 +230,7 @@ export const deleteGoogleCalendarEvent = async (
         throw refreshError;
       }
     }
-    
+
     throw error;
   }
 };
