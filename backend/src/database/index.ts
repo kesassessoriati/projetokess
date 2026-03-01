@@ -88,6 +88,7 @@ import ProjectUser from "../models/ProjectUser";
 import ProjectTask from "../models/ProjectTask";
 import ProjectTaskUser from "../models/ProjectTaskUser";
 import UserSchedule from "../models/UserSchedule";
+import UserScheduleUser from "../models/UserScheduleUser";
 import Appointment from "../models/Appointment";
 import UserService from "../models/UserService";
 import UserGoogleCalendarIntegration from "../models/UserGoogleCalendarIntegration";
@@ -239,6 +240,7 @@ const models = [
   ProjectTask,
   ProjectTaskUser,
   UserSchedule,
+  UserScheduleUser,
   Appointment,
   UserService,
   UserGoogleCalendarIntegration,
