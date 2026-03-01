@@ -10,7 +10,8 @@ import {
   BelongsTo,
   ForeignKey,
   HasMany,
-  BelongsToMany
+  BelongsToMany,
+  Default
 } from "sequelize-typescript";
 import Company from "./Company";
 import User from "./User";
