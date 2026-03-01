@@ -18,6 +18,8 @@ const AppointmentModal = (props) => {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [organizerEmail, setOrganizerEmail] = useState("");
   const [startDatetime, setStartDatetime] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("60");
   const [status, setStatus] = useState("scheduled");
@@ -42,7 +44,7 @@ const AppointmentModal = (props) => {
       setStatus(appointment.status || "scheduled");
       setScheduleId(String(appointment.scheduleId || ""));
       setServiceId(appointment.serviceId ? String(appointment.serviceId) : "");
-      
+
       if (appointment.startDatetime) {
         try {
           const date = new Date(appointment.startDatetime);
@@ -86,6 +88,8 @@ const AppointmentModal = (props) => {
     if (!appointment) {
       setTitle("");
       setDescription("");
+      setClientEmail("");
+      setOrganizerEmail("");
       setStartDatetime("");
       setDurationMinutes("60");
       setStatus("scheduled");
@@ -96,68 +100,68 @@ const AppointmentModal = (props) => {
 
   const validateSchedule = () => {
     if (!startDatetime) return null;
-    
+
     const start = new Date(startDatetime);
     const duration = parseInt(durationMinutes, 10) || 60;
     const end = new Date(start.getTime() + duration * 60000);
-    
+
     // Se temos configurações do usuário, validar
     if (userConfig) {
       const dayOfWeek = start.getDay();
       const workDaysArray = (userConfig.workDays || "0,1,2,3,4,5,6").split(",").map(d => parseInt(d.trim(), 10));
       const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-      
+
       // Validar dia de trabalho
       if (!workDaysArray.includes(dayOfWeek)) {
         return `O profissional não trabalha neste dia (${dayNames[dayOfWeek]}). Dias: ${workDaysArray.map(d => dayNames[d]).join(", ")}`;
       }
-      
+
       // Validar horário de trabalho
       const startTime = start.toTimeString().substring(0, 5);
       const endTime = end.toTimeString().substring(0, 5);
       const userStartWork = userConfig.startWork || "00:00";
       const userEndWork = userConfig.endWork || "23:59";
-      
+
       if (startTime < userStartWork || endTime > userEndWork) {
         return `Horário fora do expediente do profissional (${userStartWork} - ${userEndWork})`;
       }
-      
+
       // Validar horário de almoço
       if (userConfig.lunchStart && userConfig.lunchEnd) {
         const lunchStartParts = userConfig.lunchStart.split(":");
         const lunchEndParts = userConfig.lunchEnd.split(":");
         const lunchStartMinutes = parseInt(lunchStartParts[0], 10) * 60 + parseInt(lunchStartParts[1], 10);
         const lunchEndMinutes = parseInt(lunchEndParts[0], 10) * 60 + parseInt(lunchEndParts[1], 10);
-        
+
         const appointmentStartMinutes = start.getHours() * 60 + start.getMinutes();
         const appointmentEndMinutes = end.getHours() * 60 + end.getMinutes();
-        
+
         const overlapsLunch = (
           (appointmentStartMinutes >= lunchStartMinutes && appointmentStartMinutes < lunchEndMinutes) ||
           (appointmentEndMinutes > lunchStartMinutes && appointmentEndMinutes <= lunchEndMinutes) ||
           (appointmentStartMinutes <= lunchStartMinutes && appointmentEndMinutes >= lunchEndMinutes)
         );
-        
+
         if (overlapsLunch) {
           return `Conflito com horário de almoço (${userConfig.lunchStart} - ${userConfig.lunchEnd})`;
         }
       }
     }
-    
+
     // Validar conflito com compromissos existentes
     if (existingAppointments && existingAppointments.length > 0) {
       const newStart = start.getTime();
       const newEnd = end.getTime();
-      
+
       for (const existing of existingAppointments) {
         // Ignorar o próprio compromisso em edição
         if (appointment && existing.id === appointment.id) continue;
         // Ignorar cancelados
         if (existing.status === "cancelled" || existing.status === "no_show") continue;
-        
+
         const existingStart = new Date(existing.startDatetime).getTime();
         const existingEnd = existingStart + existing.durationMinutes * 60000;
-        
+
         if (
           (newStart >= existingStart && newStart < existingEnd) ||
           (newEnd > existingStart && newEnd <= existingEnd) ||
@@ -168,7 +172,7 @@ const AppointmentModal = (props) => {
         }
       }
     }
-    
+
     return null;
   };
 
@@ -185,7 +189,7 @@ const AppointmentModal = (props) => {
       toast.error("Selecione uma agenda");
       return;
     }
-    
+
     // Validar agendamento
     const validationError = validateSchedule();
     if (validationError) {
@@ -196,9 +200,19 @@ const AppointmentModal = (props) => {
     setSubmitting(true);
 
     try {
+      let finalDescription = description.trim();
+
+      if (!appointment) {
+        if (clientEmail || organizerEmail) {
+          finalDescription += "\n\n--- INFORMAÇÕES ADICIONAIS ---";
+          if (clientEmail) finalDescription += `\nE-mail do Cliente (Lead): ${clientEmail}`;
+          if (organizerEmail) finalDescription += `\nE-mail do Organizador: ${organizerEmail}`;
+        }
+      }
+
       const payload = {
         title: title.trim(),
-        description: description.trim() || null,
+        description: finalDescription || null,
         startDatetime: startDatetime,
         durationMinutes: parseInt(durationMinutes, 10) || 60,
         status: status,
@@ -236,7 +250,7 @@ const AppointmentModal = (props) => {
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <TextField
-              label="Título"
+              label="Nome do evento"
               fullWidth
               required
               variant="outlined"
@@ -245,9 +259,34 @@ const AppointmentModal = (props) => {
             />
           </Grid>
 
+          {!appointment && (
+            <>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="E-mail do cliente (Lead)"
+                  fullWidth
+                  variant="outlined"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="cliente@email.com"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="E-mail do organizador"
+                  fullWidth
+                  variant="outlined"
+                  value={organizerEmail}
+                  onChange={(e) => setOrganizerEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                />
+              </Grid>
+            </>
+          )}
+
           <Grid item xs={12}>
             <TextField
-              label="Descrição"
+              label="Descrição do evento"
               fullWidth
               multiline
               rows={2}
