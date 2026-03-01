@@ -968,13 +968,14 @@ const LoggedInLayout = ({ children }) => {
           return { ...group, children: filtered };
         });
     }
-    const allowedMenus = ["Inbox", "Kanban", "Produtividade", "Ajuda"];
-    const hiddenSubmenus = ["/funil", "/etiquetas", "/messages-api", "/produtos", "/servicos", "/projects"];
+
+    // Para usuários comuns: Mostrar tudo, exceto grupo "Sistema" e rota "/users"
     return menuGroups
-      .filter((group) => group && allowedMenus.includes(group.title))
+      .filter((group) => group && group.title !== "Sistema")
       .map((group) => {
         if (!group.children) return group;
-        const filtered = group.children.filter((child) => child && !hiddenSubmenus.includes(child.path));
+        // Ocultar a rota /users para não-admins
+        const filtered = group.children.filter((child) => child && child.path !== "/users");
         return { ...group, children: filtered };
       });
   }, [isAdmin, isSuperAdmin, menuGroups]);
