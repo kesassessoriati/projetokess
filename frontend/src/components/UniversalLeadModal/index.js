@@ -392,7 +392,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                                 {new Date(act.createdAt).toLocaleString()} • {act.type}
                                             </Typography>
                                             <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4 }}>
-                                                {act.metadata?.text || "-"}
+                                                {act.metadata?.text ? act.metadata.text : act.type === "MOVED" ? "Estágio alterado no funil" : "-"}
                                             </Typography>
                                         </Box>
                                     ))

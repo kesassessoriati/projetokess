@@ -3,6 +3,7 @@ import OpportunityMovement from "../../models/OpportunityMovement";
 import OpportunityEvent from "../../models/OpportunityEvent";
 import AppError from "../../errors/AppError";
 import EventBus from "../../libs/EventBus";
+import PipelineStage from "../../models/PipelineStage";
 import Contact from "../../models/Contact";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 
@@ -69,6 +70,8 @@ const MoveOpportunityService = async ({
         reason
     });
 
+    const toStage = await PipelineStage.findOne({ where: { id: toStageId } });
+
     await OpportunityEvent.create({
         opportunityId,
         type: "MOVED",
@@ -76,7 +79,8 @@ const MoveOpportunityService = async ({
             fromStageId,
             toStageId,
             movedBy,
-            reason
+            reason,
+            text: `Estágio atualizado para: ${toStage?.name || toStageId}`
         }
     });
 
