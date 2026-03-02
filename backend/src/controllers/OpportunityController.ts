@@ -159,5 +159,28 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         opportunity
     });
 
+    // Se a oportunidade for fechada (GANHA/PERDIDA), refita status no Lead
+    if (status !== undefined && opportunity.leadId) {
+        const CrmLead = (await import("../models/CrmLead")).default;
+        const leadStatusUpdate: any = {};
+        
+        if (status === "WON") {
+            leadStatusUpdate.status = "convertido";
+        } else if (status === "LOST") {
+            leadStatusUpdate.status = "perdido";
+        }
+
+        if (leadStatusUpdate.status) {
+            await CrmLead.update(leadStatusUpdate, { where: { id: opportunity.leadId, companyId } });
+            const updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
+            if (updatedLead) {
+                io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+                    action: "update",
+                    lead: updatedLead
+                });
+            }
+        }
+    }
+
     return res.status(200).json(opportunity);
 };
