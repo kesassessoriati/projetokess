@@ -33,6 +33,7 @@ import api from "../../services/api";
 import { toast } from "react-toastify";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import ColorPicker from "../../components/ColorPicker";
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -87,6 +88,9 @@ const PipelineConfig = () => {
     const [stageConfirmModalOpen, setStageConfirmModalOpen] = useState(false);
     const [stageToDelete, setStageToDelete] = useState(null);
 
+    const [stageForm, setStageForm] = useState({ name: "", color: "#764ba2", slaDays: 2, probability: 50 });
+    const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
+
     useEffect(() => {
         fetchPipelines();
     }, []);
@@ -124,16 +128,30 @@ const PipelineConfig = () => {
         }
     };
 
-    const handleSaveStage = async (stageData) => {
+    const handleSaveStage = async () => {
         try {
+            if (!stageForm.name) {
+                toast.error("O nome do estágio é obrigatório");
+                return;
+            }
             if (editingStage && editingStage.id) {
-                await api.put(`/pipelines/stages/${editingStage.id}`, stageData);
+                await api.put(`/pipelines/stages/${editingStage.id}`, stageForm);
                 toast.success("Estágio atualizado");
             } else {
-                await api.post(`/pipelines/${selectedPipeline.id}/stages`, stageData);
+                await api.post(`/pipelines/${selectedPipeline.id}/stages`, stageForm);
                 toast.success("Estágio criado");
             }
             fetchPipelines();
+            
+            // Fix local state list update so the user sees the new stage exactly here
+            if (selectedPipeline) {
+                const { data } = await api.get("/pipelines");
+                const currentUpdated = data.find(p => p.id === selectedPipeline.id);
+                if (currentUpdated) {
+                    setSelectedPipeline(currentUpdated);
+                }
+            }
+
             setModalOpen(false);
         } catch (err) {
             toast.error("Erro ao salvar estágio");
@@ -318,7 +336,11 @@ const PipelineConfig = () => {
                     <Paper style={{ padding: 24, borderRadius: 16 }}>
                         <Box mb={3} display="flex" justifyContent="space-between">
                             <Typography variant="h6">Sequência do Funil</Typography>
-                            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => { setEditingStage({}); setModalOpen(true); }}>Adicionar Estágio</Button>
+                            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => { 
+                                setEditingStage({}); 
+                                setStageForm({ name: "", color: "#764ba2", slaDays: 2, probability: 50 });
+                                setModalOpen(true); 
+                            }}>Adicionar Estágio</Button>
                         </Box>
 
                         <DragDropContext onDragEnd={handleOnDragEnd}>
@@ -349,7 +371,16 @@ const PipelineConfig = () => {
                                                             </Box>
                                                         </Box>
                                                         <Box>
-                                                            <IconButton size="small" onClick={() => { setEditingStage(stage); setModalOpen(true); }}><EditIcon /></IconButton>
+                                                            <IconButton size="small" onClick={() => { 
+                                                                setEditingStage(stage); 
+                                                                setStageForm({
+                                                                    name: stage.name || "",
+                                                                    color: stage.color || "#764ba2",
+                                                                    slaDays: stage.slaDays || 2,
+                                                                    probability: stage.probability || 50
+                                                                });
+                                                                setModalOpen(true); 
+                                                            }}><EditIcon /></IconButton>
                                                             <IconButton size="small" color="secondary" onClick={() => handleDeleteStageAction(stage)}><DeleteIcon /></IconButton>
                                                         </Box>
                                                     </div>
@@ -403,21 +434,85 @@ const PipelineConfig = () => {
                 <b>Atenção:</b> Você não poderá excluir se houver contatos vinculados a este estágio.
             </ConfirmationModal>
 
-            <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
+            <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>{editingStage?.id ? "Editar Estágio" : "Novo Estágio"}</DialogTitle>
-                <DialogContent>
-                    <Box display="flex" flexDirection="column" gap={2} pt={1}>
-                        <TextField label="Nome do Estágio" fullWidth variant="outlined" defaultValue={editingStage?.name} />
-                        <TextField label="Cor (Hex)" fullWidth variant="outlined" placeholder="#FFFFFF" defaultValue={editingStage?.color} />
-                        <TextField label="Dias de SLA" type="number" fullWidth variant="outlined" defaultValue={editingStage?.slaDays || 2} />
-                        <TextField label="Probabilidade (%)" type="number" fullWidth variant="outlined" defaultValue={editingStage?.probability || 50} />
-                    </Box>
+                <DialogContent dividers>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                            <TextField 
+                                label="Nome do Estágio" 
+                                fullWidth 
+                                variant="outlined" 
+                                value={stageForm.name}
+                                onChange={(e) => setStageForm({ ...stageForm, name: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField 
+                                label="Cor do Estágio" 
+                                fullWidth 
+                                variant="outlined" 
+                                value={stageForm.color}
+                                onChange={(e) => setStageForm({ ...stageForm, color: e.target.value })}
+                                InputProps={{
+                                    startAdornment: (
+                                        <div 
+                                            style={{ 
+                                                width: 24, 
+                                                height: 24, 
+                                                backgroundColor: stageForm.color || "#ccc", 
+                                                borderRadius: "50%", 
+                                                marginRight: 12,
+                                                border: "1px solid #ddd"
+                                            }} 
+                                        />
+                                    ),
+                                    endAdornment: (
+                                        <IconButton size="small" onClick={() => setColorPickerModalOpen(true)}>
+                                            <PaletteIcon />
+                                        </IconButton>
+                                    )
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField 
+                                label="Dias de SLA" 
+                                type="number" 
+                                fullWidth 
+                                variant="outlined" 
+                                value={stageForm.slaDays}
+                                onChange={(e) => setStageForm({ ...stageForm, slaDays: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField 
+                                label="Probabilidade (%)" 
+                                type="number" 
+                                fullWidth 
+                                variant="outlined" 
+                                value={stageForm.probability}
+                                onChange={(e) => setStageForm({ ...stageForm, probability: e.target.value })}
+                            />
+                        </Grid>
+                    </Grid>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions style={{ padding: 16 }}>
                     <Button onClick={() => setModalOpen(false)}>Cancelar</Button>
-                    <Button color="primary" variant="contained" onClick={() => handleSaveStage({})}>Salvar</Button>
+                    <Button color="primary" variant="contained" onClick={handleSaveStage}>Salvar</Button>
                 </DialogActions>
             </Dialog>
+
+            {colorPickerModalOpen && (
+                <ColorPicker
+                    open={colorPickerModalOpen}
+                    handleClose={() => setColorPickerModalOpen(false)}
+                    currentColor={stageForm.color}
+                    onChange={(color) => {
+                        setStageForm({ ...stageForm, color });
+                    }}
+                />
+            )}
 
             <Dialog open={pipelineModalOpen} onClose={() => setPipelineModalOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>{isEditingPipeline ? "Editar Nome do Funil" : "Novo Funil"}</DialogTitle>
