@@ -24,7 +24,7 @@ import AttachFileIcon from "@mui/icons-material/AttachFile";
 import InfoIcon from "@material-ui/icons/Info";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
-import LeadChat from "../LeadChat";
+import LeadWhatsAppChat from "../LeadWhatsAppChat";
 import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
 import api from "../../services/api";
@@ -486,7 +486,10 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         {/* Chat (Simulacao) */}
                         <TabPanel value={tabValue} index={5}>
                             <Box height="500px">
-                                <LeadChat leadId={leadId || (op && (op.leadId || op.id)) || null} />
+                                <LeadWhatsAppChat
+                                    leadId={leadId || (op && (op.leadId || op.id)) || null}
+                                    op={op}
+                                />
                             </Box>
                         </TabPanel>
 
