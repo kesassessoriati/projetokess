@@ -1,7 +1,7 @@
 import axios from "axios";
 import { Op } from "sequelize";
 import QueueIntegrations from "../../models/QueueIntegrations";
-import { logger } from "../../utils/logger";
+import logger from "../../utils/logger";
 
 // ─── Tipos de eventos disponíveis ───────────────────────────────────────────
 
