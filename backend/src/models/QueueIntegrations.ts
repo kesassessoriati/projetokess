@@ -85,6 +85,10 @@ class QueueIntegrations extends Model<QueueIntegrations> {
 
     @BelongsTo(() => Prompt)
     prompt: Prompt;
+
+    @Default([])
+    @Column(DataType.JSON)
+    webhookEvents: string[];
 }
 
 export default QueueIntegrations;

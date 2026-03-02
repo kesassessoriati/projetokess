@@ -24,6 +24,7 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import FindOrCreateTicketService from "./FindOrCreateTicketService";
 import formatBody from "../../helpers/Mustache";
 import { Mutex } from "async-mutex";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface TicketData {
   status?: string;
@@ -943,6 +944,53 @@ const UpdateTicketService = async ({
           ticket
         });
     }
+
+    // ── Webhook events ─────────────────────────────────────────────────────
+    const ticketPayload = {
+      id: ticket.id,
+      status: ticket.status,
+      contactId: ticket.contactId,
+      queueId: ticket.queueId,
+      userId: ticket.userId
+    };
+    const contactPayload = ticket.contact
+      ? { id: ticket.contact.id, name: ticket.contact.name, number: ticket.contact.number }
+      : null;
+
+    if (status === "closed" && oldStatus !== "closed") {
+      webhookDispatch("TICKET_CLOSED", companyId, {
+        ticket: ticketPayload,
+        contact: contactPayload,
+        oldStatus,
+        agent: oldUserId ? { id: oldUserId } : null
+      });
+    } else if (status === "resolved" && oldStatus !== "resolved") {
+      webhookDispatch("TICKET_RESOLVED", companyId, {
+        ticket: ticketPayload,
+        contact: contactPayload,
+        oldStatus,
+        agent: oldUserId ? { id: oldUserId } : null
+      });
+    }
+
+    if (userId !== undefined && userId !== oldUserId && userId !== null) {
+      webhookDispatch("TICKET_ASSIGNED", companyId, {
+        ticket: ticketPayload,
+        contact: contactPayload,
+        agent: { id: userId },
+        oldAgentId: oldUserId
+      });
+    }
+
+    if (queueId !== undefined && queueId !== oldQueueId) {
+      webhookDispatch("TICKET_QUEUE_CHANGED", companyId, {
+        ticket: ticketPayload,
+        contact: contactPayload,
+        fromQueueId: oldQueueId,
+        toQueueId: queueId
+      });
+    }
+    // ── fim Webhook events ──────────────────────────────────────────────────
 
     return { ticket, oldStatus, oldUserId };
   } catch (err) {

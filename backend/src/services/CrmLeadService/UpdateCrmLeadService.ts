@@ -7,6 +7,7 @@ import {
   resolveLeadContactId,
   resolveLeadPrimaryTicketId
 } from "./helpers/resolveLeadRelations";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface Request {
   id: number | string;
@@ -185,6 +186,42 @@ const UpdateCrmLeadService = async ({
     action: "update",
     lead
   });
+
+  // ── Webhook events ────────────────────────────────────────────────────────
+  const leadPayload = {
+    id: lead.id,
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    status: lead.status,
+    leadStatus: lead.leadStatus,
+    pipelineId: lead.pipelineId,
+    stageId: lead.stageId,
+    ownerUserId: lead.ownerUserId
+  };
+
+  const statusChanged =
+    (data.status !== undefined && data.status !== previousStatus) ||
+    (data.leadStatus !== undefined && data.leadStatus !== previousLeadStatus);
+
+  if (statusChanged) {
+    webhookDispatch("LEAD_STATUS_CHANGED", companyId, {
+      lead: leadPayload,
+      oldStatus: previousStatus,
+      newStatus: lead.status,
+      oldLeadStatus: previousLeadStatus,
+      newLeadStatus: lead.leadStatus
+    });
+
+    if (lead.status === "convertido" || lead.leadStatus === "convertido") {
+      webhookDispatch("LEAD_CONVERTED", companyId, { lead: leadPayload });
+    } else if (lead.status === "perdido" || lead.leadStatus === "perdido") {
+      webhookDispatch("LEAD_LOST", companyId, { lead: leadPayload });
+    }
+  }
+
+  webhookDispatch("LEAD_UPDATED", companyId, { lead: leadPayload });
+  // ── fim Webhook events ────────────────────────────────────────────────────
 
   return lead;
 };

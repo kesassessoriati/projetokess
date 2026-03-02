@@ -18,7 +18,12 @@ import {
   Grid,
   Paper,
   Slide,
-  InputAdornment
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Divider,
+  Box
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { green, blue, red, orange } from "@material-ui/core/colors";
@@ -127,6 +132,51 @@ const DialogflowSchema = Yup.object().shape({
     .required("Obrigatório"),
 });
 
+// ── Eventos disponíveis para n8n/webhook ──────────────────────────────────
+const WEBHOOK_EVENT_GROUPS = [
+  {
+    group: "Mensagens",
+    events: [
+      { key: "MESSAGE_RECEIVED", label: "Nova mensagem recebida" }
+    ]
+  },
+  {
+    group: "Conversas",
+    events: [
+      { key: "TICKET_CREATED", label: "Nova conversa criada" },
+      { key: "TICKET_ASSIGNED", label: "Conversa atribuída a agente" },
+      { key: "TICKET_QUEUE_CHANGED", label: "Conversa transferida de fila" },
+      { key: "TICKET_RESOLVED", label: "Conversa resolvida" },
+      { key: "TICKET_CLOSED", label: "Conversa encerrada" }
+    ]
+  },
+  {
+    group: "Contatos",
+    events: [
+      { key: "CONTACT_CREATED", label: "Novo contato criado" }
+    ]
+  },
+  {
+    group: "CRM – Leads",
+    events: [
+      { key: "LEAD_CREATED", label: "Lead criado" },
+      { key: "LEAD_UPDATED", label: "Lead atualizado" },
+      { key: "LEAD_STATUS_CHANGED", label: "Status do lead alterado" },
+      { key: "LEAD_CONVERTED", label: "Lead convertido em cliente" },
+      { key: "LEAD_LOST", label: "Lead marcado como perdido" }
+    ]
+  },
+  {
+    group: "CRM – Oportunidades",
+    events: [
+      { key: "OPPORTUNITY_CREATED", label: "Oportunidade criada" },
+      { key: "OPPORTUNITY_MOVED", label: "Oportunidade movida no pipeline" },
+      { key: "OPPORTUNITY_WON", label: "Oportunidade ganha" },
+      { key: "OPPORTUNITY_LOST", label: "Oportunidade perdida" }
+    ]
+  }
+];
+
 const QueueIntegration = ({ open, onClose, integrationId }) => {
   const classes = useStyles();
 
@@ -145,6 +195,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
     typebotSlug: "",
     typebotUnknownMessage: "",
     promptId: "",
+    webhookEvents: [],
   };
 
   const [integration, setIntegration] = useState(initialState);
@@ -265,7 +316,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
             }, 400);
           }}
         >
-          {({ touched, errors, isSubmitting, values }) => (
+          {({ touched, errors, isSubmitting, values, setFieldValue }) => (
             <Form>
               <Paper square className={classes.mainPaper} elevation={1}>
                 <DialogContent dividers className={classes.dialogContent}>
@@ -450,6 +501,90 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                               ),
                             }}
                           />
+                        </Grid>
+
+                        {/* Seleção de Eventos */}
+                        <Grid item xs={12}>
+                          <Box
+                            mt={1}
+                            p={2}
+                            style={{
+                              border: "1px solid #e0e0e0",
+                              borderRadius: 8,
+                              backgroundColor: "#fff"
+                            }}
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              style={{
+                                fontWeight: 700,
+                                marginBottom: 8,
+                                color: "#3f51b5",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6
+                              }}
+                            >
+                              <WebhookIcon fontSize="small" />
+                              Eventos para receber neste webhook
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              style={{ color: "#757575", display: "block", marginBottom: 12 }}
+                            >
+                              Selecione quais eventos serão enviados para a URL acima. Deixar sem seleção desativa os eventos (modo chatbot via fila).
+                            </Typography>
+
+                            {WEBHOOK_EVENT_GROUPS.map((group) => (
+                              <Box key={group.group} mb={1.5}>
+                                <Typography
+                                  variant="caption"
+                                  style={{
+                                    fontWeight: 600,
+                                    color: "#555",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px"
+                                  }}
+                                >
+                                  {group.group}
+                                </Typography>
+                                <FormGroup row style={{ marginTop: 2 }}>
+                                  {group.events.map((evt) => (
+                                    <FormControlLabel
+                                      key={evt.key}
+                                      control={
+                                        <Checkbox
+                                          size="small"
+                                          checked={
+                                            Array.isArray(values.webhookEvents) &&
+                                            values.webhookEvents.includes(evt.key)
+                                          }
+                                          onChange={(e) => {
+                                            const current = Array.isArray(values.webhookEvents)
+                                              ? values.webhookEvents
+                                              : [];
+                                            const next = e.target.checked
+                                              ? [...current, evt.key]
+                                              : current.filter((k) => k !== evt.key);
+                                            setFieldValue("webhookEvents", next);
+                                          }}
+                                          color="primary"
+                                          style={{ padding: "2px 6px" }}
+                                        />
+                                      }
+                                      label={
+                                        <Typography variant="body2" style={{ fontSize: 13 }}>
+                                          {evt.label}
+                                        </Typography>
+                                      }
+                                      style={{ marginRight: 16, marginBottom: 2 }}
+                                    />
+                                  ))}
+                                </FormGroup>
+                                <Divider style={{ marginTop: 6 }} />
+                              </Box>
+                            ))}
+                          </Box>
                         </Grid>
                       </>
                     )}

@@ -15,6 +15,7 @@ import resolveLeadClientForContact from "./helpers/resolveLeadClientForContact";
 import CreateLogTicketService from "./CreateLogTicketService";
 import ShowTicketService from "./ShowTicketService";
 import { trackProductEvent } from "../SystemMetricService";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface Request {
   contactId: number;
@@ -152,6 +153,20 @@ const CreateTicketService = async ({
   });
 
   trackProductEvent("TICKET_CREATED", { companyId, userId });
+
+  webhookDispatch("TICKET_CREATED", companyId, {
+    ticket: {
+      id: ticket.id,
+      status: ticket.status,
+      contactId: ticket.contactId,
+      queueId: ticket.queueId,
+      userId: ticket.userId
+    },
+    contact: ticket.contact
+      ? { id: ticket.contact.id, name: ticket.contact.name, number: ticket.contact.number }
+      : { id: contactId },
+    queue: ticket.queue ? { id: ticket.queue.id, name: ticket.queue.name } : null
+  });
 
   return ticket;
 };

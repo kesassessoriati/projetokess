@@ -5,6 +5,7 @@ import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import { Op } from "sequelize";
 import syncLeadToClient from "./helpers/syncLeadToClient";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface Request {
   companyId: number;
@@ -309,6 +310,21 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
     await Opportunity.create(oppData);
   }
+
+  webhookDispatch("LEAD_CREATED", data.companyId, {
+    lead: {
+      id: lead.id,
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      status: lead.status,
+      leadStatus: lead.leadStatus,
+      source: lead.source,
+      pipelineId: lead.pipelineId,
+      stageId: lead.stageId,
+      ownerUserId: lead.ownerUserId
+    }
+  });
 
   return lead;
 };

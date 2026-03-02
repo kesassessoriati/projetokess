@@ -107,6 +107,7 @@ import { WebhookModel } from "../../models/Webhook";
 import { add, differenceInMilliseconds } from "date-fns";
 import { FlowCampaignModel } from "../../models/FlowCampaign";
 import ShowTicketService from "../TicketServices/ShowTicketService";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 import { handleOpenAi } from "../IntegrationsServices/OpenAiService";
 import { IOpenAi } from "../../@types/openai";
 
@@ -5099,6 +5100,35 @@ const handleMessage = async (
     } catch (e) {
       Sentry.captureException(e);
       console.log(e);
+    }
+
+    // Dispara evento MESSAGE_RECEIVED para webhooks configurados
+    if (!msg.key.fromMe && !ticket.isGroup) {
+      webhookDispatch("MESSAGE_RECEIVED", companyId, {
+        ticket: {
+          id: ticket.id,
+          status: ticket.status,
+          contactId: ticket.contactId,
+          queueId: ticket.queueId,
+          userId: ticket.userId
+        },
+        contact: {
+          id: contact.id,
+          name: contact.name,
+          number: contact.number,
+          email: contact.email
+        },
+        message: {
+          body: bodyMessage,
+          type: getTypeMessage(msg),
+          timestamp: msg.messageTimestamp,
+          fromMe: false
+        },
+        whatsapp: {
+          id: whatsapp?.id,
+          name: whatsapp?.name
+        }
+      });
     }
 
     // Atualiza o ticket se a ultima mensagem foi enviada por mim, para que possa ser finalizado.

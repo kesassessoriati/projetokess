@@ -20,6 +20,7 @@ interface Request {
   typebotKeywordRestart?: string;
   typebotRestartMessage?: string;
   promptId?: number;
+  webhookEvents?: string[];
 }
 
 const CreateQueueIntegrationService = async ({
@@ -37,7 +38,8 @@ const CreateQueueIntegrationService = async ({
   typebotDelayMessage,
   typebotKeywordRestart,
   typebotRestartMessage,
-  promptId
+  promptId,
+  webhookEvents
 }: Request): Promise<QueueIntegrations> => {
   const schema = Yup.object().shape({
     name: Yup.string()
@@ -79,7 +81,8 @@ const CreateQueueIntegrationService = async ({
       typebotDelayMessage,
       typebotKeywordRestart,
       typebotRestartMessage,
-      promptId
+      promptId,
+      webhookEvents: webhookEvents ?? []
     }
   );
 

@@ -36,6 +36,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const promptId = req.body.promptId ? req.body.promptId : null;
   const typebotExpires = req.body.typebotExpires ? req.body.typebotExpires : 0;
   const typebotDelayMessage = req.body.typebotDelayMessage ? req.body.typebotDelayMessage : 1000;
+  const webhookEvents = Array.isArray(req.body.webhookEvents) ? req.body.webhookEvents : [];
   const { companyId } = req.user;
   const queueIntegration = await CreateQueueIntegrationService({
     type, name, projectName, jsonContent, language, urlN8N, companyId,
@@ -46,7 +47,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     typebotDelayMessage,
     typebotKeywordRestart,
     typebotRestartMessage,
-    promptId
+    promptId,
+    webhookEvents
   });
 
   const io = getIO();
@@ -78,6 +80,7 @@ export const update = async (
   if (integrationData.promptId === "") integrationData.promptId = null;
   if (integrationData.typebotExpires === "") integrationData.typebotExpires = 0;
   if (integrationData.typebotDelayMessage === "") integrationData.typebotDelayMessage = 1000;
+  if (!Array.isArray(integrationData.webhookEvents)) integrationData.webhookEvents = [];
   const { companyId } = req.user;
 
   const queueIntegration = await UpdateQueueIntegrationService({ integrationData, integrationId, companyId });

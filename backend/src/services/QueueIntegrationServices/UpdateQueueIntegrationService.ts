@@ -19,6 +19,7 @@ interface IntegrationData {
   typebotKeywordRestart?: string;
   typebotRestartMessage?: string;
   promptId?: number;
+  webhookEvents?: string[];
 }
 
 interface Request {
@@ -51,7 +52,8 @@ const UpdateQueueIntegrationService = async ({
     typebotDelayMessage,
     typebotKeywordRestart,
     typebotRestartMessage,
-    promptId
+    promptId,
+    webhookEvents
   } = integrationData;
 
   try {
@@ -77,7 +79,8 @@ const UpdateQueueIntegrationService = async ({
     typebotDelayMessage,
     typebotKeywordRestart,
     typebotRestartMessage,
-    promptId
+    promptId,
+    ...(webhookEvents !== undefined && { webhookEvents })
   });
 
   return integration;
