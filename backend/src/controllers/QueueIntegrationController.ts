@@ -27,14 +27,15 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { type, name, projectName, jsonContent, language, urlN8N,
-    typebotExpires,
     typebotKeywordFinish,
     typebotSlug,
     typebotUnknownMessage,
-    typebotDelayMessage,
     typebotKeywordRestart,
-    typebotRestartMessage,
-    promptId } = req.body;
+    typebotRestartMessage } = req.body;
+
+  const promptId = req.body.promptId ? req.body.promptId : null;
+  const typebotExpires = req.body.typebotExpires ? req.body.typebotExpires : null;
+  const typebotDelayMessage = req.body.typebotDelayMessage ? req.body.typebotDelayMessage : null;
   const { companyId } = req.user;
   const queueIntegration = await CreateQueueIntegrationService({
     type, name, projectName, jsonContent, language, urlN8N, companyId,
@@ -72,7 +73,11 @@ export const update = async (
   res: Response
 ): Promise<Response> => {
   const { integrationId } = req.params;
-  const integrationData = req.body;
+  const integrationData = { ...req.body };
+  
+  if (integrationData.promptId === "") integrationData.promptId = null;
+  if (integrationData.typebotExpires === "") integrationData.typebotExpires = null;
+  if (integrationData.typebotDelayMessage === "") integrationData.typebotDelayMessage = null;
   const { companyId } = req.user;
 
   const queueIntegration = await UpdateQueueIntegrationService({ integrationData, integrationId, companyId });
