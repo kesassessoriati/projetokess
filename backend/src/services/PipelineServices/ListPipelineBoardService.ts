@@ -221,7 +221,7 @@ const ListPipelineBoardService = async ({
             include,
             limit: limit + 1,
             order,
-            attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy", "leadId", "contactId"]
+            attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy", "leadId", "contactId", "pipelineId", "stageId"]
         });
 
         const hasMore = opportunities.length > limit;
@@ -287,7 +287,9 @@ const ListPipelineBoardService = async ({
                         contactId: op.contactId,
                         slaStatus,
                         slaDeadline: op.slaDeadline,
-                        createdAt: op.createdAt
+                        createdAt: op.createdAt,
+                        pipelineId: pipeline.id,
+                        stageId: stage.id
                     };
                 }),
                 hasMore: opsData.hasMore,
