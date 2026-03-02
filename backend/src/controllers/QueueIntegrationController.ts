@@ -34,8 +34,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     typebotRestartMessage } = req.body;
 
   const promptId = req.body.promptId ? req.body.promptId : null;
-  const typebotExpires = req.body.typebotExpires ? req.body.typebotExpires : null;
-  const typebotDelayMessage = req.body.typebotDelayMessage ? req.body.typebotDelayMessage : null;
+  const typebotExpires = req.body.typebotExpires ? req.body.typebotExpires : 0;
+  const typebotDelayMessage = req.body.typebotDelayMessage ? req.body.typebotDelayMessage : 1000;
   const { companyId } = req.user;
   const queueIntegration = await CreateQueueIntegrationService({
     type, name, projectName, jsonContent, language, urlN8N, companyId,
@@ -76,8 +76,8 @@ export const update = async (
   const integrationData = { ...req.body };
   
   if (integrationData.promptId === "") integrationData.promptId = null;
-  if (integrationData.typebotExpires === "") integrationData.typebotExpires = null;
-  if (integrationData.typebotDelayMessage === "") integrationData.typebotDelayMessage = null;
+  if (integrationData.typebotExpires === "") integrationData.typebotExpires = 0;
+  if (integrationData.typebotDelayMessage === "") integrationData.typebotDelayMessage = 1000;
   const { companyId } = req.user;
 
   const queueIntegration = await UpdateQueueIntegrationService({ integrationData, integrationId, companyId });
