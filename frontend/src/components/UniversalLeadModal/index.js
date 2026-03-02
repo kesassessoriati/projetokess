@@ -27,6 +27,7 @@ import LeadModal from "../LeadModal";
 import LeadWhatsAppChat from "../LeadWhatsAppChat";
 import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
+import LeadAttachmentsTab from "../LeadAttachmentsTab";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -495,12 +496,10 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
                         {/* Arquivos */}
                         <TabPanel value={tabValue} index={6}>
-                            <Typography className={classes.sectionTitle}>
-                                <AttachFileIcon style={{ marginRight: 8 }} /> Anexar Arquivos
-                            </Typography>
-                            <Box display="flex" alignItems="center" justifyContent="center" style={{ border: "2px dashed #ccc", padding: 32, borderRadius: 8, backgroundColor: "#fafafa", cursor: "pointer" }}>
-                                <Typography variant="body2" color="textSecondary">Arraste arquivos para cá ou clique para anexar documentos, PDF, Faturas, etc.</Typography>
-                            </Box>
+                            <LeadAttachmentsTab
+                                leadId={leadId || (op && (op.leadId || op.id)) || null}
+                                op={op}
+                            />
                         </TabPanel>
 
                     </Paper>

@@ -148,6 +148,80 @@ export const createMessage = async (req: Request, res: Response): Promise<Respon
   return res.status(201).json(msg);
 };
 
+export const listAttachments = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+
+  const LeadAttachment = (await import("../models/LeadAttachment")).default;
+  const attachments = await LeadAttachment.findAll({
+    where: { leadId: Number(leadId), companyId },
+    order: [["createdAt", "DESC"]]
+  });
+
+  return res.status(200).json(attachments);
+};
+
+export const uploadAttachments = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+  const files = req.files as Express.Multer.File[];
+
+  if (!files || files.length === 0) {
+    throw new AppError("Nenhum arquivo enviado.", 400);
+  }
+
+  const LeadAttachment = (await import("../models/LeadAttachment")).default;
+  const saved = await LeadAttachment.bulkCreate(
+    files.map(f => ({
+      leadId: Number(leadId),
+      companyId,
+      originalName: f.originalname,
+      filename: f.filename,
+      mimetype: f.mimetype,
+      size: f.size
+    }))
+  );
+
+  return res.status(201).json(saved);
+};
+
+export const deleteAttachment = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId, attachmentId } = req.params;
+  const { companyId } = req.user;
+
+  const LeadAttachment = (await import("../models/LeadAttachment")).default;
+  const attachment = await LeadAttachment.findOne({
+    where: { id: Number(attachmentId), leadId: Number(leadId), companyId }
+  });
+
+  if (!attachment) {
+    throw new AppError("Anexo não encontrado.", 404);
+  }
+
+  // Remove o arquivo do disco
+  try {
+    const path = await import("path");
+    const fs = await import("fs");
+    const uploadConfig = (await import("../config/upload")).default;
+    const filePath = path.default.resolve(
+      uploadConfig.directory,
+      `company${companyId}`,
+      "leads",
+      String(leadId),
+      attachment.filename
+    );
+    if (fs.default.existsSync(filePath)) {
+      fs.default.unlinkSync(filePath);
+    }
+  } catch (err) {
+    console.error("[deleteAttachment] Erro ao remover arquivo do disco:", err);
+  }
+
+  await attachment.destroy();
+
+  return res.status(200).json({ message: "Anexo removido com sucesso." });
+};
+
 export const importLeads = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const file = req.file;
