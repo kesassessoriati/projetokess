@@ -6,6 +6,7 @@ const crmWebhookRoutes = Router();
 
 crmWebhookRoutes.get("/crm/webhooks", isAuth, CRMWebhookController.index);
 crmWebhookRoutes.post("/crm/webhooks", isAuth, CRMWebhookController.store);
+crmWebhookRoutes.post("/crm/webhooks/test", isAuth, CRMWebhookController.testWebhook);
 crmWebhookRoutes.put("/crm/webhooks/:webhookId", isAuth, CRMWebhookController.update);
 crmWebhookRoutes.delete("/crm/webhooks/:webhookId", isAuth, CRMWebhookController.remove);
 

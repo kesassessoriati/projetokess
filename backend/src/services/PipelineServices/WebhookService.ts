@@ -6,8 +6,16 @@ import EventBus, { EventData } from "../../libs/EventBus";
 
 class WebhookService {
     public static init() {
-        // Registrar interesse em todos os eventos do Pipeline Engine
-        const events = ["OPPORTUNITY_MOVED", "OPPORTUNITY_CREATED", "SLA_EXPIRED"];
+        // Registrar interesse em todos os eventos do Pipeline/Lead Engine
+        const events = [
+            "OPPORTUNITY_MOVED", 
+            "OPPORTUNITY_CREATED", 
+            "SLA_EXPIRED",
+            "LEAD_CREATED",
+            "LEAD_UPDATED",
+            "LEAD_STATUS_CHANGED",
+            "MEETING_SCHEDULED"
+        ];
 
         events.forEach(eventType => {
             EventBus.subscribe(eventType, this.handleEvent.bind(this));

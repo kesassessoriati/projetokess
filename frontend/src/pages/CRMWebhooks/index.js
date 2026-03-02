@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { makeStyles, Typography, Box, Paper, Button, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Chip } from "@material-ui/core";
-import { Add as AddIcon, Delete as DeleteIcon, History as HistoryIcon, Edit as EditIcon } from "@material-ui/icons";
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as PlayArrowIcon } from "@material-ui/icons";
 import CRMWebhookModal from "../../components/CRMWebhookModal";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -57,6 +57,15 @@ const CRMWebhooks = () => {
         }
     };
 
+    const handleTestWebhook = async (webhook) => {
+        try {
+            await api.post("/crm/webhooks/test", { eventType: webhook.eventType });
+            toast.success(`Webhook de teste disparado para o evento: ${webhook.eventType}`);
+        } catch (err) {
+            toast.error("Erro ao disparar webhook de teste");
+        }
+    };
+
     const handleOpenModal = (id = null) => {
         setSelectedWebhookId(id);
         setModalOpen(true);
@@ -96,8 +105,9 @@ const CRMWebhooks = () => {
                                     <TableCell>{webhook.url}</TableCell>
                                     <TableCell><Chip size="small" label={webhook.isActive ? "Ativo" : "Inativo"} color={webhook.isActive ? "primary" : "secondary"} /></TableCell>
                                     <TableCell align="right">
-                                        <IconButton size="small" onClick={() => handleOpenModal(webhook.id)}><EditIcon /></IconButton>
-                                        <IconButton size="small" color="secondary" onClick={() => handleDelete(webhook.id)}><DeleteIcon /></IconButton>
+                                        <IconButton size="small" color="primary" onClick={() => handleTestWebhook(webhook)} title="Testar Disparo Manual"><PlayArrowIcon /></IconButton>
+                                        <IconButton size="small" onClick={() => handleOpenModal(webhook.id)} title="Editar"><EditIcon /></IconButton>
+                                        <IconButton size="small" color="secondary" onClick={() => handleDelete(webhook.id)} title="Excluir"><DeleteIcon /></IconButton>
                                     </TableCell>
                                 </TableRow>
                             ))
