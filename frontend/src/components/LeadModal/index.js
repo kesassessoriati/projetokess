@@ -186,6 +186,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
 
       const payload = {
         ...form,
+        pipelineId: form.pipelineId || null,
+        stageId: form.stageId || null,
         score: Number(form.score) || 0,
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,

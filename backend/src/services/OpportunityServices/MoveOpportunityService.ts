@@ -55,6 +55,15 @@ const MoveOpportunityService = async ({
         }
 
         await opportunity.update(updateData);
+
+        // CORREÇÃO: Atualizar o CrmLead relacionado para manter sincronia do funil/estágio
+        if (opportunity.leadId) {
+            const CrmLead = (await import("../../models/CrmLead")).default;
+            await CrmLead.update(
+                { stageId: toStageId },
+                { where: { id: opportunity.leadId, companyId } }
+            );
+        }
     } catch (err) {
         if (err.name === "SequelizeOptimisticLockError") {
             throw new AppError("ERR_CONCURRENT_UPDATE_DETECTED", 409);
