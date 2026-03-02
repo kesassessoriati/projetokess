@@ -16,7 +16,7 @@ class PipelineHealthScoreService {
     public static async execute(companyId: number, pipelineId: number, profile: string, userId: number): Promise<HealthScore> {
         const admin = profile === "admin";
         const opWhere: any = { companyId, pipelineId, status: "OPEN" };
-        if (!admin) opWhere.ownerUserId = userId;
+        if (!admin) opWhere.assignedUserId = userId; // Opportunity usa assignedUserId, não ownerUserId
 
         // 1. Buscar todas as oportunidades do pipeline
         const totalOpportunities = await Opportunity.count({ where: opWhere });

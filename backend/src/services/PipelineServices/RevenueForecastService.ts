@@ -1,4 +1,3 @@
-import { Op, Sequelize } from "sequelize";
 import Opportunity from "../../models/Opportunity";
 import OpportunityPrediction from "../../models/OpportunityPrediction";
 import User from "../../models/User";
@@ -16,23 +15,23 @@ class RevenueForecastService {
     public static async execute(companyId: number, profile: string, userId: number): Promise<ForecastResult> {
         const admin = profile === "admin";
         const opWhere: any = { companyId, status: "OPEN" };
-        if (!admin) opWhere.ownerUserId = userId;
+        // Opportunity usa assignedUserId (não ownerUserId que é campo de CrmLead)
+        if (!admin) opWhere.assignedUserId = userId;
 
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-        const thirtyDaysAhead = new Date();
-        thirtyDaysAhead.setDate(now.getDate() + 30);
-
-        const sixtyDaysAhead = new Date();
-        sixtyDaysAhead.setDate(now.getDate() + 60);
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         // Buscar todas as oportunidades abertas com predições
         const opportunities = await Opportunity.findAll({
             where: opWhere,
             include: [
-                { model: OpportunityPrediction, as: "prediction" },
+                {
+                    model: OpportunityPrediction,
+                    as: "prediction",
+                    // predictedDaysToClose e predictedCloseProbability carregados para cálculo
+                    attributes: ["predictedCloseProbability", "predictedDaysToClose"]
+                },
                 { model: User, as: "assignedUser", attributes: ["name"] },
                 { model: Pipeline, as: "pipeline", attributes: ["name"] }
             ]
@@ -48,18 +47,28 @@ class RevenueForecastService {
             const prob = op.prediction?.predictedCloseProbability || 0;
             const weightedValue = Number(op.value) * prob;
 
-            // Forecast por tempo (usando a data estimada de fechamento se disponível, ou fallback para createdAt + ciclo médio)
-            // Por enquanto vamos usar a probabilidade ponderada simples para os intervalos
-            period30Days += weightedValue;
-            period60Days += weightedValue; // acumulado simplificado
+            // Usar predictedDaysToClose da IA quando disponível (> 0)
+            const daysToClose = op.prediction?.predictedDaysToClose || 0;
+            const hasDaysEstimate = daysToClose > 0;
 
-            // No mês atual, somamos apenas se houver alta probabilidade (> 0.7) ou se for o target imediato
-            // Na vida real, a IA daria uma "data de fechamento". Aqui simulamos:
-            if (prob > 0.5) {
-                currentMonth += weightedValue;
+            if (hasDaysEstimate) {
+                // Forecast baseado na data prevista de fechamento pela IA
+                if (daysToClose <= 30) period30Days += weightedValue;
+                if (daysToClose <= 60) period60Days += weightedValue;
+
+                // Mês atual: verifica se a data prevista cai dentro do mês corrente
+                const predictedCloseDate = new Date(now.getTime() + daysToClose * 24 * 60 * 60 * 1000);
+                if (predictedCloseDate >= firstDayOfMonth && predictedCloseDate <= lastDayOfMonth) {
+                    currentMonth += weightedValue;
+                }
+            } else {
+                // Fallback por probabilidade quando IA não forneceu estimativa de dias
+                if (prob > 0.7) period30Days += weightedValue; // Alta prob → tende a fechar em 30 dias
+                if (prob > 0.5) period60Days += weightedValue; // Prob moderada → 60 dias
+                if (prob > 0.5) currentMonth += weightedValue; // Mesmo critério para mês atual
             }
 
-            // Agregações
+            // Agregações por vendedor e pipeline (usam valor ponderado total, independente de período)
             const sellerName = op.assignedUser?.name || "Sem Atribuição";
             sellerMap.set(sellerName, (sellerMap.get(sellerName) || 0) + weightedValue);
 

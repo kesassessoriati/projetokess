@@ -298,11 +298,15 @@ const ListPipelineBoardService = async ({
         })
     );
 
+    // Conta apenas reuniões agendadas a partir de hoje (futuras + hoje),
+    // evitando acúmulo infinito de reuniões passadas no contador do board
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
     const scheduledMeetingsCount = await CrmLead.count({
         where: {
             pipelineId,
             companyId,
-            meetingScheduledAt: { [Op.not]: null }
+            meetingScheduledAt: { [Op.gte]: todayMidnight }
         }
     });
 

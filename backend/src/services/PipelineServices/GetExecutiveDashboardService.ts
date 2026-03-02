@@ -43,26 +43,31 @@ interface DashboardData {
 class GetExecutiveDashboardService {
     public static async execute(companyId: number, profile: string, userId: number): Promise<DashboardData> {
         const admin = profile === "admin";
-        const opWhere: any = { companyId };
-        if (!admin) opWhere.ownerUserId = userId;
+
+        // Dois where separados: Opportunity usa assignedUserId, CrmLead usa ownerUserId
+        const oppWhere: any = { companyId };
+        const leadWhere: any = { companyId };
+        if (!admin) {
+            oppWhere.assignedUserId = userId; // campo correto em Opportunity
+            leadWhere.ownerUserId = userId;   // campo correto em CrmLead
+        }
 
         // 1. Receita Real (WON)
-        const realRevenue = await Opportunity.sum("value", { where: { ...opWhere, status: "WON" } }) || 0;
+        const realRevenue = await Opportunity.sum("value", { where: { ...oppWhere, status: "WON" } }) || 0;
 
         // 2. Forecast da IA
         const forecastData = await RevenueForecastService.execute(companyId, profile, userId);
 
         // 3. Win Rate
-        const wonCount = await Opportunity.count({ where: { ...opWhere, status: "WON" } });
-        const lostCount = await Opportunity.count({ where: { ...opWhere, status: "LOST" } });
-        const winRate = totalCount() > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
+        const wonCount = await Opportunity.count({ where: { ...oppWhere, status: "WON" } });
+        const lostCount = await Opportunity.count({ where: { ...oppWhere, status: "LOST" } });
+        const totalClosed = wonCount + lostCount;
+        const winRate = totalClosed > 0 ? (wonCount / totalClosed) * 100 : 0;
 
-        function totalCount() { return wonCount + lostCount; }
-
-        // 4. Ciclo Médio de Vendas (Dias)
+        // 4. Ciclo Médio de Vendas (Dias) — usa updatedAt como proxy de fechamento para WON
         const avgSalesCycleResult = await Opportunity.findOne({
             where: {
-                ...opWhere,
+                ...oppWhere,
                 status: "WON"
             },
             attributes: [
@@ -74,15 +79,22 @@ class GetExecutiveDashboardService {
 
         // 5. Riscos
         const highRiskCount = await Opportunity.count({
-            where: { ...opWhere, status: "OPEN" },
+            where: { ...oppWhere, status: "OPEN" },
             include: [{ association: "prediction", where: { riskLevel: "HIGH" } }]
         });
 
-        const totalOpen = await Opportunity.count({ where: { ...opWhere, status: "OPEN" } });
+        const totalOpen = await Opportunity.count({ where: { ...oppWhere, status: "OPEN" } });
         const slaExpiredCount = await Opportunity.count({
-            where: { ...opWhere, status: "OPEN", slaDeadline: { [Op.lt]: new Date() } }
+            where: { ...oppWhere, status: "OPEN", slaDeadline: { [Op.lt]: new Date() } }
         });
         const slaExpiredRate = totalOpen > 0 ? (slaExpiredCount / totalOpen) * 100 : 0;
+
+        // Leads parados há mais de 7 dias (sem atualização)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const idleLeadsCount = await Opportunity.count({
+            where: { ...oppWhere, status: "OPEN", updatedAt: { [Op.lt]: sevenDaysAgo } }
+        });
 
         // 6. ROI da IA
         const totalMovements = await OpportunityMovement.count({ where: { companyId } });
@@ -104,13 +116,13 @@ class GetExecutiveDashboardService {
             };
         }));
 
-        // 8. Lead Metrics (Reuniões e Conversões)
+        // 8. Lead Metrics (Reuniões e Conversões) — usa leadWhere com ownerUserId correto
         const todayStart = moment().startOf('day').toDate();
         const todayEnd = moment().endOf('day').toDate();
 
         const scheduledToday = await CrmLead.count({
             where: {
-                ...opWhere,
+                ...leadWhere,
                 meetingScheduledAt: {
                     [Op.between]: [todayStart, todayEnd]
                 }
@@ -118,20 +130,19 @@ class GetExecutiveDashboardService {
         });
 
         const totalScheduled = await CrmLead.count({
-            where: { ...opWhere, meetingScheduledAt: { [Op.not]: null } }
+            where: { ...leadWhere, meetingScheduledAt: { [Op.not]: null } }
         });
 
         const totalGenerated = await CrmLead.count({
-            where: opWhere
+            where: leadWhere
         });
 
         const totalConverted = await CrmLead.count({
-            where: { ...opWhere, status: "convertido" }
+            where: { ...leadWhere, status: "convertido" }
         });
 
         // 9. Goal (Meta)
-        // Check if there is a meta setting in DB
-        let target = 1000000; // Default fallback
+        let target = 1000000; // Fallback padrão
         const adminGoalSetting = await Setting.findOne({ where: { companyId, key: "executive_goal" } });
         const userGoalSetting = await Setting.findOne({ where: { companyId, key: `executive_goal_${userId}` } });
 
@@ -156,7 +167,7 @@ class GetExecutiveDashboardService {
             risks: {
                 highRiskCount,
                 slaExpiredRate,
-                idleLeadsCount: 0 // Simplificado
+                idleLeadsCount
             },
             leads: {
                 scheduledToday,
@@ -167,7 +178,7 @@ class GetExecutiveDashboardService {
             aiRoi: {
                 movementRate,
                 accuracyRate,
-                estimatedEfficiencyGain: (movementRate * 0.5) + (accuracyRate * 0.2) // Heurística de ROI
+                estimatedEfficiencyGain: (movementRate * 0.5) + (accuracyRate * 0.2)
             },
             pipelineHealth
         };

@@ -1,8 +1,8 @@
 import { Op, fn, col, literal, QueryTypes } from "sequelize";
-import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import OpportunityMovement from "../../models/OpportunityMovement";
+import OpportunityPrediction from "../../models/OpportunityPrediction";
 
 interface Request {
     pipelineId: number;
@@ -25,20 +25,23 @@ const GetPipelineMetricsService = async ({
     pipelineId,
     companyId
 }: Request): Promise<MetricsResponse> => {
-    // 1. Calcular Valor Total Aberto e Forecast (Forecast = Value * Stage Probability)
+    // 1. Valor Total Aberto e Forecast via IA
+    // forecastRevenue = SUM(value * predictedCloseProbability) via LEFT JOIN com OpportunityPredictions
+    // Oportunidades sem predição contribuem 0 para o forecast (COALESCE)
     const pipelineData = await Opportunity.findAll({
         attributes: [
             [fn("SUM", col("Opportunity.value")), "totalValueOpen"],
             [
-                fn("SUM", literal('Opportunity.value * ("stage"."probability" / 100.0)')),
+                literal('SUM(COALESCE("Opportunity"."value" * "prediction"."predictedCloseProbability", 0))'),
                 "forecastRevenue"
             ]
         ],
         include: [
             {
-                model: PipelineStage,
-                as: "stage",
-                attributes: []
+                model: OpportunityPrediction,
+                as: "prediction",
+                attributes: [],
+                required: false // LEFT JOIN: inclui opps sem predição (forecast = 0 para elas)
             }
         ],
         where: {
@@ -52,8 +55,8 @@ const GetPipelineMetricsService = async ({
     const totalValueOpen = parseFloat(pipelineData[0]?.totalValueOpen || "0");
     const forecastRevenue = parseFloat(pipelineData[0]?.forecastRevenue || "0");
 
-    // 2. Calcular Win Rate e Conversion Rate
-    const stats = await Opportunity.findAll({
+    // 2. Win Rate e Conversion Rate (métricas distintas)
+    const closedStats = await Opportunity.findAll({
         attributes: [
             "status",
             [fn("COUNT", col("id")), "count"]
@@ -67,20 +70,28 @@ const GetPipelineMetricsService = async ({
         raw: true
     }) as unknown as { status: string; count: string }[];
 
-    const statusMap = stats.reduce((acc, curr) => {
+    const statusMap = closedStats.reduce((acc, curr) => {
         acc[curr.status] = parseInt(curr.count, 10);
         return acc;
     }, { WON: 0, LOST: 0 } as Record<string, number>);
 
-    const totalFinished = statusMap.WON + statusMap.LOST;
-    const winRate = totalFinished > 0 ? (statusMap.WON / totalFinished) * 100 : 0;
-    const conversionRate = winRate; // No contexto simples de board, winRate e conversionRate costumam ser usados como sinônimos se a base é "finalizados"
+    const openCount = await Opportunity.count({
+        where: { pipelineId, companyId, status: "OPEN" }
+    });
 
-    // 3. Calcular Tempo Médio por Estágio (averageTimePerStage)
-    // Usaremos uma query SQL bruta para eficiência, calculando a diferença entre movimentos
+    const totalClosed = statusMap.WON + statusMap.LOST;
+    const totalAll = totalClosed + openCount;
+
+    // winRate: percentual de ganhos entre deals finalizados (WON / (WON + LOST))
+    const winRate = totalClosed > 0 ? (statusMap.WON / totalClosed) * 100 : 0;
+
+    // conversionRate: percentual de ganhos sobre todas as oportunidades do pipeline
+    const conversionRate = totalAll > 0 ? (statusMap.WON / totalAll) * 100 : 0;
+
+    // 3. Tempo Médio por Estágio via SQL raw
     const avgTimePerStage = await OpportunityMovement.sequelize.query(`
         WITH StageDurations AS (
-            SELECT 
+            SELECT
                 "m"."fromStageId" as "stageId",
                 "s"."name" as "stageName",
                 "m"."createdAt" - LAG("m"."createdAt") OVER (PARTITION BY "m"."opportunityId" ORDER BY "m"."createdAt") as "duration"
@@ -89,7 +100,7 @@ const GetPipelineMetricsService = async ({
             JOIN "Opportunities" "o" ON "o"."id" = "m"."opportunityId"
             WHERE "o"."pipelineId" = :pipelineId AND "o"."companyId" = :companyId
         )
-        SELECT 
+        SELECT
             "stageId",
             "stageName",
             AVG(EXTRACT(EPOCH FROM "duration") / 86400) as "averageDays"
