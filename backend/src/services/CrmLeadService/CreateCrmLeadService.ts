@@ -136,6 +136,15 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     primaryTicketId: Yup.number().nullable()
   });
 
+  // Mapeamento retroativo de status
+  if (data.status === "new") data.status = "novo";
+  if (data.status === "won") data.status = "convertido";
+  if (data.status === "lost") data.status = "perdido";
+
+  if (data.leadStatus === "new") data.leadStatus = "novo";
+  if (data.leadStatus === "won") data.leadStatus = "convertido";
+  if (data.leadStatus === "lost") data.leadStatus = "perdido";
+
   await schema.validate(data);
 
   if (data.email && data.email.trim() !== "") {

@@ -87,8 +87,8 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                 durationMinutes: parseInt(durationMinutes, 10) || 60,
                 status: "scheduled",
                 scheduleId: parseInt(scheduleId, 10),
-                contactId: (op && op.contact && op.contact.id) || null, // Vínculo com o lead via contact
-                clientId: (op && op.leadId) || null
+                contactId: (op && op.contact && op.contact.id) || null,
+                clientId: null // Não vincular como client_id para evitar erro de Foreign Key (pois é um Lead, não CRM Client)
             };
 
             await api.post("/appointments", payload);
