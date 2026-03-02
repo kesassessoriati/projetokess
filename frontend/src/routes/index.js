@@ -147,6 +147,7 @@ const Routes = () => {
                   <QueueSelectedProvider>
                     <LoggedInLayout>
                       <NotificationToast />
+                      <Switch>
                       <Route exact path="/financeiro" component={Financeiro} isPrivate />
 
                       <Route exact path="/companies" component={Companies} isPrivate />
@@ -287,6 +288,7 @@ const Routes = () => {
                       <Route exact path="/apps/:appId" component={EmbeddedLink} isPrivate />
                       {/* Fallback para rotas privadas não encontradas dentro do layout */}
                       <Route path="*" component={() => <Redirect to="/atendimentos" />} isPrivate />
+                      </Switch>
                     </LoggedInLayout>
                   </QueueSelectedProvider>
                 </WhatsAppsProvider>

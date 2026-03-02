@@ -572,7 +572,7 @@ const UserSchedules = () => {
                       size="small"
                       color="primary"
                       startIcon={<EventIcon />}
-                      href={`/appointments?scheduleId=${schedule.id}`}
+                      onClick={() => history.push(`/appointments?scheduleId=${schedule.id}`)}
                     >
                       Compromissos
                     </Button>
