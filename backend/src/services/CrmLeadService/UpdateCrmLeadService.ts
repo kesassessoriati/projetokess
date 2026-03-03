@@ -21,6 +21,7 @@ interface Request {
   position?: string;
   decisionMakerName?: string;
   decisionMakerPhone?: string;
+  cnpj?: string;
   gmn?: string;
   website?: string;
   instagram?: string;

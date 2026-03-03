@@ -61,7 +61,9 @@ export const board = async (req: Request, res: Response): Promise<Response> => {
         minProbability,
         onlyAI,
         onlyExpired,
-        sort
+        sort,
+        ownerUserId,
+        viewMode
     } = req.query;
 
     const pipelineBoard = await ListPipelineBoardService({
@@ -78,7 +80,9 @@ export const board = async (req: Request, res: Response): Promise<Response> => {
         },
         sort: sort as any,
         profile,
-        userId: Number(userId)
+        userId: Number(userId),
+        ownerUserId: ownerUserId ? parseInt(ownerUserId as string, 10) : undefined,
+        viewMode: viewMode as "team" | "personal" | undefined
     });
 
     return res.status(200).json(pipelineBoard);

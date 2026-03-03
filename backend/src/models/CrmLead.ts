@@ -70,6 +70,9 @@ class CrmLead extends Model<CrmLead> {
   decisionMakerPhone: string;
 
   @Column
+  cnpj: string;
+
+  @Column
   gmn: string;
 
   @Column

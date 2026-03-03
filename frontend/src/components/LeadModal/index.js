@@ -66,6 +66,7 @@ const defaultForm = {
   email: "",
   phone: "",
   decisionMakerPhone: "",
+  cnpj: "",
   gmn: "",
   website: "",
   instagram: "",
@@ -296,6 +297,21 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   className={classes.formField}
                 />
               </Grid>
+
+              {/* CNPJ */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="CNPJ"
+                  name="cnpj"
+                  value={form.cnpj}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  placeholder="00.000.000/0000-00"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} />
 
               {/* Row 4 */}
               <Grid item xs={12} sm={6}>

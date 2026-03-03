@@ -22,6 +22,8 @@ interface Request {
     sort?: "AI_PRIORITY" | "CREATED_AT";
     profile?: string;
     userId?: number;
+    ownerUserId?: number;
+    viewMode?: "team" | "personal";
 }
 
 interface BoardOpportunity {
@@ -81,7 +83,9 @@ const ListPipelineBoardService = async ({
     filter,
     sort = "CREATED_AT",
     profile,
-    userId
+    userId,
+    ownerUserId,
+    viewMode
 }: Request): Promise<BoardResponse> => {
     // 1. Buscar o Pipeline e seus Estágios
     const pipeline = await Pipeline.findOne({
@@ -125,6 +129,13 @@ const ListPipelineBoardService = async ({
             };
             if (profile !== "admin" && userId) {
                 w.assignedUserId = userId;
+            } else if (profile === "admin") {
+                if (ownerUserId) {
+                    w.assignedUserId = ownerUserId;
+                } else if (viewMode === "personal" && userId) {
+                    w.assignedUserId = userId;
+                }
+                // viewMode === "team" (padrão admin): sem filtro — vê todos
             }
             return w;
         })(),
@@ -152,6 +163,13 @@ const ListPipelineBoardService = async ({
 
         if (profile !== "admin" && userId) {
             where.assignedUserId = userId;
+        } else if (profile === "admin") {
+            if (ownerUserId) {
+                where.assignedUserId = ownerUserId;
+            } else if (viewMode === "personal" && userId) {
+                where.assignedUserId = userId;
+            }
+            // viewMode === "team" (padrão admin): sem filtro — vê todos
         }
 
         // Filtros Inteligentes

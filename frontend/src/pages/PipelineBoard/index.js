@@ -22,7 +22,8 @@ import {
     DialogActions,
     Divider,
     Switch,
-    FormControlLabel
+    FormControlLabel,
+    InputBase
 } from "@material-ui/core";
 import {
     TrendingUp as TrendingUpIcon,
@@ -39,7 +40,11 @@ import {
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
     ThumbDown as ThumbDownIcon,
-    FlashOn as FlashIcon
+    FlashOn as FlashIcon,
+    Search as SearchIcon,
+    People as PeopleIcon,
+    Person as PersonIcon,
+    Clear as ClearIcon
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { format, parseISO } from "date-fns";
@@ -64,11 +69,69 @@ const useStyles = makeStyles((theme) => ({
         marginTop: 0
     },
     header: {
-        padding: theme.spacing(2, 4),
+        padding: theme.spacing(2, 4, 1.5, 4),
         backgroundColor: "rgba(255, 255, 255, 0.9)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid #e2e8f0",
         zIndex: 10,
+    },
+    controlBar: {
+        display: "flex",
+        alignItems: "center",
+        gap: theme.spacing(1.5),
+        flexWrap: "wrap",
+        marginTop: theme.spacing(1.5),
+        paddingTop: theme.spacing(1.5),
+        borderTop: "1px solid #f1f5f9"
+    },
+    searchBox: {
+        display: "flex",
+        alignItems: "center",
+        backgroundColor: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: 10,
+        padding: "4px 12px",
+        gap: 6,
+        minWidth: 220,
+        maxWidth: 300,
+        "&:focus-within": {
+            border: "1px solid #6366f1",
+            backgroundColor: "#fff",
+            boxShadow: "0 0 0 3px rgba(99,102,241,0.08)"
+        }
+    },
+    searchInput: {
+        border: "none",
+        background: "transparent",
+        outline: "none",
+        fontSize: "0.85rem",
+        color: "#334155",
+        width: "100%",
+        "&::placeholder": { color: "#94a3b8" }
+    },
+    viewModeBtn: {
+        borderRadius: 10,
+        fontWeight: 700,
+        textTransform: "none",
+        fontSize: "0.8rem",
+        padding: "6px 14px",
+        height: 36
+    },
+    teamBtn: {
+        backgroundColor: "#6366f1",
+        color: "#fff",
+        "&:hover": { backgroundColor: "#4f46e5" }
+    },
+    personalBtn: {
+        backgroundColor: "#fff",
+        color: "#334155",
+        border: "1px solid #e2e8f0",
+        "&:hover": { backgroundColor: "#f8fafc" }
+    },
+    memberSelect: {
+        minWidth: 180,
+        "& .MuiOutlinedInput-root": { borderRadius: 10, height: 36, fontSize: "0.85rem" },
+        "& .MuiInputLabel-outlined": { fontSize: "0.85rem" }
     },
     boardArea: {
         flex: 1,
@@ -93,7 +156,6 @@ const useStyles = makeStyles((theme) => ({
     },
     topScrollContent: {
         height: 1,
-        // O width será definido dinamicamente via style
     },
     lane: {
         minWidth: 340,
@@ -203,16 +265,26 @@ const useStyles = makeStyles((theme) => ({
         cursor: "pointer",
         fontSize: "0.8rem",
         "&:hover": { color: theme.palette.primary.main }
+    },
+    searchHighlight: {
+        backgroundColor: "#fef9c3",
+        borderLeft: "6px solid #eab308 !important"
+    },
+    noResults: {
+        textAlign: "center",
+        padding: theme.spacing(2),
+        color: "#94a3b8",
+        fontSize: "0.8rem"
     }
 }));
 
-const IntelligentCard = ({ op, onClick }) => {
+const IntelligentCard = ({ op, onClick, highlight }) => {
     const riskColor = (op.prediction && op.prediction.riskLevel === "HIGH") ? "#ef4444" : (op.prediction && op.prediction.riskLevel === "MEDIUM") ? "#f59e0b" : "#10b981";
     const probability = (op.prediction && (op.prediction.probability * 100).toFixed(0)) || 0;
     const classes = useStyles({ riskColor });
 
     return (
-        <Box className={classes.card} onClick={() => onClick(op)}>
+        <Box className={`${classes.card} ${highlight ? classes.searchHighlight : ""}`} onClick={() => onClick(op)}>
             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                 <Typography variant="body2" style={{ fontWeight: 700, color: "#334155", lineHeight: 1.2 }}>
                     {op.title}
@@ -229,6 +301,12 @@ const IntelligentCard = ({ op, onClick }) => {
                     {(op.contact && op.contact.name) || (op.lead && op.lead.name) || "Sem contato"}
                 </Typography>
             </Box>
+
+            {op.lead && op.lead.companyName && (
+                <Typography variant="caption" style={{ color: "#94a3b8", display: "block", marginBottom: 4 }}>
+                    🏢 {op.lead.companyName}
+                </Typography>
+            )}
 
             <Typography variant="subtitle2" style={{ fontWeight: 800, color: "#1e293b" }}>
                 {fCurrency(op.value)}
@@ -252,6 +330,8 @@ const PipelineBoard = () => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
     const socketContext = useSocket();
+    const isAdmin = user && user.profile === "admin";
+
     const [pipelines, setPipelines] = useState([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState("");
     const [board, setBoard] = useState({ stages: [] });
@@ -262,11 +342,20 @@ const PipelineBoard = () => {
     const [selectedStageToImport, setSelectedStageToImport] = useState(null);
     const [universalModalOpen, setUniversalModalOpen] = useState(false);
 
-    // Filtros
+    // Filtros existentes
     const [filterModalOpen, setFilterModalOpen] = useState(false);
     const [riskFilter, setRiskFilter] = useState("");
     const [onlyAI, setOnlyAI] = useState(false);
     const [onlyExpired, setOnlyExpired] = useState(false);
+
+    // NOVO: Busca client-side
+    const [searchText, setSearchText] = useState("");
+
+    // NOVO: Filtros de usuário (admin only)
+    // viewMode: "team" = vê todos; "personal" = vê apenas próprios leads
+    const [viewMode, setViewMode] = useState("team");
+    const [selectedOwnerUserId, setSelectedOwnerUserId] = useState("");
+    const [teamUsers, setTeamUsers] = useState([]);
 
     // IA Feedback
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -283,6 +372,7 @@ const PipelineBoard = () => {
 
     useEffect(() => {
         fetchPipelines();
+        if (isAdmin) fetchTeamUsers();
     }, []);
 
     const { socket } = useSocket();
@@ -306,7 +396,7 @@ const PipelineBoard = () => {
             socket.off(oppEv, onEvent);
             socket.off(leadEv, onEvent);
         };
-    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort, user, socket]);
+    }, [selectedPipelineId, riskFilter, onlyAI, onlyExpired, sort, viewMode, selectedOwnerUserId, user, socket]);
 
     const fetchPipelines = async () => {
         try {
@@ -316,12 +406,29 @@ const PipelineBoard = () => {
         } catch (e) { }
     };
 
+    const fetchTeamUsers = async () => {
+        try {
+            const { data } = await api.get("/users/");
+            setTeamUsers(data.users || []);
+        } catch (e) { }
+    };
+
     const fetchBoard = async () => {
         setLoading(true);
         try {
-            const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, {
-                params: { riskLevel: riskFilter, onlyAI, onlyExpired, sort }
-            });
+            const params = { riskLevel: riskFilter, onlyAI, onlyExpired, sort };
+
+            if (isAdmin) {
+                if (viewMode === "personal") {
+                    params.viewMode = "personal";
+                } else if (selectedOwnerUserId) {
+                    params.ownerUserId = selectedOwnerUserId;
+                } else {
+                    params.viewMode = "team";
+                }
+            }
+
+            const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, { params });
 
             // Deduplicação global por ID em cada estágio
             if (data && data.stages) {
@@ -340,6 +447,26 @@ const PipelineBoard = () => {
             setLoading(false);
         }
     };
+
+    // Filtro client-side por busca
+    const filteredBoard = useMemo(() => {
+        if (!searchText.trim()) return board;
+        const q = searchText.toLowerCase().trim();
+        return {
+            ...board,
+            stages: (board.stages || []).map(stage => ({
+                ...stage,
+                opportunities: (stage.opportunities || []).filter(op => {
+                    const title = (op.title || "").toLowerCase();
+                    const leadName = (op.lead && op.lead.name || "").toLowerCase();
+                    const contactName = (op.contact && op.contact.name || "").toLowerCase();
+                    const companyName = (op.lead && op.lead.companyName || "").toLowerCase();
+                    const cnpj = (op.lead && op.lead.cnpj || "").toLowerCase();
+                    return title.includes(q) || leadName.includes(q) || contactName.includes(q) || companyName.includes(q) || cnpj.includes(q);
+                })
+            }))
+        };
+    }, [board, searchText]);
 
     const handleOpenImport = (stageId = "") => {
         setSelectedStageToImport(stageId);
@@ -396,7 +523,6 @@ const PipelineBoard = () => {
         }
 
         if (draggedOp && destStageIdx !== undefined) {
-            // Deduplication na inserção pra garantir
             newBoard.stages[destStageIdx].opportunities = newBoard.stages[destStageIdx].opportunities.filter(o => o.id !== draggedOp.id);
             newBoard.stages[destStageIdx].opportunities.splice(destination.index, 0, draggedOp);
             setBoard(newBoard);
@@ -418,6 +544,11 @@ const PipelineBoard = () => {
             return acc;
         }, { totalValue: 0, forecastValue: 0, highRiskCount: 0 });
     }, [board]);
+
+    const searchResultCount = useMemo(() => {
+        if (!searchText.trim()) return null;
+        return (filteredBoard.stages || []).reduce((acc, s) => acc + s.opportunities.length, 0);
+    }, [filteredBoard, searchText]);
 
     return (
         <Box className={classes.container}>
@@ -472,6 +603,75 @@ const PipelineBoard = () => {
                         </Box>
                     </Grid>
                 </Grid>
+
+                {/* Barra de controles: busca + filtros de usuário (admin) */}
+                <div className={classes.controlBar}>
+                    {/* Campo de busca */}
+                    <div className={classes.searchBox}>
+                        <SearchIcon style={{ fontSize: 16, color: "#94a3b8", flexShrink: 0 }} />
+                        <input
+                            className={classes.searchInput}
+                            placeholder="Buscar lead, empresa, CNPJ..."
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                        {searchText && (
+                            <IconButton size="small" onClick={() => setSearchText("")} style={{ padding: 2 }}>
+                                <ClearIcon style={{ fontSize: 14, color: "#94a3b8" }} />
+                            </IconButton>
+                        )}
+                    </div>
+
+                    {searchText && searchResultCount !== null && (
+                        <Typography variant="caption" style={{ color: "#6366f1", fontWeight: 700 }}>
+                            {searchResultCount} resultado{searchResultCount !== 1 ? "s" : ""}
+                        </Typography>
+                    )}
+
+                    {/* Filtros de equipe — apenas admin */}
+                    {isAdmin && (
+                        <>
+                            <Divider orientation="vertical" flexItem style={{ margin: "0 4px", height: 28, alignSelf: "center" }} />
+
+                            <Tooltip title={viewMode === "team" ? "Visualizando toda a equipe" : "Visualizando apenas seus leads"}>
+                                <Button
+                                    size="small"
+                                    className={`${classes.viewModeBtn} ${viewMode === "team" ? classes.teamBtn : classes.personalBtn}`}
+                                    startIcon={viewMode === "team" ? <PeopleIcon style={{ fontSize: 16 }} /> : <PersonIcon style={{ fontSize: 16 }} />}
+                                    onClick={() => {
+                                        setViewMode(v => v === "team" ? "personal" : "team");
+                                        setSelectedOwnerUserId("");
+                                    }}
+                                >
+                                    {viewMode === "team" ? "Kanban Equipe" : "Kanban Pessoal"}
+                                </Button>
+                            </Tooltip>
+
+                            {viewMode === "team" && (
+                                <FormControl variant="outlined" size="small" className={classes.memberSelect}>
+                                    <InputLabel style={{ fontSize: "0.85rem" }}>Membro da Equipe</InputLabel>
+                                    <Select
+                                        value={selectedOwnerUserId}
+                                        onChange={(e) => setSelectedOwnerUserId(e.target.value)}
+                                        label="Membro da Equipe"
+                                    >
+                                        <MenuItem value=""><em>Toda a equipe</em></MenuItem>
+                                        {teamUsers.map(u => (
+                                            <MenuItem key={u.id} value={u.id}>
+                                                <Box display="flex" alignItems="center" gap={1}>
+                                                    <Avatar style={{ width: 20, height: 20, fontSize: "0.65rem", backgroundColor: "#6366f1" }}>
+                                                        {u.name ? u.name[0].toUpperCase() : "?"}
+                                                    </Avatar>
+                                                    {u.name}
+                                                </Box>
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+                        </>
+                    )}
+                </div>
             </header>
 
             <div
@@ -493,7 +693,7 @@ const PipelineBoard = () => {
                 >
                     {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
 
-                    {!loading && (board.stages || []).map(stage => (
+                    {!loading && (filteredBoard.stages || []).map(stage => (
                         <Droppable key={stage.id} droppableId={String(stage.id)}>
                             {(provided) => (
                                 <Box className={classes.lane} ref={provided.innerRef} {...provided.droppableProps}>
@@ -501,7 +701,9 @@ const PipelineBoard = () => {
                                         <div className={classes.laneTitle}>
                                             <Box display="flex" alignItems="center">
                                                 {stage.name} <span style={{ fontSize: "0.7rem", opacity: 0.8, marginLeft: 6 }}>| ID: {stage.id}</span>
-                                                <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>{stage.opportunitiesCount}</span>
+                                                <span style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "2px 10px", borderRadius: 10, fontSize: "0.8rem", marginLeft: 8 }}>
+                                                    {searchText ? stage.opportunities.length : stage.opportunitiesCount}
+                                                </span>
                                             </Box>
                                             <Tooltip title="Importar Leads para este estágio">
                                                 <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: "rgba(255,255,255,0.7)" }}>
@@ -521,6 +723,9 @@ const PipelineBoard = () => {
                                     </div>
 
                                     <div className={classes.cardList}>
+                                        {stage.opportunities.length === 0 && searchText && (
+                                            <Typography className={classes.noResults}>Nenhum resultado</Typography>
+                                        )}
                                         {stage.opportunities.map((op, index) => (
                                             <Draggable key={op.id} draggableId={String(op.id)} index={index}>
                                                 {(provided, snapshot) => (
@@ -536,6 +741,7 @@ const PipelineBoard = () => {
                                                     >
                                                         <IntelligentCard
                                                             op={op}
+                                                            highlight={!!searchText.trim()}
                                                             onClick={(o) => { setSelectedOp(o); setUniversalModalOpen(true); }}
                                                         />
                                                     </div>
@@ -543,7 +749,7 @@ const PipelineBoard = () => {
                                             </Draggable>
                                         ))}
                                         {provided.placeholder}
-                                        {stage.hasMore && (
+                                        {stage.hasMore && !searchText && (
                                             <Typography className={classes.loadMore}>Carregar mais...</Typography>
                                         )}
                                     </div>
