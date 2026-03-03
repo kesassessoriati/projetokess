@@ -3,6 +3,7 @@ import {
   Avatar,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   IconButton,
@@ -238,6 +239,21 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "center",
     color: theme.palette.text.secondary
   },
+  bulkActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 2),
+    backgroundColor: theme.palette.action.selected,
+    borderRadius: 8,
+    marginBottom: theme.spacing(2),
+    flexWrap: "wrap"
+  },
+  hideOnMobile: {
+    [theme.breakpoints.down("sm")]: {
+      display: "none"
+    }
+  },
   loadingBox: {
     display: "flex",
     alignItems: "center",
@@ -263,6 +279,8 @@ const Leads = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [deletingLead, setDeletingLead] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [selectedLeads, setSelectedLeads] = useState([]);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   // Removido useEffect que causava double-fetch e loops no mount
 
@@ -362,6 +380,35 @@ const Leads = () => {
     }
   };
 
+  const handleToggleSelectLead = (leadId) => {
+    setSelectedLeads((prev) =>
+      prev.includes(leadId)
+        ? prev.filter((id) => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedLeads(leads.map((l) => l.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedLeads([]);
+  };
+
+  const handleDeleteSelectedLeads = async () => {
+    try {
+      for (const id of selectedLeads) {
+        await api.delete(`/crm/leads/${id}`);
+        dispatch({ type: "DELETE_LEAD", payload: id });
+      }
+    } catch (err) {
+      toastError(err);
+    }
+    setConfirmBulkDeleteOpen(false);
+    setSelectedLeads([]);
+  };
+
   const getInitials = (name = "") => {
     if (!name.trim()) return "L";
     const pieces = name.trim().split(" ");
@@ -394,6 +441,15 @@ const Leads = () => {
         onConfirm={handleDeleteLead}
       >
         Tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        open={confirmBulkDeleteOpen}
+        onClose={() => setConfirmBulkDeleteOpen(false)}
+        title="Excluir leads selecionados"
+        onConfirm={handleDeleteSelectedLeads}
+      >
+        {`Você tem ${selectedLeads.length} lead(s) selecionado(s). Deseja realmente excluir todos? Esta ação não pode ser desfeita.`}
       </ConfirmationModal>
 
       <Box className={classes.header}>
@@ -466,6 +522,54 @@ const Leads = () => {
         </Box>
       </Box>
 
+      {/* Ações em massa */}
+      {leads.length > 0 && (
+        <Box className={classes.bulkActions}>
+          {/* Checkbox master */}
+          <Checkbox
+            className={classes.hideOnMobile}
+            color="primary"
+            indeterminate={selectedLeads.length > 0 && selectedLeads.length < leads.length}
+            checked={leads.length > 0 && selectedLeads.length === leads.length}
+            onChange={() =>
+              selectedLeads.length === leads.length
+                ? handleClearSelection()
+                : handleSelectAll()
+            }
+            title={selectedLeads.length === leads.length ? "Desmarcar todos" : "Selecionar todos"}
+          />
+          <Typography variant="body2">
+            {selectedLeads.length > 0
+              ? `${selectedLeads.length} selecionado(s)`
+              : `${leads.length} lead(s)`}
+          </Typography>
+          {selectedLeads.length > 0 && selectedLeads.length < leads.length && (
+            <Button size="small" onClick={handleSelectAll} style={{ textTransform: "none" }}>
+              Selecionar todos os {leads.length}
+            </Button>
+          )}
+          {hasMore && selectedLeads.length === leads.length && selectedLeads.length > 0 && (
+            <Typography variant="caption" style={{ color: "#f57c00" }}>
+              (apenas os carregados — role para baixo para carregar mais)
+            </Typography>
+          )}
+          {selectedLeads.length > 0 && (
+            <>
+              <Button
+                size="small"
+                color="secondary"
+                onClick={() => setConfirmBulkDeleteOpen(true)}
+              >
+                Excluir selecionados
+              </Button>
+              <Button size="small" onClick={handleClearSelection}>
+                Limpar seleção
+              </Button>
+            </>
+          )}
+        </Box>
+      )}
+
       <Box className={classes.content}>
         {leads.length === 0 && !loading ? (
           <Box className={classes.emptyState}>
@@ -479,6 +583,12 @@ const Leads = () => {
           <Box className={classes.list}>
             {leads.map((lead) => (
               <Box key={lead.id} className={classes.listItem}>
+                <Checkbox
+                  className={classes.hideOnMobile}
+                  color="primary"
+                  checked={selectedLeads.includes(lead.id)}
+                  onChange={() => handleToggleSelectLead(lead.id)}
+                />
                 <Avatar className={classes.itemAvatar}>{getInitials(lead.name)}</Avatar>
 
                 <Box className={classes.itemInfo}>
