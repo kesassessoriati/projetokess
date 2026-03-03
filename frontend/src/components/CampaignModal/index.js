@@ -70,13 +70,14 @@ const useStyles = makeStyles((theme) => ({
   },
   dialogPaper: {
     borderRadius: "8px",
-    boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.15)",
+    boxShadow: "0px 8px 40px rgba(0, 212, 255, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.5)",
     background: "#ffffff",
     minWidth: "500px",
     maxWidth: "800px",
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
+    backgroundColor: "#0a0a0a",
+    borderBottom: "2px solid #00d4ff",
     color: "white",
     padding: "16px 24px",
     borderRadius: "8px 8px 0 0",
@@ -108,15 +109,15 @@ const useStyles = makeStyles((theme) => ({
         borderColor: "#e0e0e0",
       },
       "&:hover fieldset": {
-        borderColor: "#667eea",
+        borderColor: "#00d4ff",
       },
       "&.Mui-focused fieldset": {
-        borderColor: "#667eea",
+        borderColor: "#00d4ff",
         borderWidth: "1px",
       },
     },
     "& .MuiInputLabel-root.Mui-focused": {
-      color: "#667eea",
+      color: "#00d4ff",
     },
   },
   btnWrapper: {
@@ -186,12 +187,13 @@ const useStyles = makeStyles((theme) => ({
     boxShadow: "none",
   },
   tabs: {
-    backgroundColor: "#667eea",
+    backgroundColor: "#0f0f0f",
     color: "white",
     borderRadius: "8px 8px 0 0",
     "& .MuiTabs-indicator": {
-      backgroundColor: "white",
+      backgroundColor: "#00d4ff",
       height: "3px",
+      boxShadow: "0 0 8px #00d4ff",
     },
   },
   tab: {
@@ -210,11 +212,11 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#fff",
   },
   fieldIcon: {
-    color: "#667eea",
+    color: "#00d4ff",
     marginRight: theme.spacing(1),
   },
   avatar: {
-    backgroundColor: "#667eea",
+    backgroundColor: "#00d4ff",
     width: theme.spacing(4),
     height: theme.spacing(4),
   },

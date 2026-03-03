@@ -892,7 +892,6 @@ const LoggedInLayout = ({ children }) => {
           { title: "Leads", path: "/leads" },
           { title: "Clientes", path: "/clientes" },
           { title: "Usuários", path: "/users" },
-          { title: "Lista de contatos", path: "/contact-lists" },
         ],
       },
       {
@@ -903,6 +902,7 @@ const LoggedInLayout = ({ children }) => {
           { title: "Agente de IA", path: "/agentes" },
           { title: "Construtor de Fluxo", path: "/flowbuilders" },
           { title: "Disparos", path: "/campanhas" },
+          { title: "└ Listas de contatos", path: "/contact-lists" },
           { title: "Campanhas", path: "/phrase-lists" },
           { title: "Respostas rápidas", path: "/quick-messages" },
           { title: "Integrações", path: "/integracao" },
