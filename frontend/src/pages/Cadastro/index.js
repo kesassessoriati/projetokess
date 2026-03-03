@@ -38,7 +38,6 @@ import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CardMembershipIcon from '@mui/icons-material/CardMembership';
-import DescriptionIcon from '@mui/icons-material/Description';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -457,16 +456,7 @@ const SignUpSchema = Yup.object().shape({
   type: Yup.string()
     .oneOf(["pf", "pj"], "Tipo inválido")
     .required("Tipo é obrigatório"),
-  document: Yup.string()
-    .when("type", {
-      is: "pf",
-      then: Yup.string()
-        .test("cpf", "CPF inválido", (value) => !value || isValidCPF(value))
-        .required("CPF é obrigatório"),
-      otherwise: Yup.string()
-        .test("cnpj", "CNPJ inválido", (value) => !value || isValidCNPJ(value))
-        .required("CNPJ é obrigatório")
-    }),
+  document: Yup.string().nullable(),
   segment: Yup.string(),
   planId: Yup.number()
     .required("Plano é obrigatório")
@@ -485,9 +475,8 @@ const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nex
     2: ["password", "confirmPassword"],
     3: ["phone"],
     4: ["type"],
-    5: ["document"],
-    6: ["companyName"],
-    7: ["planId"],
+    5: ["companyName"],
+    6: ["planId"],
   };
 
   // Carousel scroll functions
@@ -845,34 +834,6 @@ const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nex
           <Fade in={true}>
             <Box className={classes.stepContent}>
               <Typography variant="h5" gutterBottom>
-                📋 {values.type === 'pf' ? 'Seu CPF' : 'Seu CNPJ'}
-              </Typography>
-              <Field
-                as={TextField}
-                name="document"
-                variant="outlined"
-                fullWidth
-                placeholder={values.type === 'pf' ? '000.000.000-00' : '00.000.000/0000-00'}
-                error={touched.document && Boolean(errors.document)}
-                helperText={touched.document && errors.document}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <DescriptionIcon style={{ color: "#9ca3af" }} />
-                    </InputAdornment>
-                  ),
-                }}
-                className={classes.inputField}
-              />
-            </Box>
-          </Fade>
-        );
-
-      case 6:
-        return (
-          <Fade in={true}>
-            <Box className={classes.stepContent}>
-              <Typography variant="h5" gutterBottom>
                 🏭 Nome da sua empresa
               </Typography>
               <Field
@@ -896,7 +857,7 @@ const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nex
           </Fade>
         );
 
-      case 7:
+      case 6:
         return (
           <Fade in={true}>
             <Box className={classes.stepContent}>
@@ -1049,7 +1010,6 @@ const SignUp = () => {
     "Senha",
     "Telefone",
     "Tipo",
-    "Documento",
     "Empresa",
     "Plano"
   ];

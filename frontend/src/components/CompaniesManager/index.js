@@ -127,9 +127,9 @@ const CompanySchema = Yup.object().shape({
   name: Yup.string().required("Nome é obrigatório"),
   email: Yup.string().email("Email inválido").required("Email é obrigatório"),
   document: Yup.string()
-    .required("CPF/CNPJ é obrigatório")
+    .nullable()
     .test("valid-document", "CPF/CNPJ inválido", (value) => {
-      if (!value) return false;
+      if (!value || value.trim() === "") return true; // opcional
       return isValidDocument(value);
     }),
 });
@@ -262,12 +262,14 @@ export function CompanyForm(props) {
       data.dueDate = null;
     }
     
-    // Valida CPF/CNPJ
-    if (!data.document || !isValidDocument(data.document)) {
-      toast.error("CPF/CNPJ inválido. Verifique o número informado.");
-      return;
+    // Valida CPF/CNPJ apenas se preenchido
+    if (data.document && data.document.trim() !== "") {
+      if (!isValidDocument(data.document)) {
+        toast.error("CPF/CNPJ inválido. Verifique o número informado.");
+        return;
+      }
     }
-    
+
     onSubmit(data);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -820,25 +822,25 @@ export default function CompaniesManager() {
   const handleSubmit = async (data) => {
     setLoading(true);
     
-    // Valida CPF/CNPJ
-    if (!data.document || !isValidDocument(data.document)) {
-      toast.error("CPF/CNPJ inválido. Verifique o número informado.");
-      setLoading(false);
-      return;
-    }
-    
-    // Verifica duplicidade de documento (apenas para novos cadastros)
-    if (!data.id) {
-      const cleanDocument = data.document.replace(/[^\d]/g, '');
-      const duplicateCompany = records.find(company => {
-        const companyDoc = (company.document || '').replace(/[^\d]/g, '');
-        return companyDoc === cleanDocument;
-      });
-      
-      if (duplicateCompany) {
-        toast.error(`CPF/CNPJ já cadastrado para a empresa "${duplicateCompany.name}"`);
+    // Valida CPF/CNPJ apenas se preenchido
+    if (data.document && data.document.trim() !== "") {
+      if (!isValidDocument(data.document)) {
+        toast.error("CPF/CNPJ inválido. Verifique o número informado.");
         setLoading(false);
         return;
+      }
+      // Verifica duplicidade de documento (apenas para novos cadastros com doc preenchido)
+      if (!data.id) {
+        const cleanDocument = data.document.replace(/[^\d]/g, '');
+        const duplicateCompany = records.find(company => {
+          const companyDoc = (company.document || '').replace(/[^\d]/g, '');
+          return companyDoc === cleanDocument;
+        });
+        if (duplicateCompany) {
+          toast.error(`CPF/CNPJ já cadastrado para a empresa "${duplicateCompany.name}"`);
+          setLoading(false);
+          return;
+        }
       }
     }
     
