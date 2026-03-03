@@ -893,7 +893,6 @@ const LoggedInLayout = ({ children }) => {
           { title: "Clientes", path: "/clientes" },
           { title: "Usuários", path: "/users" },
           { title: "Lista de contatos", path: "/contact-lists" },
-          { title: "Importar contatos", path: "/contatos/import" },
         ],
       },
       {

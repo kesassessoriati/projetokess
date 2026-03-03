@@ -81,7 +81,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const ContactImport = () => {
+const ContactImport = ({ onBack }) => {
   const size = useWindowDimensions();
 
   const [rows, setRows] = useState(null);
@@ -337,7 +337,11 @@ const ContactImport = () => {
 
   const handleCloseImport = async () => {
     try {
-      history.push("/contacts");
+      if (onBack) {
+        onBack();
+      } else {
+        history.push("/contacts");
+      }
     } catch (err) {
       toastError(err);
     }
