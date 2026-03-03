@@ -25,6 +25,7 @@ import { i18n } from "../../translate/i18n";
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import CancelIcon from '@mui/icons-material/Cancel';
+import ForumIcon from '@mui/icons-material/Forum';
 import useSafeApi from "../../hooks/useSafeApi";
 import { useSocket } from "../../context/SocketContext";
 import SafeComponent from "../../components/SafeComponent";
@@ -36,16 +37,17 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     position: "relative",
     flex: 1,
-    padding: theme.spacing(2),
     height: `calc(100% - 48px)`,
     overflowY: "hidden",
-    border: "1px solid rgba(0, 0, 0, 0.12)",
   },
   gridContainer: {
     flex: 1,
     height: "100%",
-    border: "1px solid rgba(0, 0, 0, 0.12)",
-    background: theme.palette.background.color,
+    border: "1px solid rgba(0, 0, 0, 0.1)",
+    background: theme.palette.background.paper,
+    borderRadius: 8,
+    overflow: "hidden",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
   },
   gridItem: {
     height: "100%",
@@ -55,8 +57,17 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
   },
   btnContainer: {
-    textAlign: "right",
-    padding: 10,
+    padding: "10px 12px 8px",
+  },
+  emptyChat: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    gap: 12,
+    padding: 32,
+    color: theme.palette.text.secondary,
   },
 }));
 
@@ -381,7 +392,7 @@ function Chat(props) {
                       history.push(`/chats/${chat.uuid}`);
                     }}
                     handleDeleteChat={handleDeleteChat}
-                    handleEditChat={() => { setDialogType("edit"); setShowDialog(true); }}
+                    handleEditChat={(chat) => { if (chat) setCurrentChat(chat); setDialogType("edit"); setShowDialog(true); }}
                     user={user}
                   />
                 )}
@@ -410,11 +421,15 @@ function Chat(props) {
                   hasMore={messagesPageInfo.hasMore}
                 />
               ) : (
-                <Paper style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: 20 }}>
-                  <Typography variant="h6" color="textSecondary">
-                    Selecione um chat para visualizar as mensagens
+                <div className={classes.emptyChat}>
+                  <ForumIcon style={{ fontSize: 56, opacity: 0.2 }} />
+                  <Typography variant="h6" color="textSecondary" style={{ fontWeight: 600, opacity: 0.5 }}>
+                    Selecione uma conversa
                   </Typography>
-                </Paper>
+                  <Typography variant="body2" color="textSecondary" style={{ opacity: 0.4, textAlign: "center" }}>
+                    Escolha um chat na lista ao lado ou crie uma nova conversa
+                  </Typography>
+                </div>
               )}
             </Grid>
           )}

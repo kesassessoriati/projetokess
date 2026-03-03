@@ -24,10 +24,13 @@ export default async function CreateMessageService({
   let mediaPath = "";
   let mediaName = "";
 
+  let mediaOriginalName = "";
+
   // Processar mídia se existir
   if (medias && medias.length > 0) {
     const media = medias[0];
-    const dir = path.join(__dirname, "..", "..", "..", "public", "chat-media");
+    // Isolamento por empresa: public/company{companyId}/chat-media/
+    const dir = path.join(__dirname, "..", "..", "..", "public", `company${companyId}`, "chat-media");
 
     // Garantir que o diretório existe
     if (!fs.existsSync(dir)) {
@@ -35,6 +38,7 @@ export default async function CreateMessageService({
     }
 
     // Criar nome de arquivo único
+    mediaOriginalName = media.originalname;
     mediaName = `${new Date().getTime()}-${media.originalname.replace(
       /\s/g,
       "_"
@@ -44,8 +48,8 @@ export default async function CreateMessageService({
     // Salvar arquivo
     fs.writeFileSync(filePath, media.buffer as any);
 
-    // Definir caminho da mídia para salvar no banco de dados
-    mediaPath = `/chat-media/${mediaName}`;
+    // Caminho inclui /public para que o frontend construa a URL corretamente
+    mediaPath = `/company${companyId}/chat-media/${mediaName}`;
   }
 
   const newMessage = await ChatMessage.create({
@@ -70,7 +74,8 @@ export default async function CreateMessageService({
 
   const sender = await User.findByPk(senderId);
 
-  await newMessage.chat.update({ lastMessage: `${sender.name}: ${message}` });
+  const displayMsg = mediaOriginalName ? `📎 ${mediaOriginalName}` : message;
+  await newMessage.chat.update({ lastMessage: `${sender.name}: ${displayMsg}` });
 
   const chatUsers = await ChatUser.findAll({
     where: { chatId, companyId }

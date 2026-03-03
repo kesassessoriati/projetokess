@@ -133,36 +133,60 @@ export const saveMessage = async (
   const chatId = +id;
   const medias = req.files as Express.Multer.File[];
 
-  const newMessage = await CreateMessageService({
-    chatId,
-    senderId,
-    companyId,
-    message,
-    medias
-  });
-
-  const chat = await Chat.findOne({
-    where: { id: chatId, companyId },
-    include: [
-      { model: User, as: "owner" },
-      { model: ChatUser, as: "users" }
-    ]
-  });
-
   const io = getIO();
-  io.of(String(companyId)).emit(`company-${companyId}-chat-${chatId}`, {
-    action: "new-message",
-    newMessage,
-    chat
-  });
+  const createdMessages: any[] = [];
 
-  io.of(String(companyId)).emit(`company-${companyId}-chat`, {
-    action: "new-message",
-    newMessage,
-    chat
-  });
+  const emitMessage = (msg: any) => {
+    io.of(String(companyId)).emit(`company-${companyId}-chat-${chatId}`, {
+      action: "new-message",
+      newMessage: msg
+    });
+    io.of(String(companyId)).emit(`company-${companyId}-chat`, {
+      action: "new-message",
+      newMessage: msg
+    });
+  };
 
-  return res.json(newMessage);
+  if (medias && medias.length > 0) {
+    // Cria uma mensagem por arquivo de mídia
+    for (const media of medias) {
+      const mediaMessage = await CreateMessageService({
+        chatId,
+        senderId,
+        companyId,
+        message: " ",
+        medias: [media]
+      });
+      emitMessage(mediaMessage);
+      createdMessages.push(mediaMessage);
+    }
+
+    // Cria mensagem de texto se houver conteúdo além do espaço
+    if (message && message.trim() && message.trim() !== " ") {
+      const textMessage = await CreateMessageService({
+        chatId,
+        senderId,
+        companyId,
+        message,
+        medias: []
+      });
+      emitMessage(textMessage);
+      createdMessages.push(textMessage);
+    }
+  } else {
+    // Somente texto
+    const textMessage = await CreateMessageService({
+      chatId,
+      senderId,
+      companyId,
+      message,
+      medias: []
+    });
+    emitMessage(textMessage);
+    createdMessages.push(textMessage);
+  }
+
+  return res.json(createdMessages[createdMessages.length - 1]);
 };
 
 export const checkAsRead = async (
