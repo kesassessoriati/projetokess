@@ -125,15 +125,19 @@ const CreateCompanyService = async (
       );
     }
 
-    // Criar Pipeline inicial baseado em Template
-    await CloneTemplateToPipelineService({ companyId: company.id });
-
     await t.commit();
 
+    // Criar Pipeline inicial baseado em Template (fora da transação — não é fatal)
+    try {
+      await CloneTemplateToPipelineService({ companyId: company.id });
+    } catch (pipelineError: any) {
+      console.warn(`[CreateCompanyService] Aviso: pipeline inicial não criado para empresa ${company.id}:`, pipelineError?.message);
+    }
+
     return company;
-  } catch (error) {
+  } catch (error: any) {
     await t.rollback();
-    throw new AppError("Não foi possível criar a empresa!", error);
+    throw new AppError(error?.message || "Não foi possível criar a empresa!", 500);
   }
 };
 

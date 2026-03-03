@@ -11,7 +11,7 @@ interface Request {
 const CloneTemplateToPipelineService = async ({
     companyId,
     templateId
-}: Request): Promise<Pipeline> => {
+}: Request): Promise<Pipeline | null> => {
     let template: PipelineTemplate | null = null;
 
     if (templateId) {
@@ -21,7 +21,8 @@ const CloneTemplateToPipelineService = async ({
     }
 
     if (!template) {
-        throw new Error("ERR_NO_PIPELINE_TEMPLATE_FOUND");
+        // Nenhum template padrão encontrado — não é fatal, empresa pode não ter pipeline inicial
+        return null;
     }
 
     const pipeline = await CreatePipelineService({
