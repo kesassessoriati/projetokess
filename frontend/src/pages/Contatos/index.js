@@ -515,6 +515,10 @@ const Contatos = () => {
     setSelectedContacts([]);
   };
 
+  const handleSelectAll = () => {
+    setSelectedContacts(contacts.map((c) => c.id));
+  };
+
   const handleDeleteSelectedContacts = async () => {
     try {
       for (const id of selectedContacts) {
@@ -742,21 +746,52 @@ const Contatos = () => {
       </Box>
 
       {/* Ações em massa */}
-      {selectedContacts.length > 0 && (
+      {contacts.length > 0 && (
         <Box className={classes.bulkActions}>
+          {/* Checkbox master: indeterminate quando seleção parcial, checked quando todos selecionados */}
+          <Checkbox
+            className={classes.hideOnMobile}
+            color="primary"
+            indeterminate={selectedContacts.length > 0 && selectedContacts.length < contacts.length}
+            checked={contacts.length > 0 && selectedContacts.length === contacts.length}
+            onChange={() =>
+              selectedContacts.length === contacts.length
+                ? handleClearSelection()
+                : handleSelectAll()
+            }
+            title={selectedContacts.length === contacts.length ? "Desmarcar todos" : "Selecionar todos"}
+          />
           <Typography variant="body2">
-            {selectedContacts.length} selecionado(s)
+            {selectedContacts.length > 0
+              ? `${selectedContacts.length} selecionado(s)`
+              : `${contacts.length} contato(s)`}
           </Typography>
-          <Button
-            size="small"
-            color="secondary"
-            onClick={() => setConfirmBulkDeleteOpen(true)}
-          >
-            Excluir selecionados
-          </Button>
-          <Button size="small" onClick={handleClearSelection}>
-            Limpar seleção
-          </Button>
+          {/* Botão "Selecionar todos os N" quando alguns mas não todos estão selecionados */}
+          {selectedContacts.length > 0 && selectedContacts.length < contacts.length && (
+            <Button size="small" onClick={handleSelectAll} style={{ textTransform: "none" }}>
+              Selecionar todos os {contacts.length}
+            </Button>
+          )}
+          {/* Aviso quando todos carregados estão selecionados mas ainda há mais no servidor */}
+          {hasMore && selectedContacts.length === contacts.length && selectedContacts.length > 0 && (
+            <Typography variant="caption" style={{ color: "#f57c00" }}>
+              (apenas os carregados — role para baixo para carregar mais)
+            </Typography>
+          )}
+          {selectedContacts.length > 0 && (
+            <>
+              <Button
+                size="small"
+                color="secondary"
+                onClick={() => setConfirmBulkDeleteOpen(true)}
+              >
+                Excluir selecionados
+              </Button>
+              <Button size="small" onClick={handleClearSelection}>
+                Limpar seleção
+              </Button>
+            </>
+          )}
         </Box>
       )}
 
