@@ -86,6 +86,7 @@ const reducer = (state, action) => {
   }
 
   if (action.type === "CHANGE_CHAT") {
+    if (!action.payload?.chat) return state;
     const changedChats = state.map((chat) => {
       if (chat.id === action.payload.chat.id) {
         return action.payload.chat;
@@ -146,8 +147,12 @@ export default function ChatPopover() {
 
     const onCompanyChatPopover = (data) => {
       if (data.action === "new-message") {
-        dispatch({ type: "CHANGE_CHAT", payload: data });
-        if (data.newMessage.senderId !== user.id) {
+        // Usa data.chat se disponível; senão usa newMessage.chat (associação carregada)
+        const chatObj = data.chat || data.newMessage?.chat;
+        if (chatObj) {
+          dispatch({ type: "CHANGE_CHAT", payload: { chat: chatObj } });
+        }
+        if (data.newMessage?.senderId !== user.id) {
           soundAlertRef.current();
         }
       }
