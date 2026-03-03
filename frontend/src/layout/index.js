@@ -180,7 +180,7 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: "12px",
     border: "1px solid #e5e7eb",
     width: "100%",
-    maxWidth: "400px",
+    maxWidth: "240px",
     transition: "all 0.2s ease",
     "&:hover": {
       borderColor: "#3b82f6",
@@ -191,6 +191,43 @@ const useStyles = makeStyles((theme) => ({
     },
     [theme.breakpoints.down("sm")]: {
       display: "none",
+    },
+  },
+  quickNavRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flexShrink: 0,
+    [theme.breakpoints.down("sm")]: {
+      display: "none",
+    },
+  },
+  quickNavBtn: {
+    backgroundColor: "#111111",
+    color: "#ffffff",
+    borderRadius: "10px",
+    padding: "0 12px",
+    minWidth: "auto",
+    height: "40px",
+    fontSize: "12px",
+    fontWeight: 600,
+    textTransform: "none",
+    letterSpacing: "0.2px",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    transition: "all 0.2s ease",
+    border: "1px solid rgba(255,255,255,0.08)",
+    cursor: "pointer",
+    "&:hover": {
+      backgroundColor: "#1a1a1a",
+      transform: "translateY(-1px)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+    },
+    "&.quickNavActive": {
+      backgroundColor: "#000000",
+      border: "1px solid rgba(255,255,255,0.18)",
+      boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
     },
   },
   mobileLogo: {
@@ -236,7 +273,7 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
   },
   inputInput: {
-    padding: theme.spacing(1.5, 6, 1.5, 0),
+    padding: theme.spacing(1, 5, 1, 0),
     paddingLeft: `calc(1em + ${theme.spacing(4)}px)`,
     transition: theme.transitions.create("width"),
     width: "100%",
@@ -851,15 +888,6 @@ const LoggedInLayout = ({ children }) => {
   const menuGroups = useMemo(
     () => [
       {
-        title: "Painel",
-        icon: <DashboardIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Dashboard", path: "/painel", exact: true },
-          { title: "Relatórios", path: "/relatorios" },
-        ],
-      },
-      {
         title: "Inbox",
         icon: <ChatIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
@@ -1281,6 +1309,30 @@ const LoggedInLayout = ({ children }) => {
                   <SearchIcon style={{ fontSize: 18 }} />
                 </Button>
               </div>
+
+              {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
+              {!isMobile && (
+                <div className={classes.quickNavRow}>
+                  <Tooltip title="Dashboard">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/painel") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/painel")}
+                    >
+                      <DashboardIcon style={{ fontSize: 17 }} />
+                      <span>Dashboard</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip title="Relatórios">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/relatorios") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/relatorios")}
+                    >
+                      <BarChartIcon style={{ fontSize: 17 }} />
+                      <span>Relatórios</span>
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
 
               {/* Logo - Visível apenas no mobile */}
               <div className={classes.mobileLogo}>
