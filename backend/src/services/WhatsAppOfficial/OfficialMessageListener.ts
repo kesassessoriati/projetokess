@@ -5,6 +5,7 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import CreateOrUpdateTicketService from "../../HubEcosystem/services/CreateOrUpdateTicketService";
 import FindOrCreateContactService from "../../HubEcosystem/services/FindOrCreateContactService";
 import { graphRequest } from "../WhatsappCoexistence/graphApiHelper";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface OfficialWebhookContact {
   profile: {
@@ -197,6 +198,34 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
           }
 
           await CreateMessageService({ messageData, companyId: connection.companyId });
+
+          // Dispara evento MESSAGE_RECEIVED para webhooks/n8n configurados (mesmo padrão do Baileys)
+          webhookDispatch("MESSAGE_RECEIVED", connection.companyId, {
+            ticket: {
+              id: ticket.id,
+              status: ticket.status,
+              contactId: ticket.contactId,
+              queueId: ticket.queueId,
+              userId: ticket.userId
+            },
+            contact: {
+              id: contact.id,
+              name: contact.name,
+              number: contact.number,
+              email: contact.email
+            },
+            message: {
+              body: body || `Mídia ${message.type}`,
+              type: message.type,
+              timestamp: timestamp.toISOString(),
+              fromMe: false
+            },
+            whatsapp: {
+              id: connection.id,
+              name: connection.name,
+              channel: "whatsapp_official"
+            }
+          });
 
           console.log("Official message processed:", { from, contactName, messageId, ticketId: ticket.id });
         } catch (error) {
