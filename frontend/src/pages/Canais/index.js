@@ -933,9 +933,6 @@ const Connections = () => {
     }
   };
 
-  if (user.profile === "user" && user.allowConnections === "disabled") {
-    return <ForbiddenPage />;
-  }
 
   return (
     <Box className={classes.root}>

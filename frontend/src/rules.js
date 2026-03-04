@@ -1,6 +1,10 @@
 const rules = {
 	user: {
-		static: [],
+		static: [
+			"connections-page:actionButtons",
+			"connections-page:addConnection",
+			"connections-page:editOrDeleteConnection",
+		],
 	},
 
 	admin: {

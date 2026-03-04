@@ -82,6 +82,7 @@ import ShareIcon from "@material-ui/icons/Share";
 import ChatIcon from "@material-ui/icons/Chat";
 import ExtensionIcon from "@material-ui/icons/Extension";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
+import QuestionAnswerIcon from "@material-ui/icons/QuestionAnswer";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import VideoLibraryIcon from "@material-ui/icons/VideoLibrary";
 import PhotoIcon from "@material-ui/icons/Photo";
@@ -905,6 +906,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Clientes",      path: "/clientes",          icon: <BusinessCenterIcon />,    disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Usuários",      path: "/users",             icon: <GroupIcon />,             disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Canais",        path: "/canais",            icon: <DeviceHubIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />,   disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Produtos",      path: "/produtos",          icon: <ExtensionIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Serviços",      path: "/servicos",          icon: <BuildOutlinedIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Agenda",        path: "/user-schedules",    icon: <CalendarMonthIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
@@ -920,8 +922,6 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Agente de IA", path: "/agentes" },
           { title: "Construtor de Fluxo", path: "/flowbuilders" },
-          { title: "Listas de contatos", path: "/contact-lists" },
-          { title: "Respostas rápidas", path: "/quick-messages" },
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
           { title: "Automações", path: "/automations" },
