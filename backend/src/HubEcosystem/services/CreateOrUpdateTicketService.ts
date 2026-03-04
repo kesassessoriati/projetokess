@@ -30,19 +30,27 @@ const CreateOrUpdateTicketService = async (
     console.log("ticket exists");
 
     let newStatus = ticketExists.status;
-    let newQueueId = ticketExists.queueId;
+    let newQueueId: number | null = ticketExists.queueId;
 
     if (ticketExists.status === "closed") {
       newStatus = "pending";
-      newQueueId = connection.sendIdQueue;
+      // Só usa sendIdQueue se for um número válido — evita FK constraint violation
+      // quando a fila foi deletada ou não está configurada na conexão
+      newQueueId = connection.sendIdQueue ? connection.sendIdQueue : null;
+    }
+
+    const updatePayload: Record<string, any> = {
+      lastMessage: contents[0].text,
+      status: newStatus
+    };
+
+    // Só atualiza queueId se houver um valor válido para evitar FK violation
+    if (newQueueId !== undefined) {
+      updatePayload.queueId = newQueueId;
     }
 
     try {
-      await ticketExists.update({
-        lastMessage: contents[0].text,
-        status: newStatus,
-        queueId: newQueueId
-      });
+      await ticketExists.update(updatePayload);
     } catch (updateErr) {
       const msg = updateErr instanceof Error ? `${(updateErr as any).name}: ${updateErr.message}` : JSON.stringify(updateErr);
       console.error("ticket update failed:", msg, { newStatus, newQueueId, lastMessage: contents[0].text });
