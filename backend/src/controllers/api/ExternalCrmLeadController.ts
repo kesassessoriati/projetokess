@@ -31,7 +31,9 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     status,
     ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
     pageNumber: pageNumber ? Number(pageNumber) : 1,
-    limit: limit ? Number(limit) : 20
+    limit: limit ? Number(limit) : 20,
+    profile: "admin",
+    userId: 0
   });
 
   return res.json(result);
