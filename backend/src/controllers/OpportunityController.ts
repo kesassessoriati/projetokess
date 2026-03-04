@@ -135,7 +135,7 @@ export const listEvents = async (req: Request, res: Response): Promise<Response>
 
 export const update = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
-    const { status, title, value } = req.body;
+    const { status, title, value, assignedUserId } = req.body;
     const { companyId } = req.user;
 
     const opportunity = await Opportunity.findOne({
@@ -150,6 +150,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     if (status !== undefined) updateData.status = status;
     if (title !== undefined) updateData.title = title;
     if (value !== undefined) updateData.value = value;
+    if (assignedUserId !== undefined) updateData.assignedUserId = assignedUserId || null;
 
     await opportunity.update(updateData);
 

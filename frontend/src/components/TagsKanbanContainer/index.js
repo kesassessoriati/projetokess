@@ -1,10 +1,11 @@
-import { Chip, Paper, Select, MenuItem, Grid, InputLabel, FormControl, ListSubheader, CircularProgress } from "@material-ui/core";
-import React, { useEffect, useRef, useState } from "react";
+import { Chip, Select, MenuItem, InputLabel, FormControl, ListSubheader, CircularProgress, Avatar, Typography } from "@material-ui/core";
+import React, { useContext, useEffect, useState } from "react";
 import toastError from "../../errors/toastError";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import { makeStyles } from "@material-ui/core/styles";
 import { i18n } from "../../translate/i18n";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
     menuListItem: {
@@ -48,24 +49,44 @@ const useStyles = makeStyles((theme) => ({
  */
 export function TagsKanbanContainer({ ticket, onStageChange }) {
     const classes = useStyles();
+    const { user: currentUser } = useContext(AuthContext);
 
     const [pipelines, setPipelines] = useState([]);
     const [stagesByPipeline, setStagesByPipeline] = useState({}); // { pipelineId: [stages] }
     const [selected, setSelected] = useState(""); // "pipelineId:stageId"
     const [loading, setLoading] = useState(true);
     const [existingOpportunity, setExistingOpportunity] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [selectedUserId, setSelectedUserId] = useState("");
 
     useEffect(() => {
         let isMounted = true;
         loadPipelinesAndStages(isMounted);
+        loadUsers(isMounted);
         return () => { isMounted = false; };
     }, []);
+
+    useEffect(() => {
+        if (currentUser?.id && !selectedUserId) {
+            setSelectedUserId(currentUser.id);
+        }
+    }, [currentUser]);
 
     useEffect(() => {
         if (ticket?.contact?.id && pipelines.length > 0) {
             loadExistingOpportunity();
         }
     }, [ticket?.contact?.id, pipelines]);
+
+    const loadUsers = async (isMounted) => {
+        try {
+            const { data } = await api.get("/users/", { params: { pageNumber: 1 } });
+            const list = data?.users || data || [];
+            if (isMounted) setUsers(list);
+        } catch (err) {
+            // silently — usuários não são críticos aqui
+        }
+    };
 
     const loadPipelinesAndStages = async (isMounted) => {
         setLoading(true);
@@ -114,6 +135,9 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
                 if (opp.stageId && opp.pipelineId) {
                     setSelected(`${opp.pipelineId}:${opp.stageId}`);
                 }
+                if (opp.assignedUserId) {
+                    setSelectedUserId(opp.assignedUserId);
+                }
             }
         } catch (err) {
             // Silently handle - pode não ter oportunidade vinculada
@@ -153,6 +177,7 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
                     contactId,
                     ticketId: ticket?.id,
                     value: ticket?.leadValue || 0,
+                    assignedUserId: selectedUserId || currentUser?.id || undefined,
                 });
 
                 setExistingOpportunity(newOpp);
@@ -165,6 +190,23 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
             }
         } catch (err) {
             toastError(err);
+        }
+    };
+
+    const onUserChange = async (e) => {
+        const userId = e.target.value;
+        setSelectedUserId(userId);
+
+        if (existingOpportunity?.id) {
+            try {
+                await api.put(`/opportunities/${existingOpportunity.id}`, {
+                    assignedUserId: userId || null,
+                });
+                setExistingOpportunity(prev => ({ ...prev, assignedUserId: userId }));
+                toast.success("Responsável atualizado!");
+            } catch (err) {
+                toastError(err);
+            }
         }
     };
 
@@ -269,6 +311,51 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
                             )),
                         ];
                     })}
+                </Select>
+            </FormControl>
+
+            <FormControl fullWidth margin="dense" variant="outlined">
+                <InputLabel id="kanban-user-id">Responsável</InputLabel>
+                <Select
+                    labelWidth={90}
+                    value={selectedUserId || ""}
+                    labelId="kanban-user-id"
+                    label="Responsável"
+                    onChange={onUserChange}
+                    MenuProps={{
+                        anchorOrigin: { vertical: "bottom", horizontal: "left" },
+                        transformOrigin: { vertical: "top", horizontal: "left" },
+                        getContentAnchorEl: null,
+                    }}
+                    renderValue={(val) => {
+                        const u = users.find(u => u.id === val);
+                        return u ? (
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <Avatar
+                                    src={u.profileImage || undefined}
+                                    style={{ width: 20, height: 20, fontSize: "0.65rem" }}
+                                >
+                                    {u.name?.charAt(0)}
+                                </Avatar>
+                                <Typography variant="body2" style={{ lineHeight: 1 }}>{u.name}</Typography>
+                            </span>
+                        ) : null;
+                    }}
+                >
+                    <MenuItem value="">
+                        <em>Sem responsável</em>
+                    </MenuItem>
+                    {users.map(u => (
+                        <MenuItem key={u.id} value={u.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Avatar
+                                src={u.profileImage || undefined}
+                                style={{ width: 24, height: 24, fontSize: "0.7rem", marginRight: 8 }}
+                            >
+                                {u.name?.charAt(0)}
+                            </Avatar>
+                            {u.name}
+                        </MenuItem>
+                    ))}
                 </Select>
             </FormControl>
         </>
