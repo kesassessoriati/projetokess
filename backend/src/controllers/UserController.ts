@@ -31,43 +31,13 @@ const publicSignupSchema = Yup.object().shape({
     .trim()
     .min(2, "ERR_COMPANY_INVALID_NAME")
     .required("ERR_COMPANY_INVALID_NAME"),
-  name: Yup.string()
-    .trim()
-    .min(2, "ERR_USER_INVALID_NAME")
-    .required("ERR_USER_INVALID_NAME"),
   email: Yup.string()
     .trim()
     .email("ERR_INVALID_EMAIL")
     .required("ERR_INVALID_EMAIL"),
   password: Yup.string()
     .min(6, "ERR_INVALID_PASSWORD")
-    .matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/, "ERR_INVALID_PASSWORD")
     .required("ERR_INVALID_PASSWORD"),
-  confirmPassword: Yup.string()
-    .oneOf([Yup.ref("password"), null], "ERR_PASSWORD_CONFIRMATION")
-    .required("ERR_PASSWORD_CONFIRMATION"),
-  phone: Yup.string()
-    .min(10, "ERR_INVALID_PHONE")
-    .required("ERR_INVALID_PHONE"),
-  type: Yup.string()
-    .oneOf(["pf", "pj"], "ERR_INVALID_TYPE")
-    .default("pf"),
-  document: Yup.string()
-    .when("type", {
-      is: "pf",
-      then: Yup.string()
-        .matches(/^\d{11}$/, "ERR_INVALID_CPF")
-        .required("ERR_CPF_REQUIRED"),
-      otherwise: Yup.string()
-        .matches(/^\d{14}$/, "ERR_INVALID_CNPJ")
-        .required("ERR_CNPJ_REQUIRED")
-    }),
-  segment: Yup.string().optional(),
-  planId: Yup.number()
-    .typeError("ERR_INVALID_PLAN")
-    .positive("ERR_INVALID_PLAN")
-    .integer("ERR_INVALID_PLAN")
-    .required("ERR_INVALID_PLAN")
 });
 
 type IndexQuery = {
@@ -158,36 +128,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   if (req.url === "/signup") {
     try {
       await publicSignupSchema.validate(
-        {
-          companyName,
-          name,
-          email: normalizedEmail,
-          password,
-          confirmPassword,
-          phone: sanitizedPhone,
-          type,
-          document,
-          segment,
-          planId
-        },
+        { companyName, email: normalizedEmail, password },
         { abortEarly: false }
       );
     } catch (error: any) {
       const errMap: Record<string, string> = {
-        "ERR_INVALID_TYPE": "Tipo inválido. Use 'pf' para pessoa física ou 'pj' para pessoa jurídica.",
-        "ERR_INVALID_CPF": "CPF inválido. Deve conter 11 dígitos numéricos.",
-        "ERR_INVALID_CNPJ": "CNPJ inválido. Deve conter 14 dígitos numéricos.",
-        "ERR_CPF_REQUIRED": "CPF é obrigatório para pessoa física.",
-        "ERR_CNPJ_REQUIRED": "CNPJ é obrigatório para pessoa jurídica.",
-        "ERR_INVALID_SEGMENT": "Segmento inválido. Escolha uma das opções disponíveis.",
-        "ERR_SEGMENT_REQUIRED": "Segmento é obrigatório.",
         "ERR_COMPANY_INVALID_NAME": "Nome da empresa inválido (mínimo 2 caracteres).",
-        "ERR_USER_INVALID_NAME": "Nome do usuário inválido (mínimo 2 caracteres).",
         "ERR_INVALID_EMAIL": "E-mail inválido.",
-        "ERR_INVALID_PASSWORD": "Senha inválida (mínimo 6 caracteres, com letras e números).",
-        "ERR_PASSWORD_CONFIRMATION": "Confirmação de senha não coincide.",
-        "ERR_INVALID_PHONE": "Telefone inválido (mínimo 10 dígitos).",
-        "ERR_INVALID_PLAN": "Plano inválido."
+        "ERR_INVALID_PASSWORD": "Senha inválida (mínimo 6 caracteres).",
       };
       throw new AppError(errMap[error.errors?.[0]] || "ERR_INVALID_SIGNUP_DATA");
     }

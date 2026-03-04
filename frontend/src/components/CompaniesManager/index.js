@@ -38,100 +38,18 @@ import { useDate } from "../../hooks/useDate";
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
 import DeleteIcon from '@mui/icons-material/Delete';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
-import PhoneIcon from '@mui/icons-material/Phone';
-import DescriptionIcon from '@mui/icons-material/Description';
-import PaymentIcon from '@mui/icons-material/Payment';
-import EventIcon from '@mui/icons-material/Event';
-import RepeatIcon from '@mui/icons-material/Repeat';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import moment from "moment";
 import { i18n } from "../../translate/i18n";
-
-// Função para validar CPF
-const isValidCPF = (cpf) => {
-  cpf = cpf.replace(/[^\d]/g, '');
-  if (cpf.length !== 11) return false;
-  if (/^(\d)\1+$/.test(cpf)) return false;
-
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(cpf.charAt(i)) * (10 - i);
-  }
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(9))) return false;
-
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(cpf.charAt(i)) * (11 - i);
-  }
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(10))) return false;
-
-  return true;
-};
-
-// Função para validar CNPJ
-const isValidCNPJ = (cnpj) => {
-  cnpj = cnpj.replace(/[^\d]/g, '');
-  if (cnpj.length !== 14) return false;
-  if (/^(\d)\1+$/.test(cnpj)) return false;
-
-  let size = cnpj.length - 2;
-  let numbers = cnpj.substring(0, size);
-  const digits = cnpj.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-
-  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(0))) return false;
-
-  size = size + 1;
-  numbers = cnpj.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-
-  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(1))) return false;
-
-  return true;
-};
-
-// Função para validar CPF ou CNPJ
-const isValidDocument = (document) => {
-  if (!document) return false;
-  const cleanDoc = document.replace(/[^\d]/g, '');
-  if (cleanDoc.length === 11) return isValidCPF(cleanDoc);
-  if (cleanDoc.length === 14) return isValidCNPJ(cleanDoc);
-  return false;
-};
 
 // Schema de validação
 const CompanySchema = Yup.object().shape({
   name: Yup.string().required("Nome é obrigatório"),
   email: Yup.string().email("Email inválido").required("Email é obrigatório"),
-  document: Yup.string()
-    .nullable()
-    .test("valid-document", "CPF/CNPJ inválido", (value) => {
-      if (!value || value.trim() === "") return true; // opcional
-      return isValidDocument(value);
-    }),
 });
 
 const useStyles = makeStyles((theme) => ({
@@ -258,18 +176,6 @@ export function CompanyForm(props) {
   }, [initialValue]);
 
   const handleSubmit = async (data) => {
-    if (data.dueDate === "" || moment(data.dueDate).isValid() === false) {
-      data.dueDate = null;
-    }
-
-    // Valida CPF/CNPJ apenas se preenchido
-    if (data.document && data.document.trim() !== "") {
-      if (!isValidDocument(data.document)) {
-        toast.error("CPF/CNPJ inválido. Verifique o número informado.");
-        return;
-      }
-    }
-
     onSubmit(data);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -295,31 +201,6 @@ export function CompanyForm(props) {
     setModalUser(false);
   };
 
-  const incrementDueDate = () => {
-    const data = { ...record };
-    if (data.dueDate !== "" && data.dueDate !== null) {
-      switch (data.recurrence) {
-        case "MENSAL":
-          data.dueDate = moment(data.dueDate).add(1, "month").format("YYYY-MM-DD");
-          break;
-        case "BIMESTRAL":
-          data.dueDate = moment(data.dueDate).add(2, "month").format("YYYY-MM-DD");
-          break;
-        case "TRIMESTRAL":
-          data.dueDate = moment(data.dueDate).add(3, "month").format("YYYY-MM-DD");
-          break;
-        case "SEMESTRAL":
-          data.dueDate = moment(data.dueDate).add(6, "month").format("YYYY-MM-DD");
-          break;
-        case "ANUAL":
-          data.dueDate = moment(data.dueDate).add(12, "month").format("YYYY-MM-DD");
-          break;
-        default:
-          break;
-      }
-    }
-    setRecord(data);
-  };
 
   return (
     <>
@@ -406,25 +287,6 @@ export function CompanyForm(props) {
                 />
               </Grid>
 
-              {/* Campo Telefone */}
-              <Grid item xs={12} sm={6} md={4}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("compaies.table.phone")}
-                  name="phone"
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon className={classes.iconColor} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  className={classes.whiteBackground}
-                />
-              </Grid>
 
               {/* Campo Plano */}
               <Grid item xs={12} sm={6} md={4}>
@@ -483,108 +345,6 @@ export function CompanyForm(props) {
                 </FormControl>
               </Grid>
 
-              {/* Campo Documento */}
-              <Grid item xs={12} sm={6} md={4}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("compaies.table.document")}
-                  name="document"
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  error={touched.document && Boolean(errors.document)}
-                  helperText={touched.document && errors.document}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <DescriptionIcon className={classes.iconColor} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  className={classes.whiteBackground}
-                />
-              </Grid>
-
-              {/* Campo Data de Vencimento */}
-              <Grid item xs={12} sm={6} md={4}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("compaies.table.dueDate")}
-                  name="dueDate"
-                  type="date"
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EventIcon className={classes.iconColor} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                  className={classes.whiteBackground}
-                />
-              </Grid>
-
-              {/* Campo Recorrência */}
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl
-                  margin="dense"
-                  variant="outlined"
-                  fullWidth
-                  className={classes.whiteBackground}
-                >
-                  <InputLabel htmlFor="recurrence-selection">
-                    {i18n.t("compaies.table.recurrence")}
-                  </InputLabel>
-                  <Field
-                    as={Select}
-                    id="recurrence-selection"
-                    name="recurrence"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <RepeatIcon className={classes.iconColor} />
-                      </InputAdornment>
-                    }
-                  >
-                    <MenuItem value="MENSAL">{i18n.t("compaies.table.monthly")}</MenuItem>
-                    <MenuItem value="BIMESTRAL">{i18n.t("compaies.table.bimonthly")}</MenuItem>
-                    <MenuItem value="TRIMESTRAL">{i18n.t("compaies.table.quarterly")}</MenuItem>
-                    <MenuItem value="SEMESTRAL">{i18n.t("compaies.table.semester")}</MenuItem>
-                    <MenuItem value="ANUAL">{i18n.t("compaies.table.yearly")}</MenuItem>
-                  </Field>
-                </FormControl>
-              </Grid>
-
-              {/* Campo Método de Pagamento */}
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl
-                  margin="dense"
-                  variant="outlined"
-                  fullWidth
-                  className={classes.whiteBackground}
-                >
-                  <InputLabel htmlFor="paymentMethod-selection">
-                    {i18n.t("Método de Pagamento")}
-                  </InputLabel>
-                  <Field
-                    as={Select}
-                    id="paymentMethod-selection"
-                    name="paymentMethod"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <PaymentIcon className={classes.iconColor} />
-                      </InputAdornment>
-                    }
-                  >
-                    <MenuItem value="CREDIT_CARD">Cartão de Crédito</MenuItem>
-                    <MenuItem value="BOLETO">Boleto</MenuItem>
-                    <MenuItem value="PIX">PIX</MenuItem>
-                    <MenuItem value="CORTESIA">Cortesia</MenuItem>
-                  </Field>
-                </FormControl>
-              </Grid>
 
               {/* Botões de Ação */}
               <Grid item xs={12}>
@@ -621,22 +381,6 @@ export function CompanyForm(props) {
                           variant="contained"
                         >
                           {i18n.t("compaies.table.delete")}
-                        </ButtonWithSpinner>
-                      </Grid>
-                      <Grid item>
-                        <ButtonWithSpinner
-                          startIcon={<CalendarTodayIcon />}
-                          style={{
-                            color: "white",
-                            backgroundColor: "#8A2BE2",
-                            borderRadius: "5px",
-                            boxShadow: "none",
-                          }}
-                          loading={loading}
-                          onClick={incrementDueDate}
-                          variant="contained"
-                        >
-                          {i18n.t("compaies.table.dueDate")}
                         </ButtonWithSpinner>
                       </Grid>
                     </>
@@ -821,27 +565,6 @@ export default function CompaniesManager() {
   const handleSubmit = async (data) => {
     setLoading(true);
 
-    // Valida CPF/CNPJ apenas se preenchido
-    if (data.document && data.document.trim() !== "") {
-      if (!isValidDocument(data.document)) {
-        toast.error("CPF/CNPJ inválido. Verifique o número informado.");
-        setLoading(false);
-        return;
-      }
-      // Verifica duplicidade de documento (apenas para novos cadastros com doc preenchido)
-      if (!data.id) {
-        const cleanDocument = data.document.replace(/[^\d]/g, '');
-        const duplicateCompany = records.find(company => {
-          const companyDoc = (company.document || '').replace(/[^\d]/g, '');
-          return companyDoc === cleanDocument;
-        });
-        if (duplicateCompany) {
-          toast.error(`CPF/CNPJ já cadastrado para a empresa "${duplicateCompany.name}"`);
-          setLoading(false);
-          return;
-        }
-      }
-    }
 
     // Verifica duplicidade de email (apenas para novos cadastros)
     if (!data.id) {

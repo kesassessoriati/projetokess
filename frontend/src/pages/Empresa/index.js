@@ -1,9 +1,6 @@
-import React, { useState, useEffect } from "react";
-import qs from 'query-string';
+import React, { useState } from "react";
 import * as Yup from "yup";
 import { useHistory } from "react-router-dom";
-import usePlans from "../../hooks/usePlans";
-import { toast } from "react-toastify";
 import { Formik, Form, Field } from "formik";
 import {
     IconButton,
@@ -13,130 +10,31 @@ import {
     Typography,
     Container,
     CssBaseline,
-    MenuItem,
-    Select,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Grid,
     Paper,
     Box,
     CircularProgress,
-    Fade
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from "@material-ui/core";
 import Visibility from "@material-ui/icons/Visibility";
 import VisibilityOff from "@material-ui/icons/VisibilityOff";
 import SaveIcon from '@mui/icons-material/Save';
 import BusinessIcon from '@mui/icons-material/Business';
-import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
-import PhoneIcon from '@mui/icons-material/Phone';
-import CardMembershipIcon from '@mui/icons-material/CardMembership';
 import { makeStyles } from "@material-ui/core/styles";
-import { i18n } from "../../translate/i18n";
 import { openApi } from "../../services/api";
 import toastError from "../../errors/toastError";
 import moment from "moment";
-import PhoneInput from 'react-phone-number-input';
-import 'react-phone-number-input/style.css';
-import flags from 'react-phone-number-input/flags';
-import DescriptionIcon from '@mui/icons-material/Description';
-
-// Função para validar CPF
-const isValidCPF = (cpf) => {
-    cpf = cpf.replace(/[^\d]/g, '');
-    if (cpf.length !== 11) return false;
-    if (/^(\d)\1+$/.test(cpf)) return false;
-
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-        sum += parseInt(cpf.charAt(i)) * (10 - i);
-    }
-    let remainder = (sum * 10) % 11;
-    if (remainder === 10 || remainder === 11) remainder = 0;
-    if (remainder !== parseInt(cpf.charAt(9))) return false;
-
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-        sum += parseInt(cpf.charAt(i)) * (11 - i);
-    }
-    remainder = (sum * 10) % 11;
-    if (remainder === 10 || remainder === 11) remainder = 0;
-    if (remainder !== parseInt(cpf.charAt(10))) return false;
-
-    return true;
-};
-
-// Função para validar CNPJ
-const isValidCNPJ = (cnpj) => {
-    cnpj = cnpj.replace(/[^\d]/g, '');
-    if (cnpj.length !== 14) return false;
-    if (/^(\d)\1+$/.test(cnpj)) return false;
-
-    let size = cnpj.length - 2;
-    let numbers = cnpj.substring(0, size);
-    const digits = cnpj.substring(size);
-    let sum = 0;
-    let pos = size - 7;
-
-    for (let i = size; i >= 1; i--) {
-        sum += parseInt(numbers.charAt(size - i)) * pos--;
-        if (pos < 2) pos = 9;
-    }
-
-    let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (result !== parseInt(digits.charAt(0))) return false;
-
-    size = size + 1;
-    numbers = cnpj.substring(0, size);
-    sum = 0;
-    pos = size - 7;
-
-    for (let i = size; i >= 1; i--) {
-        sum += parseInt(numbers.charAt(size - i)) * pos--;
-        if (pos < 2) pos = 9;
-    }
-
-    result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (result !== parseInt(digits.charAt(1))) return false;
-
-    return true;
-};
-
-// Função para validar CPF ou CNPJ
-const isValidDocument = (document) => {
-    if (!document) return false;
-    const cleanDoc = document.replace(/[^\d]/g, '');
-    if (cleanDoc.length === 11) return isValidCPF(cleanDoc);
-    if (cleanDoc.length === 14) return isValidCNPJ(cleanDoc);
-    return false;
-};
-
-const customStyle = {
-    borderRadius: "5px",
-    margin: 1,
-    boxShadow: "none",
-    backgroundColor: "#F78C6B",
-    color: "white",
-    fontSize: "12px",
-};
 
 const customStyle2 = {
     borderRadius: "5px",
     margin: 1,
     boxShadow: "none",
     backgroundColor: "#0f65ab",
-    color: "white",
-    fontSize: "12px",
-};
-
-const customStyle3 = {
-    borderRadius: "5px",
-    margin: 1,
-    boxShadow: "none",
-    backgroundColor: "#0ea17b",
     color: "white",
     fontSize: "12px",
 };
@@ -161,7 +59,7 @@ const useStyles = makeStyles((theme) => ({
         padding: theme.spacing(4),
         borderRadius: theme.shape.borderRadius * 2,
         width: "100%",
-        maxWidth: "800px",
+        maxWidth: "500px",
     },
     formContainer: {
         width: "100%",
@@ -179,44 +77,9 @@ const useStyles = makeStyles((theme) => ({
         marginTop: theme.spacing(1),
         marginBottom: theme.spacing(1),
         "& .MuiOutlinedInput-root": {
-            height: "40px",
+            height: "48px",
             backgroundColor: "#ffffff",
         },
-    },
-    phoneInputContainer: {
-        width: "100%",
-        marginTop: theme.spacing(1),
-        marginBottom: theme.spacing(1),
-        "& .PhoneInput": {
-            width: "100%",
-            "& .PhoneInputInput": {
-                height: "40px",
-                padding: "10.5px 14px",
-                backgroundColor: "#ffffff",
-                borderRadius: "4px",
-                border: "1px solid rgba(0, 0, 0, 0.23)",
-                width: "100%",
-                "&:hover": {
-                    borderColor: "rgba(0, 0, 0, 0.87)",
-                },
-                "&:focus": {
-                    borderColor: "#3f51b5",
-                    borderWidth: "2px",
-                    outline: "none",
-                },
-            },
-            "& .PhoneInputCountry": {
-                marginRight: theme.spacing(1),
-            },
-            "& .PhoneInputCountrySelect": {
-                marginRight: theme.spacing(1),
-            },
-        },
-    },
-    inputLabel: {
-        marginBottom: theme.spacing(0.5),
-        fontWeight: "bold",
-        fontSize: "0.875rem",
     },
     submitButton: {
         width: "100%",
@@ -226,7 +89,7 @@ const useStyles = makeStyles((theme) => ({
         "&:hover": {
             backgroundColor: "#0d47a1",
         },
-        height: "40px",
+        height: "48px",
         fontSize: "0.875rem",
     },
     modal: {
@@ -234,20 +97,8 @@ const useStyles = makeStyles((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    modalPaper: {
-        backgroundColor: theme.palette.background.paper,
-        padding: theme.spacing(4),
-        borderRadius: theme.shape.borderRadius,
-        outline: 'none',
-        textAlign: 'center',
-    },
     icon: {
         color: "#0f65ab",
-    },
-    flag: {
-        width: "20px",
-        height: "15px",
-        marginRight: "8px",
     },
     title: {
         marginBottom: theme.spacing(3),
@@ -271,71 +122,43 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const UserSchema = Yup.object().shape({
-    name: Yup.string()
-        .min(2, "Muito curto!")
-        .max(50, "Muito extenso!")
-        .required("Obrigatório"),
-    password: Yup.string()
-        .min(5, "Muito curto!")
-        .max(50, "Muito extenso!")
-        .required("Obrigatório"),
-    confirmPassword: Yup.string()
-        .oneOf([Yup.ref('password'), null], "As senhas não são iguais.")
-        .required("Por favor, confirme sua senha."),
+    companyName: Yup.string()
+        .min(2, "Nome muito curto!")
+        .required("Nome da empresa é obrigatório"),
     email: Yup.string()
         .email("Email inválido")
-        .required("Obrigatório"),
-    phone: Yup.string()
-        .required("Telefone é obrigatório"),
-    document: Yup.string()
-        .test("valid-document", "CPF/CNPJ inválido", (value) => {
-            if (!value || value.trim() === "") return true;
-            return isValidDocument(value);
-        }),
+        .required("Email é obrigatório"),
+    password: Yup.string()
+        .min(6, "Senha deve ter no mínimo 6 caracteres")
+        .required("Senha é obrigatória"),
 });
 
 const SignUp = () => {
-    const toggleShowPassword = () => {
-        setShowPassword(!showPassword);
-    };
     const [showPassword, setShowPassword] = useState(false);
     const classes = useStyles();
     const history = useHistory();
-    const { getPlanList } = usePlans();
-    const [loading, setLoading] = useState(false);
-    const [openModal, setOpenModal] = useState(false);
     const [showProgress, setShowProgress] = useState(false);
-    let companyId = null;
-
-    const params = qs.parse(window.location.search);
-    if (params.companyId !== undefined) {
-        companyId = params.companyId;
-    }
-
-    const initialState = { name: "", email: "", password: "", phone: "", companyId, companyName: "", planId: "", document: "" };
-    const [user] = useState(initialState);
-    const [plans, setPlans] = useState([]);
-
-    useEffect(() => {
-        setLoading(true);
-        const fetchData = async () => {
-            const planList = await getPlanList();
-            const publicPlans = planList.filter(plan => plan.isPublic === true);
-            setPlans(publicPlans);
-            setLoading(false);
-        };
-        fetchData();
-    }, []);
+    const [openModal, setOpenModal] = useState(false);
 
     const dueDate = moment().add(7, "day").format();
-    const handleSignUp = async values => {
+
+    const initialState = {
+        companyName: "",
+        email: "",
+        password: "",
+    };
+
+    const handleSignUp = async (values) => {
         setShowProgress(true);
-        Object.assign(values, { recurrence: "MENSAL" });
-        Object.assign(values, { dueDate: dueDate });
-        Object.assign(values, { status: "t" });
-        Object.assign(values, { campaignsEnabled: true });
+        const payload = {
+            ...values,
+            recurrence: "MENSAL",
+            dueDate,
+            status: "t",
+            campaignsEnabled: true,
+        };
         try {
-            await openApi.post("/auth/signup", values);
+            await openApi.post("/auth/signup", payload);
             setShowProgress(false);
             setOpenModal(true);
         } catch (err) {
@@ -356,10 +179,11 @@ const SignUp = () => {
                     <Container component="main" className={classes.formContainer}>
                         <CssBaseline />
                         <Typography component="h1" variant="h4" align="center" className={classes.title}>
-                            {i18n.t("CADASTRO DE EMPRESA")}
+                            Cadastro de Empresa
                         </Typography>
+
                         <Formik
-                            initialValues={user}
+                            initialValues={initialState}
                             enableReinitialize={true}
                             validationSchema={UserSchema}
                             onSubmit={(values, actions) => {
@@ -369,18 +193,17 @@ const SignUp = () => {
                                 }, 400);
                             }}
                         >
-                            {({ touched, errors, isSubmitting, setFieldValue, values }) => (
+                            {({ touched, errors, isSubmitting }) => (
                                 <Form className={classes.form}>
                                     <Field
                                         as={TextField}
                                         variant="outlined"
                                         fullWidth
                                         id="companyName"
-                                        error={touched.companyName && Boolean(errors.companyName)}
-                                        helperText={touched.companyName && errors.companyName}
                                         name="companyName"
                                         placeholder="Nome da Empresa"
-                                        autoComplete="companyName"
+                                        error={touched.companyName && Boolean(errors.companyName)}
+                                        helperText={touched.companyName && errors.companyName}
                                         autoFocus
                                         className={classes.textField}
                                         InputProps={{
@@ -389,34 +212,6 @@ const SignUp = () => {
                                                     <BusinessIcon className={classes.icon} />
                                                 </InputAdornment>
                                             ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
-                                        }}
-                                    />
-
-                                    <Field
-                                        as={TextField}
-                                        autoComplete="name"
-                                        name="name"
-                                        placeholder="Seu Nome Completo"
-                                        error={touched.name && Boolean(errors.name)}
-                                        helperText={touched.name && errors.name}
-                                        variant="outlined"
-                                        fullWidth
-                                        id="name"
-                                        className={classes.textField}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <PersonIcon className={classes.icon} />
-                                                </InputAdornment>
-                                            ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
                                         }}
                                     />
 
@@ -426,7 +221,7 @@ const SignUp = () => {
                                         fullWidth
                                         id="email"
                                         name="email"
-                                        placeholder="Seu Melhor Email"
+                                        placeholder="Email"
                                         error={touched.email && Boolean(errors.email)}
                                         helperText={touched.email && errors.email}
                                         autoComplete="email"
@@ -437,20 +232,15 @@ const SignUp = () => {
                                                     <EmailIcon className={classes.icon} />
                                                 </InputAdornment>
                                             ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
                                         }}
                                     />
 
                                     <Field
                                         as={TextField}
                                         variant="outlined"
-                                        required
                                         fullWidth
                                         name="password"
-                                        placeholder="Crie uma Senha Segura"
+                                        placeholder="Senha (mínimo 6 caracteres)"
                                         error={touched.password && Boolean(errors.password)}
                                         helperText={touched.password && errors.password}
                                         type={showPassword ? "text" : "password"}
@@ -463,16 +253,9 @@ const SignUp = () => {
                                                     <LockIcon className={classes.icon} />
                                                 </InputAdornment>
                                             ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
                                             endAdornment: (
                                                 <InputAdornment position="end">
-                                                    <IconButton
-                                                        aria-label="toggle password visibility"
-                                                        onClick={toggleShowPassword}
-                                                    >
+                                                    <IconButton onClick={() => setShowPassword(!showPassword)}>
                                                         {showPassword ? <Visibility /> : <VisibilityOff />}
                                                     </IconButton>
                                                 </InputAdornment>
@@ -480,128 +263,7 @@ const SignUp = () => {
                                         }}
                                     />
 
-                                    <Field
-                                        as={TextField}
-                                        variant="outlined"
-                                        required
-                                        fullWidth
-                                        name="confirmPassword"
-                                        placeholder="Confirme sua Senha"
-                                        error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-                                        helperText={touched.confirmPassword && errors.confirmPassword}
-                                        type={showPassword ? "text" : "password"}
-                                        id="confirmPassword"
-                                        autoComplete="confirm-password"
-                                        className={classes.textField}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <LockIcon className={classes.icon} />
-                                                </InputAdornment>
-                                            ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
-                                            endAdornment: (
-                                                <InputAdornment position="end">
-                                                    <IconButton
-                                                        aria-label="toggle password visibility"
-                                                        onClick={toggleShowPassword}
-                                                    >
-                                                        {showPassword ? <Visibility /> : <VisibilityOff />}
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            ),
-                                        }}
-                                    />
-
-                                    <div className={classes.phoneInputContainer}>
-                                        <PhoneInput
-                                            international
-                                            defaultCountry="BR"
-                                            value={values.phone}
-                                            onChange={(value) => setFieldValue('phone', value)}
-                                            flags={flags}
-                                            placeholder="Digite seu telefone"
-                                            className={classes.phoneInput}
-                                        />
-                                        {touched.phone && errors.phone && (
-                                            <div style={{ color: '#f44336', fontSize: '0.75rem', margin: '3px 14px 0' }}>
-                                                {errors.phone}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <Field
-                                        as={TextField}
-                                        variant="outlined"
-                                        fullWidth
-                                        name="document"
-                                        placeholder="CPF ou CNPJ (Opcional)"
-                                        error={touched.document && Boolean(errors.document)}
-                                        helperText={touched.document && errors.document}
-                                        id="document"
-                                        className={classes.textField}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <DescriptionIcon className={classes.icon} />
-                                                </InputAdornment>
-                                            ),
-                                            style: {
-                                                backgroundColor: "#ffffff",
-                                                borderRadius: "8px",
-                                            },
-                                        }}
-                                    />
-
-                                    <Field
-                                        as={Select}
-                                        variant="outlined"
-                                        fullWidth
-                                        id="plan-selection"
-                                        name="planId"
-                                        required
-                                        displayEmpty
-                                        className={classes.textField}
-                                        style={{
-                                            backgroundColor: "#ffffff",
-                                            borderRadius: "8px",
-                                        }}
-                                        inputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <CardMembershipIcon className={classes.icon} />
-                                                </InputAdornment>
-                                            ),
-                                        }}
-                                        renderValue={(selected) => {
-                                            if (!selected) {
-                                                return (
-                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                        <CardMembershipIcon className={classes.icon} style={{ marginRight: 8 }} />
-                                                        <span>Selecione um Plano</span>
-                                                    </div>
-                                                );
-                                            }
-                                            const plan = plans.find(p => p.id === selected);
-                                            return plan ? plan.name : "Selecione um Plano";
-                                        }}
-                                    >
-                                        <MenuItem value="" disabled>
-                                            <CardMembershipIcon className={classes.icon} style={{ marginRight: 8 }} />
-                                            Selecione um Plano
-                                        </MenuItem>
-                                        {plans.map((plan, key) => (
-                                            <MenuItem key={key} value={plan.id}>
-                                                {plan.name} - Atendentes: {plan.users} - Conexões: {plan.connections} - Filas:{" "}
-                                                {plan.queues} - $ {plan.amount}
-                                            </MenuItem>
-                                        ))}
-                                    </Field>
-
-                                    <Box mt={3}>
+                                    <Box mt={2}>
                                         <Button
                                             type="submit"
                                             fullWidth
@@ -611,7 +273,18 @@ const SignUp = () => {
                                             disabled={isSubmitting}
                                             style={customStyle2}
                                         >
-                                            {i18n.t("signup.buttons.submit")}
+                                            Cadastrar Empresa
+                                        </Button>
+                                    </Box>
+
+                                    <Box mt={1} textAlign="center">
+                                        <Button
+                                            variant="text"
+                                            size="small"
+                                            style={{ color: "#0f65ab" }}
+                                            onClick={() => history.push("/login")}
+                                        >
+                                            Já possui conta? Faça login
                                         </Button>
                                     </Box>
                                 </Form>
@@ -625,10 +298,7 @@ const SignUp = () => {
             <Dialog
                 open={showProgress}
                 aria-labelledby="progress-dialog-title"
-                aria-describedby="progress-dialog-description"
                 className={classes.modal}
-                disableBackdropClick
-                disableEscapeKeyDown
             >
                 <div className={classes.progressContainer}>
                     <CircularProgress size={60} thickness={5} style={{ color: '#0f65ab' }} />
@@ -636,7 +306,7 @@ const SignUp = () => {
                         Realizando Cadastro...
                     </Typography>
                     <Typography variant="body1" style={{ color: '#0f65ab', marginTop: '10px' }}>
-                        Por favor, aguarde enquanto processamos seu cadastro.
+                        Por favor, aguarde.
                     </Typography>
                 </div>
             </Dialog>
@@ -646,23 +316,22 @@ const SignUp = () => {
                 open={openModal}
                 onClose={handleCloseModal}
                 aria-labelledby="modal-title"
-                aria-describedby="modal-description"
                 className={classes.modal}
             >
                 <DialogTitle id="modal-title" style={{ backgroundColor: "#0f65ab", color: "#ffffff" }}>
                     Cadastro Realizado com Sucesso!
                 </DialogTitle>
                 <DialogContent style={{ backgroundColor: "#ffffff" }}>
-                    <Typography variant="h6" id="modal-description" style={{ color: "#0f65ab" }}>
-                        Parabéns! Seu cadastro foi realizado com sucesso.
+                    <Typography variant="h6" style={{ color: "#0f65ab" }}>
+                        Parabéns! Sua empresa foi cadastrada.
                     </Typography>
                     <Typography variant="body1" style={{ color: "#0f65ab" }}>
-                        Agora a Empresa podera acessar sua conta e começar a usar nossa plataforma.
+                        Faça login para acessar a plataforma.
                     </Typography>
                 </DialogContent>
                 <DialogActions style={{ backgroundColor: "#ffffff" }}>
                     <Button onClick={handleCloseModal} style={{ color: "#0f65ab" }}>
-                        Fechar
+                        Ir para Login
                     </Button>
                 </DialogActions>
             </Dialog>

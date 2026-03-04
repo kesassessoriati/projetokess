@@ -441,25 +441,16 @@ const SignUpSchema = Yup.object().shape({
     .required("E-mail é obrigatório"),
   password: Yup.string()
     .min(6, "Senha deve ter no mínimo 6 caracteres")
-    .matches(/[a-z]/, "Senha deve conter ao menos 1 letra minúscula")
-    .matches(/[A-Z]/, "Senha deve conter ao menos 1 letra maiúscula")
     .required("Senha é obrigatória"),
   confirmPassword: Yup.string()
     .oneOf([Yup.ref("password"), null], "Senhas não coincidem")
     .required("Confirmação de senha é obrigatória"),
-  phone: Yup.string()
-    .min(10, "Telefone muito curto")
-    .required("Telefone é obrigatório"),
-  companyName: Yup.string()
-    .min(2, "Nome da empresa muito curto")
-    .required("Nome da empresa é obrigatório"),
-  type: Yup.string()
-    .oneOf(["pf", "pj"], "Tipo inválido")
-    .required("Tipo é obrigatório"),
+  phone: Yup.string().nullable(),
+  companyName: Yup.string().nullable(),
+  type: Yup.string().nullable(),
   document: Yup.string().nullable(),
-  segment: Yup.string(),
-  planId: Yup.number()
-    .required("Plano é obrigatório")
+  segment: Yup.string().nullable(),
+  planId: Yup.number().nullable(),
 });
 
 const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nextStep, prevStep, step, totalSteps, handleSubmit, isSubmitting, plans, trialDays, loading }) => {
@@ -473,10 +464,6 @@ const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nex
     0: ["name"],
     1: ["email"],
     2: ["password", "confirmPassword"],
-    3: ["phone"],
-    4: ["type"],
-    5: ["companyName"],
-    6: ["planId"],
   };
 
   // Carousel scroll functions
@@ -1008,10 +995,6 @@ const SignUp = () => {
     "Nome",
     "Email",
     "Senha",
-    "Telefone",
-    "Tipo",
-    "Empresa",
-    "Plano"
   ];
 
   // Busca imagem de fundo do backend
@@ -1184,8 +1167,8 @@ const SignUp = () => {
     
     const dataToSend = {
       ...values,
+      companyName: values.companyName || values.name || values.email?.split('@')[0] || 'Empresa',
       planId: finalPlanId,
-      phone: values.phone ? values.phone.replace(/\D/g, '') : '',
       recurrence: "MENSAL",
       dueDate: dueDate,
       status: "t",
