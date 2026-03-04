@@ -46,228 +46,228 @@ import DescriptionIcon from '@mui/icons-material/Description';
 
 // Função para validar CPF
 const isValidCPF = (cpf) => {
-  cpf = cpf.replace(/[^\d]/g, '');
-  if (cpf.length !== 11) return false;
-  if (/^(\d)\1+$/.test(cpf)) return false;
-  
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(cpf.charAt(i)) * (10 - i);
-  }
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(9))) return false;
-  
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(cpf.charAt(i)) * (11 - i);
-  }
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(10))) return false;
-  
-  return true;
+    cpf = cpf.replace(/[^\d]/g, '');
+    if (cpf.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cpf)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+        sum += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cpf.charAt(9))) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+        sum += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cpf.charAt(10))) return false;
+
+    return true;
 };
 
 // Função para validar CNPJ
 const isValidCNPJ = (cnpj) => {
-  cnpj = cnpj.replace(/[^\d]/g, '');
-  if (cnpj.length !== 14) return false;
-  if (/^(\d)\1+$/.test(cnpj)) return false;
-  
-  let size = cnpj.length - 2;
-  let numbers = cnpj.substring(0, size);
-  const digits = cnpj.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(0))) return false;
-  
-  size = size + 1;
-  numbers = cnpj.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(1))) return false;
-  
-  return true;
+    cnpj = cnpj.replace(/[^\d]/g, '');
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false;
+
+    let size = cnpj.length - 2;
+    let numbers = cnpj.substring(0, size);
+    const digits = cnpj.substring(size);
+    let sum = 0;
+    let pos = size - 7;
+
+    for (let i = size; i >= 1; i--) {
+        sum += parseInt(numbers.charAt(size - i)) * pos--;
+        if (pos < 2) pos = 9;
+    }
+
+    let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (result !== parseInt(digits.charAt(0))) return false;
+
+    size = size + 1;
+    numbers = cnpj.substring(0, size);
+    sum = 0;
+    pos = size - 7;
+
+    for (let i = size; i >= 1; i--) {
+        sum += parseInt(numbers.charAt(size - i)) * pos--;
+        if (pos < 2) pos = 9;
+    }
+
+    result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (result !== parseInt(digits.charAt(1))) return false;
+
+    return true;
 };
 
 // Função para validar CPF ou CNPJ
 const isValidDocument = (document) => {
-  if (!document) return false;
-  const cleanDoc = document.replace(/[^\d]/g, '');
-  if (cleanDoc.length === 11) return isValidCPF(cleanDoc);
-  if (cleanDoc.length === 14) return isValidCNPJ(cleanDoc);
-  return false;
+    if (!document) return false;
+    const cleanDoc = document.replace(/[^\d]/g, '');
+    if (cleanDoc.length === 11) return isValidCPF(cleanDoc);
+    if (cleanDoc.length === 14) return isValidCNPJ(cleanDoc);
+    return false;
 };
 
 const customStyle = {
-  borderRadius: "5px",
-  margin: 1,
-  boxShadow: "none",
-  backgroundColor: "#F78C6B",
-  color: "white",
-  fontSize: "12px",
+    borderRadius: "5px",
+    margin: 1,
+    boxShadow: "none",
+    backgroundColor: "#F78C6B",
+    color: "white",
+    fontSize: "12px",
 };
 
 const customStyle2 = {
-  borderRadius: "5px",
-  margin: 1,
-  boxShadow: "none",
-  backgroundColor: "#0f65ab",
-  color: "white",
-  fontSize: "12px",
+    borderRadius: "5px",
+    margin: 1,
+    boxShadow: "none",
+    backgroundColor: "#0f65ab",
+    color: "white",
+    fontSize: "12px",
 };
 
 const customStyle3 = {
-  borderRadius: "5px",
-  margin: 1,
-  boxShadow: "none",
-  backgroundColor: "#0ea17b",
-  color: "white",
-  fontSize: "12px",
+    borderRadius: "5px",
+    margin: 1,
+    boxShadow: "none",
+    backgroundColor: "#0ea17b",
+    color: "white",
+    fontSize: "12px",
 };
 
 const useStyles = makeStyles((theme) => ({
-  root: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: "#f5f5f5",
-    padding: theme.spacing(3),
-  },
-  paperContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    maxWidth: "1200px",
-  },
-  paper: {
-    padding: theme.spacing(4),
-    borderRadius: theme.shape.borderRadius * 2,
-    width: "100%",
-    maxWidth: "800px",
-  },
-  formContainer: {
-    width: "100%",
-    padding: theme.spacing(2),
-    backgroundColor: "#ffffff",
-    borderRadius: theme.shape.borderRadius,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  form: {
-    width: "100%",
-  },
-  textField: {
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-    "& .MuiOutlinedInput-root": {
-      height: "40px",
-      backgroundColor: "#ffffff",
+    root: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        backgroundColor: "#f5f5f5",
+        padding: theme.spacing(3),
     },
-  },
-  phoneInputContainer: {
-    width: "100%",
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-    "& .PhoneInput": {
-      width: "100%",
-      "& .PhoneInputInput": {
-        height: "40px",
-        padding: "10.5px 14px",
-        backgroundColor: "#ffffff",
-        borderRadius: "4px",
-        border: "1px solid rgba(0, 0, 0, 0.23)",
+    paperContainer: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
         width: "100%",
+        maxWidth: "1200px",
+    },
+    paper: {
+        padding: theme.spacing(4),
+        borderRadius: theme.shape.borderRadius * 2,
+        width: "100%",
+        maxWidth: "800px",
+    },
+    formContainer: {
+        width: "100%",
+        padding: theme.spacing(2),
+        backgroundColor: "#ffffff",
+        borderRadius: theme.shape.borderRadius,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+    },
+    form: {
+        width: "100%",
+    },
+    textField: {
+        marginTop: theme.spacing(1),
+        marginBottom: theme.spacing(1),
+        "& .MuiOutlinedInput-root": {
+            height: "40px",
+            backgroundColor: "#ffffff",
+        },
+    },
+    phoneInputContainer: {
+        width: "100%",
+        marginTop: theme.spacing(1),
+        marginBottom: theme.spacing(1),
+        "& .PhoneInput": {
+            width: "100%",
+            "& .PhoneInputInput": {
+                height: "40px",
+                padding: "10.5px 14px",
+                backgroundColor: "#ffffff",
+                borderRadius: "4px",
+                border: "1px solid rgba(0, 0, 0, 0.23)",
+                width: "100%",
+                "&:hover": {
+                    borderColor: "rgba(0, 0, 0, 0.87)",
+                },
+                "&:focus": {
+                    borderColor: "#3f51b5",
+                    borderWidth: "2px",
+                    outline: "none",
+                },
+            },
+            "& .PhoneInputCountry": {
+                marginRight: theme.spacing(1),
+            },
+            "& .PhoneInputCountrySelect": {
+                marginRight: theme.spacing(1),
+            },
+        },
+    },
+    inputLabel: {
+        marginBottom: theme.spacing(0.5),
+        fontWeight: "bold",
+        fontSize: "0.875rem",
+    },
+    submitButton: {
+        width: "100%",
+        marginTop: theme.spacing(2),
+        backgroundColor: "#0f65ab",
+        color: "#ffffff",
         "&:hover": {
-          borderColor: "rgba(0, 0, 0, 0.87)",
+            backgroundColor: "#0d47a1",
         },
-        "&:focus": {
-          borderColor: "#3f51b5",
-          borderWidth: "2px",
-          outline: "none",
-        },
-      },
-      "& .PhoneInputCountry": {
-        marginRight: theme.spacing(1),
-      },
-      "& .PhoneInputCountrySelect": {
-        marginRight: theme.spacing(1),
-      },
+        height: "40px",
+        fontSize: "0.875rem",
     },
-  },
-  inputLabel: {
-    marginBottom: theme.spacing(0.5),
-    fontWeight: "bold",
-    fontSize: "0.875rem",
-  },
-  submitButton: {
-    width: "100%",
-    marginTop: theme.spacing(2),
-    backgroundColor: "#0f65ab",
-    color: "#ffffff",
-    "&:hover": {
-      backgroundColor: "#0d47a1",
+    modal: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    height: "40px",
-    fontSize: "0.875rem",
-  },
-  modal: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalPaper: {
-    backgroundColor: theme.palette.background.paper,
-    padding: theme.spacing(4),
-    borderRadius: theme.shape.borderRadius,
-    outline: 'none',
-    textAlign: 'center',
-  },
-  icon: {
-    color: "#0f65ab",
-  },
-  flag: {
-    width: "20px",
-    height: "15px",
-    marginRight: "8px",
-  },
-  title: {
-    marginBottom: theme.spacing(3),
-    color: "#0f65ab",
-    fontWeight: "bold",
-  },
-  progressContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing(4),
-    backgroundColor: '#ffffff',
-    borderRadius: theme.shape.borderRadius,
-  },
-  progressText: {
-    marginTop: theme.spacing(2),
-    color: '#0f65ab',
-    fontWeight: 'bold',
-  },
+    modalPaper: {
+        backgroundColor: theme.palette.background.paper,
+        padding: theme.spacing(4),
+        borderRadius: theme.shape.borderRadius,
+        outline: 'none',
+        textAlign: 'center',
+    },
+    icon: {
+        color: "#0f65ab",
+    },
+    flag: {
+        width: "20px",
+        height: "15px",
+        marginRight: "8px",
+    },
+    title: {
+        marginBottom: theme.spacing(3),
+        color: "#0f65ab",
+        fontWeight: "bold",
+    },
+    progressContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing(4),
+        backgroundColor: '#ffffff',
+        borderRadius: theme.shape.borderRadius,
+    },
+    progressText: {
+        marginTop: theme.spacing(2),
+        color: '#0f65ab',
+        fontWeight: 'bold',
+    },
 }));
 
 const UserSchema = Yup.object().shape({
@@ -288,9 +288,8 @@ const UserSchema = Yup.object().shape({
     phone: Yup.string()
         .required("Telefone é obrigatório"),
     document: Yup.string()
-        .required("CPF/CNPJ é obrigatório")
         .test("valid-document", "CPF/CNPJ inválido", (value) => {
-            if (!value) return false;
+            if (!value || value.trim() === "") return true;
             return isValidDocument(value);
         }),
 });
@@ -537,10 +536,9 @@ const SignUp = () => {
                                     <Field
                                         as={TextField}
                                         variant="outlined"
-                                        required
                                         fullWidth
                                         name="document"
-                                        placeholder="CPF ou CNPJ"
+                                        placeholder="CPF ou CNPJ (Opcional)"
                                         error={touched.document && Boolean(errors.document)}
                                         helperText={touched.document && errors.document}
                                         id="document"

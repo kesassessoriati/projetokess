@@ -57,7 +57,7 @@ const isValidCPF = (cpf) => {
   cpf = cpf.replace(/[^\d]/g, '');
   if (cpf.length !== 11) return false;
   if (/^(\d)\1+$/.test(cpf)) return false;
-  
+
   let sum = 0;
   for (let i = 0; i < 9; i++) {
     sum += parseInt(cpf.charAt(i)) * (10 - i);
@@ -65,7 +65,7 @@ const isValidCPF = (cpf) => {
   let remainder = (sum * 10) % 11;
   if (remainder === 10 || remainder === 11) remainder = 0;
   if (remainder !== parseInt(cpf.charAt(9))) return false;
-  
+
   sum = 0;
   for (let i = 0; i < 10; i++) {
     sum += parseInt(cpf.charAt(i)) * (11 - i);
@@ -73,7 +73,7 @@ const isValidCPF = (cpf) => {
   remainder = (sum * 10) % 11;
   if (remainder === 10 || remainder === 11) remainder = 0;
   if (remainder !== parseInt(cpf.charAt(10))) return false;
-  
+
   return true;
 };
 
@@ -82,34 +82,34 @@ const isValidCNPJ = (cnpj) => {
   cnpj = cnpj.replace(/[^\d]/g, '');
   if (cnpj.length !== 14) return false;
   if (/^(\d)\1+$/.test(cnpj)) return false;
-  
+
   let size = cnpj.length - 2;
   let numbers = cnpj.substring(0, size);
   const digits = cnpj.substring(size);
   let sum = 0;
   let pos = size - 7;
-  
+
   for (let i = size; i >= 1; i--) {
     sum += parseInt(numbers.charAt(size - i)) * pos--;
     if (pos < 2) pos = 9;
   }
-  
+
   let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
   if (result !== parseInt(digits.charAt(0))) return false;
-  
+
   size = size + 1;
   numbers = cnpj.substring(0, size);
   sum = 0;
   pos = size - 7;
-  
+
   for (let i = size; i >= 1; i--) {
     sum += parseInt(numbers.charAt(size - i)) * pos--;
     if (pos < 2) pos = 9;
   }
-  
+
   result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
   if (result !== parseInt(digits.charAt(1))) return false;
-  
+
   return true;
 };
 
@@ -261,7 +261,7 @@ export function CompanyForm(props) {
     if (data.dueDate === "" || moment(data.dueDate).isValid() === false) {
       data.dueDate = null;
     }
-    
+
     // Valida CPF/CNPJ apenas se preenchido
     if (data.document && data.document.trim() !== "") {
       if (!isValidDocument(data.document)) {
@@ -437,9 +437,9 @@ export function CompanyForm(props) {
                   <InputLabel htmlFor="plan-selection">
                     {i18n.t("compaies.table.plan")}
                   </InputLabel>
-                  <Field 
-                    as={Select} 
-                    id="plan-selection" 
+                  <Field
+                    as={Select}
+                    id="plan-selection"
                     name="planId"
                     startAdornment={
                       <InputAdornment position="start">
@@ -467,9 +467,9 @@ export function CompanyForm(props) {
                   <InputLabel htmlFor="status-selection">
                     {i18n.t("compaies.table.active")}
                   </InputLabel>
-                  <Field 
-                    as={Select} 
-                    id="status-selection" 
+                  <Field
+                    as={Select}
+                    id="status-selection"
                     name="status"
                     startAdornment={
                       <InputAdornment position="start">
@@ -492,7 +492,6 @@ export function CompanyForm(props) {
                   variant="outlined"
                   margin="dense"
                   fullWidth
-                  required
                   error={touched.document && Boolean(errors.document)}
                   helperText={touched.document && errors.document}
                   InputProps={{
@@ -539,9 +538,9 @@ export function CompanyForm(props) {
                   <InputLabel htmlFor="recurrence-selection">
                     {i18n.t("compaies.table.recurrence")}
                   </InputLabel>
-                  <Field 
-                    as={Select} 
-                    id="recurrence-selection" 
+                  <Field
+                    as={Select}
+                    id="recurrence-selection"
                     name="recurrence"
                     startAdornment={
                       <InputAdornment position="start">
@@ -569,9 +568,9 @@ export function CompanyForm(props) {
                   <InputLabel htmlFor="paymentMethod-selection">
                     {i18n.t("Método de Pagamento")}
                   </InputLabel>
-                  <Field 
-                    as={Select} 
-                    id="paymentMethod-selection" 
+                  <Field
+                    as={Select}
+                    id="paymentMethod-selection"
                     name="paymentMethod"
                     startAdornment={
                       <InputAdornment position="start">
@@ -821,7 +820,7 @@ export default function CompaniesManager() {
 
   const handleSubmit = async (data) => {
     setLoading(true);
-    
+
     // Valida CPF/CNPJ apenas se preenchido
     if (data.document && data.document.trim() !== "") {
       if (!isValidDocument(data.document)) {
@@ -843,33 +842,33 @@ export default function CompaniesManager() {
         }
       }
     }
-    
+
     // Verifica duplicidade de email (apenas para novos cadastros)
     if (!data.id) {
       const duplicateEmailCompany = records.find(company => {
         return company.email === data.email;
       });
-      
+
       if (duplicateEmailCompany) {
         toast.error(`Email já cadastrado para a empresa "${duplicateEmailCompany.name}"`);
         setLoading(false);
         return;
       }
     }
-    
+
     // Verifica duplicidade de nome (apenas para novos cadastros)
     if (!data.id) {
       const duplicateNameCompany = records.find(company => {
         return company.name === data.name;
       });
-      
+
       if (duplicateNameCompany) {
         toast.error(`Nome já cadastrado para a empresa "${duplicateNameCompany.name}"`);
         setLoading(false);
         return;
       }
     }
-    
+
     try {
       if (data.id !== undefined) {
         await update(data);
