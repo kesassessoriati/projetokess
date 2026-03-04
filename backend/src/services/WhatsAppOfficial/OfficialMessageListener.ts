@@ -120,12 +120,11 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
 
           // Create message record
           const messageData: any = {
+            wid: messageId,
             contactId: contact.id,
             body: body || `Mídia ${message.type}`,
             ticketId: ticket.id,
             fromMe: false,
-            companyId: connection.companyId,
-            messageId,
             ack: 1,
             read: false
           };
@@ -136,11 +135,12 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
             if (fileName) messageData.fileName = fileName;
           }
 
-          await CreateMessageService(messageData);
+          await CreateMessageService({ messageData, companyId: connection.companyId });
 
           console.log("Official message processed:", { from, body, messageId, ticketId: ticket.id });
         } catch (error) {
-          console.error("Error processing official message:", error);
+          const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
+          console.error("Error processing official message:", errMsg);
         }
       }
     }
