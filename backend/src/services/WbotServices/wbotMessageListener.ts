@@ -873,10 +873,14 @@ const verifyContact = async (
 
   remoteJid = sanitizeRemoteJid(msgContact.id, number, isGroup);
 
-  // ✅ Tentar obter foto com número real
-  if (!isGroup && wbot) {
+  // ✅ Tentar obter foto (contatos e grupos) com timeout para não bloquear o fluxo
+  if (wbot) {
     try {
-      profilePicUrl = await wbot.profilePictureUrl(remoteJid, "image");
+      const picPromise = wbot.profilePictureUrl(remoteJid, "image");
+      const picTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("profilePictureUrl timeout")), 3000)
+      );
+      profilePicUrl = await Promise.race([picPromise, picTimeout]);
       logger.info("Got profile picture URL:", profilePicUrl);
     } catch (err) {
       logger.debug("Could not get profile picture:", err?.message);
@@ -4788,7 +4792,30 @@ const handleMessage = async (
 
     if (isGroup) {
       console.log("log... 2966");
-      const grupoMeta = await wbot.groupMetadata(msg.key.remoteJid);
+      let grupoMeta: { id: string; subject: string };
+      const groupCacheKey = `groupMeta:${msg.key.remoteJid}:${companyId}`;
+      const cachedMeta = await cacheLayer.get(groupCacheKey);
+
+      if (cachedMeta) {
+        grupoMeta = JSON.parse(cachedMeta);
+      } else {
+        try {
+          const metaPromise = wbot.groupMetadata(msg.key.remoteJid);
+          const metaTimeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("groupMetadata timeout")), 5000)
+          );
+          const fullMeta = await Promise.race([metaPromise, metaTimeout]);
+          grupoMeta = { id: fullMeta.id, subject: fullMeta.subject || fullMeta.id.split("@")[0] };
+          await cacheLayer.set(groupCacheKey, JSON.stringify(grupoMeta), "EX", 300);
+        } catch (err) {
+          logger.warn(`[Groups] groupMetadata failed for ${msg.key.remoteJid}: ${err?.message}`);
+          grupoMeta = {
+            id: msg.key.remoteJid,
+            subject: msg.key.remoteJid.split("@")[0]
+          };
+        }
+      }
+
       const msgGroupContact = {
         id: grupoMeta.id,
         name: grupoMeta.subject
@@ -6401,34 +6428,45 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     });
   });
 
-  wbot.ev.on("groups.update", (groupUpdate: GroupMetadata[]) => {
-    if (!groupUpdate[0]?.id) return;
-    if (groupUpdate.length === 0) return;
-    groupUpdate.forEach(async (group: GroupMetadata) => {
+  wbot.ev.on("groups.update", async (groupUpdate: GroupMetadata[]) => {
+    if (!groupUpdate || groupUpdate.length === 0 || !groupUpdate[0]?.id) return;
+
+    await Promise.all(groupUpdate.map(async (group: GroupMetadata) => {
       const number = group.id.split("@")[0] || group.id.replace(/\D/g, "");
       const nameGroup = group.subject || number;
 
       let profilePicUrl: string = "";
       try {
-        profilePicUrl = await wbot.profilePictureUrl(group.id, "image");
+        const picPromise = wbot.profilePictureUrl(group.id, "image");
+        const picTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("profilePictureUrl timeout")), 3000)
+        );
+        profilePicUrl = await Promise.race([picPromise, picTimeout]);
       } catch (e) {
-        Sentry.captureException(e);
         profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
       }
+
       const contactData = {
         name: nameGroup,
-        number: number,
+        number,
         isGroup: true,
-        companyId: companyId,
+        companyId,
         remoteJid: group.id,
         profilePicUrl,
         whatsappId: wbot.id,
-        wbot: wbot,
+        wbot,
         msgBody: ""
       };
 
-      const contact = await CreateOrUpdateContactService(contactData);
-    });
+      try {
+        await CreateOrUpdateContactService(contactData);
+        // Atualiza o cache do grupo com nome e foto novos
+        const groupCacheKey = `groupMeta:${group.id}:${companyId}`;
+        await cacheLayer.set(groupCacheKey, JSON.stringify({ id: group.id, subject: nameGroup }), "EX", 300);
+      } catch (err) {
+        logger.warn(`[Groups] Falha ao atualizar contato do grupo ${group.id}: ${err?.message}`);
+      }
+    }));
   });
 };
 
