@@ -903,9 +903,6 @@ const LoggedInLayout = ({ children }) => {
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
           { title: "Board Inteligente", path: "/kanban" },
-          { title: "Dashboard Executivo", path: "/executive-dashboard" },
-          { title: "Configuração de Funil", path: "/pipeline-config" },
-          { title: "Webhooks (CRM)", path: "/crm-webhooks" },
           // [DEPRECATED] Funil Legado removido - migrado para Board Inteligente
           // { title: "Funil Legado", path: "/funil" },
           { title: "Etiquetas", path: "/etiquetas" },
@@ -929,9 +926,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Agente de IA", path: "/agentes" },
           { title: "Construtor de Fluxo", path: "/flowbuilders" },
-          { title: "Disparos", path: "/campanhas" },
-          { title: "└ Listas de contatos", path: "/contact-lists" },
-          { title: "Campanhas", path: "/phrase-lists" },
+          { title: "Listas de contatos", path: "/contact-lists" },
           { title: "Respostas rápidas", path: "/quick-messages" },
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
@@ -1331,6 +1326,24 @@ const LoggedInLayout = ({ children }) => {
                       <span>Relatórios</span>
                     </button>
                   </Tooltip>
+                  <Tooltip title="Disparos">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/campanhas") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/campanhas")}
+                    >
+                      <SendIcon style={{ fontSize: 17 }} />
+                      <span>Disparos</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip title="Campanhas">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/phrase-lists") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/phrase-lists")}
+                    >
+                      <CampaignOutlinedIcon style={{ fontSize: 17 }} />
+                      <span>Campanhas</span>
+                    </button>
+                  </Tooltip>
                 </div>
               )}
 
@@ -1502,6 +1515,22 @@ const LoggedInLayout = ({ children }) => {
           >
             <BarChartIcon className={classes.mobileNavIcon} />
             <span className={classes.mobileNavLabel}>Relatórios</span>
+          </div>
+          {/* Botão 6 - Disparos */}
+          <div
+            className={`${classes.mobileNavItem} ${isActivePath("/campanhas") ? "active" : ""}`}
+            onClick={() => history.push("/campanhas")}
+          >
+            <SendIcon className={classes.mobileNavIcon} />
+            <span className={classes.mobileNavLabel}>Disparos</span>
+          </div>
+          {/* Botão 7 - Campanhas */}
+          <div
+            className={`${classes.mobileNavItem} ${isActivePath("/phrase-lists") ? "active" : ""}`}
+            onClick={() => history.push("/phrase-lists")}
+          >
+            <CampaignOutlinedIcon className={classes.mobileNavIcon} />
+            <span className={classes.mobileNavLabel}>Campanhas</span>
           </div>
         </div>
       )}

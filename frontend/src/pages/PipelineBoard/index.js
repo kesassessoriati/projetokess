@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useContext } from "react";
+import { useHistory } from "react-router-dom";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 import {
@@ -44,7 +45,10 @@ import {
     Search as SearchIcon,
     People as PeopleIcon,
     Person as PersonIcon,
-    Clear as ClearIcon
+    Clear as ClearIcon,
+    Dashboard as DashboardIcon,
+    Tune as TuneIcon,
+    Code as CodeIcon
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { format, parseISO } from "date-fns";
@@ -328,6 +332,7 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
 
 const PipelineBoard = () => {
     const classes = useStyles();
+    const history = useHistory();
     const { user } = useContext(AuthContext);
     const socketContext = useSocket();
     const isAdmin = user && user.profile === "admin";
@@ -554,20 +559,12 @@ const PipelineBoard = () => {
         <Box className={classes.container}>
             <header className={classes.header}>
                 <Grid container alignItems="center">
-                    <Grid item xs={12} md={4}>
-                        <Typography variant="h4" style={{ fontWeight: 900, color: "#0f172a", letterSpacing: "-1px" }}>Experience Lab</Typography>
-                        <Box display="flex" alignItems="center" gap={1}>
-                            <Chip label="AI POWERED" size="small" style={{ backgroundColor: "#000", color: "#fff", fontWeight: 900, fontSize: "0.6rem" }} />
-                            <Typography variant="caption" color="textSecondary">Pipeline Engine v2.5</Typography>
-                        </Box>
-                    </Grid>
-
-                    <Grid item xs={12} md={8}>
+                    <Grid item xs={12}>
                         <Box display="flex" justifyContent="flex-end" alignItems="center" gap={3}>
                             <FormControl variant="outlined" size="small" style={{ minWidth: 220 }}>
                                 <InputLabel>Funil de Vendas</InputLabel>
                                 <Select value={selectedPipelineId} onChange={(e) => setSelectedPipelineId(e.target.value)} label="Funil de Vendas">
-                                    {pipelines.map(p => <MenuItem key={p.id} value={p.id}>{p.name} (ID: {p.id})</MenuItem>)}
+                                    {pipelines.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
                                 </Select>
                             </FormControl>
 
@@ -627,6 +624,39 @@ const PipelineBoard = () => {
                             {searchResultCount} resultado{searchResultCount !== 1 ? "s" : ""}
                         </Typography>
                     )}
+
+                    {/* Sub-ferramentas CRM */}
+                    <Divider orientation="vertical" flexItem style={{ margin: "0 4px", height: 28, alignSelf: "center" }} />
+                    <Tooltip title="Dashboard Executivo">
+                        <Button
+                            size="small"
+                            startIcon={<DashboardIcon style={{ fontSize: 15 }} />}
+                            onClick={() => history.push("/executive-dashboard")}
+                            style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
+                        >
+                            Dashboard
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title="Configuração de Funil">
+                        <Button
+                            size="small"
+                            startIcon={<TuneIcon style={{ fontSize: 15 }} />}
+                            onClick={() => history.push("/pipeline-config")}
+                            style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
+                        >
+                            Config. Funil
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title="Webhooks CRM">
+                        <Button
+                            size="small"
+                            startIcon={<CodeIcon style={{ fontSize: 15 }} />}
+                            onClick={() => history.push("/crm-webhooks")}
+                            style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
+                        >
+                            Webhooks
+                        </Button>
+                    </Tooltip>
 
                     {/* Filtros de equipe — apenas admin */}
                     {isAdmin && (
