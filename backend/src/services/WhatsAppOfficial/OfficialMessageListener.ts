@@ -4,6 +4,14 @@ import Ticket from "../../models/Ticket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import CreateOrUpdateTicketService from "../../HubEcosystem/services/CreateOrUpdateTicketService";
 import FindOrCreateContactService from "../../HubEcosystem/services/FindOrCreateContactService";
+import { graphRequest } from "../WhatsappCoexistence/graphApiHelper";
+
+interface OfficialWebhookContact {
+  profile: {
+    name: string;
+  };
+  wa_id: string;
+}
 
 interface OfficialWebhookMessage {
   object: string;
@@ -17,6 +25,7 @@ interface OfficialWebhookMessage {
           phone_number_id: string;
           display_phone_number: string;
         };
+        contacts?: OfficialWebhookContact[];
         messages: Array<{
           from: string;
           id: string;
@@ -32,6 +41,32 @@ interface OfficialWebhookMessage {
     }>;
   }>;
 }
+
+/**
+ * Tenta buscar a foto de perfil do contato via WABA Contacts API.
+ * A Meta não garante que o endpoint retorne foto para todos os contatos —
+ * retorna string vazia em caso de falha.
+ */
+const fetchContactProfilePicture = async (
+  waId: string,
+  connection: Whatsapp
+): Promise<string> => {
+  try {
+    const wabaId = connection.coexistenceWabaId;
+    const token = connection.coexistencePermanentToken;
+    if (!wabaId || !token) return "";
+
+    const data = await graphRequest<{ profile_picture_url?: string }>(
+      token,
+      "get",
+      `${wabaId}/contacts/${waId}?fields=profile_picture_url`
+    );
+
+    return data?.profile_picture_url || "";
+  } catch {
+    return "";
+  }
+};
 
 export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
   if (!body.entry || !Array.isArray(body.entry)) return;
@@ -59,6 +94,16 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
         continue;
       }
 
+      // Monta mapa wa_id → nome usando o array contacts que a Meta envia no webhook
+      const contactsNameMap = new Map<string, string>();
+      if (value.contacts && Array.isArray(value.contacts)) {
+        for (const c of value.contacts) {
+          if (c.wa_id && c.profile?.name) {
+            contactsNameMap.set(c.wa_id, c.profile.name);
+          }
+        }
+      }
+
       for (const message of value.messages) {
         // Ignore outgoing messages
         if (!message.from) continue;
@@ -66,6 +111,9 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
         const from = message.from;
         const messageId = message.id;
         const timestamp = new Date(parseInt(message.timestamp) * 1000);
+
+        // Nome do contato vindo do array contacts do webhook
+        const contactName = contactsNameMap.get(from) || "";
 
         // Extract content based on type
         let body = "";
@@ -100,15 +148,28 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
         }
 
         try {
-          // Find or create contact
+          // Tenta buscar foto de perfil de forma assíncrona (best-effort — falha silenciosa)
+          const profilePicUrl = await fetchContactProfilePicture(from, connection);
+
+          // Find or create contact com nome e foto quando disponíveis
           const contact = await FindOrCreateContactService({
-            name: "",
-            firstName: "",
+            name: contactName,
+            firstName: contactName,
             lastName: "",
-            picture: "",
+            picture: profilePicUrl,
             from,
             connection
           });
+
+          // Se o contato já existia sem nome e agora temos o nome, atualiza
+          if (contact && !contact.name && contactName) {
+            await contact.update({ name: contactName });
+          }
+
+          // Se o contato já existia sem foto e conseguimos uma, atualiza
+          if (contact && !contact.profilePicUrl && profilePicUrl) {
+            await contact.update({ profilePicUrl });
+          }
 
           // Create or update ticket
           const ticket = await CreateOrUpdateTicketService({
@@ -137,7 +198,7 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
 
           await CreateMessageService({ messageData, companyId: connection.companyId });
 
-          console.log("Official message processed:", { from, body, messageId, ticketId: ticket.id });
+          console.log("Official message processed:", { from, contactName, messageId, ticketId: ticket.id });
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
           console.error("Error processing official message:", errMsg);
