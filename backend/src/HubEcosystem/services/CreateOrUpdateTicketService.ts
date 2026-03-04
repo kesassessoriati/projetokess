@@ -37,11 +37,17 @@ const CreateOrUpdateTicketService = async (
       newQueueId = connection.sendIdQueue;
     }
 
-    await ticketExists.update({
-      lastMessage: contents[0].text,
-      status: newStatus,
-      queueId: newQueueId
-    });
+    try {
+      await ticketExists.update({
+        lastMessage: contents[0].text,
+        status: newStatus,
+        queueId: newQueueId
+      });
+    } catch (updateErr) {
+      const msg = updateErr instanceof Error ? `${(updateErr as any).name}: ${updateErr.message}` : JSON.stringify(updateErr);
+      console.error("ticket update failed:", msg, { newStatus, newQueueId, lastMessage: contents[0].text });
+      throw updateErr;
+    }
 
     console.log("ticket queue updated", newQueueId);
 

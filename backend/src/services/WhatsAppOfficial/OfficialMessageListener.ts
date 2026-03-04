@@ -162,14 +162,16 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
             connection
           });
 
-          // Se o contato já existia sem nome e agora temos o nome, atualiza
+          // Atualiza nome/foto do contato de forma isolada — erros aqui não bloqueiam o fluxo
           if (contact && !contact.name && contactName) {
-            await contact.update({ name: contactName });
+            try { await contact.update({ name: contactName }); } catch (e) {
+              console.warn("Official: failed to update contact name:", (e as Error).message);
+            }
           }
-
-          // Se o contato já existia sem foto e conseguimos uma, atualiza
           if (contact && !contact.profilePicUrl && profilePicUrl) {
-            await contact.update({ profilePicUrl });
+            try { await contact.update({ profilePicUrl }); } catch (e) {
+              console.warn("Official: failed to update contact pic:", (e as Error).message);
+            }
           }
 
           // Create or update ticket
@@ -229,8 +231,14 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
 
           console.log("Official message processed:", { from, contactName, messageId, ticketId: ticket.id });
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
-          console.error("Error processing official message:", errMsg);
+          const isErr = error instanceof Error;
+          const name = isErr ? (error as any).name || "Error" : "Unknown";
+          const msg = isErr ? (error as Error).message || "(empty message)" : JSON.stringify(error);
+          const sqErrors = (error as any)?.errors
+            ? ` | Sequelize: ${JSON.stringify((error as any).errors.map((e: any) => e.message))}`
+            : "";
+          const stack = isErr ? `\n${(error as Error).stack?.split("\n").slice(1, 4).join("\n")}` : "";
+          console.error(`Error processing official message [${name}]: ${msg}${sqErrors}${stack}`);
         }
       }
     }
