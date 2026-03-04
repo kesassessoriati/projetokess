@@ -887,38 +887,32 @@ const LoggedInLayout = ({ children }) => {
 
   const menuGroups = useMemo(
     () => [
+      // ── Conversas (grupo compacto: Conversas + Chamadas) ─────────────
       {
-        title: "Inbox",
+        title: "Conversas",
         icon: <ChatIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
           { title: "Conversas", path: "/atendimentos" },
           { title: "Chamadas", path: "/chamadas" },
-          { title: "Chat Interno", path: "/chats" },
         ],
       },
-      {
-        title: "CRM Kanban",
-        icon: <ViewKanbanIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Board Inteligente", path: "/kanban" },
-          // [DEPRECATED] Funil Legado removido - migrado para Board Inteligente
-          // { title: "Funil Legado", path: "/funil" },
-          { title: "Etiquetas", path: "/etiquetas" },
-        ],
-      },
-      {
-        title: "Usuários",
-        icon: <GroupIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Contatos", path: "/contatos" },
-          { title: "Leads", path: "/leads" },
-          { title: "Clientes", path: "/clientes" },
-          { title: "Usuários", path: "/users" },
-        ],
-      },
+      // ── Itens absolutos ──────────────────────────────────────────────
+      { title: "CRM Kanban",    path: "/kanban",            icon: <ViewKanbanIcon />,        disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Etiquetas",     path: "/etiquetas",         icon: <LabelIcon />,             disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Contatos",      path: "/contatos",          icon: <ContactsIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Leads",         path: "/leads",             icon: <PeopleOutlineIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Clientes",      path: "/clientes",          icon: <BusinessCenterIcon />,    disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Usuários",      path: "/users",             icon: <GroupIcon />,             disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Canais",        path: "/canais",            icon: <DeviceHubIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Produtos",      path: "/produtos",          icon: <ExtensionIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Serviços",      path: "/servicos",          icon: <BuildOutlinedIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Agenda",        path: "/user-schedules",    icon: <CalendarMonthIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Projetos",      path: "/projects",          icon: <FolderIcon />,            disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Departamentos", path: "/departamentos",     icon: <BusinessIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Pagamentos",    path: "/payment-settings",  icon: <AttachMoneyIcon />,       disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Faturas",       path: "/faturas",           icon: <LocalAtmIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
+      // ── Grupos mantidos ──────────────────────────────────────────────
       {
         title: "Automação",
         icon: <SmartToyIcon />,
@@ -935,21 +929,6 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
       {
-        title: "Produtividade",
-        icon: <TrendingUpIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Canais", path: "/canais" },
-          { title: "Produtos", path: "/produtos" },
-          { title: "Serviços", path: "/servicos" },
-          { title: "Agenda", path: "/user-schedules" },
-          { title: "Projetos", path: "/projects" },
-          { title: "Departamentos", path: "/departamentos" },
-          { title: "Pagamentos", path: "/payment-settings" },
-          { title: "Faturas", path: "/faturas" },
-        ],
-      },
-      {
         title: "Ajuda",
         icon: <HelpOutlineIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
@@ -958,7 +937,6 @@ const LoggedInLayout = ({ children }) => {
           { title: "Documentação", path: "/messages-api" },
         ],
       },
-
       {
         title: "Sistema",
         icon: <BuildIcon />,
@@ -991,12 +969,11 @@ const LoggedInLayout = ({ children }) => {
         });
     }
 
-    // Para usuários comuns: Mostrar tudo, exceto grupo "Sistema" e rota "/users"
+    // Para usuários comuns: Mostrar tudo, exceto grupo "Sistema" e itens adminOnly
     return menuGroups
-      .filter((group) => group && group.title !== "Sistema")
+      .filter((group) => group && group.title !== "Sistema" && !group.adminOnly)
       .map((group) => {
         if (!group.children) return group;
-        // Ocultar a rota /users para não-admins
         const filtered = group.children.filter((child) => child && child.path !== "/users");
         return { ...group, children: filtered };
       });
@@ -1344,6 +1321,15 @@ const LoggedInLayout = ({ children }) => {
                       <span>Campanhas</span>
                     </button>
                   </Tooltip>
+                  <Tooltip title="Chat Interno">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/chats") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/chats")}
+                    >
+                      <ChatBubbleOutlineIcon style={{ fontSize: 17 }} />
+                      <span>Chat Interno</span>
+                    </button>
+                  </Tooltip>
                 </div>
               )}
 
@@ -1531,6 +1517,14 @@ const LoggedInLayout = ({ children }) => {
           >
             <CampaignOutlinedIcon className={classes.mobileNavIcon} />
             <span className={classes.mobileNavLabel}>Campanhas</span>
+          </div>
+          {/* Botão 8 - Chat Interno */}
+          <div
+            className={`${classes.mobileNavItem} ${isActivePath("/chats") ? "active" : ""}`}
+            onClick={() => history.push("/chats")}
+          >
+            <ChatBubbleOutlineIcon className={classes.mobileNavIcon} />
+            <span className={classes.mobileNavLabel}>Chat</span>
           </div>
         </div>
       )}
