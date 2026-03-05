@@ -248,4 +248,7 @@ routes.use(crmWebhookRoutes);
 routes.use(migrationRoutes);
 routes.use(smtpSettingRoutes);
 
+import timerRoutes from "./timerRoutes";
+routes.use(timerRoutes);
+
 export default routes;

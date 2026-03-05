@@ -62,6 +62,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import useDashboard from "../../hooks/useDashboard";
 import toastError from "../../errors/toastError";
 import ContactTagListModal from "../../components/ContactTagListModal";
+import ProductivityReport from "./ProductivityReport";
 
 const useStyles = makeStyles(theme => ({
   // Container principal
@@ -2253,6 +2254,7 @@ const Reports = () => {
       case 7: return renderProducts();
       case 8: return renderServices();
       case 9: return renderInvoices();
+      case 10: return <ProductivityReport dateFrom={dateFrom} dateTo={dateTo} />;
       default: return renderOverview();
     }
   };
@@ -2296,6 +2298,7 @@ const Reports = () => {
           <Tab label="Produtos" className={classes.tab} />
           <Tab label="Serviços" className={classes.tab} />
           <Tab label="Faturas" className={classes.tab} />
+          <Tab label="Produtividade" className={classes.tab} />
         </Tabs>
       </div>
 

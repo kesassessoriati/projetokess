@@ -97,6 +97,7 @@ import { AuthContext } from "../context/Auth/AuthContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
 import NotificationsVolume from "../components/NotificationsVolume";
 import UserModal from "../components/UserModal";
+import ProductivityTimer from "./ProductivityTimer";
 import SearchTicketModal from "../components/SearchTicketModal";
 import { getBackendUrl } from "../config";
 import { i18n } from "../translate/i18n";
@@ -899,20 +900,20 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
       // ── Itens absolutos ──────────────────────────────────────────────
-      { title: "CRM Kanban",    path: "/kanban",            icon: <ViewKanbanIcon />,        disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Etiquetas",     path: "/etiquetas",         icon: <LabelIcon />,             disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Contatos",      path: "/contatos",          icon: <ContactsIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Leads",         path: "/leads",             icon: <PeopleOutlineIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Clientes",      path: "/clientes",          icon: <BusinessCenterIcon />,    disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Usuários",      path: "/users",             icon: <GroupIcon />,             disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
-      { title: "Canais",        path: "/canais",            icon: <DeviceHubIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />,   disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Produtos",      path: "/produtos",          icon: <ExtensionIcon />,         disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Serviços",      path: "/servicos",          icon: <BuildOutlinedIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Agenda",        path: "/user-schedules",    icon: <CalendarMonthIcon />,     disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Projetos",      path: "/projects",          icon: <FolderIcon />,            disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Departamentos", path: "/departamentos",     icon: <BusinessIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
-      { title: "Faturas",       path: "/faturas",           icon: <LocalAtmIcon />,          disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "CRM Kanban", path: "/kanban", icon: <ViewKanbanIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Etiquetas", path: "/etiquetas", icon: <LabelIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Contatos", path: "/contatos", icon: <ContactsIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Leads", path: "/leads", icon: <PeopleOutlineIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Clientes", path: "/clientes", icon: <BusinessCenterIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Produtos", path: "/produtos", icon: <ExtensionIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Serviços", path: "/servicos", icon: <BuildOutlinedIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Agenda", path: "/user-schedules", icon: <CalendarMonthIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       // ── Grupos mantidos ──────────────────────────────────────────────
       {
         title: "Automação",
@@ -1078,6 +1079,8 @@ const LoggedInLayout = ({ children }) => {
           </div>
         </Tooltip>
       </div>
+
+      {showMenuLabels && <ProductivityTimer userId={user?.id} />}
 
       <div className={classes.sidebarContent}>
         <List className={classes.menuList}>

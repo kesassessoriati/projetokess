@@ -118,6 +118,8 @@ import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import PipelineTemplate from "../models/PipelineTemplate";
 import LeadMessage from "../models/LeadMessage";
 import LeadAttachment from "../models/LeadAttachment";
+import TimerTask from "../models/TimerTask";
+import TimerSession from "../models/TimerSession";
 import SmtpSetting from "../models/SmtpSetting";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
@@ -271,7 +273,9 @@ const models = [
   AISuggestionFeedback,
   LeadMessage,
   LeadAttachment,
-  SmtpSetting
+  SmtpSetting,
+  TimerTask,
+  TimerSession
 ];
 
 sequelize.addModels(models);
