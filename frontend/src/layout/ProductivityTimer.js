@@ -93,7 +93,7 @@ const useStyles = makeStyles((theme) => ({
 // Function to play beep sound
 const playBeep = (freq = 440, duration = 200, vol = 100) => {
     try {
-        const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const context = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = context.createOscillator();
         const gain = context.createGain();
         oscillator.connect(gain);
