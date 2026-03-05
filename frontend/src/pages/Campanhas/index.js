@@ -5,6 +5,7 @@ import { useHistory } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
 import {
   Box,
+  Drawer,
   Grid,
   IconButton,
   LinearProgress,
@@ -29,16 +30,21 @@ import ScheduleIcon from "@material-ui/icons/Schedule";
 import PeopleIcon from "@material-ui/icons/People";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import DownloadIcon from "@material-ui/icons/GetApp";
-import BarChartIcon from "@material-ui/icons/BarChart";
+import PublishIcon from "@material-ui/icons/Publish";
 import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import CancelIcon from "@material-ui/icons/Cancel";
 import HourglassEmptyIcon from "@material-ui/icons/HourglassEmpty";
 import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
+import CloseIcon from "@material-ui/icons/Close";
+import EmailIcon from "@material-ui/icons/Email";
+import PhoneIcon from "@material-ui/icons/Phone";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import CampaignModal from "../../components/CampaignModal";
 import ContactListDialog from "../../components/ContactListDialog";
+import ContactListItemModal from "../../components/ContactListItemModal";
+import ContactListImportModal from "../../components/ContactListImportModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import planilhaExemplo from "../../assets/planilha.xlsx";
@@ -242,6 +248,71 @@ const useStyles = makeStyles((theme) => ({
   editBtn: { backgroundColor: "#e3f2fd", color: "#1976d2", "&:hover": { backgroundColor: "#bbdefb" } },
   deleteBtn: { backgroundColor: "#ffebee", color: "#d32f2f", "&:hover": { backgroundColor: "#ffcdd2" } },
   viewBtn: { backgroundColor: "#e3f2fd", color: "#1976d2", "&:hover": { backgroundColor: "#bbdefb" } },
+  // Drawer
+  drawerPaper: { width: 480 },
+  drawerHeader: {
+    backgroundColor: "#1e1e1e",
+    borderBottom: "2px solid #00d4ff",
+    padding: "14px 18px",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexShrink: 0,
+  },
+  drawerToolbar: {
+    padding: "10px 16px",
+    backgroundColor: "#f8f8f8",
+    borderBottom: "1px solid #e0e0e0",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+  drawerContent: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "12px 16px",
+    ...({} /* theme.scrollbarStyles injected via theme */),
+  },
+  drawerItem: {
+    padding: "11px 14px",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 6,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.07)",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    "&:hover": { boxShadow: "0 2px 7px rgba(0,0,0,0.12)" },
+  },
+  drawerItemAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    backgroundColor: "#e3f2fd",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    "& svg": { fontSize: 18, color: "#1976d2" },
+  },
+  drawerItemInfo: { flex: 1, minWidth: 0 },
+  drawerItemName: { fontSize: "0.88rem", fontWeight: 600, color: "#1a1a1a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  drawerItemMeta: { fontSize: "0.74rem", color: "#888", display: "flex", alignItems: "center", gap: 6, marginTop: 2 },
+  drawerEmptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px 20px",
+    color: "#bbb",
+    "& svg": { fontSize: 48, marginBottom: 10, opacity: 0.3 },
+  },
+  iconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+  },
   // Metrics
   metricsContainer: { padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 },
   sectionTitle: { fontSize: "0.95rem", fontWeight: 700, color: "#1a1a1a" },
@@ -312,6 +383,20 @@ const Campaigns = () => {
   const [confirmListOpen, setConfirmListOpen] = useState(false);
   const [listSearch, setListSearch] = useState("");
 
+  // Contacts Drawer state
+  const [contactsDrawerOpen, setContactsDrawerOpen] = useState(false);
+  const [viewingList, setViewingList] = useState(null);
+  const [listItems, setListItems] = useState([]);
+  const [listItemsLoading, setListItemsLoading] = useState(false);
+  const [listItemSearch, setListItemSearch] = useState("");
+  const [listItemPage, setListItemPage] = useState(1);
+  const [listItemHasMore, setListItemHasMore] = useState(false);
+  const [contactItemModalOpen, setContactItemModalOpen] = useState(false);
+  const [editingContactId, setEditingContactId] = useState(null);
+  const [listImportOpen, setListImportOpen] = useState(false);
+  const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(null);
+
   // Plan check
   useEffect(() => {
     (async () => {
@@ -377,6 +462,31 @@ const Campaigns = () => {
     return () => { c1(); c2(); };
   }, [isConnected, on, user?.companyId]);
 
+  // Reset list items page when search changes
+  useEffect(() => {
+    if (viewingList) { setListItems([]); setListItemPage(1); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listItemSearch]);
+
+  // Fetch list items when drawer is open
+  useEffect(() => {
+    if (!viewingList) return;
+    setListItemsLoading(true);
+    const t = setTimeout(() => {
+      api.get("/contact-list-items", {
+        params: { contactListId: viewingList.id, searchParam: listItemSearch, pageNumber: listItemPage },
+      })
+        .then(({ data }) => {
+          setListItems((prev) => listItemPage === 1 ? data.contacts : [...prev, ...data.contacts]);
+          setListItemHasMore(data.hasMore);
+          setListItemsLoading(false);
+        })
+        .catch(toastError);
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingList, listItemSearch, listItemPage]);
+
   const handleCampaignScroll = (e) => {
     if (!hasMore || loading) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -399,6 +509,34 @@ const Campaigns = () => {
     try { await api.delete(`/contact-lists/${id}`); toast.success(i18n.t("contactLists.toasts.deleted")); }
     catch (err) { toastError(err); }
     setDeletingList(null); setListSearch(""); setListPage(1);
+  };
+
+  const handleViewContacts = (list) => {
+    setViewingList(list);
+    setListItems([]);
+    setListItemSearch("");
+    setListItemPage(1);
+    setContactsDrawerOpen(true);
+  };
+
+  const handleDeleteListItem = async (id) => {
+    try {
+      await api.delete(`/contact-list-items/${id}`);
+      setListItems((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Contato removido");
+    } catch (err) { toastError(err); }
+    setDeletingItem(null);
+  };
+
+  const handleDrawerScroll = (e) => {
+    if (!listItemHasMore || listItemsLoading) return;
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - (scrollTop + 100) < clientHeight) setListItemPage((p) => p + 1);
+  };
+
+  const refreshListItems = () => {
+    setListItems([]);
+    setListItemPage(1);
   };
 
   const getStatusChip = (status) => {
@@ -646,7 +784,7 @@ const Campaigns = () => {
                   <Box className={classes.itemActions}>
                     <Tooltip title="Ver Contatos">
                       <IconButton size="small" className={`${classes.actionButton} ${classes.viewBtn}`}
-                        onClick={() => history.push(`/contact-lists/${list.id}/contacts`)}>
+                        onClick={() => handleViewContacts(list)}>
                         <PeopleIcon style={{ fontSize: 16 }} />
                       </IconButton>
                     </Tooltip>
@@ -670,6 +808,162 @@ const Campaigns = () => {
           </Box>
         </Box>
       )}
+
+      {/* ── Contacts Drawer ── */}
+      <ConfirmationModal
+        title={deletingItem ? `Remover "${deletingItem.name || deletingItem.number}"?` : ""}
+        open={confirmDeleteItemOpen}
+        onClose={setConfirmDeleteItemOpen}
+        onConfirm={() => handleDeleteListItem(deletingItem?.id)}
+      >
+        Essa ação não pode ser desfeita.
+      </ConfirmationModal>
+
+      {contactItemModalOpen && (
+        <ContactListItemModal
+          open={contactItemModalOpen}
+          onClose={() => { setEditingContactId(null); setContactItemModalOpen(false); refreshListItems(); }}
+          contactId={editingContactId}
+          contactListId={viewingList?.id}
+        />
+      )}
+
+      <ContactListImportModal
+        open={listImportOpen}
+        onClose={() => setListImportOpen(false)}
+        contactListId={viewingList?.id}
+        onImportComplete={refreshListItems}
+      />
+
+      <Drawer
+        anchor="right"
+        open={contactsDrawerOpen}
+        onClose={() => setContactsDrawerOpen(false)}
+        classes={{ paper: classes.drawerPaper }}
+      >
+        <Box style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+          {/* Header */}
+          <Box className={classes.drawerHeader}>
+            <ListAltIcon style={{ color: "#00d4ff", fontSize: 22 }} />
+            <Box style={{ flex: 1 }}>
+              <Typography style={{ color: "#fff", fontWeight: 700, fontSize: "1rem" }}>
+                {viewingList?.name}
+              </Typography>
+              <Typography style={{ color: "#888", fontSize: "0.73rem" }}>
+                {listItems.length} contato{listItems.length !== 1 ? "s" : ""} carregado{listItems.length !== 1 ? "s" : ""}
+              </Typography>
+            </Box>
+            <Tooltip title="Fechar">
+              <IconButton size="small" onClick={() => setContactsDrawerOpen(false)} style={{ color: "#fff" }}>
+                <CloseIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Toolbar */}
+          <Box className={classes.drawerToolbar}>
+            <TextField
+              placeholder="Buscar contato..."
+              variant="outlined"
+              size="small"
+              value={listItemSearch}
+              onChange={(e) => setListItemSearch(e.target.value.toLowerCase())}
+              style={{ flex: 1, backgroundColor: "#fff", borderRadius: 7 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon style={{ color: "#999", fontSize: 17 }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Importar contatos (XLS/CSV)">
+              <IconButton
+                size="small"
+                className={`${classes.iconBtn} ${classes.reportBtn}`}
+                onClick={() => setListImportOpen(true)}
+              >
+                <PublishIcon style={{ fontSize: 17 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Adicionar contato">
+              <IconButton
+                size="small"
+                className={classes.iconBtn}
+                style={{ backgroundColor: "#0a0a0a", color: "#fff" }}
+                onClick={() => { setEditingContactId(null); setContactItemModalOpen(true); }}
+              >
+                <AddIcon style={{ fontSize: 17 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Content */}
+          <Box className={classes.drawerContent} onScroll={handleDrawerScroll}>
+            {listItems.length === 0 && !listItemsLoading ? (
+              <Box className={classes.drawerEmptyState}>
+                <PeopleIcon />
+                <Typography variant="body2">Nenhum contato encontrado</Typography>
+              </Box>
+            ) : (
+              listItems.map((contact) => (
+                <Box key={contact.id} className={classes.drawerItem}>
+                  <Box className={classes.drawerItemAvatar}>
+                    <PeopleIcon />
+                  </Box>
+                  <Box className={classes.drawerItemInfo}>
+                    <Typography className={classes.drawerItemName}>
+                      {contact.name || "Sem nome"}
+                    </Typography>
+                    <Box className={classes.drawerItemMeta}>
+                      {contact.number && (
+                        <Box style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                          <PhoneIcon style={{ fontSize: 11 }} />
+                          <span>{contact.number}</span>
+                        </Box>
+                      )}
+                      {contact.email && (
+                        <>
+                          <span>·</span>
+                          <Box style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                            <EmailIcon style={{ fontSize: 11 }} />
+                            <span>{contact.email}</span>
+                          </Box>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                  <Box style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        className={`${classes.iconBtn} ${classes.editBtn}`}
+                        onClick={() => { setEditingContactId(contact.id); setContactItemModalOpen(true); }}
+                      >
+                        <EditIcon style={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        size="small"
+                        className={`${classes.iconBtn} ${classes.deleteBtn}`}
+                        onClick={() => { setDeletingItem(contact); setConfirmDeleteItemOpen(true); }}
+                      >
+                        <DeleteOutlineIcon style={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              ))
+            )}
+            {listItemsLoading && (
+              <Box style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+          </Box>
+        </Box>
+      </Drawer>
 
       {/* ── TAB 2: Métricas ── */}
       {activeTab === 2 && (

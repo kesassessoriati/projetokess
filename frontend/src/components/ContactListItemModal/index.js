@@ -88,14 +88,15 @@ const ContactSchema = Yup.object().shape({
   email: Yup.string().email("E-Mail inválido"),
 });
 
-const ContactListItemModal = ({ open, onClose, contactId, initialValues, onSave }) => {
+const ContactListItemModal = ({ open, onClose, contactId, contactListId: contactListIdProp, initialValues, onSave }) => {
   const classes = useStyles();
   const isMounted = useRef(true);
 
   const {
     user: { companyId },
   } = useContext(AuthContext);
-  const { contactListId } = useParams();
+  const { contactListId: contactListIdParam } = useParams();
+  const contactListId = contactListIdProp || contactListIdParam;
 
   const initialState = {
     name: "",

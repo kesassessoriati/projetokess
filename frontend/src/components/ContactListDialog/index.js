@@ -42,7 +42,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "hidden",
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
+    backgroundColor: "#1e1e1e",
+    borderBottom: "2px solid #00d4ff",
     color: "white",
     padding: "16px 24px",
     textAlign: "left",
@@ -51,7 +52,7 @@ const useStyles = makeStyles((theme) => ({
     cursor: "move",
     display: "flex",
     alignItems: "center",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
   },
   dialogContent: {
     padding: "28px",
