@@ -126,9 +126,22 @@ const DocumentacaoPage = () => {
       route: "/api-negocios"
     },
     {
+      title: "API de CRM — Leads",
+      description: "Crie e gerencie leads no funil de vendas. Suporte a pipelineId e stageId.",
+      route: "/api-crm-leads",
+      isNew: true
+    },
+    {
+      title: "API de Pipeline / Funil",
+      description: "Gerencie pipelines, estágios e oportunidades via API externa.",
+      route: "/api-pipeline",
+      isNew: true
+    },
+    {
       title: "API de tags kanban",
-      description: "Gerencie tags kanban (lanes do funil) via API externa.",
-      route: "/api-tags-kanban"
+      description: "⚠️ Deprecated — use a API de Pipeline. Mantida para compatibilidade.",
+      route: "/api-tags-kanban",
+      isDeprecated: true
     },
     {
       title: "API de projetos",
@@ -552,8 +565,17 @@ const DocumentacaoPage = () => {
                   elevation={0}
                   className={classes.navCard}
                   onClick={() => history.push(card.route)}
+                  style={card.isDeprecated ? { opacity: 0.6, borderColor: "#f59e0b" } : {}}
                 >
-                  <Typography className={classes.navCardTitle}>{card.title}</Typography>
+                  <Box display="flex" alignItems="center" gap={6} mb={0.5}>
+                    <Typography className={classes.navCardTitle}>{card.title}</Typography>
+                    {card.isNew && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 99 }}>NOVO</span>
+                    )}
+                    {card.isDeprecated && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "2px 6px", borderRadius: 99 }}>DEPRECATED</span>
+                    )}
+                  </Box>
                   <Typography variant="body2" className={classes.navCardDescription}>
                     {card.description}
                   </Typography>
