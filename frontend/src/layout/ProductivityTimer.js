@@ -25,7 +25,7 @@ import StopIcon from "@material-ui/icons/Stop";
 import SettingsIcon from "@material-ui/icons/Settings";
 import DeleteIcon from "@material-ui/icons/Delete";
 import AddIcon from "@material-ui/icons/Add";
-import api from "../../services/api";
+import api from "../services/api";
 import { toast } from "react-toastify";
 
 const useStyles = makeStyles((theme) => ({
