@@ -106,6 +106,14 @@ const listReducer = (state, action) => {
     if (idx !== -1) state.splice(idx, 1);
     return [...state];
   }
+  if (action.type === "ADJUST_COUNT") {
+    const idx = state.findIndex((u) => u.id === action.payload.id);
+    if (idx !== -1) {
+      state[idx] = { ...state[idx], contactsCount: (state[idx].contactsCount || 0) + action.payload.delta };
+      return [...state];
+    }
+    return state;
+  }
   if (action.type === "RESET") return [];
   return state;
 };
@@ -523,6 +531,7 @@ const Campaigns = () => {
     try {
       await api.delete(`/contact-list-items/${id}`);
       setListItems((prev) => prev.filter((c) => c.id !== id));
+      if (viewingList) listDispatch({ type: "ADJUST_COUNT", payload: { id: viewingList.id, delta: -1 } });
       toast.success("Contato removido");
     } catch (err) { toastError(err); }
     setDeletingItem(null);
@@ -537,6 +546,12 @@ const Campaigns = () => {
   const refreshListItems = () => {
     setListItems([]);
     setListItemPage(1);
+    // Re-fetch this list from server to get updated contactsCount
+    if (viewingList) {
+      api.get(`/contact-lists/${viewingList.id}`)
+        .then(({ data }) => listDispatch({ type: "UPDATE_CONTACTLIST", payload: data }))
+        .catch(() => {});
+    }
   };
 
   const getStatusChip = (status) => {
@@ -823,6 +838,10 @@ const Campaigns = () => {
         <ContactListItemModal
           open={contactItemModalOpen}
           onClose={() => { setEditingContactId(null); setContactItemModalOpen(false); refreshListItems(); }}
+          onSave={() => {
+            if (!editingContactId && viewingList)
+              listDispatch({ type: "ADJUST_COUNT", payload: { id: viewingList.id, delta: +1 } });
+          }}
           contactId={editingContactId}
           contactListId={viewingList?.id}
         />
