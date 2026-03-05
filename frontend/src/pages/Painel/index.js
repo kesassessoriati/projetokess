@@ -494,7 +494,8 @@ const Dashboard = () => {
     };
 
     loadData();
-  }, [fetchDashboard, find]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const loadNextInvoice = async () => {
@@ -578,7 +579,8 @@ const Dashboard = () => {
     };
 
     loadCompanyPlan();
-  }, [user?.profile, user?.companyId, user?.company?.dueDate, user?.company?.createdAt, user?.company?.recurrence, getPlanCompany]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.profile, user?.companyId, user?.company?.dueDate, user?.company?.createdAt, user?.company?.recurrence]);
 
   // Auto-slide dos banners
   useEffect(() => {
