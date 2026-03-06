@@ -9,6 +9,7 @@
  */
 
 import axios from "axios";
+import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import logger from "../utils/logger";
 
 // ─── Tipos Públicos ────────────────────────────────────────────────────────
@@ -126,7 +127,10 @@ export async function sendButtonMessage(
       interactiveMsg.footer = { text: footer };
     }
 
-    await wbot.relayMessage(jid, { interactiveMessage: interactiveMsg }, {});
+    const userJid = wbot.user?.id || jid;
+    const newMsg = generateWAMessageFromContent(jid, { interactiveMessage: interactiveMsg }, { userJid });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    await wbot.upsertMessage(newMsg, "notify");
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar botões para ${jid}:`, err);
@@ -231,11 +235,11 @@ export async function sendCarouselMessage(
       preparedCards.push(cardEntry);
     }
 
-    await wbot.relayMessage(
-      jid,
-      { interactiveMessage: { carouselMessage: { cards: preparedCards } } },
-      {}
-    );
+    const userJid = wbot.user?.id || jid;
+    const carouselContent = { interactiveMessage: { carouselMessage: { cards: preparedCards } } };
+    const newMsg = generateWAMessageFromContent(jid, carouselContent, { userJid });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    await wbot.upsertMessage(newMsg, "notify");
     logger.info(`[SendInteractiveMessage] Carrossel enviado para ${jid} (${cards.length} cards)`);
   } catch (err) {
     logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`);
