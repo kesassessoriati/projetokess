@@ -16,6 +16,8 @@ import {
   Typography,
   Button,
   Box,
+  Select,
+  MenuItem,
 } from "@material-ui/core";
 
 import { Colorize, AttachFile, Delete, Visibility, VisibilityOff, Edit } from "@material-ui/icons";
