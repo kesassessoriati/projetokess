@@ -6130,11 +6130,7 @@ const verifyCampaignMessageAndCloseTicket = async (
       }
     });
 
-    if (
-      !isNull(messageRecord) ||
-      !isNil(messageRecord) ||
-      messageRecord !== null
-    ) {
+    if (!isNil(messageRecord)) {
       const ticket = await Ticket.findByPk(messageRecord.ticketId);
       await ticket.update({ status: "closed", amountUsedBotQueues: 0 });
 
