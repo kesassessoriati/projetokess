@@ -1831,3 +1831,5 @@ export const KanbanAutomationsConfig = () => {
     </Stack>
   );
 };
+
+export default KanbanAutomationsConfig;
