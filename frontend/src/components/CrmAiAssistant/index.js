@@ -13,6 +13,8 @@ import {
 } from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
 import CloseIcon from "@material-ui/icons/Close";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import AddCommentIcon from "@mui/icons-material/AddComment";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -224,6 +226,13 @@ const useStyles = makeStyles(() => ({
     borderBottomLeftRadius: 4,
     border: "1px solid #334155",
   },
+  msgError: {
+    alignSelf: "flex-start",
+    backgroundColor: "#1c1017",
+    color: "#fca5a5",
+    borderBottomLeftRadius: 4,
+    border: "1px solid #7f1d1d",
+  },
   msgTime: {
     fontSize: "0.65rem",
     color: "#475569",
@@ -354,15 +363,27 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
       if (data.creditInfo) setCreditInfo(data.creditInfo);
     } catch (err) {
       const errData = err?.response?.data;
-      if (errData?.error === "NO_CREDITS") {
-        setMessages(prev => [...prev, {
-          role: "ai",
-          text: "⚠️ Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.",
-          time: new Date(),
-        }]);
+      const errCode = errData?.error;
+      const httpStatus = err?.response?.status;
+
+      let aiErrorText = "";
+
+      if (errCode === "NO_CREDITS") {
+        aiErrorText = "⚠️ Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.";
         await loadCredits();
+      } else if (errCode === "QUOTA_EXCEEDED" || httpStatus === 429) {
+        aiErrorText = "⚠️ Cota da API de IA esgotada. O administrador precisa verificar o plano/cobrança da chave OpenAI ou Gemini.";
+      } else if (errCode === "INVALID_KEY" || httpStatus === 401) {
+        aiErrorText = "⚠️ Chave de API inválida. O administrador precisa verificar as configurações em Whitelabel.";
+      } else if (errCode === "NO_API_KEY" || httpStatus === 503) {
+        aiErrorText = "⚠️ Nenhuma chave de IA configurada. Acesse Configurações → Whitelabel para configurar a chave OpenAI ou Gemini.";
       } else {
-        toast.error("Erro ao consultar IA: " + (errData?.error || "tente novamente"));
+        aiErrorText = "⚠️ Erro ao consultar a IA. Tente novamente em alguns instantes.";
+        toast.error(errData?.message || errData?.error || "Erro ao consultar IA");
+      }
+
+      if (aiErrorText) {
+        setMessages(prev => [...prev, { role: "ai", text: aiErrorText, time: new Date(), isError: true }]);
       }
     } finally {
       setLoading(false);
@@ -399,6 +420,16 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
               <Typography className={classes.modalSubtitle}>Análises e sugestões em tempo real</Typography>
             </div>
             <span className={classes.creditsBadge}>{creditsLabel}</span>
+            <Tooltip title="Novo chat">
+              <IconButton size="small" onClick={() => setMessages([])} style={{ color: "#94a3b8", marginLeft: 4 }} disabled={messages.length === 0}>
+                <AddCommentIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Limpar conversa">
+              <IconButton size="small" onClick={() => setMessages([])} style={{ color: "#94a3b8" }} disabled={messages.length === 0}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <IconButton size="small" onClick={onClose} style={{ color: "#64748b", marginLeft: 4 }}>
               <CloseIcon fontSize="small" />
             </IconButton>
@@ -418,7 +449,7 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
 
             {messages.map((msg, i) => (
               <Box key={i} style={{ display: "flex", flexDirection: "column" }}>
-                <div className={`${classes.msgBubble} ${msg.role === "user" ? classes.msgUser : classes.msgAi}`}>
+                <div className={`${classes.msgBubble} ${msg.role === "user" ? classes.msgUser : msg.isError ? classes.msgError : classes.msgAi}`}>
                   {msg.text.split("\n").map((line, j) => (
                     <span key={j}>{line}{j < msg.text.split("\n").length - 1 && <br />}</span>
                   ))}

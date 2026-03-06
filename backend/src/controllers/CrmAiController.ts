@@ -152,7 +152,34 @@ ${crmContext}`;
     if (err.message === "NO_CREDITS") {
       return res.status(402).json({ error: "NO_CREDITS", message: "Créditos insuficientes" });
     }
-    console.error("[CrmAI] Error:", err?.message);
-    return res.status(500).json({ error: "Erro ao processar mensagem: " + (err?.message || "desconhecido") });
+
+    // OpenAI / Gemini API errors have .status property
+    const apiStatus = err?.status || err?.response?.status || err?.code;
+    const apiMessage = err?.message || err?.error?.message || "";
+
+    console.error("[CrmAI] Error:", apiMessage, "status:", apiStatus);
+
+    if (apiStatus === 429 || apiMessage.includes("429") || apiMessage.includes("quota") || apiMessage.includes("exceeded")) {
+      return res.status(429).json({
+        error: "QUOTA_EXCEEDED",
+        message: "Cota da API de IA esgotada. Verifique o plano e cobrança da sua chave de API no painel da OpenAI/Gemini.",
+      });
+    }
+
+    if (apiStatus === 401 || apiMessage.includes("401") || apiMessage.includes("Incorrect API key") || apiMessage.includes("invalid_api_key")) {
+      return res.status(401).json({
+        error: "INVALID_KEY",
+        message: "Chave de API inválida. Verifique as configurações em Whitelabel.",
+      });
+    }
+
+    if (apiMessage.includes("não configurada") || apiMessage.includes("not configured")) {
+      return res.status(503).json({
+        error: "NO_API_KEY",
+        message: "Nenhuma chave de API de IA configurada. Acesse Configurações → Whitelabel para configurar.",
+      });
+    }
+
+    return res.status(500).json({ error: "Erro ao processar mensagem: " + (apiMessage || "erro desconhecido") });
   }
 };
