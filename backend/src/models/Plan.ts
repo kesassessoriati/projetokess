@@ -83,6 +83,10 @@ class Plan extends Model<Plan> {
   @Default(true)
   @Column
   isPublic: boolean;
+
+  @Default(0)
+  @Column
+  aiCredits: number;
 }
 
 export default Plan;

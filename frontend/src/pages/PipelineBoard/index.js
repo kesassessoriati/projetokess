@@ -58,6 +58,7 @@ import ImportLeadsModal from "../../components/ImportLeadsModal";
 import GetAppIcon from '@material-ui/icons/GetApp';
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import UniversalLeadModal from "../../components/UniversalLeadModal";
+import { CrmAiFab } from "../../components/CrmAiAssistant";
 
 const fCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -873,6 +874,9 @@ const PipelineBoard = () => {
                 stageId={selectedStageToImport}
                 onSuccess={handleImportSuccess}
             />
+
+            {/* CRM AI Assistant FAB */}
+            <CrmAiFab onNewLead={() => { setSelectedOp(null); setUniversalModalOpen(true); }} />
         </Box>
     );
 };

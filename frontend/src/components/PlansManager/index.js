@@ -153,7 +153,8 @@ const defaultPlanValues = {
     useOpenAi: true,
     useIntegrations: true,
     recurrence: "MENSAL",
-    isPublic: true
+    isPublic: true,
+    aiCredits: 0
 };
 
 export function PlanManagerForm(props) {
@@ -383,6 +384,26 @@ export function PlanManagerForm(props) {
       </Field>
     </FormControl>
   </Box>
+
+  {/* Créditos IA */}
+  <Box>
+    <Field
+      as={TextField}
+      label="Créditos de IA / dia"
+      name="aiCredits"
+      variant="outlined"
+      size="small"
+      type="number"
+      fullWidth
+      InputLabelProps={{ style: { fontWeight: "bold" } }}
+      inputProps={{ min: 0 }}
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+      helperText="0 = ilimitado"
+    />
+  </Box>
 </div>
 
 <Divider />
@@ -587,7 +608,8 @@ export default function PlansManager() {
         useOpenAi: true,
         useIntegrations: true,
         recurrence: "MENSAL",
-        isPublic: true
+        isPublic: true,
+        aiCredits: 0
     })
 
     useEffect(() => {
@@ -664,7 +686,8 @@ export default function PlansManager() {
             useOpenAi: true,
             useIntegrations: true,
             recurrence: "MENSAL",
-            isPublic: true
+            isPublic: true,
+            aiCredits: 0
         })
     }
 
@@ -699,7 +722,8 @@ export default function PlansManager() {
             useOpenAi,
             useIntegrations,
             recurrence: data.recurrence || "MENSAL",
-            isPublic: data.isPublic
+            isPublic: data.isPublic,
+            aiCredits: data.aiCredits || 0
         })
         setIsModalOpen(true)
     }

@@ -99,6 +99,13 @@ class Company extends Model<Company> {
   @Column
   loadingImage: string;
 
+  @Default(0)
+  @Column
+  aiCreditsUsed: number;
+
+  @Column(DataType.DATEONLY)
+  aiCreditsLastReset: string;
+
   @HasMany(() => User, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
