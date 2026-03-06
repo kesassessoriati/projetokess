@@ -4,6 +4,8 @@ import {
   CreatedAt,
   UpdatedAt,
   Model,
+  DataType,
+  Default,
   PrimaryKey,
   AutoIncrement,
   ForeignKey,
@@ -126,6 +128,16 @@ class Campaign extends Model<Campaign> {
 
   @Column({ defaultValue: "disabled" })
   openTicket: string;
+
+  @Default("text")
+  @Column(DataType.STRING(20))
+  messageType: string; // text | buttons | list | carousel
+
+  @Column(DataType.JSON)
+  buttons: object[];
+
+  @Column(DataType.JSON)
+  carouselCards: object[];
 }
 
 export default Campaign;

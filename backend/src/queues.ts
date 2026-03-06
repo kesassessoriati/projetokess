@@ -44,6 +44,7 @@ import TicketTag from "./models/TicketTag";
 import Tag from "./models/Tag";
 import { delay } from "@whiskeysockets/baileys";
 import Plan from "./models/Plan";
+import { sendButtonMessage, sendListMessage, sendCarouselMessage } from "./helpers/SendInteractiveMessage";
 import runAutomationJob, {
   runBirthdayAutomationJob,
   runKanbanAutomationJob,
@@ -1007,10 +1008,21 @@ async function handleDispatchCampaign(job) {
         } else {
 
           if (!campaign.mediaPath) {
-            const sentMessage = await wbot.sendMessage(chatId, {
-              text: `\u200c ${campaignShipping.message}`
-            });
-
+            let sentMessage;
+            if (campaign.messageType === "buttons" && campaign.buttons?.length) {
+              await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
+              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+            } else if (campaign.messageType === "list" && campaign.buttons?.length) {
+              await sendListMessage(wbot, chatId, campaignShipping.message, "Ver opções", campaign.buttons);
+              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+            } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
+              await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
+              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+            } else {
+              sentMessage = await wbot.sendMessage(chatId, {
+                text: `\u200c ${campaignShipping.message}`
+              });
+            }
             await verifyMessage(sentMessage, ticket, contact, null, true, false);
           }
 
@@ -1063,9 +1075,17 @@ async function handleDispatchCampaign(job) {
       } else {
 
         if (!campaign.mediaPath) {
-          await wbot.sendMessage(chatId, {
-            text: campaignShipping.message
-          });
+          if (campaign.messageType === "buttons" && campaign.buttons?.length) {
+            await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
+          } else if (campaign.messageType === "list" && campaign.buttons?.length) {
+            await sendListMessage(wbot, chatId, campaignShipping.message, "Ver opções", campaign.buttons);
+          } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
+            await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
+          } else {
+            await wbot.sendMessage(chatId, {
+              text: campaignShipping.message
+            });
+          }
         }
 
         if (campaign.mediaPath) {

@@ -376,6 +376,9 @@ const CampaignModal = ({
     contactListId: "",
     tagListId: "Nenhuma",
     companyId,
+    messageType: "text",
+    buttons: [],
+    carouselCards: [],
   };
 
   const [campaign, setCampaign] = useState(initialState);
@@ -937,6 +940,312 @@ const CampaignModal = ({
                           {messageTab === 4 && renderMessageField("message5", values, setFieldValue)}
                         </Box>
                       </Grid>
+
+                      {/* ── Mensagem Interativa ─────────────────────── */}
+                      <Grid item xs={12}>
+                        <FormControl variant="outlined" margin="dense" fullWidth>
+                          <InputLabel id="messageType-label">Tipo de Mensagem</InputLabel>
+                          <Select
+                            labelId="messageType-label"
+                            label="Tipo de Mensagem"
+                            value={values.messageType || "text"}
+                            onChange={(e) => {
+                              setFieldValue("messageType", e.target.value);
+                              if (e.target.value !== "carousel") setFieldValue("carouselCards", []);
+                              if (e.target.value === "text") setFieldValue("buttons", []);
+                            }}
+                            disabled={!campaignEditable}
+                          >
+                            <MenuItem value="text">Texto simples</MenuItem>
+                            <MenuItem value="buttons">Botões de ação</MenuItem>
+                            <MenuItem value="list">Lista selecionável</MenuItem>
+                            <MenuItem value="carousel">Carrossel de cards</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      {/* Botões */}
+                      {(values.messageType === "buttons" || values.messageType === "list") && (
+                        <Grid item xs={12}>
+                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
+                            <Box style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: "#555" }}>
+                              {values.messageType === "list" ? "Itens da lista (máx. 10)" : "Botões (máx. 4)"}
+                            </Box>
+                            {(values.buttons || []).map((btn, idx) => (
+                              <Grid container spacing={1} key={idx} style={{ marginBottom: 6 }}>
+                                <Grid item xs={4}>
+                                  <TextField
+                                    label="Texto do botão"
+                                    value={btn.displayText || ""}
+                                    onChange={(e) => {
+                                      const updated = [...(values.buttons || [])];
+                                      updated[idx] = { ...updated[idx], displayText: e.target.value };
+                                      setFieldValue("buttons", updated);
+                                    }}
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                  />
+                                </Grid>
+                                <Grid item xs={3}>
+                                  <FormControl variant="outlined" size="small" fullWidth>
+                                    <InputLabel>Tipo</InputLabel>
+                                    <Select
+                                      label="Tipo"
+                                      value={btn.type || "reply"}
+                                      onChange={(e) => {
+                                        const updated = [...(values.buttons || [])];
+                                        updated[idx] = { ...updated[idx], type: e.target.value };
+                                        setFieldValue("buttons", updated);
+                                      }}
+                                      disabled={!campaignEditable}
+                                    >
+                                      <MenuItem value="reply">Resposta</MenuItem>
+                                      <MenuItem value="url">Link URL</MenuItem>
+                                      <MenuItem value="call">Ligar</MenuItem>
+                                      <MenuItem value="copy">Copiar código</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Grid>
+                                <Grid item xs={4}>
+                                  <TextField
+                                    label={btn.type === "url" ? "URL" : btn.type === "call" ? "Telefone" : "Valor / ID"}
+                                    value={btn.value || ""}
+                                    onChange={(e) => {
+                                      const updated = [...(values.buttons || [])];
+                                      updated[idx] = { ...updated[idx], value: e.target.value };
+                                      setFieldValue("buttons", updated);
+                                    }}
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                  />
+                                </Grid>
+                                <Grid item xs={1} style={{ display: "flex", alignItems: "center" }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const updated = (values.buttons || []).filter((_, i) => i !== idx);
+                                      setFieldValue("buttons", updated);
+                                    }}
+                                    disabled={!campaignEditable}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Grid>
+                              </Grid>
+                            ))}
+                            {(values.buttons || []).length < (values.messageType === "list" ? 10 : 4) && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => setFieldValue("buttons", [
+                                  ...(values.buttons || []),
+                                  { displayText: "", type: "reply", value: "" }
+                                ])}
+                                disabled={!campaignEditable}
+                                style={{ marginTop: 4 }}
+                              >
+                                + Adicionar botão
+                              </Button>
+                            )}
+                          </Box>
+                        </Grid>
+                      )}
+
+                      {/* Carrossel */}
+                      {values.messageType === "carousel" && (
+                        <Grid item xs={12}>
+                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
+                            <Box style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: "#555" }}>
+                              Cards do Carrossel (máx. 10)
+                            </Box>
+                            {(values.carouselCards || []).map((card, cidx) => (
+                              <Box key={cidx} style={{ border: "1px dashed #ccc", borderRadius: 6, padding: 10, marginBottom: 10 }}>
+                                <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                  <span style={{ fontWeight: 600, fontSize: 12 }}>Card {cidx + 1}</span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const updated = (values.carouselCards || []).filter((_, i) => i !== cidx);
+                                      setFieldValue("carouselCards", updated);
+                                    }}
+                                    disabled={!campaignEditable}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                                <Grid container spacing={1}>
+                                  <Grid item xs={6}>
+                                    <TextField
+                                      label="Título"
+                                      value={card.headerTitle || ""}
+                                      onChange={(e) => {
+                                        const updated = [...(values.carouselCards || [])];
+                                        updated[cidx] = { ...updated[cidx], headerTitle: e.target.value };
+                                        setFieldValue("carouselCards", updated);
+                                      }}
+                                      variant="outlined" size="small" fullWidth
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                  <Grid item xs={6}>
+                                    <TextField
+                                      label="URL da Imagem"
+                                      value={card.imageUrl || ""}
+                                      onChange={(e) => {
+                                        const updated = [...(values.carouselCards || [])];
+                                        updated[cidx] = { ...updated[cidx], imageUrl: e.target.value };
+                                        setFieldValue("carouselCards", updated);
+                                      }}
+                                      variant="outlined" size="small" fullWidth
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12}>
+                                    <TextField
+                                      label="Corpo da mensagem"
+                                      value={card.body || ""}
+                                      onChange={(e) => {
+                                        const updated = [...(values.carouselCards || [])];
+                                        updated[cidx] = { ...updated[cidx], body: e.target.value };
+                                        setFieldValue("carouselCards", updated);
+                                      }}
+                                      variant="outlined" size="small" fullWidth multiline rows={2}
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12}>
+                                    <TextField
+                                      label="Rodapé (opcional)"
+                                      value={card.footer || ""}
+                                      onChange={(e) => {
+                                        const updated = [...(values.carouselCards || [])];
+                                        updated[cidx] = { ...updated[cidx], footer: e.target.value };
+                                        setFieldValue("carouselCards", updated);
+                                      }}
+                                      variant="outlined" size="small" fullWidth
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                  {/* Botões do card */}
+                                  <Grid item xs={12}>
+                                    <Box style={{ fontSize: 12, color: "#777", marginBottom: 4 }}>Botões do card (máx. 3)</Box>
+                                    {(card.buttons || []).map((btn, bidx) => (
+                                      <Grid container spacing={1} key={bidx} style={{ marginBottom: 4 }}>
+                                        <Grid item xs={4}>
+                                          <TextField
+                                            label="Texto"
+                                            value={btn.displayText || ""}
+                                            onChange={(e) => {
+                                              const updatedCards = [...(values.carouselCards || [])];
+                                              const updatedBtns = [...(updatedCards[cidx].buttons || [])];
+                                              updatedBtns[bidx] = { ...updatedBtns[bidx], displayText: e.target.value };
+                                              updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
+                                              setFieldValue("carouselCards", updatedCards);
+                                            }}
+                                            variant="outlined" size="small" fullWidth
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                          <FormControl variant="outlined" size="small" fullWidth>
+                                            <InputLabel>Tipo</InputLabel>
+                                            <Select
+                                              label="Tipo"
+                                              value={btn.type || "reply"}
+                                              onChange={(e) => {
+                                                const updatedCards = [...(values.carouselCards || [])];
+                                                const updatedBtns = [...(updatedCards[cidx].buttons || [])];
+                                                updatedBtns[bidx] = { ...updatedBtns[bidx], type: e.target.value };
+                                                updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
+                                                setFieldValue("carouselCards", updatedCards);
+                                              }}
+                                              disabled={!campaignEditable}
+                                            >
+                                              <MenuItem value="reply">Resposta</MenuItem>
+                                              <MenuItem value="url">URL</MenuItem>
+                                              <MenuItem value="call">Ligar</MenuItem>
+                                            </Select>
+                                          </FormControl>
+                                        </Grid>
+                                        <Grid item xs={4}>
+                                          <TextField
+                                            label="Valor"
+                                            value={btn.value || ""}
+                                            onChange={(e) => {
+                                              const updatedCards = [...(values.carouselCards || [])];
+                                              const updatedBtns = [...(updatedCards[cidx].buttons || [])];
+                                              updatedBtns[bidx] = { ...updatedBtns[bidx], value: e.target.value };
+                                              updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
+                                              setFieldValue("carouselCards", updatedCards);
+                                            }}
+                                            variant="outlined" size="small" fullWidth
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        <Grid item xs={1} style={{ display: "flex", alignItems: "center" }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => {
+                                              const updatedCards = [...(values.carouselCards || [])];
+                                              updatedCards[cidx] = {
+                                                ...updatedCards[cidx],
+                                                buttons: (updatedCards[cidx].buttons || []).filter((_, i) => i !== bidx)
+                                              };
+                                              setFieldValue("carouselCards", updatedCards);
+                                            }}
+                                            disabled={!campaignEditable}
+                                          >
+                                            <DeleteOutlineIcon fontSize="small" />
+                                          </IconButton>
+                                        </Grid>
+                                      </Grid>
+                                    ))}
+                                    {(card.buttons || []).length < 3 && (
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => {
+                                          const updatedCards = [...(values.carouselCards || [])];
+                                          updatedCards[cidx] = {
+                                            ...updatedCards[cidx],
+                                            buttons: [...(updatedCards[cidx].buttons || []), { displayText: "", type: "reply", value: "" }]
+                                          };
+                                          setFieldValue("carouselCards", updatedCards);
+                                        }}
+                                        disabled={!campaignEditable}
+                                        style={{ fontSize: 11 }}
+                                      >
+                                        + Botão
+                                      </Button>
+                                    )}
+                                  </Grid>
+                                </Grid>
+                              </Box>
+                            ))}
+                            {(values.carouselCards || []).length < 10 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => setFieldValue("carouselCards", [
+                                  ...(values.carouselCards || []),
+                                  { headerTitle: "", imageUrl: "", body: "", footer: "", buttons: [] }
+                                ])}
+                                disabled={!campaignEditable}
+                                style={{ marginTop: 4 }}
+                              >
+                                + Adicionar card
+                              </Button>
+                            )}
+                          </Box>
+                        </Grid>
+                      )}
+
                       {(campaign.mediaPath || attachment) && (
                         <Grid item xs={12}>
                           <Box display="flex" alignItems="center">
