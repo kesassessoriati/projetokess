@@ -2,7 +2,7 @@ import { QueryInterface, DataTypes } from "sequelize";
 
 module.exports = {
   up: async (queryInterface: QueryInterface) => {
-    const tableDesc = await queryInterface.describeTable("WhatsappWarmups");
+    const tableDesc = await queryInterface.describeTable("WhatsappWarmups") as any;
 
     if (!tableDesc.warmupMode) {
       await queryInterface.addColumn("WhatsappWarmups", "warmupMode", {
