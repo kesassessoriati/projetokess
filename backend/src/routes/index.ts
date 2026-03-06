@@ -115,6 +115,7 @@ import crmWebhookRoutes from "./crmWebhookRoutes";
 import migrationRoutes from "./migrationRoutes";
 import smtpSettingRoutes from "./smtpSettingRoutes";
 import whatsappWarmupRoutes from "./whatsappWarmupRoutes";
+import groupManagementRoutes from "./groupManagementRoutes";
 
 const routes = Router();
 
@@ -255,5 +256,6 @@ routes.use(timerRoutes);
 
 import kanbanAutomationRoutes from "./kanbanAutomationRoutes";
 routes.use(kanbanAutomationRoutes);
+routes.use(groupManagementRoutes);
 
 export default routes;
