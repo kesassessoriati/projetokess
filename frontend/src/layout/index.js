@@ -93,6 +93,7 @@ import PhoneIcon from "@material-ui/icons/Phone";
 import LabelIcon from "@material-ui/icons/Label";
 import SearchIcon from "@material-ui/icons/Search";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
+import AssignmentIcon from "@material-ui/icons/Assignment";
 
 import { AuthContext } from "../context/Auth/AuthContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
@@ -918,6 +919,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Serviços", path: "/servicos", icon: <BuildOutlinedIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Agenda", path: "/user-schedules", icon: <CalendarMonthIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       // ── Grupos mantidos ──────────────────────────────────────────────
