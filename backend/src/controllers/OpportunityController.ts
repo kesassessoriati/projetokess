@@ -12,6 +12,7 @@ import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import AppError from "../errors/AppError";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
+import { ExecuteKanbanAutomationService } from "../services/KanbanAutomationServices/ExecuteKanbanAutomationService";
 import { getIO } from "../libs/socket";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -44,6 +45,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         leadId,
         title,
         value,
+        assignedUserId
+    });
+
+    // Run automations for new opportunity
+    ExecuteKanbanAutomationService("OPPORTUNITY_CREATED", opportunity.id, companyId, {
+        stageId,
         assignedUserId
     });
 
@@ -84,6 +91,12 @@ export const move = async (req: Request, res: Response): Promise<Response> => {
         toStageId,
         companyId,
         movedBy: movedBy || "USER",
+        reason
+    });
+
+    // Run automations for moved opportunity
+    ExecuteKanbanAutomationService("OPPORTUNITY_MOVED", opportunity.id, companyId, {
+        toStageId,
         reason
     });
 
@@ -154,6 +167,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
     await opportunity.update(updateData);
 
+    ExecuteKanbanAutomationService("OPPORTUNITY_UPDATED", opportunity.id, companyId, updateData);
+
     const io = getIO();
     io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
         action: "update",
@@ -164,7 +179,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     if (status !== undefined && opportunity.leadId) {
         const CrmLead = (await import("../models/CrmLead")).default;
         const leadStatusUpdate: any = {};
-        
+
         if (status === "WON") {
             leadStatusUpdate.status = "convertido";
         } else if (status === "LOST") {

@@ -657,6 +657,16 @@ const PipelineBoard = () => {
                             Webhooks
                         </Button>
                     </Tooltip>
+                    <Tooltip title="Automações do Kanban">
+                        <Button
+                            size="small"
+                            startIcon={<TimelineIcon style={{ fontSize: 15 }} />}
+                            onClick={() => history.push("/kanban-automations")}
+                            style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
+                        >
+                            Automações
+                        </Button>
+                    </Tooltip>
 
                     {/* Filtros de equipe — apenas admin */}
                     {isAdmin && (

@@ -251,4 +251,7 @@ routes.use(smtpSettingRoutes);
 import timerRoutes from "./timerRoutes";
 routes.use(timerRoutes);
 
+import kanbanAutomationRoutes from "./kanbanAutomationRoutes";
+routes.use(kanbanAutomationRoutes);
+
 export default routes;

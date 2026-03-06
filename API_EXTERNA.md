@@ -13,7 +13,7 @@ Todas as rotas exigem uma **API Key** gerada no painel:
 ### Header obrigatório
 
 ```
-apikey: sua-chave-aqui
+Authorization: Bearer sua-chave-aqui
 ```
 
 ### Base URL
@@ -57,6 +57,7 @@ https://seu-dominio.com/api/external
 | DELETE | `/contacts/:id` | Remover contato |
 
 ### POST /contacts
+
 ```json
 {
   "name": "João Silva",
@@ -81,6 +82,7 @@ https://seu-dominio.com/api/external
 | POST | `/tickets/:id/transfer` | Transferir para fila/usuário |
 
 ### POST /tickets/:id/transfer
+
 ```json
 {
   "queueId": 2,
@@ -98,6 +100,7 @@ https://seu-dominio.com/api/external
 | POST | `/api/messages/send-media` | Enviar mídia |
 
 ### POST /api/messages/send
+
 ```json
 {
   "number": "5511999999999",
@@ -220,6 +223,7 @@ https://seu-dominio.com/api/external
 > Se `pipelineId`/`stageId` não forem informados, o sistema usa o pipeline e estágio padrão da empresa.
 
 ### PUT /crm-leads/:id — Atualizar lead
+
 ```json
 {
   "status": "negociando",
@@ -230,6 +234,7 @@ https://seu-dominio.com/api/external
 ```
 
 ### POST /crm-leads/:id/convert — Converter em cliente
+
 ```json
 {
   "contactId": 42,
@@ -264,6 +269,7 @@ https://seu-dominio.com/api/external
 | POST | `/opportunities/:id/move` | Mover para outro estágio |
 
 ### GET /pipelines — Resposta
+
 ```json
 {
   "pipelines": [
@@ -300,6 +306,7 @@ https://seu-dominio.com/api/external
 | `contactId` | number | Filtrar por contato |
 
 ### POST /opportunities — Criar oportunidade
+
 ```json
 {
   "pipelineId": 1,
@@ -315,6 +322,7 @@ https://seu-dominio.com/api/external
 **Campos obrigatórios:** `pipelineId`, `stageId`, `title`
 
 ### PUT /opportunities/:id — Atualizar
+
 ```json
 {
   "title": "Proposta revisada",
@@ -327,6 +335,7 @@ https://seu-dominio.com/api/external
 > Ao informar `stageId` diferente do atual, o sistema move a oportunidade e registra o histórico de movimento automaticamente.
 
 ### POST /opportunities/:id/move — Mover estágio
+
 ```json
 {
   "toStageId": 4,
@@ -415,10 +424,12 @@ https://seu-dominio.com/api/external
 ## Tags Kanban (legado) — DEPRECATED
 
 > ⚠️ **Endpoints marcados como deprecated.** Todas as respostas incluem o header:
+>
 > ```
 > X-Deprecated: true
 > X-Deprecated-Message: Use /api/external/pipelines instead of /api/external/tags-kanban
 > ```
+>
 > Migre para os endpoints de [Pipeline / Funil de Vendas](#pipeline--funil-de-vendas).
 
 | Método | Rota | Descrição |
@@ -440,7 +451,7 @@ https://seu-dominio.com/api/external
   "method": "POST",
   "url": "https://seu-dominio.com/api/external/crm-leads",
   "headers": {
-    "apikey": "sua-chave-aqui",
+    "Authorization": "Bearer sua-chave-aqui",
     "Content-Type": "application/json"
   },
   "body": {
@@ -461,7 +472,7 @@ https://seu-dominio.com/api/external
   "method": "GET",
   "url": "https://seu-dominio.com/api/external/pipelines",
   "headers": {
-    "apikey": "sua-chave-aqui"
+    "Authorization": "Bearer sua-chave-aqui"
   }
 }
 ```
@@ -473,7 +484,7 @@ https://seu-dominio.com/api/external
   "method": "POST",
   "url": "https://seu-dominio.com/api/external/opportunities/{{ $json.opportunityId }}/move",
   "headers": {
-    "apikey": "sua-chave-aqui",
+    "Authorization": "Bearer sua-chave-aqui",
     "Content-Type": "application/json"
   },
   "body": {

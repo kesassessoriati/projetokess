@@ -120,6 +120,7 @@ import LeadMessage from "../models/LeadMessage";
 import LeadAttachment from "../models/LeadAttachment";
 import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
+import KanbanAutomation from "../models/KanbanAutomation";
 import SmtpSetting from "../models/SmtpSetting";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
@@ -275,8 +276,10 @@ const models = [
   LeadAttachment,
   SmtpSetting,
   TimerTask,
-  TimerSession
+  TimerSession,
+  KanbanAutomation
 ];
+
 
 sequelize.addModels(models);
 applyTenantIsolation(sequelize);
