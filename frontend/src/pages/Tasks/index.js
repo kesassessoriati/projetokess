@@ -17,7 +17,7 @@ import {
     InputLabel,
     Tooltip
 } from "@material-ui/core";
-import { Add, Delete, Edit, MoreVert } from "@material-ui/icons";
+import { Add, Delete, Edit, MoreVert, Link as LinkIcon } from "@material-ui/icons";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import MainContainer from "../../components/MainContainer";
@@ -139,10 +139,10 @@ const Tasks = () => {
     const [boardForm, setBoardForm] = useState({ name: "", description: "" });
 
     const [openListModal, setOpenListModal] = useState(false);
-    const [listForm, setListForm] = useState({ name: "" });
+    const [listForm, setListForm] = useState({ name: "", color: "#ebecf0" });
 
     const [openTaskModal, setOpenTaskModal] = useState(false);
-    const [taskForm, setTaskForm] = useState({ id: null, listId: "", title: "", description: "", priority: "Média", dueDate: "", tags: [] });
+    const [taskForm, setTaskForm] = useState({ id: null, listId: "", title: "", description: "", priority: "Média", dueDate: "", tags: [], url: "", color: "#ffffff" });
 
     useEffect(() => {
         fetchBoards();
@@ -204,7 +204,7 @@ const Tasks = () => {
             toast.success("Coluna criada!");
             setOpenListModal(false);
             fetchBoards();
-            setListForm({ name: "" });
+            setListForm({ name: "", color: "#ebecf0" });
         } catch (err) {
             toast.error("Erro ao salvar coluna");
         }
@@ -230,10 +230,12 @@ const Tasks = () => {
                 description: task.description || "",
                 priority: task.priority || "Média",
                 dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
-                tags: task.tags || []
+                tags: task.tags || [],
+                url: task.url || "",
+                color: task.color || "#ffffff"
             });
         } else {
-            setTaskForm({ id: null, listId, title: "", description: "", priority: "Média", dueDate: "", tags: [] });
+            setTaskForm({ id: null, listId, title: "", description: "", priority: "Média", dueDate: "", tags: [], url: "", color: "#ffffff" });
         }
         setOpenTaskModal(true);
     };
@@ -269,9 +271,27 @@ const Tasks = () => {
     };
 
     const onDragEnd = async (result) => {
-        const { source, destination } = result;
+        const { source, destination, type } = result;
         if (!destination) return;
         if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+        if (type === "COLUMN") {
+            let newBoards = [...boards];
+            let boardIndex = newBoards.findIndex(b => b.id === selectedBoardId);
+            const newLists = Array.from(newBoards[boardIndex].lists);
+            const [reorderedList] = newLists.splice(source.index, 1);
+            newLists.splice(destination.index, 0, reorderedList);
+            newBoards[boardIndex].lists = newLists;
+            setBoards(newBoards);
+
+            try {
+                await api.put(`/tasks/list/${reorderedList.id}`, { order: destination.index });
+            } catch (err) {
+                toast.error("Erro ao mover coluna");
+                fetchBoards(); // rollback
+            }
+            return;
+        }
 
         const sourceList = boardData.lists.find(l => l.id.toString() === source.droppableId);
         const destList = boardData.lists.find(l => l.id.toString() === destination.droppableId);
@@ -306,11 +326,6 @@ const Tasks = () => {
             <div className={classes.mainContainer}>
                 <MainHeader>
                     <Title>TaskBoard (Kanban)</Title>
-                    <MainHeaderButtonsWrapper>
-                        <Button variant="contained" color="primary" onClick={() => setOpenModalBoard(true)}>
-                            Criar Quadro
-                        </Button>
-                    </MainHeaderButtonsWrapper>
                 </MainHeader>
 
                 <div className={classes.boardSelector}>
@@ -338,69 +353,95 @@ const Tasks = () => {
                             </IconButton>
                         </>
                     )}
+                    <Button size="small" variant="contained" color="primary" onClick={() => setOpenModalBoard(true)} style={selectedBoardId ? { marginLeft: "auto" } : { marginLeft: 16 }}>
+                        Criar Quadro
+                    </Button>
                 </div>
 
                 {boardData && (
                     <DragDropContext onDragEnd={onDragEnd}>
-                        <div className={classes.boardContainer}>
-                            {boardData.lists?.map((list) => (
-                                <div key={list.id} className={classes.column}>
-                                    <div className={classes.columnHeader}>
-                                        <Typography variant="subtitle1">{list.name}</Typography>
-                                        <div>
-                                            <IconButton size="small" onClick={() => handleOpenTask(list.id)}>
-                                                <Add fontSize="small" />
-                                            </IconButton>
-                                            <IconButton size="small" onClick={() => handleDeleteList(list.id)}>
-                                                <Delete fontSize="small" />
-                                            </IconButton>
-                                        </div>
-                                    </div>
-                                    <Droppable droppableId={list.id.toString()}>
-                                        {(provided, snapshot) => (
-                                            <div
-                                                {...provided.droppableProps}
-                                                ref={provided.innerRef}
-                                                className={classes.taskList}
-                                                style={{ backgroundColor: snapshot.isDraggingOver ? "rgba(0,0,0,0.05)" : "transparent" }}
-                                            >
-                                                {list.tasks?.map((task, index) => (
-                                                    <Draggable key={task.id.toString()} draggableId={task.id.toString()} index={index}>
+                        <Droppable droppableId="board" type="COLUMN" direction="horizontal">
+                            {(provided) => (
+                                <div className={classes.boardContainer} ref={provided.innerRef} {...provided.droppableProps}>
+                                    {boardData.lists?.map((list, index) => (
+                                        <Draggable key={`list-${list.id}`} draggableId={`list-${list.id}`} index={index}>
+                                            {(provided) => (
+                                                <div
+                                                    className={classes.column}
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    style={{ ...provided.draggableProps.style, backgroundColor: list.color || undefined }}
+                                                >
+                                                    <div className={classes.columnHeader}>
+                                                        <Typography variant="subtitle1" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined, textShadow: list.color && list.color !== "#ebecf0" ? "0 1px 2px rgba(0,0,0,0.5)" : "none" }}>{list.name}</Typography>
+                                                        <div>
+                                                            <IconButton size="small" onClick={() => handleOpenTask(list.id)}>
+                                                                <Add fontSize="small" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined }} />
+                                                            </IconButton>
+                                                            <IconButton size="small" onClick={() => handleDeleteList(list.id)}>
+                                                                <Delete fontSize="small" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined }} />
+                                                            </IconButton>
+                                                        </div>
+                                                    </div>
+                                                    <Droppable droppableId={list.id.toString()}>
                                                         {(provided, snapshot) => (
                                                             <div
+                                                                {...provided.droppableProps}
                                                                 ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                className={classes.taskCard}
-                                                                onClick={() => handleOpenTask(list.id, task)}
-                                                                style={{
-                                                                    ...provided.draggableProps.style,
-                                                                    transform: snapshot.isDragging ? `${provided.draggableProps.style?.transform} scale(1.02)` : provided.draggableProps.style?.transform,
-                                                                    zIndex: snapshot.isDragging ? 100 : "auto"
-                                                                }}
+                                                                className={classes.taskList}
+                                                                style={{ backgroundColor: snapshot.isDraggingOver ? "rgba(0,0,0,0.05)" : "transparent" }}
                                                             >
-                                                                <Typography className={classes.cardTitle}>{task.title}</Typography>
-                                                                {task.dueDate && (
-                                                                    <Typography className={classes.cardDate}>
-                                                                        Vence: {format(parseISO(task.dueDate), "dd/MM/yyyy")}
-                                                                    </Typography>
-                                                                )}
-                                                                <div className={classes.cardTags}>
-                                                                    <span className={classes.tag} style={{ backgroundColor: task.priority === 'Alta' ? '#ffebee' : task.priority === 'Urgente' ? '#ffcdd2' : '#e0e0e0' }}>
-                                                                        {task.priority || "Normal"}
-                                                                    </span>
-                                                                </div>
+                                                                {list.tasks?.map((task, taskIndex) => (
+                                                                    <Draggable key={task.id.toString()} draggableId={task.id.toString()} index={taskIndex}>
+                                                                        {(provided, snapshot) => (
+                                                                            <div
+                                                                                ref={provided.innerRef}
+                                                                                {...provided.draggableProps}
+                                                                                {...provided.dragHandleProps}
+                                                                                className={classes.taskCard}
+                                                                                onClick={() => handleOpenTask(list.id, task)}
+                                                                                style={{
+                                                                                    ...provided.draggableProps.style,
+                                                                                    backgroundColor: task.color !== "#ffffff" ? task.color : undefined,
+                                                                                    transform: snapshot.isDragging ? `${provided.draggableProps.style?.transform} scale(1.02)` : provided.draggableProps.style?.transform,
+                                                                                    zIndex: snapshot.isDragging ? 100 : "auto"
+                                                                                }}
+                                                                            >
+                                                                                <Typography className={classes.cardTitle} style={{ color: task.color !== "#ffffff" ? "#000" : undefined }}>{task.title}</Typography>
+                                                                                {task.dueDate && (
+                                                                                    <Typography className={classes.cardDate} style={{ color: task.color !== "#ffffff" ? "#333" : undefined }}>
+                                                                                        Vence: {format(parseISO(task.dueDate), "dd/MM/yyyy")}
+                                                                                    </Typography>
+                                                                                )}
+                                                                                <div className={classes.cardTags}>
+                                                                                    <span className={classes.tag} style={{ backgroundColor: task.priority === 'Alta' ? '#ffebee' : task.priority === 'Urgente' ? '#ffcdd2' : '#e0e0e0' }}>
+                                                                                        {task.priority || "Normal"}
+                                                                                    </span>
+                                                                                </div>
+                                                                                {task.url && (
+                                                                                    <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                                                                                        <a href={task.url.startsWith('http') ? task.url : `https://${task.url}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#3b82f6', textDecoration: 'none' }}>
+                                                                                            <LinkIcon fontSize="small" /> Acessar Link
+                                                                                        </a>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </Draggable>
+                                                                ))}
+                                                                {provided.placeholder}
                                                             </div>
                                                         )}
-                                                    </Draggable>
-                                                ))}
-                                                {provided.placeholder}
-                                            </div>
-                                        )}
-                                    </Droppable>
+                                                    </Droppable>
+                                                </div>
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </Droppable>
                     </DragDropContext>
                 )}
             </div>
@@ -441,6 +482,15 @@ const Tasks = () => {
                         value={listForm.name}
                         onChange={(e) => setListForm({ ...listForm, name: e.target.value })}
                     />
+                    <div style={{ marginTop: 16 }}>
+                        <Typography variant="caption">Cor da coluna de Fundo</Typography>
+                        <input
+                            type="color"
+                            style={{ width: "100%", height: 38, border: "1px solid #ccc", borderRadius: 4, marginTop: 4, padding: 2, cursor: "pointer" }}
+                            value={listForm.color}
+                            onChange={e => setListForm({ ...listForm, color: e.target.value })}
+                        />
+                    </div>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenListModal(false)}>Cancelar</Button>
@@ -485,14 +535,34 @@ const Tasks = () => {
                     </FormControl>
                     <TextField
                         margin="dense"
-                        label="Vencimento"
-                        type="date"
+                        label="Link Adicional (URL)"
                         fullWidth
                         variant="outlined"
-                        InputLabelProps={{ shrink: true }}
-                        value={taskForm.dueDate}
-                        onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                        value={taskForm.url}
+                        onChange={(e) => setTaskForm({ ...taskForm, url: e.target.value })}
+                        placeholder="https://exemplo.com"
                     />
+                    <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                        <TextField
+                            margin="dense"
+                            label="Data de Vencimento"
+                            type="date"
+                            fullWidth
+                            variant="outlined"
+                            InputLabelProps={{ shrink: true }}
+                            value={taskForm.dueDate}
+                            onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                        />
+                        <div style={{ flex: 1, marginTop: 8 }}>
+                            <Typography variant="caption" style={{ marginLeft: 4 }}>Cor de Fundo do Card</Typography>
+                            <input
+                                type="color"
+                                style={{ width: "100%", height: 38, border: "1px solid #ccc", borderRadius: 4, marginTop: 4, padding: 2, cursor: "pointer" }}
+                                value={taskForm.color}
+                                onChange={e => setTaskForm({ ...taskForm, color: e.target.value })}
+                            />
+                        </div>
+                    </div>
                 </DialogContent>
                 <DialogActions>
                     {taskForm.id && (
