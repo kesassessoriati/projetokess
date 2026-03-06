@@ -116,6 +116,7 @@ import migrationRoutes from "./migrationRoutes";
 import smtpSettingRoutes from "./smtpSettingRoutes";
 import whatsappWarmupRoutes from "./whatsappWarmupRoutes";
 import groupManagementRoutes from "./groupManagementRoutes";
+import followUpCampaignRoutes from "./followUpCampaignRoutes";
 
 const routes = Router();
 
@@ -257,5 +258,6 @@ routes.use(timerRoutes);
 import kanbanAutomationRoutes from "./kanbanAutomationRoutes";
 routes.use(kanbanAutomationRoutes);
 routes.use(groupManagementRoutes);
+routes.use(followUpCampaignRoutes);
 
 export default routes;

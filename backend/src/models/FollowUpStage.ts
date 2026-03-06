@@ -1,0 +1,62 @@
+import {
+  Table,
+  Column,
+  CreatedAt,
+  UpdatedAt,
+  Model,
+  PrimaryKey,
+  AutoIncrement,
+  ForeignKey,
+  BelongsTo,
+  AllowNull,
+  Default,
+  DataType,
+} from "sequelize-typescript";
+import FollowUpCampaign from "./FollowUpCampaign";
+
+@Table({ tableName: "FollowUpStages" })
+class FollowUpStage extends Model<FollowUpStage> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column
+  id: number;
+
+  @ForeignKey(() => FollowUpCampaign)
+  @Column
+  followUpCampaignId: number;
+
+  @Default(1)
+  @Column
+  order: number;
+
+  @Default(60)
+  @Column
+  delayMinutes: number;
+
+  @Default("text")
+  @Column(DataType.STRING(20))
+  messageType: string; // 'text' | 'buttons'
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  message: string;
+
+  @AllowNull(true)
+  @Column(DataType.JSON)
+  buttons: object[];
+
+  @Default(true)
+  @Column
+  isActive: boolean;
+
+  @CreatedAt
+  createdAt: Date;
+
+  @UpdatedAt
+  updatedAt: Date;
+
+  @BelongsTo(() => FollowUpCampaign)
+  followUpCampaign: FollowUpCampaign;
+}
+
+export default FollowUpStage;

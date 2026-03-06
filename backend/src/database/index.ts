@@ -124,6 +124,9 @@ import KanbanAutomation from "../models/KanbanAutomation";
 import SmtpSetting from "../models/SmtpSetting";
 import WhatsappWarmup from "../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
+import FollowUpCampaign from "../models/FollowUpCampaign";
+import FollowUpStage from "../models/FollowUpStage";
+import FollowUpLog from "../models/FollowUpLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -281,7 +284,10 @@ const models = [
   TimerSession,
   KanbanAutomation,
   WhatsappWarmup,
-  WhatsappWarmupLog
+  WhatsappWarmupLog,
+  FollowUpCampaign,
+  FollowUpStage,
+  FollowUpLog,
 ];
 
 

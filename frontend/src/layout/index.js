@@ -910,6 +910,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Clientes", path: "/clientes", icon: <BusinessCenterIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gestão de Grupos", path: "/group-management", icon: <GroupWorkIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Follow-ups", path: "/follow-ups", icon: <ScheduleIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Produtos", path: "/produtos", icon: <ExtensionIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
