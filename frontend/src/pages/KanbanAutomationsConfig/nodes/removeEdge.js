@@ -5,7 +5,7 @@ import {
   getMarkerEnd
 } from "react-flow-renderer";
 
-import "./css/buttonedge.css";
+import "../css/buttonedge.css";
 import { Delete } from "@mui/icons-material";
 
 const onEdgeClick = (evt, id) => {
