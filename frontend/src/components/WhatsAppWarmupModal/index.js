@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
     Dialog,
     DialogContent,
@@ -13,14 +13,10 @@ import {
     FormControl,
     InputLabel,
     makeStyles,
-    Switch,
-    FormControlLabel,
     Tabs,
     Tab,
     Box,
     CircularProgress,
-    Paper,
-    Chip
 } from "@material-ui/core";
 import CloseIcon from "@material-ui/icons/Close";
 import WhatshotIcon from "@material-ui/icons/Whatshot";
@@ -31,6 +27,8 @@ import TimelineIcon from "@material-ui/icons/Timeline";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import format from "date-fns/format";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -185,6 +183,8 @@ const TabPanel = (props) => {
 
 const WhatsAppWarmupModal = ({ open, onClose }) => {
     const classes = useStyles();
+    const { user } = useContext(AuthContext);
+    const { on } = useSocket();
     const [tab, setTab] = useState(0);
     const [whatsapps, setWhatsapps] = useState([]);
     const [selectedWhatsapp, setSelectedWhatsapp] = useState("");
@@ -222,6 +222,19 @@ const WhatsAppWarmupModal = ({ open, onClose }) => {
             fetchLogs(selectedWhatsapp);
         }
     }, [selectedWhatsapp]);
+
+    // Real-time log updates via socket
+    useEffect(() => {
+        if (!open || !user?.companyId) return;
+        const eventName = `company-${user.companyId}-warmup-log`;
+        const cleanup = on(eventName, (data) => {
+            if (data.action === "create" && data.log) {
+                setLogs(prev => [data.log, ...prev].slice(0, 50));
+            }
+        });
+        return cleanup;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, user?.companyId]);
 
     const fetchWhatsapps = async () => {
         try {
@@ -316,9 +329,10 @@ const WhatsAppWarmupModal = ({ open, onClose }) => {
         }
     };
 
+    const NUMBER_FIELDS = ["messagesPerDay", "minInterval", "maxInterval", "maxInteractionsPerHour"];
     const handleChangeConfig = (e) => {
         const { name, value } = e.target;
-        setConfig(prev => ({ ...prev, [name]: value }));
+        setConfig(prev => ({ ...prev, [name]: NUMBER_FIELDS.includes(name) ? parseInt(value, 10) || 0 : value }));
     };
 
     const getHealthColor = (score) => {
@@ -383,7 +397,7 @@ const WhatsAppWarmupModal = ({ open, onClose }) => {
 
                 <Tabs
                     value={tab}
-                    onChange={(e, v) => setTab(v)}
+                    onChange={(_, v) => setTab(v)}
                     className={classes.tabRoot}
                     classes={{ indicator: classes.tabIndicator }}
                 >
