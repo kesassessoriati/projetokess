@@ -28,6 +28,7 @@
     "@supabase/supabase-js": "^2.33.2",
     "@types/fs-extra": "^11.0.4",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "whaileys": "github:canove/whaileys",
     "agora-access-token": "^2.0.4",
     "async-mutex": "^0.5.0",
     "axios": "^1.5.0",
