@@ -10,6 +10,7 @@ import {
   Default,
   AllowNull,
   HasMany,
+  HasOne,
   Unique,
   BelongsToMany,
   ForeignKey,
@@ -22,6 +23,7 @@ import Company from "./Company";
 import QueueIntegrations from "./QueueIntegrations";
 import Prompt from "./Prompt";
 import { FlowBuilderModel } from "./FlowBuilder";
+import WhatsappWarmup from "./WhatsappWarmup";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -274,6 +276,9 @@ class Whatsapp extends Model<Whatsapp> {
 
   @Column(DataType.TEXT)
   coexistencePermanentToken: string;
+
+  @HasOne(() => WhatsappWarmup, { foreignKey: "whatsappId" })
+  warmup: WhatsappWarmup;
 }
 
 export default Whatsapp;

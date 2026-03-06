@@ -81,6 +81,37 @@ class WhatsappWarmup extends Model<WhatsappWarmup> {
     @Column(DataType.STRING)
     avgResponseTime: string;
 
+    // 'private' | 'groups' | 'cross' | 'combined'
+    @Default("private")
+    @Column(DataType.STRING(20))
+    warmupMode: string;
+
+    @Default(false)
+    @Column
+    useGroupsMode: boolean;
+
+    @Default(false)
+    @Column
+    useCrossMode: boolean;
+
+    @Column(DataType.JSON)
+    scriptTemplates: string[];
+
+    @Default(false)
+    @Column
+    dailyRampUp: boolean;
+
+    @Default(1)
+    @Column
+    rampUpDay: number;
+
+    @Default(5)
+    @Column
+    rampUpStartMessages: number;
+
+    @Column(DataType.DATEONLY)
+    lastResetDate: string;
+
     @HasMany(() => WhatsappWarmupLog)
     logs: WhatsappWarmupLog[];
 

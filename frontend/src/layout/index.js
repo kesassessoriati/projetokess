@@ -911,6 +911,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gestão de Grupos", path: "/group-management", icon: <GroupWorkIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Follow-ups", path: "/follow-ups", icon: <ScheduleIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Aquecimento WhatsApp", path: "/aquecimento-whatsapp", icon: <FlashOnIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Produtos", path: "/produtos", icon: <ExtensionIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
@@ -1340,8 +1341,8 @@ const LoggedInLayout = ({ children }) => {
                   </Tooltip>
                   <Tooltip title="Aquecimento WhatsApp">
                     <button
-                      className={classes.quickNavBtn}
-                      onClick={() => setWarmupModalOpen(true)}
+                      className={`${classes.quickNavBtn} ${isActivePath("/aquecimento-whatsapp") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/aquecimento-whatsapp")}
                     >
                       <span style={{ fontSize: 15 }}>🔥</span>
                       <span>Aquecimento</span>
