@@ -7,20 +7,25 @@ import Pipeline from "../models/Pipeline";
 import PipelineStage from "../models/PipelineStage";
 import { Op } from "sequelize";
 
-const getOpenAiKey = async (companyId: number): Promise<string | null> => {
-  const setting = await Setting.findOne({ where: { companyId, key: "openaiApiKey" } }).catch(() => null);
-  return setting?.value || process.env.OPENAI_API_KEY || null;
+// Cascade: own company key → superadmin (company 1) key → env var
+const getSettingCascade = async (companyId: number, key: string, envFallback?: string): Promise<string | null> => {
+  const own = await Setting.findOne({ where: { companyId, key } }).catch(() => null);
+  if (own?.value) return own.value;
+  if (companyId !== 1) {
+    const global = await Setting.findOne({ where: { companyId: 1, key } }).catch(() => null);
+    if (global?.value) return global.value;
+  }
+  return envFallback || null;
 };
 
-const getGeminiKey = async (companyId: number): Promise<string | null> => {
-  const setting = await Setting.findOne({ where: { companyId, key: "geminiApiKey" } }).catch(() => null);
-  return setting?.value || process.env.GEMINI_API_KEY || null;
-};
+const getOpenAiKey = async (companyId: number): Promise<string | null> =>
+  getSettingCascade(companyId, "openaiApiKey", process.env.OPENAI_API_KEY);
 
-const getPreferredProvider = async (companyId: number): Promise<string> => {
-  const setting = await Setting.findOne({ where: { companyId, key: "aiProvider" } }).catch(() => null);
-  return setting?.value || "openai";
-};
+const getGeminiKey = async (companyId: number): Promise<string | null> =>
+  getSettingCascade(companyId, "geminiApiKey", process.env.GEMINI_API_KEY);
+
+const getPreferredProvider = async (companyId: number): Promise<string> =>
+  (await getSettingCascade(companyId, "aiProvider")) || "openai";
 
 const buildCrmContext = async (companyId: number): Promise<string> => {
   try {

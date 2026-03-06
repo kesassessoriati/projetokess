@@ -175,6 +175,7 @@ export default function Whitelabel(props) {
   // API Keys para IA
   const [openaiApiKey, setOpenaiApiKey] = useState(settingsLoaded.openaiApiKey || "");
   const [geminiApiKey, setGeminiApiKey] = useState(settingsLoaded.geminiApiKey || "");
+  const [aiProvider, setAiProvider] = useState(settingsLoaded.aiProvider || "openai");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   
@@ -229,6 +230,7 @@ export default function Whitelabel(props) {
       const smtpFrom = settings.find((s) => s.key === "smtpFrom")?.value;
       const openaiApiKey = settings.find((s) => s.key === "openaiApiKey")?.value;
       const geminiApiKey = settings.find((s) => s.key === "geminiApiKey")?.value;
+      const aiProvider = settings.find((s) => s.key === "aiProvider")?.value;
       const verifyToken = settings.find((s) => s.key === "verifyToken")?.value;
       const facebookAppId = settings.find((s) => s.key === "facebookAppId")?.value;
       const facebookAppSecret = settings.find((s) => s.key === "facebookAppSecret")?.value;
@@ -248,13 +250,14 @@ export default function Whitelabel(props) {
       setSmtpFrom(smtpFrom || "");
       setOpenaiApiKey(openaiApiKey || "");
       setGeminiApiKey(geminiApiKey || "");
+      setAiProvider(aiProvider || "openai");
       setVerifyToken(verifyToken || "");
       setFacebookAppId(facebookAppId || "");
       setFacebookAppSecret(facebookAppSecret || "");
       setGoogleClientId(googleClientId || "");
       setGoogleClientSecret(googleClientSecret || "");
       setGoogleRedirectUri(googleRedirectUri || "");
-      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
+      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -990,6 +993,29 @@ export default function Whitelabel(props) {
                   Configure as chaves de API para usar os recursos de Inteligência Artificial (OpenAI e Google Gemini).
                   As chaves são usadas para processamento de linguagem natural e geração de respostas.
                 </Typography>
+              </Grid>
+
+              {/* Provedor de IA padrão */}
+              <Grid xs={12} sm={6} md={4} item>
+                <Typography variant="caption" style={{ color: "#333", fontWeight: 500 }}>
+                  Provedor de IA padrão
+                </Typography>
+                <Typography variant="caption" display="block" style={{ color: "#888", marginBottom: 4 }}>
+                  Qual LLM será usada pelo Assistente CRM IA e demais recursos de IA
+                </Typography>
+                <FormControl variant="standard" fullWidth>
+                  <Select
+                    value={aiProvider}
+                    onChange={(e) => {
+                      setAiProvider(e.target.value);
+                      handleSaveSetting("aiProvider", e.target.value);
+                    }}
+                    style={{ backgroundColor: "#ffffff" }}
+                  >
+                    <MenuItem value="openai">OpenAI (GPT-4o mini)</MenuItem>
+                    <MenuItem value="gemini">Google Gemini (gemini-1.5-flash)</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
 
               {/* API Key OpenAI */}
