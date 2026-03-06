@@ -668,6 +668,16 @@ const PipelineBoard = () => {
                             Automações
                         </Button>
                     </Tooltip>
+                    <Tooltip title="Gerenciamento de Tarefas">
+                        <Button
+                            size="small"
+                            startIcon={<DashboardIcon style={{ fontSize: 15 }} />}
+                            onClick={() => history.push("/crm/tasks")}
+                            style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
+                        >
+                            Tarefas
+                        </Button>
+                    </Tooltip>
 
                     {/* Filtros de equipe — apenas admin */}
                     {isAdmin && (

@@ -262,4 +262,7 @@ routes.use(groupManagementRoutes);
 routes.use(followUpCampaignRoutes);
 routes.use(crmAiRoutes);
 
+import taskRoutes from "./taskRoutes";
+routes.use(taskRoutes);
+
 export default routes;

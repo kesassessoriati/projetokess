@@ -1031,6 +1031,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink
+                to="/crm/tasks"
+                primary="Tarefas"
+                icon={<DashboardOutlinedIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
                 to="/user-schedules"
                 primary="Agendas"
                 icon={<EventAvailableIcon />}

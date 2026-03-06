@@ -127,6 +127,11 @@ import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
 import FollowUpCampaign from "../models/FollowUpCampaign";
 import FollowUpStage from "../models/FollowUpStage";
 import FollowUpLog from "../models/FollowUpLog";
+import TaskBoard from "../models/TaskBoard";
+import TaskList from "../models/TaskList";
+import Task from "../models/Task";
+import TaskChecklist from "../models/TaskChecklist";
+import TaskComment from "../models/TaskComment";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -288,8 +293,12 @@ const models = [
   FollowUpCampaign,
   FollowUpStage,
   FollowUpLog,
+  TaskBoard,
+  TaskList,
+  Task,
+  TaskChecklist,
+  TaskComment,
 ];
-
 
 sequelize.addModels(models);
 applyTenantIsolation(sequelize);

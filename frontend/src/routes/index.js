@@ -110,6 +110,7 @@ import PrivacyPolicy from "../pages/landingpage/PrivacyPolicy";
 import PublicCheckout from "../pages/PublicCheckout";
 import Atendimentos from "../pages/Atendimentos";
 import AtendimentosMobile from "../pages/atendimentomobile";
+import Tasks from "../pages/Tasks";
 import { QueueSelectedProvider } from "../context/QueuesSelected/QueuesSelectedContext";
 import NotificationToast from "../components/NotificationToast";
 import EmbeddedLink from "../pages/EmbeddedLink";
@@ -258,6 +259,7 @@ const Routes = () => {
                         <Route exact path="/pipeline-config" component={PipelineConfig} isPrivate />
                         <Route exact path="/crm-webhooks" component={CRMWebhooks} isPrivate />
                         <Route exact path="/kanban" component={PipelineBoard} isPrivate />
+                        <Route exact path="/crm/tasks" component={Tasks} isPrivate />
                         {/* [DEPRECATED] TagsKanban - migrado para Board Inteligente */}
                         {/* <Route exact path="/TagsKanban" component={TagsKanban} isPrivate /> */}
                         <Route exact path="/prompts" component={Agentes} isPrivate />
