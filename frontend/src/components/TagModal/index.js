@@ -6,6 +6,7 @@ import { makeStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
 import TextField from "@material-ui/core/TextField";
 import Dialog from "@material-ui/core/Dialog";
+import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -374,16 +375,16 @@ const TagModal = ({ open, onClose, tagId, kanban }) => {
     setColorAnchorEl(null);
   };
 
-  const handleColorSelect = (color) => {
-    setTag(prev => ({ ...prev, color }));
+  const handleColorSelect = (color, setFieldValue) => {
+    setFieldValue("color", color);
     setHexInput(color);
   };
 
-  const handleHexInputChange = (e) => {
+  const handleHexInputChange = (e, setFieldValue) => {
     const val = e.target.value;
     setHexInput(val);
     if (/^#([0-9A-F]{3}){1,2}$/i.test(val)) {
-      setTag(prev => ({ ...prev, color: val }));
+      setFieldValue("color", val);
     }
   };
 
@@ -497,7 +498,7 @@ const TagModal = ({ open, onClose, tagId, kanban }) => {
                     variant="outlined"
                     size="small"
                     value={hexInput}
-                    onChange={handleHexInputChange}
+                    onChange={(e) => handleHexInputChange(e, setFieldValue)}
                     className={classes.hexInput}
                     placeholder="#FFFFFF"
                   />
@@ -507,7 +508,7 @@ const TagModal = ({ open, onClose, tagId, kanban }) => {
                         key={c}
                         className={classes.colorBox}
                         style={{ backgroundColor: c, border: c === values.color ? "2px solid #fff" : "1px solid rgba(255,255,255,0.1)" }}
-                        onClick={() => handleColorSelect(c)}
+                        onClick={() => handleColorSelect(c, setFieldValue)}
                       />
                     ))}
                   </div>
