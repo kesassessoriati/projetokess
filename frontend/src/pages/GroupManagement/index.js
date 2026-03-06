@@ -327,7 +327,7 @@ export default function GroupManagement() {
         try {
             const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-link?whatsappId=${selectedGroup.whatsappId}`);
             setInviteLink(data.inviteLink);
-            navigator.clipboard?.writeText(data.inviteLink);
+            if (navigator.clipboard) navigator.clipboard.writeText(data.inviteLink);
             toast.success("Link copiado para a área de transferência!");
         } catch {
             toast.error("Erro ao obter link de convite");
