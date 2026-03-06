@@ -15,6 +15,8 @@ import UpdateTicketService from "../services/TicketServices/UpdateTicketService"
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
+import { getWbot } from "../libs/wbot";
+import { sendButtonMessage } from "../helpers/SendInteractiveMessage";
 import fs from "fs";
 import path from "path";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
@@ -24,12 +26,13 @@ import logger from "../utils/logger";
 
 // ─── Tipagens ──────────────────────────────────────────────────────────────────
 interface QuickSendBody {
-    number: string;          // Ex: "5511999998888"
-    message: string;         // Texto da mensagem
-    whatsappId: number;      // Conexão WhatsApp a usar
-    name?: string;           // Nome do contato (caso precise criar)
-    queueId?: number;        // Fila opcional
-    createIfNotExists?: boolean; // Criar contato/ticket se não existir
+    number: string;
+    message: string;
+    whatsappId: number;
+    name?: string;
+    queueId?: number;
+    createIfNotExists?: boolean;
+    buttons?: string; // JSON string de InteractiveButton[]
 }
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
@@ -46,8 +49,20 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         whatsappId,
         name,
         queueId,
-        createIfNotExists = true
+        createIfNotExists = true,
+        buttons: buttonsRaw
     }: QuickSendBody = req.body;
+
+    // Parse botões se enviados
+    let parsedButtons: any[] | null = null;
+    if (buttonsRaw) {
+        try {
+            parsedButtons = JSON.parse(buttonsRaw);
+            if (!Array.isArray(parsedButtons) || parsedButtons.length === 0) parsedButtons = null;
+        } catch {
+            return res.status(400).json({ error: "Campo 'buttons' inválido. Envie um JSON array." });
+        }
+    }
 
     logger.info({ companyId, userId, number, whatsappId }, "QuickSend request started");
 
@@ -172,9 +187,15 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         const medias = req.files as Express.Multer.File[];
 
         try {
-            logger.info({ ticketId: ticket.id }, "QuickSend: Sending message(s)");
+            logger.info({ ticketId: ticket.id, hasButtons: !!parsedButtons }, "QuickSend: Sending message(s)");
 
-            if (medias && medias.length > 0) {
+            if (parsedButtons && parsedButtons.length > 0) {
+                // Envio com botões interativos
+                const wbot = getWbot(Number(whatsappId));
+                const jid = remoteJid;
+                await sendButtonMessage(wbot, jid, message || "", "", parsedButtons);
+
+            } else if (medias && medias.length > 0) {
                 await Promise.all(
                     medias.map(async (media: Express.Multer.File, index: number) => {
                         const bodyMsg = index === 0 ? (message || "") : "";
@@ -187,10 +208,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                         });
 
                         const filePath = path.resolve("public", `company${companyId}`, media.filename);
-                        const fileExists = fs.existsSync(filePath);
-                        if (fileExists) {
-                            fs.unlinkSync(filePath);
-                        }
+                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                     })
                 );
             } else if (message) {
