@@ -107,6 +107,7 @@ import ColorModeContext from "./themeContext";
 import { useSystemAlert } from "../components/SystemAlert";
 import SendIcon from "@material-ui/icons/Send";
 import QuickSendModal from "../components/QuickSendModal";
+import WhatsAppWarmupModal from "../components/WhatsAppWarmupModal";
 import ChatPopover from "../pages/Chat/ChatPopover";
 
 const backendUrl = getBackendUrl();
@@ -800,6 +801,7 @@ const LoggedInLayout = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [quickSendOpen, setQuickSendOpen] = useState(false);
+  const [warmupModalOpen, setWarmupModalOpen] = useState(false);
 
   useEffect(() => {
     if (sidebarPinned) {
@@ -1288,6 +1290,15 @@ const LoggedInLayout = ({ children }) => {
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
               {!isMobile && (
                 <div className={classes.quickNavRow}>
+                  <Tooltip title="Aquecimento WhatsApp">
+                    <button
+                      className={classes.quickNavBtn}
+                      onClick={() => setWarmupModalOpen(true)}
+                    >
+                      <span style={{ fontSize: 17 }}>🔥</span>
+                      <span>Aquecimento WhatsApp</span>
+                    </button>
+                  </Tooltip>
                   <Tooltip title="Dashboard">
                     <button
                       className={`${classes.quickNavBtn} ${isActivePath("/painel") ? "quickNavActive" : ""}`}
@@ -1452,6 +1463,12 @@ const LoggedInLayout = ({ children }) => {
       <QuickSendModal
         open={quickSendOpen}
         onClose={() => setQuickSendOpen(false)}
+      />
+
+      {/* ── Modal de Aquecimento do WhatsApp ──────────────────────── */}
+      <WhatsAppWarmupModal
+        open={warmupModalOpen}
+        onClose={() => setWarmupModalOpen(false)}
       />
 
       {/* Conteúdo Principal */}

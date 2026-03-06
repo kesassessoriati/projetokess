@@ -114,6 +114,7 @@ import pipelineRoutes from "./pipelineRoutes";
 import crmWebhookRoutes from "./crmWebhookRoutes";
 import migrationRoutes from "./migrationRoutes";
 import smtpSettingRoutes from "./smtpSettingRoutes";
+import whatsappWarmupRoutes from "./whatsappWarmupRoutes";
 
 const routes = Router();
 
@@ -131,6 +132,7 @@ routes.use(whatsappSessionRoutes);
 routes.use(queueRoutes);
 routes.use(companyRoutes);
 routes.use(planRoutes);
+routes.use(whatsappWarmupRoutes);
 routes.use(ticketNoteRoutes);
 routes.use(quickMessageRoutes);
 routes.use(helpRoutes);

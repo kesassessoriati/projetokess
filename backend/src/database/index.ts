@@ -122,6 +122,8 @@ import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
 import KanbanAutomation from "../models/KanbanAutomation";
 import SmtpSetting from "../models/SmtpSetting";
+import WhatsappWarmup from "../models/WhatsappWarmup";
+import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -277,7 +279,9 @@ const models = [
   SmtpSetting,
   TimerTask,
   TimerSession,
-  KanbanAutomation
+  KanbanAutomation,
+  WhatsappWarmup,
+  WhatsappWarmupLog
 ];
 
 

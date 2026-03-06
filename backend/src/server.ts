@@ -124,4 +124,9 @@ if (process.env.CERTIFICADOS == "true") {
 
 }
 
+import { executeWhatsappWarmups } from "./services/WhatsappWarmupServices/WhatsappWarmupService";
 
+// Check warmups every 5 minutes
+cron.schedule("*/5 * * * *", () => {
+  executeWhatsappWarmups();
+});
