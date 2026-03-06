@@ -34,6 +34,7 @@ import SettingsIcon from "@material-ui/icons/Settings";
 import ContactsIcon from "@material-ui/icons/Contacts";
 import DeviceHubIcon from "@material-ui/icons/DeviceHub";
 import GroupIcon from "@material-ui/icons/Group";
+import GroupWorkIcon from "@material-ui/icons/GroupWork";
 import SmartToyIcon from "@material-ui/icons/Android";
 import ViewListIcon from "@material-ui/icons/ViewList";
 import BarChartIcon from "@material-ui/icons/BarChart";
@@ -908,6 +909,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Leads", path: "/leads", icon: <PeopleOutlineIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Clientes", path: "/clientes", icon: <BusinessCenterIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Gestão de Grupos", path: "/group-management", icon: <GroupWorkIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Produtos", path: "/produtos", icon: <ExtensionIcon />, disabled: !planActive && location.pathname !== "/financeiro" },

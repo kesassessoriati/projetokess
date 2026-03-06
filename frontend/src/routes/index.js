@@ -97,6 +97,7 @@ import CallHistory from "../pages/CallHistory";
 import PipelineBoard from "../pages/PipelineBoard";
 import ExecutiveDashboard from "../pages/ExecutiveDashboard";
 import Smtp from "../pages/Smtp";
+import GroupManagement from "../pages/GroupManagement";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -275,6 +276,7 @@ const Routes = () => {
                         <Route exact path="/agendas" component={UserSchedules} isPrivate />
                         <Route exact path="/appointments" component={Agenda} isPrivate />
                         <Route exact path="/compromissos" component={Agenda} isPrivate />
+                        <Route exact path="/group-management" component={GroupManagement} isPrivate />
                         <Route exact path="/automations" component={Automations} isPrivate />
                         <Route exact path="/allConnections" component={AllConnections} isPrivate />
                         <Route
