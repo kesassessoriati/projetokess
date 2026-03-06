@@ -1268,60 +1268,26 @@ const LoggedInLayout = ({ children }) => {
               )}
 
               {/* Busca - Oculto no mobile */}
-              <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
-                <div
-                  className={classes.searchContainer}
-                  onClick={() => setSearchModalOpen(true)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className={classes.searchIcon}>
-                    <SearchIcon />
-                  </div>
-                  <InputBase
-                    placeholder="Buscar conversas..."
-                    classes={{
-                      root: classes.inputRoot,
-                      input: classes.inputInput,
-                    }}
-                    readOnly
-                    style={{ cursor: "pointer" }}
-                  />
-                  <Button className={classes.searchButton}>
-                    <SearchIcon style={{ fontSize: 18 }} />
-                  </Button>
+              <div
+                className={classes.searchContainer}
+                onClick={() => setSearchModalOpen(true)}
+                style={{ cursor: "pointer" }}
+              >
+                <div className={classes.searchIcon}>
+                  <SearchIcon />
                 </div>
-
-                {/* Botão flutuante abaixo da busca para não expremer o menu principal */}
-                {!isMobile && (
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWarmupModalOpen(true);
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 14px)",
-                      left: 0,
-                      backgroundColor: "#111111",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#ffffff",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      padding: "2px 10px",
-                      borderRadius: "6px",
-                      textTransform: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      zIndex: 10,
-                      cursor: "pointer"
-                    }}
-                  >
-                    <span style={{ fontSize: "13px" }}>🔥</span>
-                    Aquecimento WhatsApp
-                  </Button>
-                )}
+                <InputBase
+                  placeholder="Buscar conversas..."
+                  classes={{
+                    root: classes.inputRoot,
+                    input: classes.inputInput,
+                  }}
+                  readOnly
+                  style={{ cursor: "pointer" }}
+                />
+                <Button className={classes.searchButton}>
+                  <SearchIcon style={{ fontSize: 18 }} />
+                </Button>
               </div>
 
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
@@ -1370,6 +1336,15 @@ const LoggedInLayout = ({ children }) => {
                     >
                       <ChatBubbleOutlineIcon style={{ fontSize: 17 }} />
                       <span>Chat Interno</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip title="Aquecimento WhatsApp">
+                    <button
+                      className={classes.quickNavBtn}
+                      onClick={() => setWarmupModalOpen(true)}
+                    >
+                      <span style={{ fontSize: 15 }}>🔥</span>
+                      <span>Aquecimento</span>
                     </button>
                   </Tooltip>
                 </div>
