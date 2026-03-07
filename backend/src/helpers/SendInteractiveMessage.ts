@@ -33,6 +33,14 @@ export interface ListSection {
   rows: ListRow[];
 }
 
+interface LegacyListItem {
+  displayText?: string;
+  value?: string;
+  description?: string;
+  title?: string;
+  rowId?: string;
+}
+
 export interface CarouselCard {
   headerTitle?: string;
   /** URL externa da imagem do header */
@@ -82,6 +90,76 @@ function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
         };
     }
   });
+}
+
+function normalizeListSections(input: any): ListSection[] {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [];
+  }
+
+  const hasRows = input.every(section => section && Array.isArray(section.rows));
+  if (hasRows) {
+    return input
+      .map((section: any, sectionIndex: number) => {
+        const title =
+          typeof section?.title === "string" && section.title.trim()
+            ? section.title.trim()
+            : `Opções ${sectionIndex + 1}`;
+
+        const rows = (section.rows || [])
+          .map((row: any, rowIndex: number) => {
+            const rowTitle =
+              typeof row?.title === "string" && row.title.trim()
+                ? row.title.trim()
+                : `Opção ${rowIndex + 1}`;
+            const rowId =
+              typeof row?.rowId === "string" && row.rowId.trim()
+                ? row.rowId.trim()
+                : `row_${sectionIndex + 1}_${rowIndex + 1}`;
+            const description =
+              typeof row?.description === "string" && row.description.trim()
+                ? row.description.trim()
+                : undefined;
+
+            return { title: rowTitle, rowId, description };
+          })
+          .filter(Boolean);
+
+        return { title, rows };
+      })
+      .filter(section => section.rows.length > 0);
+  }
+
+  const legacyRows = input
+    .map((item: LegacyListItem, index: number) => {
+      const title =
+        typeof item?.title === "string" && item.title.trim()
+          ? item.title.trim()
+          : typeof item?.displayText === "string" && item.displayText.trim()
+            ? item.displayText.trim()
+            : `Opção ${index + 1}`;
+
+      const rowId =
+        typeof item?.rowId === "string" && item.rowId.trim()
+          ? item.rowId.trim()
+          : typeof item?.value === "string" && item.value.trim()
+            ? item.value.trim()
+            : `row_${index + 1}`;
+
+      const description =
+        typeof item?.description === "string" && item.description.trim()
+          ? item.description.trim()
+          : undefined;
+
+      return { title, rowId, description };
+    })
+    .filter(Boolean);
+
+  if (legacyRows.length === 0) {
+    return [];
+  }
+
+  return [{ title: "Opções", rows: legacyRows }];
 }
 
 async function downloadMediaBuffer(url: string): Promise<Buffer | null> {
@@ -155,14 +233,22 @@ export async function sendListMessage(
   jid: string,
   text: string,
   buttonText: string,
-  sections: ListSection[],
+  sections: any[],
   footer?: string
 ): Promise<void> {
+  const normalizedSections = normalizeListSections(sections);
+
+  if (normalizedSections.length === 0) {
+    logger.warn(`[SendInteractiveMessage] Lista invalida para ${jid}. Enviando apenas texto.`);
+    await wbot.sendMessage(jid, { text });
+    return;
+  }
+
   try {
     const listMsg: any = {
       text,
       buttonText: buttonText || "Ver opções",
-      sections,
+      sections: normalizedSections,
       footer: footer || ""
     };
 
@@ -172,7 +258,7 @@ export async function sendListMessage(
     logger.error(`[SendInteractiveMessage] Erro ao enviar lista para ${jid}:`, err);
     // Fallback: envia opções como texto numerado
     let fallbackText = text + "\n\n";
-    sections.forEach(sec => {
+    normalizedSections.forEach(sec => {
       fallbackText += `*${sec.title}*\n`;
       sec.rows.forEach((row, i) => {
         fallbackText += `${i + 1}. ${row.title}`;
