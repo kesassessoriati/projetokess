@@ -53,7 +53,8 @@ export interface CarouselCard {
 // ─── Helpers internos ──────────────────────────────────────────────────────
 
 function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
-  return buttons.map(btn => {
+  const baseId = Date.now();
+  return buttons.map((btn, index) => {
     switch (btn.type) {
       case "url":
         return {
@@ -85,7 +86,7 @@ function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
           name: "quick_reply",
           buttonParamsJson: JSON.stringify({
             display_text: btn.displayText,
-            id: btn.value || `btn_${Date.now()}`
+            id: btn.value?.trim() || `btn_${baseId}_${index + 1}`
           })
         };
     }
@@ -206,8 +207,23 @@ export async function sendButtonMessage(
     }
 
     const userJid = wbot.user?.id || jid;
-    const newMsg = generateWAMessageFromContent(jid, { interactiveMessage: interactiveMsg }, { userJid });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    let newMsg: any;
+
+    try {
+      const wrappedContent = {
+        viewOnceMessage: {
+          message: {
+            interactiveMessage: interactiveMsg
+          }
+        }
+      };
+      newMsg = generateWAMessageFromContent(jid, wrappedContent, { userJid });
+      await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    } catch (_) {
+      newMsg = generateWAMessageFromContent(jid, { interactiveMessage: interactiveMsg }, { userJid });
+      await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    }
+
     await wbot.upsertMessage(newMsg, "notify");
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {

@@ -32,7 +32,7 @@ interface QuickSendBody {
     name?: string;
     queueId?: number;
     createIfNotExists?: boolean;
-    buttons?: string; // JSON string de InteractiveButton[]
+    buttons?: string | any[]; // JSON string ou array de InteractiveButton[]
 }
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
@@ -57,7 +57,9 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
     let parsedButtons: any[] | null = null;
     if (buttonsRaw) {
         try {
-            parsedButtons = JSON.parse(buttonsRaw);
+            parsedButtons = Array.isArray(buttonsRaw)
+                ? buttonsRaw
+                : JSON.parse(buttonsRaw as string);
             if (!Array.isArray(parsedButtons) || parsedButtons.length === 0) parsedButtons = null;
         } catch {
             return res.status(400).json({ error: "Campo 'buttons' inválido. Envie um JSON array." });
