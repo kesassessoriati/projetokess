@@ -93,6 +93,41 @@ function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
   });
 }
 
+function mapButtonsToSendMessageNative(buttons: InteractiveButton[]): any[] {
+  const baseId = Date.now();
+  return buttons.map((btn, index) => {
+    const text = btn.displayText || `Botão ${index + 1}`;
+    const type = (btn.type || "reply").toLowerCase();
+
+    if (type === "url") {
+      return { type: "url", text, url: btn.value || "" };
+    }
+    if (type === "call") {
+      return { type: "call", text, phoneNumber: btn.value || "" };
+    }
+    if (type === "copy") {
+      return { type: "copy", text, copyText: btn.value || "" };
+    }
+
+    return {
+      type: "reply",
+      id: btn.value?.trim() || `btn_${baseId}_${index + 1}`,
+      text
+    };
+  });
+}
+
+function toNativeListSections(sections: ListSection[]): any[] {
+  return sections.map((section, sectionIndex) => ({
+    title: section.title || `Opções ${sectionIndex + 1}`,
+    rows: (section.rows || []).map((row, rowIndex) => ({
+      id: row.rowId || `row_${sectionIndex + 1}_${rowIndex + 1}`,
+      title: row.title || `Item ${rowIndex + 1}`,
+      description: row.description || ""
+    }))
+  }));
+}
+
 function normalizeListSections(input: any): ListSection[] {
   if (!Array.isArray(input) || input.length === 0) {
     return [];
@@ -206,6 +241,19 @@ export async function sendButtonMessage(
       interactiveMsg.footer = { text: footer };
     }
 
+    try {
+      const nativeButtons = mapButtonsToSendMessageNative(buttons);
+      await wbot.sendMessage(jid, {
+        nativeButtons,
+        text: String(text || ""),
+        footer: footer || undefined
+      });
+      logger.info(`[SendInteractiveMessage] Botões enviados com nativeButtons para ${jid}`);
+      return;
+    } catch {
+      logger.warn(`[SendInteractiveMessage] nativeButtons indisponível para ${jid}, usando relayMessage`);
+    }
+
     const userJid = wbot.user?.id || jid;
     let newMsg: any;
 
@@ -261,6 +309,21 @@ export async function sendListMessage(
   }
 
   try {
+    try {
+      await wbot.sendMessage(jid, {
+        nativeList: {
+          buttonText: buttonText || "Ver opções",
+          sections: toNativeListSections(normalizedSections)
+        },
+        text: String(text || ""),
+        footer: footer || undefined
+      });
+      logger.info(`[SendInteractiveMessage] Lista enviada com nativeList para ${jid}`);
+      return;
+    } catch {
+      logger.warn(`[SendInteractiveMessage] nativeList indisponível para ${jid}, usando listMessage padrão`);
+    }
+
     const listMsg: any = {
       text,
       buttonText: buttonText || "Ver opções",
