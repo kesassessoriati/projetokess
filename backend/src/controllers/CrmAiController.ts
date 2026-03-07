@@ -122,7 +122,7 @@ ${crmContext}`;
 
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(geminiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(`${systemPrompt}\n\nUsuário: ${message}`);
       reply = result.response.text();
     } else {
@@ -144,7 +144,7 @@ ${crmContext}`;
     }
 
     // Consume credit only on successful response
-    await consumeCredit(companyId).catch(() => {});
+    await consumeCredit(companyId).catch(() => { });
     const newCreditInfo = await getCreditInfo(companyId);
 
     return res.status(200).json({ reply, creditInfo: newCreditInfo });

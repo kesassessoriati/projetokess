@@ -56,22 +56,22 @@ import { IOpenAi } from "../../@types/openai";
 // Função para formatar texto markdown para WhatsApp
 const formatTextForWhatsApp = (text: string): string => {
   if (!text) return text;
-  
+
   // Converter **texto** para *texto* (negrito do WhatsApp)
   let formatted = text.replace(/\*\*([^*]+)\*\*/g, '*$1*');
-  
+
   // Garantir quebras de linha após bullets
   formatted = formatted.replace(/•\s*/g, '\n• ');
-  
+
   // Garantir quebra de linha após dois pontos seguidos de texto
   formatted = formatted.replace(/:\s*•/g, ':\n•');
-  
+
   // Remover múltiplas quebras de linha consecutivas (máximo 2)
   formatted = formatted.replace(/\n{3,}/g, '\n\n');
-  
+
   // Garantir espaço após quebra de linha + bullet
   formatted = formatted.replace(/\n•([^\s])/g, '\n• $1');
-  
+
   return formatted.trim();
 };
 
@@ -149,26 +149,26 @@ const sendAsaasSecondCopyFiles = async ({
     if (boletoFileSource) {
       try {
         console.log(`[AI] Enviando PDF do boleto: ${boletoFileSource}`);
-        
+
         const { buffer: pdfBuffer, contentType } = await fetchPdfBufferFromUrl(boletoFileSource);
-        
+
         // Garantir mimetype compatível com Android
         const mimetype = "application/pdf";
-        
+
         console.log(`[AI] PDF - Tamanho: ${pdfBuffer.length} bytes, ContentType: ${mimetype}`);
-        
+
         const pdfMessage = await wbot.sendMessage(remoteJid, {
           document: pdfBuffer,
           fileName: `boleto-${boleto.paymentId || "asaas"}.pdf`,
           mimetype
         });
-        
+
         await verifyMediaMessage(pdfMessage!, ticket, contact, ticketTraking, false, false, wbot);
         console.log(`[AI] PDF enviado com sucesso`);
-        
+
       } catch (pdfError: any) {
         console.error(`[AI] Erro ao enviar PDF do boleto:`, pdfError.message);
-        
+
         // Fallback: enviar link do boleto sem texto adicional
         try {
           console.log(`[AI] Enviando link do boleto como fallback`);
@@ -189,7 +189,7 @@ const sendAsaasSecondCopyFiles = async ({
       });
       await verifyMediaMessage(pixMessage!, ticket, contact, ticketTraking, false, false, wbot);
     }
-    
+
     // Enviar mensagem curta com código PIX e link
     const pixInfo = [];
     if (boleto.pixCopyPaste) {
@@ -198,7 +198,7 @@ const sendAsaasSecondCopyFiles = async ({
     if (boletoFileSource) {
       pixInfo.push(`🔗 Link: ${boletoFileSource}`);
     }
-    
+
     if (pixInfo.length > 0) {
       await wbot.sendMessage(remoteJid, {
         text: pixInfo.join('\n')
@@ -315,7 +315,7 @@ const sanitizeFinalResponse = (text: string, contactName?: string): string => {
   }
 
   let cleaned = text;
-  
+
   // Remover apenas frases genéricas sem contexto específico
   const patterns = [
     /^(?:ok|certo|certinho|perfeito|entendido)[.!]*\s*(?:vou|irei|vamos)?\s*(?:te\s+)?(?:transferir|direcionar|encaminhar|ajudar|verificar)[^.?!\n]*[.?!]?$/gim,
@@ -357,7 +357,7 @@ const splitResponseIntoChunks = (text: string, maxLength = 600): string[] => {
 
     // Divide parágrafos longos por frases (respeitando pontuação)
     const sentences = trimmedParagraph.match(/[^.!?]+[.!?]+/g) || [trimmedParagraph];
-    
+
     for (const sentence of sentences) {
       const trimmedSentence = sentence.trim();
       if (!trimmedSentence) continue;
@@ -365,7 +365,7 @@ const splitResponseIntoChunks = (text: string, maxLength = 600): string[] => {
       // Se a frase cabe no chunk atual, adiciona
       if (chunks.length > 0 && (chunks[chunks.length - 1] + ' ' + trimmedSentence).length <= maxLength) {
         chunks[chunks.length - 1] += ' ' + trimmedSentence;
-      } 
+      }
       // Se a frase é pequena o suficiente para um chunk novo
       else if (trimmedSentence.length <= maxLength) {
         chunks.push(trimmedSentence);
@@ -374,10 +374,10 @@ const splitResponseIntoChunks = (text: string, maxLength = 600): string[] => {
       else {
         const words = trimmedSentence.split(' ');
         let currentChunk = '';
-        
+
         for (const word of words) {
           const testChunk = currentChunk ? currentChunk + ' ' + word : word;
-          
+
           if (testChunk.length > maxLength && currentChunk) {
             chunks.push(currentChunk.trim());
             currentChunk = word;
@@ -385,7 +385,7 @@ const splitResponseIntoChunks = (text: string, maxLength = 600): string[] => {
             currentChunk = testChunk;
           }
         }
-        
+
         if (currentChunk.trim()) {
           chunks.push(currentChunk.trim());
         }
@@ -538,7 +538,7 @@ const runAgentPrompt = async (
   }
 
   const model =
-    agentPrompt.model || (provider === "gemini" ? "gemini-1.5-flash" : "gpt-4o");
+    agentPrompt.model || (provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o");
   const temperature = agentPrompt.temperature ?? 0.7;
   const maxTokens = agentPrompt.maxTokens || 800;
   const systemPrompt = agentPrompt.prompt || "";
@@ -573,7 +573,7 @@ const runAgentPrompt = async (
 
 // Função para chamar Gemini com ferramentas
 const resolveGeminiModelId = (modelName?: string | null): string => {
-  const base = (modelName || "gemini-1.5-flash").trim();
+  const base = (modelName || "gemini-2.0-flash").trim();
   if (base.startsWith("models/")) {
     return base;
   }
@@ -592,9 +592,9 @@ const callGeminiWithTools = async (
   allowedTools: string[] | null
 ) => {
   const model = resolveGeminiModelId(openAiSettings.model);
-  
+
   // Configurar modelo com ferramentas
-  const genModel = gemini.getGenerativeModel({ 
+  const genModel = gemini.getGenerativeModel({
     model,
     tools: [{ functionDeclarations: filteredGeminiTools }]
   });
@@ -623,12 +623,12 @@ const callGeminiWithTools = async (
   console.log("Gemini model configurado com", filteredGeminiTools.length, "ferramentas");
   const result = await genModel.generateContent(prompt);
   const response = await result.response;
-  
+
   // Verificar se há chamadas de ferramentas
   const functionCalls = response.functionCalls();
   if (functionCalls && functionCalls.length > 0) {
     console.log("Gemini tool calls:", JSON.stringify(functionCalls, null, 2));
-    
+
     // Retornar as ferramentas para serem processadas no contexto principal
     let responseText = "";
     try {
@@ -637,13 +637,13 @@ const callGeminiWithTools = async (
       console.log("Gemini não retornou texto inicial com tool calls, isso é normal");
       responseText = "";
     }
-    
+
     return {
       text: responseText,
       toolCalls: functionCalls
     };
   }
-  
+
   return response.text();
 };
 
@@ -653,7 +653,7 @@ const callGemini = async (
   messagesOpenAi: any[],
   openAiSettings: IOpenAi
 ) => {
-  const model = openAiSettings.model || "gemini-1.5-flash";
+  const model = openAiSettings.model || "gemini-2.0-flash";
   const genModel = gemini.getGenerativeModel({ model: model });
 
   // Converter formato OpenAI para Gemini
@@ -719,14 +719,14 @@ async function normalizeMessageContent(
           // Criar um arquivo temporário para o Whisper
           const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
           const filePath = `${publicFolder}/temp_audio_${Date.now()}.ogg`;
-          
+
           fs.writeFileSync(filePath, Uint8Array.from(audioBuffer));
-          
+
           const transcription = await aiClient.audio.transcriptions.create({
             model: "whisper-1",
             file: fs.createReadStream(filePath)
           });
-          
+
           fs.unlinkSync(filePath);
           console.log("✅ Áudio transcrito:", transcription.text);
           return transcription.text || "Áudio recebido, mas não foi possível transcrever.";
@@ -752,7 +752,7 @@ async function normalizeMessageContent(
         const imageBase64 = Buffer.concat(chunks).toString("base64");
 
         if (provider === "gemini") {
-          const model = aiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const model = aiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
           const result = await model.generateContent([
             {
               inlineData: {
@@ -773,8 +773,8 @@ async function normalizeMessageContent(
                 role: "user",
                 content: [
                   { type: "text", text: "Descreva o conteúdo desta imagem de forma clara e direta." },
-                  { 
-                    type: "image_url", 
+                  {
+                    type: "image_url",
                     image_url: { url: `data:image/jpeg;base64,${imageBase64}` }
                   }
                 ]
@@ -968,15 +968,15 @@ Sempre que possível, mencione o nome dele para ser mais personalizado.
 ★LIMITE DE MENSAGENS = ${maxMessages}.
 
 ${buildAiToolingPromptSection({
-  availableQueues,
-  availableTags,
-  availableUsers,
-  availableProdutos,
-  availableFerramentas,
-  provider,
-  getToolInstructions,
-  getGeminiToolInstructions
-})}
+    availableQueues,
+    availableTags,
+    availableUsers,
+    availableProdutos,
+    availableFerramentas,
+    provider,
+    getToolInstructions,
+    getGeminiToolInstructions
+  })}
 
 ${knowledgeBaseSection ? `${knowledgeBaseSection}\n\n` : ""}
 
@@ -1058,10 +1058,10 @@ ${openAiSettings.prompt}
 
             // Usar a função do OpenAiTools para ferramentas específicas
             if (call.function.name === "list_plans" ||
-                call.function.name === "list_professionals" ||
-                call.function.name === "execute_command" ||
-                call.function.name === "execute_multiple_commands" ||
-                call.function.name === "format_message") {
+              call.function.name === "list_professionals" ||
+              call.function.name === "execute_command" ||
+              call.function.name === "execute_multiple_commands" ||
+              call.function.name === "format_message") {
               try {
                 result = await executeOpenAiTool(
                   call.function.name,
@@ -1511,11 +1511,11 @@ ${openAiSettings.prompt}
                   isLid: (fullContact as any).isLid || false,
                   files: Array.isArray((fullContact as any).files)
                     ? (fullContact as any).files.map((f: any) => ({
-                        originalName: f.originalName || null,
-                        filename: f.filename || null,
-                        mimetype: f.mimetype || null,
-                        size: f.size || null
-                      }))
+                      originalName: f.originalName || null,
+                      filename: f.filename || null,
+                      mimetype: f.mimetype || null,
+                      size: f.size || null
+                    }))
                     : []
                 };
 
@@ -2077,7 +2077,7 @@ ${openAiSettings.prompt}
               try {
                 const flowId = parseInt(args.flowId);
                 const transitionMessage = args.transitionMessage || "Vou te transferir para um fluxo automatizado agora.";
-                
+
                 if (!flowId || isNaN(flowId)) {
                   result = { success: false, error: "flowId inválido ou não fornecido" };
                 } else {
@@ -2094,9 +2094,9 @@ ${openAiSettings.prompt}
                     hashFlowId: null
                   });
 
-                  result = { 
-                    success: true, 
-                    message: `Cliente transferido para o fluxo ${flowId}` 
+                  result = {
+                    success: true,
+                    message: `Cliente transferido para o fluxo ${flowId}`
                   };
                   logger.info(`Cliente transferido para o flow builder ${flowId}`);
                 }
@@ -2143,8 +2143,8 @@ ${openAiSettings.prompt}
         console.log("Chamando Gemini com ferramentas. Mensagem do usuário:", messagesOpenAi[messagesOpenAi.length - 1]?.content?.substring(0, 100));
         const filteredGeminiTools = filterGeminiToolsByAllowed(allowedTools);
         const geminiResponse = await callGeminiWithTools(
-          aiClient, 
-          messagesOpenAi, 
+          aiClient,
+          messagesOpenAi,
           openAiSettings,
           ticket,
           contact,
@@ -2154,7 +2154,7 @@ ${openAiSettings.prompt}
           allowedTools
         );
         console.log("Resposta do Gemini - tipo:", typeof geminiResponse, "tem toolCalls:", typeof geminiResponse === 'object' && geminiResponse.toolCalls ? geminiResponse.toolCalls.length : 0);
-        
+
         // Verificar se há tool calls do Gemini para processar
         if (typeof geminiResponse === "object" && geminiResponse.toolCalls) {
           console.log("Processing Gemini tool calls...");
@@ -2430,91 +2430,91 @@ ${openAiSettings.prompt}
             console.log(`Resultado da ferramenta ${toolName}:`, result);
             toolResults.push({ toolName, result });
           }
-          
+
           console.log("Gemini tool calls processados. Resposta inicial:", geminiResponse.text);
-          
+
           // Verificar se alguma ferramenta retornou silent: true (para não responder)
-          const hasSilentTool = toolResults.some((toolResult: any) => 
+          const hasSilentTool = toolResults.some((toolResult: any) =>
             toolResult.result && toolResult.result.silent === true
           );
-          
+
           if (hasSilentTool) {
             console.log("Ferramenta silenciosa detectada. Não enviando resposta final.");
             response = ""; // Resposta vazia para não enviar mensagem
           } else {
             // Fazer segunda chamada ao Gemini para resposta final (similar ao OpenAI)
             if (geminiResponse.toolCalls && geminiResponse.toolCalls.length > 0) {
-            console.log("Fazendo segunda chamada ao Gemini para resposta final...");
-            
-            // Adicionar resultados das ferramentas ao contexto
-            const toolResultsMessage = toolResults.map((toolResult: any) => {
-              return `Ferramenta ${toolResult.toolName} executada com resultado: ${JSON.stringify(toolResult.result)}`;
-            }).join('\n');
-            
-            // Fazer nova chamada com contexto das ferramentas
-            const finalPrompt = messagesOpenAi.map(msg => {
-              if (msg.role === "system") return msg.content;
-              if (msg.role === "user") return `Usuário: ${msg.content}`;
-              if (msg.role === "assistant") return `Assistente: ${msg.content}`;
-              return "";
-            }).join('\n') + `\n\nResultados das ferramentas:\n${toolResultsMessage}`;
-            
-            try {
-              const model = openAiSettings.model || "gemini-1.5-flash";
-              // IMPORTANTE: Segunda chamada também precisa das ferramentas para continuar executando
-              const genModel = aiClient.getGenerativeModel({ 
-                model: model,
-                tools: [{ functionDeclarations: geminiTools }]
-              });
-              
-              console.log("Prompt da segunda chamada (últimos 200 chars):", finalPrompt.substring(finalPrompt.length - 200));
-              const finalResult = await genModel.generateContent(finalPrompt);
-              const finalResponse = await finalResult.response;
-              
-              // Verificar se há mais tool calls na segunda chamada
-              const secondFunctionCalls = finalResponse.functionCalls();
-              console.log("Segunda chamada - functionCalls encontradas:", secondFunctionCalls ? secondFunctionCalls.length : 0);
-              if (secondFunctionCalls && secondFunctionCalls.length > 0) {
-                console.log("Segunda chamada do Gemini também tem tool calls:", JSON.stringify(secondFunctionCalls, null, 2));
-                
-                // Processar ferramentas da segunda chamada
-                for (const call of secondFunctionCalls) {
-                  const args = call.args || {};
-                  let result: any = { success: false };
-                  
-                  // Executar ferramenta
-                  result = await executeGeminiTool(
-                    call.name,
-                    args,
-                    ticket,
-                    contact,
-                    availableTags,
-                    allQueues,
-                    allowedTools,
-                    wbot,
-                    msg
-                  );
-                  
-                  console.log(`Segunda chamada - Resultado da ferramenta ${call.name}:`, result);
+              console.log("Fazendo segunda chamada ao Gemini para resposta final...");
+
+              // Adicionar resultados das ferramentas ao contexto
+              const toolResultsMessage = toolResults.map((toolResult: any) => {
+                return `Ferramenta ${toolResult.toolName} executada com resultado: ${JSON.stringify(toolResult.result)}`;
+              }).join('\n');
+
+              // Fazer nova chamada com contexto das ferramentas
+              const finalPrompt = messagesOpenAi.map(msg => {
+                if (msg.role === "system") return msg.content;
+                if (msg.role === "user") return `Usuário: ${msg.content}`;
+                if (msg.role === "assistant") return `Assistente: ${msg.content}`;
+                return "";
+              }).join('\n') + `\n\nResultados das ferramentas:\n${toolResultsMessage}`;
+
+              try {
+                const model = openAiSettings.model || "gemini-2.0-flash";
+                // IMPORTANTE: Segunda chamada também precisa das ferramentas para continuar executando
+                const genModel = aiClient.getGenerativeModel({
+                  model: model,
+                  tools: [{ functionDeclarations: geminiTools }]
+                });
+
+                console.log("Prompt da segunda chamada (últimos 200 chars):", finalPrompt.substring(finalPrompt.length - 200));
+                const finalResult = await genModel.generateContent(finalPrompt);
+                const finalResponse = await finalResult.response;
+
+                // Verificar se há mais tool calls na segunda chamada
+                const secondFunctionCalls = finalResponse.functionCalls();
+                console.log("Segunda chamada - functionCalls encontradas:", secondFunctionCalls ? secondFunctionCalls.length : 0);
+                if (secondFunctionCalls && secondFunctionCalls.length > 0) {
+                  console.log("Segunda chamada do Gemini também tem tool calls:", JSON.stringify(secondFunctionCalls, null, 2));
+
+                  // Processar ferramentas da segunda chamada
+                  for (const call of secondFunctionCalls) {
+                    const args = call.args || {};
+                    let result: any = { success: false };
+
+                    // Executar ferramenta
+                    result = await executeGeminiTool(
+                      call.name,
+                      args,
+                      ticket,
+                      contact,
+                      availableTags,
+                      allQueues,
+                      allowedTools,
+                      wbot,
+                      msg
+                    );
+
+                    console.log(`Segunda chamada - Resultado da ferramenta ${call.name}:`, result);
+                  }
+
+                  // Terceira chamada para resposta final (COM ferramentas para add_tag)
+                  const thirdPrompt = finalPrompt + `\n\nUse os resultados acima apenas como contexto. Gere uma resposta final natural e direta ao usuário, sem mencionar ferramentas.`;
+                  const thirdResult = await genModel.generateContent(thirdPrompt);
+                  const thirdResponse = await thirdResult.response;
+                  response = thirdResponse.text() || "Processo concluído.";
+                } else {
+                  response = finalResponse.text() || "Processo concluído.";
                 }
-                
-                // Terceira chamada para resposta final (COM ferramentas para add_tag)
-                const thirdPrompt = finalPrompt + `\n\nUse os resultados acima apenas como contexto. Gere uma resposta final natural e direta ao usuário, sem mencionar ferramentas.`;
-                const thirdResult = await genModel.generateContent(thirdPrompt);
-                const thirdResponse = await thirdResult.response;
-                response = thirdResponse.text() || "Processo concluído.";
-              } else {
-                response = finalResponse.text() || "Processo concluído.";
+
+                console.log("Resposta final do Gemini:", response);
+              } catch (error) {
+                console.error("Erro na segunda chamada do Gemini:", error);
+                response = "Desculpe, ocorreu um erro ao processar sua solicitação.";
               }
-              
-              console.log("Resposta final do Gemini:", response);
-            } catch (error) {
-              console.error("Erro na segunda chamada do Gemini:", error);
-              response = "Desculpe, ocorreu um erro ao processar sua solicitação.";
+            } else {
+              response = typeof geminiResponse === "string" ? geminiResponse : geminiResponse.text || "";
             }
-          } else {
-            response = typeof geminiResponse === "string" ? geminiResponse : geminiResponse.text || "";
-          }
           }
         } else {
           console.log("Gemini resposta direta (sem tool calls):", geminiResponse);
@@ -2694,7 +2694,7 @@ ${openAiSettings.prompt}
               const chunk = parts[i].trim();
               if (chunk.length > 0) {
                 const sentMessage = await wbot.sendMessage(msg.key.remoteJid!, {
-                  text: `\u200e${chunk}` 
+                  text: `\u200e${chunk}`
                 });
                 await verifyMessage(sentMessage!, ticket, contact, undefined, undefined, false, false, true);
                 // Aguarda 1,2s entre uma parte e outra para parecer natural
@@ -2707,7 +2707,7 @@ ${openAiSettings.prompt}
         } else {
           // Envia mensagem única se tiver 100 caracteres ou menos
           const sentMessage = await wbot.sendMessage(msg.key.remoteJid!, {
-            text: `\u200e${cleanResponse}` 
+            text: `\u200e${cleanResponse}`
           });
           await verifyMessage(sentMessage!, ticket, contact, undefined, undefined, false, false, true);
         }

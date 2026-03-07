@@ -62,80 +62,83 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId, id: userId, profile } = req.user;
-  const {
-    pageNumber = "1",
-    status,
-    dateStart,
-    dateEnd,
-    contactNumber,
-    whatsappId
-  } = req.query as IndexQuery;
+  try {
+    const { companyId, id: userId, profile } = req.user;
+    const {
+      pageNumber = "1",
+      status,
+      dateStart,
+      dateEnd,
+      contactNumber,
+      whatsappId
+    } = req.query as IndexQuery;
 
-  const limit = 40;
-  const offset = limit * (Number(pageNumber) - 1);
+    const limit = 40;
+    const offset = limit * (Number(pageNumber) - 1);
 
-  const where: any = { companyId };
+    const where: any = { companyId };
 
-  // Usuário comum só vê suas próprias chamadas
-  if (profile !== "admin") {
-    where.userId = userId;
+    if (profile !== "admin") {
+      where.userId = userId;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (dateStart && dateEnd) {
+      where.createdAt = {
+        [Op.between]: [new Date(`${dateStart}T00:00:00`), new Date(`${dateEnd}T23:59:59`)]
+      };
+    } else if (dateStart) {
+      where.createdAt = {
+        [Op.gte]: new Date(`${dateStart}T00:00:00`)
+      };
+    }
+
+    if (contactNumber) {
+      where.fromNumber = { [Op.like]: `%${contactNumber}%` };
+    }
+
+    if (whatsappId && whatsappId !== "null" && whatsappId !== "undefined") {
+      where.whatsappId = Number(whatsappId);
+    }
+
+    if (!status) {
+      where.status = { [Op.ne]: "ringing" };
+    }
+
+    const { count, rows: records } = await CallRecord.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Contact,
+          as: "contact",
+          attributes: ["id", "name", "number", "profilePicUrl"]
+        },
+        {
+          model: Whatsapp,
+          as: "whatsapp",
+          attributes: ["id", "name"]
+        },
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name"]
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset
+    });
+
+    const hasMore = count > offset + records.length;
+
+    return res.json({ records, count, hasMore });
+  } catch (err: any) {
+    console.error("[CallRecordController] index error:", err);
+    return res.status(500).json({ error: "Erro ao buscar registros de chamadas" });
   }
-
-  if (status) {
-    where.status = status;
-  }
-
-  if (dateStart && dateEnd) {
-    where.createdAt = {
-      [Op.between]: [new Date(`${dateStart}T00:00:00`), new Date(`${dateEnd}T23:59:59`)]
-    };
-  } else if (dateStart) {
-    where.createdAt = {
-      [Op.gte]: new Date(`${dateStart}T00:00:00`)
-    };
-  }
-
-  if (contactNumber) {
-    where.fromNumber = { [Op.like]: `%${contactNumber}%` };
-  }
-
-  if (whatsappId) {
-    where.whatsappId = Number(whatsappId);
-  }
-
-  // Não mostrar registros com status "ringing" (chamadas em andamento)
-  if (!status) {
-    where.status = { [Op.ne]: "ringing" };
-  }
-
-  const { count, rows: records } = await CallRecord.findAndCountAll({
-    where,
-    include: [
-      {
-        model: Contact,
-        as: "contact",
-        attributes: ["id", "name", "number", "profilePicUrl"]
-      },
-      {
-        model: Whatsapp,
-        as: "whatsapp",
-        attributes: ["id", "name"]
-      },
-      {
-        model: User,
-        as: "user",
-        attributes: ["id", "name"]
-      }
-    ],
-    order: [["createdAt", "DESC"]],
-    limit,
-    offset
-  });
-
-  const hasMore = count > offset + records.length;
-
-  return res.json({ records, count, hasMore });
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
