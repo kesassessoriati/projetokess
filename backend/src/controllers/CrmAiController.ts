@@ -157,12 +157,12 @@ ${crmContext}`;
     const apiStatus = err?.status || err?.response?.status || err?.code;
     const apiMessage = err?.message || err?.error?.message || "";
 
-    console.error("[CrmAI] Error:", apiMessage, "status:", apiStatus);
+    console.error(`[CrmAI] Provider: ${provider} | Error:`, apiMessage, "status:", apiStatus, err);
 
     if (apiStatus === 429 || apiMessage.includes("429") || apiMessage.includes("quota") || apiMessage.includes("exceeded")) {
       return res.status(429).json({
         error: "QUOTA_EXCEEDED",
-        message: "Cota da API de IA esgotada. Verifique o plano e cobrança da sua chave de API no painel da OpenAI/Gemini.",
+        message: `Cota esgotada ou limite de taxa atingido na API (${provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}). Verifique seu saldo/plano na plataforma da ${provider}. (Detalhe: ${apiMessage || '429 Too Many Requests'})`,
       });
     }
 

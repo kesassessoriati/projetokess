@@ -369,16 +369,16 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
       let aiErrorText = "";
 
       if (errCode === "NO_CREDITS") {
-        aiErrorText = "⚠️ Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.";
+        aiErrorText = errData?.message || "⚠️ Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.";
         await loadCredits();
       } else if (errCode === "QUOTA_EXCEEDED" || httpStatus === 429) {
-        aiErrorText = "⚠️ Cota da API de IA esgotada. O administrador precisa verificar o plano/cobrança da chave OpenAI ou Gemini.";
+        aiErrorText = errData?.message || "⚠️ Cota da API de IA esgotada. O administrador precisa verificar o plano/cobrança da chave OpenAI ou Gemini.";
       } else if (errCode === "INVALID_KEY" || httpStatus === 401) {
-        aiErrorText = "⚠️ Chave de API inválida. O administrador precisa verificar as configurações em Whitelabel.";
+        aiErrorText = errData?.message || "⚠️ Chave de API inválida. O administrador precisa verificar as configurações em Whitelabel.";
       } else if (errCode === "NO_API_KEY" || httpStatus === 503) {
-        aiErrorText = "⚠️ Nenhuma chave de IA configurada. Acesse Configurações → Whitelabel para configurar a chave OpenAI ou Gemini.";
+        aiErrorText = errData?.message || "⚠️ Nenhuma chave de IA configurada. Acesse Configurações → Whitelabel para configurar a chave OpenAI ou Gemini.";
       } else {
-        aiErrorText = "⚠️ Erro ao consultar a IA. Tente novamente em alguns instantes.";
+        aiErrorText = errData?.message ? `⚠️ ${errData?.message}` : "⚠️ Erro ao consultar a IA. Tente novamente em alguns instantes.";
         toast.error(errData?.message || errData?.error || "Erro ao consultar IA");
       }
 
