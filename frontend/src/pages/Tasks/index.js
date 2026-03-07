@@ -353,7 +353,7 @@ const Tasks = () => {
                             </IconButton>
                         </>
                     )}
-                    <Button size="small" variant="contained" color="primary" onClick={() => setOpenModalBoard(true)} style={selectedBoardId ? { marginLeft: "auto" } : { marginLeft: 16 }}>
+                    <Button size="small" variant="contained" color="primary" onClick={() => setOpenModalBoard(true)}>
                         Criar Quadro
                     </Button>
                 </div>
