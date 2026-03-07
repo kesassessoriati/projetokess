@@ -5,6 +5,9 @@ import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import moment from "moment";
 import { getIO } from "../../libs/socket";
+import { LONG_SCRIPT } from "./WhatsappWarmupScript";
+
+const crossState: Record<number, number> = {};
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -61,7 +64,7 @@ const emitLog = async (warmup: any, type: string, message: string) => {
   try {
     const io = getIO();
     io.to(String(warmup.companyId)).emit("company-" + warmup.companyId + "-warmup-log", { action: "create", log });
-  } catch {}
+  } catch { }
 };
 
 const getEffectiveLimit = (warmup: any): number => {
@@ -122,7 +125,7 @@ const runCrossMode = async (warmup: any, wbot: any): Promise<boolean> => {
     where: { companyId: warmup.companyId, status: "CONNECTED" },
     attributes: ["id", "number"],
   });
-  const partner = others.find(w => w.id !== warmup.whatsappId);
+  const partner = others.find((w: any) => w.id !== warmup.whatsappId);
   if (!partner || !partner.number) {
     await emitLog(warmup, "INFO", "Nenhum parceiro disponivel para modo cruzado");
     return false;
@@ -134,14 +137,23 @@ const runCrossMode = async (warmup: any, wbot: any): Promise<boolean> => {
     await emitLog(warmup, "INFO", "Parceiro desconectado, pulando modo cruzado");
     return false;
   }
-  const pair = CONVERSATION_PAIRS[Math.floor(Math.random() * CONVERSATION_PAIRS.length)];
+
+  // Utilizar o script sequencial
+  const index = crossState[warmup.id] || 0;
+  // Pegar a próxima dupla de mensagens do script
+  const msg1 = LONG_SCRIPT[index] || "Oi";
+  const msg2 = LONG_SCRIPT[index + 1] || "Ola";
+
+  // Incrementar o estado e garantir que vira ao final
+  crossState[warmup.id] = (index + 2 >= LONG_SCRIPT.length) ? 0 : index + 2;
+
   const myJid = partner.number + "@s.whatsapp.net";
   const partnerNumber = warmup.whatsapp ? warmup.whatsapp.number : "";
   const partnerJid = partnerNumber ? partnerNumber + "@s.whatsapp.net" : "";
 
   await wbot.sendPresenceUpdate("composing", myJid);
   await delay(Math.floor(Math.random() * 2000) + 600);
-  await wbot.sendMessage(myJid, { text: pair[0] });
+  await wbot.sendMessage(myJid, { text: msg1 });
   await wbot.sendPresenceUpdate("paused", myJid);
 
   await delay(Math.floor(Math.random() * 4000) + 1500);
@@ -149,13 +161,13 @@ const runCrossMode = async (warmup: any, wbot: any): Promise<boolean> => {
   if (partnerJid) {
     await partnerWbot.sendPresenceUpdate("composing", partnerJid);
     await delay(Math.floor(Math.random() * 2000) + 600);
-    await partnerWbot.sendMessage(partnerJid, { text: pair[1] });
+    await partnerWbot.sendMessage(partnerJid, { text: msg2 });
     await partnerWbot.sendPresenceUpdate("paused", partnerJid);
   }
 
-  await warmup.increment("messagesSentToday");
-  await warmup.increment("simulatedMessages");
-  await emitLog(warmup, "CROSS_MSG", "Cruzado com " + partner.number + ": " + pair[0] + " / " + pair[1]);
+  await warmup.increment("messagesSentToday", { by: 2 });
+  await warmup.increment("simulatedMessages", { by: 2 });
+  await emitLog(warmup, "CROSS_MSG", "Cruzado com " + partner.number + " [Script Linha " + index + "]: " + msg1 + " / " + msg2);
   return true;
 };
 
@@ -208,8 +220,8 @@ export const executeWhatsappWarmups = async (): Promise<void> => {
         const total = warmup.simulatedMessages + 1;
         const healthScore =
           total < 50 ? "warming" :
-          total < 200 ? "good" :
-          total < 500 ? "great" : "excellent";
+            total < 200 ? "good" :
+              total < 500 ? "great" : "excellent";
         await warmup.update({ healthScore });
 
       } catch (err) {
