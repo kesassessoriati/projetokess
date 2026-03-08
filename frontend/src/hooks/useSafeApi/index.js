@@ -27,12 +27,38 @@ const useSafeApi = (url, options = {}) => {
             setError(null);
 
             try {
+                const isRequestConfig =
+                    requestData &&
+                    typeof requestData === "object" &&
+                    !Array.isArray(requestData) &&
+                    (
+                        Object.prototype.hasOwnProperty.call(requestData, "params") ||
+                        Object.prototype.hasOwnProperty.call(requestData, "data") ||
+                        Object.prototype.hasOwnProperty.call(requestData, "method") ||
+                        Object.prototype.hasOwnProperty.call(requestData, "url") ||
+                        Object.prototype.hasOwnProperty.call(requestData, "headers")
+                    );
+
+                const requestConfig = isRequestConfig ? requestData : {};
+                const hasCustomParams = Object.prototype.hasOwnProperty.call(requestConfig, "params");
+                const hasCustomData = Object.prototype.hasOwnProperty.call(requestConfig, "data");
+
+                const {
+                    url: customUrl,
+                    method: customMethod,
+                    params: customParams,
+                    data: customData,
+                    signal: _customSignal,
+                    ...restConfig
+                } = requestConfig;
+
                 const response = await api({
-                    url,
-                    method: options.method || "get",
-                    params: options.params,
-                    data: requestData || options.data,
-                    signal: abortControllerRef.current.signal,
+                    url: customUrl || url,
+                    method: customMethod || options.method || "get",
+                    params: hasCustomParams ? customParams : options.params,
+                    data: hasCustomData ? customData : (isRequestConfig ? options.data : (requestData || options.data)),
+                    ...restConfig,
+                    signal: abortControllerRef.current.signal
                 });
 
                 setData(response.data);

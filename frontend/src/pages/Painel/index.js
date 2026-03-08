@@ -65,7 +65,7 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(4),
     width: "100%",
     margin: 0,
-    background: "#f8fafc",
+    background: "#f4f7f9",
     minHeight: "100vh",
   },
 
@@ -75,34 +75,46 @@ const useStyles = makeStyles((theme) => ({
   },
   pageTitle: {
     fontSize: "28px",
-    fontWeight: 700,
-    color: "#1a1a2e",
+    fontWeight: 800,
+    color: "#0f172a",
     marginBottom: theme.spacing(0.5),
+    letterSpacing: "-0.5px",
   },
   pageSubtitle: {
     fontSize: "16px",
-    color: "#6b7280",
+    color: "#64748b",
   },
   breadcrumb: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(1),
-    color: "#9ca3af",
+    color: "#94a3b8",
     fontSize: "14px",
     "& span": {
       color: "#3b82f6",
+      fontWeight: 500,
     },
+  },
+
+  // Titles para novas seções
+  sectionTitle: {
+    fontSize: "18px",
+    fontWeight: 700,
+    color: "#1e293b",
+    marginBottom: theme.spacing(2),
+    marginTop: theme.spacing(1),
+    letterSpacing: "-0.3px",
   },
 
   // Slider de Banners
   bannerSlider: {
     width: "100%",
     height: "320px",
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
     position: "relative",
     marginBottom: theme.spacing(4),
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.15)",
   },
   bannerImage: {
     width: "100%",
@@ -123,7 +135,7 @@ const useStyles = makeStyles((theme) => ({
     cursor: "pointer",
     zIndex: 3,
     transition: "all 0.3s ease",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+    boxShadow: "0 4px 14px rgba(0,0,0,0.1)",
     "&:hover": {
       background: "#ffffff",
       transform: "translateY(-50%) scale(1.1)",
@@ -162,47 +174,64 @@ const useStyles = makeStyles((theme) => ({
     background: "#ffffff",
     borderRadius: 16,
     padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
-    transition: "all 0.3s ease",
+    boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e2e8f0",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
     "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 8px 25px rgba(0, 0, 0, 0.08)",
+      transform: "translateY(-4px)",
+      boxShadow: "0 12px 30px -4px rgba(0, 0, 0, 0.08)",
+      borderColor: "#cbd5e1"
     },
   },
   indicatorLabel: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#6b7280",
+    fontSize: "13px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    color: "#64748b",
     marginBottom: theme.spacing(1),
   },
   indicatorValue: {
     fontSize: "32px",
-    fontWeight: 700,
-    color: "#1a1a2e",
+    fontWeight: 800,
+    color: "#0f172a",
     marginBottom: theme.spacing(1),
+    lineHeight: 1.2,
+    letterSpacing: "-0.5px",
   },
   indicatorTrend: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(0.5),
     fontSize: "13px",
+    fontWeight: 500,
+    marginTop: "auto"
   },
   trendUp: {
-    color: "#10b981",
+    color: "#059669",
     display: "flex",
     alignItems: "center",
-    gap: "4px",
+    gap: "2px",
+    background: "#d1fae5",
+    padding: "2px 6px",
+    borderRadius: "6px"
   },
   trendDown: {
-    color: "#ef4444",
+    color: "#e11d48",
     display: "flex",
     alignItems: "center",
-    gap: "4px",
+    gap: "2px",
+    background: "#ffe4e6",
+    padding: "2px 6px",
+    borderRadius: "6px"
   },
   trendNeutral: {
-    color: "#6b7280",
+    color: "#64748b",
+    marginLeft: 4
   },
 
   // Gráficos
@@ -210,9 +239,13 @@ const useStyles = makeStyles((theme) => ({
     background: "#ffffff",
     borderRadius: 16,
     padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
+    boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e2e8f0",
     height: "100%",
+    transition: "all 0.3s ease",
+    "&:hover": {
+      boxShadow: "0 12px 30px -4px rgba(0, 0, 0, 0.08)",
+    }
   },
   chartHeader: {
     display: "flex",
@@ -222,14 +255,16 @@ const useStyles = makeStyles((theme) => ({
   },
   chartTitle: {
     fontSize: "18px",
-    fontWeight: 600,
-    color: "#1a1a2e",
+    fontWeight: 700,
+    color: "#1e293b",
+    letterSpacing: "-0.3px",
   },
   chartSubtitle: {
     fontSize: "28px",
-    fontWeight: 700,
-    color: "#1a1a2e",
+    fontWeight: 800,
+    color: "#0f172a",
     marginTop: theme.spacing(0.5),
+    letterSpacing: "-0.5px",
   },
   chartBadge: {
     display: "flex",
@@ -238,15 +273,15 @@ const useStyles = makeStyles((theme) => ({
     padding: "4px 12px",
     borderRadius: 20,
     fontSize: "13px",
-    fontWeight: 500,
+    fontWeight: 600,
   },
   badgeUp: {
-    background: "rgba(16, 185, 129, 0.1)",
-    color: "#10b981",
+    background: "#d1fae5",
+    color: "#059669",
   },
   badgeDown: {
-    background: "rgba(239, 68, 68, 0.1)",
-    color: "#ef4444",
+    background: "#ffe4e6",
+    color: "#e11d48",
   },
 
   // Tags Card
@@ -494,7 +529,7 @@ const Dashboard = () => {
     };
 
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -579,7 +614,7 @@ const Dashboard = () => {
     };
 
     loadCompanyPlan();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.profile, user?.companyId, user?.company?.dueDate, user?.company?.createdAt, user?.company?.recurrence]);
 
   // Auto-slide dos banners
@@ -752,6 +787,16 @@ const Dashboard = () => {
   const totalTicketsCurrentMonth = counters.supportFinished || 0;
   const totalTicketsPreviousMonth = previousCounters.supportFinished || 0;
   const ticketsTrend = calcTrend(totalTicketsCurrentMonth, totalTicketsPreviousMonth);
+
+  // ---> NOVAS MÉTRICAS (TAXA DE CONVERSÃO E ATENDIMENTO) <---
+  const leadsGerados = counters.crmLeadsGenerated || 0;
+  const conversoesCRM = counters.crmConversions || 0;
+  const taxaConversaoObj = leadsGerados > 0 ? (conversoesCRM / leadsGerados) * 100 : 0;
+  const taxaConversaoFormatada = taxaConversaoObj.toFixed(1);
+
+  const totalAtendimentos = (counters.supportHappening || 0) + (counters.supportFinished || 0) + (counters.supportPending || 0);
+  const taxaConclusao = totalAtendimentos > 0 ? ((counters.supportFinished || 0) / totalAtendimentos) * 100 : 0;
+  const taxaConclusaoFormatada = taxaConclusao.toFixed(1);
 
   return (
     <div className={classes.container}>
@@ -978,81 +1023,21 @@ const Dashboard = () => {
             {/* Seção de Gráficos */}
             {chartData && (
               <>
-                {/* Cards de Resumo */}
-                <Grid container spacing={2} style={{ marginBottom: 24 }}>
+                {/* ====== MÉTRICAS COMERCIAIS E CRM ====== */}
+                <Typography className={classes.sectionTitle}>Comercial e Funil CRM</Typography>
+                <Grid container spacing={2} style={{ marginBottom: 32 }}>
                   <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard}>
-                      <Typography className={classes.indicatorLabel}>Total de Contatos</Typography>
-                      <Typography className={classes.indicatorValue}>
-                        {(chartData.totalContacts || 0).toLocaleString("pt-BR")}
-                      </Typography>
-                      <div className={classes.indicatorTrend}>
-                        <span className={classes.trendNeutral}>Base completa</span>
-                      </div>
-                    </div>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard}>
-                      <Typography className={classes.indicatorLabel}>Novos este mês</Typography>
-                      <Typography className={classes.indicatorValue}>
-                        {(chartData.newContactsThisMonth || 0).toLocaleString("pt-BR")}
-                      </Typography>
-                      <div className={classes.indicatorTrend}>
-                        {(() => {
-                          const trend = calcTrend(chartData.newContactsThisMonth || 0, chartData.newContactsPrevMonth || 0);
-                          return trend.isUp ? (
-                            <span className={classes.trendUp}><ArrowUpward style={{ fontSize: 14 }} /> {trend.value}%</span>
-                          ) : (
-                            <span className={classes.trendDown}><ArrowDownward style={{ fontSize: 14 }} /> {trend.value}%</span>
-                          );
-                        })()}
-                        <span className={classes.trendNeutral}> vs mês anterior</span>
-                      </div>
-                    </div>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard}>
-                      <Typography className={classes.indicatorLabel}>Atendimentos</Typography>
-                      <Typography className={classes.indicatorValue}>
-                        {((counters.supportHappening || 0) + (counters.supportFinished || 0) + (counters.supportPending || 0)).toLocaleString("pt-BR")}
-                      </Typography>
-                      <div className={classes.indicatorTrend}>
-                        {openTrend.isUp ? (
-                          <span className={classes.trendUp}><ArrowUpward style={{ fontSize: 14 }} /> {openTrend.value}%</span>
-                        ) : (
-                          <span className={classes.trendDown}><ArrowDownward style={{ fontSize: 14 }} /> {openTrend.value}%</span>
-                        )}
-                        <span className={classes.trendNeutral}> vs mês anterior</span>
-                      </div>
-                    </div>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard}>
-                      <Typography className={classes.indicatorLabel}>Estados Alcançados</Typography>
-                      <Typography className={classes.indicatorValue}>
-                        {(chartData.contactsByState && chartData.contactsByState.length) || 0}
-                      </Typography>
-                      <div className={classes.indicatorTrend}>
-                        <span className={classes.trendNeutral}>de 27 estados</span>
-                      </div>
-                    </div>
-                  </Grid>
-                </Grid>
-
-                {/* Novos Cards CRM */}
-                <Grid container spacing={2} style={{ marginBottom: 24 }}>
-                  <Grid item xs={12} sm={6} md={4}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Leads Gerados (Mês)</Typography>
                       <Typography className={classes.indicatorValue}>
-                        {(counters.crmLeadsGenerated || 0).toLocaleString("pt-BR")}
+                        {leadsGerados.toLocaleString("pt-BR")}
                       </Typography>
                       <div className={classes.indicatorTrend}>
                         <span className={classes.trendNeutral}>No período selecionado</span>
                       </div>
                     </div>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
+                  <Grid item xs={12} sm={6} md={3}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Reuniões Agendadas</Typography>
                       <Typography className={classes.indicatorValue}>
@@ -1063,14 +1048,95 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
+                  <Grid item xs={12} sm={6} md={3}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Conversões CRM</Typography>
-                      <Typography className={classes.indicatorValue}>
-                        {(counters.crmConversions || 0).toLocaleString("pt-BR")}
+                      <Typography className={classes.indicatorValue} style={{ color: "#059669" }}>
+                        {conversoesCRM.toLocaleString("pt-BR")}
                       </Typography>
                       <div className={classes.indicatorTrend}>
                         <span className={classes.trendNeutral}>No período selecionado</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <div className={classes.indicatorCard} style={{ background: "linear-gradient(to right bottom, #1e293b, #0f172a)", color: "#fff", border: "none" }}>
+                      <Typography className={classes.indicatorLabel} style={{ color: "#94a3b8" }}>Taxa de Conversão</Typography>
+                      <Typography className={classes.indicatorValue} style={{ color: "#fff" }}>
+                        {taxaConversaoFormatada}%
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        <span style={{ color: "#cbd5e1" }}>Eficiência comercial</span>
+                      </div>
+                    </div>
+                  </Grid>
+                </Grid>
+
+                {/* ====== MÉTRICAS DE ATENDIMENTO E OPERAÇÃO ====== */}
+                <Typography className={classes.sectionTitle}>Atendimento e Operação</Typography>
+                <Grid container spacing={2} style={{ marginBottom: 32 }}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Total Atendimentos</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        {totalAtendimentos.toLocaleString("pt-BR")}
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        {openTrend.isUp ? (
+                          <span className={classes.trendUp}><ArrowUpward style={{ fontSize: 14 }} /> {openTrend.value}%</span>
+                        ) : (
+                          <span className={classes.trendDown}><ArrowDownward style={{ fontSize: 14 }} /> {openTrend.value}%</span>
+                        )}
+                        <span className={classes.trendNeutral}> vs anterior</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Taxa de Conclusão</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        {taxaConclusaoFormatada}%
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        <span className={classes.trendNeutral}>Com base nos abertos</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <div className={classes.indicatorCard}>
+                      <Typography className={classes.indicatorLabel}>Tempo Médio de Espera</Typography>
+                      <Typography className={classes.indicatorValue} style={{ fontSize: "24px" }}>
+                        {formatWaitTime(counters.avgWaitTime)}
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        {waitTimeTrend.isUp ? (
+                          <span className={classes.trendDown}><ArrowUpward style={{ fontSize: 14 }} /> {waitTimeTrend.value}%</span>
+                        ) : (
+                          <span className={classes.trendUp}><ArrowDownward style={{ fontSize: 14 }} /> {Math.abs(waitTimeTrend.value)}%</span>
+                        )}
+                        <span className={classes.trendNeutral}> vs anterior</span>
+                      </div>
+                    </div>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <div className={classes.indicatorCard} style={{ background: "#f8fafc" }}>
+                      <Typography className={classes.indicatorLabel}>Crescimento Base de Contatos</Typography>
+                      <Typography className={classes.indicatorValue}>
+                        <span style={{ color: "#3b82f6" }}>{(chartData.newContactsThisMonth || 0).toLocaleString("pt-BR")}</span>
+                        <span style={{ fontSize: "16px", color: "#94a3b8", fontWeight: 700 }}> / {(chartData.totalContacts || 0).toLocaleString("pt-BR")}</span>
+                      </Typography>
+                      <div className={classes.indicatorTrend}>
+                        {(() => {
+                          const curNew = chartData.newContactsThisMonth || 0;
+                          const prevNew = chartData.newContactsPrevMonth || 0;
+                          const trend = calcTrend(curNew, prevNew);
+                          return trend.isUp ? (
+                            <span className={classes.trendUp}><ArrowUpward style={{ fontSize: 14 }} /> {trend.value}%</span>
+                          ) : (
+                            <span className={classes.trendDown}><ArrowDownward style={{ fontSize: 14 }} /> {trend.value}%</span>
+                          );
+                        })()}
+                        <span className={classes.trendNeutral}>vs mês ant.</span>
                       </div>
                     </div>
                   </Grid>
@@ -1148,8 +1214,8 @@ const Dashboard = () => {
                                     <Typography style={{ fontSize: 13, color: "#374151" }}>{tag.name}</Typography>
                                   </div>
                                   <div style={{ display: "flex", gap: 12 }}>
-                                    <Typography style={{ fontSize: 13, fontWeight: 600, color: "#1a1a2e" }}>{tag.count.toLocaleString("pt-BR")}</Typography>
-                                    <Typography style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>{perc}%</Typography>
+                                    <Typography style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{tag.count.toLocaleString("pt-BR")}</Typography>
+                                    <Typography style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>{perc}%</Typography>
                                   </div>
                                 </div>
                               );
@@ -1157,8 +1223,16 @@ const Dashboard = () => {
                           </div>
                         </>
                       ) : (
-                        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
-                          <Typography style={{ fontSize: 14 }}>Nenhuma tag com contatos</Typography>
+                        <div style={{ textAlign: "center", padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <FilterListIcon style={{ color: "#cbd5e1", fontSize: 32 }} />
+                          </div>
+                          <Typography style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>
+                            Sem dados de segmentação
+                          </Typography>
+                          <Typography style={{ fontSize: 12, color: "#94a3b8" }}>
+                            Nenhum contato possui tag associada
+                          </Typography>
                         </div>
                       )}
                     </div>

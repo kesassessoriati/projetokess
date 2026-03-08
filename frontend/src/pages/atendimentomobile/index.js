@@ -108,6 +108,10 @@ import TicketActionsMenu from "../../components/TicketActionsMenu";
 import useQuickMessages from "../../hooks/useQuickMessages";
 import { toast } from "react-toastify";
 import { useSystemAlert } from "../../components/SystemAlert";
+import {
+    isGroupConversation,
+    isPrivateConversation,
+} from "../../utils/conversationType";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -1645,26 +1649,7 @@ const Atendimentos = () => {
 
                 // **NOVO: Filtro por aba ativa**
                 const currentTab = tabIndexRef.current;
-                const ticketStatus = data.ticket.status;
-
-                // Verifica se o ticket pertence à aba atual
-                let belongsToCurrentTab = false;
-                if (currentTab === 0) {
-                    // Aba "Todos" - sempre mostra
-                    belongsToCurrentTab = true;
-                } else if (currentTab === 1) {
-                    // Aba "Atendendo" - tickets do usuário
-                    belongsToCurrentTab = ticketStatus === "open" && data.ticket.userId === user.id;
-                } else if (currentTab === 2) {
-                    // Aba "Aguardando" - tickets pendentes
-                    belongsToCurrentTab = ticketStatus === "pending";
-                } else if (currentTab === 3) {
-                    // Aba "Automação" - bots
-                    belongsToCurrentTab = ticketStatus === "open" && !data.ticket.userId;
-                } else if (currentTab === 4) {
-                    // Aba "Fechados"
-                    belongsToCurrentTab = ticketStatus === "closed";
-                }
+                const belongsToCurrentTab = ticketBelongsToTab(data.ticket, currentTab);
 
                 // **NOVO: Só mostra notificação se pertencer à aba atual**
                 const shouldNotify = belongsToCurrentTab && belongsToUserQueue && canSeeTicket;
@@ -1757,19 +1742,7 @@ const Atendimentos = () => {
                         if (!data.message.fromMe) {
                             ticket.unreadMessages = (ticket.unreadMessages || 0) + 1;
 
-                            // **NOVO: Verificar se pertence à aba atual para notificação**
-                            let belongsToCurrentTab = false;
-                            if (currentTab === 0) {
-                                belongsToCurrentTab = true; // Todos
-                            } else if (currentTab === 1) {
-                                belongsToCurrentTab = ticket.status === "open" && ticket.userId === user.id; // Atendendo
-                            } else if (currentTab === 2) {
-                                belongsToCurrentTab = ticket.status === "pending" // Aguardando
-                            } else if (currentTab === 3) {
-                                belongsToCurrentTab = ticket.status === "open" && !ticket.userId; // Automação
-                            } else if (currentTab === 4) {
-                                belongsToCurrentTab = ticket.status === "closed"; // Fechados
-                            }
+                            const belongsToCurrentTab = ticketBelongsToTab(ticket, currentTab);
 
                             // Toca som e exibe notificação apenas se pertencer à aba atual
                             if (belongsToCurrentTab) {
@@ -1810,8 +1783,10 @@ const Atendimentos = () => {
                             data.ticket?.status === "pending" ||
                             data.ticket?.status === "closed";
 
-                        // Só adiciona se tiver permissão
-                        if (belongsToUserQueue && canSeeTicket) {
+                        const belongsToCurrentTab = ticketBelongsToTab(data.ticket, currentTab);
+
+                        // Só adiciona se tiver permissão e pertencer à aba atual
+                        if (belongsToUserQueue && canSeeTicket && belongsToCurrentTab) {
                             // Verificar se é ticket de Facebook/Instagram e criar lead automaticamente
                             if (['facebook', 'instagram'].includes(data.ticket.channel)) {
                                 if (!isAdAutomaticMessage(data.message, data.ticket.channel)) {
@@ -1925,22 +1900,22 @@ const Atendimentos = () => {
 
         // Aba de Automação - apenas para admins
         if (user?.profile === "admin") {
-            tabs.push({ key: "automation", status: "pending", filter: (ticket) => ticket.status === "pending" && !hasAssignedUser(ticket) && !hasQueue(ticket) && !ticket.isGroup });
+            tabs.push({ key: "automation", status: "pending", filter: (ticket) => ticket.status === "pending" && !hasAssignedUser(ticket) && !hasQueue(ticket) && isPrivateConversation(ticket) });
         }
 
         // Aba Aguardando
-        tabs.push({ key: "pending", status: "pending", filter: (ticket) => ticket.status === "pending" && (hasAssignedUser(ticket) || hasQueue(ticket)) && !ticket.isGroup });
+        tabs.push({ key: "pending", status: "pending", filter: (ticket) => ticket.status === "pending" && (hasAssignedUser(ticket) || hasQueue(ticket)) && isPrivateConversation(ticket) });
 
         // Aba Atendendo
-        tabs.push({ key: "open", status: "open", filter: (ticket) => ticket.status === "open" && !ticket.isGroup });
+        tabs.push({ key: "open", status: "open", filter: (ticket) => ticket.status === "open" && isPrivateConversation(ticket) });
 
         // Aba Grupos - apenas para quem tem permissão
         if (user?.profile === "admin" || user?.allowGroup === true) {
-            tabs.push({ key: "groups", status: "group" });
+            tabs.push({ key: "groups", status: "group", filter: (ticket) => isGroupConversation(ticket) });
         }
 
         // Aba Finalizados (acessível via botão)
-        tabs.push({ key: "closed", status: "closed", filter: (ticket) => ticket.status === "closed" && !ticket.isGroup });
+        tabs.push({ key: "closed", status: "closed", filter: (ticket) => ticket.status === "closed" && isPrivateConversation(ticket) });
 
         return tabs;
     }, [user?.profile, user?.allowGroup]);
@@ -1999,10 +1974,19 @@ const Atendimentos = () => {
         return filteredTickets;
     }, [selectedChannelsQuickFilter, messageDirectionFilter]);
 
+    const ticketBelongsToTab = useCallback((ticket, tabIdx) => {
+        const currentTab = TAB_CONFIG[tabIdx] || TAB_CONFIG[0];
+        if (!currentTab) return false;
+        if (typeof currentTab.filter === "function") {
+            return currentTab.filter(ticket);
+        }
+        return true;
+    }, [TAB_CONFIG]);
+
     const loadTickets = useCallback(async () => {
         try {
             setLoading(true);
-            const currentTab = TAB_CONFIG[tabIndex] || TAB_CONFIG[1];
+            const currentTab = TAB_CONFIG[tabIndex] || TAB_CONFIG[0];
             const status = currentTab.status || "pending";
             const params = {
                 ...buildFilterParams(),
@@ -2013,14 +1997,6 @@ const Atendimentos = () => {
 
             console.log(`🔍 Aba ${tabIndex} (${currentTab.key}) - Status: ${status}`);
             console.log(`📊 Tickets recebidos do backend:`, data.tickets?.length || 0);
-
-            // Para grupos, não aplicar filtros - mostrar direto
-            if (currentTab.key === "groups") {
-                const groupTickets = data.tickets || [];
-                console.log(`👥 GRUPOS encontrados:`, groupTickets.length);
-                setTickets(groupTickets);
-                return;
-            }
 
             let filteredTickets = applyClientFilters(data.tickets || []);
 
@@ -2996,15 +2972,15 @@ const Atendimentos = () => {
             const openTickets = openRes.data?.tickets || [];
             const closedTickets = closedRes.data?.tickets || [];
 
-            const automationTickets = pendingTickets.filter(ticket => !hasAssignedUser(ticket) && !hasQueue(ticket) && !ticket.isGroup);
-            const pendingWithQueueTickets = pendingTickets.filter(ticket => (hasAssignedUser(ticket) || hasQueue(ticket)) && !ticket.isGroup);
+            const automationTickets = pendingTickets.filter(ticket => !hasAssignedUser(ticket) && !hasQueue(ticket) && isPrivateConversation(ticket));
+            const pendingWithQueueTickets = pendingTickets.filter(ticket => (hasAssignedUser(ticket) || hasQueue(ticket)) && isPrivateConversation(ticket));
 
             const counts = {
                 pending: countTickets(pendingWithQueueTickets),
                 open: countTickets(openTickets),
                 closed: countTickets(closedTickets),
                 automation: countTickets(automationTickets),
-                groups: countTickets(groupTickets)
+                groups: countTickets(groupTickets.filter(isGroupConversation))
             };
 
             setUnreadCounts(counts);
@@ -3237,7 +3213,7 @@ const Atendimentos = () => {
     };
 
     const handleRemoveGroup = async (ticket) => {
-        if (!ticket || !ticket.isGroup) return;
+        if (!ticket || !isGroupConversation(ticket)) return;
 
         const confirmRemover = await showConfirm({
             type: "error",
@@ -3519,7 +3495,7 @@ const Atendimentos = () => {
                                             </div>
                                         )}
                                         {/* Botão remover grupo - apenas na aba de Grupos */}
-                                        {tabIndex === 3 && ticket.isGroup && (
+                                        {TAB_CONFIG[tabIndex]?.key === "groups" && isGroupConversation(ticket) && (
                                             <Tooltip title="Remover grupo">
                                                 <IconButton
                                                     size="small"
