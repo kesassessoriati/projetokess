@@ -62,48 +62,126 @@ import usePlans from "../../hooks/usePlans";
 const useStyles = makeStyles((theme) => ({
   // Container principal
   container: {
-    padding: theme.spacing(4),
+    padding: theme.spacing(3),
     width: "100%",
     margin: 0,
-    background: "#f4f7f9",
+    background: "radial-gradient(circle at top left, #eefbf2 0%, #e4f3e9 46%, #dcebe2 100%)",
     minHeight: "100vh",
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1.5),
+    },
   },
 
   // Header da página
   pageHeader: {
-    marginBottom: theme.spacing(4),
+    marginBottom: theme.spacing(2.5),
+    border: "1px solid #cadecf",
+    borderRadius: 16,
+    background: "#ffffffeb",
+    boxShadow: "0 10px 26px rgba(16,24,40,0.08)",
+    padding: theme.spacing(2.2, 2.4),
   },
   pageTitle: {
-    fontSize: "28px",
+    fontSize: "30px",
     fontWeight: 800,
-    color: "#0f172a",
+    color: "#153626",
     marginBottom: theme.spacing(0.5),
     letterSpacing: "-0.5px",
   },
   pageSubtitle: {
-    fontSize: "16px",
-    color: "#64748b",
+    fontSize: "14px",
+    color: "#587064",
+    fontWeight: 500,
   },
   breadcrumb: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(1),
-    color: "#94a3b8",
-    fontSize: "14px",
+    color: "#6e8a7c",
+    fontSize: "12px",
+    fontWeight: 600,
+    padding: "6px 10px",
+    background: "#f2faf5",
+    border: "1px solid #d4e6db",
+    borderRadius: 999,
     "& span": {
-      color: "#3b82f6",
-      fontWeight: 500,
+      color: "#1f9d55",
+      fontWeight: 700,
     },
   },
 
   // Titles para novas seções
   sectionTitle: {
-    fontSize: "18px",
+    fontSize: "17px",
     fontWeight: 700,
-    color: "#1e293b",
-    marginBottom: theme.spacing(2),
-    marginTop: theme.spacing(1),
-    letterSpacing: "-0.3px",
+    color: "#173624",
+    marginBottom: theme.spacing(1.8),
+    marginTop: theme.spacing(0.5),
+    letterSpacing: "-0.2px",
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 12px",
+    borderRadius: 999,
+    background: "#eaf8ef",
+    border: "1px solid #cde2d4",
+  },
+  sectionShell: {
+    border: "1px solid #cfe2d5",
+    borderRadius: 16,
+    background: "#ffffffde",
+    boxShadow: "0 8px 22px rgba(16,24,40,0.06)",
+    padding: theme.spacing(2),
+    marginBottom: theme.spacing(3),
+  },
+  planCard: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: "16px 18px",
+    boxShadow: "0 4px 14px rgba(16,24,40,0.06)",
+    border: "1px solid #d8e7df",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    transition: "all .2s ease",
+    "&:hover": {
+      transform: "translateY(-2px)",
+      boxShadow: "0 12px 22px rgba(16,24,40,0.12)",
+      borderColor: "#b8d2c3",
+    },
+  },
+  planCardClickable: {
+    cursor: "pointer",
+  },
+  planLabel: {
+    fontSize: 12,
+    color: "#5d7d6b",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: ".03em",
+  },
+  planValue: {
+    fontSize: 18,
+    fontWeight: 800,
+    color: "#1a3325",
+    lineHeight: 1.2,
+  },
+  planSubtle: {
+    fontSize: 11,
+    color: "#6f8a7c",
+  },
+  planIconBlue: { fontSize: 20, color: "#1f9d55" },
+  planIconGreen: { fontSize: 20, color: "#118046" },
+  planIconRed: { fontSize: 20, color: "#b42318" },
+  planIconPurple: { fontSize: 20, color: "#1f9d55" },
+  darkMetricCard: {
+    background: "linear-gradient(145deg, #1f9d55 0%, #12703b 100%) !important",
+    color: "#fff",
+    border: "none !important",
+  },
+  subtleMetricCard: {
+    background: "#f4fbf7 !important",
+    borderColor: "#d6e8de !important",
   },
 
   // Slider de Banners
@@ -125,7 +203,8 @@ const useStyles = makeStyles((theme) => ({
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    background: "rgba(255, 255, 255, 0.9)",
+    background: "rgba(238, 249, 242, 0.95)",
+    border: "1px solid #cde3d5",
     borderRadius: "50%",
     width: 44,
     height: 44,
@@ -137,7 +216,7 @@ const useStyles = makeStyles((theme) => ({
     transition: "all 0.3s ease",
     boxShadow: "0 4px 14px rgba(0,0,0,0.1)",
     "&:hover": {
-      background: "#ffffff",
+      background: "#f4fbf7",
       transform: "translateY(-50%) scale(1.1)",
     },
   },
@@ -160,11 +239,11 @@ const useStyles = makeStyles((theme) => ({
     width: 10,
     height: 10,
     borderRadius: "50%",
-    backgroundColor: "rgba(255,255,255,0.5)",
+    backgroundColor: "rgba(228,246,236,0.7)",
     cursor: "pointer",
     transition: "all 0.3s ease",
     "&.active": {
-      backgroundColor: "#fff",
+      backgroundColor: "#1f9d55",
       transform: "scale(1.2)",
     },
   },
@@ -173,32 +252,32 @@ const useStyles = makeStyles((theme) => ({
   indicatorCard: {
     background: "#ffffff",
     borderRadius: 16,
-    padding: theme.spacing(3),
-    boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #e2e8f0",
+    padding: theme.spacing(2.3),
+    boxShadow: "0 8px 20px rgba(16, 24, 40, 0.07)",
+    border: "1px solid #d5e6dc",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     height: "100%",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
     "&:hover": {
-      transform: "translateY(-4px)",
-      boxShadow: "0 12px 30px -4px rgba(0, 0, 0, 0.08)",
-      borderColor: "#cbd5e1"
+      transform: "translateY(-3px)",
+      boxShadow: "0 16px 30px rgba(16, 24, 40, 0.12)",
+      borderColor: "#b9d2c3"
     },
   },
   indicatorLabel: {
-    fontSize: "13px",
-    fontWeight: 600,
+    fontSize: "11px",
+    fontWeight: 700,
     textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    color: "#64748b",
+    letterSpacing: "0.06em",
+    color: "#5a7868",
     marginBottom: theme.spacing(1),
   },
   indicatorValue: {
-    fontSize: "32px",
+    fontSize: "30px",
     fontWeight: 800,
-    color: "#0f172a",
+    color: "#183827",
     marginBottom: theme.spacing(1),
     lineHeight: 1.2,
     letterSpacing: "-0.5px",
@@ -212,25 +291,27 @@ const useStyles = makeStyles((theme) => ({
     marginTop: "auto"
   },
   trendUp: {
-    color: "#059669",
+    color: "#0b7f45",
     display: "flex",
     alignItems: "center",
     gap: "2px",
-    background: "#d1fae5",
-    padding: "2px 6px",
-    borderRadius: "6px"
+    background: "#dff3e8",
+    border: "1px solid #b7dcc8",
+    padding: "2px 7px",
+    borderRadius: "999px"
   },
   trendDown: {
-    color: "#e11d48",
+    color: "#b42318",
     display: "flex",
     alignItems: "center",
     gap: "2px",
-    background: "#ffe4e6",
-    padding: "2px 6px",
-    borderRadius: "6px"
+    background: "#fdecec",
+    border: "1px solid #f6c5c3",
+    padding: "2px 7px",
+    borderRadius: "999px"
   },
   trendNeutral: {
-    color: "#64748b",
+    color: "#6d8779",
     marginLeft: 4
   },
 
@@ -238,13 +319,13 @@ const useStyles = makeStyles((theme) => ({
   chartCard: {
     background: "#ffffff",
     borderRadius: 16,
-    padding: theme.spacing(3),
-    boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #e2e8f0",
+    padding: theme.spacing(2.4),
+    boxShadow: "0 8px 20px rgba(16, 24, 40, 0.07)",
+    border: "1px solid #d5e6dc",
     height: "100%",
     transition: "all 0.3s ease",
     "&:hover": {
-      boxShadow: "0 12px 30px -4px rgba(0, 0, 0, 0.08)",
+      boxShadow: "0 16px 30px rgba(16, 24, 40, 0.12)",
     }
   },
   chartHeader: {
@@ -254,15 +335,15 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(3),
   },
   chartTitle: {
-    fontSize: "18px",
+    fontSize: "16px",
     fontWeight: 700,
-    color: "#1e293b",
+    color: "#1a3526",
     letterSpacing: "-0.3px",
   },
   chartSubtitle: {
-    fontSize: "28px",
+    fontSize: "26px",
     fontWeight: 800,
-    color: "#0f172a",
+    color: "#143223",
     marginTop: theme.spacing(0.5),
     letterSpacing: "-0.5px",
   },
@@ -342,16 +423,16 @@ const useStyles = makeStyles((theme) => ({
   // Tutoriais
   tutorialsSection: {
     marginTop: theme.spacing(4),
-    background: "#ffffff",
+    background: "#ffffffde",
     borderRadius: 16,
     padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
+    boxShadow: "0 8px 20px rgba(16, 24, 40, 0.07)",
+    border: "1px solid #d5e6dc",
   },
   tutorialsTitle: {
-    fontSize: "20px",
-    fontWeight: 600,
-    color: "#1a1a2e",
+    fontSize: "18px",
+    fontWeight: 700,
+    color: "#173624",
     marginBottom: theme.spacing(3),
   },
   tutorialCard: {
@@ -371,12 +452,12 @@ const useStyles = makeStyles((theme) => ({
   },
   tutorialInfo: {
     padding: theme.spacing(2),
-    background: "#f8fafc",
+    background: "#f3faf6",
   },
   tutorialName: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#1a1a2e",
+    color: "#173624",
   },
 }));
 
@@ -679,17 +760,17 @@ const Dashboard = () => {
   const contactsChartOptions = useMemo(() => ({
     chart: { type: "bar", toolbar: { show: false }, fontFamily: "inherit" },
     plotOptions: { bar: { borderRadius: 4, columnWidth: "60%" } },
-    colors: ["#6366f1", "#10b981"],
+    colors: ["#1f9d55", "#0f6f3c"],
     dataLabels: { enabled: false },
     stroke: { width: [0, 3], curve: "smooth" },
     xaxis: {
       categories: filteredChartMonths.map(m => m.label),
-      labels: { style: { colors: "#9ca3af", fontSize: "12px" } },
+      labels: { style: { colors: "#6f8a7b", fontSize: "12px" } },
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    yaxis: { labels: { style: { colors: "#9ca3af", fontSize: "12px" } } },
-    grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+    yaxis: { labels: { style: { colors: "#6f8a7b", fontSize: "12px" } } },
+    grid: { borderColor: "#e4efe8", strokeDashArray: 4 },
     legend: { position: "bottom", horizontalAlign: "center", fontSize: "13px", markers: { radius: 12 } },
     tooltip: { theme: "light" },
   }), [filteredChartMonths]);
@@ -711,7 +792,7 @@ const Dashboard = () => {
     return {
       chart: { type: "donut", fontFamily: "inherit" },
       labels: chartData.tagsSummary.map(t => t.name),
-      colors: chartData.tagsSummary.map(t => t.color || "#6366f1"),
+      colors: chartData.tagsSummary.map(t => t.color || "#1f9d55"),
       legend: { show: false },
       dataLabels: { enabled: false },
       stroke: { width: 2, colors: ["#fff"] },
@@ -812,7 +893,7 @@ const Dashboard = () => {
                 <Grid item>
                   <Typography className={classes.pageTitle}>Painel</Typography>
                   <Typography className={classes.pageSubtitle}>
-                    Bem-vindo, {user?.name || 'Usuário'}
+                    Bem-vindo, {user?.name || 'Usuário'} • visão executiva no padrão verde premium
                   </Typography>
                 </Grid>
                 <Grid item>
@@ -825,31 +906,20 @@ const Dashboard = () => {
 
             {/* Cards de Informações do Plano - apenas para admins de companies != 1 */}
             {user?.profile === "admin" && user?.companyId !== 1 && companyPlan && (
-              <Grid container spacing={2} style={{ marginBottom: 24 }}>
+              <Grid container spacing={2} style={{ marginBottom: 28 }}>
                 {/* Card Nome do Plano */}
                 <Grid item xs={12} sm={6} md={3}>
                   <Box
                     onClick={() => history.push("/financeiro")}
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      padding: "16px 20px",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                      cursor: "pointer",
-                      border: "1px solid #e5e7eb",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
+                    className={`${classes.planCard} ${classes.planCardClickable}`}
                   >
                     <Box display="flex" alignItems="center" gap={1}>
-                      <DashboardIcon style={{ fontSize: 20, color: "#3b82f6" }} />
-                      <Typography style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+                      <DashboardIcon className={classes.planIconBlue} />
+                      <Typography className={classes.planLabel}>
                         Plano Atual
                       </Typography>
                     </Box>
-                    <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>
+                    <Typography className={classes.planValue}>
                       {companyPlan.planName || "Sem plano"}
                     </Typography>
                     {companyPlan.trial && companyPlan.trialEndDate && moment(companyPlan.trialEndDate).isAfter(moment()) && (
@@ -870,32 +940,20 @@ const Dashboard = () => {
 
                 {/* Card Início do Contrato */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      padding: "16px 20px",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                      border: "1px solid #e5e7eb",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
+                  <Box className={classes.planCard}>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <EventIcon style={{ fontSize: 20, color: "#10b981" }} />
-                      <Typography style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+                      <EventIcon className={classes.planIconGreen} />
+                      <Typography className={classes.planLabel}>
                         Início do Contrato
                       </Typography>
                     </Box>
-                    <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>
+                    <Typography className={classes.planValue}>
                       {companyPlan.startDate
                         ? moment(companyPlan.startDate).format("DD/MM/YYYY")
                         : "--/--/----"}
                     </Typography>
                     {companyPlan.startDate && (
-                      <Typography style={{ fontSize: 11, color: "#6b7280" }}>
+                      <Typography className={classes.planSubtle}>
                         {moment(companyPlan.startDate).fromNow()}
                       </Typography>
                     )}
@@ -904,26 +962,14 @@ const Dashboard = () => {
 
                 {/* Card Vencimento */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      padding: "16px 20px",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                      border: "1px solid #e5e7eb",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
+                  <Box className={classes.planCard}>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <EventIcon style={{ fontSize: 20, color: "#ef4444" }} />
-                      <Typography style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+                      <EventIcon className={classes.planIconRed} />
+                      <Typography className={classes.planLabel}>
                         Vencimento
                       </Typography>
                     </Box>
-                    <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>
+                    <Typography className={classes.planValue}>
                       {companyPlan.dueDate
                         ? moment(companyPlan.dueDate).format("DD/MM/YYYY")
                         : "--/--/----"}
@@ -938,26 +984,14 @@ const Dashboard = () => {
 
                 {/* Card Recorrência / Teste */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      padding: "16px 20px",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                      border: "1px solid #e5e7eb",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
+                  <Box className={classes.planCard}>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <LoopIcon style={{ fontSize: 20, color: "#8b5cf6" }} />
-                      <Typography style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+                      <LoopIcon className={classes.planIconPurple} />
+                      <Typography className={classes.planLabel}>
                         Recorrência
                       </Typography>
                     </Box>
-                    <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>
+                    <Typography className={classes.planValue}>
                       {companyPlan.recurrence === "MENSAL"
                         ? "Mensal"
                         : companyPlan.recurrence === "TRIMESTRAL"
@@ -1024,8 +1058,9 @@ const Dashboard = () => {
             {chartData && (
               <>
                 {/* ====== MÉTRICAS COMERCIAIS E CRM ====== */}
-                <Typography className={classes.sectionTitle}>Comercial e Funil CRM</Typography>
-                <Grid container spacing={2} style={{ marginBottom: 32 }}>
+                <div className={classes.sectionShell}>
+                  <Typography className={classes.sectionTitle}>Comercial e Funil CRM</Typography>
+                  <Grid container spacing={2} style={{ marginBottom: 2 }}>
                   <Grid item xs={12} sm={6} md={3}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Leads Gerados (Mês)</Typography>
@@ -1051,7 +1086,7 @@ const Dashboard = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Conversões CRM</Typography>
-                      <Typography className={classes.indicatorValue} style={{ color: "#059669" }}>
+                      <Typography className={classes.indicatorValue} style={{ color: "#0b7f45" }}>
                         {conversoesCRM.toLocaleString("pt-BR")}
                       </Typography>
                       <div className={classes.indicatorTrend}>
@@ -1060,21 +1095,23 @@ const Dashboard = () => {
                     </div>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard} style={{ background: "linear-gradient(to right bottom, #1e293b, #0f172a)", color: "#fff", border: "none" }}>
-                      <Typography className={classes.indicatorLabel} style={{ color: "#94a3b8" }}>Taxa de Conversão</Typography>
+                    <div className={`${classes.indicatorCard} ${classes.darkMetricCard}`}>
+                      <Typography className={classes.indicatorLabel} style={{ color: "#d3f0df" }}>Taxa de Conversão</Typography>
                       <Typography className={classes.indicatorValue} style={{ color: "#fff" }}>
                         {taxaConversaoFormatada}%
                       </Typography>
                       <div className={classes.indicatorTrend}>
-                        <span style={{ color: "#cbd5e1" }}>Eficiência comercial</span>
+                        <span style={{ color: "#e8f8ef" }}>Eficiência comercial</span>
                       </div>
                     </div>
                   </Grid>
                 </Grid>
+                </div>
 
                 {/* ====== MÉTRICAS DE ATENDIMENTO E OPERAÇÃO ====== */}
-                <Typography className={classes.sectionTitle}>Atendimento e Operação</Typography>
-                <Grid container spacing={2} style={{ marginBottom: 32 }}>
+                <div className={classes.sectionShell}>
+                  <Typography className={classes.sectionTitle}>Atendimento e Operação</Typography>
+                  <Grid container spacing={2} style={{ marginBottom: 2 }}>
                   <Grid item xs={12} sm={6} md={3}>
                     <div className={classes.indicatorCard}>
                       <Typography className={classes.indicatorLabel}>Total Atendimentos</Typography>
@@ -1119,11 +1156,11 @@ const Dashboard = () => {
                     </div>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
-                    <div className={classes.indicatorCard} style={{ background: "#f8fafc" }}>
+                    <div className={`${classes.indicatorCard} ${classes.subtleMetricCard}`}>
                       <Typography className={classes.indicatorLabel}>Crescimento Base de Contatos</Typography>
                       <Typography className={classes.indicatorValue}>
-                        <span style={{ color: "#3b82f6" }}>{(chartData.newContactsThisMonth || 0).toLocaleString("pt-BR")}</span>
-                        <span style={{ fontSize: "16px", color: "#94a3b8", fontWeight: 700 }}> / {(chartData.totalContacts || 0).toLocaleString("pt-BR")}</span>
+                        <span style={{ color: "#1f9d55" }}>{(chartData.newContactsThisMonth || 0).toLocaleString("pt-BR")}</span>
+                        <span style={{ fontSize: "16px", color: "#7a9587", fontWeight: 700 }}> / {(chartData.totalContacts || 0).toLocaleString("pt-BR")}</span>
                       </Typography>
                       <div className={classes.indicatorTrend}>
                         {(() => {
@@ -1141,6 +1178,7 @@ const Dashboard = () => {
                     </div>
                   </Grid>
                 </Grid>
+                </div>
 
                 {/* Gráficos */}
                 <Grid container spacing={3} style={{ marginBottom: 24 }}>
@@ -1168,9 +1206,9 @@ const Dashboard = () => {
                                 fontWeight: 600,
                                 borderRadius: 8,
                                 textTransform: "none",
-                                ...(chartPeriod === p
-                                  ? { background: "#6366f1", color: "#fff", border: "none" }
-                                  : { color: "#9ca3af", borderColor: "#e5e7eb" }),
+                              ...(chartPeriod === p
+                                  ? { background: "#1f9d55", color: "#fff", border: "none", boxShadow: "0 6px 16px rgba(31,157,85,.24)" }
+                                  : { color: "#6d8779", borderColor: "#d5e6dc", background: "#f6fbf8" }),
                               }}
                             >
                               {p}
@@ -1210,12 +1248,12 @@ const Dashboard = () => {
                               return (
                                 <div key={tag.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: i < chartData.tagsSummary.length - 1 ? "1px solid #f1f5f9" : "none" }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color || "#6366f1" }} />
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color || "#1f9d55" }} />
                                     <Typography style={{ fontSize: 13, color: "#374151" }}>{tag.name}</Typography>
                                   </div>
                                   <div style={{ display: "flex", gap: 12 }}>
-                                    <Typography style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{tag.count.toLocaleString("pt-BR")}</Typography>
-                                    <Typography style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>{perc}%</Typography>
+                                    <Typography style={{ fontSize: 13, fontWeight: 700, color: "#183827" }}>{tag.count.toLocaleString("pt-BR")}</Typography>
+                                    <Typography style={{ fontSize: 13, fontWeight: 700, color: "#1f9d55" }}>{perc}%</Typography>
                                   </div>
                                 </div>
                               );
@@ -1224,13 +1262,13 @@ const Dashboard = () => {
                         </>
                       ) : (
                         <div style={{ textAlign: "center", padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <FilterListIcon style={{ color: "#cbd5e1", fontSize: 32 }} />
+                          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#edf8f1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <FilterListIcon style={{ color: "#9cc7ad", fontSize: 32 }} />
                           </div>
-                          <Typography style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>
+                          <Typography style={{ fontSize: 14, color: "#5e7b6d", fontWeight: 500 }}>
                             Sem dados de segmentação
                           </Typography>
-                          <Typography style={{ fontSize: 12, color: "#94a3b8" }}>
+                          <Typography style={{ fontSize: 12, color: "#7f988b" }}>
                             Nenhum contato possui tag associada
                           </Typography>
                         </div>
@@ -1248,12 +1286,12 @@ const Dashboard = () => {
                       {/* Tooltip do estado */}
                       {hoveredState && (
                         <div style={{
-                          position: "absolute", top: 50, right: 16, background: "#1a1a2e", color: "#fff",
+                          position: "absolute", top: 50, right: 16, background: "#1a5f35", color: "#fff",
                           padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 500, zIndex: 10,
                           boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
                         }}>
                           <div style={{ fontWeight: 600 }}>{stateNames[hoveredState] || hoveredState}</div>
-                          <div style={{ color: "#93c5fd" }}>{getStateCount(hoveredState).toLocaleString("pt-BR")} contatos</div>
+                          <div style={{ color: "#c8f2da" }}>{getStateCount(hoveredState).toLocaleString("pt-BR")} contatos</div>
                         </div>
                       )}
 
@@ -1295,7 +1333,7 @@ const Dashboard = () => {
                           >
                             <rect
                               x={s.x} y={s.y} width={s.w} height={s.h} rx={4}
-                              fill={hoveredState === s.code ? "#3b82f6" : getStateColor(s.code)}
+                              fill={hoveredState === s.code ? "#1f9d55" : getStateColor(s.code)}
                               stroke="#fff" strokeWidth={2}
                               style={{ transition: "fill 0.2s ease" }}
                             />
@@ -1317,10 +1355,10 @@ const Dashboard = () => {
                           {chartData.contactsByState.slice(0, 5).map((s, i) => (
                             <div key={s.state} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"][i] || "#e2e8f0" }} />
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: ["#1f9d55", "#2cab63", "#48b978", "#7bcaa0", "#b2e0c6"][i] || "#d8e8df" }} />
                                 <Typography style={{ fontSize: 12, color: "#374151" }}>{stateNames[s.state] || s.state}</Typography>
                               </div>
-                              <Typography style={{ fontSize: 12, fontWeight: 600, color: "#1a1a2e" }}>{s.count.toLocaleString("pt-BR")}</Typography>
+                              <Typography style={{ fontSize: 12, fontWeight: 700, color: "#1a3526" }}>{s.count.toLocaleString("pt-BR")}</Typography>
                             </div>
                           ))}
                         </div>
