@@ -96,10 +96,12 @@ https://seu-dominio.com/api/external
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/api/messages/send` | Enviar mensagem de texto |
-| POST | `/api/messages/send-media` | Enviar mídia |
+| POST | `/api/external/messages/send` | Enviar mensagem de texto/mídia (rota recomendada) |
+| POST | `/api/external/messages/send/linkImage` | Enviar imagem por URL |
+| POST | `/api/external/messages/check-number` | Validar número |
+| POST | `/api/messages/send` | Enviar mensagem (legado, compatibilidade) |
 
-### POST /api/messages/send
+### POST /api/external/messages/send
 
 ```json
 {

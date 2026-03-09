@@ -28,6 +28,7 @@ import path from "path";
 import Contact from "../models/Contact";
 import FindOrCreateATicketTrakingService from "../services/TicketServices/FindOrCreateATicketTrakingService";
 import { Mutex } from "async-mutex";
+import CompanyApiKey from "../models/CompanyApiKey";
 
 type WhatsappData = {
   whatsappId: number;
@@ -55,6 +56,29 @@ interface ContactData {
   number: string;
   isGroup: boolean;
 }
+
+const resolveAuthorizedWhatsApp = async (token: string): Promise<Whatsapp> => {
+  const whatsappByToken = await Whatsapp.findOne({ where: { token } });
+  if (whatsappByToken) {
+    return whatsappByToken;
+  }
+
+  const companyApiKey = await CompanyApiKey.findOne({
+    where: { token, active: true }
+  });
+
+  if (!companyApiKey) {
+    throw new AppError("ERR_SESSION_EXPIRED", 401);
+  }
+
+  const defaultWhatsapp = await GetDefaultWhatsApp(undefined, companyApiKey.companyId);
+
+  if (!defaultWhatsapp) {
+    throw new AppError("ERR_NO_WHATSAPP_FOR_COMPANY", 404);
+  }
+
+  return defaultWhatsapp;
+};
 
 const createContact = async (
   whatsappId: number | undefined,
@@ -247,7 +271,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const authHeader = req.headers.authorization;
   const [, token] = authHeader.split(" ");
-  const whatsapp = await Whatsapp.findOne({ where: { token } });
+  const whatsapp = await resolveAuthorizedWhatsApp(token);
   const companyId = whatsapp.companyId;
 
   newContact.number = newContact.number.replace(" ", "");
@@ -528,7 +552,7 @@ export const indexImage = async (req: Request, res: Response): Promise<Response>
 
   const authHeader = req.headers.authorization;
   const [, token] = authHeader.split(" ");
-  const whatsapp = await Whatsapp.findOne({ where: { token } });
+  const whatsapp = await resolveAuthorizedWhatsApp(token);
   const companyId = whatsapp.companyId;
 
   newContact.number = newContact.number.replace("-", "").replace(" ", "");
@@ -601,7 +625,7 @@ export const checkNumber = async (req: Request, res: Response): Promise<Response
 
   const authHeader = req.headers.authorization;
   const [, token] = authHeader.split(" ");
-  const whatsapp = await Whatsapp.findOne({ where: { token } });
+  const whatsapp = await resolveAuthorizedWhatsApp(token);
   const companyId = whatsapp.companyId;
 
   const number = newContact.number.replace("-", "").replace(" ", "");

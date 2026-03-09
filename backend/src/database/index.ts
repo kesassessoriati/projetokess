@@ -124,6 +124,8 @@ import KanbanAutomation from "../models/KanbanAutomation";
 import SmtpSetting from "../models/SmtpSetting";
 import WhatsappWarmup from "../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
+import WhatsappWarmupSession from "../models/WhatsappWarmupSession";
+import WhatsappWarmupSessionLog from "../models/WhatsappWarmupSessionLog";
 import FollowUpCampaign from "../models/FollowUpCampaign";
 import FollowUpStage from "../models/FollowUpStage";
 import FollowUpLog from "../models/FollowUpLog";
@@ -290,6 +292,8 @@ const models = [
   KanbanAutomation,
   WhatsappWarmup,
   WhatsappWarmupLog,
+  WhatsappWarmupSession,
+  WhatsappWarmupSessionLog,
   FollowUpCampaign,
   FollowUpStage,
   FollowUpLog,

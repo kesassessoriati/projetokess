@@ -25,6 +25,8 @@ import {
   Divider,
   Tooltip,
   IconButton,
+  Checkbox,
+  ListItemText,
 } from "@material-ui/core";
 import {
   BarChart,
@@ -44,6 +46,10 @@ import AddIcon from "@material-ui/icons/Add";
 import AutorenewIcon from "@material-ui/icons/Autorenew";
 import SaveIcon from "@material-ui/icons/Save";
 import FiberManualRecordIcon from "@material-ui/icons/FiberManualRecord";
+import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
+import StopIcon from "@material-ui/icons/Stop";
+import ScheduleIcon from "@material-ui/icons/Schedule";
 
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -608,6 +614,42 @@ const DEFAULT_FORM = {
   rampUpStart: 5,
 };
 
+const SESSION_SCRIPT_MODES = [
+  { value: "manual", label: "Script Manual" },
+  { value: "standard", label: "Script Padrão" },
+  { value: "random", label: "Script Aleatório" },
+  { value: "ai", label: "Script com IA" },
+  { value: "hybrid", label: "Script Híbrido" },
+];
+
+const SESSION_STATUS_COLORS = {
+  draft: "#9ca3af",
+  scheduled: "#f59e0b",
+  running: "#22c55e",
+  paused: "#fb7185",
+  completed: "#3b82f6",
+  failed: "#ef4444",
+  canceled: "#6b7280",
+};
+
+const DEFAULT_SESSION_FORM = {
+  name: "",
+  connectionIds: [],
+  starterWhatsappId: "",
+  turns: 2,
+  minIntervalSeconds: 6,
+  maxIntervalSeconds: 15,
+  scriptMode: "standard",
+  scheduleAt: "",
+  tema: "",
+  tom: "profissional amigável",
+  contexto: "",
+  idioma: "pt-BR",
+  quantidadeMensagens: 12,
+  objetivo: "simular conversa natural",
+  estiloConversa: "curta e objetiva",
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(isoString) {
@@ -627,6 +669,15 @@ function formatDate(isoString) {
     return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   } catch {
     return isoString;
+  }
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return "—";
+  try {
+    return new Date(isoString).toLocaleString("pt-BR");
+  } catch {
+    return "—";
   }
 }
 
@@ -1223,6 +1274,409 @@ function ScriptsTab({ warmup, selectedId, onSaved }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+function SessionStatusBadge({ status }) {
+  const classes = useStyles();
+  const color = SESSION_STATUS_COLORS[status] || "#9ca3af";
+  return (
+    <Box className={classes.badge} style={{ backgroundColor: `${color}22`, color }}>
+      {String(status || "draft").toUpperCase()}
+    </Box>
+  );
+}
+
+function WarmupSessionBuilder({
+  connections,
+  sessions,
+  onRefreshSessions,
+  onRefreshMetrics,
+  onSelectSession,
+}) {
+  const classes = useStyles();
+  const [form, setForm] = useState(DEFAULT_SESSION_FORM);
+  const [saving, setSaving] = useState(false);
+  const [manualSteps, setManualSteps] = useState([]);
+  const [draftStep, setDraftStep] = useState({ type: "send", fromWhatsappId: "", toWhatsappId: "", message: "", seconds: 8 });
+  const [generatingSteps, setGeneratingSteps] = useState(false);
+
+  useEffect(() => {
+    if (!form.starterWhatsappId && form.connectionIds.length) {
+      setForm(prev => ({ ...prev, starterWhatsappId: form.connectionIds[0] }));
+    }
+  }, [form.connectionIds, form.starterWhatsappId]);
+
+  const handleChange = (field) => (e) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleAddStep = () => {
+    if (draftStep.type === "wait") {
+      setManualSteps(prev => [...prev, { type: "wait", seconds: Number(draftStep.seconds) || 8 }]);
+      return;
+    }
+    if (!draftStep.fromWhatsappId || !draftStep.toWhatsappId || !String(draftStep.message || "").trim()) {
+      toast.warning("Preencha remetente, destinatário e mensagem.");
+      return;
+    }
+    setManualSteps(prev => [
+      ...prev,
+      {
+        type: "send",
+        fromWhatsappId: Number(draftStep.fromWhatsappId),
+        toWhatsappId: Number(draftStep.toWhatsappId),
+        message: String(draftStep.message || "").trim(),
+      },
+    ]);
+    setDraftStep(prev => ({ ...prev, message: "" }));
+  };
+
+  const handleGenerateScript = async () => {
+    if (form.connectionIds.length < 2) {
+      toast.warning("Selecione pelo menos 2 conexões para gerar script.");
+      return;
+    }
+    setGeneratingSteps(true);
+    try {
+      const { data } = await api.post("/whatsapp-warmup/generate-script", {
+        mode: form.scriptMode,
+        connectionIds: form.connectionIds,
+        starterWhatsappId: form.starterWhatsappId,
+        turns: form.turns,
+        minIntervalSeconds: form.minIntervalSeconds,
+        maxIntervalSeconds: form.maxIntervalSeconds,
+        aiConfig: {
+          tema: form.tema,
+          tom: form.tom,
+          contexto: form.contexto,
+          idioma: form.idioma,
+          quantidadeMensagens: form.quantidadeMensagens,
+          objetivo: form.objetivo,
+          estiloConversa: form.estiloConversa,
+        },
+      });
+      if (Array.isArray(data.steps)) {
+        setManualSteps(data.steps);
+      }
+      toast.success("Script gerado com sucesso.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao gerar script.");
+    } finally {
+      setGeneratingSteps(false);
+    }
+  };
+
+  const handleCreateSession = async (autoStart = false) => {
+    if (form.connectionIds.length < 2) {
+      toast.warning("Selecione pelo menos 2 conexões.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name || `Sessão ${new Date().toLocaleString("pt-BR")}`,
+        connectionIds: form.connectionIds,
+        starterWhatsappId: form.starterWhatsappId,
+        turns: Number(form.turns) || 2,
+        minIntervalSeconds: Number(form.minIntervalSeconds) || 6,
+        maxIntervalSeconds: Number(form.maxIntervalSeconds) || 15,
+        scriptMode: form.scriptMode,
+        scheduleAt: form.scheduleAt ? new Date(form.scheduleAt).toISOString() : null,
+        scriptSteps: manualSteps,
+        aiConfig: {
+          tema: form.tema,
+          tom: form.tom,
+          contexto: form.contexto,
+          idioma: form.idioma,
+          quantidadeMensagens: Number(form.quantidadeMensagens) || 12,
+          objetivo: form.objetivo,
+          estiloConversa: form.estiloConversa,
+        },
+        autoStart,
+      };
+      const { data } = await api.post("/whatsapp-warmup/sessions", payload);
+      toast.success(form.scheduleAt ? "Sessão agendada com sucesso." : "Sessão criada com sucesso.");
+      if (data?.id) onSelectSession(data.id);
+      setForm(DEFAULT_SESSION_FORM);
+      setManualSteps([]);
+      onRefreshSessions();
+      onRefreshMetrics();
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao criar sessão.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box style={{ marginTop: 24, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, padding: 20 }}>
+      <Typography style={{ fontSize: 16, fontWeight: 700, color: "#f0f0f0", marginBottom: 12 }}>
+        Sessões de Aquecimento
+      </Typography>
+      <Typography style={{ color: "#9ca3af", fontSize: 13, marginBottom: 18 }}>
+        Configure sessões entre conexões, com script por etapas, modo de script, agendamento e controles de execução.
+      </Typography>
+
+      <Box style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+        <TextField
+          label="Nome da sessão"
+          variant="outlined"
+          value={form.name}
+          onChange={handleChange("name")}
+          className={classes.darkInput}
+          fullWidth
+        />
+
+        <FormControl variant="outlined" className={classes.darkInput} fullWidth>
+          <InputLabel>Conexões</InputLabel>
+          <Select
+            multiple
+            value={form.connectionIds}
+            onChange={handleChange("connectionIds")}
+            label="Conexões"
+            renderValue={(selected) => `${selected.length} selecionadas`}
+            MenuProps={{ classes: { paper: classes.menuPaper } }}
+          >
+            {connections.map((conn) => (
+              <MenuItem key={conn.whatsappId} value={conn.whatsappId}>
+                <Checkbox checked={form.connectionIds.includes(conn.whatsappId)} color="primary" />
+                <ListItemText primary={`${conn.name || `Chip ${conn.whatsappId}`} (${conn.number || "sem número"})`} />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl variant="outlined" className={classes.darkInput} fullWidth>
+          <InputLabel>Quem inicia</InputLabel>
+          <Select
+            value={form.starterWhatsappId}
+            onChange={handleChange("starterWhatsappId")}
+            label="Quem inicia"
+            MenuProps={{ classes: { paper: classes.menuPaper } }}
+          >
+            {form.connectionIds.map((id) => {
+              const conn = connections.find(c => c.whatsappId === id);
+              return (
+                <MenuItem key={id} value={id}>
+                  {conn ? `${conn.name || `Chip ${id}`} (${conn.number || ""})` : `Conexão #${id}`}
+                </MenuItem>
+              );
+            })}
+          </Select>
+        </FormControl>
+
+        <TextField label="Turnos" type="number" variant="outlined" className={classes.darkInput} value={form.turns} onChange={handleChange("turns")} fullWidth />
+        <TextField label="Intervalo mínimo (s)" type="number" variant="outlined" className={classes.darkInput} value={form.minIntervalSeconds} onChange={handleChange("minIntervalSeconds")} fullWidth />
+        <TextField label="Intervalo máximo (s)" type="number" variant="outlined" className={classes.darkInput} value={form.maxIntervalSeconds} onChange={handleChange("maxIntervalSeconds")} fullWidth />
+
+        <FormControl variant="outlined" className={classes.darkInput} fullWidth>
+          <InputLabel>Modo de script</InputLabel>
+          <Select
+            value={form.scriptMode}
+            onChange={handleChange("scriptMode")}
+            label="Modo de script"
+            MenuProps={{ classes: { paper: classes.menuPaper } }}
+          >
+            {SESSION_SCRIPT_MODES.map((mode) => (
+              <MenuItem key={mode.value} value={mode.value}>{mode.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <TextField
+          label="Agendar para"
+          type="datetime-local"
+          variant="outlined"
+          className={classes.darkInput}
+          value={form.scheduleAt}
+          onChange={handleChange("scheduleAt")}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Box>
+
+      <Box style={{ marginTop: 14, borderTop: "1px solid #2a2a2a", paddingTop: 14 }}>
+        <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
+          Gerador com IA
+        </Typography>
+        <Box style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <TextField label="Tema" variant="outlined" className={classes.darkInput} value={form.tema} onChange={handleChange("tema")} fullWidth />
+          <TextField label="Tom" variant="outlined" className={classes.darkInput} value={form.tom} onChange={handleChange("tom")} fullWidth />
+          <TextField label="Contexto" variant="outlined" className={classes.darkInput} value={form.contexto} onChange={handleChange("contexto")} fullWidth />
+          <TextField label="Idioma" variant="outlined" className={classes.darkInput} value={form.idioma} onChange={handleChange("idioma")} fullWidth />
+          <TextField label="Quantidade de mensagens" type="number" variant="outlined" className={classes.darkInput} value={form.quantidadeMensagens} onChange={handleChange("quantidadeMensagens")} fullWidth />
+          <TextField label="Objetivo" variant="outlined" className={classes.darkInput} value={form.objetivo} onChange={handleChange("objetivo")} fullWidth />
+          <TextField label="Estilo da conversa" variant="outlined" className={classes.darkInput} value={form.estiloConversa} onChange={handleChange("estiloConversa")} fullWidth />
+        </Box>
+      </Box>
+
+      <Box style={{ marginTop: 16, borderTop: "1px solid #2a2a2a", paddingTop: 14 }}>
+        <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
+          Editor de script por etapas
+        </Typography>
+        <Box style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 2fr 160px", gap: 8, alignItems: "center" }}>
+          <FormControl variant="outlined" className={classes.darkInput} fullWidth>
+            <InputLabel>Tipo</InputLabel>
+            <Select value={draftStep.type} onChange={(e) => setDraftStep(prev => ({ ...prev, type: e.target.value }))} label="Tipo">
+              <MenuItem value="send">Conexão envia</MenuItem>
+              <MenuItem value="wait">Aguardar</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" className={classes.darkInput} fullWidth disabled={draftStep.type === "wait"}>
+            <InputLabel>De</InputLabel>
+            <Select value={draftStep.fromWhatsappId} onChange={(e) => setDraftStep(prev => ({ ...prev, fromWhatsappId: e.target.value }))} label="De">
+              {form.connectionIds.map((id) => <MenuItem key={`from-${id}`} value={id}>Conexão #{id}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" className={classes.darkInput} fullWidth disabled={draftStep.type === "wait"}>
+            <InputLabel>Para</InputLabel>
+            <Select value={draftStep.toWhatsappId} onChange={(e) => setDraftStep(prev => ({ ...prev, toWhatsappId: e.target.value }))} label="Para">
+              {form.connectionIds.map((id) => <MenuItem key={`to-${id}`} value={id}>Conexão #{id}</MenuItem>)}
+            </Select>
+          </FormControl>
+          {draftStep.type === "wait" ? (
+            <TextField label="Segundos" type="number" variant="outlined" className={classes.darkInput} value={draftStep.seconds} onChange={(e) => setDraftStep(prev => ({ ...prev, seconds: e.target.value }))} fullWidth />
+          ) : (
+            <TextField label="Mensagem" variant="outlined" className={classes.darkInput} value={draftStep.message} onChange={(e) => setDraftStep(prev => ({ ...prev, message: e.target.value }))} fullWidth />
+          )}
+          <Button className={classes.secondaryBtn} onClick={handleAddStep} startIcon={<AddIcon />}>Adicionar</Button>
+        </Box>
+
+        <Box style={{ marginTop: 10, background: "#141414", border: "1px solid #262626", borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
+          {manualSteps.length === 0 ? (
+            <Typography style={{ color: "#666", fontSize: 12, padding: 12 }}>Nenhuma etapa adicionada.</Typography>
+          ) : manualSteps.map((step, idx) => (
+            <Box key={`step-${idx}`} style={{ padding: "8px 12px", borderBottom: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography style={{ color: "#d4d4d4", fontSize: 12 }}>
+                {step.type === "wait"
+                  ? `${idx + 1}. Aguardar ${step.seconds}s`
+                  : `${idx + 1}. #${step.fromWhatsappId} envia para #${step.toWhatsappId}: ${step.message}`}
+              </Typography>
+              <IconButton size="small" onClick={() => setManualSteps(prev => prev.filter((_, i) => i !== idx))}>
+                <DeleteIcon fontSize="small" style={{ color: "#f87171" }} />
+              </IconButton>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
+      <Box style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
+        <Button className={classes.secondaryBtn} onClick={handleGenerateScript} startIcon={<AutorenewIcon />} disabled={generatingSteps}>
+          {generatingSteps ? "Gerando..." : "Gerar script por modo"}
+        </Button>
+        <Box style={{ display: "flex", gap: 8 }}>
+          <Button className={classes.secondaryBtn} startIcon={<ScheduleIcon />} onClick={() => handleCreateSession(false)} disabled={saving}>
+            {form.scheduleAt ? "Salvar agendamento" : "Salvar sessão"}
+          </Button>
+          <Button className={classes.primaryBtn} startIcon={<PlayArrowIcon />} onClick={() => handleCreateSession(true)} disabled={saving || !!form.scheduleAt}>
+            Iniciar agora
+          </Button>
+        </Box>
+      </Box>
+
+      <Typography style={{ marginTop: 14, color: "#6b7280", fontSize: 12 }}>
+        Sessões criadas: {sessions.length}
+      </Typography>
+    </Box>
+  );
+}
+
+function WarmupSessionsHistory({ sessions, selectedSessionId, onSelectSession, onRefreshSessions, onRefreshMetrics, sessionLogs }) {
+  const classes = useStyles();
+  const [actionLoading, setActionLoading] = useState({});
+
+  const doAction = async (sessionId, action) => {
+    setActionLoading(prev => ({ ...prev, [`${sessionId}-${action}`]: true }));
+    try {
+      await api.post(`/whatsapp-warmup/sessions/${sessionId}/${action}`);
+      toast.success("Ação executada com sucesso.");
+      onRefreshSessions();
+      onRefreshMetrics();
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao executar ação da sessão.");
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`${sessionId}-${action}`]: false }));
+    }
+  };
+
+  return (
+    <Box style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 12 }}>
+      <Box style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden" }}>
+        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #2a2a2a" }}>
+          <Typography style={{ color: "#f0f0f0", fontWeight: 700, fontSize: 14 }}>Sessões criadas</Typography>
+        </Box>
+        <Box style={{ maxHeight: 360, overflowY: "auto" }}>
+          {sessions.length === 0 ? (
+            <Typography style={{ color: "#666", fontSize: 12, padding: 14 }}>Nenhuma sessão cadastrada.</Typography>
+          ) : sessions.map((session) => (
+            <Box
+              key={session.id}
+              onClick={() => onSelectSession(session.id)}
+              style={{
+                padding: 12,
+                borderBottom: "1px solid #232323",
+                cursor: "pointer",
+                background: selectedSessionId === session.id ? "#202020" : "transparent",
+              }}
+            >
+              <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <Typography style={{ color: "#f5f5f5", fontSize: 13, fontWeight: 600 }}>
+                  {session.name || `Sessão #${session.id}`}
+                </Typography>
+                <SessionStatusBadge status={session.status} />
+              </Box>
+              <Typography style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
+                Modo: {session.scriptMode} • Turnos: {session.turns} • Msgs: {session.messagesSent || 0}
+              </Typography>
+              <Typography style={{ color: "#6b7280", fontSize: 11, marginTop: 2 }}>
+                Agendada: {formatDateTime(session.scheduledAt)}
+              </Typography>
+
+              <Box style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <Button size="small" className={classes.secondaryBtn} startIcon={<PlayArrowIcon />} disabled={!!actionLoading[`${session.id}-start`]} onClick={(e) => { e.stopPropagation(); doAction(session.id, "start"); }}>
+                  Iniciar
+                </Button>
+                <Button size="small" className={classes.secondaryBtn} startIcon={<PauseCircleOutlineIcon />} disabled={!!actionLoading[`${session.id}-pause`]} onClick={(e) => { e.stopPropagation(); doAction(session.id, "pause"); }}>
+                  Pausar
+                </Button>
+                <Button size="small" className={classes.secondaryBtn} startIcon={<AutorenewIcon />} disabled={!!actionLoading[`${session.id}-resume`]} onClick={(e) => { e.stopPropagation(); doAction(session.id, "resume"); }}>
+                  Retomar
+                </Button>
+                <Button size="small" className={classes.secondaryBtn} startIcon={<StopIcon />} disabled={!!actionLoading[`${session.id}-stop`]} onClick={(e) => { e.stopPropagation(); doAction(session.id, "stop"); }}>
+                  Encerrar
+                </Button>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
+      <Box style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden" }}>
+        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #2a2a2a" }}>
+          <Typography style={{ color: "#f0f0f0", fontWeight: 700, fontSize: 14 }}>
+            Histórico da sessão {selectedSessionId ? `#${selectedSessionId}` : ""}
+          </Typography>
+        </Box>
+        <Box style={{ maxHeight: 360, overflowY: "auto", padding: 10 }}>
+          {!selectedSessionId ? (
+            <Typography style={{ color: "#666", fontSize: 12 }}>Selecione uma sessão para ver os logs.</Typography>
+          ) : sessionLogs.length === 0 ? (
+            <Typography style={{ color: "#666", fontSize: 12 }}>Sem logs para esta sessão.</Typography>
+          ) : sessionLogs.map((log) => (
+            <Box key={log.id} style={{ borderBottom: "1px solid #232323", padding: "8px 2px" }}>
+              <Typography style={{ color: "#7dd3fc", fontSize: 11 }}>{formatDateTime(log.createdAt)}</Typography>
+              <Typography style={{ color: "#d4d4d4", fontSize: 12 }}>
+                [{log.type}] {log.message}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 export default function AquecimentoWhatsApp() {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
@@ -1245,6 +1699,10 @@ export default function AquecimentoWhatsApp() {
 
   // Toggle loading state per connection
   const [toggling, setToggling] = useState({});
+  const [sessions, setSessions] = useState([]);
+  const [sessionMetrics, setSessionMetrics] = useState(null);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [sessionLogs, setSessionLogs] = useState([]);
 
   // ── Fetch summary ──────────────────────────────────────────────────────────
   const fetchSummary = useCallback(async () => {
@@ -1263,6 +1721,42 @@ export default function AquecimentoWhatsApp() {
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const { data } = await api.get("/whatsapp-warmup/sessions?limit=100");
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao carregar sessões:", error);
+      setSessions([]);
+    }
+  }, []);
+
+  const fetchSessionMetrics = useCallback(async () => {
+    try {
+      const { data } = await api.get("/whatsapp-warmup/metrics");
+      setSessionMetrics(data || null);
+    } catch (error) {
+      console.error("Erro ao carregar métricas do módulo:", error);
+      setSessionMetrics(null);
+    }
+  }, []);
+
+  const fetchSessionLogs = useCallback(async (sessionId) => {
+    if (!sessionId) return;
+    try {
+      const { data } = await api.get(`/whatsapp-warmup/sessions/${sessionId}/logs?limit=300`);
+      setSessionLogs(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao carregar logs da sessão:", error);
+      setSessionLogs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSessions();
+    fetchSessionMetrics();
+  }, [fetchSessions, fetchSessionMetrics]);
 
   // ── Fetch detail when connection selected ─────────────────────────────────
   const fetchDetail = useCallback(async (id) => {
@@ -1316,6 +1810,7 @@ export default function AquecimentoWhatsApp() {
   useEffect(() => {
     if (!socket || !user) return;
     const event = `company-${user.companyId}-warmup-log`;
+    const sessionEvent = `company-${user.companyId}-warmup-session`;
 
     const handleWarmupLog = (data) => {
       if (data.action === "create" && data.log) {
@@ -1342,10 +1837,18 @@ export default function AquecimentoWhatsApp() {
     };
 
     socket.on(event, handleWarmupLog);
+    socket.on(sessionEvent, () => {
+      fetchSessions();
+      fetchSessionMetrics();
+      if (selectedSessionId) {
+        fetchSessionLogs(selectedSessionId);
+      }
+    });
     return () => {
       socket.off(event, handleWarmupLog);
+      socket.off(sessionEvent);
     };
-  }, [socket, user, selectedId]);
+  }, [socket, user, selectedId, fetchSessions, fetchSessionMetrics, selectedSessionId, fetchSessionLogs]);
 
   // ── Toggle warmup on/off ──────────────────────────────────────────────────
   const handleToggle = useCallback(async (e, conn) => {
@@ -1398,6 +1901,14 @@ export default function AquecimentoWhatsApp() {
     [summary, selectedId]
   );
 
+  useEffect(() => {
+    if (selectedSessionId) {
+      fetchSessionLogs(selectedSessionId);
+    } else {
+      setSessionLogs([]);
+    }
+  }, [selectedSessionId, fetchSessionLogs]);
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Box className={classes.root}>
@@ -1435,6 +1946,13 @@ export default function AquecimentoWhatsApp() {
           label="Total simuladas"
           value={loadingSummary ? "..." : computedStats.simuladas}
         />
+      </Box>
+
+      <Box style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
+        <Box className={classes.statCard}><Typography className={classes.statLabel}>Sessões executadas</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsExecuted || 0}</Typography></Box>
+        <Box className={classes.statCard}><Typography className={classes.statLabel}>Sessões com falha</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsFailed || 0}</Typography></Box>
+        <Box className={classes.statCard}><Typography className={classes.statLabel}>Média msg/sessão</Typography><Typography className={classes.statValue}>{sessionMetrics?.avgMessagesPerSession || 0}</Typography></Box>
+        <Box className={classes.statCard}><Typography className={classes.statLabel}>Conexões aquecendo</Typography><Typography className={classes.statValue}>{sessionMetrics?.activeWarmingConnections || 0}</Typography></Box>
       </Box>
 
       {/* Main layout */}
@@ -1595,6 +2113,23 @@ export default function AquecimentoWhatsApp() {
           )}
         </Box>
       </Box>
+
+      <WarmupSessionBuilder
+        connections={summary}
+        sessions={sessions}
+        onRefreshSessions={fetchSessions}
+        onRefreshMetrics={fetchSessionMetrics}
+        onSelectSession={setSelectedSessionId}
+      />
+
+      <WarmupSessionsHistory
+        sessions={sessions}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={setSelectedSessionId}
+        onRefreshSessions={fetchSessions}
+        onRefreshMetrics={fetchSessionMetrics}
+        sessionLogs={sessionLogs}
+      />
     </Box>
   );
 }

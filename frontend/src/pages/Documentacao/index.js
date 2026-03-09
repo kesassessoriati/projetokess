@@ -82,7 +82,7 @@ const DocumentacaoPage = () => {
   const apiCards = [
     {
       title: "API de mensagens",
-      description: "Envie textos e mídias autenticadas pelos tokens da empresa.",
+      description: "Envie textos e mÃ­dias autenticadas pelos tokens da empresa.",
       route: "/api-mensagens"
     },
     {
@@ -97,22 +97,22 @@ const DocumentacaoPage = () => {
     },
     {
       title: "API de tags",
-      description: "Crie e organize etiquetas externas para segmentação e kanban.",
+      description: "Crie e organize etiquetas externas para segmentaÃ§Ã£o e kanban.",
       route: "/api-tags"
     },
     {
       title: "API de produtos",
-      description: "Gerencie o catálogo externo de produtos com indicadores e webhooks.",
+      description: "Gerencie o catÃ¡logo externo de produtos com indicadores e webhooks.",
       route: "/api-produtos"
     },
     {
-      title: "API de serviços",
-      description: "Sincronize serviços ofertados e mantenha o CRM atualizado.",
+      title: "API de serviÃ§os",
+      description: "Sincronize serviÃ§os ofertados e mantenha o CRM atualizado.",
       route: "/api-servicos"
     },
     {
-      title: "API de usuários",
-      description: "Gerencie usuários da empresa via API externa.",
+      title: "API de usuÃ¡rios",
+      description: "Gerencie usuÃ¡rios da empresa via API externa.",
       route: "/api-usuarios"
     },
     {
@@ -121,25 +121,25 @@ const DocumentacaoPage = () => {
       route: "/api-filas"
     },
     {
-      title: "API de negócios",
-      description: "Gerencie negócios (funis) via API externa.",
+      title: "API de negÃ³cios",
+      description: "Gerencie negÃ³cios (funis) via API externa.",
       route: "/api-negocios"
     },
     {
-      title: "API de CRM — Leads",
+      title: "API de CRM â€” Leads",
       description: "Crie e gerencie leads no funil de vendas. Suporte a pipelineId e stageId.",
       route: "/api-crm-leads",
       isNew: true
     },
     {
       title: "API de Pipeline / Funil",
-      description: "Gerencie pipelines, estágios e oportunidades via API externa.",
+      description: "Gerencie pipelines, estÃ¡gios e oportunidades via API externa.",
       route: "/api-pipeline",
       isNew: true
     },
     {
       title: "API de tags kanban",
-      description: "⚠️ Deprecated — use a API de Pipeline. Mantida para compatibilidade.",
+      description: "âš ï¸ Deprecated â€” use a API de Pipeline. Mantida para compatibilidade.",
       route: "/api-tags-kanban",
       isDeprecated: true
     },
@@ -159,8 +159,8 @@ const DocumentacaoPage = () => {
       route: "/api-tickets"
     },
     {
-      title: "API de conexões WhatsApp",
-      description: "Gerencie conexões WhatsApp via API externa.",
+      title: "API de conexÃµes WhatsApp",
+      description: "Gerencie conexÃµes WhatsApp via API externa.",
       route: "/api-conexoes"
     },
     {
@@ -177,7 +177,7 @@ const DocumentacaoPage = () => {
       const companyId = user.companyId;
       const planConfigs = await getPlanCompany(undefined, companyId);
       if (!planConfigs.plan.useExternalApi) {
-        toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
+        toast.error("Esta empresa nÃ£o possui permissÃ£o para acessar essa pÃ¡gina! Estamos lhe redirecionando.");
         setTimeout(() => {
           history.push(`/`)
         }, 1000);
@@ -202,7 +202,7 @@ const DocumentacaoPage = () => {
   };
 
   const handleCreateToken = async () => {
-    const label = window.prompt("Informe um nome para identificar este token", "Integração");
+    const label = window.prompt("Informe um nome para identificar este token", "IntegraÃ§Ã£o");
     if (!label) {
       return;
     }
@@ -229,7 +229,7 @@ const DocumentacaoPage = () => {
   const handleCopyToken = async (token) => {
     try {
       await navigator.clipboard.writeText(token);
-      toast.success("Token copiado para a área de transferência!");
+      toast.success("Token copiado para a Ã¡rea de transferÃªncia!");
     } catch (err) {
       toastError(err);
     }
@@ -262,7 +262,7 @@ const DocumentacaoPage = () => {
   };
 
   const getEndpoint = () => {
-    return process.env.REACT_APP_BACKEND_URL + '/api/messages/send'
+    return process.env.REACT_APP_BACKEND_URL + '/api/external/messages/send'
   }
 
   const handleSendTextMessage = async (values) => {
@@ -556,7 +556,7 @@ const DocumentacaoPage = () => {
 
         <Box className={classes.navCardsWrapper}>
           <Typography variant="subtitle1" gutterBottom>
-            APIs disponíveis
+            APIs disponÃ­veis
           </Typography>
           <Grid container spacing={2}>
             {apiCards.map((card) => (
@@ -595,7 +595,7 @@ const DocumentacaoPage = () => {
             </Box>
           ) : apiKeys.length === 0 ? (
             <Typography color="textSecondary">
-              Nenhum token gerado ainda. Clique em "Gerar novo token" para começar.
+              Nenhum token gerado ainda. Clique em "Gerar novo token" para comeÃ§ar.
             </Typography>
           ) : (
             <Grid container spacing={2}>
@@ -606,7 +606,7 @@ const DocumentacaoPage = () => {
                       {key.label}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Último uso: {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "nunca"}
+                      Ãšltimo uso: {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "nunca"}
                     </Typography>
                     <Box
                       display="flex"
@@ -621,7 +621,7 @@ const DocumentacaoPage = () => {
                       }}
                     >
                       <Typography variant="body2" style={{ fontFamily: "monospace" }}>
-                        {visibleTokens[key.id] ? key.token : "••••••••••••••••••••••"}
+                        {visibleTokens[key.id] ? key.token : "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"}
                       </Typography>
                       <Box>
                         <IconButton onClick={() => toggleTokenVisibility(key.id)}>

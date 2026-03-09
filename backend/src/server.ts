@@ -125,12 +125,18 @@ if (process.env.CERTIFICADOS == "true") {
 }
 
 import { executeWhatsappWarmups } from "./services/WhatsappWarmupServices/WhatsappWarmupService";
+import { processScheduledWarmupSessions } from "./services/WhatsappWarmupServices/WhatsappWarmupSessionEngineService";
 import executeFollowUpCampaigns from "./services/FollowUpCampaignService/ExecuteFollowUpCampaignService";
 import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailChannelService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
   executeWhatsappWarmups();
+});
+
+// Check scheduled warmup sessions every minute
+cron.schedule("* * * * *", () => {
+  processScheduledWarmupSessions();
 });
 
 // Process follow-up campaign stages every 5 minutes

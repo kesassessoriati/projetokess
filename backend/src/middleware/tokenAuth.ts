@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 
 import AppError from "../errors/AppError";
 import Whatsapp from "../models/Whatsapp";
+import CompanyApiKey from "../models/CompanyApiKey";
 import { runWithContext } from "../context";
 
 const isAuthApi = async (
@@ -18,15 +19,19 @@ const isAuthApi = async (
   try {
     const whatsapp = await Whatsapp.findOne({ where: { token } });
 
-    const getToken = whatsapp?.token;
-    if (!getToken) {
+    if (whatsapp?.token === token) {
+      return runWithContext({ companyId: whatsapp.companyId }, () => next());
+    }
+
+    const companyApiKey = await CompanyApiKey.findOne({
+      where: { token, active: true }
+    });
+
+    if (!companyApiKey) {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
-    if (getToken !== token) {
-      throw new AppError("ERR_SESSION_EXPIRED", 401);
-    }
-    return runWithContext({ companyId: whatsapp.companyId }, () => next());
+    return runWithContext({ companyId: companyApiKey.companyId }, () => next());
   } catch (err) {
     throw new AppError(
       "Invalid token. We'll try to assign a new one on next request",

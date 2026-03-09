@@ -68,7 +68,7 @@ const ApiMensagensPage = () => {
       const companyId = user.companyId;
       const planConfigs = await getPlanCompany(undefined, companyId);
       if (!planConfigs.plan.useExternalApi) {
-        toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
+        toast.error("Esta empresa nÃ£o possui permissÃ£o para acessar essa pÃ¡gina! Estamos lhe redirecionando.");
         setTimeout(() => {
           history.push(`/`);
         }, 1000);
@@ -79,7 +79,7 @@ const ApiMensagensPage = () => {
   }, []);
 
   const getEndpoint = () => {
-    return process.env.REACT_APP_BACKEND_URL + "/api/messages/send";
+    return process.env.REACT_APP_BACKEND_URL + "/api/external/messages/send";
   };
 
   const postmanRequests = [
@@ -87,20 +87,20 @@ const ApiMensagensPage = () => {
       name: "Enviar mensagem de texto",
       method: "POST",
       url: getEndpoint(),
-      description: "Dispara uma mensagem de texto simples para o número informado.",
+      description: "Dispara uma mensagem de texto simples para o nÃºmero informado.",
       body: {
         number: "5599999999999",
-        body: "Olá! Esta é uma mensagem de teste",
+        body: "OlÃ¡! Esta Ã© uma mensagem de teste",
         userId: 1,
         queueId: 1,
         noRegister: true
       }
     },
     {
-      name: "Enviar mensagem com mídia",
+      name: "Enviar mensagem com mÃ­dia",
       method: "POST",
       url: getEndpoint(),
-      description: "Envie uma mídia (imagem, PDF, etc). O arquivo deve ser anexado via form-data.",
+      description: "Envie uma mÃ­dia (imagem, PDF, etc). O arquivo deve ser anexado via form-data.",
       bodyMode: "formdata",
       formData: [
         { key: "number", value: "5599999999999", type: "text" },
@@ -374,7 +374,7 @@ const ApiMensagensPage = () => {
         <div>
           <Typography variant="h5">API de Mensagens</Typography>
           <Typography variant="subtitle1" color="textSecondary">
-            Utilize os tokens já gerados para testar os envios de mensagens de texto e mídia.
+            Utilize os tokens jÃ¡ gerados para testar os envios de mensagens de texto e mÃ­dia.
           </Typography>
         </div>
         <Button
@@ -394,11 +394,11 @@ const ApiMensagensPage = () => {
       />
       <Box className="container" style={{ color: "rgba(255,255,255,0.8)" }}>
         <Typography variant="h6" gutterBottom>
-          Visão geral
+          VisÃ£o geral
         </Typography>
         <Typography variant="body2" gutterBottom>
-          Utilize os tokens da conta para enviar mensagens de texto ou mídia para contatos do Whaticket.
-          Lembre-se de manter o header <code>Authorization: Bearer {"{token}"}</code> em todas as requisições.
+          Utilize os tokens da conta para enviar mensagens de texto ou mÃ­dia para contatos do Whaticket.
+          Lembre-se de manter o header <code>Authorization: Bearer {"{token}"}</code> em todas as requisiÃ§Ãµes.
         </Typography>
         <Box component="div" mt={2}>
           <ul style={{ lineHeight: 1.6 }}>
@@ -406,10 +406,10 @@ const ApiMensagensPage = () => {
               <b>Enviar texto:</b> POST {getEndpoint()} &mdash; Content-Type <code>application/json</code>
             </li>
             <li>
-              <b>Enviar mídia:</b> POST {getEndpoint()} &mdash; Content-Type <code>multipart/form-data</code>
+              <b>Enviar mÃ­dia:</b> POST {getEndpoint()} &mdash; Content-Type <code>multipart/form-data</code>
             </li>
             <li>
-              Campos básicos: <code>number</code>, <code>body</code>, <code>userId</code>, <code>queueId</code>, <code>noRegister</code>
+              Campos bÃ¡sicos: <code>number</code>, <code>body</code>, <code>userId</code>, <code>queueId</code>, <code>noRegister</code>
             </li>
           </ul>
         </Box>
@@ -442,8 +442,8 @@ const ApiMensagensPage = () => {
             </ul>
           </li>
           <li>
-            Arquivos enviados com extensão <b>.bin</b> ou tipo
-            <b> application/octet-stream</b> serão automaticamente convertidos
+            Arquivos enviados com extensÃ£o <b>.bin</b> ou tipo
+            <b> application/octet-stream</b> serÃ£o automaticamente convertidos
             e enviados como <b>PDF</b>.
           </li>
         </ul>
@@ -457,12 +457,12 @@ const ApiMensagensPage = () => {
           <Typography className={classes.elementMargin} component="div">
             <p>{i18n.t("messagesAPI.API.text.instructions")}</p>
             <b>Endpoint: </b> {getEndpoint()} <br />
-            <b>Método: </b> POST <br />
+            <b>MÃ©todo: </b> POST <br />
             <b>Headers: </b> Authorization Bearer (token registrado) e Content-Type (application/json) <br />
             <b>Body: </b> {"{"} <br />
             "number": "558599999999" <br />
             "body": "Message" <br />
-            "userId": ID usuário ou "" <br />
+            "userId": ID usuÃ¡rio ou "" <br />
             "queueId": ID Fila ou "" <br />
             "sendSignature": Assinar mensagem - true/false <br />
             "closeTicket": Encerrar o ticket - true/false <br />
@@ -485,7 +485,7 @@ const ApiMensagensPage = () => {
           <Typography className={classes.elementMargin} component="div">
             <p>{i18n.t("messagesAPI.API.media.instructions")}</p>
             <b>Endpoint: </b> {getEndpoint()} <br />
-            <b>Método: </b> POST <br />
+            <b>MÃ©todo: </b> POST <br />
             <b>Headers: </b> Authorization Bearer (token cadastrado) e Content-Type (multipart/form-data) <br />
             <b>FormData: </b> <br />
             <ul>
@@ -496,7 +496,7 @@ const ApiMensagensPage = () => {
                 <b>body:</b> Message
               </li>
               <li>
-                <b>userId:</b> ID usuário ou ""
+                <b>userId:</b> ID usuÃ¡rio ou ""
               </li>
               <li>
                 <b>queueId:</b> ID da fila ou ""
@@ -506,7 +506,7 @@ const ApiMensagensPage = () => {
               </li>
               <li>
                 Se o arquivo for <b>.bin</b> ou <b>application/octet-stream</b>,
-                será convertido automaticamente para <b>PDF</b> antes do envio.
+                serÃ¡ convertido automaticamente para <b>PDF</b> antes do envio.
               </li>
               <li>
                 <b>sendSignature:</b> Assinar mensagem true/false
@@ -529,3 +529,4 @@ const ApiMensagensPage = () => {
 };
 
 export default ApiMensagensPage;
+
