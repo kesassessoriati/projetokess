@@ -1,605 +1,374 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import {
-    makeStyles,
-    Box,
-    Typography,
-    Grid,
-    Paper,
-    Avatar,
-    Chip,
-    IconButton,
-    Tooltip,
-    TextField,
-    Button,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    CircularProgress,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Divider,
-    InputAdornment,
+  makeStyles,
+  Box,
+  Paper,
+  Typography,
+  Tabs,
+  Tab,
+  Grid,
+  Button,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  CircularProgress
 } from "@material-ui/core";
 import GroupIcon from "@material-ui/icons/Group";
 import SearchIcon from "@material-ui/icons/Search";
-import PersonAddIcon from "@material-ui/icons/PersonAdd";
-import RemoveCircleOutlineIcon from "@material-ui/icons/RemoveCircleOutline";
+import RefreshIcon from "@material-ui/icons/Refresh";
+import SendIcon from "@material-ui/icons/Send";
+import AddIcon from "@material-ui/icons/Add";
 import StarIcon from "@material-ui/icons/Star";
 import StarBorderIcon from "@material-ui/icons/StarBorder";
-import LinkIcon from "@material-ui/icons/Link";
-import RefreshIcon from "@material-ui/icons/Refresh";
-import NotificationsActiveIcon from "@material-ui/icons/NotificationsActive";
-import ContentCopyIcon from "@material-ui/icons/FileCopy";
 import { toast } from "react-toastify";
 import api from "../../services/api";
+import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
-    root: {
-        padding: theme.spacing(3),
-        height: "calc(100vh - 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: theme.spacing(2),
-    },
-    header: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1),
-        marginBottom: theme.spacing(1),
-    },
-    pageTitle: {
-        fontSize: "1.5rem",
-        fontWeight: 700,
-        color: "#111827",
-    },
-    layout: {
-        display: "flex",
-        gap: theme.spacing(2),
-        flex: 1,
-        overflow: "hidden",
-    },
-    leftPanel: {
-        width: 300,
-        minWidth: 260,
-        display: "flex",
-        flexDirection: "column",
-        gap: theme.spacing(1.5),
-    },
-    rightPanel: {
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-    },
-    paper: {
-        borderRadius: 12,
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-    },
-    connectionSelect: {
-        padding: theme.spacing(1.5),
-    },
-    groupList: {
-        overflowY: "auto",
-        flex: 1,
-        padding: theme.spacing(1),
-    },
-    groupItem: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1.5),
-        padding: theme.spacing(1, 1.5),
-        borderRadius: 8,
-        cursor: "pointer",
-        transition: "background 0.15s",
-        "&:hover": {
-            backgroundColor: "#f3f4f6",
-        },
-        "&.selected": {
-            backgroundColor: "#eff6ff",
-            border: "1px solid #bfdbfe",
-        },
-    },
-    groupAvatar: {
-        backgroundColor: "#3b82f6",
-        width: 40,
-        height: 40,
-        fontSize: "1rem",
-    },
-    groupName: {
-        fontWeight: 600,
-        fontSize: "0.9rem",
-        color: "#111827",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-    },
-    groupMeta: {
-        fontSize: "0.75rem",
-        color: "#6b7280",
-    },
-    groupHeader: {
-        padding: theme.spacing(2.5),
-        borderBottom: "1px solid #e5e7eb",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    groupInfo: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(2),
-    },
-    groupHeaderName: {
-        fontSize: "1.2rem",
-        fontWeight: 700,
-        color: "#111827",
-    },
-    groupHeaderMeta: {
-        fontSize: "0.8rem",
-        color: "#6b7280",
-    },
-    toolbar: {
-        padding: theme.spacing(1.5, 2.5),
-        borderBottom: "1px solid #e5e7eb",
-        display: "flex",
-        gap: theme.spacing(1),
-        flexWrap: "wrap",
-    },
-    memberList: {
-        overflowY: "auto",
-        flex: 1,
-        padding: theme.spacing(1, 2),
-    },
-    memberRow: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1.5),
-        padding: theme.spacing(1, 1.5),
-        borderRadius: 8,
-        "&:hover": {
-            backgroundColor: "#f9fafb",
-            "& $memberActions": {
-                opacity: 1,
-            },
-        },
-    },
-    memberAvatar: {
-        width: 36,
-        height: 36,
-        backgroundColor: "#e5e7eb",
-        color: "#374151",
-        fontSize: "0.85rem",
-    },
-    memberName: {
-        fontWeight: 500,
-        fontSize: "0.875rem",
-        color: "#111827",
-    },
-    memberNumber: {
-        fontSize: "0.75rem",
-        color: "#9ca3af",
-    },
-    memberActions: {
-        marginLeft: "auto",
-        opacity: 0,
-        transition: "opacity 0.15s",
-        display: "flex",
-        gap: 4,
-    },
-    adminChip: {
-        height: 20,
-        fontSize: "0.7rem",
-        backgroundColor: "#fef3c7",
-        color: "#92400e",
-        border: "1px solid #fde68a",
-    },
-    emptyState: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: theme.spacing(6),
-        color: "#9ca3af",
-        gap: theme.spacing(1),
-    },
+  root: {
+    height: "100%",
+    minHeight: "calc(100vh - 64px)",
+    background: "radial-gradient(circle at top left, #effaf2 0%, #e5f2e9 42%, #ddebe3 100%)",
+    padding: 14,
+    overflow: "hidden"
+  },
+  shell: { height: "100%", display: "flex", flexDirection: "column", gap: 10 },
+  header: {
+    borderRadius: 16,
+    border: "1px solid #cfe2d5",
+    background: "#ffffffeb",
+    boxShadow: "0 10px 24px rgba(16,24,40,0.07)",
+    padding: "14px 16px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  titleRow: { display: "flex", alignItems: "center", gap: 10 },
+  titleIcon: {
+    width: 42, height: 42, borderRadius: 10, background: "#dff4e7", color: "#0f7a40",
+    display: "inline-flex", alignItems: "center", justifyContent: "center"
+  },
+  title: { fontSize: "1rem", fontWeight: 800, color: "#173624" },
+  subtitle: { fontSize: ".75rem", color: "#5d7d6b" },
+  primaryBtn: {
+    textTransform: "none",
+    borderRadius: 10,
+    background: "linear-gradient(135deg, #20a45a 0%, #157a43 100%)",
+    color: "#fff",
+    fontWeight: 700
+  },
+  secondaryBtn: {
+    textTransform: "none",
+    borderRadius: 10,
+    border: "1px solid #bfd7c7",
+    color: "#1c5a35",
+    background: "#f7fcf9",
+    fontWeight: 700
+  },
+  summary: { display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10 },
+  card: { border: "1px solid #cfe2d5", borderRadius: 12, padding: 10, background: "#fff" },
+  cardLabel: { fontSize: ".68rem", color: "#5d7d6b", textTransform: "uppercase" },
+  cardValue: { fontSize: "1.2rem", fontWeight: 800, color: "#173624" },
+  tabsShell: { border: "1px solid #cedfd3", borderRadius: 14, background: "#ffffffdc", padding: 6 },
+  tabs: { "& .MuiTabs-indicator": { display: "none" } },
+  tab: {
+    textTransform: "none", border: "1px solid #d1e2d5", borderRadius: 10, marginRight: 8,
+    minHeight: 44, color: "#365745", fontWeight: 700, background: "#f7fbf8",
+    "&.Mui-selected": { color: "#fff", background: "linear-gradient(135deg, #22ab5d 0%, #15763f 100%)" }
+  },
+  content: { flex: 1, overflowY: "auto", ...theme.scrollbarStyles },
+  panel: { border: "1px solid #cfe2d5", borderRadius: 12, background: "#fff", overflow: "hidden" },
+  panelHead: { padding: "10px 12px", borderBottom: "1px solid #edf3ef", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  panelTitle: { fontSize: ".84rem", fontWeight: 800, color: "#173624" },
+  controls: { display: "grid", gridTemplateColumns: "220px 1fr 100px 100px auto", gap: 8, padding: 10 },
+  list: { maxHeight: "58vh", overflowY: "auto", padding: 8 },
+  row: { border: "1px solid #e4eee8", borderRadius: 10, padding: "8px 10px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  rowActive: { borderColor: "#2ea75e", background: "#eaf8ef" },
+  badge: { fontSize: ".68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#edf8f1", color: "#1c5a35", border: "1px solid #c7dfcf" },
+  log: { maxHeight: 360, overflowY: "auto", borderTop: "1px solid #edf3ef", padding: 8 },
+  logLine: { fontSize: ".73rem", color: "#355946", borderBottom: "1px solid #edf3ef", padding: "7px 2px" }
 }));
 
+const TABS = ["Dashboard", "Grupos", "Campanhas", "Agendamentos", "Templates", "Histórico", "Relatórios"];
+const statusBg = (status) => ({ DRAFT: "#64748b", SCHEDULED: "#f59e0b", PROCESSING: "#0ea5e9", PAUSED: "#a855f7", SENT: "#16a34a", FAILED: "#dc2626", CANCELED: "#6b7280" }[status] || "#64748b");
+
 export default function GroupManagement() {
-    const classes = useStyles();
-    const { user } = useContext(AuthContext);
-    const isAdmin = user?.profile === "admin" || user?.profile === "super";
+  const classes = useStyles();
+  const { socket } = useSocket();
+  const { user } = useContext(AuthContext);
 
-    const [connections, setConnections] = useState([]);
-    const [selectedConnection, setSelectedConnection] = useState("");
-    const [groups, setGroups] = useState([]);
-    const [selectedGroup, setSelectedGroup] = useState(null);
-    const [groupInfo, setGroupInfo] = useState(null);
-    const [loadingGroups, setLoadingGroups] = useState(false);
-    const [loadingInfo, setLoadingInfo] = useState(false);
-    const [searchGroup, setSearchGroup] = useState("");
-    const [searchMember, setSearchMember] = useState("");
-    const [tagAllDialog, setTagAllDialog] = useState(false);
-    const [tagMessage, setTagMessage] = useState("");
-    const [inviteLink, setInviteLink] = useState("");
+  const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [metrics, setMetrics] = useState({});
+  const [groups, setGroups] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [selectedConnection, setSelectedConnection] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupInfo, setGroupInfo] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [reports, setReports] = useState(null);
+  const [campaignLogs, setCampaignLogs] = useState([]);
+  const [search, setSearch] = useState("");
+  const [minMembers, setMinMembers] = useState("");
+  const [maxMembers, setMaxMembers] = useState("");
+  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", groupIds: [] });
+  const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "" });
 
-    const loadGroups = useCallback(async () => {
-        setLoadingGroups(true);
-        try {
-            const { data } = await api.get("/group-management/groups");
-            // Flatten all connections and their groups
-            const allGroups = [];
-            const conns = [];
-            data.forEach((conn) => {
-                conns.push({ id: conn.whatsappId, name: conn.whatsappName });
-                conn.groups.forEach((g) => allGroups.push({ ...g, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
-            });
-            setConnections(conns);
-            setGroups(allGroups);
-        } catch {
-            toast.error("Erro ao carregar grupos");
-        }
-        setLoadingGroups(false);
-    }, []);
+  const refreshAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [m, g, c, s, t, h, r] = await Promise.all([
+        api.get("/group-management/dashboard"),
+        api.get("/group-management/groups"),
+        api.get("/group-management/campaigns"),
+        api.get("/group-management/schedules"),
+        api.get("/group-management/templates"),
+        api.get("/group-management/history?limit=300"),
+        api.get("/group-management/reports")
+      ]);
+      setMetrics(m.data || {});
+      setCampaigns(Array.isArray(c.data) ? c.data : []);
+      setSchedules(Array.isArray(s.data) ? s.data : []);
+      setTemplates(Array.isArray(t.data) ? t.data : []);
+      setHistoryLogs(Array.isArray(h.data) ? h.data : []);
+      setReports(r.data || null);
+      const allGroups = [];
+      const allConnections = [];
+      (g.data || []).forEach((conn) => {
+        allConnections.push({ id: conn.whatsappId, name: conn.whatsappName });
+        (conn.groups || []).forEach((group) => allGroups.push({ ...group, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
+      });
+      setGroups(allGroups);
+      setConnections(allConnections);
+    } catch {
+      toast.error("Falha ao carregar módulo de gestão de grupos.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    useEffect(() => {
-        loadGroups();
-    }, [loadGroups]);
+  useEffect(() => { refreshAll(); }, [refreshAll]);
+  useEffect(() => {
+    if (!socket || !user) return;
+    const channel = `company-${user.companyId}-group-campaign`;
+    socket.on(channel, refreshAll);
+    return () => socket.off(channel, refreshAll);
+  }, [socket, user, refreshAll]);
 
-    const loadGroupInfo = useCallback(async (group) => {
-        setLoadingInfo(true);
-        setGroupInfo(null);
-        setInviteLink("");
-        try {
-            const { data } = await api.get(`/group-management/groups/${encodeURIComponent(group.id)}/info?whatsappId=${group.whatsappId}`);
-            setGroupInfo(data);
-        } catch {
-            toast.error("Erro ao carregar informações do grupo");
-        }
-        setLoadingInfo(false);
-    }, []);
+  const filteredGroups = useMemo(() => groups.filter((g) => {
+    if (selectedConnection && g.whatsappId !== Number(selectedConnection)) return false;
+    if (search && !String(g.subject || "").toLowerCase().includes(search.toLowerCase())) return false;
+    if (minMembers && Number(g.size || 0) < Number(minMembers)) return false;
+    if (maxMembers && Number(g.size || 0) > Number(maxMembers)) return false;
+    return true;
+  }), [groups, selectedConnection, search, minMembers, maxMembers]);
 
-    const handleSelectGroup = (group) => {
-        setSelectedGroup(group);
-        loadGroupInfo(group);
-    };
+  const loadGroupInfo = async (group) => {
+    setSelectedGroup(group);
+    try {
+      const { data } = await api.get(`/group-management/groups/${encodeURIComponent(group.id)}/info`, { params: { whatsappId: group.whatsappId } });
+      setGroupInfo(data);
+    } catch {
+      toast.error("Erro ao carregar detalhes do grupo.");
+      setGroupInfo(null);
+    }
+  };
 
-    const handleKick = async (memberId) => {
-        if (!selectedGroup) return;
-        try {
-            await api.delete(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(memberId)}`, {
-                data: { whatsappId: selectedGroup.whatsappId }
-            });
-            toast.success("Membro removido");
-            loadGroupInfo(selectedGroup);
-        } catch {
-            toast.error("Erro ao remover membro");
-        }
-    };
+  const syncGroups = async () => {
+    try {
+      await api.post("/group-management/sync", { whatsappIds: selectedConnection ? [Number(selectedConnection)] : [] });
+      toast.success("Grupos sincronizados.");
+      refreshAll();
+    } catch { toast.error("Falha ao sincronizar grupos."); }
+  };
 
-    const handlePromote = async (memberId) => {
-        if (!selectedGroup) return;
-        try {
-            await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(memberId)}/promote`, {
-                whatsappId: selectedGroup.whatsappId
-            });
-            toast.success("Membro promovido a admin");
-            loadGroupInfo(selectedGroup);
-        } catch {
-            toast.error("Erro ao promover membro");
-        }
-    };
+  const createCampaign = async () => {
+    try {
+      await api.post("/group-management/campaigns", { ...campaignForm, whatsappId: Number(campaignForm.whatsappId), intervalSeconds: Number(campaignForm.intervalSeconds) || 0, scheduledAt: campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null });
+      toast.success("Campanha criada.");
+      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", groupIds: [] });
+      refreshAll();
+    } catch { toast.error("Erro ao criar campanha."); }
+  };
 
-    const handleDemote = async (memberId) => {
-        if (!selectedGroup) return;
-        try {
-            await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(memberId)}/demote`, {
-                whatsappId: selectedGroup.whatsappId
-            });
-            toast.success("Admin rebaixado");
-            loadGroupInfo(selectedGroup);
-        } catch {
-            toast.error("Erro ao rebaixar admin");
-        }
-    };
+  const campaignAction = async (id, action) => {
+    try { await api.post(`/group-management/campaigns/${id}/${action}`); toast.success("Ação executada."); refreshAll(); } catch { toast.error("Falha na ação."); }
+  };
 
-    const handleTagAll = async () => {
-        if (!selectedGroup) return;
-        try {
-            await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/tag-all`, {
-                whatsappId: selectedGroup.whatsappId,
-                message: tagMessage
-            });
-            toast.success("Mensagem enviada para todos os membros");
-            setTagAllDialog(false);
-            setTagMessage("");
-        } catch {
-            toast.error("Erro ao mencionar todos");
-        }
-    };
+  const saveTemplate = async () => {
+    try { await api.post("/group-management/templates", templateForm); toast.success("Template salvo."); setTemplateForm({ name: "", messageType: "text", message: "" }); refreshAll(); } catch { toast.error("Erro ao salvar template."); }
+  };
 
-    const handleGetInviteLink = async () => {
-        if (!selectedGroup) return;
-        try {
-            const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-link?whatsappId=${selectedGroup.whatsappId}`);
-            setInviteLink(data.inviteLink);
-            if (navigator.clipboard) navigator.clipboard.writeText(data.inviteLink);
-            toast.success("Link copiado para a área de transferência!");
-        } catch {
-            toast.error("Erro ao obter link de convite");
-        }
-    };
+  const renderDashboard = (
+    <Paper className={classes.panel}>
+      <Box className={classes.panelHead}>
+        <Typography className={classes.panelTitle}>Resumo executivo e produtividade</Typography>
+        <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={refreshAll}>Atualizar dados</Button>
+      </Box>
+      <Box style={{ padding: 12 }}>
+        <Typography style={{ color: "#5d7d6b", fontSize: ".8rem" }}>
+          Este painel consolida grupos sincronizados, membros, campanhas e execução operacional em tempo real.
+        </Typography>
+      </Box>
+    </Paper>
+  );
 
-    const handleRevokeInviteLink = async () => {
-        if (!selectedGroup) return;
-        try {
-            const { data } = await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-revoke`, {
-                whatsappId: selectedGroup.whatsappId
-            });
-            setInviteLink(data.newInviteLink || "");
-            toast.success("Link revogado. Novo link gerado.");
-        } catch {
-            toast.error("Erro ao revogar link");
-        }
-    };
-
-    const filteredGroups = groups.filter(
-        (g) => (!selectedConnection || g.whatsappId === selectedConnection) &&
-            g.subject?.toLowerCase().includes(searchGroup.toLowerCase())
-    );
-
-    const filteredMembers = groupInfo?.participants?.filter((m) => {
-        const num = m.id.split("@")[0];
-        return num.includes(searchMember);
-    }) || [];
-
-    return (
-        <Box className={classes.root}>
-            <Box className={classes.header}>
-                <GroupIcon style={{ color: "#3b82f6", fontSize: 28 }} />
-                <Typography className={classes.pageTitle}>Gestão de Grupos</Typography>
-            </Box>
-
-            <Box className={classes.layout}>
-                {/* ─── Painel Esquerdo: lista de grupos ─── */}
-                <Box className={classes.leftPanel}>
-                    <Paper className={classes.paper} style={{ padding: "12px" }}>
-                        <FormControl variant="outlined" size="small" fullWidth>
-                            <InputLabel>Filtrar por conexão</InputLabel>
-                            <Select
-                                label="Filtrar por conexão"
-                                value={selectedConnection}
-                                onChange={(e) => setSelectedConnection(e.target.value)}
-                            >
-                                <MenuItem value="">Todas</MenuItem>
-                                {connections.map((c) => (
-                                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <TextField
-                            placeholder="Buscar grupo..."
-                            value={searchGroup}
-                            onChange={(e) => setSearchGroup(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            fullWidth
-                            style={{ marginTop: 8 }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon style={{ fontSize: 18, color: "#9ca3af" }} />
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                        <Box style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                            <Tooltip title="Atualizar grupos">
-                                <IconButton size="small" onClick={loadGroups} disabled={loadingGroups}>
-                                    <RefreshIcon fontSize="small" />
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
-                    </Paper>
-
-                    <Paper className={classes.paper} style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                        <Box className={classes.groupList}>
-                            {loadingGroups ? (
-                                <Box style={{ display: "flex", justifyContent: "center", padding: 24 }}>
-                                    <CircularProgress size={28} />
-                                </Box>
-                            ) : filteredGroups.length === 0 ? (
-                                <Box className={classes.emptyState}>
-                                    <GroupIcon style={{ fontSize: 40 }} />
-                                    <Typography variant="body2">Nenhum grupo encontrado</Typography>
-                                </Box>
-                            ) : (
-                                filteredGroups.map((group) => (
-                                    <Box
-                                        key={group.id}
-                                        className={`${classes.groupItem} ${selectedGroup?.id === group.id ? "selected" : ""}`}
-                                        onClick={() => handleSelectGroup(group)}
-                                    >
-                                        <Avatar className={classes.groupAvatar}>
-                                            {(group.subject || "G")[0].toUpperCase()}
-                                        </Avatar>
-                                        <Box style={{ overflow: "hidden" }}>
-                                            <Typography className={classes.groupName}>{group.subject || group.id}</Typography>
-                                            <Typography className={classes.groupMeta}>{group.size} membros · {group.whatsappName}</Typography>
-                                        </Box>
-                                    </Box>
-                                ))
-                            )}
-                        </Box>
-                    </Paper>
+  const renderGroups = (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={5}>
+        <Paper className={classes.panel}>
+          <Box className={classes.controls}>
+            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={selectedConnection} onChange={(e) => setSelectedConnection(e.target.value)} label="Conexão"><MenuItem value="">Todas</MenuItem>{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
+            <TextField variant="outlined" size="small" placeholder="Buscar grupo" value={search} onChange={(e) => setSearch(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
+            <TextField variant="outlined" size="small" placeholder="Mín" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} />
+            <TextField variant="outlined" size="small" placeholder="Máx" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
+            <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button>
+          </Box>
+          <Box className={classes.list}>
+            {filteredGroups.map((g) => (
+              <Box key={`${g.id}-${g.whatsappId}`} className={`${classes.row} ${selectedGroup?.id === g.id ? classes.rowActive : ""}`} onClick={() => loadGroupInfo(g)}>
+                <Box>
+                  <Typography style={{ fontWeight: 700, color: "#173624", fontSize: ".82rem" }}>{g.subject || g.id}</Typography>
+                  <Typography style={{ color: "#5d7d6b", fontSize: ".71rem" }}>{g.size || 0} membros • {g.whatsappName}</Typography>
                 </Box>
+                <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={classes.badge}>{g.tags?.length || 0} tags</span>
+                  <Button size="small" className={classes.secondaryBtn} onClick={(e) => { e.stopPropagation(); api.patch(`/group-management/groups/meta/${g.groupId}`, { isFavorite: !g.isFavorite }).then(refreshAll); }}>{g.isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}</Button>
+                </Box>
+              </Box>
+            ))}
+            {!filteredGroups.length ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Nenhum grupo encontrado.</Box> : null}
+          </Box>
+        </Paper>
+      </Grid>
+      <Grid item xs={12} md={7}>
+        <Paper className={classes.panel}>
+          {!selectedGroup ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Selecione um grupo para ver membros e ações.</Box> : (
+            <>
+              <Box className={classes.panelHead}>
+                <Box><Typography className={classes.panelTitle}>{selectedGroup.subject}</Typography><Typography style={{ color: "#5d7d6b", fontSize: ".72rem" }}>{(groupInfo?.participants || []).length} membros</Typography></Box>
+                <Box style={{ display: "flex", gap: 8 }}>
+                  <Button className={classes.secondaryBtn} onClick={async () => { try { await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/tag-all`, { whatsappId: selectedGroup.whatsappId, message: "Comunicado para todos:" }); toast.success("Menção enviada."); } catch { toast.error("Erro ao mencionar."); } }}>Mencionar todos</Button>
+                  <Button className={classes.secondaryBtn} onClick={async () => { try { const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-link`, { params: { whatsappId: selectedGroup.whatsappId } }); if (navigator.clipboard) navigator.clipboard.writeText(data.inviteLink); toast.success("Link copiado."); } catch { toast.error("Erro ao obter link."); } }}>Link convite</Button>
+                </Box>
+              </Box>
+              <Box className={classes.list}>
+                {(groupInfo?.participants || []).map((member) => (
+                  <Box key={member.id} className={classes.row} style={{ cursor: "default" }}>
+                    <Box><Typography style={{ fontSize: ".8rem", fontWeight: 700 }}>{String(member.id).split("@")[0]}</Typography><Typography style={{ fontSize: ".7rem", color: "#5d7d6b" }}>{member.id}</Typography></Box>
+                    <Box style={{ display: "flex", gap: 6 }}>
+                      {member.isAdmin ? <Chip size="small" label="Admin" style={{ background: "#fef3c7" }} /> : null}
+                      {!member.isAdmin ? <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}/promote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Promover</Button> : <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}/demote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Rebaixar</Button>}
+                      <Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}`, { data: { whatsappId: selectedGroup.whatsappId } }).then(() => loadGroupInfo(selectedGroup))}>Remover</Button>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
+        </Paper>
+      </Grid>
+    </Grid>
+  );
 
-                {/* ─── Painel Direito: detalhes do grupo ─── */}
-                <Paper className={`${classes.paper} ${classes.rightPanel}`}>
-                    {!selectedGroup ? (
-                        <Box className={classes.emptyState}>
-                            <GroupIcon style={{ fontSize: 56, color: "#d1d5db" }} />
-                            <Typography variant="h6" style={{ color: "#9ca3af" }}>Selecione um grupo</Typography>
-                            <Typography variant="body2" style={{ color: "#d1d5db" }}>
-                                Escolha um grupo na lista à esquerda para gerenciar
-                            </Typography>
-                        </Box>
-                    ) : (
-                        <>
-                            {/* Header do grupo */}
-                            <Box className={classes.groupHeader}>
-                                <Box className={classes.groupInfo}>
-                                    <Avatar style={{ backgroundColor: "#3b82f6", width: 48, height: 48, fontSize: "1.2rem" }}>
-                                        {(selectedGroup.subject || "G")[0].toUpperCase()}
-                                    </Avatar>
-                                    <Box>
-                                        <Typography className={classes.groupHeaderName}>{selectedGroup.subject || selectedGroup.id}</Typography>
-                                        <Typography className={classes.groupHeaderMeta}>
-                                            {groupInfo?.participants?.length || selectedGroup.size} membros · {selectedGroup.whatsappName}
-                                        </Typography>
-                                        {inviteLink && (
-                                            <Typography style={{ fontSize: "0.75rem", color: "#3b82f6", marginTop: 2 }}>
-                                                {inviteLink}
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </Box>
-                                <Tooltip title="Atualizar">
-                                    <IconButton size="small" onClick={() => loadGroupInfo(selectedGroup)}>
-                                        <RefreshIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
-                            </Box>
+  const renderCampaigns = (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={8}>
+        <Paper className={classes.panel}>
+          <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Campanhas de grupos</Typography></Box>
+          <Box style={{ padding: 10, display: "grid", gap: 8 }}>
+            <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => setCampaignForm((p) => ({ ...p, name: e.target.value }))} />
+            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => setCampaignForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
+            <TextField variant="outlined" size="small" label="Mensagem" multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+            <Button className={classes.primaryBtn} startIcon={<SendIcon />} onClick={createCampaign}>Criar campanha</Button>
+          </Box>
+          <Box className={classes.list}>
+            {campaigns.map((c) => (
+              <Box key={c.id} className={classes.row} style={{ cursor: "default" }}>
+                <Box><Typography style={{ fontSize: ".82rem", fontWeight: 700 }}>{c.name}</Typography><Typography style={{ fontSize: ".7rem", color: "#5d7d6b" }}>{c.totalGroups || 0} grupos • {c.successCount || 0} sucesso • {c.failedCount || 0} falhas</Typography></Box>
+                <Box style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <Chip size="small" label={c.status} style={{ backgroundColor: `${statusBg(c.status)}22`, color: statusBg(c.status), fontWeight: 700 }} />
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "start")}>Iniciar</Button>
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "pause")}>Pausar</Button>
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "resume")}>Retomar</Button>
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "cancel")}>Cancelar</Button>
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => api.get(`/group-management/campaigns/${c.id}/logs`).then((r) => setCampaignLogs(r.data || []))}>Logs</Button>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <Paper className={classes.panel}>
+          <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Logs da campanha</Typography></Box>
+          <Box className={classes.log}>{campaignLogs.map((l) => <Box key={l.id} className={classes.logLine}><strong>[{l.type}]</strong> {l.message}<br />{new Date(l.createdAt).toLocaleString("pt-BR")}</Box>)}</Box>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
 
-                            {/* Toolbar de ações */}
-                            {isAdmin && (
-                                <Box className={classes.toolbar}>
-                                    <Button
-                                        size="small"
-                                        variant="contained"
-                                        style={{ backgroundColor: "#3b82f6", color: "#fff", textTransform: "none", borderRadius: 8 }}
-                                        startIcon={<NotificationsActiveIcon />}
-                                        onClick={() => setTagAllDialog(true)}
-                                    >
-                                        Mencionar Todos
-                                    </Button>
-                                    <Button
-                                        size="small"
-                                        variant="outlined"
-                                        style={{ textTransform: "none", borderRadius: 8, borderColor: "#d1d5db" }}
-                                        startIcon={<LinkIcon />}
-                                        onClick={handleGetInviteLink}
-                                    >
-                                        Link de Convite
-                                    </Button>
-                                    <Button
-                                        size="small"
-                                        variant="outlined"
-                                        style={{ textTransform: "none", borderRadius: 8, borderColor: "#fca5a5", color: "#ef4444" }}
-                                        onClick={handleRevokeInviteLink}
-                                    >
-                                        Revogar Link
-                                    </Button>
-                                </Box>
-                            )}
+  const renderSimpleList = (title, items, field = "name") => (
+    <Paper className={classes.panel}>
+      <Box className={classes.panelHead}><Typography className={classes.panelTitle}>{title}</Typography></Box>
+      <Box className={classes.list}>
+        {(items || []).map((it) => <Box key={it.id || it.createdAt} className={classes.row} style={{ cursor: "default" }}><Typography>{it[field] || it.message || "-"}</Typography></Box>)}
+        {!items?.length ? <Box style={{ padding: 20, textAlign: "center", color: "#6a8978" }}>Sem dados.</Box> : null}
+      </Box>
+    </Paper>
+  );
 
-                            {/* Busca de membros */}
-                            <Box style={{ padding: "8px 16px", borderBottom: "1px solid #f3f4f6" }}>
-                                <TextField
-                                    placeholder="Buscar membro por número..."
-                                    value={searchMember}
-                                    onChange={(e) => setSearchMember(e.target.value)}
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon style={{ fontSize: 16, color: "#9ca3af" }} />
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            </Box>
-
-                            {/* Lista de membros */}
-                            <Box className={classes.memberList}>
-                                {loadingInfo ? (
-                                    <Box style={{ display: "flex", justifyContent: "center", padding: 40 }}>
-                                        <CircularProgress size={32} />
-                                    </Box>
-                                ) : (
-                                    filteredMembers.map((member) => {
-                                        const number = member.id.split("@")[0];
-                                        const initials = number.slice(-2);
-                                        return (
-                                            <Box key={member.id} className={classes.memberRow}>
-                                                <Avatar className={classes.memberAvatar}>{initials}</Avatar>
-                                                <Box>
-                                                    <Typography className={classes.memberName}>{number}</Typography>
-                                                    {member.isAdmin && (
-                                                        <Chip label="Admin" size="small" className={classes.adminChip} />
-                                                    )}
-                                                </Box>
-                                                {isAdmin && (
-                                                    <Box className={classes.memberActions}>
-                                                        {!member.isAdmin ? (
-                                                            <Tooltip title="Promover a Admin">
-                                                                <IconButton size="small" onClick={() => handlePromote(member.id)}>
-                                                                    <StarBorderIcon fontSize="small" style={{ color: "#f59e0b" }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <Tooltip title="Rebaixar a Membro">
-                                                                <IconButton size="small" onClick={() => handleDemote(member.id)}>
-                                                                    <StarIcon fontSize="small" style={{ color: "#f59e0b" }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        )}
-                                                        <Tooltip title="Remover do grupo">
-                                                            <IconButton size="small" onClick={() => handleKick(member.id)}>
-                                                                <RemoveCircleOutlineIcon fontSize="small" style={{ color: "#ef4444" }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Box>
-                                                )}
-                                            </Box>
-                                        );
-                                    })
-                                )}
-                            </Box>
-                        </>
-                    )}
-                </Paper>
-            </Box>
-
-            {/* Dialog: Mencionar Todos */}
-            <Dialog open={tagAllDialog} onClose={() => setTagAllDialog(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Mencionar Todos os Membros</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        label="Mensagem (opcional)"
-                        value={tagMessage}
-                        onChange={(e) => setTagMessage(e.target.value)}
-                        multiline
-                        rows={3}
-                        variant="outlined"
-                        fullWidth
-                        style={{ marginTop: 8 }}
-                        placeholder="Digite uma mensagem para acompanhar as menções..."
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setTagAllDialog(false)}>Cancelar</Button>
-                    <Button variant="contained" color="primary" onClick={handleTagAll}>
-                        Enviar
-                    </Button>
-                </DialogActions>
-            </Dialog>
+  return (
+    <Box className={classes.root}>
+      <Box className={classes.shell}>
+        <Box className={classes.header}>
+          <Box className={classes.titleRow}>
+            <Box className={classes.titleIcon}><GroupIcon /></Box>
+            <Box><Typography className={classes.title}>Gestão de Grupos • Centro Operacional</Typography><Typography className={classes.subtitle}>Ecossistema de grupos no padrão verde premium do módulo de Disparos.</Typography></Box>
+          </Box>
+          <Box style={{ display: "flex", gap: 8 }}><Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={refreshAll}>Atualizar</Button><Button className={classes.primaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button></Box>
         </Box>
-    );
+
+        <Box className={classes.summary}>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Grupos</Typography><Typography className={classes.cardValue}>{metrics.totalGroups || 0}</Typography></Paper>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Membros</Typography><Typography className={classes.cardValue}>{metrics.totalMembers || 0}</Typography></Paper>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Admins</Typography><Typography className={classes.cardValue}>{metrics.totalAdmins || 0}</Typography></Paper>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Campanhas</Typography><Typography className={classes.cardValue}>{metrics.campaignsTotal || 0}</Typography></Paper>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Enviadas</Typography><Typography className={classes.cardValue}>{metrics.campaignsSent || 0}</Typography></Paper>
+          <Paper className={classes.card}><Typography className={classes.cardLabel}>Falhas</Typography><Typography className={classes.cardValue}>{metrics.campaignsFailed || 0}</Typography></Paper>
+        </Box>
+
+        <Box className={classes.tabsShell}><Tabs className={classes.tabs} value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">{TABS.map((label) => <Tab key={label} label={label} className={classes.tab} />)}</Tabs></Box>
+
+        <Box className={classes.content}>
+          {loading ? <Box style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><CircularProgress style={{ color: "#15763f" }} /></Box> : null}
+          {!loading && tab === 0 ? renderDashboard : null}
+          {!loading && tab === 1 ? renderGroups : null}
+          {!loading && tab === 2 ? renderCampaigns : null}
+          {!loading && tab === 3 ? renderSimpleList("Agendamentos", schedules) : null}
+          {!loading && tab === 4 ? (
+            <Paper className={classes.panel}>
+              <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Templates</Typography></Box>
+              <Box style={{ padding: 10, display: "grid", gap: 8 }}>
+                <TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))} />
+                <TextField variant="outlined" size="small" label="Mensagem" multiline rows={3} value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} />
+                <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={saveTemplate}>Salvar template</Button>
+              </Box>
+              <Box className={classes.list}>{templates.map((t) => <Box key={t.id} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box>)}</Box>
+            </Paper>
+          ) : null}
+          {!loading && tab === 5 ? renderSimpleList("Histórico", historyLogs, "message") : null}
+          {!loading && tab === 6 ? renderSimpleList("Relatórios de campanhas", reports?.campaigns || []) : null}
+        </Box>
+      </Box>
+    </Box>
+  );
 }

@@ -134,6 +134,12 @@ import TaskList from "../models/TaskList";
 import Task from "../models/Task";
 import TaskChecklist from "../models/TaskChecklist";
 import TaskComment from "../models/TaskComment";
+import GroupDirectory from "../models/GroupDirectory";
+import GroupMember from "../models/GroupMember";
+import GroupTemplate from "../models/GroupTemplate";
+import GroupCampaign from "../models/GroupCampaign";
+import GroupCampaignTarget from "../models/GroupCampaignTarget";
+import GroupCampaignLog from "../models/GroupCampaignLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -302,6 +308,12 @@ const models = [
   Task,
   TaskChecklist,
   TaskComment,
+  GroupDirectory,
+  GroupMember,
+  GroupTemplate,
+  GroupCampaign,
+  GroupCampaignTarget,
+  GroupCampaignLog,
 ];
 
 sequelize.addModels(models);

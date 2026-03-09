@@ -128,6 +128,7 @@ import { executeWhatsappWarmups } from "./services/WhatsappWarmupServices/Whatsa
 import { processScheduledWarmupSessions } from "./services/WhatsappWarmupServices/WhatsappWarmupSessionEngineService";
 import executeFollowUpCampaigns from "./services/FollowUpCampaignService/ExecuteFollowUpCampaignService";
 import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailChannelService";
+import { processScheduledGroupCampaigns } from "./services/GroupManagementServices/GroupCampaignProcessorService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -137,6 +138,11 @@ cron.schedule("*/5 * * * *", () => {
 // Check scheduled warmup sessions every minute
 cron.schedule("* * * * *", () => {
   processScheduledWarmupSessions();
+});
+
+// Process group campaigns every minute
+cron.schedule("* * * * *", () => {
+  processScheduledGroupCampaigns();
 });
 
 // Process follow-up campaign stages every 5 minutes

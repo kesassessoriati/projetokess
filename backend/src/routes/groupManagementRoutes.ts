@@ -4,28 +4,51 @@ import * as GroupManagementController from "../controllers/GroupManagementContro
 
 const groupManagementRoutes = Router();
 
-// List all groups from connected WhatsApps
+// Dashboard and sync
+groupManagementRoutes.get("/group-management/dashboard", isAuth, GroupManagementController.dashboardMetrics);
+groupManagementRoutes.post("/group-management/sync", isAuth, GroupManagementController.syncGroups);
+
+// Group directory
 groupManagementRoutes.get("/group-management/groups", isAuth, GroupManagementController.listGroups);
-
-// Get detailed info of a specific group
 groupManagementRoutes.get("/group-management/groups/:jid/info", isAuth, GroupManagementController.getGroupInfo);
-
-// Tag all members in a group
-groupManagementRoutes.post("/group-management/groups/:jid/tag-all", isAuth, GroupManagementController.tagAll);
-
-// Kick a member
+groupManagementRoutes.patch("/group-management/groups/meta/:groupId", isAuth, GroupManagementController.updateGroupMeta);
+groupManagementRoutes.post("/group-management/groups", isAuth, GroupManagementController.createGroup);
+groupManagementRoutes.post("/group-management/groups/batch", isAuth, GroupManagementController.createGroupBatch);
+groupManagementRoutes.put("/group-management/groups/:jid/subject", isAuth, GroupManagementController.updateGroupSubject);
+groupManagementRoutes.put("/group-management/groups/:jid/description", isAuth, GroupManagementController.updateGroupDescription);
+groupManagementRoutes.put("/group-management/groups/:jid/picture", isAuth, GroupManagementController.updateGroupPicture);
+groupManagementRoutes.post("/group-management/groups/:jid/add-member", isAuth, GroupManagementController.addMember);
 groupManagementRoutes.delete("/group-management/groups/:jid/members/:memberId", isAuth, GroupManagementController.kickMember);
-
-// Promote a member to admin
 groupManagementRoutes.post("/group-management/groups/:jid/members/:memberId/promote", isAuth, GroupManagementController.promoteMember);
-
-// Demote an admin to member
 groupManagementRoutes.post("/group-management/groups/:jid/members/:memberId/demote", isAuth, GroupManagementController.demoteMember);
-
-// Get invite link
 groupManagementRoutes.get("/group-management/groups/:jid/invite-link", isAuth, GroupManagementController.getInviteLink);
-
-// Revoke invite link
 groupManagementRoutes.post("/group-management/groups/:jid/invite-revoke", isAuth, GroupManagementController.revokeInviteLink);
+groupManagementRoutes.post("/group-management/groups/:jid/tag-all", isAuth, GroupManagementController.tagAll);
+groupManagementRoutes.post("/group-management/groups/bulk-send", isAuth, GroupManagementController.bulkSend);
+
+// Templates
+groupManagementRoutes.get("/group-management/templates", isAuth, GroupManagementController.listTemplates);
+groupManagementRoutes.post("/group-management/templates", isAuth, GroupManagementController.createTemplate);
+groupManagementRoutes.put("/group-management/templates/:id", isAuth, GroupManagementController.updateTemplate);
+groupManagementRoutes.delete("/group-management/templates/:id", isAuth, GroupManagementController.deleteTemplate);
+
+// Campaigns
+groupManagementRoutes.get("/group-management/campaigns", isAuth, GroupManagementController.listCampaigns);
+groupManagementRoutes.post("/group-management/campaigns", isAuth, GroupManagementController.createCampaign);
+groupManagementRoutes.get("/group-management/campaigns/:id", isAuth, GroupManagementController.showCampaign);
+groupManagementRoutes.put("/group-management/campaigns/:id", isAuth, GroupManagementController.updateCampaign);
+groupManagementRoutes.delete("/group-management/campaigns/:id", isAuth, GroupManagementController.deleteCampaign);
+groupManagementRoutes.post("/group-management/campaigns/:id/duplicate", isAuth, GroupManagementController.duplicateCampaign);
+groupManagementRoutes.post("/group-management/campaigns/:id/start", isAuth, GroupManagementController.startCampaign);
+groupManagementRoutes.post("/group-management/campaigns/:id/pause", isAuth, GroupManagementController.pauseCampaign);
+groupManagementRoutes.post("/group-management/campaigns/:id/resume", isAuth, GroupManagementController.resumeCampaign);
+groupManagementRoutes.post("/group-management/campaigns/:id/cancel", isAuth, GroupManagementController.cancelCampaign);
+groupManagementRoutes.get("/group-management/campaigns/:id/logs", isAuth, GroupManagementController.listCampaignLogs);
+groupManagementRoutes.get("/group-management/campaigns/:id/report", isAuth, GroupManagementController.campaignReport);
+
+// Schedules, history and reports
+groupManagementRoutes.get("/group-management/schedules", isAuth, GroupManagementController.listSchedules);
+groupManagementRoutes.get("/group-management/history", isAuth, GroupManagementController.history);
+groupManagementRoutes.get("/group-management/reports", isAuth, GroupManagementController.reports);
 
 export default groupManagementRoutes;

@@ -1,0 +1,258 @@
+import path from "path";
+import moment from "moment";
+import { Op } from "sequelize";
+import GroupCampaign from "../../models/GroupCampaign";
+import GroupCampaignTarget from "../../models/GroupCampaignTarget";
+import GroupCampaignLog from "../../models/GroupCampaignLog";
+import Whatsapp from "../../models/Whatsapp";
+import { getWbot } from "../../libs/wbot";
+import { getIO } from "../../libs/socket";
+import { sendButtonMessage, sendListMessage } from "../../helpers/SendInteractiveMessage";
+import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
+
+const runningCampaigns = new Set<number>();
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const emitCampaignUpdate = (companyId: number, payload: Record<string, any>) => {
+  try {
+    const io = getIO();
+    io.of(String(companyId)).emit(`company-${companyId}-group-campaign`, payload);
+  } catch (error) {
+    // ignore socket errors
+  }
+};
+
+const createCampaignLog = async (
+  campaign: GroupCampaign,
+  type: string,
+  message: string,
+  groupJid?: string,
+  payload?: Record<string, any>
+) => {
+  const log = await GroupCampaignLog.create({
+    companyId: campaign.companyId,
+    campaignId: campaign.id,
+    type,
+    groupJid: groupJid || null,
+    message,
+    payload: payload || null
+  });
+  emitCampaignUpdate(campaign.companyId, { action: "log", campaignId: campaign.id, log });
+};
+
+const buildMentionsPayload = async (campaign: GroupCampaign, wbot: any, groupJid: string) => {
+  if (campaign.mentionsMode === "all") {
+    const metadata = await (wbot as any).groupMetadata(groupJid);
+    const mentions = (metadata?.participants || []).map((p: any) => p.id);
+    const mentionText = mentions.map((m: string) => `@${String(m).split("@")[0]}`).join(" ");
+    return { mentions, mentionText };
+  }
+
+  if (campaign.mentionsMode === "segmented") {
+    const segmented = Array.isArray(campaign.segmentedMentions) ? campaign.segmentedMentions : [];
+    const mentions = segmented.filter(Boolean).map((m: string) => (m.includes("@") ? m : `${m}@s.whatsapp.net`));
+    const mentionText = mentions.map((m: string) => `@${String(m).split("@")[0]}`).join(" ");
+    return { mentions, mentionText };
+  }
+
+  return { mentions: [], mentionText: "" };
+};
+
+const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget): Promise<void> => {
+  const connection = await Whatsapp.findOne({
+    where: { id: campaign.whatsappId, companyId: campaign.companyId },
+    attributes: ["id", "status"]
+  });
+  if (!connection) throw new Error("Conexão da campanha não encontrada.");
+  if (connection.status !== "CONNECTED") throw new Error("Conexão da campanha está desconectada.");
+
+  const wbot = getWbot(connection.id);
+  const groupJid = target.groupJid;
+  const { mentions, mentionText } = await buildMentionsPayload(campaign, wbot, groupJid);
+
+  const baseText = String(campaign.message || "");
+  const text = mentionText ? `${baseText}\n\n${mentionText}`.trim() : baseText;
+
+  if (campaign.mediaPath) {
+    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+    const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
+    const options = await getMessageOptions(campaign.mediaName, filePath, String(campaign.companyId), text);
+    await wbot.sendMessage(groupJid, { ...options });
+    return;
+  }
+
+  if (campaign.messageType === "buttons" && Array.isArray(campaign.buttons) && campaign.buttons.length) {
+    await sendButtonMessage(wbot, groupJid, text, "", campaign.buttons as any);
+    return;
+  }
+
+  if (campaign.messageType === "list" && Array.isArray(campaign.listItems) && campaign.listItems.length) {
+    await sendListMessage(wbot, groupJid, text, "Ver opções", campaign.listItems as any);
+    return;
+  }
+
+  await wbot.sendMessage(groupJid, {
+    text: text || " ",
+    mentions: mentions.length ? mentions : undefined
+  });
+};
+
+const applyRecurrence = async (campaign: GroupCampaign) => {
+  const recurrence = String(campaign.recurrenceRule || "none");
+  if (!["daily", "weekly"].includes(recurrence)) return;
+
+  const baseDate = campaign.scheduledAt ? moment(campaign.scheduledAt) : moment();
+  const next = recurrence === "daily" ? baseDate.add(1, "day") : baseDate.add(1, "week");
+
+  await GroupCampaignTarget.update(
+    {
+      status: "PENDING",
+      sentAt: null,
+      lastAttemptAt: null,
+      attempts: 0,
+      errorMessage: null
+    },
+    { where: { campaignId: campaign.id, companyId: campaign.companyId } }
+  );
+
+  await campaign.update({
+    status: "SCHEDULED",
+    scheduledAt: next.toDate(),
+    startedAt: null,
+    completedAt: null,
+    processedGroups: 0,
+    successCount: 0,
+    failedCount: 0,
+    failureReason: null
+  });
+};
+
+export const processGroupCampaignById = async (campaignId: number): Promise<void> => {
+  if (runningCampaigns.has(campaignId)) return;
+  runningCampaigns.add(campaignId);
+
+  try {
+    let campaign = await GroupCampaign.findByPk(campaignId);
+    if (!campaign) return;
+    if (["PAUSED", "CANCELED", "SENT", "FAILED"].includes(campaign.status)) return;
+    if (campaign.status === "SCHEDULED" && campaign.scheduledAt && campaign.scheduledAt > new Date()) return;
+
+    if (!campaign.startedAt) {
+      await campaign.update({ status: "PROCESSING", startedAt: new Date(), failureReason: null });
+      await createCampaignLog(campaign, "STARTED", "Campanha iniciada");
+    } else if (campaign.status !== "PROCESSING") {
+      await campaign.update({ status: "PROCESSING" });
+    }
+
+    const targets = await GroupCampaignTarget.findAll({
+      where: {
+        companyId: campaign.companyId,
+        campaignId: campaign.id,
+        status: "PENDING"
+      },
+      order: [["id", "ASC"]]
+    });
+
+    for (const target of targets) {
+      campaign = await GroupCampaign.findByPk(campaign.id);
+      if (!campaign) return;
+      if (campaign.status === "PAUSED" || campaign.status === "CANCELED") {
+        await createCampaignLog(campaign, "PAUSED", "Campanha pausada/cancelada durante processamento");
+        return;
+      }
+
+      try {
+        await sendToTarget(campaign, target);
+        await target.update({
+          status: "SENT",
+          sentAt: new Date(),
+          lastAttemptAt: new Date(),
+          attempts: (target.attempts || 0) + 1,
+          errorMessage: null
+        });
+        await campaign.update({
+          processedGroups: (campaign.processedGroups || 0) + 1,
+          successCount: (campaign.successCount || 0) + 1
+        });
+        await createCampaignLog(campaign, "TARGET_SENT", "Mensagem enviada com sucesso", target.groupJid);
+      } catch (error) {
+        await target.update({
+          status: "FAILED",
+          lastAttemptAt: new Date(),
+          attempts: (target.attempts || 0) + 1,
+          errorMessage: error?.message || "Falha no envio"
+        });
+        await campaign.update({
+          processedGroups: (campaign.processedGroups || 0) + 1,
+          failedCount: (campaign.failedCount || 0) + 1
+        });
+        await createCampaignLog(campaign, "TARGET_FAILED", error?.message || "Falha no envio", target.groupJid);
+      }
+
+      emitCampaignUpdate(campaign.companyId, { action: "progress", campaignId: campaign.id });
+      const interval = Math.max(0, Number(campaign.intervalSeconds) || 0);
+      if (interval > 0) {
+        await delay(interval * 1000);
+      }
+    }
+
+    campaign = await GroupCampaign.findByPk(campaign.id);
+    if (!campaign) return;
+
+    const pendingCount = await GroupCampaignTarget.count({
+      where: { companyId: campaign.companyId, campaignId: campaign.id, status: "PENDING" }
+    });
+
+    if (pendingCount > 0) {
+      await createCampaignLog(campaign, "INFO", "Campanha ainda possui alvos pendentes");
+      return;
+    }
+
+    if ((campaign.failedCount || 0) > 0 && (campaign.successCount || 0) === 0) {
+      await campaign.update({ status: "FAILED", completedAt: new Date(), failureReason: "Nenhum envio concluído com sucesso" });
+      await createCampaignLog(campaign, "FAILED", "Campanha concluída com falhas");
+      emitCampaignUpdate(campaign.companyId, { action: "failed", campaignId: campaign.id });
+      return;
+    }
+
+    await campaign.update({ status: "SENT", completedAt: new Date(), failureReason: null });
+    await createCampaignLog(campaign, "COMPLETED", "Campanha finalizada");
+    emitCampaignUpdate(campaign.companyId, { action: "completed", campaignId: campaign.id });
+
+    await applyRecurrence(campaign);
+  } catch (error) {
+    const campaign = await GroupCampaign.findByPk(campaignId);
+    if (campaign) {
+      await campaign.update({
+        status: "FAILED",
+        completedAt: new Date(),
+        failureReason: error?.message || "Erro não identificado"
+      });
+      await createCampaignLog(campaign, "FAILED", error?.message || "Erro não identificado");
+      emitCampaignUpdate(campaign.companyId, { action: "failed", campaignId: campaign.id });
+    }
+  } finally {
+    runningCampaigns.delete(campaignId);
+  }
+};
+
+export const processScheduledGroupCampaigns = async (): Promise<void> => {
+  const now = new Date();
+  const campaigns = await GroupCampaign.findAll({
+    where: {
+      status: { [Op.in]: ["SCHEDULED", "PROCESSING"] },
+      [Op.or]: [
+        { scheduledAt: null },
+        { scheduledAt: { [Op.lte]: now } }
+      ]
+    },
+    order: [["scheduledAt", "ASC"]],
+    limit: 20
+  });
+
+  for (const campaign of campaigns) {
+    processGroupCampaignById(campaign.id);
+  }
+};
+
