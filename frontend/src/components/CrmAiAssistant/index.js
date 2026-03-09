@@ -38,17 +38,17 @@ const useStyles = makeStyles(() => ({
     width: 56,
     height: 56,
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+    background: "linear-gradient(135deg, #22a45d 0%, #15773f 100%)",
     border: "none",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 4px 20px rgba(99,102,241,0.5)",
+    boxShadow: "0 4px 20px rgba(21,119,63,0.45)",
     transition: "all 0.2s ease",
     "&:hover": {
       transform: "scale(1.08)",
-      boxShadow: "0 6px 24px rgba(99,102,241,0.6)",
+      boxShadow: "0 6px 24px rgba(21,119,63,0.58)",
     },
     position: "relative",
   },
@@ -555,7 +555,7 @@ export const CrmAiFab = ({ onNewLead }) => {
           <Fade in={menuOpen}>
             <div className={classes.fabMenu}>
               <div className={classes.fabMenuItem} onClick={openChat}>
-                <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
+                <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #22a45d, #15773f)" }}>
                   <SmartToyIcon style={{ color: "#fff", fontSize: 20 }} />
                 </div>
                 <div>

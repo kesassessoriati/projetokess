@@ -187,10 +187,10 @@ const useStyles = makeStyles((theme) => ({
     },
     metricLabel: {
         fontSize: "0.67rem",
-        color: "#5d7d6b",
+        color: "#111111",
         letterSpacing: ".04em",
         textTransform: "uppercase",
-        fontWeight: 700
+        fontWeight: 800
     },
     metricValue: {
         marginTop: 2,
@@ -344,7 +344,7 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        color: "#173825"
+        color: "#111111"
     },
     laneTitleLeft: {
         display: "flex",
@@ -418,14 +418,14 @@ const useStyles = makeStyles((theme) => ({
     },
     cardTitle: {
         fontWeight: 800,
-        color: "#20392b",
+        color: "#111111",
         lineHeight: 1.25,
         fontSize: "0.82rem"
     },
     cardContact: {
         fontSize: "0.72rem",
-        color: "#5a7366",
-        fontWeight: 600
+        color: "#111111",
+        fontWeight: 700
     },
     cardMetaLine: {
         fontSize: "0.7rem",
@@ -753,11 +753,7 @@ const PipelineBoard = () => {
                     <div className={classes.titleWrap}>
                         <div className={classes.titleRow}>
                             <span className={classes.titleBadge}>CRM Kanban</span>
-                            <Typography className={classes.pageTitle}>Pipeline Comercial no Padrão Verde Premium</Typography>
                         </div>
-                        <Typography className={classes.pageSubtitle}>
-                            Visual mais forte para operação diária: filtros claros, leitura rápida e navegação integrada do CRM.
-                        </Typography>
                     </div>
 
                     <div className={classes.topRight}>

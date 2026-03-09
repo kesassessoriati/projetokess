@@ -449,6 +449,25 @@ const useStyles = makeStyles((theme) => ({
       },
     },
   }),
+  kanbanMenuItem: {
+    "&:hover": {
+      backgroundColor: "rgba(31, 157, 85, 0.14)",
+      "& .MuiListItemIcon-root": {
+        color: "#ffffff",
+      },
+    },
+    "&.Mui-focusVisible": {
+      backgroundColor: "rgba(31, 157, 85, 0.2)",
+      boxShadow: "0 0 0 2px rgba(31, 157, 85, 0.35)",
+    },
+  },
+  kanbanMenuItemActive: {
+    background: "linear-gradient(135deg, rgba(31, 157, 85, 0.4) 0%, rgba(21, 128, 61, 0.5) 100%)",
+    border: "1px solid rgba(34, 197, 94, 0.55)",
+    "& .MuiListItemIcon-root": {
+      color: "#ffffff",
+    },
+  },
   menuIcon: (props) => ({
     minWidth: props.drawerWidth > collapsedDrawerWidth ? "auto" : "initial",
     color: "#ffffff",
@@ -1035,7 +1054,7 @@ const LoggedInLayout = ({ children }) => {
         button
         disabled={disabled}
         onClick={handleClick}
-        className={`${classes.menuItem} ${isActive ? "active" : ""}`}
+        className={`${classes.menuItem} ${path === "/kanban" ? classes.kanbanMenuItem : ""} ${isActive ? "active" : ""} ${path === "/kanban" && isActive ? classes.kanbanMenuItemActive : ""}`}
       >
         <ListItemIcon className={classes.menuIcon}>{icon}</ListItemIcon>
         {showMenuLabels && (
