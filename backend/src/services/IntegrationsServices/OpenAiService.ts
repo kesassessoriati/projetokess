@@ -550,7 +550,7 @@ const runAgentPrompt = async (
       ? `${systemPrompt}\n\nUsuário: ${pergunta}`
       : pergunta;
     const result = await genModel.generateContent(prompt);
-    const response = await result.response;
+    const response = result.response;
     return response.text() || "";
   }
 
@@ -622,7 +622,7 @@ const callGeminiWithTools = async (
   console.log("Prompt enviado para Gemini (últimos 200 chars):", prompt.substring(prompt.length - 200));
   console.log("Gemini model configurado com", filteredGeminiTools.length, "ferramentas");
   const result = await genModel.generateContent(prompt);
-  const response = await result.response;
+  const response = result.response;
 
   // Verificar se há chamadas de ferramentas
   const functionCalls = response.functionCalls();
@@ -678,7 +678,7 @@ const callGemini = async (
   prompt += "Assistente: ";
 
   const result = await genModel.generateContent(prompt);
-  const response = await result.response;
+  const response = result.response;
   return response.text();
 };
 
@@ -2469,7 +2469,7 @@ ${openAiSettings.prompt}
 
                 console.log("Prompt da segunda chamada (últimos 200 chars):", finalPrompt.substring(finalPrompt.length - 200));
                 const finalResult = await genModel.generateContent(finalPrompt);
-                const finalResponse = await finalResult.response;
+                const finalResponse = finalResult.response;
 
                 // Verificar se há mais tool calls na segunda chamada
                 const secondFunctionCalls = finalResponse.functionCalls();
@@ -2501,7 +2501,7 @@ ${openAiSettings.prompt}
                   // Terceira chamada para resposta final (COM ferramentas para add_tag)
                   const thirdPrompt = finalPrompt + `\n\nUse os resultados acima apenas como contexto. Gere uma resposta final natural e direta ao usuário, sem mencionar ferramentas.`;
                   const thirdResult = await genModel.generateContent(thirdPrompt);
-                  const thirdResponse = await thirdResult.response;
+                  const thirdResponse = thirdResult.response;
                   response = thirdResponse.text() || "Processo concluído.";
                 } else {
                   response = finalResponse.text() || "Processo concluído.";
