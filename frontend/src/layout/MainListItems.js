@@ -53,6 +53,7 @@ import BugReportIcon from "@mui/icons-material/BugReport";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import SpeedIcon from "@mui/icons-material/Speed";
+import PublicIcon from "@mui/icons-material/Public";
 import LanguageIcon from "@mui/icons-material/Language";
 import UserModal from "../components/UserModal";
 
@@ -1035,6 +1036,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 to="/my-sites"
                 primary="Meus Sites"
                 icon={<LanguageIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/social-media"
+                primary="Redes Sociais"
+                icon={<PublicIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink

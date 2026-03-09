@@ -140,6 +140,9 @@ import GroupTemplate from "../models/GroupTemplate";
 import GroupCampaign from "../models/GroupCampaign";
 import GroupCampaignTarget from "../models/GroupCampaignTarget";
 import GroupCampaignLog from "../models/GroupCampaignLog";
+import SocialBoard from "../models/SocialBoard";
+import SocialStage from "../models/SocialStage";
+import SocialContent from "../models/SocialContent";
 import MySiteBoardColumn from "../models/MySiteBoardColumn";
 import MySiteBoardCard from "../models/MySiteBoardCard";
 import MySiteBoardChecklistItem from "../models/MySiteBoardChecklistItem";
@@ -319,6 +322,9 @@ const models = [
   GroupCampaign,
   GroupCampaignTarget,
   GroupCampaignLog,
+  SocialBoard,
+  SocialStage,
+  SocialContent,
   MySiteBoardColumn,
   MySiteBoardCard,
   MySiteBoardChecklistItem,

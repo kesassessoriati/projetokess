@@ -120,6 +120,7 @@ import groupManagementRoutes from "./groupManagementRoutes";
 import followUpCampaignRoutes from "./followUpCampaignRoutes";
 import crmAiRoutes from "./crmAiRoutes";
 import emailChannelRoutes from "./emailChannelRoutes";
+import socialRoutes from "./socialRoutes";
 import mySiteBoardRoutes from "./mySiteBoardRoutes";
 
 const routes = Router();
@@ -266,6 +267,7 @@ routes.use(groupManagementRoutes);
 routes.use(followUpCampaignRoutes);
 routes.use(crmAiRoutes);
 routes.use(emailChannelRoutes);
+routes.use(socialRoutes);
 routes.use(mySiteBoardRoutes);
 
 import taskRoutes from "./taskRoutes";
