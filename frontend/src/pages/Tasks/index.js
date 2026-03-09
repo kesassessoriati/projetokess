@@ -25,6 +25,7 @@ import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
 import { format, parseISO } from "date-fns";
+import ContextPageHeader from "../../components/ContextPageHeader";
 
 const useStyles = makeStyles((theme) => ({
     mainContainer: {
@@ -324,6 +325,11 @@ const Tasks = () => {
     return (
         <MainContainer>
             <div className={classes.mainContainer}>
+                <ContextPageHeader
+                    title="Tarefas"
+                    subtitle="Gestão de quadros e atividades do CRM"
+                    fallbackTo="/kanban"
+                />
                 <MainHeader>
                     <Title>TaskBoard (Kanban)</Title>
                 </MainHeader>

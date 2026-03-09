@@ -11,7 +11,7 @@ import typebotIcon from "../../assets/typebot-ico.png";
 import { HiOutlinePuzzle } from "react-icons/hi";
 
 import { toast } from "react-toastify";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
@@ -490,12 +490,37 @@ const initialEdges = [];
 export const KanbanAutomationsConfig = () => {
   const classes = useStyles();
   const history = useHistory();
+  const location = useLocation();
   const { id } = useParams();
 
   // Debug: verificar id
   console.log("FlowBuilderConfig - id do fluxo:", id);
 
   const storageItems = useNodeStorage();
+
+  const handleBack = useCallback(() => {
+    const fromRoute = location?.state?.from;
+    if (fromRoute && fromRoute !== location.pathname) {
+      history.push(fromRoute);
+      return;
+    }
+
+    const hasSameOriginReferrer = (() => {
+      try {
+        if (!document?.referrer) return false;
+        return new URL(document.referrer).origin === window.location.origin;
+      } catch (error) {
+        return false;
+      }
+    })();
+
+    if (history.length > 2 || hasSameOriginReferrer) {
+      history.goBack();
+      return;
+    }
+
+    history.push("/kanban-automations");
+  }, [history, location]);
 
   const { user } = useContext(AuthContext);
 
@@ -1679,7 +1704,7 @@ export const KanbanAutomationsConfig = () => {
             <Button
               className={classes.backButton}
               startIcon={<ArrowBackIcon />}
-              onClick={() => history.push("/FlowBuilders")}
+              onClick={handleBack}
             >
               Voltar
             </Button>

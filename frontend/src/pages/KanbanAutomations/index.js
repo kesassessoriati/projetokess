@@ -27,6 +27,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import KanbanAutomationModal from "../../components/KanbanAutomationModal";
+import ContextPageHeader from "../../components/ContextPageHeader";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -280,7 +281,7 @@ const KanbanAutomations = () => {
     const handleDelete = async (autoId) => {
         try {
             await api.delete(`/kanban-automations/${autoId}`);
-            toast.success("Automação excluída com sucesso");
+            toast.success("AutomaÃ§Ã£o excluÃ­da com sucesso");
             setReloadData((old) => !old);
         } catch (err) {
             toastError(err);
@@ -331,56 +332,48 @@ const KanbanAutomations = () => {
                 onSave={() => setReloadData((old) => !old)}
             />
             <ConfirmationModal
-                title={deletingAuto ? `Excluir automação ${deletingAuto.nome_automacao}?` : ""}
+                title={deletingAuto ? `Excluir automaÃ§Ã£o ${deletingAuto.nome_automacao}?` : ""}
                 open={confirmOpen}
                 onClose={() => setConfirmOpen(false)}
                 onConfirm={() => handleDelete(deletingAuto.id)}
             >
-                Tem certeza que deseja deletar esta automação?
+                Tem certeza que deseja deletar esta automaÃ§Ã£o?
             </ConfirmationModal>
 
-            {/* Header */}
-            <Box className={classes.header}>
-                <Box className={classes.headerLeft}>
-                    <Box className={classes.headerIcon}>
-                        <DeviceHubIcon />
+            <ContextPageHeader
+                title="Automações do Kanban"
+                subtitle={`${automations.length} ${automations.length === 1 ? "automação" : "automações"}`}
+                fallbackTo="/kanban"
+                actions={(
+                    <Box className={classes.headerRight}>
+                        <TextField
+                            placeholder={i18n.t("contacts.searchPlaceholder")}
+                            variant="outlined"
+                            size="small"
+                            value={searchParam}
+                            onChange={handleSearch}
+                            className={classes.searchField}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon style={{ color: "#999" }} />
+                                    </InputAdornment>
+                                ),
+                            }}
+                        />
+                        <button className={classes.addButton} onClick={handleOpenModal}>
+                            <AddIcon style={{ fontSize: 24 }} />
+                        </button>
                     </Box>
-                    <Box>
-                        <Typography className={classes.headerTitle}>Automações do Kanban</Typography>
-                        <Typography className={classes.headerSubtitle}>
-                            {automations.length} {automations.length === 1 ? "automação" : "automações"}
-                        </Typography>
-                    </Box>
-                </Box>
-
-                <Box className={classes.headerRight}>
-                    <TextField
-                        placeholder={i18n.t("contacts.searchPlaceholder")}
-                        variant="outlined"
-                        size="small"
-                        value={searchParam}
-                        onChange={handleSearch}
-                        className={classes.searchField}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon style={{ color: "#999" }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    <button className={classes.addButton} onClick={handleOpenModal}>
-                        <AddIcon style={{ fontSize: 24 }} />
-                    </button>
-                </Box>
-            </Box>
+                )}
+            />
 
             {/* Content */}
             <Box className={classes.content}>
                 {filteredAutomations.length === 0 && !loading ? (
                     <Box className={classes.emptyState}>
                         <DeviceHubIcon />
-                        <Typography>Nenhuma automação encontrada</Typography>
+                        <Typography>Nenhuma automaÃ§Ã£o encontrada</Typography>
                     </Box>
                 ) : (
                     <Box className={classes.gridContainer}>
@@ -393,7 +386,10 @@ const KanbanAutomations = () => {
                                 {/* Info */}
                                 <Box
                                     className={classes.itemInfo}
-                                    onClick={() => history.push(`/kanban-automations-config/${auto.id}`)}
+                                    onClick={() => history.push({
+                                        pathname: `/kanban-automations-config/${auto.id}`,
+                                        state: { from: history.location.pathname }
+                                    })}
                                 >
                                     <Typography className={classes.itemName}>{auto.nome_automacao}</Typography>
                                     <Box className={classes.itemDetails}>
@@ -445,3 +441,4 @@ const KanbanAutomations = () => {
 };
 
 export default KanbanAutomations;
+

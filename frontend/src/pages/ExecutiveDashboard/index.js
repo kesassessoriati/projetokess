@@ -34,6 +34,7 @@ import ReactApexChart from "react-apexcharts";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import ContextPageHeader from "../../components/ContextPageHeader";
 
 const fCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -155,12 +156,16 @@ const ExecutiveDashboard = () => {
 
     return (
         <Box className={classes.container}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-                <Typography variant="h3" className={classes.title} style={{ marginBottom: 0 }}>Revenue Intelligence Hub</Typography>
-                <Button variant="contained" color="primary" startIcon={<GetApp />} onClick={() => window.print()}>
-                    Exportar PDF
-                </Button>
-            </Box>
+            <ContextPageHeader
+                title="Dashboard CRM"
+                subtitle="Visão executiva do funil e performance comercial"
+                fallbackTo="/kanban"
+                actions={(
+                    <Button variant="contained" color="primary" startIcon={<GetApp />} onClick={() => window.print()}>
+                        Exportar PDF
+                    </Button>
+                )}
+            />
 
             <Grid container spacing={4}>
                 {/* Bloco 1 - Receita */}

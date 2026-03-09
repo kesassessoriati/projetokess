@@ -34,6 +34,7 @@ import { toast } from "react-toastify";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import ColorPicker from "../../components/ColorPicker";
+import ContextPageHeader from "../../components/ContextPageHeader";
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -267,28 +268,32 @@ const PipelineConfig = () => {
 
     return (
         <Box className={classes.container}>
-            <Box className={classes.header}>
-                <Typography variant="h4" style={{ fontWeight: 900, color: "#0f172a" }}>Construtor Visual de Funil</Typography>
-                <Box display="flex" gap={2}>
-                    <Button
-                        variant="outlined"
-                        color="secondary"
-                        onClick={handleMigrateLegacy}
-                        style={{ borderRadius: 12 }}
-                    >
-                        Migrar Kanban Legado
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<AddIcon />}
-                        onClick={handleOpenCreatePipeline}
-                        style={{ borderRadius: 12 }}
-                    >
-                        Novo Funil
-                    </Button>
-                </Box>
-            </Box>
+            <ContextPageHeader
+                title="Configuração de Funil"
+                subtitle="Estruture pipelines, estágios e regras do CRM"
+                fallbackTo="/kanban"
+                actions={!selectedPipeline ? (
+                    <Box display="flex" gap={2}>
+                        <Button
+                            variant="outlined"
+                            color="secondary"
+                            onClick={handleMigrateLegacy}
+                            style={{ borderRadius: 12 }}
+                        >
+                            Migrar Kanban Legado
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<AddIcon />}
+                            onClick={handleOpenCreatePipeline}
+                            style={{ borderRadius: 12 }}
+                        >
+                            Novo Funil
+                        </Button>
+                    </Box>
+                ) : null}
+            />
 
             {!selectedPipeline ? (
                 <Grid container spacing={4}>

@@ -4,6 +4,7 @@ import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as Pl
 import CRMWebhookModal from "../../components/CRMWebhookModal";
 import api from "../../services/api";
 import { toast } from "react-toastify";
+import ContextPageHeader from "../../components/ContextPageHeader";
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -78,10 +79,16 @@ const CRMWebhooks = () => {
 
     return (
         <Box className={classes.container}>
-            <Box className={classes.header}>
-                <Typography variant="h4" style={{ fontWeight: 900 }}>Webhooks (CRM)</Typography>
-                <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>Novo Webhook</Button>
-            </Box>
+            <ContextPageHeader
+                title="Webhooks CRM"
+                subtitle="Gerencie integrações de eventos do funil"
+                fallbackTo="/kanban"
+                actions={(
+                    <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>
+                        Novo Webhook
+                    </Button>
+                )}
+            />
 
             <Paper className={classes.paper}>
                 <Table>

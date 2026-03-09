@@ -632,7 +632,7 @@ const PipelineBoard = () => {
                         <Button
                             size="small"
                             startIcon={<DashboardIcon style={{ fontSize: 15 }} />}
-                            onClick={() => history.push("/executive-dashboard")}
+                            onClick={() => history.push({ pathname: "/executive-dashboard", state: { from: history.location.pathname } })}
                             style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
                         >
                             Dashboard
@@ -642,7 +642,7 @@ const PipelineBoard = () => {
                         <Button
                             size="small"
                             startIcon={<TuneIcon style={{ fontSize: 15 }} />}
-                            onClick={() => history.push("/pipeline-config")}
+                            onClick={() => history.push({ pathname: "/pipeline-config", state: { from: history.location.pathname } })}
                             style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
                         >
                             Config. Funil
@@ -652,7 +652,7 @@ const PipelineBoard = () => {
                         <Button
                             size="small"
                             startIcon={<CodeIcon style={{ fontSize: 15 }} />}
-                            onClick={() => history.push("/crm-webhooks")}
+                            onClick={() => history.push({ pathname: "/crm-webhooks", state: { from: history.location.pathname } })}
                             style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
                         >
                             Webhooks
@@ -662,7 +662,7 @@ const PipelineBoard = () => {
                         <Button
                             size="small"
                             startIcon={<TimelineIcon style={{ fontSize: 15 }} />}
-                            onClick={() => history.push("/kanban-automations")}
+                            onClick={() => history.push({ pathname: "/kanban-automations", state: { from: history.location.pathname } })}
                             style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
                         >
                             Automações
@@ -672,7 +672,7 @@ const PipelineBoard = () => {
                         <Button
                             size="small"
                             startIcon={<DashboardIcon style={{ fontSize: 15 }} />}
-                            onClick={() => history.push("/crm/tasks")}
+                            onClick={() => history.push({ pathname: "/crm/tasks", state: { from: history.location.pathname } })}
                             style={{ fontSize: "0.75rem", textTransform: "none", color: "#475569", padding: "2px 8px" }}
                         >
                             Tarefas
