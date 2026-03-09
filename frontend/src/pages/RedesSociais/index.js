@@ -5,7 +5,7 @@ import {
   InputLabel, Select, MenuItem, Chip, Tabs, Tab, Dialog, DialogTitle, DialogContent,
   DialogActions, Table, TableHead, TableBody, TableRow, TableCell
 } from "@material-ui/core";
-import { Add, Edit, Delete, FileCopy, ViewKanban, ViewList, CalendarToday, Schedule } from "@material-ui/icons";
+import { Add, Edit, Delete, FileCopy, ViewColumn, ViewList, CalendarToday, Schedule } from "@material-ui/icons";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parseISO } from "date-fns";
 import ptBR from "date-fns/locale/pt-BR";
@@ -140,7 +140,7 @@ export default function RedesSociais() {
           {[ ["Total", m.totalContents], ["Planejamento", m.inPlanning], ["Produção", m.inProduction], ["Revisão", m.inReview], ["Agendado", m.scheduled], ["Publicado", m.published], ["Hoje", m.publishToday], ["Atrasados", m.overdue] ].map(([k,v]) => <Paper key={k} className={classes.metric}><Typography className={classes.metricLabel}>{k}</Typography><Typography className={classes.metricValue}>{v || 0}</Typography></Paper>)}
         </Box>
 
-        <Paper className={classes.tabs}><Tabs value={view} onChange={(_, v) => setView(v)}><Tab className={classes.tab} icon={<ViewKanban />} label="Kanban" /><Tab className={classes.tab} icon={<ViewList />} label="Lista" /><Tab className={classes.tab} icon={<CalendarToday />} label="Calendário" /></Tabs></Paper>
+        <Paper className={classes.tabs}><Tabs value={view} onChange={(_, v) => setView(v)}><Tab className={classes.tab} icon={<ViewColumn />} label="Kanban" /><Tab className={classes.tab} icon={<ViewList />} label="Lista" /><Tab className={classes.tab} icon={<CalendarToday />} label="Calendário" /></Tabs></Paper>
 
         <Paper className={classes.filters}>
           <FormControl variant="outlined" size="small"><InputLabel>Etapa</InputLabel><Select value={filters.stageId} onChange={e => setFilters(p => ({ ...p, stageId: e.target.value }))} label="Etapa"><MenuItem value="">Todas</MenuItem>{(overview.stages || []).map(s => <MenuItem key={s.id} value={String(s.id)}>{s.name}</MenuItem>)}</Select></FormControl>
