@@ -65,12 +65,11 @@ import ContactTagListModal from "../../components/ContactTagListModal";
 import ProductivityReport from "./ProductivityReport";
 
 const useStyles = makeStyles(theme => ({
-  // Container principal
   container: {
-    padding: theme.spacing(4),
+    padding: theme.spacing(3),
     width: "100%",
     margin: 0,
-    background: "#f8fafc",
+    background: "radial-gradient(circle at top left, #f4fbf6 0%, #ecf5ee 48%, #e3efe6 100%)",
     minHeight: "100vh",
     overflowX: "hidden",
     [theme.breakpoints.down("sm")]: {
@@ -78,89 +77,114 @@ const useStyles = makeStyles(theme => ({
       paddingBottom: "100px",
     },
   },
-
-  // Header da página
   pageHeader: {
-    marginBottom: theme.spacing(3),
+    marginBottom: theme.spacing(2),
+    borderRadius: 16,
+    padding: theme.spacing(2.25, 2.5),
+    border: "1px solid #d5e5da",
+    background: "linear-gradient(140deg, #ffffff 0%, #f6fbf7 100%)",
+    boxShadow: "0 10px 30px rgba(16,24,40,.08)",
     [theme.breakpoints.down("sm")]: {
       marginBottom: theme.spacing(2),
-      display: "none",
+      borderRadius: 12,
+      padding: theme.spacing(1.25),
     },
   },
   pageTitle: {
-    fontSize: "28px",
-    fontWeight: 700,
-    color: "#1a1a2e",
+    fontSize: "30px",
+    fontWeight: 800,
+    color: "#103a23",
+    letterSpacing: "-0.02em",
     marginBottom: theme.spacing(0.5),
     [theme.breakpoints.down("sm")]: {
       fontSize: "20px",
     },
   },
   pageSubtitle: {
-    fontSize: "14px",
-    color: "#6b7280",
+    fontSize: "13px",
+    color: "#4e6556",
     [theme.breakpoints.down("sm")]: {
       fontSize: "12px",
     },
   },
   breadcrumb: {
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     gap: theme.spacing(1),
-    color: "#9ca3af",
-    fontSize: "14px",
+    color: "#6f8577",
+    fontSize: "13px",
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid #dce9e1",
+    backgroundColor: "#f4faf6",
     "& span": {
-      color: "#3b82f6",
+      color: "#128045",
+      fontWeight: 700,
     },
   },
-
-  // Tabs
   tabsContainer: {
-    background: "#ffffff",
-    borderRadius: 12,
-    padding: theme.spacing(1),
-    marginBottom: theme.spacing(3),
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    background: "#ffffffd9",
+    borderRadius: 14,
+    border: "1px solid #d4e3d8",
+    padding: theme.spacing(0.8),
+    marginBottom: theme.spacing(2),
+    boxShadow: "0 8px 24px rgba(16,24,40,.07)",
+    backdropFilter: "blur(2px)",
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(0.5),
-      marginBottom: theme.spacing(2),
-      borderRadius: 8,
+      borderRadius: 10,
     },
   },
   tab: {
     textTransform: "none",
-    fontWeight: 500,
-    fontSize: "14px",
-    minHeight: 48,
-    color: "#6b7280",
+    fontWeight: 700,
+    fontSize: "13px",
+    minHeight: 46,
+    color: "#3f5547",
+    borderRadius: 10,
+    marginRight: 8,
+    border: "1px solid #d3e1d7",
+    backgroundColor: "#f7fbf8",
+    transition: "all .2s ease",
+    "&:hover": {
+      backgroundColor: "#edf7f1",
+      borderColor: "#8fc9a1",
+    },
     "&.Mui-selected": {
-      color: "#3b82f6",
-      fontWeight: 600,
+      color: "#ffffff",
+      background: "linear-gradient(135deg, #1fa257 0%, #157a40 100%)",
+      borderColor: "#106a38",
+      boxShadow: "0 10px 24px rgba(24,135,71,.28)",
+    },
+    "&.Mui-focusVisible": {
+      boxShadow: "0 0 0 3px rgba(31,157,85,.3)",
     },
     [theme.breakpoints.down("sm")]: {
       fontSize: "11px",
       minHeight: 40,
-      padding: "6px 8px",
+      padding: "6px 10px",
       minWidth: "auto",
+      marginRight: 6,
     },
   },
   tabIndicator: {
-    backgroundColor: "#3b82f6",
-    height: 3,
-    borderRadius: 2,
+    display: "none",
   },
-
-  // Cards de indicadores
   indicatorCard: {
-    background: "#ffffff",
+    background: "linear-gradient(160deg, #ffffff 0%, #f8fcf9 100%)",
     borderRadius: 16,
-    padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
+    padding: theme.spacing(2.5),
+    boxShadow: "0 12px 28px rgba(16,24,40,.08)",
+    border: "1px solid #dce9e1",
     height: "100%",
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(2),
+    transition: "transform .18s ease, box-shadow .18s ease",
+    "&:hover": {
+      transform: "translateY(-2px)",
+      boxShadow: "0 18px 36px rgba(16,24,40,.11)",
+    },
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1.5),
       borderRadius: 10,
@@ -170,10 +194,11 @@ const useStyles = makeStyles(theme => ({
   indicatorIcon: {
     width: 56,
     height: 56,
-    borderRadius: 12,
+    borderRadius: 14,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "inset 0 1px 1px rgba(255,255,255,.25), 0 8px 18px rgba(16,24,40,.18)",
     [theme.breakpoints.down("sm")]: {
       width: 40,
       height: 40,
@@ -185,45 +210,51 @@ const useStyles = makeStyles(theme => ({
   },
   indicatorContent: {
     flex: 1,
+    minWidth: 0,
   },
   indicatorLabel: {
-    fontSize: "13px",
-    color: "#6b7280",
+    fontSize: "12px",
+    color: "#5f7566",
     marginBottom: 4,
+    fontWeight: 600,
     [theme.breakpoints.down("sm")]: {
       fontSize: "11px",
       marginBottom: 2,
     },
   },
   indicatorValue: {
-    fontSize: "24px",
-    fontWeight: 700,
-    color: "#1a1a2e",
+    fontSize: "26px",
+    fontWeight: 800,
+    color: "#103a23",
+    lineHeight: 1.15,
     [theme.breakpoints.down("sm")]: {
       fontSize: "16px",
     },
   },
   indicatorTrend: {
-    fontSize: "12px",
-    display: "flex",
+    fontSize: "11px",
+    display: "inline-flex",
     alignItems: "center",
     gap: 4,
-    marginTop: 4,
+    marginTop: 7,
+    fontWeight: 700,
+    padding: "2px 8px",
+    borderRadius: 999,
   },
   trendUp: {
-    color: "#10b981",
+    color: "#0f7d43",
+    backgroundColor: "rgba(16, 185, 129, 0.14)",
   },
   trendDown: {
-    color: "#ef4444",
+    color: "#b42318",
+    backgroundColor: "rgba(239, 68, 68, 0.14)",
   },
-
-  // Gráficos
   chartCard: {
-    background: "#ffffff",
+    background: "linear-gradient(160deg, #ffffff 0%, #f8fcf9 100%)",
     borderRadius: 16,
-    padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
+    padding: theme.spacing(2.4),
+    boxShadow: "0 12px 28px rgba(16,24,40,.08)",
+    border: "1px solid #dce9e1",
     marginBottom: theme.spacing(3),
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1.5),
@@ -244,20 +275,18 @@ const useStyles = makeStyles(theme => ({
   },
   chartTitle: {
     fontSize: "18px",
-    fontWeight: 600,
-    color: "#1a1a2e",
+    fontWeight: 700,
+    color: "#123b25",
     [theme.breakpoints.down("sm")]: {
       fontSize: "14px",
     },
   },
-
-  // Tabela
   tableCard: {
-    background: "#ffffff",
+    background: "linear-gradient(160deg, #ffffff 0%, #f9fcfa 100%)",
     borderRadius: 16,
-    padding: theme.spacing(3),
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f1f5f9",
+    padding: theme.spacing(2.4),
+    boxShadow: "0 12px 28px rgba(16,24,40,.08)",
+    border: "1px solid #dce9e1",
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1),
       borderRadius: 10,
@@ -265,11 +294,11 @@ const useStyles = makeStyles(theme => ({
     },
   },
   tableHeader: {
-    background: "#f8fafc",
+    background: "#f0f7f3",
     "& th": {
-      fontWeight: 600,
-      color: "#374151",
-      borderBottom: "2px solid #e5e7eb",
+      fontWeight: 700,
+      color: "#264634",
+      borderBottom: "1px solid #d4e3da",
       [theme.breakpoints.down("sm")]: {
         fontSize: "11px",
         padding: "8px 4px",
@@ -279,7 +308,7 @@ const useStyles = makeStyles(theme => ({
   },
   tableRow: {
     "&:hover": {
-      background: "#f8fafc",
+      background: "#f7fbf8",
     },
     [theme.breakpoints.down("sm")]: {
       "& td": {
@@ -288,18 +317,34 @@ const useStyles = makeStyles(theme => ({
       },
     },
   },
-
-  // Filtros
   filtersContainer: {
     background: "#ffffff",
-    borderRadius: 12,
-    padding: theme.spacing(2),
-    marginBottom: theme.spacing(3),
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    borderRadius: 14,
+    border: "1px solid #d4e3d8",
+    padding: theme.spacing(1.8),
+    marginBottom: theme.spacing(2.5),
+    boxShadow: "0 8px 24px rgba(16,24,40,.07)",
     display: "flex",
-    gap: theme.spacing(2),
+    gap: theme.spacing(1.5),
     alignItems: "center",
     flexWrap: "wrap",
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 10,
+      backgroundColor: "#f8fcfa",
+      "& fieldset": {
+        borderColor: "#cfe0d5",
+      },
+      "&:hover fieldset": {
+        borderColor: "#89c7a0",
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: "#1e9b54",
+        borderWidth: 2,
+      },
+    },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: "#167f44",
+    },
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1),
       gap: theme.spacing(1),
@@ -312,13 +357,33 @@ const useStyles = makeStyles(theme => ({
       },
     },
   },
-
-  // Avatar do atendente
+  filterActionButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    color: "#fff",
+    boxShadow: "0 8px 18px rgba(16,24,40,.2)",
+    transition: "transform .16s ease, box-shadow .16s ease",
+    "&:hover": {
+      transform: "translateY(-1px)",
+      boxShadow: "0 12px 22px rgba(16,24,40,.24)",
+    },
+    "&:focus-visible": {
+      outline: "2px solid rgba(31,157,85,.5)",
+      outlineOffset: 1,
+    },
+  },
+  refreshButton: {
+    background: "linear-gradient(135deg, #24a35a 0%, #14773f 100%)",
+  },
+  exportButton: {
+    background: "linear-gradient(135deg, #187a44 0%, #0f5d33 100%)",
+  },
   attendantAvatar: {
     width: 40,
     height: 40,
     marginRight: theme.spacing(1.5),
-    background: "#3b82f6",
+    background: "#178a4a",
     [theme.breakpoints.down("sm")]: {
       width: 32,
       height: 32,
@@ -334,8 +399,6 @@ const useStyles = makeStyles(theme => ({
     right: 0,
     border: "2px solid #fff",
   },
-
-  // Loading
   loadingContainer: {
     display: "flex",
     justifyContent: "center",
@@ -345,7 +408,6 @@ const useStyles = makeStyles(theme => ({
       minHeight: 200,
     },
   },
-  // Responsivo
   hideOnMobile: {
     [theme.breakpoints.down("sm")]: {
       display: "none !important",
@@ -580,7 +642,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<ScheduleIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#8b5cf6"
+              iconBg="#1e9b54"
               label="Reuniões Agendadas"
               value={counters.crmMeetingsScheduled || 0}
               classes={classes}
@@ -589,7 +651,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<TrendingUpIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="Leads Convertidos"
               value={counters.crmConversions || 0}
               classes={classes}
@@ -601,7 +663,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={4}>
             <IndicatorCard
               icon={<AssignmentIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#2563eb"
+              iconBg="#157a40"
               label="Total de Tickets"
               value={counters.supportFinished || 0}
               trend={ticketsTrend.isUp}
@@ -637,7 +699,7 @@ const Reports = () => {
           <Chart
             options={{
               chart: { type: 'bar', toolbar: { show: false } },
-              colors: ['#3b82f6', '#10b981', '#8b5cf6'],
+              colors: ['#178a4a', '#10b981', '#1e9b54'],
               plotOptions: {
                 bar: { borderRadius: 6, columnWidth: '60%' }
               },
@@ -674,7 +736,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<PeopleIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="Total de Atendentes"
               value={attendants.length}
               classes={classes}
@@ -701,7 +763,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<AccessTimeIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#8b5cf6"
+              iconBg="#1e9b54"
               label="Média de Avaliação"
               value={attendants.length > 0
                 ? (attendants.reduce((acc, a) => acc + (parseFloat(a.rating) || 0), 0) / attendants.length).toFixed(1)
@@ -719,7 +781,7 @@ const Reports = () => {
           <Chart
             options={{
               chart: { type: 'bar', toolbar: { show: false } },
-              colors: ['#3b82f6'],
+              colors: ['#178a4a'],
               plotOptions: {
                 bar: { horizontal: true, borderRadius: 6, barHeight: '60%' }
               },
@@ -811,7 +873,7 @@ const Reports = () => {
         <Grid item xs={12} sm={6} md={3}>
           <IndicatorCard
             icon={<AssignmentIcon style={{ color: '#fff', fontSize: 28 }} />}
-            iconBg="#3b82f6"
+            iconBg="#178a4a"
             label="Tickets Finalizados"
             value={counters.supportFinished || 0}
             classes={classes}
@@ -838,7 +900,7 @@ const Reports = () => {
         <Grid item xs={12} sm={6} md={3}>
           <IndicatorCard
             icon={<AccessTimeIcon style={{ color: '#fff', fontSize: 28 }} />}
-            iconBg="#8b5cf6"
+            iconBg="#1e9b54"
             label="Tempo Médio Atendimento"
             value={formatTime(counters.avgSupportTime)}
             classes={classes}
@@ -854,7 +916,7 @@ const Reports = () => {
             <Chart
               options={{
                 labels: ['Finalizados', 'Em Atendimento', 'Aguardando'],
-                colors: ['#10b981', '#3b82f6', '#f59e0b'],
+                colors: ['#10b981', '#178a4a', '#f59e0b'],
                 legend: { position: 'bottom' },
               }}
               series={[
@@ -902,7 +964,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<LocalOfferIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="Total de Tags"
               value={tags.length}
               classes={classes}
@@ -926,7 +988,7 @@ const Reports = () => {
               <Chart
                 options={{
                   labels: sortedTags.slice(0, 8).map(t => t.name),
-                  colors: sortedTags.slice(0, 8).map(t => t.color || '#3b82f6'),
+                  colors: sortedTags.slice(0, 8).map(t => t.color || '#178a4a'),
                   legend: { position: 'bottom' },
                   chart: {
                     events: {
@@ -959,7 +1021,7 @@ const Reports = () => {
                       },
                     },
                   },
-                  colors: ['#3b82f6'],
+                  colors: ['#178a4a'],
                   plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
                   xaxis: { categories: sortedTags.slice(0, 10).map(t => t.name) },
                   dataLabels: { enabled: true },
@@ -999,7 +1061,7 @@ const Reports = () => {
                     <Box display="flex" alignItems="center" style={{ gap: 12 }}>
                       <div style={{
                         width: 12, height: 12, borderRadius: '50%',
-                        background: tag.color || '#3b82f6', flexShrink: 0
+                        background: tag.color || '#178a4a', flexShrink: 0
                       }} />
                       <Typography style={{ fontWeight: 500 }}>{tag.name}</Typography>
                     </Box>
@@ -1036,7 +1098,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<BarChartIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="Colunas Kanban"
               value={kanbanSummary.length}
               classes={classes}
@@ -1060,7 +1122,7 @@ const Reports = () => {
               <Chart
                 options={{
                   labels: kanbanSummary.map(k => k.name),
-                  colors: kanbanSummary.map(k => k.color || '#3b82f6'),
+                  colors: kanbanSummary.map(k => k.color || '#178a4a'),
                   legend: { position: 'bottom' },
                 }}
                 series={kanbanSummary.map(k => k.ticketsCount || 0)}
@@ -1075,7 +1137,7 @@ const Reports = () => {
               <Chart
                 options={{
                   chart: { type: 'bar', toolbar: { show: false } },
-                  colors: ['#3b82f6'],
+                  colors: ['#178a4a'],
                   plotOptions: { bar: { borderRadius: 6, columnWidth: '60%' } },
                   xaxis: { categories: kanbanSummary.map(k => k.name) },
                   dataLabels: { enabled: true },
@@ -1160,7 +1222,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<SentimentSatisfiedIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="NPS Score"
               value={npsScore.toFixed(0)}
               trend={npsScore >= 0}
@@ -1171,7 +1233,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<PeopleIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#8b5cf6"
+              iconBg="#1e9b54"
               label="Promotores"
               value={`${counters.npsPromotersPerc || 0}%`}
               classes={classes}
@@ -1601,7 +1663,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<AttachMoneyIcon style={{ color: "#fff", fontSize: 28 }} />}
-              iconBg="#6366f1"
+              iconBg="#1f9f6a"
               label="Ticket Médio"
               value={formatCurrency(avgTicket)}
               classes={classes}
@@ -1734,7 +1796,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<BuildIcon style={{ color: "#fff", fontSize: 28 }} />}
-              iconBg="#0ea5e9"
+              iconBg="#178a4a"
               label="Serviços Ativos"
               value={totalServices}
               classes={classes}
@@ -1754,7 +1816,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<PaymentIcon style={{ color: "#fff", fontSize: 28 }} />}
-              iconBg="#a855f7"
+              iconBg="#1f9f6a"
               label="Ticket Médio"
               value={formatCurrency(avgServiceValue)}
               classes={classes}
@@ -1789,7 +1851,7 @@ const Reports = () => {
                       offsetX: 10,
                     },
                     xaxis: { categories: topServices.map(s => s.nome) },
-                    colors: ["#0ea5e9"],
+                    colors: ["#178a4a"],
                   }}
                   series={[{ name: "Vendas", data: topServices.map(s => s.vendas || 0) }]}
                   type="bar"
@@ -1815,7 +1877,7 @@ const Reports = () => {
                   },
                   xaxis: { categories: topServices.map(s => s.nome) },
                   yaxis: { labels: { formatter: val => formatCurrency(val) } },
-                  colors: ["#06b6d4"],
+                  colors: ["#178a4a"],
                   dataLabels: { enabled: false },
                   tooltip: { y: { formatter: val => formatCurrency(val) } },
                 }}
@@ -1970,7 +2032,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<ReceiptIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#3b82f6"
+              iconBg="#178a4a"
               label="Total de Faturas"
               value={totalInvoices}
               trend={true}
@@ -2018,7 +2080,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<AttachMoneyIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#8b5cf6"
+              iconBg="#1e9b54"
               label="Valor Total Recebido"
               value={formatCurrency(paidValue)}
               classes={classes}
@@ -2027,7 +2089,7 @@ const Reports = () => {
           <Grid item xs={12} sm={6} md={3}>
             <IndicatorCard
               icon={<PaymentIcon style={{ color: '#fff', fontSize: 28 }} />}
-              iconBg="#06b6d4"
+              iconBg="#178a4a"
               label="Taxa de Pagamento"
               value={`${paymentRate}%`}
               trend={parseFloat(paymentRate) >= 80}
@@ -2113,7 +2175,7 @@ const Reports = () => {
           <Chart
             options={{
               chart: { type: 'area', toolbar: { show: false } },
-              colors: ['#3b82f6', '#10b981'],
+              colors: ['#178a4a', '#10b981'],
               stroke: { curve: 'smooth', width: 3 },
               fill: {
                 type: 'gradient',
@@ -2208,8 +2270,8 @@ const Reports = () => {
                               borderRadius: 12,
                               fontSize: 11,
                               fontWeight: 600,
-                              background: '#3b82f620',
-                              color: '#3b82f6',
+                              background: '#178a4a20',
+                              color: '#178a4a',
                             }}
                           >
                             {invoice.intervalo || 'Sim'}
@@ -2238,7 +2300,7 @@ const Reports = () => {
     if (loading) {
       return (
         <div className={classes.loadingContainer}>
-          <CircularProgress />
+          <CircularProgress style={{ color: "#178a4a" }} />
         </div>
       );
     }
@@ -2265,14 +2327,14 @@ const Reports = () => {
       <div className={classes.pageHeader}>
         <Grid container justifyContent="space-between" alignItems="flex-start">
           <Grid item>
-            <Typography className={classes.pageTitle}>Relatórios</Typography>
+            <Typography className={classes.pageTitle}>Relatorios</Typography>
             <Typography className={classes.pageSubtitle}>
-              Análise detalhada do seu atendimento
+              Analise detalhada e executiva da operacao
             </Typography>
           </Grid>
           <Grid item>
             <div className={classes.breadcrumb}>
-              Lar <span>›</span> <span>Relatórios</span>
+              Inicio <span>{">"}</span> <span>Relatorios</span>
             </div>
           </Grid>
         </Grid>
@@ -2325,12 +2387,12 @@ const Reports = () => {
           style={{ minWidth: 160 }}
         />
         <Tooltip title="Sincronizar dados">
-          <IconButton onClick={loadData} style={{ background: '#3b82f6', color: '#fff' }}>
+          <IconButton onClick={loadData} className={`${classes.filterActionButton} ${classes.refreshButton}`}>
             <RefreshIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Exportar PDF">
-          <IconButton onClick={handleExportPDF} style={{ background: '#ef4444', color: '#fff' }}>
+          <IconButton onClick={handleExportPDF} className={`${classes.filterActionButton} ${classes.exportButton}`}>
             <GetAppIcon />
           </IconButton>
         </Tooltip>
@@ -2354,3 +2416,5 @@ const Reports = () => {
 };
 
 export default Reports;
+
+
