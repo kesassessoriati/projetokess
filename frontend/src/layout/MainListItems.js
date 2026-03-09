@@ -53,6 +53,7 @@ import BugReportIcon from "@mui/icons-material/BugReport";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import SpeedIcon from "@mui/icons-material/Speed";
+import LanguageIcon from "@mui/icons-material/Language";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -1028,6 +1029,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 to="/projects"
                 primary="Projetos"
                 icon={<FolderSpecialIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/my-sites"
+                primary="Meus Sites"
+                icon={<LanguageIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink

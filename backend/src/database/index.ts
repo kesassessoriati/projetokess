@@ -140,6 +140,11 @@ import GroupTemplate from "../models/GroupTemplate";
 import GroupCampaign from "../models/GroupCampaign";
 import GroupCampaignTarget from "../models/GroupCampaignTarget";
 import GroupCampaignLog from "../models/GroupCampaignLog";
+import MySiteBoardColumn from "../models/MySiteBoardColumn";
+import MySiteBoardCard from "../models/MySiteBoardCard";
+import MySiteBoardChecklistItem from "../models/MySiteBoardChecklistItem";
+import MySiteBoardComment from "../models/MySiteBoardComment";
+import MySiteBoardAttachment from "../models/MySiteBoardAttachment";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -314,6 +319,11 @@ const models = [
   GroupCampaign,
   GroupCampaignTarget,
   GroupCampaignLog,
+  MySiteBoardColumn,
+  MySiteBoardCard,
+  MySiteBoardChecklistItem,
+  MySiteBoardComment,
+  MySiteBoardAttachment
 ];
 
 sequelize.addModels(models);
