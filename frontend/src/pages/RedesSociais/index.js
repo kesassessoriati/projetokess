@@ -5,7 +5,7 @@ import {
   InputLabel, Select, MenuItem, Chip, Tabs, Tab, Dialog, DialogTitle, DialogContent,
   DialogActions, Table, TableHead, TableBody, TableRow, TableCell
 } from "@material-ui/core";
-import { Add, Edit, Delete, ContentCopy, ViewKanban, ViewList, CalendarToday, Schedule } from "@material-ui/icons";
+import { Add, Edit, Delete, FileCopy, ViewKanban, ViewList, CalendarToday, Schedule } from "@material-ui/icons";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parseISO } from "date-fns";
 import ptBR from "date-fns/locale/pt-BR";
@@ -131,7 +131,7 @@ export default function RedesSociais() {
             <FormControl variant="outlined" size="small"><InputLabel>Quadro</InputLabel><Select value={boardId} onChange={e => setBoardId(e.target.value)} label="Quadro">{boards.map(b => <MenuItem key={b.id} value={String(b.id)}>{b.name}</MenuItem>)}</Select></FormControl>
             <TextField variant="outlined" size="small" label="Busca no quadro" value={filters.search} onChange={e => setFilters(p => ({ ...p, search: e.target.value }))} />
             <Button className={classes.lightBtn} startIcon={<Edit />} disabled={!boardId} onClick={() => { if (!overview.board) return; setBoardForm({ id: overview.board.id, name: overview.board.name || "", description: overview.board.description || "", relatedType: overview.board.relatedType || "", relatedName: overview.board.relatedName || "", color: overview.board.color || "#1B8A5A" }); setBoardModal(true); }}>Editar</Button>
-            <Button className={classes.lightBtn} startIcon={<ContentCopy />} disabled={!boardId} onClick={duplicateBoard}>Duplicar</Button>
+            <Button className={classes.lightBtn} startIcon={<FileCopy />} disabled={!boardId} onClick={duplicateBoard}>Duplicar</Button>
             <Button className={classes.lightBtn} startIcon={<Delete />} disabled={!boardId} onClick={deleteBoard}>Excluir</Button>
           </Box>
         </Paper>
