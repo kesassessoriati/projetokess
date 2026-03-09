@@ -43,6 +43,7 @@ import PhoneIcon from "@material-ui/icons/Phone";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import CampaignModal from "../../components/CampaignModal";
+import EmailCampaignModal from "../../components/EmailCampaignModal";
 import ContactListDialog from "../../components/ContactListDialog";
 import ContactListItemModal from "../../components/ContactListItemModal";
 import ContactListImportModal from "../../components/ContactListImportModal";
@@ -575,6 +576,8 @@ const Campaigns = () => {
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
   const [confirmCampaignOpen, setConfirmCampaignOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
+  const [emailCampaignModalOpen, setEmailCampaignModalOpen] = useState(false);
+  const [selectedEmailCampaign, setSelectedEmailCampaign] = useState(null);
 
   // Contact lists state
   const [contactLists, listDispatch] = useReducer(listReducer, []);
@@ -770,10 +773,13 @@ const Campaigns = () => {
     INATIVA: campaigns.filter((c) => c.status === "INATIVA").length,
   };
   const totalCampaigns = campaigns.length;
+  const emailCampaigns = campaigns.filter((c) => c.campaignType === "email");
+  const whatsappCampaigns = campaigns.filter((c) => !c.campaignType || c.campaignType === "whatsapp");
   const tabItems = [
-    { label: "Disparos", helper: "Envios", count: campaigns.length, Icon: CampaignIcon },
+    { label: "Disparos WhatsApp", helper: "Envios", count: whatsappCampaigns.length, Icon: CampaignIcon },
+    { label: "Disparos E-mail", helper: "E-mail em massa", count: emailCampaigns.length, Icon: EmailIcon },
     { label: "Lista de contatos", helper: "Base", count: contactLists.length, Icon: ListAltIcon },
-    { label: "Metricas", helper: "Analise", count: totalCampaigns, Icon: CheckCircleIcon },
+    { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: CheckCircleIcon },
   ];
 
   if (user.profile === "user") return <ForbiddenPage />;
@@ -796,6 +802,15 @@ const Campaigns = () => {
           open={campaignModalOpen}
           onClose={() => { setSelectedCampaign(null); setCampaignModalOpen(false); }}
           campaignId={selectedCampaign?.id}
+        />
+      )}
+
+      {emailCampaignModalOpen && (
+        <EmailCampaignModal
+          open={emailCampaignModalOpen}
+          onClose={() => { setSelectedEmailCampaign(null); setEmailCampaignModalOpen(false); }}
+          campaignId={selectedEmailCampaign?.id}
+          onSave={() => { setPageNumber(1); }}
         />
       )}
 
@@ -844,16 +859,16 @@ const Campaigns = () => {
       </Box>
       <Box className={classes.summaryRow}>
         <Paper className={`${classes.summaryCard} ${activeTab === 0 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Disparos cadastrados</Typography>
-          <Typography className={classes.summaryValue}>{campaigns.length}</Typography>
+          <Typography className={classes.summaryLabel}>Disparos WhatsApp</Typography>
+          <Typography className={classes.summaryValue}>{whatsappCampaigns.length}</Typography>
         </Paper>
         <Paper className={`${classes.summaryCard} ${activeTab === 1 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Listas de contatos</Typography>
-          <Typography className={classes.summaryValue}>{contactLists.length}</Typography>
+          <Typography className={classes.summaryLabel}>Disparos E-mail</Typography>
+          <Typography className={classes.summaryValue}>{emailCampaigns.length}</Typography>
         </Paper>
         <Paper className={`${classes.summaryCard} ${activeTab === 2 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Campanhas em andamento</Typography>
-          <Typography className={classes.summaryValue}>{metricsByStatus.EM_ANDAMENTO}</Typography>
+          <Typography className={classes.summaryLabel}>Listas de contatos</Typography>
+          <Typography className={classes.summaryValue}>{contactLists.length}</Typography>
         </Paper>
       </Box>
 
@@ -897,13 +912,13 @@ const Campaigns = () => {
           </Box>
 
           <Box className={classes.content}>
-            {campaigns.length === 0 && !loading ? (
+            {whatsappCampaigns.length === 0 && !loading ? (
               <Box className={classes.emptyState}>
                 <CampaignIcon />
-                <Typography>Nenhuma campanha encontrada</Typography>
+                <Typography>Nenhuma campanha WhatsApp encontrada</Typography>
               </Box>
             ) : (
-              campaigns.map((campaign) => (
+              whatsappCampaigns.map((campaign) => (
                 <Box key={campaign.id} className={classes.listItem}>
                   <Box className={classes.itemIcon} style={{ backgroundColor: "#e8f5e9" }}>
                     <CampaignIcon style={{ color: "#4caf50" }} />
@@ -969,8 +984,110 @@ const Campaigns = () => {
         </Box>
       )}
 
-      {/* ── TAB 1: Listas de Contatos ── */}
+      {/* ── TAB 1: Disparos de E-mail ── */}
       {activeTab === 1 && (
+        <Box className={classes.tabContent} onScroll={handleCampaignScroll}>
+          <Box className={classes.header}>
+            <Box className={classes.headerLeft}>
+              <Box className={classes.headerIcon}><EmailIcon style={{ color: "#00d4ff" }} /></Box>
+              <Box>
+                <Typography className={classes.headerTitle}>Disparos de E-mail</Typography>
+                <Typography className={classes.headerSubtitle}>
+                  {emailCampaigns.length} {emailCampaigns.length === 1 ? "disparo" : "disparos"}
+                </Typography>
+              </Box>
+            </Box>
+            <Box className={classes.headerRight}>
+              <Button
+                className={classes.addButton}
+                startIcon={<AddIcon style={{ fontSize: 18 }} />}
+                onClick={() => { setSelectedEmailCampaign(null); setEmailCampaignModalOpen(true); }}
+              >
+                Novo Disparo de E-mail
+              </Button>
+            </Box>
+          </Box>
+          <Box className={classes.content}>
+            {emailCampaigns.length === 0 && !loading ? (
+              <Box className={classes.emptyState}>
+                <EmailIcon />
+                <Typography>Nenhum disparo de e-mail encontrado</Typography>
+              </Box>
+            ) : (
+              emailCampaigns.map((campaign) => (
+                <Box key={campaign.id} className={classes.listItem}>
+                  <Box className={classes.itemIcon} style={{ backgroundColor: "#e3f2fd" }}>
+                    <EmailIcon style={{ color: "#1976d2" }} />
+                  </Box>
+                  <Box className={classes.itemInfo}>
+                    <Typography className={classes.itemName}>{campaign.name}</Typography>
+                    <Box className={classes.itemDetails}>
+                      <span>ID: {campaign.id}</span>
+                      <span>•</span>
+                      {getStatusChip(campaign.status)}
+                      <span>•</span>
+                      <Box className={classes.itemDetail}>
+                        <PeopleIcon style={{ fontSize: 12 }} />
+                        <span>{campaign.contactListId ? campaign.contactList?.name : "Sem lista"}</span>
+                      </Box>
+                      {campaign.emailSubject && (
+                        <>
+                          <span>•</span>
+                          <Box className={classes.itemDetail}>
+                            <EmailIcon style={{ fontSize: 12 }} />
+                            <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {campaign.emailSubject}
+                            </span>
+                          </Box>
+                        </>
+                      )}
+                      {campaign.scheduledAt && (
+                        <>
+                          <span>•</span>
+                          <Box className={classes.itemDetail}>
+                            <ScheduleIcon style={{ fontSize: 12 }} />
+                            <span>{datetimeToClient(campaign.scheduledAt)}</span>
+                          </Box>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                  <Box className={classes.itemActions}>
+                    <Button
+                      size="small"
+                      className={`${classes.actionTextButton} ${classes.reportAction}`}
+                      startIcon={<DescriptionIcon style={{ fontSize: 15 }} />}
+                      onClick={() => history.push(`/campaign/${campaign.id}/report`)}
+                    >
+                      Relatório
+                    </Button>
+                    <Button
+                      size="small"
+                      className={`${classes.actionTextButton} ${classes.editAction}`}
+                      startIcon={<EditIcon style={{ fontSize: 15 }} />}
+                      onClick={() => { setSelectedEmailCampaign(campaign); setEmailCampaignModalOpen(true); }}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      size="small"
+                      className={`${classes.actionTextButton} ${classes.deleteAction}`}
+                      startIcon={<DeleteOutlineIcon style={{ fontSize: 15 }} />}
+                      onClick={() => { setConfirmCampaignOpen(true); setDeletingCampaign(campaign); }}
+                    >
+                      Excluir
+                    </Button>
+                  </Box>
+                </Box>
+              ))
+            )}
+            {loading && <Box className={classes.loadingContainer}><CircularProgress size={26} /></Box>}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── TAB 2: Listas de Contatos ── */}
+      {activeTab === 2 && (
         <Box className={classes.tabContent} onScroll={handleListScroll}>
           <Box className={classes.header}>
             <Box className={classes.headerLeft}>
@@ -1224,8 +1341,8 @@ const Campaigns = () => {
         </Box>
       </Drawer>
 
-      {/* ── TAB 2: Métricas ── */}
-      {activeTab === 2 && (
+      {/* ── TAB 3: Métricas ── */}
+      {activeTab === 3 && (
         <Box className={classes.tabContent}>
           <Box className={classes.metricsContainer}>
 

@@ -138,6 +138,16 @@ class Campaign extends Model<Campaign> {
 
   @Column(DataType.JSON)
   carouselCards: object[];
+
+  @Default("whatsapp")
+  @Column(DataType.STRING(20))
+  campaignType: string; // whatsapp | email
+
+  @Column(DataType.STRING(255))
+  emailSubject: string;
+
+  @Column(DataType.TEXT)
+  emailBody: string;
 }
 
 export default Campaign;

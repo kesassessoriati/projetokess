@@ -43,6 +43,9 @@ type StoreData = {
   queueId: number | string;
   statusTicket: string;
   openTicket: string;
+  campaignType?: string;
+  emailSubject?: string;
+  emailBody?: string;
 };
 
 type FindParams = {

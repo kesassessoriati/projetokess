@@ -53,6 +53,8 @@ import runAutomationJob, {
 import runScheduledDispatchers from "./services/ScheduledDispatcherService/DispatchSchedulerService";
 import startDispatchProcessor from "./services/ScheduledDispatcherService/DispatchProcessorService";
 import { runCleanLidContacts } from "./services/ContactServices/CleanLidContactsRunner";
+import { GetSmtpSettingByCompany } from "./helpers/GetSmtpSettingByCompany";
+import nodemailer from "nodemailer";
 
 const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
@@ -373,6 +375,163 @@ async function handleSendScheduledMessage(job) {
   }
 }
 
+// ─── E-MAIL CAMPAIGN HELPERS ────────────────────────────────────────────────
+
+async function getEmailCampaign(id, companyId) {
+  return await Campaign.findOne({
+    where: { id, companyId },
+    include: [
+      {
+        model: ContactList,
+        as: "contactList",
+        attributes: ["id", "name"],
+        include: [
+          {
+            model: ContactListItem,
+            as: "contacts",
+            // Para e-mail não exigimos isWhatsappValid, apenas email preenchido
+            attributes: ["id", "name", "number", "email", "isWhatsappValid", "isGroup"]
+          }
+        ]
+      }
+    ]
+  });
+}
+
+async function handleProcessEmailCampaign(job) {
+  try {
+    const { id, companyId }: ProcessCampaignData = job.data;
+    const campaign = await getEmailCampaign(id, companyId);
+
+    if (!campaign) return;
+
+    const smtp = await GetSmtpSettingByCompany(companyId);
+    if (!smtp) {
+      logger.error(`[EmailCampaign] SMTP não configurado para empresa ${companyId}. Abortando campanha ${id}.`);
+      await campaign.update({ status: "CANCELADA" });
+      return;
+    }
+
+    const { contacts } = campaign.contactList;
+    if (!isArray(contacts) || contacts.length === 0) return;
+
+    // Filtra apenas contatos com e-mail válido
+    const validContacts = contacts.filter(c => c.email && c.email.trim() !== "" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim()));
+
+    if (validContacts.length === 0) {
+      logger.warn(`[EmailCampaign] Campanha ${id}: nenhum contato com e-mail válido.`);
+      await campaign.update({ status: "FINALIZADA", completedAt: moment() });
+      return;
+    }
+
+    logger.info(`[EmailCampaign] Campanha ${id}: ${validContacts.length} contatos com e-mail válido.`);
+
+    const queuePromises = validContacts.map((contact, i) =>
+      campaignQueue.add(
+        "DispatchEmailCampaign",
+        { campaignId: campaign.id, contactId: contact.id, companyId },
+        { delay: i * 2000, removeOnComplete: true } // 2s entre envios para respeitar limites SMTP
+      )
+    );
+
+    await Promise.all(queuePromises);
+  } catch (err: any) {
+    Sentry.captureException(err);
+    logger.error(`[EmailCampaign] handleProcessEmailCampaign error: ${err.message}`);
+  }
+}
+
+async function handleDispatchEmailCampaign(job) {
+  const { campaignId, contactId, companyId } = job.data;
+  try {
+    const campaign = await Campaign.findOne({ where: { id: campaignId, companyId } });
+    const contact = await ContactListItem.findByPk(contactId, {
+      attributes: ["id", "name", "number", "email"]
+    });
+
+    if (!campaign || !contact) return;
+
+    // Garantir que o contato tem e-mail válido
+    if (!contact.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim())) {
+      logger.warn(`[EmailCampaign] Contato ${contactId} sem e-mail válido. Pulando.`);
+      return;
+    }
+
+    // Upsert no CampaignShipping para rastrear o envio
+    const [shipping] = await CampaignShipping.findOrCreate({
+      where: { campaignId, contactId },
+      defaults: { campaignId, contactId, number: contact.number || "", message: campaign.emailSubject || "" }
+    });
+
+    // Se já foi entregue, pular
+    if (shipping.deliveredAt) return;
+
+    const smtp = await GetSmtpSettingByCompany(companyId);
+    if (!smtp) {
+      await shipping.update({ failedAt: new Date(), errorMessage: "SMTP não configurado" });
+      return;
+    }
+
+    // Substituir variáveis no assunto e corpo
+    const variables: Record<string, string> = {
+      nome: contact.name || "",
+      name: contact.name || "",
+      numero: contact.number || "",
+      number: contact.number || "",
+      email: contact.email || ""
+    };
+
+    const subject = replaceEmailVariables(campaign.emailSubject || "", variables);
+    const body = replaceEmailVariables(campaign.emailBody || "", variables);
+
+    const transportOptions: any = {
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.secure,
+      auth: { user: smtp.user, pass: smtp.password }
+    };
+    if (!smtp.secure) {
+      transportOptions.tls = { rejectUnauthorized: false };
+    }
+
+    const transporter = nodemailer.createTransport(transportOptions);
+
+    await transporter.sendMail({
+      from: `"${smtp.senderName}" <${smtp.senderEmail}>`,
+      to: contact.email.trim(),
+      subject,
+      html: body,
+      text: body.replace(/<[^>]*>/g, "")
+    });
+
+    await shipping.update({ deliveredAt: new Date(), message: subject });
+    logger.info(`[EmailCampaign] E-mail enviado para ${contact.email} (campanha ${campaignId})`);
+
+    await verifyAndFinalizeCampaign(campaign);
+  } catch (err: any) {
+    Sentry.captureException(err);
+    logger.error(`[EmailCampaign] handleDispatchEmailCampaign error: ${err.message}`);
+
+    // Registrar falha no shipping
+    try {
+      await CampaignShipping.update(
+        { failedAt: new Date(), errorMessage: String(err.message).substring(0, 500) },
+        { where: { campaignId, contactId } }
+      );
+    } catch (_) {}
+  }
+}
+
+function replaceEmailVariables(text: string, variables: Record<string, string>): string {
+  let result = text;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, "gi"), value || "");
+  }
+  return result;
+}
+
+// ─── CAMPAIGN VERIFICATION (WhatsApp + E-mail) ──────────────────────────────
+
 async function handleVerifyCampaigns(job) {
   if (isProcessing) {
     // logger.warn('A campaign verification process is already running.');
@@ -383,9 +542,9 @@ async function handleVerifyCampaigns(job) {
   try {
     await new Promise(r => setTimeout(r, 1500));
 
-    const campaigns: { id: number; scheduledAt: string; companyId: number }[] =
+    const campaigns: { id: number; scheduledAt: string; companyId: number; campaignType: string }[] =
       await sequelize.query(
-        `SELECT id, "scheduledAt", "companyId" FROM "Campaigns" c
+        `SELECT id, "scheduledAt", "companyId", "campaignType" FROM "Campaigns" c
         WHERE "scheduledAt" BETWEEN NOW() AND NOW() + INTERVAL '3 hour' AND status = 'PROGRAMADA'`,
         { type: QueryTypes.SELECT }
       );
@@ -403,11 +562,15 @@ async function handleVerifyCampaigns(job) {
           const scheduledAt = moment(campaign.scheduledAt);
           const delay = scheduledAt.diff(now, "milliseconds");
           logger.info(
-            `Campanha enviada para a fila de processamento: Campanha=${campaign.id}, Delay Inicial=${delay}`
+            `Campanha enviada para a fila de processamento: Campanha=${campaign.id}, Tipo=${campaign.campaignType || "whatsapp"}, Delay Inicial=${delay}`
           );
 
+          const jobName = (campaign.campaignType === "email")
+            ? "ProcessEmailCampaign"
+            : "ProcessCampaign";
+
           return campaignQueue.add(
-            "ProcessCampaign",
+            jobName,
             { id: campaign.id, delay, companyId: campaign.companyId },
             { priority: 3, removeOnComplete: { age: 60 * 60, count: 10 }, removeOnFail: { age: 60 * 60, count: 10 } }
           );
@@ -1782,6 +1945,10 @@ export async function startQueueProcess() {
   campaignQueue.process("PrepareContact", handlePrepareContact);
 
   campaignQueue.process("DispatchCampaign", handleDispatchCampaign);
+
+  campaignQueue.process("ProcessEmailCampaign", handleProcessEmailCampaign);
+
+  campaignQueue.process("DispatchEmailCampaign", handleDispatchEmailCampaign);
 
   userMonitor.process("VerifyLoginStatus", handleLoginStatus);
 

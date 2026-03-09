@@ -27,6 +27,9 @@ interface Data {
   queueId: number | string;
   statusTicket: string;
   openTicket: string;
+  campaignType?: string;
+  emailSubject?: string;
+  emailBody?: string;
 }
 
 const UpdateService = async (data: Data): Promise<Campaign> => {
