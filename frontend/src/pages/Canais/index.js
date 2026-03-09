@@ -36,6 +36,7 @@ import {
   Search as SearchIcon,
   Link as LinkIcon,
   Message as MessengerIcon,
+  Email as EmailIcon,
   Add as AddIcon,
   Replay as RepeatIcon,
   PowerSettingsNew as PowerIcon,
@@ -60,6 +61,7 @@ import ForbiddenPage from "../../components/ForbiddenPage";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import QrcodeModal from "../../components/QrcodeModal";
 import WhatsAppModal from "../../components/WhatsAppModal";
+import EmailChannelModal from "../../components/EmailChannelModal";
 import usePlans from "../../hooks/usePlans";
 import formatSerializedId from "../../utils/formatSerializedId";
 import notificame_logo from "../../assets/notificame_logo.png";
@@ -279,9 +281,12 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap"
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12
+    borderRadius: 10,
+    textTransform: "none",
+    fontWeight: 600,
+    fontSize: "0.75rem",
+    padding: "6px 10px",
+    minHeight: 34
   },
   editButton: {
     backgroundColor: "#e3f2fd",
@@ -410,6 +415,8 @@ const IconChannel = (channel) => {
       return <WhatsApp style={{ color: "#25d366" }} />;
     case "whatsapp_official":
       return <WhatsApp style={{ color: "#128C7E" }} />;
+    case "email":
+      return <EmailIcon style={{ color: "#2e7d32" }} />;
     default:
       return "error";
   }
@@ -427,6 +434,8 @@ const Connections = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [hubChannelModalOpen, setHubChannelModalOpen] = useState(false);
   const [fbIgModalOpen, setFbIgModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [selectedEmailChannel, setSelectedEmailChannel] = useState(null);
   const [searchParam, setSearchParam] = useState("");
   const { handleLogout, user } = useContext(AuthContext);
   const history = useHistory();
@@ -546,6 +555,25 @@ const Connections = () => {
     setWhatsAppModalOpen(true);
   };
 
+  const handleOpenEmailModal = () => {
+    setSelectedEmailChannel(null);
+    setEmailModalOpen(true);
+  };
+
+  const handleCloseEmailModal = () => {
+    setEmailModalOpen(false);
+    setSelectedEmailChannel(null);
+  };
+
+  const handleSyncEmailChannel = async (channelId) => {
+    try {
+      await api.post(`/email-channels/${channelId}/sync`);
+      toast.success("Sincronização de e-mail iniciada.");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleCloseWhatsAppModal = useCallback(() => {
     setWhatsAppModalOpen(false);
     setSelectedWhatsApp(null);
@@ -563,6 +591,12 @@ const Connections = () => {
   }, [setQrModalOpen, setSelectedWhatsApp]);
 
   const handleEditConnection = (whatsApp) => {
+    if (whatsApp.channel === "email") {
+      setSelectedEmailChannel(whatsApp);
+      setEmailModalOpen(true);
+      return;
+    }
+
     setSelectedWhatsApp(whatsApp);
     setModalChannel(whatsApp.channel);
 
@@ -628,7 +662,11 @@ const Connections = () => {
     if (confirmModalInfo.action === "delete") {
       try {
         // Usar endpoint diferente dependendo do canal
-        const endpoint = confirmModalInfo.channel === "whatsapp_official" ? `/whatsapp-official/${confirmModalInfo.whatsAppId}` : `/whatsapp/${confirmModalInfo.whatsAppId}`;
+        const endpoint = confirmModalInfo.channel === "whatsapp_official"
+          ? `/whatsapp-official/${confirmModalInfo.whatsAppId}`
+          : confirmModalInfo.channel === "email"
+            ? `/email-channels/${confirmModalInfo.whatsAppId}`
+            : `/whatsapp/${confirmModalInfo.whatsAppId}`;
         await api.delete(endpoint);
         toast.success(i18n.t("connections.toasts.deleted"));
       } catch (err) {
@@ -700,6 +738,25 @@ const Connections = () => {
   };
 
   const renderActionButtons = (whatsApp) => {
+    if (whatsApp.channel === "email") {
+      return (
+        <Button
+          startIcon={<RepeatIcon />}
+          size="small"
+          variant="outlined"
+          style={{
+            color: "white",
+            backgroundColor: "#2e7d32",
+            boxShadow: "none",
+            borderRadius: "5px",
+          }}
+          onClick={() => handleSyncEmailChannel(whatsApp.id)}
+        >
+          Sincronizar
+        </Button>
+      );
+    }
+
     return (
       <>
         {whatsApp.status === "qrcode" && whatsApp.channel === "whatsapp" && (
@@ -911,6 +968,8 @@ const Connections = () => {
         return <MessengerIcon style={{ color: "#3b5998", fontSize: 28 }} />;
       case "instagram":
         return <Instagram style={{ color: "#e1306c", fontSize: 28 }} />;
+      case "email":
+        return <EmailIcon style={{ color: "#2e7d32", fontSize: 28 }} />;
       case "whatsapp_official":
         return <WhatsApp style={{ color: "#128C7E", fontSize: 28 }} />;
       case "whatsapp":
@@ -925,6 +984,8 @@ const Connections = () => {
         return "#e7f3ff";
       case "instagram":
         return "#fce4ec";
+      case "email":
+        return "#e8f5e9";
       case "whatsapp_official":
         return "#e6f7f2";
       case "whatsapp":
@@ -964,6 +1025,11 @@ const Connections = () => {
           setSelectedWhatsApp(null);
         }}
         whatsAppId={!qrModalOpen && fbIgModalOpen && selectedWhatsApp?.id}
+      />
+      <EmailChannelModal
+        open={emailModalOpen}
+        onClose={handleCloseEmailModal}
+        emailChannelId={emailModalOpen && selectedEmailChannel?.id}
       />
       <ChannelModal
         open={hubChannelModalOpen}
@@ -1042,6 +1108,15 @@ const Connections = () => {
                         >
                           <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#128C7E" }} />
                           WhatsApp Oficial
+                        </MenuItem>
+                        <MenuItem
+                          onClick={() => {
+                            handleOpenEmailModal();
+                            popupState.close();
+                          }}
+                        >
+                          <EmailIcon fontSize="small" style={{ marginRight: 10, color: "#2e7d32" }} />
+                          E-mail
                         </MenuItem>
                         <MenuItem onClick={() => { setHubChannelModalOpen(true); popupState.close(); }}>
                           <img src={notificame_logo} alt="NotificaMe Hub" style={{ width: 16, height: 16, marginRight: 10, marginLeft: 2 }} />
@@ -1141,6 +1216,11 @@ const Connections = () => {
                                 <Instagram style={{ fontSize: 14, verticalAlign: 'middle' }} /> Instagram
                               </span>
                             )}
+                            {whatsApp.channel === "email" && (
+                              <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#2e7d32", fontWeight: 500 }}>
+                                <EmailIcon style={{ fontSize: 14, verticalAlign: "middle" }} /> E-mail
+                              </span>
+                            )}
                             {whatsApp.isDefault && (
                               <span style={{ marginLeft: 8, fontSize: "0.7rem", color: green[500], fontWeight: 500 }}>
                                 (Padrão)
@@ -1175,22 +1255,26 @@ const Connections = () => {
                             yes={() => (
                               <>
                                 <Tooltip title="Editar">
-                                  <IconButton
+                                  <Button
                                     size="small"
+                                    variant="outlined"
+                                    startIcon={<Edit fontSize="small" />}
                                     className={`${classes.actionButton} ${classes.editButton}`}
                                     onClick={() => handleEditConnection(whatsApp)}
                                   >
-                                    <Edit fontSize="small" />
-                                  </IconButton>
+                                    Editar
+                                  </Button>
                                 </Tooltip>
                                 <Tooltip title="Excluir">
-                                  <IconButton
+                                  <Button
                                     size="small"
+                                    variant="outlined"
+                                    startIcon={<DeleteOutline fontSize="small" />}
                                     className={`${classes.actionButton} ${classes.deleteButton}`}
                                     onClick={() => handleOpenConfirmationModal("delete", whatsApp.id, whatsApp.channel)}
                                   >
-                                    <DeleteOutline fontSize="small" />
-                                  </IconButton>
+                                    Excluir
+                                  </Button>
                                 </Tooltip>
                               </>
                             )}

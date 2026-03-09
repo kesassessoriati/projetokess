@@ -4,11 +4,13 @@ import { grey } from "@material-ui/core/colors";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import InstagramIcon from "@material-ui/icons/Instagram";
 import FacebookIcon from "@material-ui/icons/Facebook";
+import EmailIcon from "@material-ui/icons/Email";
 
 const CONNECTION_COLORS = {
 	whatsapp: "#25D366",
 	instagram: "#E4405F",
 	facebook: "#1877F2",
+	email: "#2E7D32",
 };
 
 const ConnectionIcon = ({ connectionType, size = 18 }) => {
@@ -20,6 +22,7 @@ const ConnectionIcon = ({ connectionType, size = 18 }) => {
 			{connectionType === "whatsapp" && <WhatsAppIcon style={iconStyle} />}
 			{connectionType === "instagram" && <InstagramIcon style={iconStyle} />}
 			{connectionType === "facebook" && <FacebookIcon style={iconStyle} />}
+			{connectionType === "email" && <EmailIcon style={iconStyle} />}
 		</React.Fragment>
 	);
 };

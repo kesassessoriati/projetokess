@@ -75,7 +75,8 @@ import {
 	Android as AndroidIcon,
 	Archive as ArchiveIcon,
 	VisibilityOff as VisibilityOffIcon,
-	Receipt as ReceiptIcon
+	Receipt as ReceiptIcon,
+	Email as EmailIcon
 } from "@material-ui/icons";
 import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -489,6 +490,7 @@ const CHANNEL_STYLES = {
 	whatsapp: { bg: "#e8f5e9", color: "#00a884" },
 	facebook: { bg: "#e7f0ff", color: "#1877F2" },
 	instagram: { bg: "#ffe7f1", color: "#E4405F" },
+	email: { bg: "#e8f5e9", color: "#2e7d32" },
 };
 
 // Função para detectar se é mensagem automática de anúncio Facebook/Instagram
@@ -806,7 +808,8 @@ const Atendimentos = () => {
 	const channelQuickOptions = [
 		{ key: "whatsapp", label: "WhatsApp", color: "#25d366", icon: <WhatsAppIcon fontSize="small" /> },
 		{ key: "facebook", label: "Facebook", color: "#1877F2", icon: <FacebookIcon fontSize="small" /> },
-		{ key: "instagram", label: "Instagram", color: "#E4405F", icon: <InstagramIcon fontSize="small" /> }
+		{ key: "instagram", label: "Instagram", color: "#E4405F", icon: <InstagramIcon fontSize="small" /> },
+		{ key: "email", label: "E-mail", color: "#2e7d32", icon: <EmailIcon fontSize="small" /> }
 	];
 
 	const toggleChannelQuickFilter = channel => {

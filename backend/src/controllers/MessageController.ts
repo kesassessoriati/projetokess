@@ -43,6 +43,7 @@ import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import TranscribeAudioMessageToText from "../services/MessageServices/TranscribeAudioMessageService";
 import { generateWAMessageFromContent, generateWAMessageContent } from "@whiskeysockets/baileys";
 import { notifyNewMessage } from "./NotificationController";
+import SendEmailMessageService from "../services/EmailChannelServices/SendEmailMessageService";
 
 type IndexQuery = {
   pageNumber: string;
@@ -574,6 +575,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
             }
           }
 
+          if (ticket.channel === "email") {
+            await SendEmailMessageService({
+              ticket,
+              body: Array.isArray(body) ? body[index] : body,
+              subject: req.body?.subject,
+              userId: req.user.id,
+              medias: [media]
+            });
+          }
+
           //limpar arquivo nao utilizado mais após envio
           const filePath = path.resolve("public", `company${companyId}`, media.filename);
           const fileExists = fs.existsSync(filePath);
@@ -614,6 +625,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         const sendText = await sendFaceMessage({ body, ticket, quotedMsg });
         // Registrar texto enviado no histórico do ticket para ambos os canais
         await verifyMessageFace(sendText, body, ticket, ticket.contact, true);
+      } else if (ticket.channel === "email") {
+        await SendEmailMessageService({
+          ticket,
+          body,
+          subject: req.body?.subject,
+          userId: req.user.id
+        });
       }
     }
     return res.send();

@@ -126,6 +126,7 @@ if (process.env.CERTIFICADOS == "true") {
 
 import { executeWhatsappWarmups } from "./services/WhatsappWarmupServices/WhatsappWarmupService";
 import executeFollowUpCampaigns from "./services/FollowUpCampaignService/ExecuteFollowUpCampaignService";
+import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailChannelService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -135,4 +136,9 @@ cron.schedule("*/5 * * * *", () => {
 // Process follow-up campaign stages every 5 minutes
 cron.schedule("*/5 * * * *", () => {
   executeFollowUpCampaigns();
+});
+
+// Sync e-mail channels (IMAP inbox) every 2 minutes
+cron.schedule("*/2 * * * *", () => {
+  SyncEmailChannelService();
 });

@@ -118,6 +118,7 @@ import whatsappWarmupRoutes from "./whatsappWarmupRoutes";
 import groupManagementRoutes from "./groupManagementRoutes";
 import followUpCampaignRoutes from "./followUpCampaignRoutes";
 import crmAiRoutes from "./crmAiRoutes";
+import emailChannelRoutes from "./emailChannelRoutes";
 
 const routes = Router();
 
@@ -261,6 +262,7 @@ routes.use(kanbanAutomationRoutes);
 routes.use(groupManagementRoutes);
 routes.use(followUpCampaignRoutes);
 routes.use(crmAiRoutes);
+routes.use(emailChannelRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);

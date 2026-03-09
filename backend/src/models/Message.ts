@@ -118,6 +118,36 @@ class Message extends Model<Message> {
   @Column
   wid: string;
 
+  @Column(DataType.STRING)
+  externalMessageId: string;
+
+  @Column(DataType.STRING)
+  inReplyTo: string;
+
+  @Column(DataType.STRING)
+  threadId: string;
+
+  @Column(DataType.STRING)
+  emailFrom: string;
+
+  @Column(DataType.TEXT)
+  emailTo: string;
+
+  @Column(DataType.TEXT)
+  emailCc: string;
+
+  @Column(DataType.TEXT)
+  emailBcc: string;
+
+  @Column(DataType.STRING)
+  emailSubject: string;
+
+  @Column(DataType.STRING)
+  emailStatus: string;
+
+  @Column(DataType.JSONB)
+  emailMeta: any;
+
   @Default(false)
   @Column
   isPrivate: boolean;

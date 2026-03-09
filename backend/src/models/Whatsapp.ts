@@ -130,6 +130,64 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.TEXT)
   channel: string;
 
+  @Column(DataType.STRING)
+  emailAddress: string;
+
+  @Column(DataType.STRING)
+  emailDisplayName: string;
+
+  @Column(DataType.TEXT)
+  emailSignature: string;
+
+  @Default(true)
+  @Column
+  emailUseCompanySmtp: boolean;
+
+  @Column(DataType.STRING)
+  emailSmtpHost: string;
+
+  @Column
+  emailSmtpPort: number;
+
+  @Default(false)
+  @Column
+  emailSmtpSecure: boolean;
+
+  @Column(DataType.STRING)
+  emailSmtpUser: string;
+
+  @Column(DataType.STRING)
+  emailSmtpPassword: string;
+
+  @Column(DataType.STRING)
+  emailImapHost: string;
+
+  @Column
+  emailImapPort: number;
+
+  @Default(true)
+  @Column
+  emailImapSecure: boolean;
+
+  @Column(DataType.STRING)
+  emailImapUser: string;
+
+  @Column(DataType.STRING)
+  emailImapPassword: string;
+
+  @Default(true)
+  @Column
+  emailSyncEnabled: boolean;
+
+  @Column
+  emailLastSyncAt: Date;
+
+  @Column
+  emailLastUid: number;
+
+  @Column(DataType.TEXT)
+  emailSyncError: string;
+
   @Default(3)
   @Column
   maxUseBotQueues: number;
