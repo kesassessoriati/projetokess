@@ -46,6 +46,7 @@ const Smtp = () => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [testEmail, setTestEmail] = useState("");
 
     const [settings, setSettings] = useState({
         host: "",
@@ -102,13 +103,14 @@ const Smtp = () => {
     };
 
     const handleTestSmtp = async () => {
-        const emailDestino = prompt("Digite o e-mail de destino para o teste:");
-        if (!emailDestino) return;
-        
+        if (!testEmail) {
+            toast.warning("Informe um e-mail de destino para o teste.");
+            return;
+        }
         setTesting(true);
         try {
-            await api.post("/smtp/test", { emailDestino });
-            toast.success("SMTP configurado com sucesso");
+            await api.post("/smtp/test", { emailDestino: testEmail });
+            toast.success("E-mail de teste enviado com sucesso!");
         } catch (err) {
             toastError(err);
         } finally {
@@ -230,7 +232,7 @@ const Smtp = () => {
                         </Grid>
                     </Grid>
 
-                    <Box display="flex" justifyContent="flex-end" style={{ gap: "10px" }}>
+                    <Box display="flex" justifyContent="flex-end" style={{ marginTop: 24 }}>
                         <Button
                             className={classes.btnSave}
                             type="submit"
@@ -240,17 +242,37 @@ const Smtp = () => {
                         >
                             {saving ? <CircularProgress size={24} color="inherit" /> : "Salvar Configurações"}
                         </Button>
-                        <Button
-                            className={classes.btnSave}
-                            onClick={handleTestSmtp}
-                            variant="contained"
-                            style={{ backgroundColor: "#00d4ff", color: "#fff" }}
-                            disabled={saving || testing}
-                        >
-                            {testing ? <CircularProgress size={24} color="inherit" /> : "Testar SMTP"}
-                        </Button>
                     </Box>
                 </form>
+
+                <Box style={{ marginTop: 32, borderTop: "1px solid #e0e0e0", paddingTop: 24 }}>
+                    <Typography variant="subtitle1" style={{ fontWeight: 600, marginBottom: 12 }}>
+                        Testar Conexão SMTP
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                        Informe um e-mail de destino e clique em "Enviar Teste" para verificar se as configurações estão funcionando.
+                    </Typography>
+                    <Box display="flex" style={{ gap: 12, alignItems: "flex-start" }}>
+                        <TextField
+                            label="E-mail de destino"
+                            type="email"
+                            placeholder="seu@email.com"
+                            variant="outlined"
+                            size="small"
+                            value={testEmail}
+                            onChange={(e) => setTestEmail(e.target.value)}
+                            style={{ flex: 1, maxWidth: 360 }}
+                        />
+                        <Button
+                            variant="contained"
+                            style={{ backgroundColor: "#00d4ff", color: "#fff", textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                            onClick={handleTestSmtp}
+                            disabled={saving || testing}
+                        >
+                            {testing ? <CircularProgress size={20} color="inherit" /> : "Enviar Teste"}
+                        </Button>
+                    </Box>
+                </Box>
             </Paper>
         </Container>
     );
