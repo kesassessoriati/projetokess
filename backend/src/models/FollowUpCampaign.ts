@@ -44,6 +44,10 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
   @Column(DataType.STRING(30))
   sourceType: string; // 'campaign' | 'manual'
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  boardColumn: string;
+
   @CreatedAt
   createdAt: Date;
 

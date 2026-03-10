@@ -81,6 +81,9 @@ const emptyStage = () => ({
   delayMinutes: 60,
   messageType: "text",
   message: "",
+  mediaUrl: "",
+  mediaType: "",
+  mediaCaption: "",
   buttons: [],
   isActive: true,
 });
@@ -90,6 +93,7 @@ const emptyForm = () => ({
   whatsappId: "",
   isActive: true,
   sourceType: "manual",
+  boardColumn: "",
   stages: [emptyStage()],
 });
 
@@ -154,6 +158,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
         whatsappId: campaign.whatsappId || "",
         isActive: campaign.isActive !== false,
         sourceType: campaign.sourceType || "manual",
+        boardColumn: campaign.boardColumn || "",
         stages: campaign.stages?.length ? campaign.stages : [emptyStage()],
       });
     } else {
@@ -169,6 +174,28 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
       stages[idx] = { ...stages[idx], [key]: value };
       return { ...p, stages };
     });
+  };
+
+  const handleUpload = async (e, idx, type) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeMB = file.size / 1024 / 1024;
+    if (type === "image" && sizeMB > 5) return toast.error("A imagem deve ter até 5MB");
+    if (type === "video" && sizeMB > 16) return toast.error("O vídeo deve ter até 16MB");
+    if (type === "audio" && sizeMB > 10) return toast.error("O áudio deve ter até 10MB");
+    if (type === "document" && sizeMB > 10) return toast.error("O documento deve ter até 10MB");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const { data } = await api.post("/upload", formData);
+      updateStage(idx, "mediaUrl", data.filePath);
+      updateStage(idx, "mediaType", type);
+      toast.success("Arquivo anexado com sucesso!");
+    } catch {
+      toast.error("Erro no upload do arquivo");
+    }
   };
 
   const addStage = () => {
@@ -260,6 +287,16 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
             </Select>
           </FormControl>
 
+          <TextField
+            label="Coluna do Quadro Kanban (Opcional)"
+            placeholder="Ex: Black Friday"
+            value={form.boardColumn}
+            onChange={(e) => setField("boardColumn", e.target.value)}
+            fullWidth
+            variant="outlined"
+            size="small"
+          />
+
           <FormControlLabel
             control={
               <Switch
@@ -309,6 +346,10 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
                     label="Tipo"
                   >
                     <MenuItem value="text">Texto</MenuItem>
+                    <MenuItem value="image">Imagem</MenuItem>
+                    <MenuItem value="video">Vídeo</MenuItem>
+                    <MenuItem value="audio">Áudio</MenuItem>
+                    <MenuItem value="document">Documento</MenuItem>
                     <MenuItem value="buttons">Botões</MenuItem>
                   </Select>
                 </FormControl>
@@ -326,16 +367,60 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
                 />
               </Box>
 
-              <TextField
-                label="Mensagem"
-                value={stage.message}
-                onChange={(e) => updateStage(idx, "message", e.target.value)}
-                fullWidth
-                multiline
-                rows={3}
-                variant="outlined"
-                size="small"
-              />
+              {["text", "buttons"].includes(stage.messageType) && (
+                <TextField
+                  label="Mensagem"
+                  value={stage.message}
+                  onChange={(e) => updateStage(idx, "message", e.target.value)}
+                  fullWidth
+                  multiline
+                  rows={3}
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+
+              {["image", "video", "audio", "document"].includes(stage.messageType) && (
+                <Box mt={2} mb={2} p={2} border="1px dashed #ccc" borderRadius={4}>
+                  <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Anexo de Mídia</Typography>
+                  <Box display="flex" gap={2} alignItems="center">
+                    <input 
+                      type="file" 
+                      accept={
+                        stage.messageType === "image" ? "image/*" : 
+                        stage.messageType === "video" ? "video/*" : 
+                        stage.messageType === "audio" ? "audio/*" : 
+                        "*"
+                      }
+                      onChange={(e) => handleUpload(e, idx, stage.messageType)} 
+                    />
+                  </Box>
+                  {stage.mediaUrl && (
+                    <Box mt={2} mb={2}>
+                      <Typography variant="caption" color="primary">Arquivo: {stage.mediaUrl.split("-").pop()}</Typography>
+                      {stage.messageType === "image" && (
+                        <Box mt={1}>
+                          <img 
+                            src={`${process.env.REACT_APP_BACKEND_URL}${stage.mediaUrl}`} 
+                            alt="preview" 
+                            style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }} 
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                  <Box mt={2}>
+                    <TextField
+                      label="Legenda (opcional)"
+                      value={stage.mediaCaption || ""}
+                      onChange={(e) => updateStage(idx, "mediaCaption", e.target.value)}
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+                </Box>
+              )}
 
               {stage.messageType === "buttons" && (
                 <Box mt={1}>
@@ -396,6 +481,73 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
   );
 };
 
+const KanbanBoard = ({ campaigns, onEdit, onDrop, whatsApps, handleToggle }) => {
+  const grouped = {};
+  campaigns.forEach(c => {
+     const col = c.boardColumn || "Sem Categoria";
+     if(!grouped[col]) grouped[col] = [];
+     grouped[col].push(c);
+  });
+  const allCols = Object.keys(grouped);
+  if(!allCols.includes("Sem Categoria")) allCols.push("Sem Categoria");
+
+  return (
+    <Box display="flex" gap={2} style={{ overflowX: "auto", minHeight: "60vh", paddingBottom: 16 }}>
+       {allCols.map(col => (
+         <Box 
+           key={col} 
+           style={{ backgroundColor: "#f4f5f7", borderRadius: 8, padding: 16, minWidth: 320, maxWidth: 320 }}
+           onDragOver={(e) => e.preventDefault()}
+           onDrop={(e) => {
+              const id = e.dataTransfer.getData("campaignId");
+              if (id) onDrop(id, col === "Sem Categoria" ? null : col);
+           }}
+         >
+           <Typography variant="subtitle1" style={{ fontWeight: "bold", marginBottom: 16, color: "#5e6c84" }}>
+              {col} ({grouped[col]?.length || 0})
+           </Typography>
+           
+           <Box display="flex" flexDirection="column" gap={2}>
+             {grouped[col]?.map(c => {
+                const wa = whatsApps?.find((w) => w.id === c.whatsappId);
+                return (
+                  <Paper 
+                    key={c.id} 
+                    style={{ padding: 16, cursor: "grab", borderLeft: `4px solid ${c.isActive ? "#4caf50" : "#9e9e9e"}` }}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("campaignId", c.id)}
+                  >
+                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                       <Typography variant="subtitle2" style={{ fontWeight: "bold" }}>{c.name}</Typography>
+                       <Tooltip title="Editar">
+                         <IconButton size="small" onClick={() => onEdit(c)}><EditIcon fontSize="small" /></IconButton>
+                       </Tooltip>
+                     </Box>
+                     <Typography variant="body2" color="textSecondary" style={{ marginBottom: 4 }}>
+                       {c.stages?.length || 0} estágio(s)
+                     </Typography>
+                     <Typography variant="body2" color="textSecondary" style={{ marginBottom: 4 }}>
+                       Origem: {c.sourceType === "campaign" ? "Campanha" : "Manual"}
+                     </Typography>
+                     <Typography variant="body2" color="textSecondary" style={{ marginBottom: 4 }}>
+                       Conexão: {wa ? wa.name : "Automático"}
+                     </Typography>
+                     <Box display="flex" alignItems="center" mt={2} gap={1} justifyContent="space-between">
+                       <Box display="flex" alignItems="center" gap={1}>
+                         <Switch size="small" checked={!!c.isActive} onChange={() => handleToggle(c)} color="primary" />
+                         <Typography variant="caption">{c.isActive ? 'Ativo' : 'Inativo'}</Typography>
+                       </Box>
+                     </Box>
+                  </Paper>
+                );
+             })}
+           </Box>
+         </Box>
+       ))}
+    </Box>
+  );
+};
+
 const FollowUps = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
@@ -406,6 +558,7 @@ const FollowUps = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [statsTarget, setStatsTarget] = useState(null);
+  const [viewMode, setViewMode] = useState("list");
 
   const isAdmin = user?.profile === "admin" || user?.profile === "super";
 
@@ -460,24 +613,58 @@ const FollowUps = () => {
     }
   };
 
+  const handleDragDropColumn = async (id, targetColumn) => {
+    try {
+      await api.put(`/follow-up-campaigns/${id}`, { boardColumn: targetColumn });
+      toast.success("Movido com sucesso");
+      loadCampaigns();
+    } catch (err) {
+       toast.error("Erro ao mover");
+    }
+  };
+
   return (
     <Box className={classes.root}>
       <Box className={classes.header}>
         <Typography variant="h5">Follow-ups Automáticos</Typography>
-        {isAdmin && (
+        <Box display="flex" gap={2} alignItems="center">
           <Button
-            variant="contained"
+            variant={viewMode === "list" ? "contained" : "outlined"}
             color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => { setEditing(null); setModalOpen(true); }}
+            onClick={() => setViewMode("list")}
           >
-            Novo Follow-up
+            Lista
           </Button>
-        )}
+          <Button
+            variant={viewMode === "kanban" ? "contained" : "outlined"}
+            color="primary"
+            onClick={() => setViewMode("kanban")}
+          >
+            Kanban
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => { setEditing(null); setModalOpen(true); }}
+            >
+              Novo
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {loading ? (
         <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
+      ) : viewMode === "kanban" ? (
+         <KanbanBoard 
+           campaigns={campaigns} 
+           whatsApps={whatsApps} 
+           onEdit={(c) => { setEditing(c); setModalOpen(true); }}
+           onDrop={handleDragDropColumn}
+           handleToggle={handleToggle}
+         />
       ) : (
         <TableContainer component={Paper}>
           <Table>

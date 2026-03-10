@@ -45,6 +45,18 @@ class FollowUpStage extends Model<FollowUpStage> {
   @Column(DataType.JSON)
   buttons: object[];
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  mediaUrl: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  mediaType: string;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  mediaCaption: string;
+
   @Default(true)
   @Column
   isActive: boolean;

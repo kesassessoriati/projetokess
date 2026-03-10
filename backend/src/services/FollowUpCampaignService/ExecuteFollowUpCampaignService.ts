@@ -164,8 +164,26 @@ async function processContact(campaign, stages, ticket) {
         const jid = `${contactNumber}@s.whatsapp.net`;
         if (stage.messageType === "buttons" && stage.buttons?.length) {
           await sendButtonMessage(wbot, jid, stage.message || "", "", stage.buttons);
-        } else {
+        } else if (stage.messageType === "text" || !stage.messageType) {
           await wbot.sendMessage(jid, { text: stage.message || "" });
+        } else if (stage.mediaUrl) {
+          const path = require("path");
+          const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+          const filePath = stage.mediaUrl.startsWith("http") ? stage.mediaUrl : path.join(publicFolder, stage.mediaUrl.replace("/public", ""));
+          const { getMessageOptions } = require("../WbotServices/SendWhatsAppMedia");
+          const options = await getMessageOptions(
+            path.basename(stage.mediaUrl),
+            filePath,
+            campaign.companyId.toString(),
+            stage.mediaCaption || stage.message || ""
+          );
+          if (options) {
+            await wbot.sendMessage(jid, { ...options });
+          } else {
+            status = "failed";
+          }
+        } else {
+          if (stage.message) await wbot.sendMessage(jid, { text: stage.message });
         }
       }
     } catch (sendErr) {

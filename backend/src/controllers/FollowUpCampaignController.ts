@@ -45,6 +45,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     whatsappId: whatsappId || null,
     isActive: isActive !== undefined ? isActive : true,
     sourceType: sourceType || "manual",
+    boardColumn: req.body.boardColumn || null,
   });
 
   if (Array.isArray(stages) && stages.length) {
@@ -55,6 +56,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         delayMinutes: s.delayMinutes ?? 60,
         messageType: s.messageType ?? "text",
         message: s.message ?? "",
+        mediaUrl: s.mediaUrl ?? null,
+        mediaType: s.mediaType ?? null,
+        mediaCaption: s.mediaCaption ?? null,
         buttons: s.buttons ?? null,
         isActive: s.isActive !== undefined ? s.isActive : true,
       }))
@@ -83,6 +87,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     whatsappId: whatsappId !== undefined ? whatsappId : campaign.whatsappId,
     isActive: isActive !== undefined ? isActive : campaign.isActive,
     sourceType: sourceType ?? campaign.sourceType,
+    boardColumn: req.body.boardColumn !== undefined ? req.body.boardColumn : campaign.boardColumn,
   });
 
   // Replace stages if provided
@@ -96,6 +101,9 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
           delayMinutes: s.delayMinutes ?? 60,
           messageType: s.messageType ?? "text",
           message: s.message ?? "",
+          mediaUrl: s.mediaUrl ?? null,
+          mediaType: s.mediaType ?? null,
+          mediaCaption: s.mediaCaption ?? null,
           buttons: s.buttons ?? null,
           isActive: s.isActive !== undefined ? s.isActive : true,
         }))
