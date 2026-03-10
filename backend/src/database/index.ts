@@ -71,6 +71,7 @@ import AutomationAction from "../models/AutomationAction";
 import AutomationLog from "../models/AutomationLog";
 import AutomationExecution from "../models/AutomationExecution";
 import CrmLead from "../models/CrmLead";
+import LeadTag from "../models/LeadTag";
 import CrmClient from "../models/CrmClient";
 import FinanceiroFatura from "../models/FinanceiroFatura";
 import FinanceiroPagamento from "../models/FinanceiroPagamento";
@@ -253,6 +254,7 @@ const models = [
   AutomationLog,
   AutomationExecution,
   CrmLead,
+  LeadTag,
   CrmClient,
   FinanceiroFatura,
   FinanceiroPagamento,
