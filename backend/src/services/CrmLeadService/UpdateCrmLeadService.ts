@@ -23,6 +23,7 @@ interface Request {
   decisionMakerName?: string;
   decisionMakerPhone?: string;
   cnpj?: string;
+  product?: string;
   gmn?: string;
   website?: string;
   instagram?: string;
@@ -44,6 +45,8 @@ interface Request {
   tags?: any[];
 }
 
+const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
+
 const UpdateCrmLeadService = async ({
   id,
   companyId,
@@ -61,6 +64,16 @@ const UpdateCrmLeadService = async ({
     name: Yup.string().min(2),
     email: Yup.string().email().nullable(),
     phone: Yup.string().nullable(),
+    document: Yup.string()
+      .transform(v => {
+        const digits = sanitizeDigits(v);
+        return digits === "" ? null : digits;
+      })
+      .test("document-length", "Documento deve ter 11 ou 14 dígitos.", value => !value || value.length === 11 || value.length === 14)
+      .nullable(),
+    product: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .nullable(),
     status: Yup.string()
       .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido"])
       .nullable(),
@@ -79,6 +92,15 @@ const UpdateCrmLeadService = async ({
   if (data.leadStatus === "new") data.leadStatus = "novo";
   if (data.leadStatus === "won") data.leadStatus = "convertido";
   if (data.leadStatus === "lost") data.leadStatus = "perdido";
+
+  if (data.document !== undefined || data.cnpj !== undefined) {
+    data.document = sanitizeDigits(data.document || data.cnpj);
+    data.cnpj = data.document && data.document.length === 14 ? data.document : "";
+  }
+
+  if (data.product !== undefined) {
+    data.product = data.product?.trim() || "";
+  }
 
   await schema.validate(data);
 

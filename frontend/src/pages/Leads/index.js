@@ -44,12 +44,25 @@ const STATUS_COLORS = {
   perdido: "#dc2626"
 };
 
+const normalizeLead = (lead = {}) => ({
+  ...lead,
+  name: typeof lead.name === "string" ? lead.name : "",
+  email: typeof lead.email === "string" ? lead.email : "",
+  phone: typeof lead.phone === "string" ? lead.phone : "",
+  companyName: typeof lead.companyName === "string" ? lead.companyName : "",
+  status: typeof lead.status === "string" && lead.status ? lead.status : "novo",
+  temperature: typeof lead.temperature === "string" ? lead.temperature : "",
+  product: typeof lead.product === "string" ? lead.product : "",
+  document: typeof lead.document === "string" ? lead.document : "",
+  score: Number.isFinite(Number(lead.score)) ? Number(lead.score) : 0
+});
+
 const reducer = (state, action) => {
   switch (action.type) {
     case "RESET":
       return [];
     case "LOAD_LEADS": {
-      const incoming = action.payload;
+      const incoming = (action.payload || []).map(normalizeLead);
       const clone = [...state];
       incoming.forEach((lead) => {
         const index = clone.findIndex((item) => item.id === lead.id);
@@ -410,9 +423,10 @@ const Leads = () => {
   };
 
   const getInitials = (name = "") => {
-    if (!name.trim()) return "L";
-    const pieces = name.trim().split(" ");
-    return pieces.slice(0, 2).map((part) => part[0].toUpperCase()).join("");
+    const safeName = typeof name === "string" ? name.trim() : "";
+    if (!safeName) return "L";
+    const pieces = safeName.split(/\s+/).filter(Boolean);
+    return pieces.slice(0, 2).map((part) => part?.[0]?.toUpperCase?.() || "").join("") || "L";
   };
 
   const formatStatus = (status) => STATUS_LABEL[status] || "Novo";

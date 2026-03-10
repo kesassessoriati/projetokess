@@ -7,6 +7,7 @@ import DeleteCrmLeadService from "../services/CrmLeadService/DeleteCrmLeadServic
 import ConvertCrmLeadService from "../services/CrmLeadService/ConvertCrmLeadService";
 import ImportCrmLeadsService from "../services/CrmLeadService/ImportCrmLeadsService";
 import AppError from "../errors/AppError";
+import serializeCrmLead from "../services/CrmLeadService/helpers/serializeCrmLead";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile, id: userId } = req.user;
@@ -64,7 +65,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
 
-  return res.status(201).json(lead);
+  return res.status(201).json(serializeCrmLead(lead));
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -76,7 +77,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
 
-  return res.json(lead);
+  return res.json(serializeCrmLead(lead));
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {
@@ -90,7 +91,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     ...data
   });
 
-  return res.json(lead);
+  return res.json(serializeCrmLead(lead));
 };
 
 export const convert = async (req: Request, res: Response): Promise<Response> => {

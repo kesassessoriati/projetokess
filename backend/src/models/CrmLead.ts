@@ -76,6 +76,9 @@ class CrmLead extends Model<CrmLead> {
   cnpj: string;
 
   @Column
+  product: string;
+
+  @Column
   gmn: string;
 
   @Column

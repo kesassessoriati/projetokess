@@ -1,6 +1,7 @@
 import { Op, WhereOptions } from "sequelize";
 import CrmLead from "../../models/CrmLead";
 import Tag from "../../models/Tag";
+import serializeCrmLead from "./helpers/serializeCrmLead";
 
 interface Request {
   companyId: number;
@@ -72,7 +73,7 @@ const ListCrmLeadsService = async ({
   });
 
   return {
-    leads: rows,
+    leads: rows.map(serializeCrmLead),
     count,
     hasMore: count > offset + rows.length
   };

@@ -19,6 +19,40 @@ import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete
 
 const filter = createFilterOptions();
 
+const normalizeDigits = (value = "") => String(value || "").replace(/\D/g, "");
+
+const formatDocument = (value = "") => {
+  const digits = normalizeDigits(value).slice(0, 14);
+
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, "$1.$2")
+      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1-$2");
+  }
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+};
+
+const normalizeLeadForm = (lead = {}) => {
+  const rawDocument = lead.document || lead.cnpj || "";
+
+  return {
+    ...defaultForm,
+    ...lead,
+    document: formatDocument(rawDocument),
+    product: lead.product || "",
+    birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
+    score: lead.score || 0,
+    status: lead.status || lead.leadStatus || "novo",
+    tags: Array.isArray(lead.tags) ? lead.tags : []
+  };
+};
+
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
     fontWeight: 600
@@ -69,7 +103,8 @@ const defaultForm = {
   email: "",
   phone: "",
   decisionMakerPhone: "",
-  cnpj: "",
+  document: "",
+  product: "",
   gmn: "",
   website: "",
   instagram: "",
@@ -96,20 +131,23 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
   const [pipelines, setPipelines] = useState([]);
   const [stages, setStages] = useState([]);
   const [tags, setTags] = useState([]);
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
     if (!open) return;
 
     const fetchData = async () => {
       try {
-        const [{ data: usersData }, { data: pipelinesData }, { data: tagsData }] = await Promise.all([
+        const [{ data: usersData }, { data: pipelinesData }, { data: tagsData }, { data: productsData }] = await Promise.all([
           api.get("/users/"),
           api.get("/pipelines"),
-          api.get("/tags/list")
+          api.get("/tags/list"),
+          api.get("/produtos", { params: { limit: 100 } })
         ]);
         setUsers(usersData.users || []);
         setPipelines(pipelinesData || []);
         setTags(tagsData || []);
+        setProducts(Array.isArray(productsData?.produtos) ? productsData.produtos : (Array.isArray(productsData) ? productsData : []));
       } catch (err) {
         toastError(err);
       }
@@ -118,14 +156,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     fetchData();
 
     if (leadData && leadData.name) {
-      setForm({
-        ...defaultForm,
-        ...leadData,
-        birthDate: leadData.birthDate ? leadData.birthDate.substring(0, 10) : "",
-        score: leadData.score || 0,
-        status: leadData.status || "novo",
-        tags: leadData.tags || []
-      });
+      setForm(normalizeLeadForm(leadData));
     } else if (leadId) {
       loadLead();
     } else {
@@ -160,14 +191,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     setLoading(true);
     try {
       const { data } = await api.get(`/crm/leads/${leadId}`);
-      setForm({
-        ...defaultForm,
-        ...data,
-        birthDate: data.birthDate ? data.birthDate.substring(0, 10) : "",
-        score: data.score || 0,
-        status: data.status || "novo",
-        tags: data.tags || []
-      });
+      setForm(normalizeLeadForm(data));
     } catch (err) {
       toastError(err);
       onClose();
@@ -184,6 +208,14 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     }));
   };
 
+  const handleDocumentChange = (event) => {
+    const rawValue = event.target.value || "";
+    setForm((prev) => ({
+      ...prev,
+      document: formatDocument(rawValue)
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -196,6 +228,9 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
 
       const payload = {
         ...form,
+        document: normalizeDigits(form.document),
+        cnpj: normalizeDigits(form.document).length === 14 ? normalizeDigits(form.document) : "",
+        product: (form.product || "").trim(),
         pipelineId: form.pipelineId || null,
         stageId: form.stageId || null,
         score: Number(form.score) || 0,
@@ -311,17 +346,73 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
               {/* CNPJ */}
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="CNPJ"
-                  name="cnpj"
-                  value={form.cnpj}
-                  onChange={handleChange}
+                  label="CPF / CNPJ"
+                  name="document"
+                  value={form.document}
+                  onChange={handleDocumentChange}
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
-                  placeholder="00.000.000/0000-00"
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  inputProps={{ maxLength: 18 }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6} />
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  freeSolo
+                  options={products}
+                  value={form.product || ""}
+                  onChange={(event, newValue) => {
+                    const productName =
+                      typeof newValue === "string"
+                        ? newValue
+                        : newValue?.inputValue || newValue?.nome || "";
+
+                    setForm((prev) => ({
+                      ...prev,
+                      product: productName
+                    }));
+                  }}
+                  onInputChange={(event, newInputValue, reason) => {
+                    if (reason === "input") {
+                      setForm((prev) => ({
+                        ...prev,
+                        product: newInputValue
+                      }));
+                    }
+                  }}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    return option?.inputValue || option?.nome || "";
+                  }}
+                  filterOptions={(options, params) => {
+                    const filtered = filter(options, params);
+                    const inputValue = params.inputValue.trim();
+
+                    if (
+                      inputValue &&
+                      !options.some((option) => (option?.nome || "").toLowerCase() === inputValue.toLowerCase())
+                    ) {
+                      filtered.push({
+                        inputValue,
+                        nome: `Usar "${inputValue}"`
+                      });
+                    }
+
+                    return filtered;
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Produto"
+                      variant="outlined"
+                      fullWidth
+                      className={classes.formField}
+                      placeholder="Selecione ou digite um produto"
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Row 4 */}
               <Grid item xs={12} sm={6}>
