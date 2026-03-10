@@ -49,3 +49,8 @@ export const deleteAppointment = async (id) => {
   const { data } = await api.delete(`/appointments/${id}`);
   return data;
 };
+
+export const syncGoogleCalendarAppointments = async () => {
+  const { data } = await api.post("/appointments/sync-google");
+  return data;
+};

@@ -129,6 +129,7 @@ import { processScheduledWarmupSessions } from "./services/WhatsappWarmupService
 import executeFollowUpCampaigns from "./services/FollowUpCampaignService/ExecuteFollowUpCampaignService";
 import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailChannelService";
 import { processScheduledGroupCampaigns } from "./services/GroupManagementServices/GroupCampaignProcessorService";
+import SyncGoogleCalendarService from "./services/AppointmentServices/SyncGoogleCalendarService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -153,4 +154,19 @@ cron.schedule("*/5 * * * *", () => {
 // Sync e-mail channels (IMAP inbox) every 2 minutes
 cron.schedule("*/2 * * * *", () => {
   SyncEmailChannelService();
+});
+
+// Sync Google Calendar appointments every 5 minutes
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const companies = await Company.findAll({
+      where: { status: true },
+      attributes: ["id"]
+    });
+    for (const company of companies) {
+      SyncGoogleCalendarService(company.id).catch(() => {});
+    }
+  } catch (err) {
+    // Non-blocking: log silently
+  }
 });

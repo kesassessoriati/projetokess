@@ -34,6 +34,7 @@ import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import CancelIcon from "@material-ui/icons/Cancel";
 import ListIcon from "@material-ui/icons/List";
 import CalendarTodayIcon from "@material-ui/icons/CalendarToday";
+import SyncIcon from "@material-ui/icons/Sync";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -48,7 +49,8 @@ import {
   listUserSchedules,
   listAppointments,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+  syncGoogleCalendarAppointments
 } from "../../services/userScheduleService";
 import useSafeApi from "../../hooks/useSafeApi";
 import SafeComponent from "../../components/SafeComponent";
@@ -247,6 +249,7 @@ const Agenda = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
 
   const [filters, setFilters] = useState({
     scheduleId: "",
@@ -366,6 +369,24 @@ const Agenda = () => {
     setModalOpen(true);
   };
 
+  const handleSyncGoogleCalendar = async () => {
+    setSyncingCalendar(true);
+    try {
+      const result = await syncGoogleCalendarAppointments();
+      const { imported, updated, errors } = result;
+      if (errors && errors.length > 0) {
+        toast.warning(`Sincronização com alertas: ${imported} importado(s), ${updated} atualizado(s).`);
+      } else {
+        toast.success(`Calendário sincronizado: ${imported} importado(s), ${updated} atualizado(s).`);
+      }
+      fetchAppointments();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setSyncingCalendar(false);
+    }
+  };
+
   const formatDateTime = (dateStr) => {
     if (!dateStr) return "-";
     try {
@@ -427,6 +448,16 @@ const Agenda = () => {
               Calendário
             </Button>
           </ButtonGroup>
+
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={syncingCalendar ? <CircularProgress size={16} /> : <SyncIcon />}
+            onClick={handleSyncGoogleCalendar}
+            disabled={syncingCalendar}
+          >
+            {syncingCalendar ? "Sincronizando..." : "Sincronizar"}
+          </Button>
 
           <Button
             variant="contained"
@@ -585,9 +616,20 @@ const Agenda = () => {
                       <TableRow key={appointment.id} hover>
                         <TableCell>
                           <Box className={classes.appointmentInfo}>
-                            <Typography className={classes.appointmentTitle}>
-                              {appointment.title}
-                            </Typography>
+                            <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <Typography className={classes.appointmentTitle}>
+                                {appointment.title}
+                              </Typography>
+                              {appointment.source === "google_calendar" && (
+                                <Tooltip title="Importado do Google Calendar">
+                                  <img
+                                    src="https://www.gstatic.com/images/branding/product/1x/calendar_16dp.png"
+                                    alt="Google Calendar"
+                                    style={{ width: 14, height: 14, flexShrink: 0 }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
                             {appointment.description && (
                               <Typography variant="body2" color="textSecondary">
                                 {appointment.description.substring(0, 50)}

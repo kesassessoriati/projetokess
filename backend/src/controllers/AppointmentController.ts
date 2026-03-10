@@ -4,6 +4,7 @@ import ListAppointmentsService from "../services/AppointmentServices/ListAppoint
 import ShowAppointmentService from "../services/AppointmentServices/ShowAppointmentService";
 import UpdateAppointmentService from "../services/AppointmentServices/UpdateAppointmentService";
 import DeleteAppointmentService from "../services/AppointmentServices/DeleteAppointmentService";
+import SyncGoogleCalendarService from "../services/AppointmentServices/SyncGoogleCalendarService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: userId, profile } = req.user;
@@ -116,4 +117,18 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   await DeleteAppointmentService(id, Number(companyId));
 
   return res.status(204).send();
+};
+
+export const syncGoogleCalendar = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId, id: userId, profile } = req.user;
+
+  // Admins sincronizam todas as agendas da empresa; usuários comuns apenas as próprias
+  const targetUserId = profile === "admin" ? undefined : Number(userId);
+
+  const result = await SyncGoogleCalendarService(Number(companyId), targetUserId);
+
+  return res.json({
+    message: "Sincronização concluída",
+    ...result
+  });
 };

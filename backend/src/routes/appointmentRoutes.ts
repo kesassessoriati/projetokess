@@ -5,6 +5,7 @@ import * as AppointmentController from "../controllers/AppointmentController";
 const appointmentRoutes = express.Router();
 
 appointmentRoutes.get("/appointments", isAuth, AppointmentController.index);
+appointmentRoutes.post("/appointments/sync-google", isAuth, AppointmentController.syncGoogleCalendar);
 appointmentRoutes.get("/appointments/:id", isAuth, AppointmentController.show);
 appointmentRoutes.post("/appointments", isAuth, AppointmentController.store);
 appointmentRoutes.put("/appointments/:id", isAuth, AppointmentController.update);

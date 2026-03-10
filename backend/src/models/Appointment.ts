@@ -44,6 +44,9 @@ class Appointment extends Model<Appointment> {
   @Column({ field: "google_event_id", allowNull: true })
   googleEventId: string;
 
+  @Column({ field: "source", allowNull: true })
+  source: string;
+
   @ForeignKey(() => UserSchedule)
   @Column({ field: "schedule_id" })
   scheduleId: number;
