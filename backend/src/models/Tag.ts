@@ -16,6 +16,8 @@ import Ticket from "./Ticket";
 import TicketTag from "./TicketTag";
 import Contact from "./Contact";
 import ContactTag from "./ContactTag";
+import CrmLead from "./CrmLead";
+import LeadTag from "./LeadTag";
 
 @Table
 class Tag extends Model<Tag> {
@@ -44,6 +46,9 @@ class Tag extends Model<Tag> {
 
   @HasMany(() => ContactTag)
   contactTags: ContactTag[];
+
+  @BelongsToMany(() => CrmLead, () => LeadTag)
+  leads: CrmLead[];
 
   @ForeignKey(() => Company)
   @Column

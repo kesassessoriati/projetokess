@@ -104,6 +104,13 @@ const ImportCrmLeadsService = async ({
                     }
                 }
 
+                let rawTags = leadRow.tags || leadRow.Tags || leadRow.TAGS;
+                let tagsObjArray: { name: string }[] = [];
+                if (rawTags) {
+                    const splitTags = String(rawTags).split(",").map(t => t.trim()).filter(t => t !== "");
+                    tagsObjArray = splitTags.map(t => ({ name: t }));
+                }
+
                 await CreateCrmLeadService({
                     companyId,
                     name: String(name),
@@ -125,6 +132,7 @@ const ImportCrmLeadsService = async ({
                     website: leadRow.website ? String(leadRow.website) : undefined,
                     instagram: leadRow.instagram ? String(leadRow.instagram) : undefined,
                     linkedin: leadRow.linkedin ? String(leadRow.linkedin) : undefined,
+                    tags: tagsObjArray.length > 0 ? tagsObjArray : undefined
                 });
 
                 imported++;

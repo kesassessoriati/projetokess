@@ -5,6 +5,7 @@ import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import { Op } from "sequelize";
 import syncLeadToClient from "./helpers/syncLeadToClient";
+import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface Request {
@@ -45,6 +46,7 @@ interface Request {
   };
   pipelineId?: number;
   stageId?: number;
+  tags?: any[];
 }
 
 const normalizeNumber = (phone?: string): string | null => {
@@ -287,6 +289,10 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     stageId,
     meetingScheduledAt
   });
+
+  if (data.tags && data.tags.length > 0) {
+    await syncCrmLeadTags(lead.id, data.companyId, data.tags);
+  }
 
   if (lead.status === "convertido" || lead.leadStatus === "convertido") {
     await syncLeadToClient(lead);

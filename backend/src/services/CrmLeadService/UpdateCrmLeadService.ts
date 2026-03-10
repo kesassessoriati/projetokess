@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
 import syncLeadToClient from "./helpers/syncLeadToClient";
+import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import {
   resolveLeadContactId,
   resolveLeadPrimaryTicketId
@@ -40,6 +41,7 @@ interface Request {
   primaryTicketId?: number;
   pipelineId?: number;
   stageId?: number;
+  tags?: any[];
 }
 
 const UpdateCrmLeadService = async ({
@@ -125,6 +127,10 @@ const UpdateCrmLeadService = async ({
     lastActivityAt: data.lastActivityAt || lead.lastActivityAt,
     meetingScheduledAt
   });
+
+  if (data.tags !== undefined) {
+    await syncCrmLeadTags(lead.id, companyId, data.tags);
+  }
 
   const shouldSyncByStatus =
     data.status === "convertido" && previousStatus !== "convertido";

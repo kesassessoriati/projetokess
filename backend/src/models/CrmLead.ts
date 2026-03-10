@@ -11,7 +11,8 @@ import {
   DataType,
   Default,
   AfterUpdate,
-  HasOne
+  HasOne,
+  BelongsToMany
 } from "sequelize-typescript";
 
 import Company from "./Company";
@@ -22,6 +23,8 @@ import CrmClient from "./CrmClient";
 import Pipeline from "./Pipeline";
 import PipelineStage from "./PipelineStage";
 import Opportunity from "./Opportunity";
+import Tag from "./Tag";
+import LeadTag from "./LeadTag";
 
 @Table({
   tableName: "crm_leads"
@@ -154,6 +157,9 @@ class CrmLead extends Model<CrmLead> {
 
   @HasOne(() => Opportunity, "leadId")
   opportunity: Opportunity;
+
+  @BelongsToMany(() => Tag, () => LeadTag)
+  tags: Tag[];
 
   @Column({ field: "last_activity_at", type: DataType.DATE })
   lastActivityAt: Date;

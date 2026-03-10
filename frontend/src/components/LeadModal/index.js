@@ -15,6 +15,9 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { LEAD_STATUS } from "../../constants/leadStatus";
+import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
+
+const filter = createFilterOptions();
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
@@ -80,7 +83,8 @@ const defaultForm = {
   temperature: "",
   score: 0,
   ownerUserId: "",
-  notes: ""
+  notes: "",
+  tags: []
 };
 
 const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null }) => {
@@ -91,18 +95,21 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
   const [users, setUsers] = useState([]);
   const [pipelines, setPipelines] = useState([]);
   const [stages, setStages] = useState([]);
+  const [tags, setTags] = useState([]);
 
   useEffect(() => {
     if (!open) return;
 
     const fetchData = async () => {
       try {
-        const [{ data: usersData }, { data: pipelinesData }] = await Promise.all([
+        const [{ data: usersData }, { data: pipelinesData }, { data: tagsData }] = await Promise.all([
           api.get("/users/"),
-          api.get("/pipelines")
+          api.get("/pipelines"),
+          api.get("/tags/list")
         ]);
         setUsers(usersData.users || []);
         setPipelines(pipelinesData || []);
+        setTags(tagsData || []);
       } catch (err) {
         toastError(err);
       }
@@ -116,7 +123,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         ...leadData,
         birthDate: leadData.birthDate ? leadData.birthDate.substring(0, 10) : "",
         score: leadData.score || 0,
-        status: leadData.status || "novo"
+        status: leadData.status || "novo",
+        tags: leadData.tags || []
       });
     } else if (leadId) {
       loadLead();
@@ -157,7 +165,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         ...data,
         birthDate: data.birthDate ? data.birthDate.substring(0, 10) : "",
         score: data.score || 0,
-        status: data.status || "novo"
+        status: data.status || "novo",
+        tags: data.tags || []
       });
     } catch (err) {
       toastError(err);
@@ -192,7 +201,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         score: Number(form.score) || 0,
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,
-        birthDate: form.birthDate || undefined
+        birthDate: form.birthDate || undefined,
+        tags: form.tags && form.tags.length > 0 ? form.tags : undefined
       };
 
       if (leadId) {
@@ -526,6 +536,48 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   className={classes.formField}
                   multiline
                   rows={3}
+                />
+              </Grid>
+
+              {/* Row 12 (Tags) */}
+              <Grid item xs={12}>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={tags}
+                  getOptionLabel={(option) => option.name || option.inputValue || option}
+                  value={form.tags || []}
+                  onChange={(event, newValue) => {
+                    const newTags = newValue.map((item) => {
+                      if (typeof item === "string") {
+                        return { name: item };
+                      }
+                      if (item.inputValue) {
+                        return { name: item.inputValue };
+                      }
+                      return item;
+                    });
+                    setForm((prev) => ({ ...prev, tags: newTags }));
+                  }}
+                  filterOptions={(options, params) => {
+                    const filtered = filter(options, params);
+                    if (params.inputValue !== "") {
+                      filtered.push({
+                        inputValue: params.inputValue,
+                        name: `Criar tag "${params.inputValue}"`,
+                      });
+                    }
+                    return filtered;
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      variant="outlined"
+                      label="Tags"
+                      placeholder="Selecione ou adicione novas tags..."
+                      className={classes.formField}
+                    />
+                  )}
                 />
               </Grid>
 

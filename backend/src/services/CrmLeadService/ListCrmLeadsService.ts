@@ -1,5 +1,6 @@
 import { Op, WhereOptions } from "sequelize";
 import CrmLead from "../../models/CrmLead";
+import Tag from "../../models/Tag";
 
 interface Request {
   companyId: number;
@@ -59,7 +60,15 @@ const ListCrmLeadsService = async ({
     where,
     order: [["updatedAt", "DESC"]],
     limit,
-    offset
+    offset,
+    include: [
+      {
+        model: Tag,
+        as: "tags",
+        attributes: ["id", "name", "color"],
+        through: { attributes: [] }
+      }
+    ]
   });
 
   return {

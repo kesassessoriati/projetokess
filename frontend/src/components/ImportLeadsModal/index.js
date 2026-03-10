@@ -90,7 +90,8 @@ const LEAD_FIELDS = [
     { id: "status", label: "Status", required: false },
     { id: "temperature", label: "Temperatura", required: false },
     { id: "score", label: "Score", required: false },
-    { id: "notes", label: "Observações", required: false }
+    { id: "notes", label: "Observações", required: false },
+    { id: "tags", label: "Tags", required: false }
 ];
 
 function WorksheetToDatagrid(ws) {
