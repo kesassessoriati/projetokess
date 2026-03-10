@@ -98,7 +98,7 @@ const Smtp = () => {
         const { name, value, checked, type } = e.target;
         setSettings(prev => ({
             ...prev,
-            [name]: type === "checkbox" ? checked : value
+            [name]: type === "checkbox" ? checked : name === "port" ? parseInt(value, 10) || 587 : value
         }));
     };
 

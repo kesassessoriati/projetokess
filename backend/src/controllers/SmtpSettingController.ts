@@ -19,27 +19,30 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
     const { host, port, user, password, secure, senderName, senderEmail } = req.body;
 
+    // Trim para evitar espaços acidentais em campos críticos
+    const cleanPassword = password ? String(password).trim() : undefined;
+
     let smtpSetting = await SmtpSetting.findOne({
         where: { companyId }
     });
 
     if (smtpSetting) {
         await smtpSetting.update({
-            host,
-            port,
-            user,
-            password: password || undefined, // Evitando salvar senha em branco se nao for preenchida
-            secure,
+            host: host?.trim(),
+            port: Number(port) || 587,
+            user: user?.trim(),
+            password: cleanPassword || undefined,
+            secure: Boolean(secure),
             senderName,
             senderEmail
         });
     } else {
         smtpSetting = await SmtpSetting.create({
-            host,
-            port,
-            user,
-            password,
-            secure,
+            host: host?.trim(),
+            port: Number(port) || 587,
+            user: user?.trim(),
+            password: cleanPassword,
+            secure: Boolean(secure),
             senderName,
             senderEmail,
             companyId
@@ -67,7 +70,9 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
         }
         const transporter = await createTransporter(companyId);
 
-        console.log("SMTP connection success, sending auth test...");
+        // Verifica conexão e autenticação antes de tentar enviar
+        await transporter.verify();
+        console.log("SMTP verify OK - user:", config.user, "host:", config.host, "port:", config.port);
 
         await transporter.sendMail({
             from: `"${config.senderName || "Sistema CRM"}" <${config.senderEmail || "teste@crm"}>`,

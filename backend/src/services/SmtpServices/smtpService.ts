@@ -8,16 +8,16 @@ export async function createTransporter(companyId: number) {
         throw new Error("SMTP não configurado para esta empresa");
     }
 
-    const { host, port, secure, user, password, senderName, senderEmail } = config;
+    const { host, port, secure, user, password } = config;
 
     return nodemailer.createTransport({
-        host,
-        port,
-        secure, // true for 465, false for other ports
+        host: host.trim(),
+        port: Number(port),
+        secure: Boolean(secure),
         auth: {
-            user,
-            pass: password // Already decrypted explicitly via model
+            user: user.trim(),
+            pass: password.trim()
         },
-        tls: !secure ? { rejectUnauthorized: false } : undefined
+        tls: { rejectUnauthorized: false }
     });
 }
