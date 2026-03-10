@@ -612,6 +612,17 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
   return res.status(201).json(campaign);
 };
 
+export const uploadMedia = async (req: Request, res: Response): Promise<Response> => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Nenhum arquivo enviado" });
+  }
+
+  return res.json({
+    mediaPath: req.file.filename,
+    mediaName: req.file.originalname
+  });
+};
+
 export const showCampaign = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;

@@ -1,6 +1,10 @@
 import { Router } from "express";
 import isAuth from "../middleware/isAuth";
 import * as GroupManagementController from "../controllers/GroupManagementController";
+import multer from "multer";
+import uploadConfig from "../config/upload";
+
+const upload = multer(uploadConfig);
 
 const groupManagementRoutes = Router();
 
@@ -33,6 +37,7 @@ groupManagementRoutes.put("/group-management/templates/:id", isAuth, GroupManage
 groupManagementRoutes.delete("/group-management/templates/:id", isAuth, GroupManagementController.deleteTemplate);
 
 // Campaigns
+groupManagementRoutes.post("/group-management/campaigns/media", isAuth, upload.single("media"), GroupManagementController.uploadMedia);
 groupManagementRoutes.get("/group-management/campaigns", isAuth, GroupManagementController.listCampaigns);
 groupManagementRoutes.post("/group-management/campaigns", isAuth, GroupManagementController.createCampaign);
 groupManagementRoutes.get("/group-management/campaigns/:id", isAuth, GroupManagementController.showCampaign);

@@ -415,6 +415,8 @@ const IconChannel = (channel) => {
       return <WhatsApp style={{ color: "#25d366" }} />;
     case "whatsapp_official":
       return <WhatsApp style={{ color: "#128C7E" }} />;
+    case "whatsapp_whaileys":
+      return <WhatsApp style={{ color: "#00897B" }} />;
     case "email":
       return <EmailIcon style={{ color: "#2e7d32" }} />;
     default:
@@ -555,6 +557,12 @@ const Connections = () => {
     setWhatsAppModalOpen(true);
   };
 
+  const handleOpenWhatsAppWhaileysModal = () => {
+    setSelectedWhatsApp(null);
+    setModalChannel("whatsapp_whaileys");
+    setWhatsAppModalOpen(true);
+  };
+
   const handleOpenEmailModal = () => {
     setSelectedEmailChannel(null);
     setEmailModalOpen(true);
@@ -647,7 +655,7 @@ const Connections = () => {
   const handleSubmitConfirmationModal = async () => {
     if (confirmModalInfo.action === "disconnect") {
       try {
-        if (confirmModalInfo.channel === "whatsapp") {
+        if (confirmModalInfo.channel === "whatsapp" || confirmModalInfo.channel === "whatsapp_whaileys") {
           await api.delete(`/whatsappsession/${confirmModalInfo.whatsAppId}`);
         } else {
           await api.put(`/whatsapp/${confirmModalInfo.whatsAppId}`, {
@@ -759,7 +767,7 @@ const Connections = () => {
 
     return (
       <>
-        {whatsApp.status === "qrcode" && whatsApp.channel === "whatsapp" && (
+        {whatsApp.status === "qrcode" && (whatsApp.channel === "whatsapp" || whatsApp.channel === "whatsapp_whaileys") && (
           <Can
             role={
               user.profile === "user" && user.allowConnections === "enabled"
@@ -785,7 +793,7 @@ const Connections = () => {
             )}
           />
         )}
-        {whatsApp.status === "DISCONNECTED" && whatsApp.channel === "whatsapp" && (
+        {whatsApp.status === "DISCONNECTED" && (whatsApp.channel === "whatsapp" || whatsApp.channel === "whatsapp_whaileys") && (
           <Can
             role={
               user.profile === "user" && user.allowConnections === "enabled"
@@ -972,6 +980,8 @@ const Connections = () => {
         return <EmailIcon style={{ color: "#2e7d32", fontSize: 28 }} />;
       case "whatsapp_official":
         return <WhatsApp style={{ color: "#128C7E", fontSize: 28 }} />;
+      case "whatsapp_whaileys":
+        return <WhatsApp style={{ color: "#00897B", fontSize: 28 }} />;
       case "whatsapp":
       default:
         return <WhatsApp style={{ color: "#25d366", fontSize: 28 }} />;
@@ -988,6 +998,8 @@ const Connections = () => {
         return "#e8f5e9";
       case "whatsapp_official":
         return "#e6f7f2";
+      case "whatsapp_whaileys":
+        return "#e0f2f1";
       case "whatsapp":
       default:
         return "#e8f5e9";
@@ -1108,6 +1120,16 @@ const Connections = () => {
                         >
                           <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#128C7E" }} />
                           WhatsApp Oficial
+                        </MenuItem>
+                        <MenuItem
+                          disabled={planConfig?.plan?.useWhatsapp ? false : true}
+                          onClick={() => {
+                            handleOpenWhatsAppWhaileysModal();
+                            popupState.close();
+                          }}
+                        >
+                          <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#00897B" }} />
+                          WhatsApp Whaileys
                         </MenuItem>
                         <MenuItem
                           onClick={() => {

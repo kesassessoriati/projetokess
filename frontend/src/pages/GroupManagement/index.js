@@ -119,7 +119,7 @@ export default function GroupManagement() {
   const [search, setSearch] = useState("");
   const [minMembers, setMinMembers] = useState("");
   const [maxMembers, setMaxMembers] = useState("");
-  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", groupIds: [] });
+  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] });
   const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "" });
 
   const refreshAll = useCallback(async () => {
@@ -192,9 +192,40 @@ export default function GroupManagement() {
 
   const createCampaign = async () => {
     try {
-      await api.post("/group-management/campaigns", { ...campaignForm, whatsappId: Number(campaignForm.whatsappId), intervalSeconds: Number(campaignForm.intervalSeconds) || 0, scheduledAt: campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null });
+      if (!campaignForm.name) {
+        return toast.error("Insira o nome da campanha.");
+      }
+      if (!campaignForm.whatsappId) {
+        return toast.error("Selecione a conexão.");
+      }
+      if (campaignForm.messageType !== "text" && !campaignForm.mediaContent) {
+        return toast.error("Selecione o arquivo de mídia.");
+      }
+      if (campaignForm.scheduleMode === "scheduled" && !campaignForm.scheduledAt) {
+        return toast.error("Selecione a data e hora do agendamento.");
+      }
+
+      let mediaPath = null;
+      let mediaName = null;
+
+      if (campaignForm.mediaContent) {
+        const formData = new FormData();
+        formData.append("media", campaignForm.mediaContent);
+        const { data } = await api.post("/group-management/campaigns/media", formData);
+        mediaPath = data.mediaPath;
+        mediaName = data.mediaName;
+      }
+
+      await api.post("/group-management/campaigns", { 
+        ...campaignForm, 
+        whatsappId: Number(campaignForm.whatsappId), 
+        intervalSeconds: Number(campaignForm.intervalSeconds) || 0, 
+        scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null,
+        mediaPath,
+        mediaName
+      });
       toast.success("Campanha criada.");
-      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", groupIds: [] });
+      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] });
       refreshAll();
     } catch { toast.error("Erro ao criar campanha."); }
   };
@@ -287,7 +318,35 @@ export default function GroupManagement() {
           <Box style={{ padding: 10, display: "grid", gap: 8 }}>
             <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => setCampaignForm((p) => ({ ...p, name: e.target.value }))} />
             <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => setCampaignForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
-            <TextField variant="outlined" size="small" label="Mensagem" multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Tipo de conteúdo</InputLabel>
+              <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); }} label="Tipo de conteúdo">
+                <MenuItem value="text">Texto</MenuItem>
+                <MenuItem value="video">Vídeo</MenuItem>
+                <MenuItem value="audio">Áudio PTT (Gravado na hora)</MenuItem>
+              </Select>
+            </FormControl>
+            {campaignForm.messageType !== "text" && (
+              <Box>
+                <input type="file" accept={campaignForm.messageType === "video" ? "video/mp4,video/quicktime" : "audio/mpeg,audio/ogg,audio/wav"} onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))} />
+                <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
+                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" : "Formatos aceitos: mp3, ogg, wav"}
+                </Typography>
+              </Box>
+            )}
+            <TextField variant="outlined" size="small" label={campaignForm.messageType === "text" ? "Mensagem" : "Legenda (Opcional)"} multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+            
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Tipo de envio</InputLabel>
+              <Select value={campaignForm.scheduleMode || "now"} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduleMode: e.target.value }))} label="Tipo de envio">
+                <MenuItem value="now">Enviar agora</MenuItem>
+                <MenuItem value="scheduled">Agendar envio</MenuItem>
+              </Select>
+            </FormControl>
+            {campaignForm.scheduleMode === "scheduled" && (
+              <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduledAt: e.target.value }))} />
+            )}
+
             <Button className={classes.primaryBtn} startIcon={<SendIcon />} onClick={createCampaign}>Criar campanha</Button>
           </Box>
           <Box className={classes.list}>
@@ -362,7 +421,7 @@ export default function GroupManagement() {
                 <TextField variant="outlined" size="small" label="Mensagem" multiline rows={3} value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} />
                 <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={saveTemplate}>Salvar template</Button>
               </Box>
-              <Box className={classes.list}>{templates.map((t) => <Box key={t.id} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box>)}</Box>
+              <Box className={classes.list}>{(templates || []).map((t) => t ? <Box key={t.id || Math.random()} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name || "Sem nome"}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box> : null)}</Box>
             </Paper>
           ) : null}
           {!loading && tab === 5 ? renderSimpleList("Histórico", historyLogs, "message") : null}

@@ -1,5 +1,6 @@
 import ListWhatsAppsService from "../WhatsappService/ListWhatsAppsService";
 import { StartWhatsAppSession } from "./StartWhatsAppSession";
+import { StartWhaileysSession } from "./StartWhaileysSession";
 import * as Sentry from "@sentry/node";
 
 export const StartAllWhatsAppsSessions = async (
@@ -11,6 +12,9 @@ export const StartAllWhatsAppsSessions = async (
       const promises = whatsapps.map(async (whatsapp) => {
         if (whatsapp.channel === "whatsapp" && whatsapp.status !== "DISCONNECTED") {
           return StartWhatsAppSession(whatsapp, companyId);
+        }
+        if (whatsapp.channel === "whatsapp_whaileys" && whatsapp.status !== "DISCONNECTED") {
+          return StartWhaileysSession(whatsapp, companyId);
         }
       });
       // Aguardar a resolução de todas as promessas
