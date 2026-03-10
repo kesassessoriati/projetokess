@@ -200,13 +200,10 @@ class CrmLead extends Model<CrmLead> {
   @AfterUpdate
   static async syncToClient(instance: CrmLead) {
     // Import dinâmico para evitar circular dependency
-    const { default: syncLeadToClient } = await import("../services/CrmClientService/helpers/syncLeadToClient");
+    const { default: syncLeadToClient } = await import("../services/CrmLeadService/helpers/syncLeadToClient");
 
     try {
-      await syncLeadToClient({
-        lead: instance,
-        companyId: instance.companyId
-      });
+      await syncLeadToClient(instance);
     } catch (error) {
       console.error("[CrmLead Model] Error syncing to Client:", error);
     }

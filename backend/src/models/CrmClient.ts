@@ -126,6 +126,7 @@ class CrmClient extends Model<CrmClient> {
   @Column(DataType.STRING)
   temperatura: string;
 
+  @Default(0)
   @Column(DataType.INTEGER)
   score: number;
 
