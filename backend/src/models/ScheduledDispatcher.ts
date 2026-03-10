@@ -64,6 +64,15 @@ class ScheduledDispatcher extends Model<ScheduledDispatcher> {
   @Column(DataType.BOOLEAN)
   active: boolean;
 
+  @Column({ field: "media_url", type: DataType.TEXT })
+  mediaUrl: string | null;
+
+  @Column({ field: "media_type", type: DataType.STRING })
+  mediaType: string | null;
+
+  @Column({ field: "media_caption", type: DataType.TEXT })
+  mediaCaption: string | null;
+
   @HasMany(() => ScheduledDispatchLog)
   logs: ScheduledDispatchLog[];
 

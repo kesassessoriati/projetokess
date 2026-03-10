@@ -5,7 +5,7 @@ import ScheduledDispatcher from "../../models/ScheduledDispatcher";
 export interface CreateScheduledDispatcherDTO {
   companyId: number;
   title: string;
-  messageTemplate: string;
+  messageTemplate?: string | null;
   eventType: "birthday" | "invoice_reminder" | "invoice_overdue";
   whatsappId?: number | null;
   startTime: string;
@@ -13,6 +13,9 @@ export interface CreateScheduledDispatcherDTO {
   daysBeforeDue?: number | null;
   daysAfterDue?: number | null;
   active?: boolean;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  mediaCaption?: string | null;
 }
 
 const allowedEvents = ["birthday", "invoice_reminder", "invoice_overdue"];
@@ -20,9 +23,15 @@ const allowedEvents = ["birthday", "invoice_reminder", "invoice_overdue"];
 export const CreateScheduledDispatcherService = async (
   payload: CreateScheduledDispatcherDTO
 ): Promise<ScheduledDispatcher> => {
+  const hasMedia = !!payload.mediaUrl;
+  const hasText = !!(payload.messageTemplate?.trim());
+
+  if (!hasMedia && !hasText) {
+    throw new AppError("Informe uma mensagem de texto ou adicione uma mídia.");
+  }
+
   const schema = Yup.object().shape({
     title: Yup.string().trim().required("Título é obrigatório"),
-    messageTemplate: Yup.string().trim().required("Mensagem é obrigatória"),
     eventType: Yup.mixed().oneOf(allowedEvents),
     startTime: Yup.string()
       .matches(/^\d{2}:\d{2}$/, "startTime deve estar no formato HH:mm")
@@ -41,7 +50,7 @@ export const CreateScheduledDispatcherService = async (
   const dispatcher = await ScheduledDispatcher.create({
     companyId: payload.companyId,
     title: payload.title.trim(),
-    messageTemplate: payload.messageTemplate,
+    messageTemplate: payload.messageTemplate ?? "",
     eventType: payload.eventType,
     whatsappId: payload.whatsappId ?? null,
     startTime: payload.startTime,
@@ -50,7 +59,10 @@ export const CreateScheduledDispatcherService = async (
       payload.eventType === "invoice_reminder" ? payload.daysBeforeDue ?? 0 : null,
     daysAfterDue:
       payload.eventType === "invoice_overdue" ? payload.daysAfterDue ?? 0 : null,
-    active: payload.active ?? true
+    active: payload.active ?? true,
+    mediaUrl: payload.mediaUrl ?? null,
+    mediaType: payload.mediaType ?? null,
+    mediaCaption: payload.mediaCaption ?? null
   });
 
   return dispatcher;

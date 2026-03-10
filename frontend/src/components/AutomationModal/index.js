@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Box,
@@ -23,10 +23,16 @@ import {
   makeStyles
 } from "@material-ui/core";
 import {
+  AttachFile as AttachFileIcon,
+  AudioTrack as AudioIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
+  Description as DocIcon,
   FlashOn as FlashIcon,
+  Image as ImageIcon,
   Message as MessageIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
+  Videocam as VideoIcon
 } from "@material-ui/icons";
 import useWhatsApps from "../../hooks/useWhatsApps";
 import {
@@ -35,6 +41,35 @@ import {
   getScheduledDispatcher,
   updateScheduledDispatcher
 } from "../../services/scheduledDispatcherService";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+
+const ACCEPTED_TYPES = ".jpg,.jpeg,.png,.gif,.webp,.mp4,.mpeg,.mp3,.ogg,.wav,.pdf";
+
+const MAX_SIZES = {
+  image: 5 * 1024 * 1024,
+  video: 16 * 1024 * 1024,
+  audio: 10 * 1024 * 1024,
+  application: 10 * 1024 * 1024
+};
+
+const MAX_SIZE_LABELS = { image: "5MB", video: "16MB", audio: "10MB", application: "10MB" };
+
+const getMediaCategory = mimetype => {
+  if (!mimetype) return "other";
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("video/")) return "video";
+  if (mimetype.startsWith("audio/")) return "audio";
+  return "document";
+};
+
+const MediaIcon = ({ category, style }) => {
+  const props = { style };
+  if (category === "image") return <ImageIcon {...props} />;
+  if (category === "video") return <VideoIcon {...props} />;
+  if (category === "audio") return <AudioIcon {...props} />;
+  return <DocIcon {...props} />;
+};
 
 const useStyles = makeStyles(theme => ({
   dialog: {
@@ -72,6 +107,49 @@ const useStyles = makeStyles(theme => ({
     flexWrap: "wrap",
     gap: theme.spacing(1),
     marginTop: theme.spacing(1)
+  },
+  mediaUploadArea: {
+    border: `2px dashed ${theme.palette.divider}`,
+    borderRadius: 12,
+    padding: theme.spacing(2),
+    marginTop: theme.spacing(1),
+    textAlign: "center",
+    cursor: "pointer",
+    transition: "border-color 0.2s",
+    "&:hover": {
+      borderColor: theme.palette.primary.main
+    }
+  },
+  mediaPreview: {
+    position: "relative",
+    marginTop: theme.spacing(1.5),
+    borderRadius: 12,
+    overflow: "hidden",
+    border: `1px solid ${theme.palette.divider}`,
+    background: theme.palette.background.paper
+  },
+  mediaPreviewImg: {
+    width: "100%",
+    maxHeight: 200,
+    objectFit: "contain",
+    display: "block",
+    background: "#000"
+  },
+  mediaPreviewRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(1.5)
+  },
+  mediaRemoveBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    background: "rgba(0,0,0,0.5)",
+    color: "#fff",
+    "&:hover": {
+      background: "rgba(0,0,0,0.75)"
+    }
   }
 }));
 
@@ -84,16 +162,25 @@ const defaultForm = {
   sendIntervalSeconds: 60,
   daysBeforeDue: 0,
   daysAfterDue: 0,
-  active: true
+  active: true,
+  mediaCaption: ""
 };
 
 const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const classes = useStyles();
   const { whatsApps } = useWhatsApps();
+  const fileInputRef = useRef(null);
 
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Media state
+  const [mediaFile, setMediaFile] = useState(null);          // new File to upload
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState(""); // object URL for preview
+  const [existingMediaUrl, setExistingMediaUrl] = useState(null); // URL from DB
+  const [existingMediaType, setExistingMediaType] = useState(null);
+  const [removeMedia, setRemoveMedia] = useState(false);
 
   const whatsappOptions = useMemo(
     () =>
@@ -110,6 +197,11 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       setForm(defaultForm);
       setLoading(false);
       setSaving(false);
+      setMediaFile(null);
+      setMediaPreviewUrl("");
+      setExistingMediaUrl(null);
+      setExistingMediaType(null);
+      setRemoveMedia(false);
       return;
     }
 
@@ -131,8 +223,13 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
           sendIntervalSeconds: data.sendIntervalSeconds || 60,
           daysBeforeDue: data.daysBeforeDue ?? 0,
           daysAfterDue: data.daysAfterDue ?? 0,
-          active: data.active
+          active: data.active,
+          mediaCaption: data.mediaCaption || ""
         });
+        if (data.mediaUrl) {
+          setExistingMediaUrl(data.mediaUrl);
+          setExistingMediaType(data.mediaType || "document");
+        }
       } catch (error) {
         toast.error("Não foi possível carregar o disparo");
         onClose(false);
@@ -144,29 +241,67 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
     loadDetails();
   }, [dispatcher, open, onClose]);
 
+  // Clean up object URL on unmount / change
+  useEffect(() => {
+    return () => {
+      if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+    };
+  }, [mediaPreviewUrl]);
+
   const handleChange = event => {
     const { name, value } = event.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSwitch = event => {
     const { name, checked } = event.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: checked
-    }));
+    setForm(prev => ({ ...prev, [name]: checked }));
   };
+
+  const handleFileChange = event => {
+    const file = event.target.files?.[0];
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = "";
+    if (!file) return;
+
+    const category = getMediaCategory(file.type);
+    const limit = MAX_SIZES[category] || MAX_SIZES.application;
+    const label = MAX_SIZE_LABELS[category] || "10MB";
+
+    if (file.size > limit) {
+      toast.error(`Arquivo muito grande. Limite para ${category}: ${label}`);
+      return;
+    }
+
+    // Revoke old preview
+    if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+
+    setMediaFile(file);
+    setMediaPreviewUrl(URL.createObjectURL(file));
+    setRemoveMedia(false);
+  };
+
+  const handleRemoveMedia = () => {
+    if (mediaFile) {
+      if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+      setMediaFile(null);
+      setMediaPreviewUrl("");
+    } else {
+      setRemoveMedia(true);
+      setExistingMediaUrl(null);
+      setExistingMediaType(null);
+    }
+  };
+
+  const hasMedia = !removeMedia && (!!mediaFile || !!existingMediaUrl);
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error("Informe um título para a regra.");
       return;
     }
-    if (!form.messageTemplate.trim()) {
-      toast.error("Defina a mensagem a ser enviada.");
+    if (!form.messageTemplate.trim() && !hasMedia) {
+      toast.error("Defina a mensagem de texto ou adicione uma mídia.");
       return;
     }
     if (!form.whatsappId) {
@@ -175,17 +310,20 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
     }
 
     const payload = {
-      ...form,
+      title: form.title,
+      messageTemplate: form.messageTemplate,
+      eventType: form.eventType,
       whatsappId: form.whatsappId || null,
+      startTime: form.startTime,
       sendIntervalSeconds: Number(form.sendIntervalSeconds),
       daysBeforeDue:
-        form.eventType === "invoice_reminder"
-          ? Number(form.daysBeforeDue || 0)
-          : null,
+        form.eventType === "invoice_reminder" ? Number(form.daysBeforeDue || 0) : null,
       daysAfterDue:
-        form.eventType === "invoice_overdue"
-          ? Number(form.daysAfterDue || 0)
-          : null
+        form.eventType === "invoice_overdue" ? Number(form.daysAfterDue || 0) : null,
+      active: form.active,
+      mediaCaption: hasMedia ? form.mediaCaption : null,
+      removeMedia: removeMedia ? "true" : undefined,
+      mediaFile: mediaFile || undefined
     };
 
     try {
@@ -208,6 +346,20 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const eventMeta = eventTypeOptions.find(item => item.value === form.eventType);
   const showDaysBefore = form.eventType === "invoice_reminder";
   const showDaysAfter = form.eventType === "invoice_overdue";
+
+  const existingMediaFullUrl = existingMediaUrl
+    ? `${BACKEND_URL}/public/${existingMediaUrl}`
+    : null;
+
+  const previewCategory = mediaFile
+    ? getMediaCategory(mediaFile.type)
+    : existingMediaType || "document";
+
+  const previewLabel = mediaFile
+    ? mediaFile.name
+    : existingMediaUrl
+    ? existingMediaUrl.split("/").pop()
+    : "";
 
   return (
     <Dialog open={open} onClose={() => onClose(false)} className={classes.dialog}>
@@ -235,6 +387,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
           </Box>
         ) : (
           <>
+            {/* ── Configurações ── */}
             <Box className={classes.section}>
               <Typography className={classes.sectionHeader}>
                 <ScheduleIcon fontSize="small" /> Configurações
@@ -364,6 +517,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
               </Grid>
             </Grid>
 
+            {/* ── Mensagem ── */}
             <Box className={classes.section}>
               <Typography className={classes.sectionHeader}>
                 <MessageIcon fontSize="small" /> Mensagem
@@ -376,7 +530,11 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
                 minRows={4}
                 variant="outlined"
                 fullWidth
-                placeholder="Olá {{firstName}}, estamos passando para lembrar..."
+                placeholder={
+                  hasMedia
+                    ? "Texto adicional enviado antes da mídia (opcional)"
+                    : "Olá {{firstName}}, estamos passando para lembrar..."
+                }
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -413,6 +571,111 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
                   />
                 ))}
               </Box>
+            </Box>
+
+            {/* ── Mídia ── */}
+            <Box className={classes.section}>
+              <Typography className={classes.sectionHeader}>
+                <AttachFileIcon fontSize="small" /> Mídia (opcional)
+              </Typography>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_TYPES}
+                style={{ display: "none" }}
+                onChange={handleFileChange}
+              />
+
+              {/* Preview of selected/existing media */}
+              {hasMedia ? (
+                <Box className={classes.mediaPreview}>
+                  {/* Image preview */}
+                  {previewCategory === "image" && (
+                    <img
+                      src={mediaFile ? mediaPreviewUrl : existingMediaFullUrl}
+                      alt="preview"
+                      className={classes.mediaPreviewImg}
+                    />
+                  )}
+
+                  {/* Video preview */}
+                  {previewCategory === "video" && (
+                    <video
+                      src={mediaFile ? mediaPreviewUrl : existingMediaFullUrl}
+                      controls
+                      className={classes.mediaPreviewImg}
+                    />
+                  )}
+
+                  {/* Audio / Document preview row */}
+                  {(previewCategory === "audio" || previewCategory === "document") && (
+                    <Box className={classes.mediaPreviewRow}>
+                      <MediaIcon
+                        category={previewCategory}
+                        style={{ fontSize: 36, color: "#666" }}
+                      />
+                      <Typography variant="body2" noWrap style={{ flex: 1 }}>
+                        {previewLabel}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Remove button */}
+                  <IconButton
+                    size="small"
+                    className={classes.mediaRemoveBtn}
+                    onClick={handleRemoveMedia}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              ) : (
+                <Box
+                  className={classes.mediaUploadArea}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <AttachFileIcon style={{ fontSize: 32, color: "#aaa", marginBottom: 4 }} />
+                  <Typography variant="body2" color="textSecondary">
+                    Clique para adicionar mídia
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Imagem (5MB) · Vídeo (16MB) · Áudio (10MB) · PDF (10MB)
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Replace button when media is already shown */}
+              {hasMedia && (
+                <Box mt={1} display="flex" gap={8}>
+                  <Button
+                    size="small"
+                    startIcon={<AttachFileIcon />}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Substituir mídia
+                  </Button>
+                </Box>
+              )}
+
+              {/* Caption field — shown only when media is present */}
+              {hasMedia && (
+                <Box mt={2}>
+                  <TextField
+                    name="mediaCaption"
+                    label="Legenda da mídia (opcional)"
+                    value={form.mediaCaption}
+                    onChange={handleChange}
+                    multiline
+                    minRows={2}
+                    variant="outlined"
+                    fullWidth
+                    placeholder="Olá {{firstName}}, feliz aniversário!"
+                    helperText="Suporta as mesmas variáveis da mensagem."
+                  />
+                </Box>
+              )}
             </Box>
           </>
         )}

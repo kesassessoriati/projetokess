@@ -28,13 +28,33 @@ export const getScheduledDispatcher = async id => {
   return data;
 };
 
+const buildFormData = payload => {
+  const { mediaFile, ...fields } = payload;
+  const fd = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      fd.append(key, String(value));
+    } else if (value === null) {
+      fd.append(key, "");
+    }
+  });
+  if (mediaFile) fd.append("media", mediaFile);
+  return fd;
+};
+
 export const createScheduledDispatcher = async payload => {
-  const { data } = await api.post("/scheduled-dispatchers", payload);
+  const fd = buildFormData(payload);
+  const { data } = await api.post("/scheduled-dispatchers", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
   return data;
 };
 
 export const updateScheduledDispatcher = async (id, payload) => {
-  const { data } = await api.put(`/scheduled-dispatchers/${id}`, payload);
+  const fd = buildFormData(payload);
+  const { data } = await api.put(`/scheduled-dispatchers/${id}`, fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
   return data;
 };
 

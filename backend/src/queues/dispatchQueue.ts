@@ -15,6 +15,9 @@ export interface DispatchJobData {
   template: string;
   variables: Record<string, any>;
   delayMs?: number;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  mediaCaption?: string | null;
 }
 
 let dispatchQueueInstance: Queue<DispatchJobData> | null = null;

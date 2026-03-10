@@ -1,6 +1,10 @@
 import { Router } from "express";
+import multer from "multer";
+import uploadConfig from "../config/upload";
 import * as ScheduledDispatcherController from "../controllers/ScheduledDispatcherController";
 import isAuth from "../middleware/isAuth";
+
+const upload = multer(uploadConfig);
 
 const scheduledDispatcherRoutes = Router();
 
@@ -19,12 +23,14 @@ scheduledDispatcherRoutes.get(
 scheduledDispatcherRoutes.post(
   "/scheduled-dispatchers",
   isAuth,
+  upload.single("media"),
   ScheduledDispatcherController.store
 );
 
 scheduledDispatcherRoutes.put(
   "/scheduled-dispatchers/:id",
   isAuth,
+  upload.single("media"),
   ScheduledDispatcherController.update
 );
 

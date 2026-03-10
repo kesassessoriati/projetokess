@@ -306,7 +306,10 @@ const runScheduledDispatchers = async () => {
           whatsappId: dispatcher.whatsappId!,
           template: dispatcher.messageTemplate,
           variables,
-          delayMs
+          delayMs,
+          mediaUrl: dispatcher.mediaUrl ?? null,
+          mediaType: dispatcher.mediaType ?? null,
+          mediaCaption: dispatcher.mediaCaption ?? null
         },
         {}
       );
