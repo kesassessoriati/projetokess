@@ -35,6 +35,9 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
   const normalizedPhone =
     sanitizeDigits(lead.phone) || sanitizeDigits(contact?.number);
   const phoneCandidates = resolvePhoneCandidates(normalizedPhone || undefined);
+  const leadWithTags = await CrmLead.findOne({ where: { id: lead.id, companyId: lead.companyId }, include: ["tags"] });
+  const tagsStr = leadWithTags?.tags?.map(t => t.name).join(", ") || "";
+
   const email = lead.email || contact?.email || null;
   const name = lead.name || contact?.name || normalizedPhone || "Cliente";
 
@@ -81,7 +84,18 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       status: "active",
       clientSince: new Date(),
       ownerUserId: lead.ownerUserId,
-      notes: lead.notes
+      notes: lead.notes,
+      decisorName: lead.decisionMakerName,
+      decisorPhone: lead.decisionMakerPhone,
+      site: lead.website,
+      instagram: lead.instagram,
+      linkedin: lead.linkedin,
+      cargo: lead.position,
+      origem: lead.source,
+      campanhaTag: lead.campaign,
+      temperatura: lead.temperature,
+      score: lead.score,
+      tags: tagsStr
     });
   } else {
     const updates: Partial<CrmClient> = {};
@@ -117,6 +131,42 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     }
     if (lead.ownerUserId && lead.ownerUserId !== client.ownerUserId) {
       updates.ownerUserId = lead.ownerUserId;
+    }
+    if (lead.decisionMakerName && lead.decisionMakerName !== client.decisorName) {
+      updates.decisorName = lead.decisionMakerName;
+    }
+    if (lead.decisionMakerPhone && lead.decisionMakerPhone !== client.decisorPhone) {
+      updates.decisorPhone = lead.decisionMakerPhone;
+    }
+    if (lead.website && lead.website !== client.site) {
+      updates.site = lead.website;
+    }
+    if (lead.instagram && lead.instagram !== client.instagram) {
+      updates.instagram = lead.instagram;
+    }
+    if (lead.linkedin && lead.linkedin !== client.linkedin) {
+      updates.linkedin = lead.linkedin;
+    }
+    if (lead.position && lead.position !== client.cargo) {
+      updates.cargo = lead.position;
+    }
+    if (lead.source && lead.source !== client.origem) {
+      updates.origem = lead.source;
+    }
+    if (lead.campaign && lead.campaign !== client.campanhaTag) {
+      updates.campanhaTag = lead.campaign;
+    }
+    if (lead.temperature && lead.temperature !== client.temperatura) {
+      updates.temperatura = lead.temperature;
+    }
+    if (lead.score !== undefined && lead.score !== client.score) {
+      updates.score = lead.score;
+    }
+    if (lead.notes && lead.notes !== client.notes) {
+      updates.notes = lead.notes;
+    }
+    if (tagsStr && tagsStr !== client.tags) {
+      updates.tags = tagsStr;
     }
 
     if (Object.keys(updates).length) {

@@ -9,7 +9,9 @@ import {
   Grid,
   MenuItem,
   makeStyles,
-  CircularProgress
+  CircularProgress,
+  Typography,
+  Divider
 } from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
@@ -25,6 +27,13 @@ const useStyles = makeStyles((theme) => ({
   dialogActions: {
     justifyContent: "space-between",
     padding: theme.spacing(2, 3)
+  },
+  sectionTitle: {
+    fontWeight: 600,
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+    width: "100%",
+    color: theme.palette.primary.main
   }
 }));
 
@@ -47,6 +56,17 @@ const defaultForm = {
   birthDate: "",
   email: "",
   phone: "",
+  decisorName: "",
+  decisorPhone: "",
+  site: "",
+  instagram: "",
+  linkedin: "",
+  cargo: "",
+  origem: "",
+  campanhaTag: "",
+  temperatura: "",
+  score: 0,
+  tags: "",
   zipCode: "",
   address: "",
   number: "",
@@ -101,6 +121,17 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         birthDate: data.birthDate ? data.birthDate.substring(0, 10) : "",
         email: data.email || "",
         phone: data.phone || "",
+        decisorName: data.decisorName || "",
+        decisorPhone: data.decisorPhone || "",
+        site: data.site || "",
+        instagram: data.instagram || "",
+        linkedin: data.linkedin || "",
+        cargo: data.cargo || "",
+        origem: data.origem || "",
+        campanhaTag: data.campanhaTag || "",
+        temperatura: data.temperatura || "",
+        score: data.score || 0,
+        tags: data.tags || "",
         zipCode: data.zipCode || "",
         address: data.address || "",
         number: data.number || "",
@@ -178,6 +209,12 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         ) : (
           <form onSubmit={handleSubmit} id="client-form">
             <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Dados básicos
+                </Typography>
+                <Divider />
+              </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
                   select
@@ -253,32 +290,170 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Informações comerciais
+                </Typography>
+                <Divider />
+              </Grid>
+              <Grid item xs={12} sm={4}>
                 <TextField
-                  label="Data de nascimento"
-                  name="birthDate"
-                  value={form.birthDate}
+                  label="Cargo"
+                  name="cargo"
+                  value={form.cargo}
                   onChange={handleChange}
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
-                  label="Cliente desde"
-                  name="clientSince"
-                  value={form.clientSince}
+                  label="Nome do decisor"
+                  name="decisorName"
+                  value={form.decisorName}
                   onChange={handleChange}
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Telefone do decisor"
+                  name="decisorPhone"
+                  value={form.decisorPhone}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Presença digital
+                </Typography>
+                <Divider />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Site"
+                  name="site"
+                  value={form.site}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Instagram"
+                  name="instagram"
+                  value={form.instagram}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="LinkedIn"
+                  name="linkedin"
+                  value={form.linkedin}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  CRM
+                </Typography>
+                <Divider />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Origem"
+                  name="origem"
+                  value={form.origem}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Campanha / Tag"
+                  name="campanhaTag"
+                  value={form.campanhaTag}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Temperatura"
+                  name="temperatura"
+                  value={form.temperatura}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Score"
+                  name="score"
+                  type="number"
+                  value={form.score}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={8}>
+                <TextField
+                  label="Tags"
+                  name="tags"
+                  value={form.tags}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  select
+                  label="Responsável"
+                  name="ownerUserId"
+                  value={form.ownerUserId}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  <MenuItem value="">Sem responsável</MenuItem>
+                  {users.map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
               <Grid item xs={12} sm={4}>
                 <TextField
                   select
@@ -296,6 +471,54 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                     </MenuItem>
                   ))}
                 </TextField>
+              </Grid>
+              
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Data de nascimento"
+                  name="birthDate"
+                  value={form.birthDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Cliente desde"
+                  name="clientSince"
+                  value={form.clientSince}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  label="Observações"
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  multiline
+                  rows={3}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Endereço
+                </Typography>
+                <Divider />
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
@@ -319,7 +542,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   label="Endereço"
                   name="address"
@@ -352,7 +575,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="Cidade"
                   name="city"
@@ -363,7 +586,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={2}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="UF"
                   name="state"
@@ -373,38 +596,6 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   fullWidth
                   className={classes.formField}
                   inputProps={{ maxLength: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Responsável"
-                  name="ownerUserId"
-                  value={form.ownerUserId}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                >
-                  <MenuItem value="">Sem responsável</MenuItem>
-                  {users.map((user) => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Observações"
-                  name="notes"
-                  value={form.notes}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                  multiline
-                  rows={3}
                 />
               </Grid>
             </Grid>

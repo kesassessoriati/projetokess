@@ -24,6 +24,17 @@ interface Request {
   clientSince?: Date;
   ownerUserId?: number;
   notes?: string;
+  decisorName?: string;
+  decisorPhone?: string;
+  site?: string;
+  instagram?: string;
+  linkedin?: string;
+  cargo?: string;
+  origem?: string;
+  campanhaTag?: string;
+  temperatura?: string;
+  score?: number;
+  tags?: string;
 }
 
 const UpdateCrmClientService = async ({

@@ -99,6 +99,39 @@ class CrmClient extends Model<CrmClient> {
   @BelongsTo(() => User, "ownerUserId")
   owner: User;
 
+  @Column({ field: "decisor_name", type: DataType.STRING })
+  decisorName: string;
+
+  @Column({ field: "decisor_phone", type: DataType.STRING })
+  decisorPhone: string;
+
+  @Column(DataType.STRING)
+  site: string;
+
+  @Column(DataType.STRING)
+  instagram: string;
+
+  @Column(DataType.STRING)
+  linkedin: string;
+
+  @Column(DataType.STRING)
+  cargo: string;
+
+  @Column(DataType.STRING)
+  origem: string;
+
+  @Column({ field: "campanha_tag", type: DataType.STRING })
+  campanhaTag: string;
+
+  @Column(DataType.STRING)
+  temperatura: string;
+
+  @Column(DataType.INTEGER)
+  score: number;
+
+  @Column(DataType.TEXT)
+  tags: string;
+
   @Column(DataType.TEXT)
   notes: string;
 
