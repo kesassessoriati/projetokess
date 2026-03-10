@@ -151,6 +151,23 @@ import MySiteBoardCard from "../models/MySiteBoardCard";
 import MySiteBoardChecklistItem from "../models/MySiteBoardChecklistItem";
 import MySiteBoardComment from "../models/MySiteBoardComment";
 import MySiteBoardAttachment from "../models/MySiteBoardAttachment";
+import GfProfile from "../models/GfProfile";
+import GfCategoria from "../models/GfCategoria";
+import GfReceita from "../models/GfReceita";
+import GfDespesa from "../models/GfDespesa";
+import GfTransacao from "../models/GfTransacao";
+import GfDivida from "../models/GfDivida";
+import GfCategoriaMeta from "../models/GfCategoriaMeta";
+import GfMeta from "../models/GfMeta";
+import GfCategoriaMercado from "../models/GfCategoriaMercado";
+import GfItemMercado from "../models/GfItemMercado";
+import GfOrcamentoMercado from "../models/GfOrcamentoMercado";
+import GfVeiculo from "../models/GfVeiculo";
+import GfTipoManutencao from "../models/GfTipoManutencao";
+import GfManutencao from "../models/GfManutencao";
+import GfIaConfiguracao from "../models/GfIaConfiguracao";
+import GfIaUpload from "../models/GfIaUpload";
+import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -335,7 +352,24 @@ const models = [
   MySiteBoardComment,
   MySiteBoardAttachment,
   ButtonCampaign,
-  ButtonCampaignShipping
+  ButtonCampaignShipping,
+  GfProfile,
+  GfCategoria,
+  GfReceita,
+  GfDespesa,
+  GfTransacao,
+  GfDivida,
+  GfCategoriaMeta,
+  GfMeta,
+  GfCategoriaMercado,
+  GfItemMercado,
+  GfOrcamentoMercado,
+  GfVeiculo,
+  GfTipoManutencao,
+  GfManutencao,
+  GfIaConfiguracao,
+  GfIaUpload,
+  GfIaAnalysisResult
 ];
 
 sequelize.addModels(models);
