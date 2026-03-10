@@ -30,6 +30,7 @@ export const SendTextOfficialService = async ({
   const payload = {
     messaging_product: "whatsapp",
     to: contact.number,
+    type: "text",
     text: { body }
   };
 

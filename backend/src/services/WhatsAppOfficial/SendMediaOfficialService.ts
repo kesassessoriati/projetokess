@@ -89,13 +89,14 @@ export const SendMediaOfficialService = async ({
   const messagePayload: any = {
     messaging_product: "whatsapp",
     to: contact.number,
+    type: mediaType,
     [mediaType]: {
       id: mediaId
     }
   };
 
   if (body) {
-    messagePayload.caption = body;
+    messagePayload[mediaType].caption = body;
   }
 
   try {

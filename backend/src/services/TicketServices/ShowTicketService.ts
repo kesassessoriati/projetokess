@@ -120,7 +120,12 @@ const ShowTicketService = async (
           "facebookUserToken",
           "facebookUserId",
           "status",
-          "wavoip"
+          "wavoip",
+          "channel",
+          "companyId",
+          "coexistencePhoneNumberId",
+          "coexistenceWabaId",
+          "coexistencePermanentToken"
         ]
       },
       {
