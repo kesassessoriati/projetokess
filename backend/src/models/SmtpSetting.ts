@@ -32,7 +32,7 @@ class SmtpSetting extends Model<SmtpSetting> {
     @Column(DataType.STRING)
     user: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     get password(): string {
         const rawValue = this.getDataValue('password');
         // We return empty for safety on frontend payload, unless we specifically need it in backend. 
