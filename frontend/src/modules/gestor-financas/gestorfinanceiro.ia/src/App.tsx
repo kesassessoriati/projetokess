@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Receitas from "./pages/Receitas";
 import Despesas from "./pages/Despesas";
@@ -11,7 +11,6 @@ import Mercado from "./pages/Mercado";
 import Veiculos from "./pages/Veiculos";
 import Perfil from "./pages/Perfil";
 import IA from "./pages/IA";
-import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,8 +24,8 @@ function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-background">
           <Routes>
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/dashboard"
               element={
