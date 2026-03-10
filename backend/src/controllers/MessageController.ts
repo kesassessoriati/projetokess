@@ -44,6 +44,8 @@ import TranscribeAudioMessageToText from "../services/MessageServices/Transcribe
 import { generateWAMessageFromContent, generateWAMessageContent } from "@whiskeysockets/baileys";
 import { notifyNewMessage } from "./NotificationController";
 import SendEmailMessageService from "../services/EmailChannelServices/SendEmailMessageService";
+import { SendTextOfficialService } from "../services/WhatsAppOfficial/SendTextOfficialService";
+import { SendMediaOfficialService } from "../services/WhatsAppOfficial/SendMediaOfficialService";
 
 type IndexQuery = {
   pageNumber: string;
@@ -575,6 +577,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
             }
           }
 
+          if (ticket.channel === "whatsapp_official") {
+            await SendMediaOfficialService({
+              media,
+              body: Array.isArray(body) ? body[index] : body,
+              ticketId: ticket.id,
+              contact: ticket.contact,
+              connection: ticket.whatsapp
+            });
+          }
+
           if (ticket.channel === "email") {
             await SendEmailMessageService({
               ticket,
@@ -621,6 +633,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         // Enviar notificação push para dispositivos móveis
         await notifyNewMessage(message);
 
+      } else if (ticket.channel === "whatsapp_official") {
+        await SendTextOfficialService({
+          body,
+          ticketId: ticket.id,
+          contact: ticket.contact,
+          connection: ticket.whatsapp
+        });
       } else if (["facebook", "instagram"].includes(ticket.channel)) {
         const sendText = await sendFaceMessage({ body, ticket, quotedMsg });
         // Registrar texto enviado no histórico do ticket para ambos os canais
