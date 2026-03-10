@@ -94,6 +94,16 @@ const ImportCrmLeadsService = async ({
                     notes += `\n[Tag Auto: ${autoTag}]`;
                 }
 
+                let rawCnpj = leadRow.cnpj || leadRow.CNPJ || leadRow.Cnpj;
+                let cleanCnpj: string | undefined = undefined;
+
+                if (rawCnpj) {
+                    cleanCnpj = String(rawCnpj).replace(/[^\d]/g, "");
+                    if (cleanCnpj.length !== 14) {
+                        errors.push({ row: index + 2, error: `Aviso: CNPJ '${String(rawCnpj)}' inválido (tamanho incorreto). Importado mesmo assim.` });
+                    }
+                }
+
                 await CreateCrmLeadService({
                     companyId,
                     name: String(name),
@@ -110,6 +120,7 @@ const ImportCrmLeadsService = async ({
                     companyName: String(leadRow.companyName || leadRow.empresa || ""),
                     decisionMakerName: leadRow.decisionMakerName ? String(leadRow.decisionMakerName) : undefined,
                     decisionMakerPhone: leadRow.decisionMakerPhone ? String(leadRow.decisionMakerPhone) : undefined,
+                    cnpj: cleanCnpj,
                     gmn: leadRow.gmn ? String(leadRow.gmn) : undefined,
                     website: leadRow.website ? String(leadRow.website) : undefined,
                     instagram: leadRow.instagram ? String(leadRow.instagram) : undefined,

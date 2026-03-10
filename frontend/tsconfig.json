@@ -21,5 +21,9 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/gestorfinanceiro.ia",
+    "src/modules/gestor-financas"
   ]
 }

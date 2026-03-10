@@ -9,3 +9,5 @@ build
 .DS_Store
 *.swp
 coverage
+src/gestorfinanceiro.ia
+src/modules/gestor-financas/gestorfinanceiro.ia

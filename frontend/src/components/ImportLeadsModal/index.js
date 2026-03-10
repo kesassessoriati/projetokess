@@ -79,6 +79,7 @@ const LEAD_FIELDS = [
     { id: "email", label: "E-mail", required: false },
     { id: "phone", label: "Telefone", required: false },
     { id: "decisionMakerPhone", label: "Telefone decisor", required: false },
+    { id: "cnpj", label: "CNPJ", required: false },
     { id: "gmn", label: "GMN", required: false },
     { id: "website", label: "Site", required: false },
     { id: "instagram", label: "Instagram", required: false },
