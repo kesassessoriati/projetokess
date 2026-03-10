@@ -55,6 +55,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import SpeedIcon from "@mui/icons-material/Speed";
 import PublicIcon from "@mui/icons-material/Public";
 import LanguageIcon from "@mui/icons-material/Language";
+import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -606,7 +607,8 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   const isCampaignRouteActive =
     location.pathname === "/campaigns" ||
     location.pathname.startsWith("/contact-lists") ||
-    location.pathname.startsWith("/campaigns-config");
+    location.pathname.startsWith("/campaigns-config") ||
+    location.pathname.startsWith("/disparo-botoes");
 
   const isFlowbuilderRouteActive =
     location.pathname.startsWith("/phrase-lists") ||
@@ -936,6 +938,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 to="/campaigns-config"
                 primary={i18n.t("campaigns.subMenus.settings")}
                 icon={<SettingsOutlinedIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/disparo-botoes"
+                primary="Disparo Botões"
+                icon={<SmartButtonIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
             </div>

@@ -141,6 +141,8 @@ import GroupTemplate from "../models/GroupTemplate";
 import GroupCampaign from "../models/GroupCampaign";
 import GroupCampaignTarget from "../models/GroupCampaignTarget";
 import GroupCampaignLog from "../models/GroupCampaignLog";
+import ButtonCampaign from "../models/ButtonCampaign";
+import ButtonCampaignShipping from "../models/ButtonCampaignShipping";
 import SocialBoard from "../models/SocialBoard";
 import SocialStage from "../models/SocialStage";
 import SocialContent from "../models/SocialContent";
@@ -331,7 +333,9 @@ const models = [
   MySiteBoardCard,
   MySiteBoardChecklistItem,
   MySiteBoardComment,
-  MySiteBoardAttachment
+  MySiteBoardAttachment,
+  ButtonCampaign,
+  ButtonCampaignShipping
 ];
 
 sequelize.addModels(models);
