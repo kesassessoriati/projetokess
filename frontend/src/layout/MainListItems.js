@@ -17,7 +17,7 @@ import useMediaQuery from "@material-ui/core/useMediaQuery";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import { getBackendUrl } from "../config";
 
-// Ícones modernos
+// ÃƒÂcones modernos
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import HomeIcon from "@mui/icons-material/Home";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
@@ -432,7 +432,7 @@ function ListItemLink(props) {
   );
 
   const handleClick = () => {
-    // Fecha o submenu após navegar (principalmente em mobile)
+    // Fecha o submenu apÃƒÂ³s navegar (principalmente em mobile)
     if (onNavigate) {
       onNavigate();
     }
@@ -569,7 +569,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   };
 
   const handleNavigateFromSubmenu = () => {
-    // Fecha o submenu após navegação
+    // Fecha o submenu apÃƒÂ³s navegaÃƒÂ§ÃƒÂ£o
     if (isMobile) {
       handleCloseSubmenu();
       if (drawerClose) drawerClose();
@@ -855,7 +855,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           <>
             <div className={classes.submenuHeader}>
               <Typography className={classes.submenuTitle}>
-                Comunicação
+                ComunicaÃƒÂ§ÃƒÂ£o
               </Typography>
             </div>
             <div className={classes.submenuContent}>
@@ -1015,6 +1015,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink
+                to="/gestor-financas/gestor-financeiro-ia"
+                primary="Gestor Financeiro IA"
+                icon={<LocalAtmIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
                 to="/prompts"
                 primary={i18n.t("Agentes IA")}
                 icon={<AllInclusiveIcon />}
@@ -1071,7 +1077,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           <>
             <div className={classes.submenuHeader}>
               <Typography className={classes.submenuTitle}>
-                Administração
+                AdministraÃƒÂ§ÃƒÂ£o
               </Typography>
             </div>
             <div className={classes.submenuContent}>
@@ -1130,7 +1136,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                   yes={() => (
                     <ListItemLink
                       to="/messages-api"
-                      primary={i18n.t("Documentação API")}
+                      primary={i18n.t("DocumentaÃƒÂ§ÃƒÂ£o API")}
                       icon={<CodeIcon />}
                       onNavigate={handleNavigateFromSubmenu}
                     />
@@ -1319,7 +1325,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           />
         )}
 
-        <Tooltip title={collapsed ? "Comunicação" : ""} placement="right">
+        <Tooltip title={collapsed ? "ComunicaÃƒÂ§ÃƒÂ£o" : ""} placement="right">
           <ListItem
             button
             onClick={(e) => {
@@ -1337,7 +1343,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               <ListItemText
                 primary={
                   <Typography className={`${classes.listItemText} ${activeSubmenu === "communication" ? "active" : ""}`}>
-                    Comunicação
+                    ComunicaÃƒÂ§ÃƒÂ£o
                   </Typography>
                 }
               />
@@ -1443,7 +1449,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           role={user.profile === "user" && user.allowConnections === "enabled" ? "admin" : user.profile}
           perform="dashboard:view"
           yes={() => (
-            <Tooltip title={collapsed ? "Administração" : ""} placement="right">
+            <Tooltip title={collapsed ? "AdministraÃƒÂ§ÃƒÂ£o" : ""} placement="right">
               <ListItem
                 button
                 onClick={(e) => {
@@ -1461,7 +1467,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                   <ListItemText
                     primary={
                       <Typography className={`${classes.listItemText} ${activeSubmenu === "administration" ? "active" : ""}`}>
-                        Administração
+                        AdministraÃƒÂ§ÃƒÂ£o
                       </Typography>
                     }
                   />
@@ -1604,7 +1610,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
       >
         <div className={classes.profileDrawerHeader}>
           <Typography className={classes.profileDrawerTitle}>Minha Conta</Typography>
-          <Typography className={classes.profileDrawerSubtitle}>Gerencie suas configurações</Typography>
+          <Typography className={classes.profileDrawerSubtitle}>Gerencie suas configuraÃƒÂ§ÃƒÂµes</Typography>
         </div>
 
         <div className={classes.profileActions}>

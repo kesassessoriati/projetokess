@@ -941,6 +941,14 @@ const LoggedInLayout = ({ children }) => {
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      {
+        title: "Gestor Finanças",
+        icon: <LocalAtmIcon />,
+        disabled: !planActive && location.pathname !== "/financeiro",
+        children: [
+          { title: "Gestor Financeiro IA", path: "/gestor-financas/gestor-financeiro-ia" },
+        ],
+      },
       // ── Grupos mantidos ──────────────────────────────────────────────
       {
         title: "Automação",

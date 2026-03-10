@@ -53,6 +53,7 @@ import CampaignsConfig from "../pages/CampaignsConfig";
 import CampaignReport from "../pages/CampaignReport";
 import Annoucements from "../pages/Annoucements";
 import Faturas from "../pages/Faturas";
+import GestorFinancasIA from "../pages/GestorFinancasIA";
 import Chat from "../pages/Chat";
 import Agentes from "../pages/Agentes";
 import ForgetPassword from "../pages/ForgetPassWord/";
@@ -211,6 +212,7 @@ const Routes = () => {
                         <Route exact path="/integracao" component={QueueIntegration} isPrivate />
                         <Route exact path="/announcements" component={Annoucements} isPrivate />
                         <Route exact path="/faturas" component={Faturas} isPrivate />
+                        <Route exact path="/gestor-financas/gestor-financeiro-ia" component={GestorFinancasIA} isPrivate />
                         {/* [DEPRECATED] Funil Legado - rotas desativadas, migradas para Board Inteligente */}
                         {/* <Route exact path="/documentacao" component={Funil} isPrivate /> */}
                         {/* <Route exact path="/funil" component={Funil} isPrivate /> */}
