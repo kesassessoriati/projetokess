@@ -400,10 +400,10 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
                       <Typography variant="caption" color="primary">Arquivo: {stage.mediaUrl.split("-").pop()}</Typography>
                       {stage.messageType === "image" && (
                         <Box mt={1}>
-                          <img 
-                            src={`${process.env.REACT_APP_BACKEND_URL}${stage.mediaUrl}`} 
-                            alt="preview" 
-                            style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }} 
+                          <img
+                            src={stage.mediaUrl?.startsWith("http") ? stage.mediaUrl : `${(process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "")}${stage.mediaUrl}`}
+                            alt="preview"
+                            style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }}
                           />
                         </Box>
                       )}
@@ -481,7 +481,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps }) => {
   );
 };
 
-const KanbanBoard = ({ campaigns, onEdit, onDrop, whatsApps, handleToggle }) => {
+const KanbanBoard = ({ campaigns, onEdit, onDrop, onDelete, whatsApps, handleToggle, isAdmin }) => {
   const grouped = {};
   campaigns.forEach(c => {
      const col = c.boardColumn || "Sem Categoria";
@@ -537,6 +537,13 @@ const KanbanBoard = ({ campaigns, onEdit, onDrop, whatsApps, handleToggle }) => 
                          <Switch size="small" checked={!!c.isActive} onChange={() => handleToggle(c)} color="primary" />
                          <Typography variant="caption">{c.isActive ? 'Ativo' : 'Inativo'}</Typography>
                        </Box>
+                       {isAdmin && (
+                         <Tooltip title="Excluir">
+                           <IconButton size="small" onClick={() => onDelete(c.id)}>
+                             <DeleteIcon fontSize="small" />
+                           </IconButton>
+                         </Tooltip>
+                       )}
                      </Box>
                   </Paper>
                 );
@@ -658,12 +665,14 @@ const FollowUps = () => {
       {loading ? (
         <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
       ) : viewMode === "kanban" ? (
-         <KanbanBoard 
-           campaigns={campaigns} 
-           whatsApps={whatsApps} 
+         <KanbanBoard
+           campaigns={campaigns}
+           whatsApps={whatsApps}
            onEdit={(c) => { setEditing(c); setModalOpen(true); }}
            onDrop={handleDragDropColumn}
+           onDelete={handleDelete}
            handleToggle={handleToggle}
+           isAdmin={isAdmin}
          />
       ) : (
         <TableContainer component={Paper}>

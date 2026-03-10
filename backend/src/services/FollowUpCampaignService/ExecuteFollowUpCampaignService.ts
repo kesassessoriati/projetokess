@@ -8,6 +8,7 @@
  * 3. Sends the next pending stage message if enough time elapsed and no reply
  * 4. Logs activity in FollowUpLogs
  */
+import path from "path";
 import { Op } from "sequelize";
 import FollowUpCampaign from "../../models/FollowUpCampaign";
 import FollowUpStage from "../../models/FollowUpStage";
@@ -18,6 +19,7 @@ import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
+import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
 
 const LOOKBACK_HOURS = 48;
 
@@ -167,10 +169,8 @@ async function processContact(campaign, stages, ticket) {
         } else if (stage.messageType === "text" || !stage.messageType) {
           await wbot.sendMessage(jid, { text: stage.message || "" });
         } else if (stage.mediaUrl) {
-          const path = require("path");
           const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
           const filePath = stage.mediaUrl.startsWith("http") ? stage.mediaUrl : path.join(publicFolder, stage.mediaUrl.replace("/public", ""));
-          const { getMessageOptions } = require("../WbotServices/SendWhatsAppMedia");
           const options = await getMessageOptions(
             path.basename(stage.mediaUrl),
             filePath,
