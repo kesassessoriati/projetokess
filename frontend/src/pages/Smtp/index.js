@@ -45,6 +45,7 @@ const Smtp = () => {
     const classes = useStyles();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
 
     const [settings, setSettings] = useState({
         host: "",
@@ -98,6 +99,21 @@ const Smtp = () => {
             ...prev,
             [name]: type === "checkbox" ? checked : value
         }));
+    };
+
+    const handleTestSmtp = async () => {
+        const emailDestino = prompt("Digite o e-mail de destino para o teste:");
+        if (!emailDestino) return;
+        
+        setTesting(true);
+        try {
+            await api.post("/smtp/test", { emailDestino });
+            toast.success("SMTP configurado com sucesso");
+        } catch (err) {
+            toastError(err);
+        } finally {
+            setTesting(false);
+        }
     };
 
     if (loading) {
@@ -214,15 +230,24 @@ const Smtp = () => {
                         </Grid>
                     </Grid>
 
-                    <Box display="flex" justifyContent="flex-end">
+                    <Box display="flex" justifyContent="flex-end" style={{ gap: "10px" }}>
                         <Button
                             className={classes.btnSave}
                             type="submit"
                             variant="contained"
                             color="primary"
-                            disabled={saving}
+                            disabled={saving || testing}
                         >
                             {saving ? <CircularProgress size={24} color="inherit" /> : "Salvar Configurações"}
+                        </Button>
+                        <Button
+                            className={classes.btnSave}
+                            onClick={handleTestSmtp}
+                            variant="contained"
+                            style={{ backgroundColor: "#00d4ff", color: "#fff" }}
+                            disabled={saving || testing}
+                        >
+                            {testing ? <CircularProgress size={24} color="inherit" /> : "Testar SMTP"}
                         </Button>
                     </Box>
                 </form>

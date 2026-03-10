@@ -1,64 +1,13 @@
-import nodemailer from "nodemailer";
 import sequelize from "sequelize";
 import database from "../../database";
-import Setting from "../../models/Setting";
-import { config } from "dotenv";
-config();
+import { createTransporter } from "../SmtpServices/smtpService";
+import { GetSmtpSettingByCompany } from "../../helpers/GetSmtpSettingByCompany";
 
 interface UserData {
   companyId: number;
 }
 
-interface SmtpConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass: string;
-  from: string;
-}
 
-const getSmtpConfig = async (): Promise<SmtpConfig> => {
-  // Tenta buscar configurações do banco de dados primeiro
-  try {
-    const settings = await Setting.findAll({
-      where: {
-        companyId: 1,
-        key: ["smtpHost", "smtpPort", "smtpUser", "smtpPass", "smtpFrom"]
-      }
-    });
-
-    const smtpHost = settings.find(s => s.key === "smtpHost")?.value;
-    const smtpPort = settings.find(s => s.key === "smtpPort")?.value;
-    const smtpUser = settings.find(s => s.key === "smtpUser")?.value;
-    const smtpPass = settings.find(s => s.key === "smtpPass")?.value;
-    const smtpFrom = settings.find(s => s.key === "smtpFrom")?.value;
-
-    if (smtpHost && smtpUser && smtpPass) {
-      const port = parseInt(smtpPort || "587");
-      return {
-        host: smtpHost,
-        port: port,
-        secure: port === 465,
-        user: smtpUser,
-        pass: smtpPass,
-        from: smtpFrom || smtpUser
-      };
-    }
-  } catch (error) {
-    console.log("Error fetching SMTP settings from database, using env vars");
-  }
-
-  // Fallback para variáveis de ambiente
-  return {
-    host: process.env.MAIL_HOST || "",
-    port: Number(process.env.MAIL_PORT) || 465,
-    secure: true,
-    user: process.env.MAIL_USER || "",
-    pass: process.env.MAIL_PASS || "",
-    from: process.env.MAIL_FROM || ""
-  };
-};
 
 const SendMail = async (email: string, tokenSenha: string) => {
   const { hasResult, data } = await filterEmail(email);
@@ -72,24 +21,10 @@ const SendMail = async (email: string, tokenSenha: string) => {
   const companyId = userData.companyId;
   
   // Busca configurações SMTP dinâmicas
-  const smtpConfig = await getSmtpConfig();
+  const smtpConfig = await GetSmtpSettingByCompany(companyId);
+  const transporter = await createTransporter(companyId);
   
-  const transporterOptions: any = {
-    host: smtpConfig.host,
-    port: smtpConfig.port,
-    secure: smtpConfig.secure,
-    auth: { user: smtpConfig.user, pass: smtpConfig.pass }
-  };
-
-  // Para portas não seguras, usar TLS
-  if (!smtpConfig.secure) {
-    transporterOptions.tls = {
-      rejectUnauthorized: false
-    };
-  }
-
-  const transporter = nodemailer.createTransport(transporterOptions);
-  const fromEmail = smtpConfig.from;
+  const fromEmail = smtpConfig?.senderEmail || "suporte@empresa.com";
   if (hasResult === true) {
     const { hasResults, datas } = await insertToken(email, tokenSenha);
     async function sendEmail() {

@@ -171,7 +171,7 @@ const EmailCampaignModal = ({ open, onClose, campaignId, onSave }) => {
     if (!open) return;
 
     // Verificar se SMTP está configurado
-    api.get("/smtp-settings").then(({ data }) => {
+    api.get("/smtp").then(({ data }) => {
       setSmtpConfigured(!!(data && data.host && data.user));
     }).catch(() => setSmtpConfigured(false));
 

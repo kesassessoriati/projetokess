@@ -6,5 +6,6 @@ const smtpSettingRoutes = express.Router();
 
 smtpSettingRoutes.get("/smtp", isAuth, SmtpSettingController.index);
 smtpSettingRoutes.post("/smtp", isAuth, SmtpSettingController.store);
+smtpSettingRoutes.post("/smtp/test", isAuth, SmtpSettingController.test);
 
 export default smtpSettingRoutes;

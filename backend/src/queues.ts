@@ -54,6 +54,7 @@ import runScheduledDispatchers from "./services/ScheduledDispatcherService/Dispa
 import startDispatchProcessor from "./services/ScheduledDispatcherService/DispatchProcessorService";
 import { runCleanLidContacts } from "./services/ContactServices/CleanLidContactsRunner";
 import { GetSmtpSettingByCompany } from "./helpers/GetSmtpSettingByCompany";
+import { createTransporter } from "./services/SmtpServices/smtpService";
 import nodemailer from "nodemailer";
 
 const connection = process.env.REDIS_URI || "";
@@ -484,17 +485,7 @@ async function handleDispatchEmailCampaign(job) {
     const subject = replaceEmailVariables(campaign.emailSubject || "", variables);
     const body = replaceEmailVariables(campaign.emailBody || "", variables);
 
-    const transportOptions: any = {
-      host: smtp.host,
-      port: smtp.port,
-      secure: smtp.secure,
-      auth: { user: smtp.user, pass: smtp.password }
-    };
-    if (!smtp.secure) {
-      transportOptions.tls = { rejectUnauthorized: false };
-    }
-
-    const transporter = nodemailer.createTransport(transportOptions);
+    const transporter = await createTransporter(companyId);
 
     await transporter.sendMail({
       from: `"${smtp.senderName}" <${smtp.senderEmail}>`,

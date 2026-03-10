@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { SendMail } from "../helpers/SendMail";
-import nodemailer from "nodemailer";
-import SmtpSetting from "../models/SmtpSetting";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import { createTransporter } from "../services/SmtpServices/smtpService";
+import { GetSmtpSettingByCompany } from "../helpers/GetSmtpSettingByCompany";
 
 export const sendCrmEmail = async (req: Request, res: Response): Promise<Response> => {
   try {
@@ -42,7 +42,7 @@ export const sendLeadEmail = async (req: Request, res: Response): Promise<Respon
     const { companyId } = req.user;
 
     // Obter credenciais do SMTP da empresa
-    const smtpSetting = await SmtpSetting.findOne({ where: { companyId } });
+    const smtpSetting = await GetSmtpSettingByCompany(companyId);
     if (!smtpSetting) {
       return res.status(400).json({ error: "SMTP não configurado para esta empresa." });
     }
@@ -61,28 +61,10 @@ export const sendLeadEmail = async (req: Request, res: Response): Promise<Respon
       }
     }
 
-    const { host, port, user, password, secure, senderName, senderEmail } = smtpSetting;
-
-    const transporterOptions: any = {
-      host,
-      port,
-      secure,
-      auth: {
-        user,
-        pass: password
-      }
-    };
-
-    if (!secure) {
-      transporterOptions.tls = {
-        rejectUnauthorized: false
-      };
-    }
-
-    const transporter = nodemailer.createTransport(transporterOptions);
+    const transporter = await createTransporter(companyId);
 
     const emailOptions = {
-      from: `"${senderName}" <${senderEmail}>`,
+      from: `"${smtpSetting.senderName}" <${smtpSetting.senderEmail}>`,
       to,
       subject,
       html: body.replace(/\n/g, '<br/>'),

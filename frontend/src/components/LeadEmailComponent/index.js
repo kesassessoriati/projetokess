@@ -100,7 +100,7 @@ const LeadEmailComponent = ({ op, lead, onEmailSent }) => {
         setLoading(true);
         try {
             const { data: smtp } = await api.get("/smtp");
-            setHasSmtp(!!smtp);
+            setHasSmtp(!!(smtp && smtp.host && smtp.user));
 
             if (lead && lead.email) {
                 setEmailData(prev => ({ ...prev, to: lead.email }));
