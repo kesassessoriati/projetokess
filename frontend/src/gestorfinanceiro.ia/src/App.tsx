@@ -11,7 +11,6 @@ import Mercado from "./pages/Mercado";
 import Veiculos from "./pages/Veiculos";
 import Perfil from "./pages/Perfil";
 import IA from "./pages/IA";
-import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,8 +24,14 @@ function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-background">
           <Routes>
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={
