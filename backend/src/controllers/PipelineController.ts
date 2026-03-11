@@ -36,6 +36,10 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     const { companyId } = req.user;
     const { name, isDefault } = req.body;
 
+    if (!id) {
+        return res.status(400).json({ error: "Funnel ID is required for update" });
+    }
+
     const pipeline = await Pipeline.findOne({ where: { id, companyId } });
     if (!pipeline) {
         return res.status(404).json({ error: "Pipeline not found" });

@@ -177,7 +177,7 @@ const PipelineConfig = () => {
 
     const handleClosePipelineMenu = () => {
         setPipelineMenuAnchorEl(null);
-        setMenuPipeline(null);
+        // setMenuPipeline(null);
     };
 
     const handleEditPipelineAction = () => {
@@ -236,6 +236,7 @@ const PipelineConfig = () => {
     const handleOpenCreatePipeline = () => {
         setNewPipelineName("");
         setIsEditingPipeline(false);
+        setMenuPipeline(null);
         setPipelineModalOpen(true);
     };
 
@@ -245,6 +246,7 @@ const PipelineConfig = () => {
         }
         try {
             if (isEditingPipeline && menuPipeline) {
+                console.log("Updating funnel:", menuPipeline.id);
                 await api.put(`/pipelines/${menuPipeline.id}`, { name: newPipelineName });
                 toast.success("Funil atualizado com sucesso!");
                 setPipelines(pipelines.map(p => p.id === menuPipeline.id ? { ...p, name: newPipelineName } : p));
@@ -259,6 +261,7 @@ const PipelineConfig = () => {
             setPipelineModalOpen(false);
             setNewPipelineName("");
             setIsEditingPipeline(false);
+            setMenuPipeline(null);
         } catch (err) {
             toast.error("Erro ao salvar funil.");
         }
