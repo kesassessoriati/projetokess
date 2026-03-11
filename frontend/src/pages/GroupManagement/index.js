@@ -123,7 +123,7 @@ export default function GroupManagement() {
   const [search, setSearch] = useState("");
   const [minMembers, setMinMembers] = useState("");
   const [maxMembers, setMaxMembers] = useState("");
-  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] });
+  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
   const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "" });
   const [createGroupModal, setCreateGroupModal] = useState(false);
   const [newGroupForm, setNewGroupForm] = useState({ whatsappId: "", subject: "", participants: "" });
@@ -233,7 +233,7 @@ export default function GroupManagement() {
         mediaName
       });
       toast.success("Campanha criada.");
-      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] });
+      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
       refreshAll();
     } catch { toast.error("Erro ao criar campanha."); }
   };
@@ -382,34 +382,91 @@ export default function GroupManagement() {
               <InputLabel>Tipo de conteúdo</InputLabel>
               <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); }} label="Tipo de conteúdo">
                 <MenuItem value="text">Texto</MenuItem>
+                <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
+                <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
                 <MenuItem value="imagem">Imagem</MenuItem>
                 <MenuItem value="video">Vídeo</MenuItem>
-                <MenuItem value="audio">Áudio PTT (Gravado na hora)</MenuItem>
+                <MenuItem value="audio">Áudio PTT</MenuItem>
                 <MenuItem value="documento">Documento</MenuItem>
               </Select>
             </FormControl>
-            {campaignForm.messageType !== "text" && (
+            {["imagem","video","audio","documento"].includes(campaignForm.messageType) && (
               <Box>
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   accept={
-                    campaignForm.messageType === "video" ? "video/mp4,video/quicktime" : 
-                    campaignForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" : 
-                    campaignForm.messageType === "imagem" ? "image/jpeg,image/png" : 
+                    campaignForm.messageType === "video" ? "video/mp4,video/quicktime" :
+                    campaignForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" :
+                    campaignForm.messageType === "imagem" ? "image/jpeg,image/png" :
                     "*/*"
-                  } 
-                  onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))} 
+                  }
+                  onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))}
                 />
                 <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
-                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" : 
-                   campaignForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" : 
-                   campaignForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" : 
+                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" :
+                   campaignForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" :
+                   campaignForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" :
                    "Formatos aceitos: pdf, docx, xlsx, etc"}
                 </Typography>
               </Box>
             )}
-            
-            <TextField variant="outlined" size="small" label={campaignForm.messageType === "text" ? "Mensagem" : "Legenda (Opcional)"} multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+
+            <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(campaignForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+
+            {campaignForm.messageType === "buttons" && (
+              <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
+                <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Botões (máx. 3)</Typography>
+                {(campaignForm.buttons || []).map((btn, i) => (
+                  <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <TextField
+                      variant="outlined" size="small" fullWidth
+                      placeholder={`Botão ${i + 1}`}
+                      value={btn.displayText}
+                      onChange={(e) => {
+                        const btns = [...campaignForm.buttons];
+                        btns[i] = { ...btns[i], displayText: e.target.value };
+                        setCampaignForm(p => ({ ...p, buttons: btns }));
+                      }}
+                    />
+                    <Button size="small" className={classes.secondaryBtn} onClick={() => setCampaignForm(p => ({ ...p, buttons: p.buttons.filter((_, idx) => idx !== i) }))}>✕</Button>
+                  </Box>
+                ))}
+                {(campaignForm.buttons || []).length < 3 && (
+                  <Button size="small" className={classes.secondaryBtn} onClick={() => setCampaignForm(p => ({ ...p, buttons: [...p.buttons, { displayText: "" }] }))}>+ Adicionar botão</Button>
+                )}
+              </Box>
+            )}
+
+            {campaignForm.messageType === "list" && (
+              <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
+                <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Itens da lista</Typography>
+                {((campaignForm.listItems || [])[0]?.rows || []).map((row, i) => (
+                  <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <TextField
+                      variant="outlined" size="small" fullWidth
+                      placeholder={`Item ${i + 1}`}
+                      value={row.title}
+                      onChange={(e) => {
+                        const items = JSON.parse(JSON.stringify(campaignForm.listItems));
+                        items[0].rows[i].title = e.target.value;
+                        setCampaignForm(p => ({ ...p, listItems: items }));
+                      }}
+                    />
+                    <Button size="small" className={classes.secondaryBtn} onClick={() => {
+                      const items = JSON.parse(JSON.stringify(campaignForm.listItems));
+                      items[0].rows = items[0].rows.filter((_, idx) => idx !== i);
+                      setCampaignForm(p => ({ ...p, listItems: items }));
+                    }}>✕</Button>
+                  </Box>
+                ))}
+                <Button size="small" className={classes.secondaryBtn} onClick={() => {
+                  const items = JSON.parse(JSON.stringify(campaignForm.listItems));
+                  const newRowId = `op${Date.now()}`;
+                  items[0].rows.push({ title: "", rowId: newRowId });
+                  setCampaignForm(p => ({ ...p, listItems: items }));
+                }}>+ Adicionar item</Button>
+              </Box>
+            )}
             
             <FormControl variant="outlined" size="small">
               <InputLabel>Mencionar membros</InputLabel>
