@@ -118,7 +118,29 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activityType, setActivityType] = useState("LIGACAO");
     const [leadAppointmentOpen, setLeadAppointmentOpen] = useState(false);
     const [activities, setActivities] = useState([]);
+    const [cardColor, setCardColor] = useState("#FFFFFF");
     const [loadingActivities, setLoadingActivities] = useState(false);
+
+    useEffect(() => {
+        if (op && op.lead) {
+            setCardColor(op.lead.cardColor || op.lead.card_color || "#FFFFFF");
+        }
+    }, [op]);
+
+    const handleCardColorChange = async (e) => {
+        const newColor = e.target.value;
+        setCardColor(newColor);
+        const lId = leadId || (op && op.leadId);
+        if (!lId) return;
+
+        try {
+            await api.put(`/crm/leads/${lId}`, { cardColor: newColor });
+            // Atualiza o op localmente se necessário? 
+            // PipelineBoard irá atualizar via socket quando o lead for atualizado pelo backend.
+        } catch (err) {
+            toast.error("Erro ao salvar cor do card");
+        }
+    };
 
     useEffect(() => {
         if (open && op && op.id && (tabValue === 1 || tabValue === 2 || tabValue === 4)) {
@@ -228,7 +250,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                     </Box>
 
                     {op && op.id && (
-                        <Box mt={3} display="flex" flexDirection="column" gap={1}>
+                        <Box mt={3} display="flex" flexDirection="column" style={{ gap: 8 }}>
                             {op.status === "OPEN" ? (
                                 <>
                                     <Button
@@ -286,6 +308,39 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             )}
                         </Box>
                     )}
+
+                    <Box mt={3}>
+                        <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600, marginBottom: 8 }}>COR DO CARD</Typography>
+                        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                            <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 8,
+                                backgroundColor: cardColor,
+                                border: "1px solid #e0e0e0",
+                                cursor: "pointer",
+                                position: "relative",
+                                overflow: "hidden",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                            }}>
+                                <input
+                                    type="color"
+                                    value={cardColor}
+                                    onChange={handleCardColorChange}
+                                    style={{
+                                        position: "absolute",
+                                        top: -5,
+                                        left: -5,
+                                        width: 50,
+                                        height: 50,
+                                        cursor: "pointer",
+                                        opacity: 0
+                                    }}
+                                />
+                            </div>
+                            <Typography variant="body2" style={{ fontWeight: 700, color: "#475569" }}>{cardColor.toUpperCase()}</Typography>
+                        </Box>
+                    </Box>
                 </Box>
 
 

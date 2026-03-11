@@ -649,38 +649,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
               </Grid>
 
               {/* Row 11 */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Cor do Card"
-                  fullWidth
-                  variant="outlined"
-                  value={form.cardColor}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cardColor: e.target.value }))}
-                  className={classes.formField}
-                  InputProps={{
-                    startAdornment: (
-                      <div
-                        style={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: form.cardColor || "#FFFFFF",
-                          borderRadius: "4px",
-                          marginRight: 10,
-                          border: "1px solid #ccc"
-                        }}
-                      />
-                    ),
-                    endAdornment: (
-                      <input
-                        type="color"
-                        value={form.cardColor || "#FFFFFF"}
-                        onChange={(e) => setForm((prev) => ({ ...prev, cardColor: e.target.value }))}
-                        style={{ border: "none", background: "none", cursor: "pointer", width: 28, height: 28, padding: 0 }}
-                      />
-                    )
-                  }}
-                />
-              </Grid>
+
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Observações"
