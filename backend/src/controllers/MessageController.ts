@@ -608,7 +608,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       );
     } else {
       if (ticket.channel === "whatsapp" && isPrivate === "false") {
-        await SendWhatsAppMessage({ body, ticket, quotedMsg, vCard });
+        const sentMsg = await SendWhatsAppMessage({ body, ticket, quotedMsg, vCard });
+        if (sentMsg && sentMsg.key) {
+          await verifyMessage(sentMsg, ticket, ticket.contact, undefined, false, false, false, true, req.user.id);
+        }
       } else if (ticket.channel === "whatsapp" && isPrivate === "true") {
         const messageData = {
           wid: `PVT${ticket.updatedAt.toString().replace(' ', '')}`,
