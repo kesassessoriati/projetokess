@@ -89,7 +89,7 @@ const useStyles = makeStyles((theme) => ({
   panel: { border: "1px solid #cfe2d5", borderRadius: 12, background: "#fff", overflow: "hidden" },
   panelHead: { padding: "10px 12px", borderBottom: "1px solid #edf3ef", display: "flex", justifyContent: "space-between", alignItems: "center" },
   panelTitle: { fontSize: ".84rem", fontWeight: 800, color: "#173624" },
-  controls: { display: "grid", gridTemplateColumns: "220px 1fr 100px 100px auto", gap: 8, padding: 10 },
+  controls: { display: "grid", gridTemplateColumns: "220px 1fr 100px 100px auto auto", gap: 8, padding: 10 },
   list: { maxHeight: "58vh", overflowY: "auto", padding: 8 },
   row: { border: "1px solid #e4eee8", borderRadius: 10, padding: "8px 10px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
   rowActive: { borderColor: "#2ea75e", background: "#eaf8ef" },
@@ -131,7 +131,7 @@ export default function GroupManagement() {
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [m, g, c, s, t, h, r] = await Promise.all([
+      const [m, g, c, s, t, h, r] = await Promise.allSettled([
         api.get("/group-management/dashboard"),
         api.get("/group-management/groups"),
         api.get("/group-management/campaigns"),
@@ -140,22 +140,24 @@ export default function GroupManagement() {
         api.get("/group-management/history?limit=300"),
         api.get("/group-management/reports")
       ]);
-      setMetrics(m.data || {});
-      setCampaigns(Array.isArray(c.data) ? c.data : []);
-      setSchedules(Array.isArray(s.data) ? s.data : []);
-      setTemplates(Array.isArray(t.data) ? t.data : []);
-      setHistoryLogs(Array.isArray(h.data) ? h.data : []);
-      setReports(r.data || null);
-      const allGroups = [];
-      const allConnections = [];
-      (g.data || []).forEach((conn) => {
-        allConnections.push({ id: conn.whatsappId, name: conn.whatsappName });
-        (conn.groups || []).forEach((group) => allGroups.push({ ...group, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
-      });
-      setGroups(allGroups);
-      setConnections(allConnections);
-    } catch {
-      toast.error("Falha ao carregar módulo de gestão de grupos.");
+      if (m.status === "fulfilled") setMetrics(m.value.data || {});
+      if (c.status === "fulfilled") setCampaigns(Array.isArray(c.value.data) ? c.value.data : []);
+      if (s.status === "fulfilled") setSchedules(Array.isArray(s.value.data) ? s.value.data : []);
+      if (t.status === "fulfilled") setTemplates(Array.isArray(t.value.data) ? t.value.data : []);
+      if (h.status === "fulfilled") setHistoryLogs(Array.isArray(h.value.data) ? h.value.data : []);
+      if (r.status === "fulfilled") setReports(r.value.data || null);
+      if (g.status === "fulfilled") {
+        const allGroups = [];
+        const allConnections = [];
+        (g.value.data || []).forEach((conn) => {
+          if (conn.whatsappId && conn.whatsappName) {
+            allConnections.push({ id: conn.whatsappId, name: conn.whatsappName });
+          }
+          (conn.groups || []).forEach((group) => allGroups.push({ ...group, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
+        });
+        setGroups(allGroups);
+        setConnections(allConnections);
+      }
     } finally {
       setLoading(false);
     }
@@ -241,7 +243,15 @@ export default function GroupManagement() {
   };
 
   const saveTemplate = async () => {
-    try { await api.post("/group-management/templates", templateForm); toast.success("Template salvo."); setTemplateForm({ name: "", messageType: "text", message: "" }); refreshAll(); } catch { toast.error("Erro ao salvar template."); }
+    try {
+      if (!templateForm.name || !templateForm.name.trim()) {
+        return toast.error("Insira o nome do template.");
+      }
+      await api.post("/group-management/templates", templateForm);
+      toast.success("Template salvo.");
+      setTemplateForm({ name: "", messageType: "text", message: "" });
+      refreshAll();
+    } catch { toast.error("Erro ao salvar template."); }
   };
 
   const handleCreateGroup = async () => {

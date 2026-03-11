@@ -503,6 +503,10 @@ export const listTemplates = async (req: Request, res: Response): Promise<Respon
 
 export const createTemplate = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
+  const { name } = req.body;
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: "Nome do template é obrigatório." });
+  }
   const template = await GroupTemplate.create({
     companyId,
     ...req.body

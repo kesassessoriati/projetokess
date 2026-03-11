@@ -74,7 +74,7 @@ const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget
   const baseText = String(campaign.message || "");
   const text = mentionText ? `${baseText}\n\n${mentionText}`.trim() : baseText;
 
-  if (campaign.mediaPath) {
+  if (campaign.mediaPath && campaign.mediaName) {
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
     const options = await getMessageOptions(campaign.mediaName, filePath, String(campaign.companyId), text);
