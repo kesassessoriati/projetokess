@@ -15,7 +15,11 @@ import {
   Select,
   MenuItem,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@material-ui/core";
 import GroupIcon from "@material-ui/icons/Group";
 import SearchIcon from "@material-ui/icons/Search";
@@ -121,6 +125,8 @@ export default function GroupManagement() {
   const [maxMembers, setMaxMembers] = useState("");
   const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] });
   const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "" });
+  const [createGroupModal, setCreateGroupModal] = useState(false);
+  const [newGroupForm, setNewGroupForm] = useState({ whatsappId: "", subject: "", participants: "" });
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -238,6 +244,48 @@ export default function GroupManagement() {
     try { await api.post("/group-management/templates", templateForm); toast.success("Template salvo."); setTemplateForm({ name: "", messageType: "text", message: "" }); refreshAll(); } catch { toast.error("Erro ao salvar template."); }
   };
 
+  const handleCreateGroup = async () => {
+    try {
+      if (!newGroupForm.whatsappId || !newGroupForm.subject) return toast.error("Preencha conexão e nome.");
+      const participants = newGroupForm.participants.split(",").map(p => p.trim()).filter(Boolean);
+      await api.post("/group-management/groups", { whatsappId: Number(newGroupForm.whatsappId), subject: newGroupForm.subject, participants });
+      toast.success("Grupo criado com sucesso!");
+      setCreateGroupModal(false);
+      setNewGroupForm({ whatsappId: "", subject: "", participants: "" });
+      refreshAll();
+    } catch {
+      toast.error("Erro ao criar grupo.");
+    }
+  };
+
+  const exportMembers = (format) => {
+    if (!selectedGroup || !groupInfo) return;
+    const items = (groupInfo.participants || []).map(p => ({
+      telefone: String(p.id).split("@")[0],
+      id: p.id,
+      grupo: selectedGroup.subject,
+      admin: p.isAdmin ? 'Sim' : 'Não'
+    }));
+    
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `membros-${selectedGroup.subject.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+      a.click();
+    } else {
+      const csv = ["Telefone,ID,Grupo,Admin", ...items.map(i => `${i.telefone},${i.id},"${i.grupo}",${i.admin}`)].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `membros-${selectedGroup.subject.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+      a.click();
+    }
+    toast.success("Exportação iniciada.");
+  };
+
   const renderDashboard = (
     <Paper className={classes.panel}>
       <Box className={classes.panelHead}>
@@ -262,6 +310,7 @@ export default function GroupManagement() {
             <TextField variant="outlined" size="small" placeholder="Mín" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} />
             <TextField variant="outlined" size="small" placeholder="Máx" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
             <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button>
+            <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={() => setCreateGroupModal(true)}>Novo</Button>
           </Box>
           <Box className={classes.list}>
             {filteredGroups.map((g) => (
@@ -289,6 +338,7 @@ export default function GroupManagement() {
                 <Box style={{ display: "flex", gap: 8 }}>
                   <Button className={classes.secondaryBtn} onClick={async () => { try { await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/tag-all`, { whatsappId: selectedGroup.whatsappId, message: "Comunicado para todos:" }); toast.success("Menção enviada."); } catch { toast.error("Erro ao mencionar."); } }}>Mencionar todos</Button>
                   <Button className={classes.secondaryBtn} onClick={async () => { try { const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-link`, { params: { whatsappId: selectedGroup.whatsappId } }); if (navigator.clipboard) navigator.clipboard.writeText(data.inviteLink); toast.success("Link copiado."); } catch { toast.error("Erro ao obter link."); } }}>Link convite</Button>
+                  <Button className={classes.secondaryBtn} onClick={() => exportMembers('csv')}>Exportar</Button>
                 </Box>
               </Box>
               <Box className={classes.list}>
@@ -322,19 +372,74 @@ export default function GroupManagement() {
               <InputLabel>Tipo de conteúdo</InputLabel>
               <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); }} label="Tipo de conteúdo">
                 <MenuItem value="text">Texto</MenuItem>
+                <MenuItem value="imagem">Imagem</MenuItem>
                 <MenuItem value="video">Vídeo</MenuItem>
                 <MenuItem value="audio">Áudio PTT (Gravado na hora)</MenuItem>
+                <MenuItem value="documento">Documento</MenuItem>
               </Select>
             </FormControl>
             {campaignForm.messageType !== "text" && (
               <Box>
-                <input type="file" accept={campaignForm.messageType === "video" ? "video/mp4,video/quicktime" : "audio/mpeg,audio/ogg,audio/wav"} onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))} />
+                <input 
+                  type="file" 
+                  accept={
+                    campaignForm.messageType === "video" ? "video/mp4,video/quicktime" : 
+                    campaignForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" : 
+                    campaignForm.messageType === "imagem" ? "image/jpeg,image/png" : 
+                    "*/*"
+                  } 
+                  onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))} 
+                />
                 <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
-                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" : "Formatos aceitos: mp3, ogg, wav"}
+                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" : 
+                   campaignForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" : 
+                   campaignForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" : 
+                   "Formatos aceitos: pdf, docx, xlsx, etc"}
                 </Typography>
               </Box>
             )}
+            
             <TextField variant="outlined" size="small" label={campaignForm.messageType === "text" ? "Mensagem" : "Legenda (Opcional)"} multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+            
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Mencionar membros</InputLabel>
+              <Select value={campaignForm.mentionsMode || "none"} onChange={(e) => setCampaignForm((p) => ({ ...p, mentionsMode: e.target.value }))} label="Mencionar membros">
+                <MenuItem value="none">Não mencionar</MenuItem>
+                <MenuItem value="all">Mencionar todos (@todos)</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Grupos alvos (Vazio = Todos da conexão)</InputLabel>
+              <Select 
+                multiple 
+                value={campaignForm.groupIds || []} 
+                onChange={(e) => setCampaignForm((p) => ({ ...p, groupIds: e.target.value }))} 
+                label="Grupos alvos (Vazio = Todos da conexão)"
+                renderValue={(selected) => <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{selected.map((val) => <Chip key={val} size="small" label={groups.find(g => g.id === val)?.subject || val} />)}</Box>}
+              >
+                {groups.filter(g => !campaignForm.whatsappId || g.whatsappId === Number(campaignForm.whatsappId)).map((g) => (
+                  <MenuItem key={g.id} value={g.id}>{g.subject}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <TextField 
+                type="number" 
+                variant="outlined" 
+                size="small" 
+                label="Intervalo entre grupos (segundos)" 
+                value={campaignForm.intervalSeconds} 
+                onChange={(e) => setCampaignForm((p) => ({ ...p, intervalSeconds: e.target.value }))} 
+              />
+              <FormControl variant="outlined" size="small">
+                <InputLabel>Simular digitação/gravação</InputLabel>
+                <Select value="yes" label="Simular digitação/gravação" disabled>
+                  <MenuItem value="yes">Sim</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
             
             <FormControl variant="outlined" size="small">
               <InputLabel>Tipo de envio</InputLabel>
@@ -344,7 +449,17 @@ export default function GroupManagement() {
               </Select>
             </FormControl>
             {campaignForm.scheduleMode === "scheduled" && (
-              <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduledAt: e.target.value }))} />
+              <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduledAt: e.target.value }))} />
+                <FormControl variant="outlined" size="small">
+                  <InputLabel>Recorrência</InputLabel>
+                  <Select value={campaignForm.recurrenceRule || "none"} onChange={(e) => setCampaignForm((p) => ({ ...p, recurrenceRule: e.target.value }))} label="Recorrência">
+                    <MenuItem value="none">Único</MenuItem>
+                    <MenuItem value="daily">Diário</MenuItem>
+                    <MenuItem value="weekly">Semanal</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
             )}
 
             <Button className={classes.primaryBtn} startIcon={<SendIcon />} onClick={createCampaign}>Criar campanha</Button>
@@ -428,6 +543,24 @@ export default function GroupManagement() {
           {!loading && tab === 6 ? renderSimpleList("Relatórios de campanhas", reports?.campaigns || []) : null}
         </Box>
       </Box>
+
+      <Dialog open={createGroupModal} onClose={() => setCreateGroupModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Criar Novo Grupo</DialogTitle>
+        <DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}>
+          <FormControl variant="outlined" size="small" fullWidth>
+            <InputLabel>Conexão (WhatsApp)</InputLabel>
+            <Select value={newGroupForm.whatsappId} onChange={(e) => setNewGroupForm(p => ({ ...p, whatsappId: e.target.value }))} label="Conexão (WhatsApp)">
+              {connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField variant="outlined" size="small" label="Nome do grupo" fullWidth value={newGroupForm.subject} onChange={(e) => setNewGroupForm(p => ({ ...p, subject: e.target.value }))} />
+          <TextField variant="outlined" size="small" label="Participantes (Separados por vírgula)" fullWidth multiline rows={3} value={newGroupForm.participants} onChange={(e) => setNewGroupForm(p => ({ ...p, participants: e.target.value }))} placeholder="Ex: 5511999999999, 5511888888888" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateGroupModal(false)} color="secondary">Cancelar</Button>
+          <Button onClick={handleCreateGroup} color="primary" variant="contained">Criar Grupo</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
