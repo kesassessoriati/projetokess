@@ -55,7 +55,7 @@ const DeleteCrmClientService = async ({
       }, { transaction, hooks: false } as any);
     }
 
-    await client.destroy({ transaction, hooks: false });
+    await client.destroy({ transaction } as any);
     await transaction.commit();
   } catch (error) {
     await transaction.rollback();
