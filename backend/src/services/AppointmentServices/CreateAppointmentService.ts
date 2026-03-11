@@ -226,9 +226,26 @@ const CreateAppointmentService = async (
         );
 
         if (googleEvent && googleEvent.id) {
-          // Salvar o ID do evento do Google Calendar
-          await appointment.update({ googleEventId: googleEvent.id });
-          console.log("DEBUG - Evento criado no Google Calendar:", googleEvent.id);
+          // Extrair dados do Google Meet e organizador
+          const meetLink =
+            googleEvent.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri ||
+            googleEvent.conferenceData?.entryPoints?.[0]?.uri ||
+            null;
+
+          const organizerEmail = googleEvent.organizer?.email || null;
+          const organizerName = googleEvent.organizer?.displayName || null;
+          const participants = googleEvent.attendees
+            ? googleEvent.attendees.map((a: any) => a.email).filter(Boolean)
+            : null;
+
+          await appointment.update({
+            googleEventId: googleEvent.id,
+            googleMeetLink: meetLink,
+            organizerEmail,
+            organizerName,
+            participants
+          });
+          console.log("DEBUG - Evento criado no Google Calendar:", googleEvent.id, "Meet:", meetLink);
         }
       }
     } catch (error) {

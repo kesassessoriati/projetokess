@@ -4,9 +4,11 @@ import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
 import DialogTitle from "@material-ui/core/DialogTitle";
+import Divider from "@material-ui/core/Divider";
 import Grid from "@material-ui/core/Grid";
 import MenuItem from "@material-ui/core/MenuItem";
 import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import { toast } from "react-toastify";
 
@@ -384,6 +386,67 @@ const AppointmentModal = (props) => {
                 <MenuItem value="no_show">Não compareceu</MenuItem>
               </TextField>
             </Grid>
+          )}
+
+          {appointment && appointment.googleMeetLink && (
+            <>
+              <Grid item xs={12}>
+                <Divider style={{ margin: "8px 0" }} />
+                <Typography variant="subtitle2" color="textSecondary" style={{ marginBottom: 8, fontWeight: 600 }}>
+                  Detalhes da Reunião
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  href={appointment.googleMeetLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ marginBottom: 8 }}
+                >
+                  Entrar na Reunião (Google Meet)
+                </Button>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="caption" color="textSecondary">Link da Reunião</Typography>
+                <Typography variant="body2" style={{ wordBreak: "break-all" }}>
+                  {appointment.googleMeetLink}
+                </Typography>
+              </Grid>
+
+              {(appointment.organizerName || appointment.organizerEmail) && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">Organizador</Typography>
+                  <Typography variant="body2">
+                    {appointment.organizerName
+                      ? `${appointment.organizerName} (${appointment.organizerEmail})`
+                      : appointment.organizerEmail}
+                  </Typography>
+                </Grid>
+              )}
+
+              {appointment.participants && appointment.participants.length > 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">Participantes</Typography>
+                  {appointment.participants.map((email, idx) => (
+                    <Typography key={idx} variant="body2">{email}</Typography>
+                  ))}
+                </Grid>
+              )}
+
+              {appointment.googleEventId && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">ID do Evento Google</Typography>
+                  <Typography variant="body2" style={{ wordBreak: "break-all", color: "#888", fontSize: 12 }}>
+                    {appointment.googleEventId}
+                  </Typography>
+                </Grid>
+              )}
+            </>
           )}
         </Grid>
       </DialogContent>

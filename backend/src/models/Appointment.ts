@@ -44,6 +44,18 @@ class Appointment extends Model<Appointment> {
   @Column({ field: "google_event_id", allowNull: true })
   googleEventId: string;
 
+  @Column({ field: "google_meet_link", type: DataType.TEXT, allowNull: true })
+  googleMeetLink: string;
+
+  @Column({ field: "organizer_email", allowNull: true })
+  organizerEmail: string;
+
+  @Column({ field: "organizer_name", allowNull: true })
+  organizerName: string;
+
+  @Column({ field: "participants", type: DataType.JSONB, allowNull: true })
+  participants: string[];
+
   @Column({ field: "source", allowNull: true })
   source: string;
 

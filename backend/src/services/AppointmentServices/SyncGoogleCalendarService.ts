@@ -197,6 +197,17 @@ const processGoogleEvent = async (
   const title = event.summary?.trim() || "(Sem título)";
   const description = event.description || null;
 
+  // Extrair dados do Google Meet e organizador
+  const meetLink =
+    event.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri ||
+    event.conferenceData?.entryPoints?.[0]?.uri ||
+    null;
+  const organizerEmail = event.organizer?.email || null;
+  const organizerName = event.organizer?.displayName || null;
+  const participants = event.attendees
+    ? event.attendees.map((a: any) => a.email).filter(Boolean)
+    : null;
+
   const existing = await Appointment.findOne({
     where: { googleEventId: event.id, companyId }
   });
@@ -222,6 +233,10 @@ const processGoogleEvent = async (
       scheduleId: schedule.id,
       companyId,
       googleEventId: event.id,
+      googleMeetLink: meetLink,
+      organizerEmail,
+      organizerName,
+      participants,
       source: "google_calendar"
     });
     result.imported++;
@@ -231,10 +246,20 @@ const processGoogleEvent = async (
     const changed =
       existing.title !== title ||
       existingStart !== startDatetime.getTime() ||
-      existing.durationMinutes !== durationMinutes;
+      existing.durationMinutes !== durationMinutes ||
+      existing.googleMeetLink !== meetLink;
 
     if (changed) {
-      await existing.update({ title, description, startDatetime, durationMinutes });
+      await existing.update({
+        title,
+        description,
+        startDatetime,
+        durationMinutes,
+        googleMeetLink: meetLink,
+        organizerEmail,
+        organizerName,
+        participants
+      });
       result.updated++;
     } else {
       result.skipped++;
