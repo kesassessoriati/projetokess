@@ -50,17 +50,23 @@ const ListCrmClientsService = async ({
 
   const offset = (pageNumber - 1) * limit;
 
-  const { rows, count } = await CrmClient.findAndCountAll({
+  const queryOptions: any = {
     where,
     order: [["updatedAt", "DESC"]],
-    limit,
-    offset
-  });
+  };
+
+  // Skip pagination if limit is -1
+  if (limit !== -1) {
+    queryOptions.limit = limit;
+    queryOptions.offset = offset;
+  }
+
+  const { rows, count } = await CrmClient.findAndCountAll(queryOptions);
 
   return {
     clients: rows,
     count,
-    hasMore: count > offset + rows.length
+    hasMore: limit !== -1 ? count > offset + rows.length : false
   };
 };
 

@@ -12,7 +12,15 @@ import {
   MenuItem,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select
 } from "@material-ui/core";
 import SearchIcon from "@material-ui/icons/Search";
 import AddIcon from "@material-ui/icons/Add";
@@ -248,6 +256,21 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "center",
     color: theme.palette.text.secondary
   },
+  bulkActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 2),
+    backgroundColor: theme.palette.action.selected,
+    borderRadius: 8,
+    marginBottom: theme.spacing(2),
+    flexWrap: "wrap"
+  },
+  hideOnMobile: {
+    [theme.breakpoints.down("sm")]: {
+      display: "none"
+    }
+  },
   loadingBox: {
     display: "flex",
     alignItems: "center",
@@ -277,12 +300,30 @@ const Clients = () => {
   const [faturaModalOpen, setFaturaModalOpen] = useState(false);
   const [faturaClient, setFaturaClient] = useState(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  
+  const [selectedClients, setSelectedClients] = useState([]);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
+  const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
     setRefreshToken((prev) => prev + 1);
   }, [searchParam, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data } = await api.get("/users/");
+        setUsers(data.users || []);
+      } catch (err) {
+        toastError(err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -359,6 +400,92 @@ const Clients = () => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
     setRefreshToken((prev) => prev + 1);
+  };
+
+  const handleToggleSelectClient = (clientId) => {
+    setSelectedClients((prev) =>
+      prev.includes(clientId)
+        ? prev.filter((id) => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedClients(clients.map((c) => c.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedClients([]);
+  };
+
+  const handleDeleteSelectedClients = async () => {
+    try {
+      for (const id of selectedClients) {
+        await api.delete(`/crm/clients/${id}`);
+        dispatch({ type: "DELETE_CLIENT", payload: id });
+      }
+    } catch (err) {
+      toastError(err);
+    }
+    setConfirmBulkDeleteOpen(false);
+    setSelectedClients([]);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!selectedUserToAssign && selectedUserToAssign !== "") return;
+    try {
+      for (const id of selectedClients) {
+        await api.put(`/crm/clients/${id}`, { ownerUserId: selectedUserToAssign || null });
+      }
+      setBulkAssignModalOpen(false);
+      setSelectedClients([]);
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleExportClients = async () => {
+    try {
+      const { data } = await api.get("/crm/clients", {
+        params: { searchParam, status: statusFilter, type: typeFilter, limit: -1 }
+      });
+      const clientsToExport = data.clients;
+      if (!clientsToExport || clientsToExport.length === 0) {
+        return toastError(new Error("Nenhum cliente para exportar."));
+      }
+      const csvRows = [
+        ["ID", "Nome", "Email", "Telefone", "Tipo", "Documento", "Cidade", "Responsável", "Desde", "Status"]
+      ];
+      clientsToExport.forEach(client => {
+        csvRows.push([
+          client.id,
+          `"${client.name || ""}"`,
+          `"${client.email || ""}"`,
+          `"${client.phone || ""}"`,
+          `"${client.type || ""}"`,
+          `"${client.document || ""}"`,
+          `"${client.city || ""}"`,
+          `"${client.ownerUserId || ""}"`,
+          `"${client.clientSince || ""}"`,
+          `"${client.status || ""}"`
+        ]);
+      });
+      const csvString = csvRows.map(e => e.join(",")).join("\n");
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `clientes_${new Date().getTime()}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      toastError(err);
+    }
   };
 
   const handleOpenFaturaModal = (client) => {
@@ -440,6 +567,40 @@ const Clients = () => {
         Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
       </ConfirmationModal>
 
+      <ConfirmationModal
+        open={confirmBulkDeleteOpen}
+        onClose={() => setConfirmBulkDeleteOpen(false)}
+        title="Excluir clientes selecionados"
+        onConfirm={handleDeleteSelectedClients}
+      >
+        {`Você tem ${selectedClients.length} cliente(s) selecionado(s). Deseja realmente excluir todos?`}
+      </ConfirmationModal>
+
+      <Dialog open={bulkAssignModalOpen} onClose={() => setBulkAssignModalOpen(false)}>
+        <DialogTitle>Atribuir a Usuário</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 300 }}>
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel>Selecione um usuário</InputLabel>
+            <Select
+              value={selectedUserToAssign}
+              onChange={(e) => setSelectedUserToAssign(e.target.value)}
+              label="Selecione um usuário"
+            >
+              <MenuItem value="">Nenhum (Remover responsável)</MenuItem>
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>{user.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkAssignModalOpen(false)}>Cancelar</Button>
+          <Button onClick={handleBulkAssign} color="primary" variant="contained">
+            Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box className={classes.header}>
         <Box className={classes.titleContainer}>
           <BusinessCenterIcon className={classes.titleIcon} />
@@ -512,6 +673,14 @@ const Clients = () => {
 
           <Button
             variant="outlined"
+            style={{ color: "#10b981", borderColor: "#10b981" }}
+            onClick={handleExportClients}
+          >
+            Exportar
+          </Button>
+
+          <Button
+            variant="outlined"
             color="primary"
             onClick={() => setImportModalOpen(true)}
           >
@@ -519,6 +688,59 @@ const Clients = () => {
           </Button>
         </Box>
       </Box>
+
+      {clients.length > 0 && (
+        <Box className={classes.bulkActions}>
+          <Checkbox
+            className={classes.hideOnMobile}
+            color="primary"
+            indeterminate={selectedClients.length > 0 && selectedClients.length < clients.length}
+            checked={clients.length > 0 && selectedClients.length === clients.length}
+            onChange={() =>
+              selectedClients.length === clients.length
+                ? handleClearSelection()
+                : handleSelectAll()
+            }
+            title={selectedClients.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+          />
+          <Typography variant="body2">
+            {selectedClients.length > 0
+              ? `${selectedClients.length} selecionado(s)`
+              : `${clients.length} cliente(s)`}
+          </Typography>
+          {selectedClients.length > 0 && selectedClients.length < clients.length && (
+            <Button size="small" onClick={handleSelectAll} style={{ textTransform: "none" }}>
+              Selecionar todos os {clients.length}
+            </Button>
+          )}
+          {hasMore && selectedClients.length === clients.length && selectedClients.length > 0 && (
+            <Typography variant="caption" style={{ color: "#f57c00" }}>
+              (apenas os carregados — role para baixo para carregar mais)
+            </Typography>
+          )}
+          {selectedClients.length > 0 && (
+            <>
+              <Button
+                size="small"
+                color="secondary"
+                onClick={() => setConfirmBulkDeleteOpen(true)}
+              >
+                Excluir selecionados
+              </Button>
+              <Button
+                size="small"
+                color="primary"
+                onClick={() => setBulkAssignModalOpen(true)}
+              >
+                Atribuir selecionados
+              </Button>
+              <Button size="small" onClick={handleClearSelection}>
+                Limpar seleção
+              </Button>
+            </>
+          )}
+        </Box>
+      )}
 
       <Box className={classes.content}>
         {clients.length === 0 && !loading ? (
@@ -533,6 +755,12 @@ const Clients = () => {
           <Box className={classes.list}>
             {clients.map((client) => (
               <Box key={client.id} className={classes.listItem}>
+                <Checkbox
+                  className={classes.hideOnMobile}
+                  color="primary"
+                  checked={selectedClients.includes(client.id)}
+                  onChange={() => handleToggleSelectClient(client.id)}
+                />
                 <Avatar className={classes.itemAvatar}>{getInitials(client.name)}</Avatar>
 
                 <Box className={classes.itemInfo}>

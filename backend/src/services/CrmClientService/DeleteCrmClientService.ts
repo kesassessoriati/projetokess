@@ -2,7 +2,6 @@ import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
 import CrmLead from "../../models/CrmLead";
-import Contact from "../../models/Contact";
 import CrmClientContact from "../../models/CrmClientContact";
 import sequelize from "../../database";
 
@@ -31,15 +30,6 @@ const DeleteCrmClientService = async ({
       transaction
     });
 
-    const contactIds = Array.from(
-      new Set(
-        [
-          client.contactId,
-          ...pivotContacts.map(pivot => pivot.contactId)
-        ].filter(Boolean) as number[]
-      )
-    );
-
     if (pivotContacts.length) {
       await CrmClientContact.destroy({
         where: { clientId: client.id },
@@ -47,25 +37,22 @@ const DeleteCrmClientService = async ({
       });
     }
 
-    await CrmLead.destroy({
+    // Unlink associated Lead and revert its status to 'Novo'
+    const lead = await CrmLead.findOne({
       where: {
         companyId,
-        [Op.or]: [
-          { convertedClientId: client.id },
-          ...(contactIds.length ? [{ contactId: { [Op.in]: contactIds } }] : [])
-        ]
+        convertedClientId: client.id
       },
       transaction
     });
 
-    if (contactIds.length) {
-      await Contact.destroy({
-        where: {
-          companyId,
-          id: { [Op.in]: contactIds }
-        },
-        transaction
-      });
+    if (lead) {
+      // Use hooks: false to avoid unnecessary syncs during deletion
+      await lead.update({
+        convertedClientId: null,
+        leadStatus: "novo",
+        status: "new"
+      }, { transaction, hooks: false } as any);
     }
 
     await client.destroy({ transaction });
