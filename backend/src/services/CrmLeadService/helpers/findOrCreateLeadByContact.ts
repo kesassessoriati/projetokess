@@ -34,16 +34,16 @@ const findOrCreateLeadByContact = async ({
     }
   });
 
-  // Se não encontrou por contactId, busca por número de telefone ou lid
+  // Se não encontrou por contactId, busca por número de telefone ou documento
   if (!lead && (normalizedPhone || normalizedDocument)) {
     const whereConditions: any[] = [];
-    
+
     if (normalizedPhone) {
       whereConditions.push({ phone: normalizedPhone });
     }
-    
+
     if (normalizedDocument) {
-      whereConditions.push({ lid: normalizedDocument });
+      whereConditions.push({ document: normalizedDocument });
     }
 
     if (whereConditions.length > 0) {
@@ -69,9 +69,7 @@ const findOrCreateLeadByContact = async ({
       name,
       email,
       phone: normalizedPhone,
-      lid: normalizedDocument,
       document: normalizedDocument,
-      status: "new",
       leadStatus: "novo",
       lastActivityAt: new Date()
     });
@@ -89,9 +87,6 @@ const findOrCreateLeadByContact = async ({
     }
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
-    }
-    if (normalizedDocument && normalizedDocument !== lead.lid) {
-      updates.lid = normalizedDocument;
     }
     updates.lastActivityAt = new Date();
 

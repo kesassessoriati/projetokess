@@ -42,7 +42,6 @@ const syncContactToLead = async ({
       email,
       phone: normalizedPhone,
       document: normalizedDocument,
-      status: "new",
       leadStatus: "novo",
       lastActivityAt: new Date()
     });

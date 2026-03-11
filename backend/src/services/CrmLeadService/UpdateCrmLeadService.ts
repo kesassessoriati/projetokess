@@ -82,7 +82,8 @@ const UpdateCrmLeadService = async ({
     score: Yup.number().min(0).nullable(),
     temperature: Yup.string().oneOf([null, "frio", "morno", "quente"]).nullable(),
     contactId: Yup.number().nullable(),
-    primaryTicketId: Yup.number().nullable()
+    primaryTicketId: Yup.number().nullable(),
+    cardColor: Yup.string().nullable()
   });
 
   // Mapeamento retroativo de status

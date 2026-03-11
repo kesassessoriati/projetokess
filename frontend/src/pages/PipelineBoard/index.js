@@ -321,14 +321,14 @@ const useStyles = makeStyles((theme) => ({
     lane: {
         minWidth: 348,
         maxWidth: 348,
-        backgroundColor: "#f9fcfa",
         borderRadius: 16,
         maxHeight: "100%",
         display: "flex",
         flexDirection: "column",
         border: "1px solid #cfe1d5",
         boxShadow: "0 10px 24px rgba(16,24,40,0.09)",
-        overflow: "hidden"
+        overflow: "hidden",
+        transition: "background-color 0.2s"
     },
     laneHeader: {
         padding: theme.spacing(1.75, 1.75, 1.5, 1.75),
@@ -336,7 +336,6 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "column",
         gap: theme.spacing(1),
         borderBottom: "1px solid #e2ede6",
-        background: "linear-gradient(180deg, rgba(247,252,249,0.98) 0%, #eef8f1 100%)",
         minHeight: 80,
         maxHeight: 80,
         justifyContent: "space-between",
@@ -404,7 +403,7 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         flexDirection: "column",
         gap: theme.spacing(1.4),
-        backgroundColor: "#f7fbf8",
+        backgroundColor: "transparent",
         "&::-webkit-scrollbar": { width: 7 },
         "&::-webkit-scrollbar-thumb": { backgroundColor: "#b4cebf", borderRadius: 4 }
     },
@@ -416,7 +415,7 @@ const useStyles = makeStyles((theme) => ({
         cursor: "pointer",
         transition: "all .18s ease",
         border: "1px solid #d8e8df",
-        borderLeft: props => `4px solid ${props.riskColor || "#cde1d4"}`,
+        borderLeft: props => `5px solid ${props.riskColor || "#cde1d4"}`,
         "&:hover": {
             transform: "translateY(-2px)",
             boxShadow: "0 14px 24px rgba(16,24,40,0.14)",
@@ -959,8 +958,16 @@ const PipelineBoard = () => {
                     {!loading && (filteredBoard.stages || []).map((stage) => (
                         <Droppable key={stage.id} droppableId={String(stage.id)}>
                             {(provided) => (
-                                <Box className={classes.lane} ref={provided.innerRef} {...provided.droppableProps}>
-                                    <div className={classes.laneHeader} style={{ borderTop: `4px solid ${stage.color || "#1f9d55"}`, background: `linear-gradient(180deg, ${stage.color || "#1f9d55"}08 0%, #eef8f1 100%)` }}>
+                                <Box 
+                                    className={`${classes.lane} kanban-column`} 
+                                    ref={provided.innerRef} 
+                                    {...provided.droppableProps}
+                                    style={{
+                                        backgroundColor: (stage.color || "#1f9d55") + "10",
+                                        borderTop: `4px solid ${stage.color || "#1f9d55"}`
+                                    }}
+                                >
+                                    <div className={`${classes.laneHeader} kanban-column-header`}>
                                         <div className={classes.laneTitle}>
                                             <div className={classes.laneTitleLeft}>
                                                 <span className={classes.laneColorDot} style={{ backgroundColor: stage.color || "#1f9d55" }} />

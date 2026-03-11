@@ -40,7 +40,7 @@ const FindOrCreateTicketService = async (
   // let isCreated = false;
 
   let openAsLGPD = false;
-  if (settings.enableLGPD) {
+  if (settings?.enableLGPD) {
     //adicionar lgpdMessage
 
     openAsLGPD =
@@ -63,18 +63,24 @@ const FindOrCreateTicketService = async (
     companyId,
     excludeId: contact.id
   });
-  
+
   if (betterContact && betterContact.id !== contact.id) {
     logger.info(`Using better contact for ticket: ${betterContact.id} instead of ${contact.id}`);
     contact = betterContact;
   }
 
-  const DirectTicketsToWallets = settings.DirectTicketsToWallets;
+  const DirectTicketsToWallets = settings?.DirectTicketsToWallets;
   const baseContactId = groupContact ? groupContact.id : contact.id;
-  const { leadId, clientId } = await resolveLeadClientForContact(
-    baseContactId,
-    companyId
-  );
+
+  let leadId: number | undefined;
+  let clientId: number | undefined;
+  try {
+    const resolved = await resolveLeadClientForContact(baseContactId, companyId);
+    leadId = resolved.leadId;
+    clientId = resolved.clientId;
+  } catch (err) {
+    logger.warn(`resolveLeadClientForContact failed for contact ${baseContactId}: ${err?.message || err}`);
+  }
 
   // 🔍 BUSCA INTELIGENTE DE TICKETS (RESOLVE @lid)
   let ticket = null;
@@ -212,14 +218,13 @@ const FindOrCreateTicketService = async (
     }
 
     // isCreated = true;
-
     return ticket;
   }
 
   // REAPROVEITA SEMPRE O TICKET MAIS RECENTE (EVITA DUPLICAR CONVERSAS)
   const shouldOpenAsLGPD =
     !isImported &&
-    !isNil(settings.enableLGPD) &&
+    !isNil(settings?.enableLGPD) &&
     openAsLGPD &&
     !groupContact;
 

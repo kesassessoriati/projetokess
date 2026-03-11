@@ -151,7 +151,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     score: Yup.number().min(0).default(0),
     temperature: Yup.string().oneOf([null, "frio", "morno", "quente"]).nullable(),
     contactId: Yup.number().nullable(),
-    primaryTicketId: Yup.number().nullable()
+    primaryTicketId: Yup.number().nullable(),
+    cardColor: Yup.string().nullable()
   });
 
   // Mapeamento retroativo de status
