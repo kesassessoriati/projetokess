@@ -53,12 +53,18 @@ const UpdateCrmClientService = async ({
   const schema = Yup.object().shape({
     type: Yup.string().oneOf(["pf", "pj"]),
     name: Yup.string().min(2),
-    email: Yup.string().email().nullable(),
+    email: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .email()
+      .nullable(),
     status: Yup.string().oneOf(["active", "inactive", "blocked"]).nullable(),
-    state: Yup.string().length(2).nullable()
+    state: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .length(2)
+      .nullable()
   });
 
-  await schema.validate(data);
+  const validatedData = await schema.validate(data);
 
   // Verificação de duplicatas por documento, email ou telefone
   const duplicateConditions: any[] = [];
@@ -67,8 +73,8 @@ const UpdateCrmClientService = async ({
     duplicateConditions.push({ document: data.document });
   }
 
-  if (data.email) {
-    duplicateConditions.push({ email: data.email });
+  if (validatedData.email) {
+    duplicateConditions.push({ email: validatedData.email });
   }
 
   if (data.phone) {
@@ -91,7 +97,7 @@ const UpdateCrmClientService = async ({
       let duplicateField = "";
       if (data.document && existingClient.document === data.document) {
         duplicateField = "documento";
-      } else if (data.email && existingClient.email === data.email) {
+      } else if (validatedData.email && existingClient.email === validatedData.email) {
         duplicateField = "email";
       } else if (data.phone) {
         const sanitizedPhone = data.phone.replace(/\D/g, "");
@@ -105,7 +111,7 @@ const UpdateCrmClientService = async ({
 
   // Sanitiza o telefone antes de atualizar
   const updateData = {
-    ...data,
+    ...validatedData,
     phone: data.phone ? data.phone.replace(/\D/g, "") : data.phone
   };
 

@@ -42,14 +42,20 @@ const CreateCrmClientService = async (
     companyId: Yup.number().required(),
     type: Yup.string().oneOf(["pf", "pj"]).default("pf"),
     name: Yup.string().required().min(2),
-    email: Yup.string().email().nullable(),
+    email: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .email()
+      .nullable(),
     status: Yup.string()
       .oneOf(["active", "inactive", "blocked"])
       .default("active"),
-    state: Yup.string().length(2).nullable()
+    state: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .length(2)
+      .nullable()
   });
 
-  await schema.validate(data);
+  const validatedData = await schema.validate(data);
 
   // Verificação de duplicatas por documento, email ou telefone
   const duplicateConditions: any[] = [];
@@ -58,8 +64,8 @@ const CreateCrmClientService = async (
     duplicateConditions.push({ document: data.document });
   }
 
-  if (data.email) {
-    duplicateConditions.push({ email: data.email });
+  if (validatedData.email) {
+    duplicateConditions.push({ email: validatedData.email });
   }
 
   if (data.phone) {
@@ -82,7 +88,7 @@ const CreateCrmClientService = async (
       let duplicateField = "";
       if (data.document && existingClient.document === data.document) {
         duplicateField = "documento";
-      } else if (data.email && existingClient.email === data.email) {
+      } else if (validatedData.email && existingClient.email === validatedData.email) {
         duplicateField = "email";
       } else if (data.phone) {
         const sanitizedPhone = data.phone.replace(/\D/g, "");
@@ -96,9 +102,9 @@ const CreateCrmClientService = async (
 
   // Sanitiza o telefone antes de criar
   const clientData = {
-    ...data,
-    type: data.type || "pf",
-    status: data.status || "active",
+    ...validatedData,
+    type: validatedData.type || "pf",
+    status: validatedData.status || "active",
     phone: data.phone ? data.phone.replace(/\D/g, "") : undefined
   };
 
