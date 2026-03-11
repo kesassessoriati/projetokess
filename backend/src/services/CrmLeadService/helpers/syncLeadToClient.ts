@@ -190,15 +190,16 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     });
   }
 
-  await lead.update({
+  // Usa hooks: false para evitar loop infinito com @AfterUpdate syncToClient
+  await (lead as any).update({
     contactId: effectiveContactId || lead.contactId || null,
     convertedClientId: client.id,
-    convertedAt: new Date(),
-    leadStatus: "convertido",
+    convertedAt: lead.convertedAt || new Date(),
+    leadStatus: lead.leadStatus,
     document: normalizedDocument || lead.document || null,
     email,
     phone: normalizedPhone || lead.phone || null
-  });
+  }, { hooks: false });
 
   return client;
 };

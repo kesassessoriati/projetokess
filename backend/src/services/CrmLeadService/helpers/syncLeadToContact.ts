@@ -50,7 +50,8 @@ const syncLeadToContact = async ({
   // Se há atualizações, aplica ao contato
   if (Object.keys(updates).length > 0) {
     logger.info(`Syncing Lead ${lead.id} changes to Contact ${contact.id}:`, updates);
-    await contact.update(updates);
+    // Usa hooks: false para evitar ciclo Lead→Contact→Lead
+    await (contact as any).update(updates, { hooks: false });
   }
 };
 
