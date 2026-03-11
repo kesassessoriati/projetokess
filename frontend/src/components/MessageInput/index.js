@@ -14,7 +14,7 @@ import axios from "axios";
 import clsx from "clsx";
 import toastError from "../../errors/toastError";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
-import useQuickMessages from "../../hooks/useQuickMessages";
+import QuickRepliesModal from "../QuickRepliesModal";
 import { AttachFile, CheckCircleOutline, Clear, Comment, Create, Description, HighlightOff, Mic, Mood, MoreVert, Send, PermMedia, Person, Reply, Duo, Timer, } from "@material-ui/icons";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { CameraAlt } from "@material-ui/icons";
@@ -385,8 +385,6 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     showSelectMessageCheckbox,
   } = useContext(ForwardMessageContext);
 
-  const { list: listQuickMessages } = useQuickMessages();
-
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [placeholderText, setPlaceHolderText] = useState("");
 
@@ -713,21 +711,25 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
 
   useEffect(() => {
     async function fetchData() {
-      const companyId = user.companyId;
-      const messages = await listQuickMessages({ companyId, userId: user.id });
-      const options = messages.map((m) => {
-        let truncatedMessage = m.message;
-        if (isString(truncatedMessage) && truncatedMessage.length > 90) {
-          truncatedMessage = m.message.substring(0, 90) + "...";
+      try {
+        const { data } = await api.get("/quick-replies", { params: { searchParam: "", pageNumber: 1 } });
+        const options = data.records.map((m) => {
+          let truncatedMessage = m.message;
+          if (isString(truncatedMessage) && truncatedMessage.length > 90) {
+            truncatedMessage = m.message.substring(0, 90) + "...";
+          }
+          return {
+            value: m.message,
+            label: `${m.shortcut} - ${truncatedMessage}`,
+            mediaPath: m.mediaUrl,
+            mediaType: m.mediaType
+          };
+        });
+        if (isMounted.current) {
+          setQuickAnswer(options);
         }
-        return {
-          value: m.message,
-          label: `${m.shortcode} - ${truncatedMessage}`, // Removida a barra "/"
-          mediaPath: m.mediaPath,
-        };
-      });
-      if (isMounted.current) {
-        setQuickAnswer(options);
+      } catch (err) {
+        toastError(err);
       }
     }
     fetchData();
@@ -925,38 +927,14 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setQuickMessagesDialogOpen(false);
   };
 
-  const handleSelectQuickMessage = (message) => {
-    setInputMessage(message);
+  const handleSelectQuickMessage = (message, file) => {
+    if (file) {
+      handleUploadQuickMessageMedia(file, message);
+      setInputMessage("");
+    } else {
+      setInputMessage(message);
+    }
     handleCloseQuickMessagesDialog();
-  };
-
-  const QuickMessagesDialog = () => {
-    return (
-      <Dialog
-        open={quickMessagesDialogOpen}
-        onClose={handleCloseQuickMessagesDialog}
-        classes={{ paper: classes.quickMessageDialog }}
-      >
-        <DialogTitle className={classes.quickMessageTitle}>
-          Mensagens Rápidas
-        </DialogTitle>
-        <DialogContent className={classes.quickMessageContent}>
-          <Grid container direction="column" spacing={1}>
-            {quickAnswers.map((message, index) => ( // Exibe todos os botões
-              <Grid item xs={12} key={index}>
-                <Button
-                  fullWidth
-                  className={classes.quickMessageButton}
-                  onClick={() => handleSelectQuickMessage(message.value)}
-                >
-                  {message.label}
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-        </DialogContent>
-      </Dialog>
-    );
   };
 
   if (mediasUpload.length > 0) {
@@ -1415,7 +1393,11 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
             )}
           </div>
         </Paper>
-        <QuickMessagesDialog />
+        <QuickRepliesModal
+          open={quickMessagesDialogOpen}
+          onClose={handleCloseQuickMessagesDialog}
+          onSelect={handleSelectQuickMessage}
+        />
       </>
     );
   }

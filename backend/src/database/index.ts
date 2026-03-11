@@ -14,6 +14,8 @@ import Company from "../models/Company";
 import Plan from "../models/Plan";
 import TicketNote from "../models/TicketNote";
 import QuickMessage from "../models/QuickMessage";
+import QuickReply from "../models/QuickReply";
+import QuickReplyGroup from "../models/QuickReplyGroup";
 import Help from "../models/Help";
 import TicketTraking from "../models/TicketTraking";
 import UserRating from "../models/UserRating";
@@ -217,6 +219,8 @@ const models = [
   Plan,
   TicketNote,
   QuickMessage,
+  QuickReply,
+  QuickReplyGroup,
   Help,
   TicketTraking,
   UserRating,
