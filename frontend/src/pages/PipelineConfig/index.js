@@ -177,7 +177,7 @@ const PipelineConfig = () => {
 
     const handleClosePipelineMenu = () => {
         setPipelineMenuAnchorEl(null);
-        // setMenuPipeline(null);
+        // menuPipeline is intentionally kept so handleSavePipeline can use its id for PUT
     };
 
     const handleEditPipelineAction = () => {
@@ -246,7 +246,6 @@ const PipelineConfig = () => {
         }
         try {
             if (isEditingPipeline && menuPipeline) {
-                console.log("Updating funnel:", menuPipeline.id);
                 await api.put(`/pipelines/${menuPipeline.id}`, { name: newPipelineName });
                 toast.success("Funil atualizado com sucesso!");
                 setPipelines(pipelines.map(p => p.id === menuPipeline.id ? { ...p, name: newPipelineName } : p));
