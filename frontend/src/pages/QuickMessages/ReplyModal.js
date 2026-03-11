@@ -51,6 +51,7 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
       if (file) {
         const formData = new FormData();
         formData.append("media", file);
+        formData.append("typeArch", "quickReply");
         await api.post(`/quick-replies/${id}/media`, formData);
         toast.success("Mídia anexada com sucesso!");
       }

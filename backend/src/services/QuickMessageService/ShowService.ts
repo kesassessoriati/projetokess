@@ -5,7 +5,7 @@ const ShowService = async (id: string | number): Promise<QuickMessage> => {
   const record = await QuickMessage.findByPk(id);
 
   if (!record) {
-    throw new AppError("ERR_NO_TICKETNOTE_FOUND", 404);
+    throw new AppError("ERR_NO_QUICKMESSAGE_FOUND", 404);
   }
 
   return record;

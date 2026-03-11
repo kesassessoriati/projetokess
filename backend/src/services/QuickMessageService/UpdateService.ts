@@ -18,10 +18,10 @@ const UpdateService = async (data: Data): Promise<QuickMessage> => {
   const record = await QuickMessage.findByPk(id);
 
   if (!record) {
-    throw new AppError("ERR_NO_TICKETNOTE_FOUND", 404);
+    throw new AppError("ERR_NO_QUICKMESSAGE_FOUND", 404);
   }
 
-  if (!record.geral && record.visao && record.userId !== userId) {
+  if (!record.geral && !record.visao && record.userId !== userId) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
