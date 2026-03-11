@@ -7,14 +7,12 @@ export class WhatsMeowProvider extends BaseProvider {
 
   constructor(connection: any, tenantId?: number | string) {
     super(connection, tenantId);
-    // connection should preferably be the session name in this case
     this.sessionId = connection?.name || "default";
     this.baseUrl = process.env.WHATSMEOW_URL || "http://localhost:3001";
   }
 
   async sendMessage(to: string, content: any): Promise<any> {
     const text = typeof content === "string" ? content : content.text || content.caption || "";
-    // Note: If content contains media or specific formats, it should be mapped
     const res = await axios.post(`${this.baseUrl}/messages/send`, {
       session: this.sessionId,
       to,
@@ -27,7 +25,7 @@ export class WhatsMeowProvider extends BaseProvider {
     const res = await axios.post(`${this.baseUrl}/messages/media`, {
       session: this.sessionId,
       to,
-      mediaPath, // Go API implementation of media not ready for multipart yet, just a payload
+      mediaPath,
       caption
     });
     return res.data;
@@ -44,6 +42,12 @@ export class WhatsMeowProvider extends BaseProvider {
     return res.data.members;
   }
 
+  async getGroupMetadata(groupId: string): Promise<any> {
+    const id = groupId.replace("@g.us", "");
+    const res = await axios.get(`${this.baseUrl}/groups/${id}?session=${this.sessionId}`);
+    return res.data;
+  }
+
   async sendGroupMessage(groupId: string, content: any): Promise<any> {
     const id = groupId.replace("@g.us", "");
     const text = typeof content === "string" ? content : content.text || content.caption || "";
@@ -57,14 +61,30 @@ export class WhatsMeowProvider extends BaseProvider {
 
   async sendGroupMedia(groupId: string, mediaPath: string, caption?: string): Promise<any> {
     const id = groupId.replace("@g.us", "");
-    // Future mock of /groups/media
-    return await this.sendGroupMessage(id, { text: "Group Media: " + caption });
+    const res = await axios.post(`${this.baseUrl}/groups/media`, {
+      session: this.sessionId,
+      group_id: id,
+      mediaPath,
+      caption
+    });
+    return res.data;
   }
 
   async promoteMember(groupId: string, memberId: string): Promise<any> {
     const group_id = groupId.replace("@g.us", "");
     const member_id = memberId.replace("@s.whatsapp.net", "");
     const res = await axios.post(`${this.baseUrl}/groups/promote`, {
+      session: this.sessionId,
+      group_id,
+      member_id
+    });
+    return res.data;
+  }
+
+  async demoteMember(groupId: string, memberId: string): Promise<any> {
+    const group_id = groupId.replace("@g.us", "");
+    const member_id = memberId.replace("@s.whatsapp.net", "");
+    const res = await axios.post(`${this.baseUrl}/groups/demote`, {
       session: this.sessionId,
       group_id,
       member_id
@@ -83,14 +103,63 @@ export class WhatsMeowProvider extends BaseProvider {
     return res.data;
   }
 
-  async generateInviteLink(groupId: string): Promise<any> {
+  async addMember(groupId: string, memberId: string): Promise<any> {
+    const group_id = groupId.replace("@g.us", "");
+    const member_id = memberId.replace("@s.whatsapp.net", "");
+    const res = await axios.post(`${this.baseUrl}/groups/add`, {
+      session: this.sessionId,
+      group_id,
+      member_id
+    });
+    return res.data;
+  }
+
+  async generateInviteLink(groupId: string): Promise<string> {
     const id = groupId.replace("@g.us", "");
     const res = await axios.get(`${this.baseUrl}/groups/invite?session=${this.sessionId}&group_id=${id}`);
     return res.data.link;
   }
 
+  async revokeInviteLink(groupId: string): Promise<string> {
+    const id = groupId.replace("@g.us", "");
+    const res = await axios.post(`${this.baseUrl}/groups/revoke-invite`, {
+      session: this.sessionId,
+      group_id: id
+    });
+    return res.data.link || `https://chat.whatsapp.com/${res.data.code}`;
+  }
+
+  async createGroup(subject: string, participants: string[]): Promise<any> {
+    const res = await axios.post(`${this.baseUrl}/groups/create`, {
+      session: this.sessionId,
+      subject,
+      participants
+    });
+    return res.data;
+  }
+
+  async updateGroupSubject(groupId: string, subject: string): Promise<any> {
+    const id = groupId.replace("@g.us", "");
+    const res = await axios.post(`${this.baseUrl}/groups/subject`, {
+      session: this.sessionId,
+      group_id: id,
+      subject
+    });
+    return res.data;
+  }
+
+  async updateGroupDescription(groupId: string, description: string): Promise<any> {
+    const id = groupId.replace("@g.us", "");
+    const res = await axios.post(`${this.baseUrl}/groups/description`, {
+      session: this.sessionId,
+      group_id: id,
+      description
+    });
+    return res.data;
+  }
+
   async mentionAll(groupId: string, message: string): Promise<any> {
-    // If not supported natively by Go API yet, just send regular msg
+    // WhatsMeow Go service doesn't support native mentions yet, falls back to regular group message
     return await this.sendGroupMessage(groupId, message);
   }
 }

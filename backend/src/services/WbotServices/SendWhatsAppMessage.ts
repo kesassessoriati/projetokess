@@ -10,6 +10,7 @@ import { isNil } from "lodash";
 
 import formatBody from "../../helpers/Mustache";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
+import logger from "../../utils/logger";
 
 interface Request {
   body: string;
@@ -28,7 +29,6 @@ const SendWhatsAppMessage = async ({
   vCard,
   isForwarded = false
 }: Request): Promise<WAMessage> => {
-  console.log("== BODY SEND MESSAGE ==", body);
   let options = {};
   const wbot = await GetTicketWbot(ticket);
   const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
@@ -37,10 +37,7 @@ const SendWhatsAppMessage = async ({
 
   let number: string;
 
-  /// verificar se a mensagem é vazia, para não enviar mensagem vazia
   if (body === "" || body === undefined || formatBody(body, ticket) === "") {
-    console.log("== BODY SEND MESSAGE == vazio");
-    console.log("Mensagem vazia, não enviar");
     return {} as WAMessage;
   }
 
@@ -116,7 +113,7 @@ const SendWhatsAppMessage = async ({
       return sentMessage;
     } catch (err) {
       Sentry.captureException(err);
-      console.log(err);
+      logger.error(`[SendWhatsAppMessage] vCard send error: ${err?.message}`);
       throw new AppError("ERR_SENDING_WAPP_MSG");
     }
   }
@@ -139,17 +136,8 @@ const SendWhatsAppMessage = async ({
     });
     return sentMessage;
   } catch (err) {
-    console.log(
-      `erro ao enviar mensagem na company ${ticket.companyId} - `,
-      body,
-      ticket,
-      quotedMsg,
-      msdelay,
-      vCard,
-      isForwarded
-    );
+    logger.error(`[SendWhatsAppMessage] company=${ticket.companyId} error: ${err?.message}`);
     Sentry.captureException(err);
-    console.log(err);
     throw new AppError("ERR_SENDING_WAPP_MSG");
   }
 };

@@ -8,8 +8,6 @@ export class BaileysProvider extends BaseProvider {
 
   async sendMedia(to: string, mediaPath: string, caption?: string): Promise<any> {
     const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
-    // Placeholder implementation for media. Requires formatting the media object correctly.
-    // E.g.: return await this.connection.sendMessage(jid, { image: { url: mediaPath }, caption });
     return await this.connection.sendMessage(jid, { text: "Sending Media: " + caption });
   }
 
@@ -26,6 +24,11 @@ export class BaileysProvider extends BaseProvider {
     return metadata.participants;
   }
 
+  async getGroupMetadata(groupId: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    return await this.connection.groupMetadata(groupJid);
+  }
+
   async sendGroupMessage(groupId: string, content: any): Promise<any> {
     const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
     return await this.connection.sendMessage(groupJid, content);
@@ -33,7 +36,6 @@ export class BaileysProvider extends BaseProvider {
 
   async sendGroupMedia(groupId: string, mediaPath: string, caption?: string): Promise<any> {
     const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
-    // Proper media object format would be used here.
     return await this.connection.sendMessage(groupJid, { text: "Group Media: " + caption });
   }
 
@@ -43,16 +45,49 @@ export class BaileysProvider extends BaseProvider {
     return await this.connection.groupParticipantsUpdate(groupJid, [userJid], "promote");
   }
 
+  async demoteMember(groupId: string, memberId: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    const userJid = memberId.includes("@") ? memberId : `${memberId}@s.whatsapp.net`;
+    return await this.connection.groupParticipantsUpdate(groupJid, [userJid], "demote");
+  }
+
   async removeMember(groupId: string, memberId: string): Promise<any> {
     const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
     const userJid = memberId.includes("@") ? memberId : `${memberId}@s.whatsapp.net`;
     return await this.connection.groupParticipantsUpdate(groupJid, [userJid], "remove");
   }
 
-  async generateInviteLink(groupId: string): Promise<any> {
+  async addMember(groupId: string, memberId: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    const userJid = memberId.includes("@") ? memberId : `${memberId}@s.whatsapp.net`;
+    return await this.connection.groupParticipantsUpdate(groupJid, [userJid], "add");
+  }
+
+  async generateInviteLink(groupId: string): Promise<string> {
     const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
     const code = await this.connection.groupInviteCode(groupJid);
     return `https://chat.whatsapp.com/${code}`;
+  }
+
+  async revokeInviteLink(groupId: string): Promise<string> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    await this.connection.groupRevokeInvite(groupJid);
+    const newCode = await this.connection.groupInviteCode(groupJid);
+    return `https://chat.whatsapp.com/${newCode}`;
+  }
+
+  async createGroup(subject: string, participants: string[]): Promise<any> {
+    return await this.connection.groupCreate(subject, participants);
+  }
+
+  async updateGroupSubject(groupId: string, subject: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    return await this.connection.groupUpdateSubject(groupJid, subject);
+  }
+
+  async updateGroupDescription(groupId: string, description: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    return await this.connection.groupUpdateDescription(groupJid, description);
   }
 
   async mentionAll(groupId: string, message: string): Promise<any> {

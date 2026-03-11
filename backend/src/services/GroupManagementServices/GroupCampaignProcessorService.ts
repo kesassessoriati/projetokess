@@ -8,7 +8,6 @@ import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
 import { sendButtonMessage, sendListMessage } from "../../helpers/SendInteractiveMessage";
-import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 
 const runningCampaigns = new Set<number>();
@@ -42,9 +41,9 @@ const createCampaignLog = async (
   emitCampaignUpdate(campaign.companyId, { action: "log", campaignId: campaign.id, log });
 };
 
-const buildMentionsPayload = async (campaign: GroupCampaign, wbot: any, groupJid: string) => {
+const buildMentionsPayload = async (campaign: GroupCampaign, provider: any, groupJid: string) => {
   if (campaign.mentionsMode === "all") {
-    const metadata = await (wbot as any).groupMetadata(groupJid);
+    const metadata = await provider.getGroupMetadata(groupJid);
     const mentions = (metadata?.participants || []).map((p: any) => p.id);
     const mentionText = mentions.map((m: string) => `@${String(m).split("@")[0]}`).join(" ");
     return { mentions, mentionText };
@@ -67,10 +66,11 @@ const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget
   if (!connection) throw new Error("Conexão da campanha não encontrada.");
   if (connection.status !== "CONNECTED" && connection.status !== "qrcode") throw new Error("Conexão da campanha está desconectada.");
 
-  const wbot = getWbot(connection.id);
+  const isWhatsMeow = connection.provider === "whatsmeow";
+  const wbot = isWhatsMeow ? null : getWbot(connection.id);
   const provider = ProviderFactory.createProvider(connection, wbot, campaign.companyId);
   const groupJid = target.groupJid;
-  const { mentions, mentionText } = await buildMentionsPayload(campaign, wbot, groupJid);
+  const { mentions, mentionText } = await buildMentionsPayload(campaign, provider, groupJid);
 
   const baseText = String(campaign.message || "");
   const text = mentionText ? `${baseText}\n\n${mentionText}`.trim() : baseText;

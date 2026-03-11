@@ -16,8 +16,14 @@ import { ProviderFactory } from "../services/whatsapp/providers/ProviderFactory"
 const ensureConnectionAccess = async (companyId: number, whatsappId: number) => {
   return Whatsapp.findOne({
     where: { id: Number(whatsappId), companyId },
-    attributes: ["id", "name", "number", "status"]
+    attributes: ["id", "name", "number", "status", "provider"]
   });
+};
+
+const getProvider = (wa: Whatsapp) => {
+  const isWhatsMeow = wa.provider === "whatsmeow";
+  const wbot = isWhatsMeow ? null : getWbot(wa.id);
+  return ProviderFactory.createProvider(wa, wbot, wa.companyId);
 };
 
 const buildGroupWhere = (companyId: number, query: any) => {
@@ -184,10 +190,10 @@ export const getGroupInfo = async (req: Request, res: Response): Promise<Respons
 
   let metadata: any = null;
   try {
-    const wbot = getWbot(wa.id);
-    metadata = await (wbot as any).groupMetadata(jid);
+    const provider = getProvider(wa);
+    metadata = await provider.getGroupMetadata(jid);
   } catch (err) {
-    logger.warn(`[GroupManagement] groupMetadata fallback for ${jid}: ${err?.message}`);
+    logger.warn(`[GroupManagement] getGroupMetadata fallback for ${jid}: ${err?.message}`);
   }
 
   const directory = await GroupDirectory.findOne({ where: { companyId, groupJid: jid } });
@@ -229,12 +235,12 @@ export const createGroup = async (req: Request, res: Response): Promise<Response
   if (!subject) return res.status(400).json({ error: "subject is required" });
 
   try {
-    const wbot = getWbot(wa.id);
+    const provider = getProvider(wa);
     const participantJids = (participants || [])
       .map((p: string) => String(p || "").trim())
       .filter(Boolean)
       .map((p: string) => (p.includes("@") ? p : `${p.replace(/\D/g, "")}@s.whatsapp.net`));
-    const result = await (wbot as any).groupCreate(subject, participantJids);
+    const result = await provider.createGroup(subject, participantJids);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.status(201).json({ success: true, result });
   } catch (error) {
@@ -276,12 +282,13 @@ export const addMember = async (req: Request, res: Response): Promise<Response> 
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
+    const provider = getProvider(wa);
     const participant = String(memberId || "").includes("@") ? String(memberId) : `${String(memberId || "").replace(/\D/g, "")}@s.whatsapp.net`;
-    await (wbot as any).groupParticipantsUpdate(jid, [participant], "add");
+    await provider.addMember(jid, participant);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (error) {
+    logger.error(`[GroupManagement] addMember error: ${error?.message}`);
     return res.status(500).json({ error: "Failed to add member" });
   }
 };
@@ -294,12 +301,12 @@ export const kickMember = async (req: Request, res: Response): Promise<Response>
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    await (wbot as any).groupParticipantsUpdate(jid, [memberId], "remove");
+    const provider = getProvider(wa);
+    await provider.removeMember(jid, memberId);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (err) {
-    logger.error(`[GroupManagement] kickMember error: ${err.message}`);
+    logger.error(`[GroupManagement] kickMember error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to remove member" });
   }
 };
@@ -312,12 +319,12 @@ export const promoteMember = async (req: Request, res: Response): Promise<Respon
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    await (wbot as any).groupParticipantsUpdate(jid, [memberId], "promote");
+    const provider = getProvider(wa);
+    await provider.promoteMember(jid, memberId);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (err) {
-    logger.error(`[GroupManagement] promoteMember error: ${err.message}`);
+    logger.error(`[GroupManagement] promoteMember error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to promote member" });
   }
 };
@@ -330,12 +337,12 @@ export const demoteMember = async (req: Request, res: Response): Promise<Respons
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    await (wbot as any).groupParticipantsUpdate(jid, [memberId], "demote");
+    const provider = getProvider(wa);
+    await provider.demoteMember(jid, memberId);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (err) {
-    logger.error(`[GroupManagement] demoteMember error: ${err.message}`);
+    logger.error(`[GroupManagement] demoteMember error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to demote member" });
   }
 };
@@ -349,18 +356,12 @@ export const updateGroupSubject = async (req: Request, res: Response): Promise<R
   if (!subject) return res.status(400).json({ error: "subject is required" });
 
   try {
-    const wbot = getWbot(wa.id);
-    const provider = ProviderFactory.createProvider(wa, wbot, companyId);
-    // Since our provider abstraction does not strictly contain updateGroupSubject yet,
-    // We update it on the wbot for Baileys. But let's assume we want pure providers:
-    if (wa.provider === "whatsmeow") {
-         // handle
-    } else {
-         await (wbot as any).groupUpdateSubject(jid, subject);
-    }
+    const provider = getProvider(wa);
+    await provider.updateGroupSubject(jid, subject);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (error) {
+    logger.error(`[GroupManagement] updateGroupSubject error: ${error?.message}`);
     return res.status(500).json({ error: "Failed to update group subject" });
   }
 };
@@ -373,16 +374,17 @@ export const updateGroupDescription = async (req: Request, res: Response): Promi
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    await (wbot as any).groupUpdateDescription(jid, description || "");
+    const provider = getProvider(wa);
+    await provider.updateGroupDescription(jid, description || "");
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
   } catch (error) {
+    logger.error(`[GroupManagement] updateGroupDescription error: ${error?.message}`);
     return res.status(500).json({ error: "Failed to update group description" });
   }
 };
 
-export const updateGroupPicture = async (req: Request, res: Response): Promise<Response> => {
+export const updateGroupPicture = async (_req: Request, res: Response): Promise<Response> => {
   return res.status(501).json({
     error: "Atualização de imagem de grupo não suportada de forma estável na infraestrutura atual."
   });
@@ -396,13 +398,12 @@ export const getInviteLink = async (req: Request, res: Response): Promise<Respon
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    const provider = ProviderFactory.createProvider(wa, wbot, companyId);
+    const provider = getProvider(wa);
     const link = await provider.generateInviteLink(jid);
     const code = link.split('/').pop() || '';
     return res.json({ inviteLink: link, code });
   } catch (err) {
-    logger.error(`[GroupManagement] getInviteLink error: ${err.message}`);
+    logger.error(`[GroupManagement] getInviteLink error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to get invite link" });
   }
 };
@@ -415,12 +416,11 @@ export const revokeInviteLink = async (req: Request, res: Response): Promise<Res
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    await (wbot as any).groupRevokeInvite(jid);
-    const newCode = await (wbot as any).groupInviteCode(jid);
-    return res.json({ success: true, newInviteLink: `https://chat.whatsapp.com/${newCode}` });
+    const provider = getProvider(wa);
+    const newInviteLink = await provider.revokeInviteLink(jid);
+    return res.json({ success: true, newInviteLink });
   } catch (err) {
-    logger.error(`[GroupManagement] revokeInviteLink error: ${err.message}`);
+    logger.error(`[GroupManagement] revokeInviteLink error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to revoke invite link" });
   }
 };
@@ -433,12 +433,11 @@ export const tagAll = async (req: Request, res: Response): Promise<Response> => 
   if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
 
   try {
-    const wbot = getWbot(wa.id);
-    const provider = ProviderFactory.createProvider(wa, wbot, companyId);
+    const provider = getProvider(wa);
     await provider.mentionAll(jid, message || "");
     return res.json({ success: true });
   } catch (err) {
-    logger.error(`[GroupManagement] tagAll error: ${err.message}`);
+    logger.error(`[GroupManagement] tagAll error: ${err?.message}`);
     return res.status(500).json({ error: "Failed to tag all members" });
   }
 };
