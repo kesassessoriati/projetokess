@@ -6,6 +6,7 @@ import UpdateCrmLeadService from "../services/CrmLeadService/UpdateCrmLeadServic
 import DeleteCrmLeadService from "../services/CrmLeadService/DeleteCrmLeadService";
 import ConvertCrmLeadService from "../services/CrmLeadService/ConvertCrmLeadService";
 import ImportCrmLeadsService from "../services/CrmLeadService/ImportCrmLeadsService";
+import ExportCrmLeadsService from "../services/CrmLeadService/ExportCrmLeadsService";
 import AppError from "../errors/AppError";
 import serializeCrmLead from "../services/CrmLeadService/helpers/serializeCrmLead";
 
@@ -92,6 +93,28 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   });
 
   return res.json(serializeCrmLead(lead));
+};
+
+export const exportLeads = async (req: Request, res: Response): Promise<void> => {
+  const { companyId, profile, id: userId } = req.user;
+  const { searchParam, status, ownerUserId } = req.query as any;
+
+  const buffer = await ExportCrmLeadsService({
+    companyId,
+    searchParam,
+    status,
+    ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
+    profile,
+    userId: Number(userId)
+  });
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", "attachment; filename=leads.xlsx");
+
+  res.end(buffer);
 };
 
 export const convert = async (req: Request, res: Response): Promise<Response> => {

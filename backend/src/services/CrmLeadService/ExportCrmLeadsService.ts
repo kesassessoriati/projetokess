@@ -1,4 +1,5 @@
 import { Op, WhereOptions } from "sequelize";
+import * as XLSX from "xlsx";
 import CrmLead from "../../models/CrmLead";
 import Tag from "../../models/Tag";
 import serializeCrmLead from "./helpers/serializeCrmLead";
@@ -8,26 +9,21 @@ interface Request {
   searchParam?: string;
   status?: string;
   ownerUserId?: number;
-  pageNumber?: number;
-  limit?: number;
   profile: string;
   userId: number;
 }
 
-const ListCrmLeadsService = async ({
+const ExportCrmLeadsService = async ({
   companyId,
   searchParam,
   status,
   ownerUserId,
-  pageNumber = 1,
-  limit = 20,
   profile,
   userId
-}: Request) => {
+}: Request): Promise<Buffer> => {
   const conditions: any[] = [{ companyId }];
 
   if (profile !== "admin") {
-    // Agentes veem seus próprios leads E leads não atribuídos (ownerUserId = null)
     conditions.push({
       [Op.or]: [{ ownerUserId: userId }, { ownerUserId: null }]
     });
@@ -53,13 +49,9 @@ const ListCrmLeadsService = async ({
 
   const where = { [Op.and]: conditions } as WhereOptions;
 
-  const offset = (pageNumber - 1) * limit;
-
-  const { rows, count } = await CrmLead.findAndCountAll({
+  const leads = await CrmLead.findAll({
     where,
     order: [["updatedAt", "DESC"]],
-    limit,
-    offset,
     include: [
       {
         model: Tag,
@@ -70,11 +62,31 @@ const ListCrmLeadsService = async ({
     ]
   });
 
-  return {
-    leads: rows.map(serializeCrmLead),
-    count,
-    hasMore: count > offset + rows.length
-  };
+  const serializedLeads = leads.map(serializeCrmLead);
+
+  const data = serializedLeads.map(lead => ({
+    ID: lead.id,
+    Nome: lead.name,
+    Email: lead.email,
+    Telefone: lead.phone,
+    Empresa: lead.companyName,
+    Status: lead.status,
+    Origem: lead.source,
+    Campanha: lead.campaign,
+    Meio: lead.medium,
+    Score: lead.score,
+    Temperatura: lead.temperature,
+    Responsável: lead.ownerUserId || "Não atribuído",
+    DataCriacao: lead.createdAt
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+  return buffer;
 };
 
-export default ListCrmLeadsService;
+export default ExportCrmLeadsService;

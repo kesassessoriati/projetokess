@@ -26,6 +26,8 @@ import AddIcon from "@material-ui/icons/Add";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import PeopleAltIcon from "@material-ui/icons/PeopleAlt";
+import CloudDownloadIcon from "@material-ui/icons/CloudDownload";
+
 
 import api from "../../services/api";
 import UniversalLeadModal from "../../components/UniversalLeadModal";
@@ -445,16 +447,38 @@ const Leads = () => {
 
   const handleBulkAssign = async () => {
     try {
-      const assignValue = selectedUserToAssign === "" ? null : Number(selectedUserToAssign);
+      const assignValue = selectedUserToAssign === "" ? null : Number(selectedUserToAssign)
       for (const id of selectedLeads) {
-        await api.put(`/crm/leads/${id}`, { ownerUserId: assignValue });
+        await api.put(`/crm/leads/${id}`, { ownerUserId: assignValue })
       }
-      setBulkAssignModalOpen(false);
-      setSelectedUserToAssign("");
-      setSelectedLeads([]);
-      dispatch({ type: "RESET" });
-      setPageNumber(1);
-      setRefreshToken((prev) => prev + 1);
+      setBulkAssignModalOpen(false)
+      setSelectedUserToAssign("")
+      setSelectedLeads([])
+      dispatch({ type: "RESET" })
+      setPageNumber(1)
+      setRefreshToken((prev) => prev + 1)
+    } catch (err) {
+      toastError(err)
+    }
+  };
+
+  const handleExportLeads = async () => {
+    try {
+      const { data } = await api.get("/crm/leads/export", {
+        params: {
+          searchParam,
+          status: statusFilter
+        },
+        responseType: "blob"
+      })
+
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `leads_${new Date().getTime()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (err) {
       toastError(err);
     }
@@ -586,6 +610,16 @@ const Leads = () => {
             onClick={() => setImportModalOpen(true)}
           >
             Importar Leads
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={{ marginRight: 8 }}
+            startIcon={<CloudDownloadIcon />}
+            onClick={handleExportLeads}
+          >
+            Exportar Leads
+
           </Button>
           <Button
             variant="contained"

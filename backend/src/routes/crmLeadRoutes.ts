@@ -33,6 +33,7 @@ const uploadLeadFiles = multer({
 });
 
 crmLeadRoutes.get("/crm/leads", isAuth, CrmLeadController.index);
+crmLeadRoutes.get("/crm/leads/export", isAuth, CrmLeadController.exportLeads);
 crmLeadRoutes.post("/crm/leads/import", isAuth, upload.single("file"), CrmLeadController.importLeads);
 crmLeadRoutes.get("/crm/leads/:leadId", isAuth, CrmLeadController.show);
 crmLeadRoutes.post("/crm/leads", isAuth, CrmLeadController.store);
