@@ -24,7 +24,7 @@ import {
 } from "@material-ui/core";
 import {
   AttachFile as AttachFileIcon,
-  AudioTrack as AudioIcon,
+  Audiotrack as AudioIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   Description as DocIcon,
