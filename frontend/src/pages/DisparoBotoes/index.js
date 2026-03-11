@@ -137,9 +137,9 @@ export default function DisparoBotoes() {
     listButtonText: "Ver opções"
   });
 
-  // Filtra só conexões whaileys conectadas
+  // Filtra conexões que suportam botões/listas (Whaileys e WhatsMeow)
   const whaileysConnections = (whatsApps || []).filter(
-    w => w.channel === "whatsapp_whaileys" && w.status === "CONNECTED"
+    w => (w.channel === "whatsapp_whaileys" || w.channel === "whatsapp_whatsmeow") && w.status === "CONNECTED"
   );
 
   const fetchCampaigns = useCallback(async () => {
@@ -359,7 +359,7 @@ export default function DisparoBotoes() {
           <div>
             <Typography className={classes.title}>Disparo de Botões</Typography>
             <Typography className={classes.subtitle}>
-              Envie mensagens interativas com botões ou listas via WhatsApp (Whaileys)
+              Envie mensagens interativas com botões ou listas via WhatsApp (Whaileys / WhatsMeow)
             </Typography>
           </div>
         </div>
@@ -504,14 +504,14 @@ export default function DisparoBotoes() {
             {/* Conexão */}
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth variant="outlined" size="small">
-                <InputLabel>Conexão WhatsApp (Whaileys)</InputLabel>
+                <InputLabel>Conexão WhatsApp</InputLabel>
                 <Select
                   value={form.whatsappId}
                   onChange={e => setForm(f => ({ ...f, whatsappId: e.target.value }))}
-                  label="Conexão WhatsApp (Whaileys)"
+                  label="Conexão WhatsApp"
                 >
                   {whaileysConnections.length === 0 && (
-                    <MenuItem value="" disabled>Nenhuma conexão Whaileys conectada</MenuItem>
+                    <MenuItem value="" disabled>Nenhuma conexão Whaileys/WhatsMeow conectada</MenuItem>
                   )}
                   {whaileysConnections.map(w => (
                     <MenuItem key={w.id} value={w.id}>{w.name} ({w.number})</MenuItem>

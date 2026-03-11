@@ -563,6 +563,12 @@ const Connections = () => {
     setWhatsAppModalOpen(true);
   };
 
+  const handleOpenWhatsAppWhatsMeowModal = () => {
+    setSelectedWhatsApp(null);
+    setModalChannel("whatsapp_whatsmeow");
+    setWhatsAppModalOpen(true);
+  };
+
   const handleOpenEmailModal = () => {
     setSelectedEmailChannel(null);
     setEmailModalOpen(true);
@@ -793,7 +799,7 @@ const Connections = () => {
             )}
           />
         )}
-        {whatsApp.status === "DISCONNECTED" && (whatsApp.channel === "whatsapp" || whatsApp.channel === "whatsapp_whaileys") && (
+        {whatsApp.status === "DISCONNECTED" && (whatsApp.channel === "whatsapp" || whatsApp.channel === "whatsapp_whaileys" || whatsApp.channel === "whatsapp_whatsmeow") && (
           <Can
             role={
               user.profile === "user" && user.allowConnections === "enabled"
@@ -982,6 +988,8 @@ const Connections = () => {
         return <WhatsApp style={{ color: "#128C7E", fontSize: 28 }} />;
       case "whatsapp_whaileys":
         return <WhatsApp style={{ color: "#00897B", fontSize: 28 }} />;
+      case "whatsapp_whatsmeow":
+        return <WhatsApp style={{ color: "#1565C0", fontSize: 28 }} />;
       case "whatsapp":
       default:
         return <WhatsApp style={{ color: "#25d366", fontSize: 28 }} />;
@@ -1000,6 +1008,8 @@ const Connections = () => {
         return "#e6f7f2";
       case "whatsapp_whaileys":
         return "#e0f2f1";
+      case "whatsapp_whatsmeow":
+        return "#e3f2fd";
       case "whatsapp":
       default:
         return "#e8f5e9";
@@ -1130,6 +1140,16 @@ const Connections = () => {
                         >
                           <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#00897B" }} />
                           WhatsApp Whaileys
+                        </MenuItem>
+                        <MenuItem
+                          disabled={planConfig?.plan?.useWhatsapp ? false : true}
+                          onClick={() => {
+                            handleOpenWhatsAppWhatsMeowModal();
+                            popupState.close();
+                          }}
+                        >
+                          <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#1565C0" }} />
+                          WhatsApp WhatsMeow
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
