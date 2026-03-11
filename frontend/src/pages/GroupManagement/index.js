@@ -123,10 +123,12 @@ export default function GroupManagement() {
   const [search, setSearch] = useState("");
   const [minMembers, setMinMembers] = useState("");
   const [maxMembers, setMaxMembers] = useState("");
-  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
-  const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "" });
+  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", templateId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
+  const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "", mediaContent: null, buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
   const [createGroupModal, setCreateGroupModal] = useState(false);
   const [newGroupForm, setNewGroupForm] = useState({ whatsappId: "", subject: "", participants: "" });
+  const [campaignFileKey, setCampaignFileKey] = useState(0);
+  const [templateFileKey, setTemplateFileKey] = useState(0);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -230,10 +232,12 @@ export default function GroupManagement() {
         intervalSeconds: Number(campaignForm.intervalSeconds) || 0, 
         scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null,
         mediaPath,
-        mediaName
+        mediaName,
+        templateId: campaignForm.templateId || null
       });
       toast.success("Campanha criada.");
-      setCampaignForm({ name: "", whatsappId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
+      setCampaignForm({ name: "", whatsappId: "", templateId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
+      setCampaignFileKey(k => k + 1);
       refreshAll();
     } catch { toast.error("Erro ao criar campanha."); }
   };
@@ -247,9 +251,22 @@ export default function GroupManagement() {
       if (!templateForm.name || !templateForm.name.trim()) {
         return toast.error("Insira o nome do template.");
       }
-      await api.post("/group-management/templates", templateForm);
+      
+      let mediaPath = null;
+      let mediaName = null;
+
+      if (templateForm.mediaContent) {
+        const formData = new FormData();
+        formData.append("media", templateForm.mediaContent);
+        const { data } = await api.post("/group-management/campaigns/media", formData);
+        mediaPath = data.mediaPath;
+        mediaName = data.mediaName;
+      }
+
+      await api.post("/group-management/templates", { ...templateForm, mediaPath, mediaName });
       toast.success("Template salvo.");
-      setTemplateForm({ name: "", messageType: "text", message: "" });
+      setTemplateForm({ name: "", messageType: "text", message: "", mediaContent: null, buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
+      setTemplateFileKey(k => k + 1);
       refreshAll();
     } catch { toast.error("Erro ao salvar template."); }
   };
@@ -379,8 +396,35 @@ export default function GroupManagement() {
             <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => setCampaignForm((p) => ({ ...p, name: e.target.value }))} />
             <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => setCampaignForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
             <FormControl variant="outlined" size="small">
+              <InputLabel>Template (Opcional)</InputLabel>
+              <Select 
+                value={campaignForm.templateId || ""} 
+                onChange={(e) => {
+                  const temp = templates.find(t => t.id === e.target.value);
+                  if (temp) {
+                    setCampaignForm(p => ({
+                      ...p,
+                      templateId: temp.id,
+                      messageType: temp.messageType || "text",
+                      message: temp.message || "",
+                      mediaContent: null,
+                      buttons: temp.buttons?.length ? temp.buttons : [{ displayText: "" }],
+                      listItems: temp.listItems?.length ? temp.listItems : [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }]
+                    }));
+                    setCampaignFileKey(k => k + 1);
+                  } else {
+                    setCampaignForm(p => ({ ...p, templateId: "" }));
+                  }
+                }} 
+                label="Template (Opcional)"
+              >
+                <MenuItem value="">Nenhum template</MenuItem>
+                {(templates || []).map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl variant="outlined" size="small">
               <InputLabel>Tipo de conteúdo</InputLabel>
-              <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); }} label="Tipo de conteúdo">
+              <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); setCampaignFileKey(k => k + 1); }} label="Tipo de conteúdo">
                 <MenuItem value="text">Texto</MenuItem>
                 <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
                 <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
@@ -393,6 +437,7 @@ export default function GroupManagement() {
             {["imagem","video","audio","documento"].includes(campaignForm.messageType) && (
               <Box>
                 <input
+                  key={campaignFileKey}
                   type="file"
                   accept={
                     campaignForm.messageType === "video" ? "video/mp4,video/quicktime" :
@@ -441,7 +486,7 @@ export default function GroupManagement() {
               <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
                 <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Itens da lista</Typography>
                 {((campaignForm.listItems || [])[0]?.rows || []).map((row, i) => (
-                  <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  <Box key={row.rowId || i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                     <TextField
                       variant="outlined" size="small" fullWidth
                       placeholder={`Item ${i + 1}`}
@@ -600,10 +645,104 @@ export default function GroupManagement() {
               <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Templates</Typography></Box>
               <Box style={{ padding: 10, display: "grid", gap: 8 }}>
                 <TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))} />
-                <TextField variant="outlined" size="small" label="Mensagem" multiline rows={3} value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} />
+                
+                <FormControl variant="outlined" size="small">
+                  <InputLabel>Tipo de conteúdo</InputLabel>
+                  <Select value={templateForm.messageType || "text"} onChange={(e) => { setTemplateForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); setTemplateFileKey(k => k + 1); }} label="Tipo de conteúdo">
+                    <MenuItem value="text">Texto</MenuItem>
+                    <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
+                    <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
+                    <MenuItem value="imagem">Imagem</MenuItem>
+                    <MenuItem value="video">Vídeo</MenuItem>
+                    <MenuItem value="audio">Áudio PTT</MenuItem>
+                    <MenuItem value="documento">Documento</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                {["imagem","video","audio","documento"].includes(templateForm.messageType) && (
+                  <Box>
+                    <input
+                      key={templateFileKey}
+                      type="file"
+                      accept={
+                        templateForm.messageType === "video" ? "video/mp4,video/quicktime" :
+                        templateForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" :
+                        templateForm.messageType === "imagem" ? "image/jpeg,image/png" :
+                        "*/*"
+                      }
+                      onChange={(e) => setTemplateForm(p => ({ ...p, mediaContent: e.target.files[0] }))}
+                    />
+                    <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
+                      {templateForm.messageType === "video" ? "Formatos aceitos: mp4, mov" :
+                       templateForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" :
+                       templateForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" :
+                       "Formatos aceitos: pdf, docx, xlsx, etc"}
+                    </Typography>
+                  </Box>
+                )}
+
+                <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(templateForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} />
+                
+                {templateForm.messageType === "buttons" && (
+                  <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
+                    <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Botões (máx. 3)</Typography>
+                    {(templateForm.buttons || []).map((btn, i) => (
+                      <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                        <TextField
+                          variant="outlined" size="small" fullWidth
+                          placeholder={`Botão ${i + 1}`}
+                          value={btn.displayText}
+                          onChange={(e) => {
+                            const btns = [...templateForm.buttons];
+                            btns[i] = { ...btns[i], displayText: e.target.value };
+                            setTemplateForm(p => ({ ...p, buttons: btns }));
+                          }}
+                        />
+                        <Button size="small" className={classes.secondaryBtn} onClick={() => setTemplateForm(p => ({ ...p, buttons: p.buttons.filter((_, idx) => idx !== i) }))}>✕</Button>
+                      </Box>
+                    ))}
+                    {(templateForm.buttons || []).length < 3 && (
+                      <Button size="small" className={classes.secondaryBtn} onClick={() => setTemplateForm(p => ({ ...p, buttons: [...p.buttons, { displayText: "" }] }))}>+ Adicionar botão</Button>
+                    )}
+                  </Box>
+                )}
+
+                {templateForm.messageType === "list" && (
+                  <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
+                    <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Itens da lista</Typography>
+                    {((templateForm.listItems || [])[0]?.rows || []).map((row, i) => (
+                      <Box key={row.rowId || i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                        <TextField
+                          variant="outlined" size="small" fullWidth
+                          placeholder={`Item ${i + 1}`}
+                          value={row.title}
+                          onChange={(e) => {
+                            const items = JSON.parse(JSON.stringify(templateForm.listItems));
+                            items[0].rows[i].title = e.target.value;
+                            setTemplateForm(p => ({ ...p, listItems: items }));
+                          }}
+                        />
+                        <Button size="small" className={classes.secondaryBtn} onClick={() => {
+                          const items = JSON.parse(JSON.stringify(templateForm.listItems));
+                          items[0].rows = items[0].rows.filter((_, idx) => idx !== i);
+                          setTemplateForm(p => ({ ...p, listItems: items }));
+                        }}>✕</Button>
+                      </Box>
+                    ))}
+                    <Button size="small" className={classes.secondaryBtn} onClick={() => {
+                      const items = JSON.parse(JSON.stringify(templateForm.listItems));
+                      const newRowId = `op${Date.now()}`;
+                      if (!items[0]) items[0] = { title: "Opções", rows: [] };
+                      if (!items[0].rows) items[0].rows = [];
+                      items[0].rows.push({ title: "", rowId: newRowId });
+                      setTemplateForm(p => ({ ...p, listItems: items }));
+                    }}>+ Adicionar item</Button>
+                  </Box>
+                )}
+
                 <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={saveTemplate}>Salvar template</Button>
               </Box>
-              <Box className={classes.list}>{(templates || []).map((t) => t ? <Box key={t.id || Math.random()} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name || "Sem nome"}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box> : null)}</Box>
+              <Box className={classes.list}>{(templates || []).filter(t => t?.id).map((t) => <Box key={t.id} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name || "Sem nome"}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box>)}</Box>
             </Paper>
           ) : null}
           {!loading && tab === 5 ? renderSimpleList("Histórico", historyLogs, "message") : null}
