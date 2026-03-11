@@ -1,5 +1,5 @@
 import AddIcon from "@material-ui/icons/Add";
-import BoltIcon from '@mui/icons-material/FlashOn';
+import FlashOnIcon from "@material-ui/icons/FlashOn";
 import ButtonModal from "../ButtonModal";
 import CameraModal from "../CameraModal";
 import ContactSendModal from "../ContactSendModal";
@@ -1304,7 +1304,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                     component="span"
                     onClick={handleOpenQuickMessagesDialog}
                   >
-                    <BoltIcon className={classes.sendMessageIcons} />
+                    <FlashOnIcon className={classes.sendMessageIcons} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title={i18n.t("tickets.buttons.scredule")}>
