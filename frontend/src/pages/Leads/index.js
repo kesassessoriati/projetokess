@@ -6,10 +6,17 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
   makeStyles,
   MenuItem,
+  Select,
   TextField,
   Tooltip,
   Typography
@@ -294,8 +301,22 @@ const Leads = () => {
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
+  const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
+  const [users, setUsers] = useState([]);
 
-  // Removido useEffect que causava double-fetch e loops no mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data } = await api.get("/users/");
+        setUsers(data.users || []);
+      } catch (err) {
+        toastError(err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -422,6 +443,22 @@ const Leads = () => {
     setSelectedLeads([]);
   };
 
+  const handleBulkAssign = async () => {
+    if (!selectedUserToAssign && selectedUserToAssign !== "") return;
+    try {
+      for (const id of selectedLeads) {
+        await api.put(`/crm/leads/${id}`, { ownerUserId: selectedUserToAssign || null });
+      }
+      setBulkAssignModalOpen(false);
+      setSelectedLeads([]);
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const getInitials = (name = "") => {
     const safeName = typeof name === "string" ? name.trim() : "";
     if (!safeName) return "L";
@@ -465,6 +502,31 @@ const Leads = () => {
       >
         {`Você tem ${selectedLeads.length} lead(s) selecionado(s). Deseja realmente excluir todos? Esta ação não pode ser desfeita.`}
       </ConfirmationModal>
+
+      <Dialog open={bulkAssignModalOpen} onClose={() => setBulkAssignModalOpen(false)}>
+        <DialogTitle>Atribuir a Usuário</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 300 }}>
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel>Selecione um usuário</InputLabel>
+            <Select
+              value={selectedUserToAssign}
+              onChange={(e) => setSelectedUserToAssign(e.target.value)}
+              label="Selecione um usuário"
+            >
+              <MenuItem value="">Nenhum (Remover responsável)</MenuItem>
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>{user.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkAssignModalOpen(false)}>Cancelar</Button>
+          <Button onClick={handleBulkAssign} color="primary" variant="contained">
+            Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Box className={classes.header}>
         <Box className={classes.titleContainer}>
@@ -575,6 +637,13 @@ const Leads = () => {
                 onClick={() => setConfirmBulkDeleteOpen(true)}
               >
                 Excluir selecionados
+              </Button>
+              <Button
+                size="small"
+                color="primary"
+                onClick={() => setBulkAssignModalOpen(true)}
+              >
+                Atribuir selecionados
               </Button>
               <Button size="small" onClick={handleClearSelection}>
                 Limpar seleção
