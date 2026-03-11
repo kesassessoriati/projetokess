@@ -88,6 +88,10 @@ export const remove = async (
   const { companyId } = req.user;
   const { clientId } = req.params;
 
+  if (req.user.profile !== "admin") {
+    throw new AppError("Apenas administradores podem excluir clientes.", 403);
+  }
+
   await DeleteCrmClientService({
     id: Number(clientId),
     companyId

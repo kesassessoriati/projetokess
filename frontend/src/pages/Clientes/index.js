@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useState } from "react";
+import React, { useReducer, useEffect, useState, useContext } from "react";
 import { useHistory } from "react-router-dom";
 import {
   Avatar,
@@ -36,6 +36,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import FaturaModal from "../../components/FaturaModal";
 import ImportClientsModal from "../../components/ImportClientsModal";
 import toastError from "../../errors/toastError";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const STATUS_OPTIONS = [
   { label: "Todos", value: "" },
@@ -284,6 +285,7 @@ const useStyles = makeStyles((theme) => ({
 const Clients = () => {
   const classes = useStyles();
   const history = useHistory();
+  const { user } = useContext(AuthContext);
 
   const [clients, dispatch] = useReducer(reducer, []);
   const [pageNumber, setPageNumber] = useState(1);
@@ -565,7 +567,7 @@ const Clients = () => {
         title="Excluir cliente"
         onConfirm={handleDeleteClient}
       >
-        Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+        Tem certeza que deseja excluir este cliente? Ele retornará ao estado de Lead Novo e deixará de aparecer nesta lista.
       </ConfirmationModal>
 
       <ConfirmationModal
@@ -574,7 +576,7 @@ const Clients = () => {
         title="Excluir clientes selecionados"
         onConfirm={handleDeleteSelectedClients}
       >
-        {`Você tem ${selectedClients.length} cliente(s) selecionado(s). Deseja realmente excluir todos?`}
+        {`Você tem ${selectedClients.length} cliente(s) selecionado(s). Deseja realmente movê-los de volta para Leads Novos?`}
       </ConfirmationModal>
 
       <Dialog open={bulkAssignModalOpen} onClose={() => setBulkAssignModalOpen(false)}>
@@ -721,13 +723,15 @@ const Clients = () => {
           )}
           {selectedClients.length > 0 && (
             <>
-              <Button
-                size="small"
-                color="secondary"
-                onClick={() => setConfirmBulkDeleteOpen(true)}
-              >
-                Excluir selecionados
-              </Button>
+              {user.profile === "admin" && (
+                <Button
+                  size="small"
+                  color="secondary"
+                  onClick={() => setConfirmBulkDeleteOpen(true)}
+                >
+                  Excluir selecionados
+                </Button>
+              )}
               <Button
                 size="small"
                 color="primary"
@@ -811,17 +815,19 @@ const Clients = () => {
                       <LaunchIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Excluir">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setDeletingClient(client);
-                        setConfirmModalOpen(true);
-                      }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {user.profile === "admin" && (
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setDeletingClient(client);
+                          setConfirmModalOpen(true);
+                        }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </Box>
             ))}
