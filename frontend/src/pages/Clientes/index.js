@@ -432,12 +432,13 @@ const Clients = () => {
   };
 
   const handleBulkAssign = async () => {
-    if (!selectedUserToAssign && selectedUserToAssign !== "") return;
     try {
+      const assignValue = selectedUserToAssign === "" ? null : Number(selectedUserToAssign);
       for (const id of selectedClients) {
-        await api.put(`/crm/clients/${id}`, { ownerUserId: selectedUserToAssign || null });
+        await api.put(`/crm/clients/${id}`, { ownerUserId: assignValue });
       }
       setBulkAssignModalOpen(false);
+      setSelectedUserToAssign("");
       setSelectedClients([]);
       dispatch({ type: "RESET" });
       setPageNumber(1);

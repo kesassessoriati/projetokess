@@ -444,12 +444,13 @@ const Leads = () => {
   };
 
   const handleBulkAssign = async () => {
-    if (!selectedUserToAssign && selectedUserToAssign !== "") return;
     try {
+      const assignValue = selectedUserToAssign === "" ? null : Number(selectedUserToAssign);
       for (const id of selectedLeads) {
-        await api.put(`/crm/leads/${id}`, { ownerUserId: selectedUserToAssign || null });
+        await api.put(`/crm/leads/${id}`, { ownerUserId: assignValue });
       }
       setBulkAssignModalOpen(false);
+      setSelectedUserToAssign("");
       setSelectedLeads([]);
       dispatch({ type: "RESET" });
       setPageNumber(1);
