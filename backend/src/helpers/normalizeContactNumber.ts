@@ -26,8 +26,8 @@ export const isLidNumber = (digits: string): boolean => {
 		return true;
 	}
 	// Também pode ser um WAID que começa com outros padrões
-	// Se tem mais de 15 dígitos e não parece um número de telefone válido
-	if (digits.length > 15) {
+	// Números brasileiros têm no máximo 13 dígitos (55 + DDD + 9 dígitos)
+	if (digits.length >= 15) {
 		return true;
 	}
 	return false;

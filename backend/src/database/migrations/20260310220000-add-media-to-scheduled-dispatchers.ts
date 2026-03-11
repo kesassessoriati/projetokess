@@ -2,7 +2,7 @@ import { QueryInterface, DataTypes } from "sequelize";
 
 module.exports = {
   up: async (queryInterface: QueryInterface) => {
-    const tableDesc = await queryInterface.describeTable("scheduled_dispatchers");
+    const tableDesc = await queryInterface.describeTable("scheduled_dispatchers") as Record<string, unknown>;
 
     if (!tableDesc.media_url) {
       await queryInterface.addColumn("scheduled_dispatchers", "media_url", {
@@ -30,7 +30,7 @@ module.exports = {
   },
 
   down: async (queryInterface: QueryInterface) => {
-    const tableDesc = await queryInterface.describeTable("scheduled_dispatchers");
+    const tableDesc = await queryInterface.describeTable("scheduled_dispatchers") as Record<string, unknown>;
 
     if (tableDesc.media_caption) {
       await queryInterface.removeColumn("scheduled_dispatchers", "media_caption");
