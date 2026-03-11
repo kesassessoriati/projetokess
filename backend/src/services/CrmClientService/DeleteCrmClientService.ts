@@ -47,15 +47,17 @@ const DeleteCrmClientService = async ({
     });
 
     if (lead) {
-      // Use hooks: false to avoid unnecessary syncs during deletion
       await lead.update({
         convertedClientId: null,
         leadStatus: "novo",
-        status: "new"
+        status: "novo" // User wants 'Lead Novo', code uses 'novo'
       }, { transaction, hooks: false } as any);
+      console.log("Lead reverted:", lead.id);
     }
 
-    await client.destroy({ transaction } as any);
+    await client.destroy({ transaction, hooks: false } as any);
+    console.log("Client removed:", id);
+    
     await transaction.commit();
   } catch (error) {
     await transaction.rollback();

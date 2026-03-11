@@ -106,6 +106,13 @@ class Company extends Model<Company> {
   @Column(DataType.DATEONLY)
   aiCreditsLastReset: string;
 
+  @Column(DataType.DATE)
+  expiration_date: Date;
+
+  @Default("monthly")
+  @Column(DataType.STRING)
+  billing_cycle: string;
+
   @HasMany(() => User, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",

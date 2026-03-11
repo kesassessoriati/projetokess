@@ -146,11 +146,11 @@ export function CompanyForm(props) {
     phone: "",
     planId: "",
     status: true,
-    dueDate: "",
-    recurrence: "",
     password: "",
     document: "",
     paymentMethod: "",
+    expiration_date: "",
+    billing_cycle: "monthly",
     ...initialValue,
   });
 
@@ -166,8 +166,8 @@ export function CompanyForm(props) {
 
   useEffect(() => {
     setRecord((prev) => {
-      if (moment(initialValue).isValid()) {
-        initialValue.dueDate = moment(initialValue.dueDate).format("YYYY-MM-DD");
+      if (initialValue && moment(initialValue.expiration_date).isValid()) {
+        initialValue.expiration_date = moment(initialValue.expiration_date).format("YYYY-MM-DD");
       }
       return {
         ...prev,
@@ -178,7 +178,7 @@ export function CompanyForm(props) {
 
   const handleSubmit = async (data) => {
     onSubmit(data);
-    setRecord({ ...initialValue, dueDate: "" });
+    setRecord({ ...initialValue, expiration_date: "" });
   };
 
   const handleOpenModalUsers = async () => {
@@ -346,6 +346,54 @@ export function CompanyForm(props) {
                 </FormControl>
               </Grid>
 
+              {/* Campo Recorrência */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl
+                  margin="dense"
+                  variant="outlined"
+                  fullWidth
+                  className={classes.whiteBackground}
+                >
+                  <InputLabel htmlFor="billing-cycle-selection">
+                    Recorrência
+                  </InputLabel>
+                  <Field
+                    as={Select}
+                    id="billing-cycle-selection"
+                    name="billing_cycle"
+                    startAdornment={
+                      <InputAdornment position="start">
+                        <DescriptionIcon className={classes.iconColor} />
+                      </InputAdornment>
+                    }
+                  >
+                    <MenuItem value="monthly">Mensal</MenuItem>
+                    <MenuItem value="quarterly">Trimestral</MenuItem>
+                    <MenuItem value="semiannual">Semestral</MenuItem>
+                    <MenuItem value="annual">Anual</MenuItem>
+                    <MenuItem value="unlimited">Ilimitado</MenuItem>
+                  </Field>
+                </FormControl>
+              </Grid>
+
+              {/* Campo Data de Vencimento */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Field
+                  as={TextField}
+                  label="Data de Vencimento"
+                  name="expiration_date"
+                  type="date"
+                  variant="outlined"
+                  margin="dense"
+                  fullWidth
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  disabled={values.billing_cycle === "unlimited"}
+                  className={classes.whiteBackground}
+                />
+              </Grid>
+
 
               {/* Botões de Ação */}
               <Grid item xs={12}>
@@ -481,8 +529,12 @@ export function CompaniesManagerGrid(props) {
                 <strong>Criado em:</strong> {dateToClient(row.createdAt)}
               </Typography>
               <Typography variant="body2" component="p" className={classes.smallText}>
-                <strong>Vencimento:</strong> {dateToClient(row.dueDate)} <br />
-                <span>{row.recurrence}</span>
+                <strong>Vencimento:</strong> {row.billing_cycle === 'unlimited' ? 'Ilimitado' : dateToClient(row.expiration_date)} <br />
+                <span>{row.billing_cycle === "monthly" ? "Mensal" : 
+                       row.billing_cycle === "quarterly" ? "Trimestral" : 
+                       row.billing_cycle === "semiannual" ? "Semestral" : 
+                       row.billing_cycle === "annual" ? "Anual" : 
+                       row.billing_cycle === "unlimited" ? "Ilimitado" : ""}</span>
               </Typography>
               <Typography variant="body2" component="p" className={classes.smallText}>
                 <strong>Último Login:</strong> {datetimeToClient(row.lastLogin)}
@@ -530,11 +582,11 @@ export default function CompaniesManager() {
     phone: "",
     planId: "",
     status: true,
-    dueDate: "",
-    recurrence: "",
     password: "",
     document: "",
-    paymentMethod: ""
+    paymentMethod: "",
+    expiration_date: "",
+    billing_cycle: "monthly"
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -634,11 +686,11 @@ export default function CompaniesManager() {
       phone: "",
       planId: "",
       status: true,
-      dueDate: "",
-      recurrence: "",
       password: "",
       document: "",
-      paymentMethod: ""
+      paymentMethod: "",
+      expiration_date: "",
+      billing_cycle: "monthly"
     });
     setOpenEditDialog(false);
   };
@@ -651,11 +703,11 @@ export default function CompaniesManager() {
       email: data.email || "",
       planId: data.planId || "",
       status: data.status === false ? false : true,
-      dueDate: data.dueDate || "",
-      recurrence: data.recurrence || "",
       password: "",
       document: data.document || "",
       paymentMethod: data.paymentMethod || "",
+      expiration_date: data.expiration_date || "",
+      billing_cycle: data.billing_cycle || "monthly",
     });
     setOpenEditDialog(true);
   };

@@ -9,6 +9,7 @@ import Queue from "../../models/Queue";
 import Company from "../../models/Company";
 import Setting from "../../models/Setting";
 import CompaniesSettings from "../../models/CompaniesSettings";
+import moment from "moment";
 
 interface SerializedUser {
   id: number;
@@ -76,6 +77,15 @@ const AuthUserService = async ({
   } else if ((await user.checkPassword(password))) {
 
     const company = await Company.findByPk(user?.companyId);
+    if (company && !user.super && company.billing_cycle !== 'unlimited' && company.expiration_date) {
+      const today = moment().startOf("day");
+      const expirationDate = moment(company.expiration_date).startOf("day");
+
+      if (expirationDate.isBefore(today)) {
+        throw new AppError("Plano expirado. Entre em contato com o suporte.", 403);
+      }
+    }
+
     await company.update({
       lastLogin: new Date()
     });

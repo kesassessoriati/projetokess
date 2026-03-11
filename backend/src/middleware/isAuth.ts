@@ -8,6 +8,8 @@ import { getIO } from "../libs/socket";
 import ShowUserService from "../services/UserServices/ShowUserService";
 import { updateUser } from "../helpers/updateUser";
 import { runWithContext } from "../context";
+import moment from "moment";
+import Company from "../models/Company";
 
 interface TokenPayload {
   id: string;
@@ -44,6 +46,18 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       profile,
       companyId
     };
+
+    if (companyId) {
+      const company = await Company.findByPk(companyId);
+      if (company && company.billing_cycle !== 'unlimited' && company.expiration_date) {
+        const today = moment().startOf("day");
+        const expirationDate = moment(company.expiration_date).startOf("day");
+
+        if (expirationDate.isBefore(today)) {
+          throw new AppError("Plano expirado. Entre em contato com o suporte.", 403);
+        }
+      }
+    }
 
     return runWithContext({ companyId }, () => next());
   } catch (err: any) {

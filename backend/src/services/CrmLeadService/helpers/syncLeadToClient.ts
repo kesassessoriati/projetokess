@@ -23,6 +23,11 @@ const resolvePhoneCandidates = (phone?: string | null): string[] => {
 const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
   if (!lead) return null;
 
+  // Só sincroniza se o status do Lead for 'convertido'
+  if (lead.leadStatus !== "convertido" && lead.status !== "convertido") {
+    return null;
+  }
+
   let contact: Contact | null = null;
   if (lead.contactId) {
     contact = await Contact.findOne({

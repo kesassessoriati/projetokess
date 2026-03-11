@@ -92,6 +92,8 @@ export const remove = async (
     throw new AppError("Apenas administradores podem excluir clientes.", 403);
   }
 
+  console.log("Deleting CRM client:", clientId);
+
   await DeleteCrmClientService({
     id: Number(clientId),
     companyId

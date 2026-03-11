@@ -422,6 +422,7 @@ const Clients = () => {
 
   const handleDeleteSelectedClients = async () => {
     try {
+      console.log("Bulk deleting clients:", selectedClients);
       for (const id of selectedClients) {
         await api.delete(`/crm/clients/${id}`);
         dispatch({ type: "DELETE_CLIENT", payload: id });
@@ -504,6 +505,7 @@ const Clients = () => {
   const handleDeleteClient = async () => {
     if (!deletingClient) return;
     try {
+      console.log("Deleting client:", deletingClient.id);
       await api.delete(`/crm/clients/${deletingClient.id}`);
       dispatch({ type: "DELETE_CLIENT", payload: deletingClient.id });
     } catch (err) {

@@ -22,6 +22,8 @@ interface CompanyData {
   campaignsEnabled?: boolean;
   type?: "pf" | "pj";
   segment?: string;
+  expiration_date?: string;
+  billing_cycle?: string;
 }
 
 const CreateCompanyService = async (
@@ -41,7 +43,9 @@ const CreateCompanyService = async (
     companyUserName,
     campaignsEnabled,
     type,
-    segment
+    segment,
+    expiration_date,
+    billing_cycle
   } = companyData;
 
   const companySchema = Yup.object().shape({
@@ -70,7 +74,9 @@ const CreateCompanyService = async (
       document,
       paymentMethod,
       type,
-      segment
+      segment,
+      expiration_date,
+      billing_cycle
     },
       { transaction: t }
     );

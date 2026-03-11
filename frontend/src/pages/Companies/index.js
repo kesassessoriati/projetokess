@@ -508,7 +508,12 @@ const Companies = () => {
                                             <div className={classes.infoRow}>
                                                 <span className={classes.infoLabel}>Vencimento</span>
                                                 <span className={classes.infoValue}>
-                                                    {dateToClient(company.dueDate)} ({company.recurrence || "N/A"})
+                                                    {company.billing_cycle === 'unlimited' ? 'Ilimitado' : dateToClient(company.expiration_date)} 
+                                                    ({company.billing_cycle === "monthly" ? "Mensal" : 
+                                                      company.billing_cycle === "quarterly" ? "Trimestral" : 
+                                                      company.billing_cycle === "semiannual" ? "Semestral" : 
+                                                      company.billing_cycle === "annual" ? "Anual" : 
+                                                      company.billing_cycle === "unlimited" ? "Ilimitado" : company.recurrence || "N/A"})
                                                 </span>
                                             </div>
                                             <div className={classes.infoRow}>
