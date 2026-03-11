@@ -76,7 +76,8 @@ import {
 	Archive as ArchiveIcon,
 	VisibilityOff as VisibilityOffIcon,
 	Receipt as ReceiptIcon,
-	Email as EmailIcon
+	Email as EmailIcon,
+	FlashOn as FlashOnIcon,
 } from "@material-ui/icons";
 import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -93,6 +94,7 @@ import TicketTagsKanbanModal from "../../components/TicketTagsKanbanModal";
 import ConnectionIcon from "../../components/ConnectionIcon";
 import ContactModal from "../../components/ContactModal";
 import FaturaModal from "../../components/FaturaModal";
+import QuickRepliesModal from "../../components/QuickRepliesModal";
 import MessageInput from "../../components/MessageInput";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { ForwardMessageProvider } from "../../context/ForwarMessage/ForwardMessageContext";
@@ -1547,13 +1549,15 @@ const Atendimentos = () => {
 	useEffect(() => {
 		const loadQuickMessages = async () => {
 			try {
-				const messages = await listQuickMessages({ companyId: user.companyId, userId: user.id });
-				setQuickMessages(messages);
+				const { data } = await api.get("/quick-replies", {
+					params: { pageNumber: 1, pageSize: 200 }
+				});
+				setQuickMessages(data.records || []);
 			} catch (err) {
 			}
 		};
 		loadQuickMessages();
-	}, []);
+	}, [user.companyId, user.id]);
 
 	useEffect(() => {
 		loadFiltersData();
@@ -2881,52 +2885,23 @@ const Atendimentos = () => {
 		}
 	};
 
-	const handleSelectQuickMessage = async (quickMessage) => {
+	const handleSelectQuickMessage = async (message, file) => {
 		setQuickMessagesOpen(false);
 
 		if (!selectedTicket) {
-			setInputMessage(quickMessage.message || "");
+			setInputMessage(message || "");
 			return;
 		}
 
-		try {
-			// Se a resposta rápida tem arquivo, envia primeiro o arquivo
-			if (quickMessage.mediaPath) {
-				// Buscar o arquivo da URL
-				const response = await fetch(quickMessage.mediaPath);
-				const blob = await response.blob();
-
-				// Criar um File a partir do blob
-				const fileName = quickMessage.mediaName || "arquivo";
-				const file = new File([blob], fileName, { type: blob.type });
-
-				// Enviar mídia SEM legenda (arquivo primeiro)
-				const formData = new FormData();
-				formData.append("medias", file);
-				formData.append("body", "");
-
-				await api.post(`/messages/${selectedTicket.id}`, formData, {
-					headers: {
-						"Content-Type": "multipart/form-data",
-					},
-				});
-			}
-
-			// Depois envia o texto como mensagem separada (se tiver texto)
-			if (quickMessage.message && quickMessage.message.trim()) {
-				await api.post(`/messages/${selectedTicket.id}`, {
-					body: quickMessage.message,
-					fromMe: true,
-				});
-			}
-
-			setReplyingTo(null);
-			setMediaPreviewOpen(false);
-			setSelectedFile(null);
-			setSelectedFiles([]);
-		} catch (err) {
-			// Se falhar, pelo menos coloca o texto no input
-			setInputMessage(quickMessage.message || "");
+		if (file) {
+			// Enviar como mídia usando handleSendMedia existente
+			await handleSendMedia({
+				files: [file],
+				caption: message
+			});
+		} else if (message) {
+			// Enviar apenas texto
+			setInputMessage(message);
 		}
 	};
 
@@ -3131,7 +3106,7 @@ const Atendimentos = () => {
 			const filtered = term
 				? quickMessages.filter(msg =>
 					msg.message?.toLowerCase().includes(term) ||
-					msg.shortcode?.toLowerCase().includes(term)
+					(msg.shortcut || msg.shortcode || "").toLowerCase().includes(term)
 				)
 				: quickMessages;
 			setFilteredQuickMessages(filtered);
@@ -4034,6 +4009,14 @@ const Atendimentos = () => {
 										>
 											<EmojiIcon />
 										</IconButton>
+										<IconButton
+											size="small"
+											onClick={() => setQuickMessagesOpen(true)}
+											style={{ color: '#54656f' }}
+											title="Respostas Rápidas"
+										>
+											<FlashOnIcon />
+										</IconButton>
 									</>
 								)}
 								<input
@@ -4136,7 +4119,7 @@ const Atendimentos = () => {
 													}}
 												>
 													<ListItemText
-														primary={`${msg.shortcode} - ${msg.message?.substring(0, 25) || ""}${msg.message?.length > 25 ? "..." : ""}`}
+														primary={`/${msg.shortcut || msg.shortcode || ""} - ${msg.message?.substring(0, 25) || ""}${msg.message?.length > 25 ? "..." : ""}`}
 														primaryTypographyProps={{
 															style: {
 																fontSize: '14px',
@@ -4225,54 +4208,11 @@ const Atendimentos = () => {
 			)}
 
 			{/* Modal de Respostas Rápidas */}
-			<Dialog
+			<QuickRepliesModal
 				open={quickMessagesOpen}
 				onClose={() => setQuickMessagesOpen(false)}
-				maxWidth="sm"
-				fullWidth
-			>
-				<DialogTitle style={{ backgroundColor: "#5b68ea", color: "#fff", textAlign: "center", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<span>Mensagens Rápidas</span>
-					<IconButton onClick={() => setQuickMessagesOpen(false)} style={{ color: "#fff" }}>
-						<CloseIcon />
-					</IconButton>
-				</DialogTitle>
-				<DialogContent style={{ padding: "16px" }}>
-					<Grid container direction="column" spacing={1}>
-						{quickMessages.map((message, index) => (
-							<Grid item xs={12} key={index}>
-								<Button
-									fullWidth
-									variant="contained"
-									style={{
-										backgroundColor: "#4a5568",
-										color: "#fff",
-										textTransform: "none",
-										justifyContent: "flex-start",
-										padding: "12px 16px",
-									}}
-									onClick={() => handleSelectQuickMessage(message)}
-								>
-									<div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
-										{message.mediaPath && (
-											<span style={{ fontSize: 12, backgroundColor: "#5b68ea", padding: "2px 6px", borderRadius: 4 }}>
-												📎
-											</span>
-										)}
-										<span>
-											{message.shortcode}
-										</span>
-										<span style={{ opacity: 0.7, fontSize: 12 }}>
-											- {message.message?.substring(0, 25) || "(sem texto)"}
-											{message.message?.length > 25 ? "..." : ""}
-										</span>
-									</div>
-								</Button>
-							</Grid>
-						))}
-					</Grid>
-				</DialogContent>
-			</Dialog>
+				onSelect={handleSelectQuickMessage}
+			/>
 
 			{/* Modal de Preview de Mídia */}
 			<MediaPreviewModal
