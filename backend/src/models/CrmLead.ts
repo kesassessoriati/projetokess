@@ -57,6 +57,9 @@ class CrmLead extends Model<CrmLead> {
   @Column({ field: "birth_date", type: DataType.DATEONLY })
   birthDate: Date;
 
+  @Column({ field: "client_since", type: DataType.DATEONLY })
+  clientSince: Date;
+
   @Column
   document: string;
 

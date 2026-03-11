@@ -26,6 +26,7 @@ import api from "../../services/api";
 import ClientModal from "../../components/ClientModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import FaturaModal from "../../components/FaturaModal";
+import ImportClientsModal from "../../components/ImportClientsModal";
 import toastError from "../../errors/toastError";
 
 const STATUS_OPTIONS = [
@@ -275,6 +276,7 @@ const Clients = () => {
   const [refreshToken, setRefreshToken] = useState(0);
   const [faturaModalOpen, setFaturaModalOpen] = useState(false);
   const [faturaClient, setFaturaClient] = useState(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -423,6 +425,11 @@ const Clients = () => {
         clientId={selectedClientId}
         onSuccess={handleModalSuccess}
       />
+      <ImportClientsModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
 
       <ConfirmationModal
         open={confirmModalOpen}
@@ -501,6 +508,14 @@ const Clients = () => {
             onClick={() => handleOpenModal()}
           >
             Novo Cliente
+          </Button>
+
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => setImportModalOpen(true)}
+          >
+            Importar
           </Button>
         </Box>
       </Box>

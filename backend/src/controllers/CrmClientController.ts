@@ -4,6 +4,8 @@ import CreateCrmClientService from "../services/CrmClientService/CreateCrmClient
 import ShowCrmClientService from "../services/CrmClientService/ShowCrmClientService";
 import UpdateCrmClientService from "../services/CrmClientService/UpdateCrmClientService";
 import DeleteCrmClientService from "../services/CrmClientService/DeleteCrmClientService";
+import ImportCrmClientsService from "../services/CrmClientService/ImportCrmClientsService";
+import AppError from "../errors/AppError";
 
 export const index = async (
   req: Request,
@@ -92,4 +94,43 @@ export const remove = async (
   });
 
   return res.status(204).send();
+};
+
+export const importClients = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const file = req.file;
+
+  if (!file) {
+    throw new AppError("O arquivo é obrigatório");
+  }
+
+  const { ownerUserId, source, autoTag, mapping, selectedRows } = req.body;
+
+  let parsedMapping;
+  if (mapping) {
+    try {
+      parsedMapping = JSON.parse(mapping);
+    } catch (err) {
+      throw new AppError("Mapeamento inválido");
+    }
+  }
+
+  let parsedSelectedRows;
+  if (selectedRows && selectedRows !== "undefined") {
+    try {
+      parsedSelectedRows = JSON.parse(selectedRows);
+    } catch (err) { }
+  }
+
+  const result = await ImportCrmClientsService({
+    companyId,
+    filePath: file.path,
+    ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
+    source,
+    autoTag,
+    mapping: parsedMapping,
+    selectedRows: parsedSelectedRows,
+  });
+
+  return res.status(200).json(result);
 };

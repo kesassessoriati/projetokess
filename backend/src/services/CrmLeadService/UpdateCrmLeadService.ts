@@ -44,6 +44,7 @@ interface Request {
   stageId?: number;
   tags?: any[];
   cardColor?: string;
+  clientSince?: Date;
 }
 
 const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
@@ -72,6 +73,8 @@ const UpdateCrmLeadService = async ({
       })
       .test("document-length", "Documento deve ter 11 ou 14 dígitos.", value => !value || value.length === 11 || value.length === 14)
       .nullable(),
+    birthDate: Yup.date().nullable(),
+    clientSince: Yup.date().nullable(),
     product: Yup.string()
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),

@@ -47,6 +47,7 @@ const normalizeLeadForm = (lead = {}) => {
     document: formatDocument(rawDocument),
     product: lead.product || "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
+    clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
     score: lead.score || 0,
     status: lead.status || lead.leadStatus || "novo",
     tags: Array.isArray(lead.tags) ? lead.tags : [],
@@ -110,6 +111,8 @@ const defaultForm = {
   website: "",
   instagram: "",
   linkedin: "",
+  birthDate: "",
+  clientSince: "",
   position: "",
   source: "",
   campaign: "",
@@ -237,6 +240,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,
         birthDate: form.birthDate || undefined,
+        clientSince: form.clientSince || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
         cardColor: form.cardColor
       };
@@ -416,6 +420,34 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
               </Grid>
 
               {/* Row 4 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Data de nascimento"
+                  name="birthDate"
+                  type="date"
+                  value={form.birthDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Cliente desde"
+                  name="clientSince"
+                  type="date"
+                  value={form.clientSince}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+
+              {/* Row 5 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="GMN"

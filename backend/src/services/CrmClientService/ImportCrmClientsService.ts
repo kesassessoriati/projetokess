@@ -1,0 +1,145 @@
+import xlsx from "xlsx";
+import fs from "fs";
+import CreateCrmClientService from "./CreateCrmClientService";
+import AppError from "../../errors/AppError";
+
+interface Request {
+    companyId: number;
+    filePath: string;
+    ownerUserId?: number;
+    source?: string;
+    autoTag?: string;
+    mapping?: Record<string, string>;
+    selectedRows?: string[];
+}
+
+const ImportCrmClientsService = async ({
+    companyId,
+    filePath,
+    ownerUserId,
+    source,
+    autoTag,
+    mapping,
+    selectedRows
+}: Request): Promise<{ total: number; imported: number; errors: any[] }> => {
+    try {
+        const workbook = xlsx.readFile(filePath);
+        const sheetNameList = workbook.SheetNames;
+        const useMapping = mapping && Object.keys(mapping).length > 0;
+
+        const xlData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], useMapping ? { header: 1 } : {});
+
+        if (!xlData || xlData.length === 0) {
+            throw new AppError("O arquivo de importação está vazio ou inválido.");
+        }
+
+        let imported = 0;
+        const errors: any[] = [];
+
+        if (!useMapping) {
+            const firstRow: any = xlData[0];
+            const hasNameOrPhone = firstRow.hasOwnProperty("name") || firstRow.hasOwnProperty("nome") ||
+                firstRow.hasOwnProperty("phone") || firstRow.hasOwnProperty("telefone") ||
+                firstRow.hasOwnProperty("numero");
+
+            if (!hasNameOrPhone) {
+                throw new AppError("O arquivo deve conter as colunas 'name' (ou 'nome') e 'phone' (ou 'telefone').");
+            }
+        }
+
+        const startIndex = useMapping ? 1 : 0;
+
+        for (let index = startIndex; index < xlData.length; index++) {
+            try {
+                if (selectedRows && Array.isArray(selectedRows)) {
+                    if (!selectedRows.includes(String(index))) {
+                        continue;
+                    }
+                }
+
+                const rowOriginal: any = xlData[index];
+
+                const clientRow: any = {};
+                if (useMapping) {
+                    for (const [colName, fieldKey] of Object.entries(mapping)) {
+                        clientRow[fieldKey] = rowOriginal[parseInt(colName, 10)];
+                    }
+                } else {
+                    Object.assign(clientRow, rowOriginal);
+                }
+
+                const hasAnyData = Object.values(clientRow).some(v => v !== null && v !== "" && v !== undefined);
+                if (!hasAnyData) continue;
+
+                const name = clientRow.name || clientRow.nome || `Cliente #${index + 1}`;
+                const phone = clientRow.phone || clientRow.telefone || clientRow.numero || null;
+                const email = clientRow.email || clientRow.Email || null;
+
+                if (!phone && !email) {
+                    errors.push({ row: index + 2, error: "Telefone ou email são obrigatórios" });
+                    continue;
+                }
+
+                let notes = clientRow.notes || clientRow.observacoes || "";
+                if (autoTag) {
+                    notes += `\n[Tag Auto: ${autoTag}]`;
+                }
+
+                let rawDocument = clientRow.document || clientRow.documento || clientRow.cnpj || clientRow.CNPJ;
+                let cleanDocument: string | undefined = undefined;
+
+                if (rawDocument) {
+                    cleanDocument = String(rawDocument).replace(/[^\d]/g, "");
+                }
+
+                let rawTags = clientRow.tags || clientRow.Tags || clientRow.TAGS;
+                let tagsStr = undefined;
+                if (rawTags) {
+                    tagsStr = String(rawTags).split(",").map(t => t.trim()).filter(t => t !== "").join(",");
+                }
+
+                await CreateCrmClientService({
+                    companyId,
+                    name: String(name),
+                    phone: phone ? String(phone) : undefined,
+                    email: email ? String(email) : undefined,
+                    ownerUserId,
+                    origem: String(clientRow.source || clientRow.origem || source || ""),
+                    campanhaTag: String(clientRow.campaign || clientRow.campanha || ""),
+                    notes,
+                    temperatura: clientRow.temperature || clientRow.temperatura || null,
+                    cargo: String(clientRow.position || clientRow.cargo || ""),
+                    companyName: String(clientRow.companyName || clientRow.empresa || ""),
+                    decisorName: clientRow.decisionMakerName || clientRow.decisorName ? String(clientRow.decisionMakerName || clientRow.decisorName) : undefined,
+                    decisorPhone: clientRow.decisionMakerPhone || clientRow.decisorPhone ? String(clientRow.decisionMakerPhone || clientRow.decisorPhone) : undefined,
+                    document: cleanDocument,
+                    site: clientRow.website || clientRow.site ? String(clientRow.website || clientRow.site) : undefined,
+                    instagram: clientRow.instagram ? String(clientRow.instagram) : undefined,
+                    linkedin: clientRow.linkedin ? String(clientRow.linkedin) : undefined,
+                    tags: tagsStr,
+                    birthDate: clientRow.birthDate || clientRow.dataNascimento ? new Date(clientRow.birthDate || clientRow.dataNascimento) : undefined,
+                    clientSince: clientRow.clientSince || clientRow.clienteDesde ? new Date(clientRow.clientSince || clientRow.clienteDesde) : new Date(),
+                    status: clientRow.status || "active",
+                    type: cleanDocument && cleanDocument.length > 11 ? "pj" : "pf"
+                });
+
+                imported++;
+            } catch (err: any) {
+                errors.push({ row: index + 2, error: err.message });
+            }
+        }
+
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        return { total: xlData.length, imported, errors };
+    } catch (err: any) {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+        throw new AppError(`Erro ao processar arquivo: ${err.message}`);
+    }
+};
+
+export default ImportCrmClientsService;

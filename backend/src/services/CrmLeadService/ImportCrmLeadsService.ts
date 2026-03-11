@@ -132,7 +132,9 @@ const ImportCrmLeadsService = async ({
                     website: leadRow.website ? String(leadRow.website) : undefined,
                     instagram: leadRow.instagram ? String(leadRow.instagram) : undefined,
                     linkedin: leadRow.linkedin ? String(leadRow.linkedin) : undefined,
-                    tags: tagsObjArray.length > 0 ? tagsObjArray : undefined
+                    tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
+                    birthDate: leadRow.birthDate ? new Date(leadRow.birthDate) : undefined,
+                    clientSince: leadRow.clientSince ? new Date(leadRow.clientSince) : undefined
                 });
 
                 imported++;

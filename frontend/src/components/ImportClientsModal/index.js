@@ -23,9 +23,7 @@ import { toast } from "react-toastify";
 import { read, utils, writeFile } from "xlsx";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import AttachFileIcon from '@material-ui/icons/AttachFile';
 import GetAppIcon from '@material-ui/icons/GetApp';
-import useWindowDimensions from "../../hooks/useWindowDimensions";
 import { useDropzone } from "react-dropzone";
 import uploadGif from "../../assets/upload.gif";
 
@@ -55,11 +53,6 @@ const useStyles = makeStyles((theme) => ({
             backgroundColor: "#f0f0f0"
         }
     },
-    fileName: {
-        marginTop: theme.spacing(1),
-        fontWeight: 600,
-        color: theme.palette.primary.main,
-    },
     tableContainer: {
         marginTop: theme.spacing(2),
         marginBottom: theme.spacing(2),
@@ -72,15 +65,14 @@ const useStyles = makeStyles((theme) => ({
     }
 }));
 
-const LEAD_FIELDS = [
+const CLIENT_FIELDS = [
     { id: "name", label: "Nome Contato", required: true },
     { id: "companyName", label: "Empresa", required: false },
     { id: "decisionMakerName", label: "Nome decisor", required: false },
     { id: "email", label: "E-mail", required: false },
     { id: "phone", label: "Telefone", required: false },
     { id: "decisionMakerPhone", label: "Telefone decisor", required: false },
-    { id: "cnpj", label: "CNPJ", required: false },
-    { id: "gmn", label: "GMN", required: false },
+    { id: "document", label: "CPF/CNPJ", required: false },
     { id: "website", label: "Site", required: false },
     { id: "instagram", label: "Instagram", required: false },
     { id: "linkedin", label: "Linkedin", required: false },
@@ -91,7 +83,6 @@ const LEAD_FIELDS = [
     { id: "temperature", label: "Temperatura", required: false },
     { id: "birthDate", label: "Data de Nascimento", required: false },
     { id: "clientSince", label: "Cliente Desde", required: false },
-    { id: "score", label: "Score", required: false },
     { id: "notes", label: "Observações", required: false },
     { id: "tags", label: "Tags", required: false }
 ];
@@ -106,21 +97,16 @@ function WorksheetToDatagrid(ws) {
     return { rows, columns };
 }
 
-const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, onSuccess }) => {
+const ImportClientsModal = ({ open, onClose, onSuccess }) => {
     const classes = useStyles();
-    const size = useWindowDimensions();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [file, setFile] = useState(null);
 
     const [users, setUsers] = useState([]);
-    const [pipelines, setPipelines] = useState([]);
-    const [stages, setStages] = useState([]);
 
     const [form, setForm] = useState({
         ownerUserId: "",
-        pipelineId: defaultPipelineId || "",
-        stageId: defaultStageId || "",
         source: "",
         autoTag: "",
     });
@@ -136,8 +122,6 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
         setForm({
             ownerUserId: "",
-            pipelineId: defaultPipelineId || "",
-            stageId: defaultStageId || "",
             source: "",
             autoTag: "",
         });
@@ -151,12 +135,8 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [{ data: usersData }, { data: pipelinesData }] = await Promise.all([
-                    api.get("/users/"),
-                    api.get("/pipelines"),
-                ]);
+                const { data: usersData } = await api.get("/users/");
                 setUsers(usersData.users || []);
-                setPipelines(pipelinesData || []);
             } catch (err) {
                 toastError(err);
             } finally {
@@ -165,20 +145,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         };
 
         fetchData();
-    }, [open, defaultPipelineId, defaultStageId]);
-
-    useEffect(() => {
-        if (form.pipelineId && pipelines.length > 0) {
-            const selectedPipeline = pipelines.find((p) => p.id === form.pipelineId);
-            if (selectedPipeline && selectedPipeline.stages) {
-                setStages(selectedPipeline.stages);
-            } else {
-                setStages([]);
-            }
-        } else {
-            setStages([]);
-        }
-    }, [form.pipelineId, pipelines]);
+    }, [open]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -211,7 +178,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         }
 
         if (selectedFields[newValue]) {
-            const matchedField = LEAD_FIELDS.find(f => f.id === newValue);
+            const matchedField = CLIENT_FIELDS.find(f => f.id === newValue);
             toast.error(`O campo ${matchedField ? matchedField.label : ""} já foi mapeado para outra coluna.`);
             return;
         }
@@ -232,7 +199,6 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                 setRows(rows);
                 setColumns(columns);
 
-                // Auto-map strategy based on headers (first row)
                 const newColumnValue = {};
                 const newSelectedFields = {};
 
@@ -240,8 +206,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                     const headers = rows[0];
                     columns.forEach((col, idx) => {
                         const headerStr = String(headers[idx] || "").toLowerCase().trim();
-                        // Naive exact matching or simple substring matching
-                        const fieldMatch = LEAD_FIELDS.find(f =>
+                        const fieldMatch = CLIENT_FIELDS.find(f =>
                             headerStr === f.id.toLowerCase() ||
                             headerStr === f.label.toLowerCase() ||
                             (f.id === "name" && headerStr === "nome") ||
@@ -257,7 +222,6 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                 setColumnValue(newColumnValue);
                 setSelectedFields(newSelectedFields);
 
-                // Select all rows by default
                 const newSelectedRows = {};
                 for (let i = 1; i < rows.length; i++) {
                     newSelectedRows[i] = true;
@@ -282,11 +246,11 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
     });
 
     const downloadTemplate = () => {
-        const headers = LEAD_FIELDS.map(f => f.label);
+        const headers = CLIENT_FIELDS.map(f => f.label);
         const ws = utils.aoa_to_sheet([headers]);
         const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Modelo Leads");
-        writeFile(wb, "modelo_importacao_leads.xlsx");
+        utils.book_append_sheet(wb, ws, "Modelo Clientes");
+        writeFile(wb, "modelo_importacao_clientes.xlsx");
     };
 
     const handleSubmit = async (e) => {
@@ -296,7 +260,6 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
             return;
         }
 
-        // Validate mapped fields
         let hasName = false;
         let hasPhone = false;
         Object.values(columnValue).forEach(val => {
@@ -320,24 +283,20 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
             const formData = new FormData();
             formData.append("file", file);
 
-            // Adiciona valores fixos
             if (form.ownerUserId) formData.append("ownerUserId", form.ownerUserId);
-            if (form.pipelineId) formData.append("pipelineId", form.pipelineId);
-            if (form.stageId) formData.append("stageId", form.stageId);
             if (form.source) formData.append("source", form.source);
             if (form.autoTag) formData.append("autoTag", form.autoTag);
 
-            // Adiciona mapeamento (apenas usando isso enviaremos o mapping para o backend e a validação flexível fará efeito)
             formData.append("mapping", JSON.stringify(columnValue));
             formData.append("selectedRows", JSON.stringify(selectedRowIndexes));
 
-            const { data } = await api.post("/crm/leads/import", formData, {
+            const { data } = await api.post("/crm/clients/import", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
             });
 
-            toast.success(`${data.imported} leads importados com sucesso!`);
+            toast.success(`${data.imported} clientes importados com sucesso!`);
 
             if (data.errors && data.errors.length > 0) {
                 toast.warn(`${data.errors.length} erros encontrados. Consulte o log.`);
@@ -394,7 +353,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                         style={{ minWidth: 120 }}
                                     >
                                         <MenuItem value="">Não importar</MenuItem>
-                                        {LEAD_FIELDS.map((field) => (
+                                        {CLIENT_FIELDS.map((field) => (
                                             <MenuItem key={field.id} value={field.id}>{field.label}</MenuItem>
                                         ))}
                                     </Select>
@@ -404,7 +363,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                     </TableHead>
                     <TableBody>
                         {rows.map((row, rowIndex) => {
-                            if (rowIndex === 0) return null; // Pular cabeçalho
+                            if (rowIndex === 0) return null;
                             return (
                                 <TableRow key={rowIndex}>
                                     <TableCell padding="checkbox">
@@ -433,14 +392,14 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
-            <DialogTitle className={classes.dialogTitle}>Importar Leads (CSV/XLSX)</DialogTitle>
+            <DialogTitle className={classes.dialogTitle}>Importar Clientes (CSV/XLSX)</DialogTitle>
             <DialogContent dividers>
                 {loading ? (
                     <Grid container justifyContent="center">
                         <CircularProgress size={24} />
                     </Grid>
                 ) : (
-                    <form onSubmit={handleSubmit} id="import-leads-form">
+                    <form onSubmit={handleSubmit} id="import-clients-form">
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                             <Button
@@ -465,7 +424,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                         ) : (
                             <>
                                 <Typography variant="subtitle1" style={{ fontWeight: 'bold' }}>
-                                    Mapeamento de Colunas ({(file && file.name) || ""})
+                                    Mapeamento de Colunas {(file && file.name) ? `(${file.name})` : ""}
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary" style={{ marginBottom: 8 }}>
                                     Atribua o campo correto para cada coluna da planilha abaixo.
@@ -489,7 +448,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                         </Typography>
 
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={3}>
+                            <Grid item xs={12} sm={6}>
                                 <TextField
                                     select
                                     label="Atribuir todos a"
@@ -509,7 +468,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                 </TextField>
                             </Grid>
 
-                            <Grid item xs={12} sm={3}>
+                            <Grid item xs={12} sm={6}>
                                 <TextField
                                     label="Origem Padrão (Source)"
                                     name="source"
@@ -522,47 +481,6 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                 />
                             </Grid>
 
-                            <Grid item xs={12} sm={3}>
-                                <TextField
-                                    select
-                                    label="Funil de Vendas"
-                                    name="pipelineId"
-                                    value={form.pipelineId}
-                                    onChange={handleChange}
-                                    variant="outlined"
-                                    fullWidth
-                                    className={classes.formField}
-                                >
-                                    <MenuItem value="">Não vincular</MenuItem>
-                                    {pipelines.map((p) => (
-                                        <MenuItem key={p.id} value={p.id}>
-                                            {p.name}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                            </Grid>
-
-                            <Grid item xs={12} sm={3}>
-                                <TextField
-                                    select
-                                    label="Estágio Inicial"
-                                    name="stageId"
-                                    value={form.stageId}
-                                    onChange={handleChange}
-                                    variant="outlined"
-                                    fullWidth
-                                    className={classes.formField}
-                                    disabled={!form.pipelineId}
-                                >
-                                    <MenuItem value="">Selecione...</MenuItem>
-                                    {stages.map((st) => (
-                                        <MenuItem key={st.id} value={st.id}>
-                                            {st.name}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                            </Grid>
-
                             <Grid item xs={12}>
                                 <TextField
                                     label="Tag Automática (Apenas texto em Notes)"
@@ -571,9 +489,9 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                     onChange={handleChange}
                                     variant="outlined"
                                     fullWidth
-                                    placeholder="Ex: LOTE_FEVEREIRO_2024"
+                                    placeholder="Ex: CLIENTES_IMPORTADOS"
                                     className={classes.formField}
-                                    helperText="Será adicionado como anotação no lead."
+                                    helperText="Será adicionado como anotação no cliente."
                                 />
                             </Grid>
                         </Grid>
@@ -588,7 +506,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                     type="submit"
                     color="primary"
                     variant="contained"
-                    form="import-leads-form"
+                    form="import-clients-form"
                     disabled={submitting || loading || !file}
                 >
                     {submitting ? <CircularProgress size={20} color="inherit" /> : "Iniciar Importação"}
@@ -598,4 +516,4 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
     );
 };
 
-export default ImportLeadsModal;
+export default ImportClientsModal;
