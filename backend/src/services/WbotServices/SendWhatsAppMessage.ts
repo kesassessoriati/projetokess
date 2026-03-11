@@ -5,9 +5,11 @@ import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
+import Whatsapp from "../../models/Whatsapp";
 import { isNil } from "lodash";
 
 import formatBody from "../../helpers/Mustache";
+import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 
 interface Request {
   body: string;
@@ -29,6 +31,8 @@ const SendWhatsAppMessage = async ({
   console.log("== BODY SEND MESSAGE ==", body);
   let options = {};
   const wbot = await GetTicketWbot(ticket);
+  const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
+  const provider = ProviderFactory.createProvider(whatsapp, wbot, ticket.companyId);
   const contactNumber = await Contact.findByPk(ticket.contactId);
 
   let number: string;
@@ -99,7 +103,7 @@ const SendWhatsAppMessage = async ({
 
     try {
       await delay(msdelay);
-      const sentMessage = await wbot.sendMessage(number, {
+      const sentMessage = await provider.sendMessage(number, {
         contacts: {
           displayName: `${vCard.name}`,
           contacts: [{ vcard }]
@@ -118,16 +122,14 @@ const SendWhatsAppMessage = async ({
   }
   try {
     await delay(msdelay);
-    const sentMessage = await wbot.sendMessage(
+    const sentMessage = await provider.sendMessage(
       number,
       {
         text: formatBody(body, ticket),
         contextInfo: {
           forwardingScore: isForwarded ? 2 : 0,
           isForwarded: isForwarded ? true : false
-        }
-      },
-      {
+        },
         ...options
       }
     );

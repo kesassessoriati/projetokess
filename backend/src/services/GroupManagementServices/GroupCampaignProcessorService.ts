@@ -9,6 +9,7 @@ import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
 import { sendButtonMessage, sendListMessage } from "../../helpers/SendInteractiveMessage";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
+import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 
 const runningCampaigns = new Set<number>();
 
@@ -61,13 +62,13 @@ const buildMentionsPayload = async (campaign: GroupCampaign, wbot: any, groupJid
 
 const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget): Promise<void> => {
   const connection = await Whatsapp.findOne({
-    where: { id: campaign.whatsappId, companyId: campaign.companyId },
-    attributes: ["id", "status"]
+    where: { id: campaign.whatsappId, companyId: campaign.companyId }
   });
   if (!connection) throw new Error("Conexão da campanha não encontrada.");
-  if (connection.status !== "CONNECTED") throw new Error("Conexão da campanha está desconectada.");
+  if (connection.status !== "CONNECTED" && connection.status !== "qrcode") throw new Error("Conexão da campanha está desconectada.");
 
   const wbot = getWbot(connection.id);
+  const provider = ProviderFactory.createProvider(connection, wbot, campaign.companyId);
   const groupJid = target.groupJid;
   const { mentions, mentionText } = await buildMentionsPayload(campaign, wbot, groupJid);
 
@@ -77,22 +78,30 @@ const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget
   if (campaign.mediaPath && campaign.mediaName) {
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
-    const options = await getMessageOptions(campaign.mediaName, filePath, String(campaign.companyId), text);
-    await wbot.sendMessage(groupJid, { ...options });
+    await provider.sendGroupMedia(groupJid, filePath, text);
     return;
   }
 
   if (campaign.messageType === "buttons" && Array.isArray(campaign.buttons) && campaign.buttons.length) {
-    await sendButtonMessage(wbot, groupJid, text, "", campaign.buttons as any);
+    if (connection.provider === "whatsmeow") {
+      // not fully supported yet by fallback adapter
+      await provider.sendGroupMessage(groupJid, { text, buttons: campaign.buttons });
+    } else {
+      await sendButtonMessage(wbot, groupJid, text, "", campaign.buttons as any);
+    }
     return;
   }
 
   if (campaign.messageType === "list" && Array.isArray(campaign.listItems) && campaign.listItems.length) {
-    await sendListMessage(wbot, groupJid, text, "Ver opções", campaign.listItems as any);
+    if (connection.provider === "whatsmeow") {
+      await provider.sendGroupMessage(groupJid, { text, listItems: campaign.listItems });
+    } else {
+      await sendListMessage(wbot, groupJid, text, "Ver opções", campaign.listItems as any);
+    }
     return;
   }
 
-  await wbot.sendMessage(groupJid, {
+  await provider.sendGroupMessage(groupJid, {
     text: text || " ",
     mentions: mentions.length ? mentions : undefined
   });
