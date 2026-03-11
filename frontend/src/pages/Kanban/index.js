@@ -324,7 +324,13 @@ const Kanban = () => {
 
       return {
         id: tag.id.toString(),
-        title: tag.name,
+        title: (
+          <div style={{ display: 'flex', alignItems: 'center', minHeight: 40, maxHeight: 40, overflow: 'hidden' }}>
+            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal', lineHeight: '1.2' }}>
+              {tag.name}
+            </span>
+          </div>
+        ),
         label: `${filteredTickets.length} • ${formatCurrency(totalValue)}`,
         cards: filteredTickets.map(ticket => ({
           id: ticket.id.toString(),

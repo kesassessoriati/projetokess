@@ -48,6 +48,7 @@ interface Request {
   pipelineId?: number;
   stageId?: number;
   tags?: any[];
+  cardColor?: string;
 }
 
 const normalizeNumber = (phone?: string): string | null => {

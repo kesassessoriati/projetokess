@@ -5,14 +5,14 @@ import { useSocket } from "../../context/SocketContext";
 import {
     makeStyles,
     Typography,
-    Box,
+    Box,
     IconButton,
     Button,
     Tooltip,
     FormControl,
     InputLabel,
     Select,
-    MenuItem,
+    MenuItem,
     Avatar,
     CircularProgress,
     Dialog,
@@ -22,14 +22,14 @@ import {
     Switch,
     FormControlLabel
 } from "@material-ui/core";
-import {
-    Warning as WarningIcon,
+import {
+    Warning as WarningIcon,
     Timeline as TimelineIcon,
-    FilterList as FilterListIcon,
+    FilterList as FilterListIcon,
     Schedule as ClockIcon,
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
-    ThumbDown as ThumbDownIcon,
+    ThumbDown as ThumbDownIcon,
     Search as SearchIcon,
     People as PeopleIcon,
     Person as PersonIcon,
@@ -38,7 +38,7 @@ import {
     Tune as TuneIcon,
     Code as CodeIcon
 } from "@mui/icons-material";
-import api from "../../services/api";
+import api from "../../services/api";
 import { toast } from "react-toastify";
 import ImportLeadsModal from "../../components/ImportLeadsModal";
 import GetAppIcon from '@material-ui/icons/GetApp';
@@ -336,7 +336,10 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "column",
         gap: theme.spacing(1),
         borderBottom: "1px solid #e2ede6",
-        background: "linear-gradient(180deg, rgba(247,252,249,0.98) 0%, #eef8f1 100%)"
+        background: "linear-gradient(180deg, rgba(247,252,249,0.98) 0%, #eef8f1 100%)",
+        minHeight: 80,
+        maxHeight: 80,
+        justifyContent: "space-between",
     },
     laneTitle: {
         fontWeight: 800,
@@ -350,7 +353,15 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         alignItems: "center",
         gap: 8,
-        minWidth: 0
+        minWidth: 0,
+        flex: 1,
+        "& > span:nth-child(2)": {
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word"
+        }
     },
     laneColorDot: {
         width: 10,
@@ -404,8 +415,8 @@ const useStyles = makeStyles((theme) => ({
         boxShadow: "0 4px 12px rgba(16,24,40,0.08)",
         cursor: "pointer",
         transition: "all .18s ease",
-        borderLeft: props => `4px solid ${props.riskColor || "#cde1d4"}`,
         border: "1px solid #d8e8df",
+        borderLeft: props => `4px solid ${props.riskColor || "#cde1d4"}`,
         "&:hover": {
             transform: "translateY(-2px)",
             boxShadow: "0 14px 24px rgba(16,24,40,0.14)",
@@ -478,7 +489,9 @@ const useStyles = makeStyles((theme) => ({
 const IntelligentCard = ({ op, onClick, highlight }) => {
     const riskColor = (op.prediction && op.prediction.riskLevel === "HIGH") ? "#ef4444" : (op.prediction && op.prediction.riskLevel === "MEDIUM") ? "#f59e0b" : "#10b981";
     const probability = (op.prediction && (op.prediction.probability * 100).toFixed(0)) || 0;
-    const classes = useStyles({ riskColor });
+    const cardColor = op.lead?.cardColor || op.lead?.card_color || null;
+    const activeColor = cardColor && cardColor !== "#FFFFFF" ? cardColor : riskColor;
+    const classes = useStyles({ riskColor: activeColor });
 
     return (
         <Box className={`${classes.card} ${highlight ? classes.searchHighlight : ""}`} onClick={() => onClick(op)} tabIndex={0}>
@@ -525,7 +538,7 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
 const PipelineBoard = () => {
     const classes = useStyles();
     const history = useHistory();
-    const { user } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
     const isAdmin = user && user.profile === "admin";
 
     const [pipelines, setPipelines] = useState([]);
@@ -947,7 +960,7 @@ const PipelineBoard = () => {
                         <Droppable key={stage.id} droppableId={String(stage.id)}>
                             {(provided) => (
                                 <Box className={classes.lane} ref={provided.innerRef} {...provided.droppableProps}>
-                                    <div className={classes.laneHeader}>
+                                    <div className={classes.laneHeader} style={{ borderTop: `4px solid ${stage.color || "#1f9d55"}`, background: `linear-gradient(180deg, ${stage.color || "#1f9d55"}08 0%, #eef8f1 100%)` }}>
                                         <div className={classes.laneTitle}>
                                             <div className={classes.laneTitleLeft}>
                                                 <span className={classes.laneColorDot} style={{ backgroundColor: stage.color || "#1f9d55" }} />

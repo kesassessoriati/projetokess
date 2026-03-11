@@ -164,6 +164,9 @@ class CrmLead extends Model<CrmLead> {
   @BelongsToMany(() => Tag, () => LeadTag)
   tags: Tag[];
 
+  @Column({ field: "card_color" })
+  cardColor: string;
+
   @Column({ field: "last_activity_at", type: DataType.DATE })
   lastActivityAt: Date;
 

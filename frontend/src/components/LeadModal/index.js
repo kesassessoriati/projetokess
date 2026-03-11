@@ -49,7 +49,8 @@ const normalizeLeadForm = (lead = {}) => {
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     score: lead.score || 0,
     status: lead.status || lead.leadStatus || "novo",
-    tags: Array.isArray(lead.tags) ? lead.tags : []
+    tags: Array.isArray(lead.tags) ? lead.tags : [],
+    cardColor: lead.cardColor || lead.card_color || "#FFFFFF"
   };
 };
 
@@ -119,7 +120,8 @@ const defaultForm = {
   score: 0,
   ownerUserId: "",
   notes: "",
-  tags: []
+  tags: [],
+  cardColor: "#FFFFFF"
 };
 
 const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null }) => {
@@ -162,8 +164,6 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     } else {
       // Para novos leads, preencher automaticamente com UTMs da URL
       const utmData = getUTMParameters();
-      console.log('🔍 UTMs detectadas:', utmData);
-      console.log('🌐 URL atual:', window.location.search);
 
       setForm({
         ...defaultForm,
@@ -237,7 +237,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,
         birthDate: form.birthDate || undefined,
-        tags: form.tags && form.tags.length > 0 ? form.tags : undefined
+        tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
+        cardColor: form.cardColor
       };
 
       if (leadId) {
@@ -616,7 +617,39 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
               </Grid>
 
               {/* Row 11 */}
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Cor do Card"
+                  fullWidth
+                  variant="outlined"
+                  value={form.cardColor}
+                  onChange={(e) => setForm((prev) => ({ ...prev, cardColor: e.target.value }))}
+                  className={classes.formField}
+                  InputProps={{
+                    startAdornment: (
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          backgroundColor: form.cardColor || "#FFFFFF",
+                          borderRadius: "4px",
+                          marginRight: 10,
+                          border: "1px solid #ccc"
+                        }}
+                      />
+                    ),
+                    endAdornment: (
+                      <input
+                        type="color"
+                        value={form.cardColor || "#FFFFFF"}
+                        onChange={(e) => setForm((prev) => ({ ...prev, cardColor: e.target.value }))}
+                        style={{ border: "none", background: "none", cursor: "pointer", width: 28, height: 28, padding: 0 }}
+                      />
+                    )
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="Observações"
                   name="notes"

@@ -43,6 +43,7 @@ interface Request {
   pipelineId?: number;
   stageId?: number;
   tags?: any[];
+  cardColor?: string;
 }
 
 const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
