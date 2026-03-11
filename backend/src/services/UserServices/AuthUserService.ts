@@ -86,9 +86,11 @@ const AuthUserService = async ({
       }
     }
 
-    await company.update({
-      lastLogin: new Date()
-    });
+    if (company) {
+      await company.update({
+        lastLogin: new Date()
+      });
+    }
 
   } else {
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);

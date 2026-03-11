@@ -35,35 +35,11 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
 
   const [, token] = authHeader.split(" ");
 
+  let tokenDecoded: TokenPayload;
   try {
-    const decoded = verify(token, authConfig.secret);
-    const { id, profile, companyId } = decoded as TokenPayload;
-
-    updateUser(id, companyId);
-
-    req.user = {
-      id,
-      profile,
-      companyId
-    };
-
-    if (companyId) {
-      const company = await Company.findByPk(companyId);
-      if (company && company.billing_cycle !== 'unlimited' && company.expiration_date) {
-        const today = moment().startOf("day");
-        const expirationDate = moment(company.expiration_date).startOf("day");
-
-        if (expirationDate.isBefore(today)) {
-          throw new AppError("Plano expirado. Entre em contato com o suporte.", 403);
-        }
-      }
-    }
-
-    return runWithContext({ companyId }, () => next());
+    tokenDecoded = verify(token, authConfig.secret) as TokenPayload;
   } catch (err: any) {
-    // Log do erro para debug
     console.error("Auth error:", err.name, err.message);
-
     if (err.name === "TokenExpiredError") {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     } else if (err.name === "JsonWebTokenError") {
@@ -75,6 +51,31 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       );
     }
   }
+
+  const { id, profile, companyId } = tokenDecoded;
+
+  updateUser(id, companyId);
+
+  req.user = {
+    id,
+    profile,
+    companyId
+  };
+
+  // Verificação de expiração: ignorada para super admins
+  if (profile !== "super" && companyId) {
+    const company = await Company.findByPk(companyId);
+    if (company && company.billing_cycle !== "unlimited" && company.expiration_date) {
+      const today = moment().startOf("day");
+      const expirationDate = moment(company.expiration_date).startOf("day");
+
+      if (expirationDate.isBefore(today)) {
+        throw new AppError("Plano expirado. Entre em contato com o suporte.", 403);
+      }
+    }
+  }
+
+  return runWithContext({ companyId }, () => next());
 };
 
 export default isAuth;

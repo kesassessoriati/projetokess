@@ -316,6 +316,8 @@ const Companies = () => {
             recurrence: company.recurrence,
             document: company.document,
             paymentMethod: company.paymentMethod,
+            billing_cycle: company.billing_cycle,
+            expiration_date: company.expiration_date,
         };
 
         try {

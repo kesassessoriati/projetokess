@@ -44,6 +44,8 @@ type CompanyData = {
   recurrence?: string;
   document?: string;
   paymentMethod?: string;
+  expiration_date?: string;
+  billing_cycle?: string;
 };
 
 type SchedulesData = {
