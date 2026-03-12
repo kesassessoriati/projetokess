@@ -169,9 +169,9 @@ const SendWhatsAppMedia = async ({
         const stats = fs.statSync(pathMedia);
         console.log(`[SendWhatsAppMedia] Tamanho do arquivo: ${stats.size} bytes`);
         
-        // Áudios válidos geralmente têm pelo menos 1KB (1024 bytes) - reduzido temporariamente para debug
-        if (stats.size < 1024) {
-          throw new Error(`Arquivo de áudio muito pequeno (${stats.size} bytes), mínimo necessário: 1024 bytes. Gravação foi interrompida.`);
+        // Áudios válidos podem ser pequenos (ex: respostas rápidas curtas)
+        if (stats.size < 10) {
+          throw new Error(`Arquivo de áudio muito pequeno (${stats.size} bytes).`);
         }
         
         // Verificar se o arquivo pode ser lido (não corrompido)

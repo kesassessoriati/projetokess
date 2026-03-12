@@ -23,6 +23,7 @@ import FolderIcon from "@material-ui/icons/Folder";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
 import SendIcon from "@material-ui/icons/Send";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
+import Create from "@material-ui/icons/Create";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 
@@ -119,11 +120,7 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.primary.main,
     fontSize: "0.72rem",
     marginTop: 6,
-    opacity: 0,
-    transition: "opacity 0.15s",
-    "$replyCard:hover &": {
-      opacity: 1,
-    },
+    opacity: 0.7,
   },
   countBadge: {
     backgroundColor: theme.palette.primary.main,
@@ -209,20 +206,21 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  const handleSelectReply = async (reply) => {
+  const handleSelectReply = async (reply, autoSend = true) => {
     setSendingId(reply.id);
-    if (reply.mediaUrl) {
+    const mediaUrlToLoad = reply.mediaUrl || reply.mediaPath; // Compatibility
+    if (mediaUrlToLoad) {
       try {
-        const { data } = await api.get(reply.mediaUrl, { responseType: "blob" });
-        const fileName = reply.mediaUrl.split("/").pop();
+        const { data } = await api.get(mediaUrlToLoad, { responseType: "blob" });
+        const fileName = mediaUrlToLoad.split("/").pop();
         const file = new File([data], fileName, { type: reply.mediaType || data.type });
-        onSelect(reply.message, file);
+        onSelect(reply.message, file, autoSend);
       } catch (err) {
         toastError(err);
-        onSelect(reply.message, null);
+        onSelect(reply.message, null, autoSend);
       }
     } else {
-      onSelect(reply.message, null);
+      onSelect(reply.message, null, autoSend);
     }
     setSendingId(null);
     onClose();
@@ -325,11 +323,11 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
                 </div>
               ) : (
                 filteredReplies.map((reply) => (
-                  <Tooltip key={reply.id} title="Clique para enviar" placement="top" arrow>
+                  <Tooltip key={reply.id} title="Clique para enviar automático" placement="top" arrow>
                     <ListItem
                       button
                       className={classes.replyCard}
-                      onClick={() => handleSelectReply(reply)}
+                      onClick={() => handleSelectReply(reply, true)}
                       disabled={sendingId === reply.id}
                     >
                       <div className={classes.replyHeader}>
@@ -343,17 +341,30 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
                             <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
                           )}
                         </Box>
-                        {reply.mediaUrl && (
-                          <Tooltip title="Contém mídia">
-                            <AttachFileIcon fontSize="small" color="action" style={{ flexShrink: 0 }} />
+                        <Box display="flex" alignItems="center">
+                          {reply.mediaUrl && (
+                            <Tooltip title="Contém mídia">
+                              <AttachFileIcon fontSize="small" color="action" style={{ marginRight: 8 }} />
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Revisar no chat">
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectReply(reply, false);
+                              }}
+                            >
+                              <Create fontSize="small" />
+                            </IconButton>
                           </Tooltip>
-                        )}
+                        </Box>
                       </div>
                       <Typography className={classes.messagePreview}>
                         {reply.message || <em style={{ opacity: 0.5 }}>Sem texto</em>}
                       </Typography>
                       <Typography className={classes.sendHint}>
-                        Clique para inserir no chat →
+                        Clique para enviar agora ou use o ícone de editar para revisar →
                       </Typography>
                     </ListItem>
                   </Tooltip>

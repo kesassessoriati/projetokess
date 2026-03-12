@@ -506,8 +506,8 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
       }
     }
 
+    handleSendMessage(value.value);
     setInputMessage("");
-    setInputMessage(value.value);
     setTypeBar(false);
   };
 
@@ -651,15 +651,16 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setPrivateMessageInputVisible(false);
   };
 
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() === "") return;
+  const handleSendMessage = async (customMessage) => {
+    const messageToSend = (customMessage || inputMessage).trim();
+    if (messageToSend === "") return;
     setLoading(true);
 
     const userName = privateMessage
       ? `${user.name} - Mensagem Privada`
       : user.name;
 
-    const sendMessage = inputMessage.trim();
+    const sendMessage = messageToSend;
 
     const message = {
       read: 1,
@@ -790,12 +791,14 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const handleUploadQuickMessageMedia = async (blob, message) => {
     setLoading(true);
     try {
-      const extension = blob.type.split("/")[1];
+      const extension = blob.name
+        ? blob.name.split(".").pop()
+        : (blob.type ? blob.type.split("/")[1].split(";")[0].trim() : "file");
 
       const formData = new FormData();
       const filename = `${new Date().getTime()}.${extension}`;
       formData.append("medias", blob, filename);
-      formData.append("body", privateMessage ? `\u200d${message}` : message);
+      formData.append("body", privateMessage ? `\u200d${message || ""}` : (message || ""));
       formData.append("fromMe", true);
       
       if (isMounted.current) {
@@ -927,12 +930,21 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setQuickMessagesDialogOpen(false);
   };
 
-  const handleSelectQuickMessage = (message, file) => {
+  const handleSelectQuickMessage = (message, file, autoSend = true) => {
     if (file) {
-      handleUploadQuickMessageMedia(file, message);
+      if (autoSend) {
+        handleUploadQuickMessageMedia(file, message);
+      } else {
+        setMediasUpload([file]);
+        setShowModalMedias(true);
+      }
       setInputMessage("");
     } else {
-      setInputMessage(message);
+      if (autoSend) {
+        handleSendMessage(message);
+      } else {
+        setInputMessage(message);
+      }
     }
     handleCloseQuickMessagesDialog();
   };
