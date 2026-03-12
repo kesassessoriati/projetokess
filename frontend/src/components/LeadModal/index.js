@@ -127,7 +127,7 @@ const defaultForm = {
   cardColor: "#FFFFFF"
 };
 
-const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null }) => {
+const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null, cardColor }) => {
   const classes = useStyles();
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -242,7 +242,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
-        cardColor: form.cardColor
+        cardColor: cardColor || form.cardColor
       };
 
       if (leadId) {

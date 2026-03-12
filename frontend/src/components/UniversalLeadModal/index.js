@@ -118,14 +118,16 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activityType, setActivityType] = useState("LIGACAO");
     const [leadAppointmentOpen, setLeadAppointmentOpen] = useState(false);
     const [activities, setActivities] = useState([]);
-    const [cardColor, setCardColor] = useState("#FFFFFF");
+    const [cardColor, setCardColor] = useState(null);
     const [loadingActivities, setLoadingActivities] = useState(false);
 
     useEffect(() => {
         if (op && op.lead) {
             setCardColor(op.lead.cardColor || op.lead.card_color || "#FFFFFF");
+        } else if (!leadId) {
+            setCardColor(null);
         }
-    }, [op]);
+    }, [leadId, (op && op.id)]);
 
     const handleCardColorChange = async (e) => {
         const newColor = e.target.value;
@@ -316,7 +318,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 width: 36,
                                 height: 36,
                                 borderRadius: 8,
-                                backgroundColor: cardColor,
+                                backgroundColor: cardColor || "#FFFFFF",
                                 border: "1px solid #e0e0e0",
                                 cursor: "pointer",
                                 position: "relative",
@@ -325,7 +327,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             }}>
                                 <input
                                     type="color"
-                                    value={cardColor}
+                                    value={cardColor || "#FFFFFF"}
                                     onChange={handleCardColorChange}
                                     style={{
                                         position: "absolute",
@@ -338,7 +340,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                     }}
                                 />
                             </div>
-                            <Typography variant="body2" style={{ fontWeight: 700, color: "#475569" }}>{cardColor.toUpperCase()}</Typography>
+                            <Typography variant="body2" style={{ fontWeight: 700, color: "#475569" }}>{(cardColor || "#FFFFFF").toUpperCase()}</Typography>
                         </Box>
                     </Box>
                 </Box>
@@ -377,6 +379,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 onSuccess={onSuccess}
                                 isEmbedded={true}
                                 opId={(op && op.id) || null}
+                                cardColor={cardColor}
                                 leadData={
                                     (op && op.lead)
                                         ? { ...op.lead, pipelineId: op.pipelineId, stageId: op.stageId }
