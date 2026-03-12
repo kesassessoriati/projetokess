@@ -1812,7 +1812,20 @@ export const ActionsWebhookService = async (
                 console.log(`addTagKanban (Board): Nova oportunidade criada no Board Inteligente`);
               }
 
+              // Sincronizar CrmLead se existir
+              try {
+                const CrmLead = (await import("../../models/CrmLead")).default;
+                const lead = await CrmLead.findOne({ where: { contactId: ticket.contactId, companyId } });
+                if (lead) {
+                  await lead.update({ pipelineId: resolvedPipelineId, stageId });
+                  console.log(`addTagKanban (Board): CrmLead ${lead.id} sincronizado`);
+                }
+              } catch (err) {
+                console.error("Erro ao sincronizar CrmLead em addTagKanban:", err);
+              }
+
               // Emitir evento de atualização
+
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
               io.of(String(companyId))
@@ -2153,7 +2166,20 @@ export const ActionsWebhookService = async (
                 console.log(`KanbanStage (Board): Nova oportunidade criada no Board Inteligente`);
               }
 
+              // Sincronizar CrmLead se existir
+              try {
+                const CrmLead = (await import("../../models/CrmLead")).default;
+                const lead = await CrmLead.findOne({ where: { contactId: ticket.contactId, companyId } });
+                if (lead) {
+                  await lead.update({ pipelineId: resolvedPipelineId, stageId });
+                  console.log(`KanbanStage (Board): CrmLead ${lead.id} sincronizado`);
+                }
+              } catch (err) {
+                console.error("Erro ao sincronizar CrmLead em kanbanStage:", err);
+              }
+
               // Emitir evento de atualização
+
               const io = getIO();
               const ticketUpdated = await ShowTicketService(ticket.id, companyId);
               io.of(String(companyId))

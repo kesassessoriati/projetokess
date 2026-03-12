@@ -42,6 +42,8 @@ import variableNode from "./nodes/variableNode";
 import closeTicketNode from "./nodes/closeTicketNode";
 import sendMessageNode from "./nodes/sendMessageNode";
 import waitQuestionNode from "./nodes/waitQuestionNode";
+import kanbanStageNode from "./nodes/kanbanStageNode";
+
 
 import api from "../../services/api";
 
@@ -131,6 +133,8 @@ import FlowBuilderCloseTicketModal from "../../components/FlowBuilderCloseTicket
 import FlowBuilderSendMessageModal from "../../components/FlowBuilderSendMessageModal";
 import FlowBuilderWaitQuestionModal from "../../components/FlowBuilderWaitQuestionModal";
 import FlowBuilderProductListModal from "../../components/FlowBuilderProductListModal";
+import FlowBuilderAddKanbanStageModal from "../../components/FlowBuilderAddKanbanStageModal";
+
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
 import FlowBuilderNodeRenameModal from "../../components/FlowBuilderNodeRenameModal";
@@ -397,7 +401,9 @@ const NODE_TITLES = {
   sendMessage: "Enviar Mensagem",
   productList: "Lista de Produtos",
   waitQuestion: "Espera Condicional",
+  kanbanStage: "Etapa Kanban",
 };
+
 
 const DEFAULT_SMTP_CONFIG = {
   connectionName: "",
@@ -470,7 +476,9 @@ const nodeTypes = {
   sendMessage: withNodeTitle(sendMessageNode, NODE_TITLES.sendMessage),
   productList: withNodeTitle(productListNode, NODE_TITLES.productList),
   waitQuestion: withNodeTitle(waitQuestionNode, NODE_TITLES.waitQuestion),
+  kanbanStage: withNodeTitle(kanbanStageNode, NODE_TITLES.kanbanStage),
 };
+
 
 const edgeTypes = {
   buttonedge: RemoveEdge,
@@ -531,7 +539,9 @@ export const FlowBuilderConfig = () => {
   const [modalSendMessage, setModalSendMessage] = useState(null);
   const [modalProductList, setModalProductList] = useState(null);
   const [modalWaitQuestion, setModalWaitQuestion] = useState(null);
+  const [modalAddKanbanStage, setModalAddKanbanStage] = useState(null);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
+
   const [nodeRenaming, setNodeRenaming] = useState(null);
   const [flowLocked, setFlowLocked] = useState(false);
   const [, setPageNumber] = useState(1);
@@ -933,7 +943,21 @@ export const FlowBuilderConfig = () => {
       // Fechar modal após adicionar
       setModalWaitQuestion(null);
     }
+
+    if (type === "kanbanStage") {
+      setNodes((old) => [
+        ...old,
+        {
+          id: geraStringAleatoria(30),
+          position: { x: posX, y: posY },
+          data: withTitleData("kanbanStage", { ...data }),
+          type: "kanbanStage",
+        },
+      ]);
+      setModalAddKanbanStage(null);
+    }
   };
+
 
   // [TODAS AS FUNÇÕES DE ADIÇÃO MANTIDAS IGUAIS]
   const textAdd = (data) => { addNode("text", data); };
@@ -962,6 +986,8 @@ export const FlowBuilderConfig = () => {
   const closeTicketAdd = (data) => { addNode("closeTicket", data); };
   const sendMessageAdd = (data) => { addNode("sendMessage", data); };
   const productListAdd = (data) => { addNode("productList", data); };
+  const kanbanStageAdd = (data) => { addNode("kanbanStage", data); };
+
 
   // [TODOS OS useEffect MANTIDOS IGUAIS]
   useEffect(() => {
@@ -1251,7 +1277,9 @@ export const FlowBuilderConfig = () => {
     if (node.type === "sendMessage") { setModalSendMessage("edit"); }
     if (node.type === "productList") { setModalProductList("edit"); }
     if (node.type === "waitQuestion") { setModalWaitQuestion("edit"); }
+    if (node.type === "kanbanStage") { setModalAddKanbanStage("edit"); }
   };
+
 
   const clickNode = (event, node) => {
     setNodes((old) =>
@@ -1384,7 +1412,9 @@ export const FlowBuilderConfig = () => {
       actions: [
         { icon: <LocalOffer sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "Add Tag", type: "addTag" },
         { icon: <ViewKanban sx={{ color: "#06b6d4", fontSize: 14 }} />, name: "Tag Kanban", type: "addTagKanban" },
+        { icon: <ViewKanban sx={{ color: "#3b82f6", fontSize: 14 }} />, name: "Etapa Kanban", type: "kanbanStage" },
         { icon: <CheckCircle sx={{ color: "#22c55e", fontSize: 14 }} />, name: "Encerrar Ticket", type: "closeTicket" },
+
         { icon: <ShoppingBag sx={{ color: "#3b82f6", fontSize: 14 }} />, name: "Lista de Produtos", type: "productList" },
         { icon: <Schedule sx={{ color: "#fb923c", fontSize: 14 }} />, name: "Espera Condicional", type: "waitQuestion" },
       ],
@@ -1468,7 +1498,9 @@ export const FlowBuilderConfig = () => {
       case "sendMessage": setModalSendMessage("create"); break;
       case "productList": setModalProductList("create"); break;
       case "waitQuestion": setModalWaitQuestion("create"); break;
+      case "kanbanStage": setModalAddKanbanStage("create"); break;
       default: break;
+
     }
   };
 
@@ -1658,6 +1690,14 @@ export const FlowBuilderConfig = () => {
         onUpdate={updateNode}
         onClose={() => setModalWaitQuestion(null)}
       />
+      <FlowBuilderAddKanbanStageModal
+        open={modalAddKanbanStage}
+        onSave={kanbanStageAdd}
+        data={dataNode}
+        onUpdate={updateNode}
+        close={() => setModalAddKanbanStage(null)}
+      />
+
       <FlowBuilderNodeRenameModal
         open={renameModalOpen}
         node={nodeRenaming}
