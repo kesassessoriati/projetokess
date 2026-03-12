@@ -214,13 +214,17 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                     })
                 );
             } else if (message) {
-                await SendWhatsAppMessage({
+                const sentMsg = await SendWhatsAppMessage({
                     body: message,
                     ticket,
                     quotedMsg: null
                 });
+                if (sentMsg && sentMsg.key) {
+                    const { verifyMessage } = require("../../services/WbotServices/wbotMessageListener");
+                    await verifyMessage(sentMsg, ticket, contact, undefined, false, false, false, true, userId);
+                }
             } else {
-                return res.status(400).json({ error: "É necessário enviar uma mensagem texto ou um anexo." });
+                logger.debug({ ticketId: ticket.id }, "QuickSend: Ticket created without message.");
             }
 
             logger.info({ ticketId: ticket.id }, "QuickSend: Message/Media sent successfully");

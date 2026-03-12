@@ -463,7 +463,8 @@ const MessagesList = ({
   onDrop,
   whatsappId,
   queueId,
-  channel
+  channel,
+  ticketId: propTicketId
 }) => {
   const classes = useStyles();
   const [messagesList, dispatch] = useReducer(reducer, []);
@@ -478,7 +479,8 @@ const MessagesList = ({
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const [anchorEl, setAnchorEl] = useState(null);
   const messageOptionsMenuOpen = Boolean(anchorEl);
-  const { ticketId } = useParams();
+  const { ticketId: paramTicketId } = useParams();
+  const ticketId = propTicketId || paramTicketId;
 
   const currentTicketId = useRef(ticketId);
   const { getAll } = useCompanySettings();

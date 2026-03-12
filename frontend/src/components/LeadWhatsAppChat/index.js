@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
     Box,
     Button,
-    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
     DialogContent,
     FormControl,
-    IconButton,
     MenuItem,
     Paper,
     Select,
@@ -17,19 +15,17 @@ import {
     Typography,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import AttachFileIcon from "@material-ui/icons/AttachFile";
-import HighlightOffIcon from "@material-ui/icons/HighlightOff";
-import InsertEmoticonIcon from "@material-ui/icons/InsertEmoticon";
 import PhoneIcon from "@material-ui/icons/Phone";
-import ScheduleIcon from "@material-ui/icons/Schedule";
-import SendIcon from "@material-ui/icons/Send";
 import WifiIcon from "@material-ui/icons/Wifi";
-import Picker from "@emoji-mart/react";
-import { format } from "date-fns";
 import { toast } from "react-toastify";
 import api from "../../services/api";
-import loadEmojiData from "../../utils/loadEmojiData";
-import ScheduleModal from "../ScheduleModal";
+
+import MessagesList from "../MessagesList";
+import MessageInput from "../MessageInput";
+import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
+import { ForwardMessageProvider } from "../../context/ForwarMessage/ForwardMessageContext";
+import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -57,100 +53,6 @@ const useStyles = makeStyles((theme) => ({
         gap: 4,
         cursor: "pointer",
         "&:hover": { backgroundColor: "rgba(0,0,0,0.6)" },
-    },
-    messagesList: {
-        flex: 1,
-        padding: theme.spacing(2),
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: theme.spacing(1),
-        paddingTop: 36,
-    },
-    messageRow: {
-        display: "flex",
-        width: "100%",
-    },
-    messageRowAgent: { justifyContent: "flex-end" },
-    messageRowLead: { justifyContent: "flex-start" },
-    messageBubble: {
-        maxWidth: "75%",
-        padding: theme.spacing(1, 1.5),
-        borderRadius: 8,
-        position: "relative",
-        boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)",
-        display: "flex",
-        flexDirection: "column",
-    },
-    bubbleAgent: {
-        backgroundColor: "#dcf8c6",
-        borderTopRightRadius: 0,
-    },
-    bubbleLead: {
-        backgroundColor: "#ffffff",
-        borderTopLeftRadius: 0,
-    },
-    messageText: {
-        fontSize: "0.875rem",
-        wordWrap: "break-word",
-        whiteSpace: "pre-wrap",
-    },
-    timestamp: {
-        fontSize: "0.65rem",
-        color: "rgba(0,0,0,0.45)",
-        alignSelf: "flex-end",
-        marginTop: 2,
-    },
-    inputArea: {
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "#f0f0f0",
-        borderTop: "1px solid #d3d3d3",
-        position: "relative",
-    },
-    emojiPickerWrapper: {
-        position: "absolute",
-        bottom: "100%",
-        left: 0,
-        zIndex: 9999,
-    },
-    attachmentChips: {
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 4,
-        padding: "4px 12px",
-    },
-    toolbarRow: {
-        display: "flex",
-        alignItems: "center",
-        padding: "2px 8px",
-        gap: 2,
-        borderBottom: "1px solid #e0e0e0",
-    },
-    toolbarBtn: {
-        color: "#54656f",
-        padding: 6,
-    },
-    inputRow: {
-        display: "flex",
-        alignItems: "center",
-        padding: "4px 8px",
-        gap: 8,
-    },
-    textField: {
-        flex: 1,
-        backgroundColor: "#ffffff",
-        borderRadius: 20,
-        "& .MuiOutlinedInput-root": {
-            borderRadius: 20,
-            "& fieldset": { border: "none" },
-        },
-    },
-    sendButton: {
-        backgroundColor: "#128c7e",
-        color: "#ffffff",
-        "&:hover": { backgroundColor: "#075e54" },
-        "&:disabled": { backgroundColor: "#ccc" },
     },
     // ─── Pre-modal ────────────────────────────────────────────────────────────
     preModalHeader: {
@@ -191,6 +93,7 @@ const useStyles = makeStyles((theme) => ({
 
 const LeadWhatsAppChat = ({ leadId, op }) => {
     const classes = useStyles();
+    const { user } = useContext(AuthContext);
 
     // ── Pre-modal state ───────────────────────────────────────────────────────
     const [preModalOpen, setPreModalOpen] = useState(true);
@@ -201,17 +104,9 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
     const [loadingConnections, setLoadingConnections] = useState(false);
 
     // ── Chat state ────────────────────────────────────────────────────────────
-    const [messages, setMessages] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [newMessage, setNewMessage] = useState("");
-    const [sending, setSending] = useState(false);
-    const [medias, setMedias] = useState([]);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [emojiData, setEmojiData] = useState(null);
-    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-
-    const scrollRef = useRef(null);
-    const fileInputRef = useRef(null);
+    const [activeTicket, setActiveTicket] = useState(null);
+    const [loadingTicket, setLoadingTicket] = useState(false);
+    const [dragDropFiles, setDragDropFiles] = useState([]);
 
     // ── Load connections + pre-fill phone ────────────────────────────────────
     useEffect(() => {
@@ -228,33 +123,12 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
             .catch(() => {})
             .finally(() => setLoadingConnections(false));
 
-        // Pre-fill phone from contact
         const contactNumber = op?.contact?.number || "";
         if (contactNumber) setSelectedPhone(contactNumber);
-
-        // Load emoji data lazily
-        loadEmojiData().then(setEmojiData).catch(() => {});
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // ── Load messages after pre-modal confirmed ───────────────────────────────
-    useEffect(() => {
-        if (!leadId || preModalOpen) return;
-        setLoading(true);
-        api.get(`/crm/leads/${leadId}/messages`)
-            .then(({ data }) => setMessages(data || []))
-            .catch(() => toast.error("Erro ao carregar mensagens."))
-            .finally(() => setLoading(false));
-    }, [leadId, preModalOpen]);
-
-    // ── Auto-scroll ───────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages]);
+    }, [op]); // Added op as dependency
 
     // ── Confirm pre-modal ─────────────────────────────────────────────────────
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         const normalized = selectedPhone.replace(/\D/g, "");
         if (normalized.length < 10) {
             toast.warning("Informe um número válido (mínimo 10 dígitos com DDI + DDD).");
@@ -264,73 +138,36 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
             toast.warning("Selecione uma conexão WhatsApp.");
             return;
         }
+
         const conn = connections.find((c) => c.id === selectedWhatsappId);
         if (conn) setSelectedWhatsappName(conn.name);
-        setPreModalOpen(false);
-    };
-
-    // ── Send message via WhatsApp ─────────────────────────────────────────────
-    const handleSend = async () => {
-        const normalizedPhone = selectedPhone.replace(/\D/g, "");
-        if ((!newMessage.trim() && medias.length === 0) || !normalizedPhone || !selectedWhatsappId) return;
-        setSending(true);
-        setShowEmojiPicker(false);
+        
+        setLoadingTicket(true);
         try {
             const formData = new FormData();
-            formData.append("number", normalizedPhone);
-            formData.append("message", newMessage.trim());
+            formData.append("number", normalized);
             formData.append("whatsappId", Number(selectedWhatsappId));
             formData.append("createIfNotExists", "true");
             if (op?.contact?.name) formData.append("name", op.contact.name);
-            medias.forEach((f) => formData.append("medias", f));
 
-            await api.post("/quick-send", formData, {
+            // Chamada para inicializar ou resgatar o ticket ativo (sem enviar mensagem obrigatoriamente)
+            const { data } = await api.post("/quick-send", formData, {
                 timeout: 30000,
                 headers: { "Content-Type": "multipart/form-data" },
             });
-
-            // Record in internal history
-            if (leadId && newMessage.trim()) {
-                const { data: savedMsg } = await api.post(`/crm/leads/${leadId}/messages`, {
-                    message: newMessage.trim(),
-                    senderType: "agent",
-                });
-                setMessages((prev) => [...prev, savedMsg]);
+            
+            if (data.ticket) {
+                setActiveTicket(data.ticket);
+                setPreModalOpen(false);
+            } else {
+                toast.error("Erro ao carregar o chat.");
             }
-
-            setNewMessage("");
-            setMedias([]);
-            toast.success("Mensagem enviada via WhatsApp!");
         } catch (err) {
-            const errMsg = err?.response?.data?.error || "Erro ao enviar mensagem.";
+            const errMsg = err?.response?.data?.error || "Erro ao iniciar o chat.";
             toast.error(errMsg);
         } finally {
-            setSending(false);
+            setLoadingTicket(false);
         }
-    };
-
-    const handleKeyDown = (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
-    };
-
-    const handleEmojiSelect = (emoji) => {
-        setNewMessage((prev) => prev + (emoji.native || ""));
-        setShowEmojiPicker(false);
-    };
-
-    const handleFileChange = (e) => {
-        const files = Array.from(e.target.files || []);
-        const valid = files.filter((f) => f.size <= 10 * 1024 * 1024);
-        if (valid.length < files.length) toast.warning("Alguns arquivos excedem 10MB e foram ignorados.");
-        setMedias((prev) => [...prev, ...valid]);
-        e.target.value = "";
-    };
-
-    const handleRemoveMedia = (idx) => {
-        setMedias((prev) => prev.filter((_, i) => i !== idx));
     };
 
     // ── Guard: no leadId ──────────────────────────────────────────────────────
@@ -346,13 +183,12 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
 
     return (
         <>
-            {/* ─── Pre-modal: seleção de número e conexão ───────────────────────── */}
             <Dialog open={preModalOpen} maxWidth="xs" fullWidth>
                 <Box className={classes.preModalHeader}>
                     <WifiIcon />
                     <Box>
                         <Typography style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>
-                            Enviar via WhatsApp
+                            Conversa do WhatsApp
                         </Typography>
                         <Typography style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>
                             Confirme o número e a conexão
@@ -432,8 +268,7 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                 </DialogContent>
 
                 <DialogActions style={{ padding: "10px 16px", gap: 8, backgroundColor: "#f0f2f5" }}>
-                    {/* Cancel only available if already configured (i.e., re-opening to change) */}
-                    {selectedWhatsappName && (
+                    {selectedWhatsappName && activeTicket && (
                         <Button
                             onClick={() => setPreModalOpen(false)}
                             style={{ textTransform: "none", color: "#54656f" }}
@@ -446,7 +281,7 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                         variant="contained"
                         fullWidth
                         onClick={handleConfirm}
-                        disabled={!selectedPhone.replace(/\D/g, "") || !selectedWhatsappId}
+                        disabled={loadingTicket || !selectedPhone.replace(/\D/g, "") || !selectedWhatsappId}
                         style={{
                             background: "linear-gradient(135deg, #075E54, #25D366)",
                             color: "#fff",
@@ -455,185 +290,55 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                             fontWeight: 600,
                         }}
                     >
-                        Iniciar Chat
+                        {loadingTicket ? <CircularProgress size={22} color="inherit" /> : "Acessar Chat"}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* ─── Mini-chat WhatsApp ───────────────────────────────────────────── */}
+            {/* ─── Chat Completo Reutilizando Main Chat ───────────────────────────────────────────── */}
             <Paper elevation={0} className={classes.root}>
-                {/* Badge da conexão ativa — clique para alterar */}
-                <Tooltip title="Clique para alterar número/conexão">
-                    <Box className={classes.connectionBadge} onClick={() => setPreModalOpen(true)}>
-                        <WifiIcon style={{ fontSize: 11 }} />
-                        {selectedWhatsappName || "WhatsApp"}
-                        {" · "}
-                        {selectedPhone.replace(/\D/g, "").slice(-8) || "—"}
-                    </Box>
-                </Tooltip>
-
-                {/* Lista de mensagens */}
-                <Box className={classes.messagesList} ref={scrollRef}>
-                    {loading ? (
-                        <Box display="flex" justifyContent="center" pt={3}>
-                            <CircularProgress size={28} />
+                {selectedWhatsappName && activeTicket && (
+                    <Tooltip title="Clique para alterar número/conexão">
+                        <Box className={classes.connectionBadge} onClick={() => setPreModalOpen(true)}>
+                            <WifiIcon style={{ fontSize: 11 }} />
+                            {selectedWhatsappName || "WhatsApp"}
+                            {" · "}
+                            {selectedPhone.replace(/\D/g, "").slice(-8) || "—"}
                         </Box>
-                    ) : messages.length === 0 ? (
-                        <Box display="flex" justifyContent="center" mt={4}>
-                            <Typography
-                                variant="body2"
-                                color="textSecondary"
-                                style={{
-                                    backgroundColor: "#fff",
-                                    padding: "4px 12px",
-                                    borderRadius: 12,
-                                    boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)",
-                                }}
-                            >
-                                Nenhuma mensagem ainda. Inicie a conversa!
-                            </Typography>
-                        </Box>
-                    ) : (
-                        messages.map((msg) => {
-                            const isAgent = msg.senderType === "agent";
-                            return (
-                                <div
-                                    key={msg.id}
-                                    className={`${classes.messageRow} ${
-                                        isAgent ? classes.messageRowAgent : classes.messageRowLead
-                                    }`}
-                                >
-                                    <div
-                                        className={`${classes.messageBubble} ${
-                                            isAgent ? classes.bubbleAgent : classes.bubbleLead
-                                        }`}
-                                    >
-                                        <Typography className={classes.messageText}>
-                                            {msg.message}
-                                        </Typography>
-                                        <Typography className={classes.timestamp}>
-                                            {msg.createdAt
-                                                ? format(new Date(msg.createdAt), "HH:mm")
-                                                : ""}
-                                        </Typography>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </Box>
-
-                {/* Anexos selecionados */}
-                {medias.length > 0 && (
-                    <Box className={classes.attachmentChips}>
-                        {medias.map((f, idx) => (
-                            <Chip
-                                key={idx}
-                                size="small"
-                                label={f.name}
-                                onDelete={() => handleRemoveMedia(idx)}
-                                deleteIcon={<HighlightOffIcon />}
-                                style={{ maxWidth: 180 }}
-                                title={`${(f.size / 1024 / 1024).toFixed(2)} MB`}
-                            />
-                        ))}
-                    </Box>
+                    </Tooltip>
                 )}
 
-                {/* Área de entrada */}
-                <Box className={classes.inputArea}>
-                    {/* Emoji picker — posicionado acima da barra */}
-                    {showEmojiPicker && emojiData && (
-                        <Box className={classes.emojiPickerWrapper}>
-                            <Picker
-                                data={emojiData}
-                                onEmojiSelect={handleEmojiSelect}
-                                locale="pt"
-                                theme="light"
-                                previewPosition="none"
-                                set="native"
-                            />
-                        </Box>
-                    )}
-
-                    {/* Barra de ferramentas: emoji, anexo, agendamento */}
-                    <Box className={classes.toolbarRow}>
-                        <Tooltip title="Emoji">
-                            <IconButton
-                                className={classes.toolbarBtn}
-                                size="small"
-                                onClick={() => setShowEmojiPicker((v) => !v)}
-                            >
-                                <InsertEmoticonIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-
-                        <input
-                            type="file"
-                            multiple
-                            style={{ display: "none" }}
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                        />
-                        <Tooltip title="Anexar arquivo ou mídia">
-                            <IconButton
-                                className={classes.toolbarBtn}
-                                size="small"
-                                onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                            >
-                                <AttachFileIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Agendar mensagem">
-                            <IconButton
-                                className={classes.toolbarBtn}
-                                size="small"
-                                onClick={() => setScheduleModalOpen(true)}
-                            >
-                                <ScheduleIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
+                {activeTicket ? (
+                    <ReplyMessageProvider>
+                        <ForwardMessageProvider>
+                            <EditMessageProvider>
+                                <MessagesList
+                                    ticketId={activeTicket.id}
+                                    isGroup={activeTicket.isGroup}
+                                    onDrop={setDragDropFiles}
+                                    whatsappId={activeTicket.whatsappId}
+                                    queueId={activeTicket.queueId}
+                                    channel={activeTicket.channel}
+                                />
+                                <MessageInput
+                                    ticketId={activeTicket.id}
+                                    ticketStatus={activeTicket.status}
+                                    ticketChannel={activeTicket.channel}
+                                    notificameHub={false}
+                                    droppedFiles={dragDropFiles}
+                                    contactId={activeTicket.contactId}
+                                />
+                            </EditMessageProvider>
+                        </ForwardMessageProvider>
+                    </ReplyMessageProvider>
+                ) : (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                        <Typography color="textSecondary">
+                            Para iniciar a conversa, confirme o número e a conexão.
+                        </Typography>
                     </Box>
-
-                    {/* Input de texto + botão enviar */}
-                    <Box className={classes.inputRow}>
-                        <TextField
-                            className={classes.textField}
-                            variant="outlined"
-                            size="small"
-                            placeholder="Digite uma mensagem... (Enter para enviar)"
-                            multiline
-                            maxRows={4}
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            disabled={sending}
-                            onClick={() => showEmojiPicker && setShowEmojiPicker(false)}
-                        />
-                        <IconButton
-                            className={classes.sendButton}
-                            size="small"
-                            onClick={handleSend}
-                            disabled={sending || (!newMessage.trim() && medias.length === 0)}
-                        >
-                            {sending ? (
-                                <CircularProgress size={18} color="inherit" />
-                            ) : (
-                                <SendIcon fontSize="small" />
-                            )}
-                        </IconButton>
-                    </Box>
-                </Box>
+                )}
             </Paper>
-
-            {/* ─── Modal de agendamento ─────────────────────────────────────────── */}
-            <ScheduleModal
-                open={scheduleModalOpen}
-                onClose={() => setScheduleModalOpen(false)}
-                contactId={op?.contact?.id || null}
-                reload={() => {}}
-            />
         </>
     );
 };
