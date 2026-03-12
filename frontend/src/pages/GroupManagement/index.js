@@ -393,8 +393,8 @@ export default function GroupManagement() {
         <Paper className={classes.panel}>
           <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Campanhas de grupos</Typography></Box>
           <Box style={{ padding: 10, display: "grid", gap: 8 }}>
-            <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => setCampaignForm((p) => ({ ...p, name: e.target.value }))} />
-            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => setCampaignForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
+            <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, name: value })); }} />
+            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, whatsappId: value })); }} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
             <FormControl variant="outlined" size="small">
               <InputLabel>Template (Opcional)</InputLabel>
               <Select 
@@ -424,7 +424,7 @@ export default function GroupManagement() {
             </FormControl>
             <FormControl variant="outlined" size="small">
               <InputLabel>Tipo de conteúdo</InputLabel>
-              <Select value={campaignForm.messageType || "text"} onChange={(e) => { setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); setCampaignFileKey(k => k + 1); }} label="Tipo de conteúdo">
+              <Select value={campaignForm.messageType || "text"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, messageType: value, mediaContent: null })); setCampaignFileKey(k => k + 1); }} label="Tipo de conteúdo">
                 <MenuItem value="text">Texto</MenuItem>
                 <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
                 <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
@@ -456,7 +456,7 @@ export default function GroupManagement() {
               </Box>
             )}
 
-            <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(campaignForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+            <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(campaignForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={campaignForm.message} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, message: value })); }} />
 
             {campaignForm.messageType === "buttons" && (
               <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
@@ -515,7 +515,7 @@ export default function GroupManagement() {
             
             <FormControl variant="outlined" size="small">
               <InputLabel>Mencionar membros</InputLabel>
-              <Select value={campaignForm.mentionsMode || "none"} onChange={(e) => setCampaignForm((p) => ({ ...p, mentionsMode: e.target.value }))} label="Mencionar membros">
+              <Select value={campaignForm.mentionsMode || "none"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, mentionsMode: value })); }} label="Mencionar membros">
                 <MenuItem value="none">Não mencionar</MenuItem>
                 <MenuItem value="all">Mencionar todos (@todos)</MenuItem>
               </Select>
@@ -526,7 +526,7 @@ export default function GroupManagement() {
               <Select 
                 multiple 
                 value={campaignForm.groupIds || []} 
-                onChange={(e) => setCampaignForm((p) => ({ ...p, groupIds: e.target.value }))} 
+                onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, groupIds: value })); }} 
                 label="Grupos alvos (Vazio = Todos da conexão)"
                 renderValue={(selected) => <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{selected.map((val) => <Chip key={val} size="small" label={groups.find(g => g.id === val)?.subject || val} />)}</Box>}
               >
@@ -543,7 +543,7 @@ export default function GroupManagement() {
                 size="small" 
                 label="Intervalo entre grupos (segundos)" 
                 value={campaignForm.intervalSeconds} 
-                onChange={(e) => setCampaignForm((p) => ({ ...p, intervalSeconds: e.target.value }))} 
+                onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, intervalSeconds: value })); }} 
               />
               <FormControl variant="outlined" size="small">
                 <InputLabel>Simular digitação/gravação</InputLabel>
@@ -555,17 +555,17 @@ export default function GroupManagement() {
             
             <FormControl variant="outlined" size="small">
               <InputLabel>Tipo de envio</InputLabel>
-              <Select value={campaignForm.scheduleMode || "now"} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduleMode: e.target.value }))} label="Tipo de envio">
+              <Select value={campaignForm.scheduleMode || "now"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, scheduleMode: value })); }} label="Tipo de envio">
                 <MenuItem value="now">Enviar agora</MenuItem>
                 <MenuItem value="scheduled">Agendar envio</MenuItem>
               </Select>
             </FormControl>
             {campaignForm.scheduleMode === "scheduled" && (
               <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduledAt: e.target.value }))} />
+                <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, scheduledAt: value })); }} />
                 <FormControl variant="outlined" size="small">
                   <InputLabel>Recorrência</InputLabel>
-                  <Select value={campaignForm.recurrenceRule || "none"} onChange={(e) => setCampaignForm((p) => ({ ...p, recurrenceRule: e.target.value }))} label="Recorrência">
+                  <Select value={campaignForm.recurrenceRule || "none"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, recurrenceRule: value })); }} label="Recorrência">
                     <MenuItem value="none">Único</MenuItem>
                     <MenuItem value="daily">Diário</MenuItem>
                     <MenuItem value="weekly">Semanal</MenuItem>
@@ -644,11 +644,11 @@ export default function GroupManagement() {
             <Paper className={classes.panel}>
               <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Templates</Typography></Box>
               <Box style={{ padding: 10, display: "grid", gap: 8 }}>
-                <TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))} />
+                <TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, name: value })); }} />
                 
                 <FormControl variant="outlined" size="small">
                   <InputLabel>Tipo de conteúdo</InputLabel>
-                  <Select value={templateForm.messageType || "text"} onChange={(e) => { setTemplateForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null })); setTemplateFileKey(k => k + 1); }} label="Tipo de conteúdo">
+                  <Select value={templateForm.messageType || "text"} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, messageType: value, mediaContent: null })); setTemplateFileKey(k => k + 1); }} label="Tipo de conteúdo">
                     <MenuItem value="text">Texto</MenuItem>
                     <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
                     <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
@@ -681,7 +681,7 @@ export default function GroupManagement() {
                   </Box>
                 )}
 
-                <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(templateForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} />
+                <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(templateForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={templateForm.message} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, message: value })); }} />
                 
                 {templateForm.messageType === "buttons" && (
                   <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
@@ -755,12 +755,12 @@ export default function GroupManagement() {
         <DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}>
           <FormControl variant="outlined" size="small" fullWidth>
             <InputLabel>Conexão (WhatsApp)</InputLabel>
-            <Select value={newGroupForm.whatsappId} onChange={(e) => setNewGroupForm(p => ({ ...p, whatsappId: e.target.value }))} label="Conexão (WhatsApp)">
+            <Select value={newGroupForm.whatsappId} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, whatsappId: value })); }} label="Conexão (WhatsApp)">
               {connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
             </Select>
           </FormControl>
-          <TextField variant="outlined" size="small" label="Nome do grupo" fullWidth value={newGroupForm.subject} onChange={(e) => setNewGroupForm(p => ({ ...p, subject: e.target.value }))} />
-          <TextField variant="outlined" size="small" label="Participantes (Separados por vírgula)" fullWidth multiline rows={3} value={newGroupForm.participants} onChange={(e) => setNewGroupForm(p => ({ ...p, participants: e.target.value }))} placeholder="Ex: 5511999999999, 5511888888888" />
+          <TextField variant="outlined" size="small" label="Nome do grupo" fullWidth value={newGroupForm.subject} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, subject: value })); }} />
+          <TextField variant="outlined" size="small" label="Participantes (Separados por vírgula)" fullWidth multiline rows={3} value={newGroupForm.participants} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, participants: value })); }} placeholder="Ex: 5511999999999, 5511888888888" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateGroupModal(false)} color="secondary">Cancelar</Button>
