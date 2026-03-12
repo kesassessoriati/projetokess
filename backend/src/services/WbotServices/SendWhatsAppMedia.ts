@@ -196,7 +196,6 @@ const SendWhatsAppMedia = async ({
         audio: fs.readFileSync(convert),
         mimetype: "audio/ogg; codecs=opus",
         ptt: true,
-        caption: bodyMedia,
         contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
       };
       unlinkSync(convert);

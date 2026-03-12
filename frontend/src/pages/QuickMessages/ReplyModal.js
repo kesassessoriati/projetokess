@@ -23,6 +23,7 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
   const [groupId, setGroupId] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [file, setFile] = useState(null);
+  const [type, setType] = useState("text");
 
   useEffect(() => {
     if (reply) {
@@ -30,11 +31,39 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
       setMessage(reply.message || "");
       setGroupId(reply.groupId || "");
       setMediaUrl(reply.mediaUrl || "");
+
+      if (reply.mediaUrl) {
+          if (reply.mediaType?.startsWith('image')) setType('image');
+          else if (reply.mediaType?.startsWith('video')) setType('video');
+          else if (reply.mediaType?.startsWith('audio')) setType('audio');
+          else setType('file');
+      } else {
+          setType("text");
+      }
+    } else {
+      setShortcut("");
+      setMessage("");
+      setGroupId("");
+      setMediaUrl("");
+      setFile(null);
+      setType("text");
     }
-  }, [reply]);
+  }, [reply, open]);
+
+  const handleTypeChange = (newType) => {
+    if (newType === 'text') {
+        setFile(null);
+    } else if (newType === 'audio') {
+        setMessage("");
+    }
+    setType(newType);
+  };
 
   const handleSave = async () => {
     try {
+      if (type === 'audio') {
+        setMessage(""); 
+      }
       const payload = { shortcut, message, groupId: groupId || null };
       let replyResponse;
 
@@ -54,6 +83,9 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
         formData.append("typeArch", "quickReply");
         await api.post(`/quick-replies/${id}/media`, formData);
         toast.success("Mídia anexada com sucesso!");
+      } else if (type !== "text" && !mediaUrl) {
+         // if they didn't upload file and didn't have one initially, warn maybe?
+         toast.warn("Lembre-se de anexar uma mídia caso tenha mudado o tipo.");
       }
 
       onClose();
@@ -82,6 +114,20 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
               ))}
             </Select>
           </FormControl>
+          <FormControl variant="outlined" style={{ marginBottom: 16 }}>
+            <InputLabel>Tipo de Resposta</InputLabel>
+            <Select
+              value={type}
+              onChange={(e) => handleTypeChange(e.target.value)}
+              label="Tipo de Resposta"
+            >
+              <MenuItem value="text">Texto</MenuItem>
+              <MenuItem value="image">Imagem</MenuItem>
+              <MenuItem value="video">Vídeo</MenuItem>
+              <MenuItem value="audio">Áudio</MenuItem>
+              <MenuItem value="file">Arquivo / Outros</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             label="Atalho"
             fullWidth
@@ -91,28 +137,33 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
             style={{ marginBottom: 16 }}
             helperText="Ex: /bomdia"
           />
-          <TextField
-            label="Mensagem"
-            fullWidth
-            variant="outlined"
-            multiline
-            rows={5}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            style={{ marginBottom: 16 }}
-            helperText="Variáveis dinâmicas suportadas: {firstName}, {name}, {date}, {time}"
-          />
-          <Button variant="outlined" component="label" style={{ marginBottom: 8 }}>
-            Upload de Mídia
-            <input
-              type="file"
-              hidden
-              onChange={(e) => setFile(e.target.files[0])}
+          {type !== "audio" && (
+            <TextField
+              label={type === "text" ? "Mensagem" : "Legenda (opcional)"}
+              fullWidth
+              variant="outlined"
+              multiline
+              rows={5}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              style={{ marginBottom: 16 }}
+              helperText="Variáveis dinâmicas suportadas: {firstName}, {name}, {date}, {time}"
             />
-          </Button>
-          {(file || mediaUrl) && (
+          )}
+          {type !== "text" && (
+            <Button variant="outlined" component="label" style={{ marginBottom: 8 }}>
+              Upload de Mídia
+              <input
+                type="file"
+                hidden
+                accept={type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*'}
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+            </Button>
+          )}
+          {(file || mediaUrl) && type !== "text" && (
             <Typography variant="caption" color="primary">
-              Mídia selecionada: {file ? file.name : mediaUrl}
+              Mídia selecionada: {file ? file.name : (mediaUrl ? mediaUrl.split('/').pop() : '')}
             </Typography>
           )}
         </Box>

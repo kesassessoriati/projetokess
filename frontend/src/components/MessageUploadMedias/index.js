@@ -47,7 +47,7 @@ const useStyles = makeStyles((theme) => ({
 const MessageUploadMedias = ({ isOpen, files, onClose, onSend, onCancelSelection }) => {
     const classes = useStyles();
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [captions, setCaptions] = useState(files.map(() => ''));
+    const [captions, setCaptions] = useState(files.map(f => f.caption || ''));
     const [numPages, setNumPages] = React.useState(null);
     const [componentMounted, setComponentMounted] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
@@ -97,9 +97,10 @@ const MessageUploadMedias = ({ isOpen, files, onClose, onSend, onCancelSelection
     };
 
     const handleSend = () => {
-        const selectedMedias = files.map((file, index) => ({
-            file,
+        const selectedMedias = files.map((item, index) => ({
+            file: item.file || item,
             caption: captions[index],
+            type: item.type || (item.file && item.file.type) || ""
         }));
         onSend(selectedMedias);
         handleClose();
@@ -110,7 +111,8 @@ const MessageUploadMedias = ({ isOpen, files, onClose, onSend, onCancelSelection
             return null;
         }
         if (firstTyping) {
-            const currentFile = files[currentIndex];
+            const currentItem = files[currentIndex];
+            const currentFile = currentItem.file || currentItem;
             if (currentFile.type.startsWith('image')) {
                 return (
                     <>
@@ -299,20 +301,22 @@ const MessageUploadMedias = ({ isOpen, files, onClose, onSend, onCancelSelection
                     <Card>
                         {renderFileContent}
                         <CardContent className={classes.modal}>
-                            <div className={classes.messageInputWrapperPrivate}>
-                                <InputBase
-                                    placeholder="Legenda (opcional)"
-                                    fullWidth
-                                    multiline
-                                    minRows={1}
-                                    maxRows={5}
-                                    value={captions[currentIndex]}
-                                    onChange={handleCaptionChange}
-                                    onBlur={handleTextFieldBlur}
-                                    autoFocus
-                                    onKeyDown={handleKeyDown}
-                                />
-                            </div>
+                            {!((files[currentIndex]?.type || files[currentIndex]?.file?.type || "").startsWith('audio')) && (
+                                <div className={classes.messageInputWrapperPrivate}>
+                                    <InputBase
+                                        placeholder="Legenda (opcional)"
+                                        fullWidth
+                                        multiline
+                                        minRows={1}
+                                        maxRows={5}
+                                        value={captions[currentIndex] || ''}
+                                        onChange={handleCaptionChange}
+                                        onBlur={handleTextFieldBlur}
+                                        autoFocus
+                                        onKeyDown={handleKeyDown}
+                                    />
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </DialogContent>

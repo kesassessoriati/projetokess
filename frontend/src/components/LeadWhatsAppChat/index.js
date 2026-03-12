@@ -25,6 +25,8 @@ import MessageInput from "../MessageInput";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { ForwardMessageProvider } from "../../context/ForwarMessage/ForwardMessageContext";
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
+import { QueueSelectedProvider } from "../../context/QueuesSelected/QueuesSelectedContext";
+
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
@@ -309,28 +311,30 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                 )}
 
                 {activeTicket ? (
-                    <ReplyMessageProvider>
-                        <ForwardMessageProvider>
-                            <EditMessageProvider>
-                                <MessagesList
-                                    ticketId={activeTicket.id}
-                                    isGroup={activeTicket.isGroup}
-                                    onDrop={setDragDropFiles}
-                                    whatsappId={activeTicket.whatsappId}
-                                    queueId={activeTicket.queueId}
-                                    channel={activeTicket.channel}
-                                />
-                                <MessageInput
-                                    ticketId={activeTicket.id}
-                                    ticketStatus={activeTicket.status}
-                                    ticketChannel={activeTicket.channel}
-                                    notificameHub={false}
-                                    droppedFiles={dragDropFiles}
-                                    contactId={activeTicket.contactId}
-                                />
-                            </EditMessageProvider>
-                        </ForwardMessageProvider>
-                    </ReplyMessageProvider>
+                    <QueueSelectedProvider>
+                        <ReplyMessageProvider>
+                            <ForwardMessageProvider>
+                                <EditMessageProvider>
+                                    <MessagesList
+                                        ticketId={activeTicket.uuid}
+                                        isGroup={activeTicket.isGroup}
+                                        onDrop={setDragDropFiles}
+                                        whatsappId={activeTicket.whatsappId}
+                                        queueId={activeTicket.queueId}
+                                        channel={activeTicket.channel}
+                                    />
+                                    <MessageInput
+                                        ticketId={activeTicket.id}
+                                        ticketStatus={activeTicket.status}
+                                        ticketChannel={activeTicket.channel}
+                                        notificameHub={false}
+                                        droppedFiles={dragDropFiles}
+                                        contactId={activeTicket.contactId}
+                                    />
+                                </EditMessageProvider>
+                            </ForwardMessageProvider>
+                        </ReplyMessageProvider>
+                    </QueueSelectedProvider>
                 ) : (
                     <Box display="flex" justifyContent="center" alignItems="center" height="100%">
                         <Typography color="textSecondary">

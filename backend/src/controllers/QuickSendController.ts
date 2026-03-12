@@ -143,14 +143,30 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             where: {
                 contactId: contact.id,
                 companyId,
-                status: { [Op.in]: ["open", "pending"] }
+                whatsappId: whatsapp.id
             },
             order: [["updatedAt", "DESC"]]
         });
 
         const io = getIO();
 
-        if (!ticket) {
+        if (ticket && ["closed", "nps", "lgpd"].includes(ticket.status)) {
+            await UpdateTicketService({
+                ticketId: ticket.id,
+                companyId,
+                ticketData: {
+                    status: "open",
+                    userId,
+                    queueId: queueId || ticket.queueId,
+                    whatsappId: whatsapp.id
+                }
+            });
+            ticket = await ShowTicketService(ticket.id, companyId);
+            io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
+                action: "update",
+                ticket
+            });
+        } else if (!ticket) {
             ticket = await Ticket.create({
                 contactId: contact.id,
                 whatsappId: whatsapp.id,
@@ -179,7 +195,8 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                 ticketData: {
                     status: "open",
                     userId,
-                    queueId: queueId || ticket.queueId
+                    queueId: queueId || ticket.queueId,
+                    whatsappId: whatsapp.id
                 }
             });
             ticket = await ShowTicketService(ticket.id, companyId);
