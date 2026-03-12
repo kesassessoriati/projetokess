@@ -11,6 +11,8 @@ import OpportunityEvent from "../models/OpportunityEvent";
 import AISuggestionFeedback from "../models/AISuggestionFeedback";
 import AppError from "../errors/AppError";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import UpdateOpportunityEventService from "../services/OpportunityServices/UpdateOpportunityEventService";
+import DeleteOpportunityEventService from "../services/OpportunityServices/DeleteOpportunityEventService";
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
 import { ExecuteKanbanAutomationService } from "../services/KanbanAutomationServices/ExecuteKanbanAutomationService";
 import { getIO } from "../libs/socket";
@@ -144,6 +146,32 @@ export const listEvents = async (req: Request, res: Response): Promise<Response>
     });
 
     return res.status(200).json(events);
+};
+
+export const updateEvent = async (req: Request, res: Response): Promise<Response> => {
+    const { eventId } = req.params;
+    const { metadata } = req.body;
+    const { companyId } = req.user;
+
+    const event = await UpdateOpportunityEventService({
+        eventId: Number(eventId),
+        companyId,
+        metadata
+    });
+
+    return res.status(200).json(event);
+};
+
+export const removeEvent = async (req: Request, res: Response): Promise<Response> => {
+    const { eventId } = req.params;
+    const { companyId } = req.user;
+
+    await DeleteOpportunityEventService({
+        eventId: Number(eventId),
+        companyId
+    });
+
+    return res.status(200).json({ message: "Evento removido" });
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {

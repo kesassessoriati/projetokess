@@ -36,10 +36,13 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 const useStyles = makeStyles((theme) => ({
   root: {
     height: "100%",
-    minHeight: "calc(100vh - 64px)",
+    minHeight: "calc(100vh - 112px)",
     background: "radial-gradient(circle at top left, #effaf2 0%, #e5f2e9 42%, #ddebe3 100%)",
     padding: 14,
-    overflow: "hidden"
+    overflow: "hidden",
+    [theme.breakpoints.down("md")]: {
+      minHeight: "calc(100vh - 64px)",
+    }
   },
   shell: { height: "100%", display: "flex", flexDirection: "column", gap: 10 },
   header: {

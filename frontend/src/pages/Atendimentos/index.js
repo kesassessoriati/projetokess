@@ -155,10 +155,14 @@ const useStyles = makeStyles(theme => ({
 	},
 	root: {
 		display: "flex",
-		height: "calc(100vh - 64px)",
-		minHeight: "calc(100vh - 64px)",
+		height: "calc(100vh - 112px)",
+		minHeight: "calc(100vh - 112px)",
 		backgroundColor: "#111b21",
 		overflow: "hidden",
+		[theme.breakpoints.down("md")]: {
+			height: "calc(100vh - 64px)",
+			minHeight: "calc(100vh - 64px)",
+		},
 		[theme.breakpoints.down("sm")]: {
 			height: "calc(100vh - 56px)",
 			minHeight: "calc(100vh - 56px)",
@@ -332,11 +336,14 @@ const useStyles = makeStyles(theme => ({
 		flex: 1,
 		display: "flex",
 		flexDirection: "column",
-		height: "calc(100vh - 64px)",
+		height: "calc(100vh - 112px)",
 		backgroundColor: "#ffffff",
 		position: "relative",
 		overflow: "hidden",
 		top: 0,
+		[theme.breakpoints.down("md")]: {
+			height: "calc(100vh - 64px)",
+		},
 	},
 	chatAreaMobile: {
 		width: "100%",

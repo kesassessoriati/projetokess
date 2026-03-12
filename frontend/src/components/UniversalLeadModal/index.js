@@ -19,11 +19,14 @@ import ListAltIcon from "@material-ui/icons/ListAlt";
 import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import InfoIcon from "@material-ui/icons/Info";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
-import InfoIcon from "@material-ui/icons/Info";
+import EditIcon from "@material-ui/icons/Edit";
+import DeleteIcon from "@material-ui/icons/Delete";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
+import ConfirmationModal from "../ConfirmationModal";
 import LeadWhatsAppChat from "../LeadWhatsAppChat";
 import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
@@ -120,6 +123,21 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activities, setActivities] = useState([]);
     const [cardColor, setCardColor] = useState(null);
     const [loadingActivities, setLoadingActivities] = useState(false);
+    const [editingActivity, setEditingActivity] = useState(null);
+    const [editingNote, setEditingNote] = useState(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [activityToDelete, setActivityToDelete] = useState(null);
+
+    useEffect(() => {
+        if (!open) {
+            setEditingActivity(null);
+            setEditingNote(null);
+            setActivityText("");
+            setNoteText("");
+            setActivityToDelete(null);
+            setConfirmDeleteOpen(false);
+        }
+    }, [open]);
 
     useEffect(() => {
         if (op && op.lead) {
@@ -178,16 +196,35 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         }
 
         try {
-            await api.post(`/opportunities/${op.id}/events`, {
-                type: activityType,
-                metadata: { text: activityText }
-            });
-            toast.success("Atividade registrada");
+            if (editingActivity) {
+                await api.put(`/opportunities/events/${editingActivity.id}`, {
+                    metadata: { text: activityText }
+                });
+                toast.success("Atividade atualizada");
+                setEditingActivity(null);
+            } else {
+                await api.post(`/opportunities/${op.id}/events`, {
+                    type: activityType,
+                    metadata: { text: activityText }
+                });
+                toast.success("Atividade registrada");
+            }
             setActivityText("");
             fetchActivities();
         } catch (err) {
             toast.error("Erro ao salvar atividade");
         }
+    };
+
+    const handleEditActivity = (activity) => {
+        setEditingActivity(activity);
+        setActivityText(activity.metadata?.text || "");
+        setActivityType(activity.type);
+    };
+
+    const handleCancelEditActivity = () => {
+        setEditingActivity(null);
+        setActivityText("");
     };
 
     const handleSaveNote = async () => {
@@ -198,15 +235,55 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         }
 
         try {
-            await api.post(`/opportunities/${op.id}/events`, {
-                type: "ANOTACAO",
-                metadata: { text: noteText }
-            });
-            toast.success("Anotação adicionada");
+            if (editingNote) {
+                await api.put(`/opportunities/events/${editingNote.id}`, {
+                    metadata: { text: noteText }
+                });
+                toast.success("Anotação atualizada");
+                setEditingNote(null);
+            } else {
+                await api.post(`/opportunities/${op.id}/events`, {
+                    type: "ANOTACAO",
+                    metadata: { text: noteText }
+                });
+                toast.success("Anotação adicionada");
+            }
             setNoteText("");
             fetchActivities();
         } catch (err) {
             toast.error("Erro ao salvar anotação");
+        }
+    };
+
+    const handleEditNote = (note) => {
+        setEditingNote(note);
+        setNoteText(note.metadata?.text || "");
+    };
+
+    const handleCancelEditNote = () => {
+        setEditingNote(null);
+        setNoteText("");
+    };
+
+    const handleDeleteActivity = async () => {
+        if (!activityToDelete) return;
+
+        try {
+            await api.delete(`/opportunities/events/${activityToDelete.id}`);
+            toast.success("Item removido");
+            if (editingActivity && editingActivity.id === activityToDelete.id) {
+                setEditingActivity(null);
+                setActivityText("");
+            }
+            if (editingNote && editingNote.id === activityToDelete.id) {
+                setEditingNote(null);
+                setNoteText("");
+            }
+            setActivityToDelete(null);
+            setConfirmDeleteOpen(false);
+            fetchActivities();
+        } catch (err) {
+            toast.error("Erro ao remover item");
         }
     };
 
@@ -439,8 +516,17 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                         style={{ textTransform: "none", backgroundColor: "#10b981", boxShadow: "none" }}
                                         onClick={handleSaveActivity}
                                     >
-                                        Salvar
+                                        {editingActivity ? "Atualizar" : "Salvar"}
                                     </Button>
+                                    {editingActivity && (
+                                        <Button
+                                            size="small"
+                                            style={{ textTransform: "none" }}
+                                            onClick={handleCancelEditActivity}
+                                        >
+                                            Cancelar
+                                        </Button>
+                                    )}
                                 </Box>
                             </Box>
 
@@ -450,13 +536,25 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                     <Typography variant="body2" color="textSecondary">Carregando atividades...</Typography>
                                 ) : activities.filter(a => a.type !== "ANOTACAO").length > 0 ? (
                                     activities.filter(a => a.type !== "ANOTACAO").map(act => (
-                                        <Box key={act.id} mb={2}>
-                                            <Typography variant="caption" color="textSecondary">
-                                                {new Date(act.createdAt).toLocaleString()} • {act.type}
-                                            </Typography>
-                                            <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4 }}>
-                                                {act.metadata?.text ? act.metadata.text : act.type === "MOVED" ? "Estágio alterado no funil" : "-"}
-                                            </Typography>
+                                        <Box key={act.id} mb={2} display="flex" justifyContent="space-between" alignItems="flex-start">
+                                            <Box>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    {new Date(act.createdAt).toLocaleString()} • {act.type}
+                                                </Typography>
+                                                <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4 }}>
+                                                    {act.metadata?.text ? act.metadata.text : act.type === "MOVED" ? "Estágio alterado no funil" : "-"}
+                                                </Typography>
+                                            </Box>
+                                            {act.type !== "MOVED" && (
+                                                <Box display="flex">
+                                                    <IconButton size="small" onClick={() => handleEditActivity(act)}>
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton size="small" onClick={() => { setActivityToDelete(act); setConfirmDeleteOpen(true); }}>
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            )}
                                         </Box>
                                     ))
                                 ) : (
@@ -481,15 +579,24 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 onChange={(e) => setNoteText(e.target.value)}
                             />
                             <Box display="flex" justifyContent="flex-end" mt={1} mb={3}>
-                                <Button
-                                    variant="contained"
-                                    size="small"
-                                    style={{ backgroundColor: "#f59e0b", color: "white", boxShadow: "none", textTransform: "none" }}
-                                    onClick={handleSaveNote}
-                                >
-                                    Adicionar anotação
-                                </Button>
-                            </Box>
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        style={{ backgroundColor: "#f59e0b", color: "white", boxShadow: "none", textTransform: "none" }}
+                                        onClick={handleSaveNote}
+                                    >
+                                        {editingNote ? "Atualizar anotação" : "Adicionar anotação"}
+                                    </Button>
+                                    {editingNote && (
+                                        <Button
+                                            size="small"
+                                            style={{ textTransform: "none" }}
+                                            onClick={handleCancelEditNote}
+                                        >
+                                            Cancelar
+                                        </Button>
+                                    )}
+                                </Box>
 
                             <Typography variant="subtitle2" style={{ fontWeight: 600, color: "#999", marginBottom: 8 }}>MURAL DE ANOTAÇÕES</Typography>
                             <Box>
@@ -497,13 +604,23 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                     <Typography variant="body2" color="textSecondary">Carregando anotações...</Typography>
                                 ) : activities.filter(a => a.type === "ANOTACAO").length > 0 ? (
                                     activities.filter(a => a.type === "ANOTACAO").map(note => (
-                                        <Box key={note.id} mb={2} p={2} style={{ backgroundColor: "#fef9c3", borderRadius: 8, border: "1px solid #fde047" }}>
-                                            <Typography variant="caption" color="textSecondary">
-                                                {new Date(note.createdAt).toLocaleString()}
-                                            </Typography>
-                                            <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4, whiteSpace: "pre-wrap" }}>
-                                                {note.metadata?.text || "-"}
-                                            </Typography>
+                                        <Box key={note.id} mb={2} p={2} style={{ backgroundColor: "#fef9c3", borderRadius: 8, border: "1px solid #fde047" }} display="flex" justifyContent="space-between" alignItems="flex-start">
+                                            <Box flexGrow={1}>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    {new Date(note.createdAt).toLocaleString()}
+                                                </Typography>
+                                                <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4, whiteSpace: "pre-wrap" }}>
+                                                    {note.metadata?.text || "-"}
+                                                </Typography>
+                                            </Box>
+                                            <Box display="flex">
+                                                <IconButton size="small" onClick={() => handleEditNote(note)}>
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" onClick={() => { setActivityToDelete(note); setConfirmDeleteOpen(true); }}>
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
                                         </Box>
                                     ))
                                 ) : (
@@ -569,6 +686,15 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 onClose={() => setLeadAppointmentOpen(false)}
                 op={op}
             />
+
+            <ConfirmationModal
+                title="Confirmar Exclusão"
+                open={confirmDeleteOpen}
+                onClose={() => setConfirmDeleteOpen(false)}
+                onConfirm={handleDeleteActivity}
+            >
+                Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.
+            </ConfirmationModal>
 
         </Dialog>
     );

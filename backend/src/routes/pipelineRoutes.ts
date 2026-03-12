@@ -31,5 +31,7 @@ pipelineRoutes.post("/opportunities/:id/move", isAuth, OpportunityController.mov
 pipelineRoutes.post("/opportunities/:id/feedback", isAuth, OpportunityController.feedback);
 pipelineRoutes.post("/opportunities/:id/events", isAuth, OpportunityController.addEvent);
 pipelineRoutes.get("/opportunities/:id/events", isAuth, OpportunityController.listEvents);
+pipelineRoutes.put("/opportunities/events/:eventId", isAuth, OpportunityController.updateEvent);
+pipelineRoutes.delete("/opportunities/events/:eventId", isAuth, OpportunityController.removeEvent);
 
 export default pipelineRoutes;

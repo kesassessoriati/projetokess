@@ -146,6 +146,19 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  secondaryBar: {
+    minHeight: "48px",
+    display: "flex",
+    alignItems: "center",
+    padding: "0 24px",
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    backdropFilter: "blur(4px)",
+    borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
+    borderTop: "1px solid rgba(0, 0, 0, 0.04)",
+    [theme.breakpoints.down("md")]: {
+      display: "none",
+    },
+  },
   headerLeft: {
     display: "flex",
     alignItems: "center",
@@ -577,10 +590,10 @@ const useStyles = makeStyles((theme) => ({
   content: (props) => ({
     flex: 1,
     overflow: "auto",
-    marginTop: props.shouldHideLayout ? 0 : "64px",
+    marginTop: props.shouldHideLayout ? 0 : "112px",
     backgroundColor: "#f8f9fa",
-    height: props.shouldHideLayout ? "100vh" : "calc(100vh - 64px)",
-    transition: "width 0.2s ease",
+    height: props.shouldHideLayout ? "100vh" : "calc(100vh - 112px)",
+    transition: "all 0.2s ease",
     [theme.breakpoints.down("md")]: {
       marginTop: props.shouldHideLayout ? 0 : "64px",
       height: props.shouldHideLayout ? "100vh" : "calc(100vh - 64px)",
@@ -1439,6 +1452,9 @@ const LoggedInLayout = ({ children }) => {
               </Avatar>
             </div>
           </Toolbar>
+          <div className={classes.secondaryBar}>
+            {/* Espaço reservado para botões de acesso rápido secundários (futuro) */}
+          </div>
         </AppBar>
       )}
 

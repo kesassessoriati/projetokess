@@ -36,10 +36,13 @@ import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
-    minHeight: "calc(100vh - 64px)",
+    minHeight: "calc(100vh - 112px)",
     background: "radial-gradient(circle at top left, #eff6ff 0%, #e5eeff 42%, #dde8ff 100%)",
     padding: 14,
-    overflow: "auto"
+    overflow: "auto",
+    [theme.breakpoints.down("md")]: {
+      minHeight: "calc(100vh - 64px)",
+    }
   },
   header: {
     borderRadius: 16,
