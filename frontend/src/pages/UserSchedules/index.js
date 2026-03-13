@@ -28,6 +28,7 @@ import {
   ListItemText
 } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
+import ArrowBackIcon from "@material-ui/icons/ArrowBack";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
 import EventIcon from "@material-ui/icons/Event";
@@ -72,6 +73,16 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(1.5)
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    flexWrap: "wrap"
+  },
+  backButton: {
+    borderRadius: 12,
+    fontWeight: 600
   },
   titleIcon: {
     fontSize: 36,
@@ -429,7 +440,16 @@ const UserSchedules = () => {
             </Typography>
           </Box>
         </Box>
-        <Box display="flex" gap={2}>
+        <Box className={classes.headerActions}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => history.push("/compromissos")}
+            className={classes.backButton}
+          >
+            Voltar para Compromissos
+          </Button>
           {canCreateSchedule && (
             <Button
               variant="contained"
@@ -572,7 +592,7 @@ const UserSchedules = () => {
                       size="small"
                       color="primary"
                       startIcon={<EventIcon />}
-                      onClick={() => history.push(`/appointments?scheduleId=${schedule.id}`)}
+                      onClick={() => history.push(`/compromissos?scheduleId=${schedule.id}`)}
                     >
                       Compromissos
                     </Button>

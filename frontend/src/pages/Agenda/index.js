@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import {
   Box,
   Button,
   ButtonGroup,
   Chip,
   CircularProgress,
+  Divider,
   FormControl,
   IconButton,
   InputLabel,
+  LinearProgress,
   makeStyles,
   MenuItem,
   Paper,
@@ -24,22 +26,27 @@ import {
   Typography
 } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
+import ArrowForwardIcon from "@material-ui/icons/ArrowForward";
+import CalendarTodayIcon from "@material-ui/icons/CalendarToday";
+import CancelIcon from "@material-ui/icons/Cancel";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import DoneAllIcon from "@material-ui/icons/DoneAll";
 import EditIcon from "@material-ui/icons/Edit";
-import DeleteIcon from "@material-ui/icons/Delete";
+import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
+import EventAvailableIcon from "@material-ui/icons/EventAvailable";
 import EventIcon from "@material-ui/icons/Event";
 import AccessTimeIcon from "@material-ui/icons/AccessTime";
 import PersonIcon from "@material-ui/icons/Person";
 import BuildIcon from "@material-ui/icons/Build";
-import CheckCircleIcon from "@material-ui/icons/CheckCircle";
-import CancelIcon from "@material-ui/icons/Cancel";
 import ListIcon from "@material-ui/icons/List";
-import CalendarTodayIcon from "@material-ui/icons/CalendarToday";
+import ListAltIcon from "@material-ui/icons/ListAlt";
 import SyncIcon from "@material-ui/icons/Sync";
 import AssignmentTurnedInIcon from "@material-ui/icons/AssignmentTurnedIn";
-import DoneAllIcon from "@material-ui/icons/DoneAll";
-import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
-import ListAltIcon from "@material-ui/icons/ListAlt";
-import EventAvailableIcon from "@material-ui/icons/EventAvailable";
+import DeleteIcon from "@material-ui/icons/Delete";
+import FilterListIcon from "@material-ui/icons/FilterList";
+import RefreshIcon from "@material-ui/icons/Refresh";
+import TrendingUpIcon from "@material-ui/icons/TrendingUp";
+import TodayIcon from "@material-ui/icons/Today";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -51,191 +58,408 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import {
-  listUserSchedules,
   listAppointments,
-  updateAppointment,
+  syncGoogleCalendarAppointments,
   deleteAppointment,
-  syncGoogleCalendarAppointments
+  updateAppointment
 } from "../../services/userScheduleService";
-import useSafeApi from "../../hooks/useSafeApi";
 import SafeComponent from "../../components/SafeComponent";
-import toastError from "../../errors/toastError";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import AppointmentModal from "../../components/AppointmentModal";
+import toastError from "../../errors/toastError";
+import useSafeApi from "../../hooks/useSafeApi";
 
-// react-big-calendar localizer (pt-BR)
 const locales = { "pt-BR": ptBR };
 const localizer = dateFnsLocalizer({
   format: dateFnsFormat,
   parse: dateFnsParse,
-  startOfWeek: (date) => startOfWeek(date, { locale: ptBR }),
+  startOfWeek: date => startOfWeek(date, { locale: ptBR }),
   getDay,
-  locales,
+  locales
 });
 
 const calendarMessages = {
   allDay: "Dia inteiro",
   previous: "Anterior",
-  next: "Próximo",
+  next: "Proximo",
   today: "Hoje",
-  month: "Mês",
+  month: "Mes",
   week: "Semana",
   day: "Dia",
   agenda: "Agenda",
   date: "Data",
-  time: "Horário",
+  time: "Horario",
   event: "Compromisso",
-  noEventsInRange: "Nenhum compromisso neste período.",
-  showMore: (total) => `+${total} mais`,
+  noEventsInRange: "Nenhum compromisso neste periodo.",
+  showMore: total => `+${total} mais`
 };
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   root: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
-    backgroundColor: theme.palette.background.default,
+    minHeight: "100vh",
     padding: theme.spacing(3),
-    gap: theme.spacing(2),
+    gap: theme.spacing(3),
+    background:
+      "radial-gradient(circle at top left, rgba(37,99,235,0.08), transparent 28%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
     overflowY: "auto",
     ...theme.scrollbarStyles
   },
-  header: {
+  hero: {
+    position: "relative",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.4fr) minmax(320px, 0.8fr)",
+    gap: theme.spacing(3),
+    padding: theme.spacing(3.5),
+    borderRadius: 28,
+    color: "#fff",
+    background:
+      "linear-gradient(135deg, #0f172a 0%, #172554 40%, #2563eb 100%)",
+    boxShadow: "0 24px 60px rgba(15, 23, 42, 0.24)",
+    overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+      padding: theme.spacing(2.5)
+    },
+    "&:before": {
+      content: '""',
+      position: "absolute",
+      inset: "auto -80px -140px auto",
+      width: 280,
+      height: 280,
+      borderRadius: "50%",
+      background: "rgba(255,255,255,0.08)"
+    }
+  },
+  heroContent: {
+    position: "relative",
+    zIndex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(2)
+  },
+  pageBadge: {
+    alignSelf: "flex-start",
+    background: "rgba(255,255,255,0.12)",
+    color: "#e2e8f0",
+    border: "1px solid rgba(255,255,255,0.18)",
+    fontWeight: 700,
+    letterSpacing: 0.3
+  },
+  heroTitle: {
+    fontSize: 34,
+    lineHeight: 1.05,
+    fontWeight: 800,
+    [theme.breakpoints.down("sm")]: {
+      fontSize: 28
+    }
+  },
+  heroSubtitle: {
+    maxWidth: 720,
+    color: "rgba(226, 232, 240, 0.88)",
+    fontSize: 15
+  },
+  heroActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: theme.spacing(1.5)
+  },
+  primaryAction: {
+    borderRadius: 14,
+    padding: theme.spacing(1.2, 2.2),
+    boxShadow: "0 10px 24px rgba(37, 99, 235, 0.25)"
+  },
+  secondaryAction: {
+    borderRadius: 14,
+    padding: theme.spacing(1.2, 2.1),
+    color: "#fff",
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(255,255,255,0.08)"
+  },
+  heroHighlights: {
+    position: "relative",
+    zIndex: 1,
+    display: "grid",
+    gap: theme.spacing(1.5),
+    alignContent: "start"
+  },
+  highlightCard: {
+    padding: theme.spacing(2),
+    borderRadius: 20,
+    background: "rgba(15, 23, 42, 0.24)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    backdropFilter: "blur(14px)"
+  },
+  highlightLabel: {
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    color: "rgba(191, 219, 254, 0.92)"
+  },
+  highlightValue: {
+    marginTop: theme.spacing(0.5),
+    fontSize: 28,
+    fontWeight: 800
+  },
+  highlightSubtext: {
+    marginTop: theme.spacing(0.75),
+    color: "rgba(226, 232, 240, 0.84)"
+  },
+  statsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: theme.spacing(2)
+  },
+  statCard: {
+    padding: theme.spacing(2.2),
+    borderRadius: 22,
+    background: "#fff",
+    border: "1px solid rgba(148, 163, 184, 0.18)",
+    boxShadow: "0 16px 36px rgba(15, 23, 42, 0.08)",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+    "&:hover": {
+      transform: "translateY(-3px)",
+      boxShadow: "0 22px 46px rgba(15, 23, 42, 0.12)"
+    }
+  },
+  statCardTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    flexWrap: "wrap",
-    gap: theme.spacing(2)
-  },
-  titleSection: {
-    display: "flex",
-    flexDirection: "column"
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 600,
-    color: theme.palette.text.primary
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.palette.text.secondary
-  },
-  statsRow: {
-    display: "flex",
-    gap: theme.spacing(2),
-    flexWrap: "wrap"
-  },
-  statCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(2),
-    padding: theme.spacing(2),
-    borderRadius: 12,
-    backgroundColor: theme.palette.background.paper,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
-    minWidth: 160,
-    flex: "1 1 auto",
-    transition: "transform 0.2s, box-shadow 0.2s",
-    border: "1px solid rgba(0,0,0,0.05)",
-    "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-    }
+    marginBottom: theme.spacing(1.5)
   },
   statIconBox: {
+    width: 52,
+    height: 52,
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-  },
-  statDetails: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  statValue: {
-    fontWeight: 700,
-    fontSize: 22
+    borderRadius: 16
   },
   statLabel: {
     fontSize: 13,
-    fontWeight: 500,
-    color: theme.palette.text.secondary
+    color: "#64748b",
+    fontWeight: 600
   },
-  controls: {
-    display: "flex",
+  statValue: {
+    fontSize: 28,
+    fontWeight: 800,
+    lineHeight: 1
+  },
+  statFooter: {
+    marginTop: theme.spacing(1.5),
+    color: "#475569",
+    fontSize: 12
+  },
+  controlsGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.5fr) minmax(320px, 0.9fr)",
     gap: theme.spacing(2),
-    flexWrap: "wrap",
-    alignItems: "center"
-  },
-  filterContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(2),
-    padding: theme.spacing(2),
-    borderRadius: 12,
-    backgroundColor: theme.palette.background.paper,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-    flexWrap: "wrap",
-    border: "1px solid rgba(0,0,0,0.05)",
-  },
-  filterField: {
-    minWidth: 140
-  },
-  tableContainer: {
-    borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-    flex: 1,
-    border: "1px solid rgba(0,0,0,0.05)",
-  },
-  tableHead: {
-    backgroundColor: theme.palette.grey[50]
-  },
-  tableHeadCell: {
-    fontWeight: 600,
-    color: "#4b5563"
-  },
-  tableRow: {
-    transition: "background-color 0.2s, transform 0.2s",
-    "&:hover": {
-      backgroundColor: "rgba(59, 130, 246, 0.04) !important",
-      transform: "scale(1.002)"
+    [theme.breakpoints.down("md")]: {
+      gridTemplateColumns: "1fr"
     }
   },
-  upcomingEventRow: {
-    borderLeft: "4px solid #10b981",
+  filterPanel: {
+    padding: theme.spacing(2.5),
+    borderRadius: 24,
+    background: "rgba(255,255,255,0.88)",
+    backdropFilter: "blur(10px)",
+    border: "1px solid rgba(148,163,184,0.18)",
+    boxShadow: "0 16px 32px rgba(15, 23, 42, 0.06)"
   },
-  statusChip: {
-    fontWeight: 600,
-    fontSize: 12,
-    borderRadius: 6
+  panelHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    flexWrap: "wrap"
+  },
+  panelTitleWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.2)
+  },
+  panelIconWrap: {
+    width: 42,
+    height: 42,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 14,
+    background: "linear-gradient(135deg, rgba(37,99,235,0.14), rgba(59,130,246,0.24))",
+    color: "#1d4ed8"
+  },
+  panelTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#0f172a"
+  },
+  panelSubtitle: {
+    fontSize: 13,
+    color: "#64748b"
+  },
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: theme.spacing(1.5)
+  },
+  filterActions: {
+    display: "flex",
+    gap: theme.spacing(1),
+    flexWrap: "wrap"
+  },
+  quickPanel: {
+    padding: theme.spacing(2.5),
+    borderRadius: 24,
+    background: "#0f172a",
+    color: "#fff",
+    boxShadow: "0 18px 40px rgba(15, 23, 42, 0.18)"
+  },
+  quickList: {
+    display: "grid",
+    gap: theme.spacing(1.2),
+    marginTop: theme.spacing(2)
+  },
+  quickItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(1.4, 1.6),
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.08)"
+  },
+  quickItemLabel: {
+    color: "rgba(226, 232, 240, 0.84)"
+  },
+  viewToolbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(2),
+    flexWrap: "wrap"
+  },
+  viewToggle: {
+    borderRadius: 16,
+    overflow: "hidden",
+    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+    "& .MuiButton-root": {
+      borderRadius: 0,
+      padding: theme.spacing(1.1, 1.8),
+      fontWeight: 700,
+      textTransform: "none"
+    }
+  },
+  contentShell: {
+    padding: theme.spacing(2.5),
+    borderRadius: 28,
+    background: "rgba(255,255,255,0.94)",
+    border: "1px solid rgba(148,163,184,0.18)",
+    boxShadow: "0 20px 44px rgba(15, 23, 42, 0.08)"
+  },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(2),
+    flexWrap: "wrap",
+    marginBottom: theme.spacing(2)
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#0f172a"
+  },
+  sectionMeta: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing(1)
+  },
+  neutralChip: {
+    borderRadius: 999,
+    fontWeight: 700,
+    background: "#e2e8f0",
+    color: "#334155"
   },
   loadingContainer: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 200
+    minHeight: 240
   },
   emptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     textAlign: "center",
-    padding: theme.spacing(6),
-    color: theme.palette.text.secondary
+    minHeight: 320,
+    borderRadius: 24,
+    background: "linear-gradient(180deg, rgba(248,250,252,0.98), rgba(241,245,249,0.95))",
+    border: "1px dashed rgba(148,163,184,0.5)",
+    color: "#64748b",
+    padding: theme.spacing(4)
+  },
+  tableContainer: {
+    borderRadius: 20,
+    border: "1px solid rgba(148,163,184,0.16)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)"
+  },
+  tableHead: {
+    background: "linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)"
+  },
+  tableHeadCell: {
+    fontWeight: 800,
+    color: "#334155",
+    borderBottom: "1px solid rgba(148,163,184,0.16)"
+  },
+  tableRow: {
+    transition: "background-color 0.2s ease, transform 0.2s ease",
+    "& td": {
+      borderBottom: "1px solid rgba(226,232,240,0.9)"
+    },
+    "&:hover": {
+      backgroundColor: "rgba(37,99,235,0.04)"
+    }
+  },
+  upcomingEventRow: {
+    "& td:first-child": {
+      borderLeft: "4px solid #10b981"
+    }
   },
   appointmentInfo: {
     display: "flex",
     flexDirection: "column",
-    gap: 4
+    gap: 6
   },
-  appointmentTitle: {
-    fontWeight: 600
-  },
-  appointmentMeta: {
+  appointmentTitleRow: {
     display: "flex",
     alignItems: "center",
-    gap: 4,
+    gap: theme.spacing(1)
+  },
+  appointmentTitle: {
+    fontWeight: 700,
+    color: "#0f172a"
+  },
+  appointmentDesc: {
+    color: "#64748b",
+    maxWidth: 360
+  },
+  appointmentMeta: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    color: "#475569",
     fontSize: 13,
-    color: theme.palette.text.secondary
+    fontWeight: 500
+  },
+  statusChip: {
+    borderRadius: 999,
+    fontWeight: 700,
+    minWidth: 110
   },
   actionsBox: {
     display: "flex",
@@ -243,123 +467,147 @@ const useStyles = makeStyles((theme) => ({
     gap: 4
   },
   calendarWrapper: {
-    flex: 1,
-    minHeight: 600,
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    minHeight: 640,
     padding: theme.spacing(2),
-    border: "1px solid rgba(0,0,0,0.05)",
+    borderRadius: 24,
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.95))",
+    border: "1px solid rgba(148,163,184,0.16)",
     "& .rbc-calendar": {
+      minHeight: 600,
       height: "100%",
-      minHeight: 560,
-      fontFamily: theme.typography.fontFamily,
+      fontFamily: theme.typography.fontFamily
     },
-    "& .rbc-event": {
-      borderRadius: 6,
-      fontSize: 12,
-      padding: "4px 8px",
-      fontWeight: 500,
-      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-      border: "none",
+    "& .rbc-toolbar": {
+      marginBottom: theme.spacing(2),
+      gap: theme.spacing(1)
     },
-    "& .rbc-today": {
-      backgroundColor: theme.palette.primary.light + "11"
+    "& .rbc-toolbar button": {
+      borderRadius: 12,
+      borderColor: "#cbd5e1",
+      color: "#334155",
+      fontWeight: 700
+    },
+    "& .rbc-toolbar button.rbc-active": {
+      background: "#1d4ed8",
+      color: "#fff",
+      borderColor: "#1d4ed8",
+      boxShadow: "0 10px 22px rgba(29,78,216,0.2)"
+    },
+    "& .rbc-month-view, & .rbc-time-view, & .rbc-agenda-view table": {
+      borderRadius: 18,
+      overflow: "hidden",
+      border: "1px solid #e2e8f0"
     },
     "& .rbc-header": {
-      padding: "10px 0",
-      fontWeight: 600,
-      color: "#374151"
+      padding: "12px 8px",
+      fontWeight: 800,
+      color: "#334155",
+      background: "#f8fafc",
+      borderBottom: "1px solid #e2e8f0"
     },
-    "& .rbc-month-view": {
-      borderRadius: 8,
-      border: "1px solid #e5e7eb",
+    "& .rbc-date-cell": {
+      padding: "6px 8px",
+      color: "#475569",
+      fontWeight: 700
     },
-    "& .rbc-day-bg + .rbc-day-bg": {
-      borderLeft: "1px solid #e5e7eb"
+    "& .rbc-today": {
+      backgroundColor: "rgba(37,99,235,0.08)"
     },
-    "& .rbc-month-row + .rbc-month-row": {
-      borderTop: "1px solid #e5e7eb"
+    "& .rbc-event": {
+      borderRadius: 10,
+      border: "none",
+      boxShadow: "0 8px 18px rgba(15, 23, 42, 0.18)"
+    },
+    "& .rbc-off-range-bg": {
+      background: "#f8fafc"
     }
-  },
-  viewToggle: {
-    backgroundColor: theme.palette.background.paper
   }
 }));
 
 const statusColors = {
   scheduled: { bg: "#3b82f6", label: "Agendado" },
   confirmed: { bg: "#059669", label: "Confirmado" },
-  completed: { bg: "#6b7280", label: "Concluído" },
+  completed: { bg: "#64748b", label: "Concluido" },
   cancelled: { bg: "#ef4444", label: "Cancelado" },
-  no_show: { bg: "#f59e0b", label: "Não compareceu" }
+  no_show: { bg: "#f59e0b", label: "Nao compareceu" }
 };
 
 const statDefs = [
-  { key: "total", label: "Total", color: "#6366f1", icon: <ListAltIcon style={{fontSize: 28 }} /> },
-  { key: "scheduled", label: "Agendados", color: "#3b82f6", icon: <EventAvailableIcon style={{fontSize: 28 }} /> },
-  { key: "confirmed", label: "Confirmados", color: "#059669", icon: <AssignmentTurnedInIcon style={{fontSize: 28 }} /> },
-  { key: "completed", label: "Concluídos", color: "#6b7280", icon: <DoneAllIcon style={{fontSize: 28 }} /> },
-  { key: "cancelled", label: "Cancelados", color: "#ef4444", icon: <CancelIcon style={{fontSize: 28 }} /> },
-  { key: "no_show", label: "Não compareceu", color: "#f59e0b", icon: <ErrorOutlineIcon style={{fontSize: 28 }} /> },
+  { key: "total", label: "Total", color: "#6366f1", icon: <ListAltIcon style={{ fontSize: 28 }} /> },
+  { key: "scheduled", label: "Agendados", color: "#3b82f6", icon: <EventAvailableIcon style={{ fontSize: 28 }} /> },
+  { key: "confirmed", label: "Confirmados", color: "#059669", icon: <AssignmentTurnedInIcon style={{ fontSize: 28 }} /> },
+  { key: "completed", label: "Concluidos", color: "#64748b", icon: <DoneAllIcon style={{ fontSize: 28 }} /> },
+  { key: "cancelled", label: "Cancelados", color: "#ef4444", icon: <ErrorOutlineIcon style={{ fontSize: 28 }} /> },
+  { key: "no_show", label: "Nao compareceu", color: "#f59e0b", icon: <CancelIcon style={{ fontSize: 28 }} /> }
 ];
 
 const Agenda = () => {
   const classes = useStyles();
+  const history = useHistory();
   const location = useLocation();
 
-  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
+  const [viewMode, setViewMode] = useState("list");
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [syncingCalendar, setSyncingCalendar] = useState(false);
-
   const [filters, setFilters] = useState({
     scheduleId: "",
     status: "",
     startDate: "",
     endDate: ""
   });
-
   const [appointmentData, setAppointmentData] = useState({ appointments: [] });
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [errorAppointments, setErrorAppointments] = useState(null);
-  const { data: schedulesData, loading: loadingSchedules } = useSafeApi("/user-schedules", { manual: false });
+
+  const { data: schedulesData } = useSafeApi("/user-schedules", { manual: false });
 
   const appointments = appointmentData?.appointments || [];
   const schedules = schedulesData?.schedules || [];
 
-  // Compute stats
   const stats = {
     total: appointments.length,
-    scheduled: appointments.filter(a => a.status === "scheduled").length,
-    confirmed: appointments.filter(a => a.status === "confirmed").length,
-    completed: appointments.filter(a => a.status === "completed").length,
-    cancelled: appointments.filter(a => a.status === "cancelled").length,
-    no_show: appointments.filter(a => a.status === "no_show").length,
+    scheduled: appointments.filter(item => item.status === "scheduled").length,
+    confirmed: appointments.filter(item => item.status === "confirmed").length,
+    completed: appointments.filter(item => item.status === "completed").length,
+    cancelled: appointments.filter(item => item.status === "cancelled").length,
+    no_show: appointments.filter(item => item.status === "no_show").length
   };
 
-  // Map to calendar events
-  const calendarEvents = appointments.map((a) => ({
-    title: a.title,
-    start: new Date(a.startDatetime),
-    end: new Date(new Date(a.startDatetime).getTime() + (a.durationMinutes || 60) * 60000),
-    resource: a,
+  const nextAppointment = [...appointments]
+    .filter(item => item.startDatetime && new Date(item.startDatetime) >= new Date() && item.status !== "cancelled")
+    .sort((a, b) => new Date(a.startDatetime) - new Date(b.startDatetime))[0];
+
+  const completionRate = stats.total
+    ? Math.round(((stats.confirmed + stats.completed) / stats.total) * 100)
+    : 0;
+
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+
+  const calendarEvents = appointments.map(item => ({
+    title: item.title,
+    start: new Date(item.startDatetime),
+    end: new Date(new Date(item.startDatetime).getTime() + (item.durationMinutes || 60) * 60000),
+    resource: item
   }));
 
   useEffect(() => {
-    if (location && location.search) {
-      const queryParams = new URLSearchParams(location.search);
-      const scheduleIdParam = queryParams.get("scheduleId");
-      if (scheduleIdParam) {
-        setFilters(prev => ({ ...prev, scheduleId: scheduleIdParam }));
-      }
+    if (!location?.search) return;
+
+    const queryParams = new URLSearchParams(location.search);
+    const scheduleIdParam = queryParams.get("scheduleId");
+
+    if (scheduleIdParam) {
+      setFilters(prev => ({ ...prev, scheduleId: scheduleIdParam }));
     }
   }, [location]);
 
   const fetchAppointments = useCallback(async () => {
     setLoadingAppointments(true);
     setErrorAppointments(null);
+
     try {
       const params = {};
       if (filters.scheduleId) params.scheduleId = filters.scheduleId;
@@ -381,8 +629,17 @@ const Agenda = () => {
     fetchAppointments();
   }, [fetchAppointments]);
 
-  const handleFilterChange = (field) => (event) => {
-    setFilters((prev) => ({ ...prev, [field]: event.target.value }));
+  const handleFilterChange = field => event => {
+    setFilters(prev => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      scheduleId: "",
+      status: "",
+      startDate: "",
+      endDate: ""
+    });
   };
 
   const handleOpenModal = (appointment = null) => {
@@ -398,7 +655,7 @@ const Agenda = () => {
   const handleDelete = async () => {
     try {
       await deleteAppointment(selectedAppointment.id);
-      toast.success("Compromisso excluído com sucesso");
+      toast.success("Compromisso excluido com sucesso");
       setConfirmModalOpen(false);
       setSelectedAppointment(null);
       fetchAppointments();
@@ -407,7 +664,7 @@ const Agenda = () => {
     }
   };
 
-  const handleOpenDeleteModal = (appointment) => {
+  const handleOpenDeleteModal = appointment => {
     setSelectedAppointment(appointment);
     setConfirmModalOpen(true);
   };
@@ -422,26 +679,28 @@ const Agenda = () => {
     }
   };
 
-  const handleCalendarEventClick = (event) => {
+  const handleCalendarEventClick = event => {
     handleOpenModal(event.resource);
   };
 
-  const handleCalendarSlotSelect = ({ start }) => {
-    // Open new appointment modal with pre-filled start time
+  const handleCalendarSlotSelect = () => {
     setSelectedAppointment(null);
     setModalOpen(true);
   };
 
   const handleSyncGoogleCalendar = async () => {
     setSyncingCalendar(true);
+
     try {
       const result = await syncGoogleCalendarAppointments();
       const { imported, updated, errors } = result;
-      if (errors && errors.length > 0) {
-        toast.warning(`Sincronização com alertas: ${imported} importado(s), ${updated} atualizado(s).`);
+
+      if (errors?.length) {
+        toast.warning(`Sincronizacao concluida com alertas: ${imported} importado(s), ${updated} atualizado(s).`);
       } else {
-        toast.success(`Calendário sincronizado: ${imported} importado(s), ${updated} atualizado(s).`);
+        toast.success(`Calendario sincronizado: ${imported} importado(s), ${updated} atualizado(s).`);
       }
+
       fetchAppointments();
     } catch (err) {
       toastError(err);
@@ -450,49 +709,260 @@ const Agenda = () => {
     }
   };
 
-  const formatDateTime = (dateStr) => {
+  const formatDateTime = dateStr => {
     if (!dateStr) return "-";
+
     try {
       return format(parseISO(dateStr), "dd/MM/yyyy HH:mm", { locale: ptBR });
-    } catch {
+    } catch (error) {
       return dateStr;
     }
   };
 
-  const formatDuration = (minutes) => {
+  const formatDuration = minutes => {
     if (!minutes) return "-";
     if (minutes < 60) return `${minutes} min`;
+
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
+
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
   };
 
-  const eventStyleGetter = (event) => {
+  const eventStyleGetter = event => {
     const status = event.resource?.status || "scheduled";
     const color = statusColors[status]?.bg || "#3b82f6";
+
     return {
       style: {
         backgroundColor: color,
         borderColor: color,
         color: "#fff",
-        borderRadius: 6
+        borderRadius: 10
       }
     };
   };
 
+  const quickFacts = [
+    { label: "Agenda selecionada", value: schedules.find(item => String(item.id) === String(filters.scheduleId))?.name || "Todas" },
+    { label: "Filtros ativos", value: activeFiltersCount || "Nenhum" },
+    { label: "Proximo compromisso", value: nextAppointment ? formatDateTime(nextAppointment.startDatetime) : "Sem proximos" }
+  ];
+
   return (
     <Box className={classes.root}>
-      {/* Header */}
-      <Box className={classes.header}>
-        <Box className={classes.titleSection}>
-          <Typography className={classes.title}>Compromissos</Typography>
-          <Typography className={classes.subtitle}>
-            {appointments.length} compromisso(s) encontrado(s)
-          </Typography>
+      <Box className={classes.hero}>
+        <Box className={classes.heroContent}>
+          <Chip className={classes.pageBadge} label="Compromissos" />
+
+          <Box>
+            <Typography className={classes.heroTitle}>
+              Visual mais claro, acoes mais rapidas e agenda conectada.
+            </Typography>
+            <Typography className={classes.heroSubtitle}>
+              Gerencie compromissos com mais contraste, leitura melhor da agenda e navegacao direta entre lista de compromissos e pagina de agendas.
+            </Typography>
+          </Box>
+
+          <Box className={classes.heroActions}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenModal()}
+              className={classes.primaryAction}
+            >
+              Novo Compromisso
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={syncingCalendar ? <CircularProgress size={16} style={{ color: "#fff" }} /> : <SyncIcon />}
+              onClick={handleSyncGoogleCalendar}
+              disabled={syncingCalendar}
+              className={classes.secondaryAction}
+            >
+              {syncingCalendar ? "Sincronizando..." : "Sincronizar"}
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<CalendarTodayIcon />}
+              endIcon={<ArrowForwardIcon />}
+              onClick={() => history.push("/agendas")}
+              className={classes.secondaryAction}
+            >
+              Agenda
+            </Button>
+          </Box>
         </Box>
 
-        <Box className={classes.controls}>
-          {/* View toggle */}
+        <Box className={classes.heroHighlights}>
+          <Paper elevation={0} className={classes.highlightCard}>
+            <Typography className={classes.highlightLabel}>Proximo compromisso</Typography>
+            <Typography className={classes.highlightValue}>
+              {nextAppointment ? formatDateTime(nextAppointment.startDatetime) : "Sem agenda"}
+            </Typography>
+            <Typography className={classes.highlightSubtext}>
+              {nextAppointment ? `${nextAppointment.title} • ${nextAppointment.schedule?.name || "Agenda nao definida"}` : "Crie um novo compromisso para comecar a organizar o fluxo."}
+            </Typography>
+          </Paper>
+
+          <Paper elevation={0} className={classes.highlightCard}>
+            <Typography className={classes.highlightLabel}>Saude da operacao</Typography>
+            <Typography className={classes.highlightValue}>{completionRate}%</Typography>
+            <Typography className={classes.highlightSubtext}>
+              Confirmados + concluidos em relacao ao total de compromissos visiveis.
+            </Typography>
+            <Box mt={1.5}>
+              <LinearProgress variant="determinate" value={completionRate} style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.14)" }} />
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
+
+      <Box className={classes.statsRow}>
+        {statDefs.map(({ key, label, color, icon }) => (
+          <Paper key={key} elevation={0} className={classes.statCard}>
+            <Box className={classes.statCardTop}>
+              <Box>
+                <Typography className={classes.statLabel}>{label}</Typography>
+                <Typography className={classes.statValue} style={{ color }}>
+                  {stats[key]}
+                </Typography>
+              </Box>
+              <Box className={classes.statIconBox} style={{ color, backgroundColor: `${color}18` }}>
+                {icon}
+              </Box>
+            </Box>
+            <Divider />
+            <Typography className={classes.statFooter}>
+              {key === "total" ? "Volume total carregado na tela." : "Status monitorado para melhor priorizacao do time."}
+            </Typography>
+          </Paper>
+        ))}
+      </Box>
+
+      <Box className={classes.controlsGrid}>
+        <Paper elevation={0} className={classes.filterPanel}>
+          <Box className={classes.panelHeader}>
+            <Box className={classes.panelTitleWrap}>
+              <Box className={classes.panelIconWrap}>
+                <FilterListIcon />
+              </Box>
+              <Box>
+                <Typography className={classes.panelTitle}>Filtros e contexto</Typography>
+                <Typography className={classes.panelSubtitle}>
+                  Refine a leitura da lista e encontre compromissos mais rapido.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box className={classes.filterActions}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={handleResetFilters}
+              >
+                Limpar
+              </Button>
+              <Button
+                variant="text"
+                size="small"
+                color="primary"
+                onClick={fetchAppointments}
+              >
+                Atualizar
+              </Button>
+            </Box>
+          </Box>
+
+          <Box className={classes.filterGrid}>
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Agenda</InputLabel>
+              <Select
+                value={filters.scheduleId}
+                onChange={handleFilterChange("scheduleId")}
+                label="Agenda"
+              >
+                <MenuItem value="">Todas</MenuItem>
+                {schedules.map(schedule => (
+                  <MenuItem key={schedule.id} value={schedule.id}>
+                    {schedule.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl variant="outlined" size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filters.status}
+                onChange={handleFilterChange("status")}
+                label="Status"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {Object.entries(statusColors).map(([key, value]) => (
+                  <MenuItem key={key} value={key}>
+                    {value.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              type="date"
+              label="Data inicial"
+              variant="outlined"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              value={filters.startDate}
+              onChange={handleFilterChange("startDate")}
+            />
+
+            <TextField
+              type="date"
+              label="Data final"
+              variant="outlined"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              value={filters.endDate}
+              onChange={handleFilterChange("endDate")}
+            />
+          </Box>
+        </Paper>
+
+        <Paper elevation={0} className={classes.quickPanel}>
+          <Typography className={classes.panelTitle} style={{ color: "#fff" }}>
+            Leitura rapida
+          </Typography>
+          <Typography className={classes.panelSubtitle} style={{ color: "rgba(226,232,240,0.78)" }}>
+            Indicadores para tomada de decisao sem sair da tela.
+          </Typography>
+
+          <Box className={classes.quickList}>
+            {quickFacts.map(item => (
+              <Box key={item.label} className={classes.quickItem}>
+                <Typography className={classes.quickItemLabel}>{item.label}</Typography>
+                <Typography style={{ fontWeight: 800 }}>{item.value}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      </Box>
+
+      <Box className={classes.contentShell}>
+        <Box className={classes.viewToolbar}>
+          <Box>
+            <Typography className={classes.sectionTitle}>
+              {viewMode === "calendar" ? "Visao de calendario" : "Lista de compromissos"}
+            </Typography>
+            <Typography className={classes.panelSubtitle}>
+              {appointments.length} compromisso(s) encontrado(s) no contexto atual.
+            </Typography>
+          </Box>
+
           <ButtonGroup size="small" className={classes.viewToggle} variant="outlined">
             <Button
               color={viewMode === "list" ? "primary" : "default"}
@@ -505,299 +975,220 @@ const Agenda = () => {
             <Button
               color={viewMode === "calendar" ? "primary" : "default"}
               variant={viewMode === "calendar" ? "contained" : "outlined"}
-              startIcon={<CalendarTodayIcon />}
+              startIcon={<TodayIcon />}
               onClick={() => setViewMode("calendar")}
             >
-              Calendário
+              Calendario
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<CalendarTodayIcon />}
+              onClick={() => history.push("/agendas")}
+            >
+              Agenda
             </Button>
           </ButtonGroup>
-
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={syncingCalendar ? <CircularProgress size={16} /> : <SyncIcon />}
-            onClick={handleSyncGoogleCalendar}
-            disabled={syncingCalendar}
-          >
-            {syncingCalendar ? "Sincronizando..." : "Sincronizar"}
-          </Button>
-
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenModal()}
-          >
-            Novo Compromisso
-          </Button>
         </Box>
-      </Box>
-
-      {/* Stats */}
-      <Box className={classes.statsRow}>
-        {statDefs.map(({ key, label, color, icon }) => (
-          <Box key={key} className={classes.statCard}>
-            <Box className={classes.statIconBox} style={{ backgroundColor: `${color}1A`, color: color }}>
-              {icon}
-            </Box>
-            <Box className={classes.statDetails}>
-              <Typography className={classes.statValue} style={{ color }}>
-                {stats[key]}
-              </Typography>
-              <Typography className={classes.statLabel}>{label}</Typography>
-            </Box>
+        {loadingAppointments && appointments.length === 0 ? (
+          <Box className={classes.loadingContainer}>
+            <CircularProgress />
           </Box>
-        ))}
-      </Box>
+        ) : viewMode === "calendar" ? (
+          <Box className={classes.calendarWrapper}>
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              culture="pt-BR"
+              messages={calendarMessages}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: "calc(100vh - 360px)", minHeight: 600 }}
+              eventPropGetter={eventStyleGetter}
+              onSelectEvent={handleCalendarEventClick}
+              onSelectSlot={handleCalendarSlotSelect}
+              selectable
+              popup
+              defaultView="month"
+              views={["month", "week", "day", "agenda"]}
+              formats={{
+                agendaHeaderFormat: ({ start, end }) =>
+                  `${dateFnsFormat(start, "dd/MM/yyyy", { locale: ptBR })} - ${dateFnsFormat(end, "dd/MM/yyyy", { locale: ptBR })}`,
+                dayHeaderFormat: date => dateFnsFormat(date, "EEEE, dd/MM/yyyy", { locale: ptBR }),
+                monthHeaderFormat: date => dateFnsFormat(date, "MMMM yyyy", { locale: ptBR }),
+                weekdayFormat: date => dateFnsFormat(date, "EEE", { locale: ptBR }),
+                dayFormat: date => dateFnsFormat(date, "dd EEE", { locale: ptBR }),
+                timeGutterFormat: date => dateFnsFormat(date, "HH:mm", { locale: ptBR }),
+                eventTimeRangeFormat: ({ start, end }) =>
+                  `${dateFnsFormat(start, "HH:mm", { locale: ptBR })} - ${dateFnsFormat(end, "HH:mm", { locale: ptBR })}`
+              }}
+              tooltipAccessor={event => {
+                const appointment = event.resource;
+                const status = statusColors[appointment.status]?.label || appointment.status;
+                return `${event.title}\n${formatDateTime(appointment.startDatetime)}\nStatus: ${status}`;
+              }}
+            />
+          </Box>
+        ) : (
+          <SafeComponent
+            loading={false}
+            error={errorAppointments}
+            data={appointments}
+            renderData={records => {
+              if (records.length === 0) {
+                return (
+                  <Box className={classes.emptyState}>
+                    <TrendingUpIcon style={{ fontSize: 52, marginBottom: 14, opacity: 0.55 }} />
+                    <Typography variant="h6">Nenhum compromisso encontrado</Typography>
+                    <Typography variant="body2">
+                      Ajuste os filtros ou crie um novo compromisso para iniciar a agenda.
+                    </Typography>
+                  </Box>
+                );
+              }
 
-      {/* Filters */}
-      <Box className={classes.filterContainer}>
-        <Typography variant="body2" style={{ fontWeight: 600, color: "#4b5563", marginRight: 8, display: "flex", alignItems: "center" }}>
-          <ListIcon style={{ marginRight: 4, fontSize: 18 }} /> Filtros:
-        </Typography>
-        <FormControl variant="outlined" size="small" className={classes.filterField}>
-          <InputLabel>Agenda</InputLabel>
-          <Select
-            value={filters.scheduleId}
-            onChange={handleFilterChange("scheduleId")}
-            label="Agenda"
-          >
-            <MenuItem value="">Todas</MenuItem>
-            {schedules.map((schedule) => (
-              <MenuItem key={schedule.id} value={schedule.id}>
-                {schedule.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              return (
+                <React.Fragment>
+                  <Box className={classes.sectionHeader}>
+                    <Box className={classes.sectionMeta}>
+                      <Chip className={classes.neutralChip} label={`${records.length} itens`} />
+                      <Chip className={classes.neutralChip} label={`${stats.scheduled} agendado(s)`} />
+                      <Chip className={classes.neutralChip} label={`${stats.confirmed} confirmado(s)`} />
+                    </Box>
+                  </Box>
 
-        <FormControl variant="outlined" size="small" className={classes.filterField}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={filters.status}
-            onChange={handleFilterChange("status")}
-            label="Status"
-          >
-            <MenuItem value="">Todos</MenuItem>
-            {Object.entries(statusColors).map(([key, { label }]) => (
-              <MenuItem key={key} value={key}>
-                {label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+                  <TableContainer component={Paper} className={classes.tableContainer}>
+                    <Table>
+                      <TableHead className={classes.tableHead}>
+                        <TableRow>
+                          <TableCell className={classes.tableHeadCell}>Compromisso</TableCell>
+                          <TableCell className={classes.tableHeadCell}>Agenda</TableCell>
+                          <TableCell className={classes.tableHeadCell}>Data e hora</TableCell>
+                          <TableCell className={classes.tableHeadCell}>Duracao</TableCell>
+                          <TableCell className={classes.tableHeadCell}>Servico</TableCell>
+                          <TableCell className={classes.tableHeadCell}>Status</TableCell>
+                          <TableCell className={classes.tableHeadCell} align="center">Acoes</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {records.map(appointment => {
+                          const isUpcoming =
+                            appointment.status === "scheduled" &&
+                            new Date(appointment.startDatetime) > new Date();
 
-        <TextField
-          type="date"
-          label="Data Início"
-          variant="outlined"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={filters.startDate}
-          onChange={handleFilterChange("startDate")}
-        />
-
-        <TextField
-          type="date"
-          label="Data Fim"
-          variant="outlined"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={filters.endDate}
-          onChange={handleFilterChange("endDate")}
-        />
-      </Box>
-
-      {/* Content */}
-      {loadingAppointments && appointments.length === 0 ? (
-        <Box className={classes.loadingContainer}>
-          <CircularProgress />
-        </Box>
-      ) : viewMode === "calendar" ? (
-        <Box className={classes.calendarWrapper}>
-          <Calendar
-            localizer={localizer}
-            events={calendarEvents}
-            culture="pt-BR"
-            messages={calendarMessages}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: "calc(100vh - 340px)", minHeight: 560 }}
-            eventPropGetter={eventStyleGetter}
-            onSelectEvent={handleCalendarEventClick}
-            onSelectSlot={handleCalendarSlotSelect}
-            selectable
-            popup
-            defaultView="month"
-            views={["month", "week", "day", "agenda"]}
-            formats={{
-              agendaHeaderFormat: ({ start, end }) =>
-                `${dateFnsFormat(start, "dd/MM/yyyy", { locale: ptBR })} – ${dateFnsFormat(end, "dd/MM/yyyy", { locale: ptBR })}`,
-              dayHeaderFormat: (date) => dateFnsFormat(date, "EEEE, dd/MM/yyyy", { locale: ptBR }),
-              monthHeaderFormat: (date) => dateFnsFormat(date, "MMMM yyyy", { locale: ptBR }),
-              weekdayFormat: (date) => dateFnsFormat(date, "EEE", { locale: ptBR }),
-              dayFormat: (date) => dateFnsFormat(date, "dd EEE", { locale: ptBR }),
-              timeGutterFormat: (date) => dateFnsFormat(date, "HH:mm", { locale: ptBR }),
-              eventTimeRangeFormat: ({ start, end }) =>
-                `${dateFnsFormat(start, "HH:mm", { locale: ptBR })} – ${dateFnsFormat(end, "HH:mm", { locale: ptBR })}`,
-            }}
-            tooltipAccessor={(event) => {
-              const a = event.resource;
-              const status = statusColors[a.status]?.label || a.status;
-              return `${event.title}\n${formatDateTime(a.startDatetime)}\nStatus: ${status}`;
+                          return (
+                            <TableRow
+                              key={appointment.id}
+                              className={`${classes.tableRow} ${isUpcoming ? classes.upcomingEventRow : ""}`}
+                            >
+                              <TableCell>
+                                <Box className={classes.appointmentInfo}>
+                                  <Box className={classes.appointmentTitleRow}>
+                                    <Typography className={classes.appointmentTitle}>
+                                      {appointment.title}
+                                    </Typography>
+                                    {appointment.source === "google_calendar" && (
+                                      <Tooltip title="Importado do Google Calendar">
+                                        <img
+                                          src="https://www.gstatic.com/images/branding/product/1x/calendar_16dp.png"
+                                          alt="Google Calendar"
+                                          style={{ width: 14, height: 14, flexShrink: 0 }}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  </Box>
+                                  {appointment.description && (
+                                    <Typography variant="body2" className={classes.appointmentDesc}>
+                                      {appointment.description.substring(0, 70)}
+                                      {appointment.description.length > 70 ? "..." : ""}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Box className={classes.appointmentMeta}>
+                                  <PersonIcon fontSize="small" />
+                                  {appointment.schedule?.name || "-"}
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Box className={classes.appointmentMeta}>
+                                  <EventIcon fontSize="small" />
+                                  {formatDateTime(appointment.startDatetime)}
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Box className={classes.appointmentMeta}>
+                                  <AccessTimeIcon fontSize="small" />
+                                  {formatDuration(appointment.durationMinutes)}
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                {appointment.service ? (
+                                  <Box className={classes.appointmentMeta}>
+                                    <BuildIcon fontSize="small" />
+                                    {appointment.service.nome}
+                                  </Box>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={statusColors[appointment.status]?.label || appointment.status}
+                                  size="small"
+                                  className={classes.statusChip}
+                                  style={{
+                                    backgroundColor: statusColors[appointment.status]?.bg || "#64748b",
+                                    color: "#fff"
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell align="center">
+                                <Box className={classes.actionsBox}>
+                                  {appointment.status === "scheduled" && (
+                                    <Tooltip title="Confirmar">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleStatusChange(appointment, "confirmed")}
+                                      >
+                                        <CheckCircleIcon fontSize="small" style={{ color: "#059669" }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                  {(appointment.status === "scheduled" || appointment.status === "confirmed") && (
+                                    <Tooltip title="Cancelar">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleStatusChange(appointment, "cancelled")}
+                                      >
+                                        <CancelIcon fontSize="small" style={{ color: "#ef4444" }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip title="Editar">
+                                    <IconButton size="small" onClick={() => handleOpenModal(appointment)}>
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Excluir">
+                                    <IconButton size="small" onClick={() => handleOpenDeleteModal(appointment)}>
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </React.Fragment>
+              );
             }}
           />
-        </Box>
-      ) : (
-        <SafeComponent
-          loading={false}
-          error={errorAppointments}
-          data={appointments}
-          renderData={(records) => {
-            if (records.length === 0) {
-              return (
-                <Box className={classes.emptyState}>
-                  <EventIcon style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }} />
-                  <Typography variant="h6">Nenhum compromisso encontrado</Typography>
-                  <Typography variant="body2">
-                    Clique em "Novo Compromisso" para agendar
-                  </Typography>
-                </Box>
-              );
-            }
-
-            return (
-              <TableContainer component={Paper} className={classes.tableContainer}>
-                <Table>
-                  <TableHead className={classes.tableHead}>
-                    <TableRow>
-                      <TableCell className={classes.tableHeadCell}>Compromisso</TableCell>
-                      <TableCell className={classes.tableHeadCell}>Agenda</TableCell>
-                      <TableCell className={classes.tableHeadCell}>Data/Hora</TableCell>
-                      <TableCell className={classes.tableHeadCell}>Duração</TableCell>
-                      <TableCell className={classes.tableHeadCell}>Serviço</TableCell>
-                      <TableCell className={classes.tableHeadCell}>Status</TableCell>
-                      <TableCell className={classes.tableHeadCell} align="center">Ações</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {records.map((appointment) => {
-                      const isUpcoming = appointment.status === "scheduled" && new Date(appointment.startDatetime) > new Date();
-                      return (
-                      <TableRow key={appointment.id} className={`${classes.tableRow} ${isUpcoming ? classes.upcomingEventRow : ""}`}>
-                        <TableCell>
-                          <Box className={classes.appointmentInfo}>
-                            <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <Typography className={classes.appointmentTitle}>
-                                {appointment.title}
-                              </Typography>
-                              {appointment.source === "google_calendar" && (
-                                <Tooltip title="Importado do Google Calendar">
-                                  <img
-                                    src="https://www.gstatic.com/images/branding/product/1x/calendar_16dp.png"
-                                    alt="Google Calendar"
-                                    style={{ width: 14, height: 14, flexShrink: 0 }}
-                                  />
-                                </Tooltip>
-                              )}
-                            </Box>
-                            {appointment.description && (
-                              <Typography variant="body2" color="textSecondary">
-                                {appointment.description.substring(0, 50)}
-                                {appointment.description.length > 50 ? "..." : ""}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Box className={classes.appointmentMeta}>
-                            <PersonIcon fontSize="small" />
-                            {appointment.schedule?.name || "-"}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Box className={classes.appointmentMeta}>
-                            <EventIcon fontSize="small" />
-                            {formatDateTime(appointment.startDatetime)}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Box className={classes.appointmentMeta}>
-                            <AccessTimeIcon fontSize="small" />
-                            {formatDuration(appointment.durationMinutes)}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          {appointment.service ? (
-                            <Box className={classes.appointmentMeta}>
-                              <BuildIcon fontSize="small" />
-                              {appointment.service.nome}
-                            </Box>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={statusColors[appointment.status]?.label || appointment.status}
-                            size="small"
-                            className={classes.statusChip}
-                            style={{
-                              backgroundColor: statusColors[appointment.status]?.bg || "#6b7280",
-                              color: "#fff"
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box className={classes.actionsBox}>
-                            {appointment.status === "scheduled" && (
-                              <Tooltip title="Confirmar">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleStatusChange(appointment, "confirmed")}
-                                >
-                                  <CheckCircleIcon fontSize="small" style={{ color: "#059669" }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {(appointment.status === "scheduled" || appointment.status === "confirmed") && (
-                              <Tooltip title="Cancelar">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleStatusChange(appointment, "cancelled")}
-                                >
-                                  <CancelIcon fontSize="small" style={{ color: "#ef4444" }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            <Tooltip title="Editar">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenModal(appointment)}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Excluir">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenDeleteModal(appointment)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            );
-          }}
-        />
-      )}
+        )}
+      </Box>
 
       <AppointmentModal
         open={modalOpen}
