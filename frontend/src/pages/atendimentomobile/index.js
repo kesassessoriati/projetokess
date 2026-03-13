@@ -794,6 +794,7 @@ const Atendimentos = () => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
+    const [mediaPreviewCaption, setMediaPreviewCaption] = useState("");
     const [mediaRecorder, setMediaRecorder] = useState(null);
     const [recording, setRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
@@ -2153,7 +2154,7 @@ const Atendimentos = () => {
         }
     };
 
-    const openMediaPreview = useCallback((files) => {
+    const openMediaPreview = useCallback((files, initialCaption = "") => {
         if (!files || files.length === 0 || !selectedTicket) return false;
 
         if (files.length === 1) {
@@ -2163,6 +2164,7 @@ const Atendimentos = () => {
             setSelectedFiles(files);
             setSelectedFile(null);
         }
+        setMediaPreviewCaption(initialCaption || "");
         setMediaPreviewOpen(true);
         return true;
     }, [selectedTicket]);
@@ -2235,6 +2237,7 @@ const Atendimentos = () => {
             setMediaPreviewOpen(false);
             setSelectedFile(null);
             setSelectedFiles([]);
+            setMediaPreviewCaption("");
             setReplyingTo(null);
         }
     };
@@ -2997,46 +3000,29 @@ const Atendimentos = () => {
             return;
         }
 
-        try {
-            // Se a resposta rápida tem arquivo, envia primeiro o arquivo
-            if (quickMessage.mediaPath) {
-                // Buscar o arquivo da URL
+        if (quickMessage.mediaPath) {
+            try {
                 const response = await fetch(quickMessage.mediaPath);
                 const blob = await response.blob();
-
-                // Criar um File a partir do blob
                 const fileName = quickMessage.mediaName || "arquivo";
                 const file = new File([blob], fileName, { type: blob.type });
 
-                // Enviar mídia SEM legenda (arquivo primeiro)
-                const formData = new FormData();
-                formData.append("medias", file);
-                formData.append("body", "");
-
-                await api.post(`/messages/${selectedTicket.id}`, formData, {
-                    headers: {
-                        "Content-Type": "multipart/form-data",
-                    },
-                });
+                setReplyingTo(null);
+                openMediaPreview([file], quickMessage.message || "");
+                return;
+            } catch (err) {
+                console.error("Erro ao carregar mídia da resposta rápida:", err);
+                setInputMessage(quickMessage.message || "");
+                return;
             }
-
-            // Depois envia o texto como mensagem separada (se tiver texto)
-            if (quickMessage.message && quickMessage.message.trim()) {
-                await api.post(`/messages/${selectedTicket.id}`, {
-                    body: quickMessage.message,
-                    fromMe: true,
-                });
-            }
-
-            setReplyingTo(null);
-            setMediaPreviewOpen(false);
-            setSelectedFile(null);
-            setSelectedFiles([]);
-        } catch (err) {
-            console.error("Erro ao enviar resposta rápida:", err);
-            // Se falhar, pelo menos coloca o texto no input
-            setInputMessage(quickMessage.message || "");
         }
+
+        if (quickMessage.message && quickMessage.message.trim()) {
+            setReplyingTo(null);
+            setInputMessage(quickMessage.message);
+            return;
+        }
+
     };
 
     const handleMessageMenuOpen = (event, message) => {
@@ -4404,9 +4390,11 @@ const Atendimentos = () => {
                     setMediaPreviewOpen(false);
                     setSelectedFile(null);
                     setSelectedFiles([]);
+                    setMediaPreviewCaption("");
                 }}
                 file={selectedFile}
                 files={selectedFiles}
+                initialCaption={mediaPreviewCaption}
                 onSend={handleSendMedia}
             />
 

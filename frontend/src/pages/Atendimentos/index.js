@@ -751,6 +751,7 @@ const Atendimentos = () => {
 	const [selectedFile, setSelectedFile] = useState(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
 	const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
+	const [mediaPreviewCaption, setMediaPreviewCaption] = useState("");
 	const [mediaRecorder, setMediaRecorder] = useState(null);
 	const [recording, setRecording] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
@@ -2064,7 +2065,7 @@ const Atendimentos = () => {
 		}
 	};
 
-	const openMediaPreview = useCallback((files) => {
+	const openMediaPreview = useCallback((files, initialCaption = "") => {
 		if (!files || files.length === 0 || !selectedTicket) return false;
 
 		if (files.length === 1) {
@@ -2074,6 +2075,7 @@ const Atendimentos = () => {
 			setSelectedFiles(files);
 			setSelectedFile(null);
 		}
+		setMediaPreviewCaption(initialCaption || "");
 		setMediaPreviewOpen(true);
 		return true;
 	}, [selectedTicket]);
@@ -2145,6 +2147,7 @@ const Atendimentos = () => {
 			setMediaPreviewOpen(false);
 			setSelectedFile(null);
 			setSelectedFiles([]);
+			setMediaPreviewCaption("");
 			setReplyingTo(null);
 		}
 	};
@@ -2901,15 +2904,17 @@ const Atendimentos = () => {
 		}
 
 		if (file) {
-			// Enviar como mídia usando handleSendMedia existente
-			await handleSendMedia({
-				files: [file],
-				caption: message
-			});
-		} else if (message) {
-			// Enviar apenas texto
-			setInputMessage(message);
+			setReplyingTo(null);
+			openMediaPreview([file], message || "");
+			return;
 		}
+
+		if (message) {
+			setReplyingTo(null);
+			setInputMessage(message);
+			return;
+		}
+
 	};
 
 	const handleMessageMenuOpen = (event, message) => {
@@ -4228,9 +4233,11 @@ const Atendimentos = () => {
 					setMediaPreviewOpen(false);
 					setSelectedFile(null);
 					setSelectedFiles([]);
+					setMediaPreviewCaption("");
 				}}
 				file={selectedFile}
 				files={selectedFiles}
+				initialCaption={mediaPreviewCaption}
 				onSend={handleSendMedia}
 			/>
 

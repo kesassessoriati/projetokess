@@ -162,7 +162,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const MediaPreviewModal = ({ open, onClose, file, files, onSend }) => {
+const MediaPreviewModal = ({ open, onClose, file, files, onSend, initialCaption = "" }) => {
   const classes = useStyles();
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [caption, setCaption] = useState("");
@@ -175,9 +175,8 @@ const MediaPreviewModal = ({ open, onClose, file, files, onSend }) => {
     } else {
       setSelectedFiles([]);
     }
-    // Limpa a legenda ao abrir o modal
-    setCaption("");
-  }, [file, files, open]);
+    setCaption(initialCaption || "");
+  }, [file, files, open, initialCaption]);
 
   const handleSend = () => {
     const payload = {
