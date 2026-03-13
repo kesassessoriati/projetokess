@@ -3,11 +3,15 @@ import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import { getWbot } from "../../libs/wbot";
 
 const CheckContactNumber = async (
-  number: string, companyId: number, isGroup: boolean = false
+  number: string, companyId: number, isGroup: boolean = false, whatsappId?: number
 ): Promise<string> => {
-  const wahtsappList = await GetDefaultWhatsApp(null, companyId);
-
-  const wbot = getWbot(wahtsappList.id);
+  let wbot;
+  if (whatsappId) {
+    wbot = getWbot(whatsappId);
+  } else {
+    const wahtsappList = await GetDefaultWhatsApp(null, companyId);
+    wbot = getWbot(wahtsappList.id);
+  }
 
   let numberArray;
 
