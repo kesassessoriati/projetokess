@@ -35,6 +35,11 @@ import CancelIcon from "@material-ui/icons/Cancel";
 import ListIcon from "@material-ui/icons/List";
 import CalendarTodayIcon from "@material-ui/icons/CalendarToday";
 import SyncIcon from "@material-ui/icons/Sync";
+import AssignmentTurnedInIcon from "@material-ui/icons/AssignmentTurnedIn";
+import DoneAllIcon from "@material-ui/icons/DoneAll";
+import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
+import ListAltIcon from "@material-ui/icons/ListAlt";
+import EventAvailableIcon from "@material-ui/icons/EventAvailable";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -117,25 +122,45 @@ const useStyles = makeStyles((theme) => ({
   },
   statsRow: {
     display: "flex",
-    gap: theme.spacing(1.5),
+    gap: theme.spacing(2),
     flexWrap: "wrap"
   },
   statCard: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1),
-    padding: theme.spacing(1, 2),
-    borderRadius: 10,
+    gap: theme.spacing(2),
+    padding: theme.spacing(2),
+    borderRadius: 12,
     backgroundColor: theme.palette.background.paper,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-    minWidth: 100
+    boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
+    minWidth: 160,
+    flex: "1 1 auto",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    border: "1px solid rgba(0,0,0,0.05)",
+    "&:hover": {
+      transform: "translateY(-2px)",
+      boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
+    }
+  },
+  statIconBox: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+  },
+  statDetails: {
+    display: "flex",
+    flexDirection: "column",
   },
   statValue: {
     fontWeight: 700,
-    fontSize: 20
+    fontSize: 22
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: 500,
     color: theme.palette.text.secondary
   },
   controls: {
@@ -144,29 +169,47 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
     alignItems: "center"
   },
-  filters: {
+  filterContainer: {
     display: "flex",
-    gap: theme.spacing(1.5),
+    alignItems: "center",
+    gap: theme.spacing(2),
+    padding: theme.spacing(2),
+    borderRadius: 12,
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     flexWrap: "wrap",
-    alignItems: "center"
+    border: "1px solid rgba(0,0,0,0.05)",
   },
   filterField: {
     minWidth: 140
   },
   tableContainer: {
     borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-    flex: 1
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    flex: 1,
+    border: "1px solid rgba(0,0,0,0.05)",
   },
   tableHead: {
-    backgroundColor: theme.palette.grey[100]
+    backgroundColor: theme.palette.grey[50]
   },
   tableHeadCell: {
-    fontWeight: 600
+    fontWeight: 600,
+    color: "#4b5563"
+  },
+  tableRow: {
+    transition: "background-color 0.2s, transform 0.2s",
+    "&:hover": {
+      backgroundColor: "rgba(59, 130, 246, 0.04) !important",
+      transform: "scale(1.002)"
+    }
+  },
+  upcomingEventRow: {
+    borderLeft: "4px solid #10b981",
   },
   statusChip: {
     fontWeight: 600,
-    fontSize: 12
+    fontSize: 12,
+    borderRadius: 6
   },
   loadingContainer: {
     display: "flex",
@@ -204,19 +247,39 @@ const useStyles = makeStyles((theme) => ({
     minHeight: 600,
     backgroundColor: theme.palette.background.paper,
     borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     padding: theme.spacing(2),
+    border: "1px solid rgba(0,0,0,0.05)",
     "& .rbc-calendar": {
       height: "100%",
-      minHeight: 560
+      minHeight: 560,
+      fontFamily: theme.typography.fontFamily,
     },
     "& .rbc-event": {
       borderRadius: 6,
       fontSize: 12,
-      padding: "2px 6px"
+      padding: "4px 8px",
+      fontWeight: 500,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+      border: "none",
     },
     "& .rbc-today": {
-      backgroundColor: theme.palette.primary.light + "22"
+      backgroundColor: theme.palette.primary.light + "11"
+    },
+    "& .rbc-header": {
+      padding: "10px 0",
+      fontWeight: 600,
+      color: "#374151"
+    },
+    "& .rbc-month-view": {
+      borderRadius: 8,
+      border: "1px solid #e5e7eb",
+    },
+    "& .rbc-day-bg + .rbc-day-bg": {
+      borderLeft: "1px solid #e5e7eb"
+    },
+    "& .rbc-month-row + .rbc-month-row": {
+      borderTop: "1px solid #e5e7eb"
     }
   },
   viewToggle: {
@@ -233,12 +296,12 @@ const statusColors = {
 };
 
 const statDefs = [
-  { key: "total", label: "Total", color: "#6366f1" },
-  { key: "scheduled", label: "Agendados", color: "#3b82f6" },
-  { key: "confirmed", label: "Confirmados", color: "#059669" },
-  { key: "completed", label: "Concluídos", color: "#6b7280" },
-  { key: "cancelled", label: "Cancelados", color: "#ef4444" },
-  { key: "no_show", label: "Não compareceu", color: "#f59e0b" },
+  { key: "total", label: "Total", color: "#6366f1", icon: <ListAltIcon style={{fontSize: 28 }} /> },
+  { key: "scheduled", label: "Agendados", color: "#3b82f6", icon: <EventAvailableIcon style={{fontSize: 28 }} /> },
+  { key: "confirmed", label: "Confirmados", color: "#059669", icon: <AssignmentTurnedInIcon style={{fontSize: 28 }} /> },
+  { key: "completed", label: "Concluídos", color: "#6b7280", icon: <DoneAllIcon style={{fontSize: 28 }} /> },
+  { key: "cancelled", label: "Cancelados", color: "#ef4444", icon: <CancelIcon style={{fontSize: 28 }} /> },
+  { key: "no_show", label: "Não compareceu", color: "#f59e0b", icon: <ErrorOutlineIcon style={{fontSize: 28 }} /> },
 ];
 
 const Agenda = () => {
@@ -472,9 +535,12 @@ const Agenda = () => {
 
       {/* Stats */}
       <Box className={classes.statsRow}>
-        {statDefs.map(({ key, label, color }) => (
+        {statDefs.map(({ key, label, color, icon }) => (
           <Box key={key} className={classes.statCard}>
-            <Box>
+            <Box className={classes.statIconBox} style={{ backgroundColor: `${color}1A`, color: color }}>
+              {icon}
+            </Box>
+            <Box className={classes.statDetails}>
               <Typography className={classes.statValue} style={{ color }}>
                 {stats[key]}
               </Typography>
@@ -485,7 +551,10 @@ const Agenda = () => {
       </Box>
 
       {/* Filters */}
-      <Box className={classes.filters}>
+      <Box className={classes.filterContainer}>
+        <Typography variant="body2" style={{ fontWeight: 600, color: "#4b5563", marginRight: 8, display: "flex", alignItems: "center" }}>
+          <ListIcon style={{ marginRight: 4, fontSize: 18 }} /> Filtros:
+        </Typography>
         <FormControl variant="outlined" size="small" className={classes.filterField}>
           <InputLabel>Agenda</InputLabel>
           <Select
@@ -612,8 +681,10 @@ const Agenda = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {records.map((appointment) => (
-                      <TableRow key={appointment.id} hover>
+                    {records.map((appointment) => {
+                      const isUpcoming = appointment.status === "scheduled" && new Date(appointment.startDatetime) > new Date();
+                      return (
+                      <TableRow key={appointment.id} className={`${classes.tableRow} ${isUpcoming ? classes.upcomingEventRow : ""}`}>
                         <TableCell>
                           <Box className={classes.appointmentInfo}>
                             <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -718,7 +789,8 @@ const Agenda = () => {
                           </Box>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>

@@ -1381,6 +1381,15 @@ const LoggedInLayout = ({ children }) => {
                       <span>Chat Interno</span>
                     </button>
                   </Tooltip>
+                  <Tooltip title="Compromissos">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/appointments") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/appointments")}
+                    >
+                      <CalendarMonthIcon style={{ fontSize: 17 }} />
+                      <span>Compromissos</span>
+                    </button>
+                  </Tooltip>
                   <Tooltip title="Aquecimento WhatsApp">
                     <button
                       className={`${classes.quickNavBtn} ${isActivePath("/aquecimento-whatsapp") ? "quickNavActive" : ""}`}
