@@ -802,7 +802,7 @@ const Atendimentos = () => {
     const [typingUser, setTypingUser] = useState(null);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [filteredQuickMessages, setFilteredQuickMessages] = useState([]);
-    const [showAllTickets, setShowAllTickets] = useState(false);
+    const [showAllTickets, setShowAllTickets] = useState(true);
     const [selectedQuickIndex, setSelectedQuickIndex] = useState(-1);
     const [quickReplySearchTerm, setQuickReplySearchTerm] = useState('');
 

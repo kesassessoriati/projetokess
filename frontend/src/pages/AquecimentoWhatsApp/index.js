@@ -61,93 +61,145 @@ import { useSocket } from "../../context/SocketContext";
 
 const useStyles = makeStyles(() => ({
   root: {
-    minHeight: "100vh",
-    backgroundColor: "#FFFFFF",
-    color: "#1F2937",
-    padding: "24px",
+    minHeight: "calc(100vh - 96px)",
+    background: "radial-gradient(circle at top left, #eef8f1 0%, #e2efe7 44%, #d9e7df 100%)",
+    color: "#173624",
+    padding: "16px",
     fontFamily: "'Inter', 'Roboto', sans-serif",
   },
+  shell: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
   pageHeader: {
-    marginBottom: "24px",
+    marginBottom: 0,
+    borderRadius: "18px",
+    border: "1px solid #cfe2d5",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,252,249,0.96) 100%)",
+    boxShadow: "0 14px 32px rgba(16, 24, 40, 0.08)",
+    padding: "16px 18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  titleIcon: {
+    width: "46px",
+    height: "46px",
+    borderRadius: "14px",
+    background: "linear-gradient(135deg, #dcfce7 0%, #c7f0d6 100%)",
+    color: "#137b42",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.55)",
+  },
+  titleContent: {
+    minWidth: 0,
+  },
+  headerActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
   },
   pageTitle: {
-    fontSize: "26px",
-    fontWeight: 700,
-    color: "#1F2937",
+    fontSize: "1.65rem",
+    fontWeight: 800,
+    color: "#173624",
     lineHeight: 1.2,
   },
   pageSubtitle: {
-    fontSize: "14px",
-    color: "#6B7280",
+    fontSize: "0.8rem",
+    color: "#5d7d6b",
     marginTop: "4px",
   },
-  // Summary cards
   summaryRow: {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
-    marginBottom: "24px",
+    gap: "12px",
+    marginBottom: 0,
   },
   statCard: {
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E5E7EB",
-    borderRadius: "12px",
-    padding: "20px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(245,251,247,0.98) 100%)",
+    border: "1px solid #cfe2d5",
+    borderRadius: "14px",
+    padding: "16px 18px",
     display: "flex",
     alignItems: "center",
-    gap: "16px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-    transition: "box-shadow 0.2s, transform 0.2s",
+    gap: "14px",
+    boxShadow: "0 10px 24px rgba(16,24,40,0.06), inset 0 1px 0 rgba(255,255,255,0.55)",
+    transition: "box-shadow 0.2s, transform 0.2s, border-color 0.2s",
     "&:hover": {
-      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-      transform: "translateY(-1px)",
+      boxShadow: "0 16px 30px rgba(21,118,63,0.10)",
+      borderColor: "#bed8c7",
+      transform: "translateY(-2px)",
     },
   },
   statIconWrap: {
     width: "48px",
     height: "48px",
-    borderRadius: "10px",
+    borderRadius: "12px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35)",
   },
   statLabel: {
     fontSize: "12px",
-    color: "#6B7280",
+    color: "#5d7d6b",
     marginBottom: "4px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   statValue: {
     fontSize: "28px",
-    fontWeight: 700,
-    color: "#1F2937",
+    fontWeight: 800,
+    color: "#173624",
     lineHeight: 1,
   },
-  // Main layout
+  secondaryMetrics: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: "12px",
+    marginBottom: 0,
+  },
+  subStatCard: {
+    border: "1px solid #cfe2d5",
+    borderRadius: "14px",
+    background: "#ffffff",
+    padding: "14px 16px",
+    boxShadow: "0 6px 18px rgba(16,24,40,0.05)",
+  },
   mainLayout: {
     display: "grid",
-    gridTemplateColumns: "30% 70%",
-    gap: "16px",
-    alignItems: "flex-start",
+    gridTemplateColumns: "320px minmax(0, 1fr)",
+    gap: "14px",
+    alignItems: "stretch",
   },
-  // Left panel
   leftPanel: {
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "12px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(246,251,248,0.98) 100%)",
+    border: "1px solid #cfe2d5",
+    borderRadius: "16px",
     overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    boxShadow: "0 14px 28px rgba(16,24,40,0.07)",
   },
   leftPanelHeader: {
-    padding: "16px 20px",
-    borderBottom: "1px solid #E5E7EB",
+    padding: "16px 18px",
+    borderBottom: "1px solid #e7f0ea",
+    background: "linear-gradient(180deg, rgba(240,248,243,0.95) 0%, rgba(255,255,255,0.95) 100%)",
   },
   leftPanelTitle: {
     fontSize: "14px",
-    fontWeight: 600,
-    color: "#1F2937",
+    fontWeight: 800,
+    color: "#173624",
   },
   connectionList: {
     maxHeight: "calc(100vh - 280px)",
@@ -164,32 +216,33 @@ const useStyles = makeStyles(() => ({
     },
   },
   connectionItem: {
-    padding: "14px 20px",
-    borderBottom: "1px solid #E5E7EB",
+    padding: "14px 18px",
+    borderBottom: "1px solid #e7f0ea",
     cursor: "pointer",
-    transition: "background 0.15s",
+    transition: "background 0.15s, box-shadow 0.15s, border-color 0.15s",
     "&:hover": {
-      backgroundColor: "#F1F5F9",
+      backgroundColor: "#f2f8f4",
     },
     "&:last-child": {
       borderBottom: "none",
     },
   },
   connectionItemSelected: {
-    backgroundColor: "#F1F5F9",
-    borderLeft: "3px solid #22C55E",
+    background: "linear-gradient(135deg, #ebf8ef 0%, #f7fcf9 100%)",
+    borderLeft: "4px solid #22ab5d",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",
   },
   connectionName: {
     fontSize: "14px",
-    fontWeight: 600,
-    color: "#1F2937",
+    fontWeight: 700,
+    color: "#173624",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
   connectionNumber: {
     fontSize: "12px",
-    color: "#6B7280",
+    color: "#5d7d6b",
     marginTop: "2px",
   },
   connectionMeta: {
@@ -203,11 +256,12 @@ const useStyles = makeStyles(() => ({
     display: "inline-flex",
     alignItems: "center",
     gap: "4px",
-    padding: "2px 8px",
+    padding: "3px 9px",
     borderRadius: "999px",
     fontSize: "11px",
-    fontWeight: 600,
+    fontWeight: 700,
     letterSpacing: "0.3px",
+    border: "1px solid rgba(0,0,0,0.04)",
   },
   connectionToggleRow: {
     display: "flex",
@@ -215,14 +269,13 @@ const useStyles = makeStyles(() => ({
     justifyContent: "space-between",
     marginTop: "6px",
   },
-  // Right panel
   rightPanel: {
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "12px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,251,248,0.98) 100%)",
+    border: "1px solid #cfe2d5",
+    borderRadius: "16px",
     overflow: "hidden",
     minHeight: "400px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    boxShadow: "0 18px 36px rgba(16,24,40,0.08)",
   },
   placeholderWrap: {
     display: "flex",
@@ -231,54 +284,73 @@ const useStyles = makeStyles(() => ({
     justifyContent: "center",
     height: "400px",
     gap: "12px",
-    color: "#9CA3AF",
+    color: "#6f897a",
   },
   placeholderIcon: {
     fontSize: "56px",
-    color: "#D1D5DB",
+    color: "#c2d4c8",
   },
   placeholderText: {
     fontSize: "15px",
-    color: "#9CA3AF",
+    color: "#6f897a",
     textAlign: "center",
   },
-  // Tabs
+  detailHeader: {
+    padding: "16px 22px",
+    borderBottom: "1px solid #e7f0ea",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    background: "linear-gradient(180deg, rgba(238,248,241,0.9) 0%, rgba(255,255,255,0.92) 100%)",
+  },
+  tabsShell: {
+    padding: "8px 10px 0",
+    borderBottom: "1px solid #e7f0ea",
+    background: "rgba(255,255,255,0.5)",
+  },
   tabsRoot: {
-    borderBottom: "1px solid #E5E7EB",
     "& .MuiTabs-indicator": {
-      backgroundColor: "#22C55E",
+      display: "none",
     },
   },
   tabItem: {
-    color: "#6B7280",
+    color: "#486556",
     fontSize: "13px",
-    fontWeight: 500,
+    fontWeight: 700,
     minWidth: "100px",
+    textTransform: "none",
+    minHeight: "42px",
+    borderRadius: "10px 10px 0 0",
+    marginRight: "8px",
+    border: "1px solid #d7e5dc",
+    borderBottom: "none",
+    background: "#f6fbf8",
     "&.Mui-selected": {
-      color: "#22C55E",
+      color: "#ffffff",
+      background: "linear-gradient(135deg, #22ab5d 0%, #15763f 100%)",
+      boxShadow: "0 8px 18px rgba(21,118,63,0.18)",
     },
   },
   tabContent: {
     padding: "24px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(244,249,246,0.78) 100%)",
   },
-  // Chart
   chartWrap: {
     backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "10px",
+    border: "1px solid #d8e6dd",
+    borderRadius: "12px",
     padding: "16px",
     marginBottom: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    boxShadow: "0 8px 22px rgba(16,24,40,0.05)",
   },
   chartTitle: {
     fontSize: "13px",
-    fontWeight: 600,
-    color: "#6B7280",
+    fontWeight: 700,
+    color: "#5d7d6b",
     marginBottom: "12px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
-  // Stats grid
   statsGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
@@ -287,33 +359,32 @@ const useStyles = makeStyles(() => ({
   },
   miniStatCard: {
     backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "10px",
+    border: "1px solid #d8e6dd",
+    borderRadius: "12px",
     padding: "14px",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    boxShadow: "0 6px 16px rgba(16,24,40,0.05)",
   },
   miniStatLabel: {
     fontSize: "11px",
-    color: "#9CA3AF",
+    color: "#6f897a",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     marginBottom: "6px",
   },
   miniStatValue: {
     fontSize: "20px",
-    fontWeight: 700,
-    color: "#1F2937",
+    fontWeight: 800,
+    color: "#173624",
   },
   miniStatSub: {
     fontSize: "11px",
-    color: "#9CA3AF",
+    color: "#86a094",
     marginTop: "2px",
   },
-  // Log feed
   logFeedWrap: {
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E5E7EB",
-    borderRadius: "10px",
+    backgroundColor: "#f6fbf8",
+    border: "1px solid #d8e6dd",
+    borderRadius: "12px",
     padding: "12px",
     maxHeight: "260px",
     overflowY: "auto",
@@ -352,8 +423,8 @@ const useStyles = makeStyles(() => ({
   },
   logSectionTitle: {
     fontSize: "13px",
-    fontWeight: 600,
-    color: "#6B7280",
+    fontWeight: 700,
+    color: "#486556",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     marginBottom: "10px",
@@ -385,7 +456,7 @@ const useStyles = makeStyles(() => ({
   },
   formLabel: {
     fontSize: "12px",
-    color: "#6B7280",
+    color: "#5d7d6b",
     marginBottom: "6px",
     display: "block",
     textTransform: "uppercase",
@@ -394,82 +465,86 @@ const useStyles = makeStyles(() => ({
   darkInput: {
     "& .MuiOutlinedInput-root": {
       backgroundColor: "#FFFFFF",
-      borderRadius: "8px",
-      color: "#1F2937",
+      borderRadius: "10px",
+      color: "#173624",
       "& fieldset": {
-        borderColor: "#E5E7EB",
+        borderColor: "#d7e4dc",
       },
       "&:hover fieldset": {
-        borderColor: "#D1D5DB",
+        borderColor: "#bfd3c6",
       },
       "&.Mui-focused fieldset": {
-        borderColor: "#22C55E",
+        borderColor: "#22ab5d",
       },
     },
     "& .MuiInputLabel-root": {
-      color: "#9CA3AF",
+      color: "#7c9588",
       "&.Mui-focused": {
-        color: "#22C55E",
+        color: "#22ab5d",
       },
     },
     "& .MuiSelect-root": {
-      color: "#1F2937",
+      color: "#173624",
     },
     "& .MuiSelect-icon": {
-      color: "#9CA3AF",
+      color: "#7c9588",
     },
     "& .MuiInputBase-input": {
-      color: "#1F2937",
+      color: "#173624",
     },
   },
   darkSelect: {
     backgroundColor: "#FFFFFF",
-    borderRadius: "8px",
-    color: "#1F2937",
+    borderRadius: "10px",
+    color: "#173624",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#E5E7EB",
+      borderColor: "#d7e4dc",
     },
     "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#D1D5DB",
+      borderColor: "#bfd3c6",
     },
     "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#22C55E",
+      borderColor: "#22ab5d",
     },
     "& .MuiSelect-icon": {
-      color: "#9CA3AF",
+      color: "#7c9588",
     },
   },
   rampUpBox: {
     backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "10px",
+    border: "1px solid #d8e6dd",
+    borderRadius: "12px",
     padding: "16px",
     marginTop: "4px",
+    boxShadow: "0 8px 18px rgba(16,24,40,0.04)",
   },
   primaryBtn: {
-    backgroundColor: "#22C55E",
+    background: "linear-gradient(135deg, #20a45a 0%, #157a43 100%)",
     color: "#fff",
-    fontWeight: 600,
-    borderRadius: "8px",
+    fontWeight: 700,
+    borderRadius: "10px",
     padding: "8px 20px",
     textTransform: "none",
+    boxShadow: "0 10px 22px rgba(21,122,67,0.18)",
     "&:hover": {
-      backgroundColor: "#16A34A",
+      background: "linear-gradient(135deg, #1b934f 0%, #126937 100%)",
     },
     "&:disabled": {
       backgroundColor: "#D1D5DB",
       color: "#9CA3AF",
+      boxShadow: "none",
     },
   },
   secondaryBtn: {
-    backgroundColor: "#E5E7EB",
-    color: "#1F2937",
-    fontWeight: 600,
-    borderRadius: "8px",
+    backgroundColor: "#f7fcf9",
+    border: "1px solid #bfd7c7",
+    color: "#1c5a35",
+    fontWeight: 700,
+    borderRadius: "10px",
     padding: "8px 20px",
     textTransform: "none",
     "&:hover": {
-      backgroundColor: "#D1D5DB",
+      backgroundColor: "#eef7f2",
     },
   },
   // Scripts tab
@@ -499,24 +574,25 @@ const useStyles = makeStyles(() => ({
   },
   aiSection: {
     backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "10px",
+    border: "1px solid #d8e6dd",
+    borderRadius: "12px",
     padding: "16px",
     marginBottom: "16px",
+    boxShadow: "0 8px 18px rgba(16,24,40,0.04)",
   },
   aiSectionTitle: {
     fontSize: "13px",
-    fontWeight: 600,
-    color: "#22C55E",
+    fontWeight: 700,
+    color: "#15763f",
     marginBottom: "12px",
     display: "flex",
     alignItems: "center",
     gap: "6px",
   },
   previewScripts: {
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E5E7EB",
-    borderRadius: "8px",
+    backgroundColor: "#f6fbf8",
+    border: "1px solid #d8e6dd",
+    borderRadius: "10px",
     padding: "12px",
     maxHeight: "200px",
     overflowY: "auto",
@@ -568,17 +644,20 @@ const useStyles = makeStyles(() => ({
     padding: "40px",
   },
   menuPaper: {
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E5E7EB",
+    backgroundColor: "#f6fbf8",
+    border: "1px solid #d8e6dd",
     "& .MuiMenuItem-root": {
-      color: "#1F2937",
+      color: "#173624",
       fontSize: "13px",
-      "&:hover": { backgroundColor: "#E5E7EB" },
+      "&:hover": { backgroundColor: "#eaf4ee" },
     },
   },
   // ── Responsive overrides ──────────────────────────────────────────────
   "@media (max-width: 1280px)": {
     summaryRow: {
+      gridTemplateColumns: "repeat(2, 1fr)",
+    },
+    secondaryMetrics: {
       gridTemplateColumns: "repeat(2, 1fr)",
     },
     mainLayout: {
@@ -590,6 +669,9 @@ const useStyles = makeStyles(() => ({
       padding: "16px",
     },
     summaryRow: {
+      gridTemplateColumns: "1fr",
+    },
+    secondaryMetrics: {
       gridTemplateColumns: "1fr",
     },
     mainLayout: {
@@ -732,7 +814,7 @@ function StatCard({ icon: Icon, iconBg, label, value }) {
   const classes = useStyles();
   return (
     <Box className={classes.statCard}>
-      <Box className={classes.statIconWrap} style={{ backgroundColor: iconBg }}>
+      <Box className={classes.statIconWrap} style={{ background: iconBg }}>
         <Icon style={{ color: "#fff", fontSize: "22px" }} />
       </Box>
       <Box>
@@ -1439,11 +1521,11 @@ function WarmupSessionBuilder({
   };
 
   return (
-    <Box style={{ marginTop: 24, background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 12, padding: 20 }}>
-      <Typography style={{ fontSize: 16, fontWeight: 700, color: "#1F2937", marginBottom: 12 }}>
+    <Box style={{ marginTop: 24, background: "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(246,251,248,0.98) 100%)", border: "1px solid #cfe2d5", borderRadius: 16, padding: 20, boxShadow: "0 14px 28px rgba(16,24,40,0.07)" }}>
+      <Typography style={{ fontSize: 16, fontWeight: 800, color: "#173624", marginBottom: 12 }}>
         Sessões de Aquecimento
       </Typography>
-      <Typography style={{ color: "#9ca3af", fontSize: 13, marginBottom: 18 }}>
+      <Typography style={{ color: "#6f897a", fontSize: 13, marginBottom: 18 }}>
         Configure sessões entre conexões, com script por etapas, modo de script, agendamento e controles de execução.
       </Typography>
 
@@ -1525,8 +1607,8 @@ function WarmupSessionBuilder({
         />
       </Box>
 
-      <Box style={{ marginTop: 14, borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
-        <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
+      <Box style={{ marginTop: 14, borderTop: "1px solid #e5efe8", paddingTop: 14 }}>
+        <Typography style={{ fontSize: 13, color: "#6f897a", marginBottom: 8, fontWeight: 700 }}>
           Gerador com IA
         </Typography>
         <Box style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
@@ -1540,8 +1622,8 @@ function WarmupSessionBuilder({
         </Box>
       </Box>
 
-      <Box style={{ marginTop: 16, borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
-        <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
+      <Box style={{ marginTop: 16, borderTop: "1px solid #e5efe8", paddingTop: 14 }}>
+        <Typography style={{ fontSize: 13, color: "#6f897a", marginBottom: 8, fontWeight: 700 }}>
           Editor de script por etapas
         </Typography>
         <Box style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 2fr 160px", gap: 8, alignItems: "center" }}>
@@ -1572,12 +1654,12 @@ function WarmupSessionBuilder({
           <Button className={classes.secondaryBtn} onClick={handleAddStep} startIcon={<AddIcon />}>Adicionar</Button>
         </Box>
 
-        <Box style={{ marginTop: 10, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
+        <Box style={{ marginTop: 10, background: "#ffffff", border: "1px solid #d8e6dd", borderRadius: 10, maxHeight: 220, overflowY: "auto", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)" }}>
           {manualSteps.length === 0 ? (
-            <Typography style={{ color: "#9CA3AF", fontSize: 12, padding: 12 }}>Nenhuma etapa adicionada.</Typography>
+            <Typography style={{ color: "#7c9588", fontSize: 12, padding: 12 }}>Nenhuma etapa adicionada.</Typography>
           ) : manualSteps.map((step, idx) => (
-            <Box key={`step-${idx}`} style={{ padding: "8px 12px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography style={{ color: "#4B5563", fontSize: 12 }}>
+            <Box key={`step-${idx}`} style={{ padding: "8px 12px", borderBottom: "1px solid #edf4ef", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography style={{ color: "#355946", fontSize: 12 }}>
                 {step.type === "wait"
                   ? `${idx + 1}. Aguardar ${step.seconds}s`
                   : `${idx + 1}. #${step.fromWhatsappId} envia para #${step.toWhatsappId}: ${step.message}`}
@@ -1604,7 +1686,7 @@ function WarmupSessionBuilder({
         </Box>
       </Box>
 
-      <Typography style={{ marginTop: 14, color: "#6b7280", fontSize: 12 }}>
+      <Typography style={{ marginTop: 14, color: "#5d7d6b", fontSize: 12 }}>
         Sessões criadas: {sessions.length}
       </Typography>
     </Box>
@@ -1632,8 +1714,8 @@ function WarmupSessionsHistory({ sessions, selectedSessionId, onSelectSession, o
 
   return (
     <Box style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 12 }}>
-      <Box style={{ background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
-        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #E5E7EB" }}>
+      <Box style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(246,251,248,0.98) 100%)", border: "1px solid #cfe2d5", borderRadius: 16, overflow: "hidden", boxShadow: "0 14px 28px rgba(16,24,40,0.07)" }}>
+        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #e5efe8", background: "linear-gradient(180deg, rgba(240,248,243,0.95) 0%, rgba(255,255,255,0.95) 100%)" }}>
           <Typography style={{ color: "#1F2937", fontWeight: 700, fontSize: 14 }}>Sessões criadas</Typography>
         </Box>
         <Box style={{ maxHeight: 360, overflowY: "auto" }}>
@@ -1942,15 +2024,20 @@ export default function AquecimentoWhatsApp() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Box className={classes.root}>
-      {/* Header */}
-      <Box className={classes.pageHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-        <Box>
-          <Typography className={classes.pageTitle}>🔥 Aquecimento WhatsApp</Typography>
-          <Typography className={classes.pageSubtitle}>
-            Mantenha seus chips saudáveis e com alta entregabilidade
-          </Typography>
-        </Box>
-        <Box style={{ display: "flex", gap: "12px" }}>
+      <Box className={classes.shell}>
+        <Box className={classes.pageHeader}>
+          <Box className={classes.titleRow}>
+            <Box className={classes.titleIcon}>
+              <WhatsAppIcon style={{ fontSize: 24 }} />
+            </Box>
+            <Box className={classes.titleContent}>
+              <Typography className={classes.pageTitle}>Aquecimento WhatsApp</Typography>
+              <Typography className={classes.pageSubtitle}>
+                Mantenha seus chips saudáveis, com leitura visual clara e operação mais segura.
+              </Typography>
+            </Box>
+          </Box>
+          <Box className={classes.headerActions}>
           <Button 
             className={classes.secondaryBtn}
             startIcon={<AutorenewIcon />}
@@ -1968,48 +2055,45 @@ export default function AquecimentoWhatsApp() {
           >
             Criar Sessão
           </Button>
+          </Box>
         </Box>
-      </Box>
 
-      {/* Summary cards */}
-      <Box className={classes.summaryRow}>
-        <StatCard
-          icon={WhatsAppIcon}
-          iconBg="rgba(37,211,102,0.2)"
-          label="Total conexões"
-          value={loadingSummary ? "..." : computedStats.total}
-        />
-        <StatCard
-          icon={RouterIcon}
-          iconBg="rgba(34,197,94,0.15)"
-          label="Aquecendo"
-          value={loadingSummary ? "..." : computedStats.aquecendo}
-        />
-        <StatCard
-          icon={MessageIcon}
-          iconBg="rgba(59,130,246,0.2)"
-          label="Mensagens hoje"
-          value={loadingSummary ? "..." : computedStats.hoje}
-        />
-        <StatCard
-          icon={TrendingUpIcon}
-          iconBg="rgba(168,85,247,0.2)"
-          label="Total simuladas"
-          value={loadingSummary ? "..." : computedStats.simuladas}
-        />
-      </Box>
+        <Box className={classes.summaryRow}>
+          <StatCard
+            icon={WhatsAppIcon}
+            iconBg="linear-gradient(135deg, #44d67f 0%, #1ba451 100%)"
+            label="Total conexões"
+            value={loadingSummary ? "..." : computedStats.total}
+          />
+          <StatCard
+            icon={RouterIcon}
+            iconBg="linear-gradient(135deg, #52c77d 0%, #238c53 100%)"
+            label="Aquecendo"
+            value={loadingSummary ? "..." : computedStats.aquecendo}
+          />
+          <StatCard
+            icon={MessageIcon}
+            iconBg="linear-gradient(135deg, #76aefc 0%, #3b82f6 100%)"
+            label="Mensagens hoje"
+            value={loadingSummary ? "..." : computedStats.hoje}
+          />
+          <StatCard
+            icon={TrendingUpIcon}
+            iconBg="linear-gradient(135deg, #d2b4ff 0%, #9a67ea 100%)"
+            label="Total simuladas"
+            value={loadingSummary ? "..." : computedStats.simuladas}
+          />
+        </Box>
 
-      <Box style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
-        <Box className={classes.statCard}><Typography className={classes.statLabel}>Sessões executadas</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsExecuted || 0}</Typography></Box>
-        <Box className={classes.statCard}><Typography className={classes.statLabel}>Sessões com falha</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsFailed || 0}</Typography></Box>
-        <Box className={classes.statCard}><Typography className={classes.statLabel}>Média msg/sessão</Typography><Typography className={classes.statValue}>{sessionMetrics?.avgMessagesPerSession || 0}</Typography></Box>
-        <Box className={classes.statCard}><Typography className={classes.statLabel}>Conexões aquecendo</Typography><Typography className={classes.statValue}>{sessionMetrics?.activeWarmingConnections || 0}</Typography></Box>
-      </Box>
+        <Box className={classes.secondaryMetrics}>
+          <Box className={classes.subStatCard}><Typography className={classes.statLabel}>Sessões executadas</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsExecuted || 0}</Typography></Box>
+          <Box className={classes.subStatCard}><Typography className={classes.statLabel}>Sessões com falha</Typography><Typography className={classes.statValue}>{sessionMetrics?.sessionsFailed || 0}</Typography></Box>
+          <Box className={classes.subStatCard}><Typography className={classes.statLabel}>Média msg/sessão</Typography><Typography className={classes.statValue}>{sessionMetrics?.avgMessagesPerSession || 0}</Typography></Box>
+          <Box className={classes.subStatCard}><Typography className={classes.statLabel}>Conexões aquecendo</Typography><Typography className={classes.statValue}>{sessionMetrics?.activeWarmingConnections || 0}</Typography></Box>
+        </Box>
 
-      {/* Main layout */}
-      <Box className={classes.mainLayout}>
-        {/* Left: connection list */}
-        <Box className={classes.leftPanel}>
+        <Box className={classes.mainLayout}>
+          <Box className={classes.leftPanel}>
           <Box className={classes.leftPanelHeader}>
             <Typography className={classes.leftPanelTitle}>
               Conexões ({summary.length})
@@ -2018,10 +2102,10 @@ export default function AquecimentoWhatsApp() {
 
           {loadingSummary ? (
             <Box className={classes.loadingWrap}>
-              <CircularProgress size={28} style={{ color: "#22C55E" }} />
+              <CircularProgress size={28} style={{ color: "#15763f" }} />
             </Box>
           ) : summary.length === 0 ? (
-            <Box style={{ padding: "32px 20px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>
+            <Box style={{ padding: "32px 20px", textAlign: "center", color: "#6f897a", fontSize: "13px" }}>
               Nenhuma conexão WhatsApp encontrada.
             </Box>
           ) : (
@@ -2056,7 +2140,7 @@ export default function AquecimentoWhatsApp() {
                     </Box>
 
                     <Box className={classes.connectionToggleRow}>
-                      <Typography style={{ fontSize: "11px", color: "#9CA3AF" }}>
+                      <Typography style={{ fontSize: "11px", color: "#6f897a", fontWeight: 600 }}>
                         {isActive ? "Aquecimento ativo" : "Aquecimento inativo"}
                       </Typography>
                       <Tooltip title={isActive ? "Desativar aquecimento" : "Ativar aquecimento"}>
@@ -2067,9 +2151,6 @@ export default function AquecimentoWhatsApp() {
                             onChange={(e) => handleToggle(e, conn)}
                             disabled={!!toggling[conn.whatsappId]}
                             color="primary"
-                            style={{
-                              "& .MuiSwitch-colorPrimary.Mui-checked": { color: "#22C55E" },
-                            }}
                           />
                         </span>
                       </Tooltip>
@@ -2081,63 +2162,54 @@ export default function AquecimentoWhatsApp() {
           )}
         </Box>
 
-        {/* Right: detail panel */}
-        <Box className={classes.rightPanel}>
+          <Box className={classes.rightPanel}>
           {!selectedId ? (
-            <Box className={classes.placeholderWrap} style={{ background: "#F8FAFC", border: "1px dashed #D1D5DB", margin: "24px", borderRadius: "12px", height: "calc(100% - 48px)" }}>
-              <WhatsAppIcon style={{ fontSize: "64px", color: "#D1D5DB", marginBottom: "16px" }} />
-              <Typography style={{ fontSize: "16px", fontWeight: 600, color: "#9CA3AF" }}>
+            <Box className={classes.placeholderWrap} style={{ background: "linear-gradient(180deg, #f2f8f4 0%, #fbfdfb 100%)", border: "1px dashed #c5d8cc", margin: "24px", borderRadius: "14px", height: "calc(100% - 48px)" }}>
+              <WhatsAppIcon style={{ fontSize: "64px", color: "#c2d4c8", marginBottom: "16px" }} />
+              <Typography style={{ fontSize: "16px", fontWeight: 700, color: "#587565" }}>
                 Nenhuma conexão selecionada
               </Typography>
-              <Typography style={{ fontSize: "14px", color: "#9CA3AF", textAlign: "center", padding: "0 20px" }}>
-                Selecione uma conexão à esquerda para gerenciar o aquecimento e ver estatísticas
+              <Typography style={{ fontSize: "14px", color: "#6f897a", textAlign: "center", padding: "0 20px" }}>
+                Selecione uma conexão à esquerda para gerenciar o aquecimento e acompanhar as estatísticas.
               </Typography>
             </Box>
           ) : loadingDetail ? (
             <Box className={classes.loadingWrap} style={{ height: "400px" }}>
-              <CircularProgress size={36} style={{ color: "#22C55E" }} />
+              <CircularProgress size={36} style={{ color: "#15763f" }} />
             </Box>
           ) : (
             <Box>
-              {/* Connection header */}
               {selectedConn && (
-                <Box
-                  style={{
-                    padding: "16px 24px",
-                    borderBottom: "1px solid #E5E7EB",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                  }}
-                >
+                <Box className={classes.detailHeader}>
                   <WhatsAppIcon style={{ color: "#25d366", fontSize: "20px" }} />
                   <Box>
-                    <Typography style={{ fontSize: "15px", fontWeight: 600, color: "#1F2937" }}>
+                    <Typography style={{ fontSize: "15px", fontWeight: 700, color: "#173624" }}>
                       {selectedConn.name || `Chip ${selectedConn.whatsappId}`}
                     </Typography>
                     {selectedConn.number && (
-                      <Typography style={{ fontSize: "12px", color: "#6B7280" }}>
+                      <Typography style={{ fontSize: "12px", color: "#5d7d6b" }}>
                         {selectedConn.number}
                       </Typography>
                     )}
                   </Box>
-                  <Box style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+                  <Box style={{ marginLeft: "auto", display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <StatusBadge status={selectedConn.connectionStatus} />
                     <HealthBadge score={warmupConfig ? warmupConfig.healthScore : null} />
                   </Box>
                 </Box>
               )}
 
-              {/* Tabs */}
-              <Tabs
-                value={activeTab}
-                onChange={(_, v) => setActiveTab(v)}
-                className={classes.tabsRoot}
-              >
-                <Tab label="Dashboard" className={classes.tabItem} />
-                <Tab label="Configuração" className={classes.tabItem} />
-                <Tab label="Scripts" className={classes.tabItem} />
-              </Tabs>
+              <Box className={classes.tabsShell}>
+                <Tabs
+                  value={activeTab}
+                  onChange={(_, v) => setActiveTab(v)}
+                  className={classes.tabsRoot}
+                >
+                  <Tab label="Dashboard" className={classes.tabItem} />
+                  <Tab label="Configuração" className={classes.tabItem} />
+                  <Tab label="Scripts" className={classes.tabItem} />
+                </Tabs>
+              </Box>
 
               <Box className={classes.tabContent}>
                 {activeTab === 0 && (
@@ -2184,6 +2256,7 @@ export default function AquecimentoWhatsApp() {
         onRefreshMetrics={fetchSessionMetrics}
         sessionLogs={sessionLogs}
       />
+      </Box>
     </Box>
   );
 }
