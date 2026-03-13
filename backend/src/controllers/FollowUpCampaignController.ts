@@ -4,15 +4,110 @@ import { Op } from "sequelize";
 import FollowUpCampaign from "../models/FollowUpCampaign";
 import FollowUpStage from "../models/FollowUpStage";
 import FollowUpLog from "../models/FollowUpLog";
+import FollowUpBoard from "../models/FollowUpBoard";
 
-// ── LIST ──────────────────────────────────────────────────────────────
+const DEFAULT_BOARD_NAME = "Quadro Principal";
+const DEFAULT_FUNNEL_NAME = "Geral";
+const DEFAULT_COLUMNS = ["Sem Categoria"];
+
+const normalizeColumns = (columns: unknown): string[] => {
+  const values = Array.isArray(columns) ? columns : [];
+  const normalized = values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, arr) => arr.indexOf(value) === index);
+
+  if (!normalized.includes("Sem Categoria")) {
+    normalized.unshift("Sem Categoria");
+  }
+
+  return normalized.length ? normalized : [...DEFAULT_COLUMNS];
+};
+
+const serializeBoard = (board: FollowUpBoard) => ({
+  ...board.toJSON(),
+  columns: normalizeColumns(board.columns),
+});
+
+const buildStats = async (where: Record<string, unknown>) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [totalSent, sentToday, responded] = await Promise.all([
+    FollowUpLog.count({ where: { ...where, status: "sent" } }),
+    FollowUpLog.count({ where: { ...where, status: "sent", sentAt: { [Op.gte]: today } } }),
+    FollowUpLog.count({ where: { ...where, status: "responded" } }),
+  ]);
+
+  const responseRate = totalSent > 0 ? Math.round((responded / totalSent) * 100) : 0;
+
+  return { totalSent, sentToday, responded, responseRate };
+};
+
+const ensureDefaultBoard = async (companyId: number): Promise<FollowUpBoard> => {
+  let board = await FollowUpBoard.findOne({
+    where: { companyId },
+    order: [["createdAt", "ASC"]],
+  });
+
+  const orphanCampaigns = await FollowUpCampaign.findAll({
+    where: { companyId, boardId: null },
+    attributes: ["id", "boardColumn"],
+  });
+
+  const discoveredColumns = normalizeColumns(
+    orphanCampaigns.map((campaign) => campaign.boardColumn).filter(Boolean)
+  );
+
+  if (!board) {
+    board = await FollowUpBoard.create({
+      companyId,
+      name: DEFAULT_BOARD_NAME,
+      funnelName: DEFAULT_FUNNEL_NAME,
+      columns: discoveredColumns,
+    });
+  } else {
+    const mergedColumns = normalizeColumns([...(board.columns || []), ...discoveredColumns]);
+    if (JSON.stringify(mergedColumns) !== JSON.stringify(board.columns || [])) {
+      await board.update({ columns: mergedColumns });
+    }
+  }
+
+  if (orphanCampaigns.length) {
+    await FollowUpCampaign.update(
+      { boardId: board.id },
+      { where: { companyId, boardId: null } }
+    );
+  }
+
+  return board;
+};
+
+const getBoardById = async (companyId: number, boardId?: number | string | null) => {
+  if (!boardId) {
+    return ensureDefaultBoard(companyId);
+  }
+
+  const board = await FollowUpBoard.findOne({
+    where: { id: boardId, companyId },
+  });
+
+  if (!board) {
+    throw new Error("BOARD_NOT_FOUND");
+  }
+
+  return board;
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
+  await ensureDefaultBoard(companyId);
 
   const campaigns = await FollowUpCampaign.findAll({
     where: { companyId },
     include: [
       { model: FollowUpStage, as: "stages", order: [["order", "ASC"]] },
+      { model: FollowUpBoard, as: "board" },
     ],
     order: [["createdAt", "DESC"]],
   });
@@ -20,80 +115,43 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   return res.json(campaigns);
 };
 
-// ── SHOW ──────────────────────────────────────────────────────────────
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
+  await ensureDefaultBoard(companyId);
 
   const campaign = await FollowUpCampaign.findOne({
     where: { id, companyId },
-    include: [{ model: FollowUpStage, as: "stages", order: [["order", "ASC"]] }],
+    include: [
+      { model: FollowUpStage, as: "stages", order: [["order", "ASC"]] },
+      { model: FollowUpBoard, as: "board" },
+    ],
   });
 
   if (!campaign) return res.status(404).json({ error: "Not found" });
   return res.json(campaign);
 };
 
-// ── CREATE ────────────────────────────────────────────────────────────
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { name, whatsappId, isActive, sourceType, stages } = req.body;
+  const { name, whatsappId, isActive, sourceType, stages, boardColumn, boardId } = req.body;
 
-  const campaign = await FollowUpCampaign.create({
-    name,
-    companyId,
-    whatsappId: whatsappId || null,
-    isActive: isActive !== undefined ? isActive : true,
-    sourceType: sourceType || "manual",
-    boardColumn: req.body.boardColumn || null,
-  });
+  try {
+    const board = await getBoardById(companyId, boardId);
+    const normalizedColumns = normalizeColumns(board.columns);
+    const safeBoardColumn = normalizedColumns.includes(boardColumn) ? boardColumn : "Sem Categoria";
 
-  if (Array.isArray(stages) && stages.length) {
-    await FollowUpStage.bulkCreate(
-      stages.map((s, idx) => ({
-        followUpCampaignId: campaign.id,
-        order: s.order ?? idx + 1,
-        delayMinutes: s.delayMinutes ?? 60,
-        messageType: s.messageType ?? "text",
-        message: s.message ?? "",
-        mediaUrl: s.mediaUrl ?? null,
-        mediaType: s.mediaType ?? null,
-        mediaCaption: s.mediaCaption ?? null,
-        buttons: s.buttons ?? null,
-        isActive: s.isActive !== undefined ? s.isActive : true,
-      }))
-    );
-  }
+    const campaign = await FollowUpCampaign.create({
+      name,
+      companyId,
+      whatsappId: whatsappId || null,
+      isActive: isActive !== undefined ? isActive : true,
+      sourceType: sourceType || "manual",
+      boardId: board.id,
+      boardColumn: safeBoardColumn,
+    });
 
-  const created = await FollowUpCampaign.findOne({
-    where: { id: campaign.id },
-    include: [{ model: FollowUpStage, as: "stages", order: [["order", "ASC"]] }],
-  });
-
-  return res.status(201).json(created);
-};
-
-// ── UPDATE ────────────────────────────────────────────────────────────
-export const update = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
-  const { id } = req.params;
-  const { name, whatsappId, isActive, sourceType, stages } = req.body;
-
-  const campaign = await FollowUpCampaign.findOne({ where: { id, companyId } });
-  if (!campaign) return res.status(404).json({ error: "Not found" });
-
-  await campaign.update({
-    name: name ?? campaign.name,
-    whatsappId: whatsappId !== undefined ? whatsappId : campaign.whatsappId,
-    isActive: isActive !== undefined ? isActive : campaign.isActive,
-    sourceType: sourceType ?? campaign.sourceType,
-    boardColumn: req.body.boardColumn !== undefined ? req.body.boardColumn : campaign.boardColumn,
-  });
-
-  // Replace stages if provided
-  if (Array.isArray(stages)) {
-    await FollowUpStage.destroy({ where: { followUpCampaignId: campaign.id } });
-    if (stages.length) {
+    if (Array.isArray(stages) && stages.length) {
       await FollowUpStage.bulkCreate(
         stages.map((s, idx) => ({
           followUpCampaignId: campaign.id,
@@ -109,17 +167,92 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         }))
       );
     }
+
+    const created = await FollowUpCampaign.findOne({
+      where: { id: campaign.id },
+      include: [
+        { model: FollowUpStage, as: "stages", order: [["order", "ASC"]] },
+        { model: FollowUpBoard, as: "board" },
+      ],
+    });
+
+    return res.status(201).json(created);
+  } catch (error) {
+    if (error.message === "BOARD_NOT_FOUND") {
+      return res.status(404).json({ error: "Board not found" });
+    }
+
+    throw error;
   }
-
-  const updated = await FollowUpCampaign.findOne({
-    where: { id: campaign.id },
-    include: [{ model: FollowUpStage, as: "stages", order: [["order", "ASC"]] }],
-  });
-
-  return res.json(updated);
 };
 
-// ── DELETE ────────────────────────────────────────────────────────────
+export const update = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { name, whatsappId, isActive, sourceType, stages, boardId, boardColumn } = req.body;
+
+  const campaign = await FollowUpCampaign.findOne({ where: { id, companyId } });
+  if (!campaign) return res.status(404).json({ error: "Not found" });
+
+  try {
+    const board =
+      boardId !== undefined || !campaign.boardId
+        ? await getBoardById(companyId, boardId ?? campaign.boardId)
+        : await getBoardById(companyId, campaign.boardId);
+
+    const normalizedColumns = normalizeColumns(board.columns);
+    const nextBoardColumn =
+      boardColumn !== undefined
+        ? (normalizedColumns.includes(boardColumn) ? boardColumn : "Sem Categoria")
+        : (normalizedColumns.includes(campaign.boardColumn) ? campaign.boardColumn : "Sem Categoria");
+
+    await campaign.update({
+      name: name ?? campaign.name,
+      whatsappId: whatsappId !== undefined ? whatsappId : campaign.whatsappId,
+      isActive: isActive !== undefined ? isActive : campaign.isActive,
+      sourceType: sourceType ?? campaign.sourceType,
+      boardId: board.id,
+      boardColumn: nextBoardColumn,
+    });
+
+    if (Array.isArray(stages)) {
+      await FollowUpStage.destroy({ where: { followUpCampaignId: campaign.id } });
+      if (stages.length) {
+        await FollowUpStage.bulkCreate(
+          stages.map((s, idx) => ({
+            followUpCampaignId: campaign.id,
+            order: s.order ?? idx + 1,
+            delayMinutes: s.delayMinutes ?? 60,
+            messageType: s.messageType ?? "text",
+            message: s.message ?? "",
+            mediaUrl: s.mediaUrl ?? null,
+            mediaType: s.mediaType ?? null,
+            mediaCaption: s.mediaCaption ?? null,
+            buttons: s.buttons ?? null,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+          }))
+        );
+      }
+    }
+
+    const updated = await FollowUpCampaign.findOne({
+      where: { id: campaign.id },
+      include: [
+        { model: FollowUpStage, as: "stages", order: [["order", "ASC"]] },
+        { model: FollowUpBoard, as: "board" },
+      ],
+    });
+
+    return res.json(updated);
+  } catch (error) {
+    if (error.message === "BOARD_NOT_FOUND") {
+      return res.status(404).json({ error: "Board not found" });
+    }
+
+    throw error;
+  }
+};
+
 export const remove = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
@@ -131,7 +264,94 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   return res.status(200).json({ ok: true });
 };
 
-// ── STATS ─────────────────────────────────────────────────────────────
+export const indexBoards = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  await ensureDefaultBoard(companyId);
+
+  const boards = await FollowUpBoard.findAll({
+    where: { companyId },
+    order: [["funnelName", "ASC"], ["name", "ASC"]],
+  });
+
+  return res.json(boards.map(serializeBoard));
+};
+
+export const storeBoard = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { name, funnelName, columns } = req.body;
+
+  const board = await FollowUpBoard.create({
+    companyId,
+    name: String(name || "").trim() || DEFAULT_BOARD_NAME,
+    funnelName: String(funnelName || "").trim() || DEFAULT_FUNNEL_NAME,
+    columns: normalizeColumns(columns),
+  });
+
+  return res.status(201).json(serializeBoard(board));
+};
+
+export const updateBoard = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { name, funnelName, columns } = req.body;
+
+  const board = await FollowUpBoard.findOne({ where: { id, companyId } });
+  if (!board) return res.status(404).json({ error: "Board not found" });
+
+  const nextColumns = normalizeColumns(columns ?? board.columns);
+
+  await board.update({
+    name: name !== undefined ? String(name || "").trim() || board.name : board.name,
+    funnelName:
+      funnelName !== undefined
+        ? String(funnelName || "").trim() || DEFAULT_FUNNEL_NAME
+        : board.funnelName,
+    columns: nextColumns,
+  });
+
+  const fallbackColumn = nextColumns[0] || "Sem Categoria";
+  const campaigns = await FollowUpCampaign.findAll({
+    where: { companyId, boardId: board.id },
+    attributes: ["id", "boardColumn"],
+  });
+
+  for (const campaign of campaigns) {
+    if (!nextColumns.includes(campaign.boardColumn)) {
+      await campaign.update({ boardColumn: fallbackColumn });
+    }
+  }
+
+  return res.json(serializeBoard(board));
+};
+
+export const removeBoard = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+
+  const board = await FollowUpBoard.findOne({ where: { id, companyId } });
+  if (!board) return res.status(404).json({ error: "Board not found" });
+
+  const boards = await FollowUpBoard.findAll({
+    where: { companyId },
+    order: [["createdAt", "ASC"]],
+  });
+
+  if (boards.length <= 1) {
+    return res.status(400).json({ error: "At least one board is required" });
+  }
+
+  const fallbackBoard = boards.find((item) => item.id !== board.id);
+  const fallbackColumn = normalizeColumns(fallbackBoard?.columns)[0] || "Sem Categoria";
+
+  await FollowUpCampaign.update(
+    { boardId: fallbackBoard?.id || null, boardColumn: fallbackColumn },
+    { where: { companyId, boardId: board.id } }
+  );
+
+  await board.destroy();
+  return res.status(200).json({ ok: true });
+};
+
 export const stats = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
@@ -139,16 +359,23 @@ export const stats = async (req: Request, res: Response): Promise<Response> => {
   const campaign = await FollowUpCampaign.findOne({ where: { id, companyId } });
   if (!campaign) return res.status(404).json({ error: "Not found" });
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  return res.json(await buildStats({ followUpCampaignId: campaign.id }));
+};
 
-  const [totalSent, sentToday, responded] = await Promise.all([
-    FollowUpLog.count({ where: { followUpCampaignId: campaign.id, status: "sent" } }),
-    FollowUpLog.count({ where: { followUpCampaignId: campaign.id, status: "sent", sentAt: { [Op.gte]: today } } }),
-    FollowUpLog.count({ where: { followUpCampaignId: campaign.id, status: "responded" } }),
+export const overviewStats = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const stats = await buildStats({ companyId });
+
+  const [totalCampaigns, activeCampaigns, totalBoards] = await Promise.all([
+    FollowUpCampaign.count({ where: { companyId } }),
+    FollowUpCampaign.count({ where: { companyId, isActive: true } }),
+    FollowUpBoard.count({ where: { companyId } }),
   ]);
 
-  const responseRate = totalSent > 0 ? Math.round((responded / totalSent) * 100) : 0;
-
-  return res.json({ totalSent, sentToday, responded, responseRate });
+  return res.json({
+    ...stats,
+    totalCampaigns,
+    activeCampaigns,
+    totalBoards,
+  });
 };

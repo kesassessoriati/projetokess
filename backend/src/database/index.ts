@@ -132,6 +132,7 @@ import WhatsappWarmupSessionLog from "../models/WhatsappWarmupSessionLog";
 import FollowUpCampaign from "../models/FollowUpCampaign";
 import FollowUpStage from "../models/FollowUpStage";
 import FollowUpLog from "../models/FollowUpLog";
+import FollowUpBoard from "../models/FollowUpBoard";
 import TaskBoard from "../models/TaskBoard";
 import TaskList from "../models/TaskList";
 import Task from "../models/Task";
@@ -336,6 +337,7 @@ const models = [
   FollowUpCampaign,
   FollowUpStage,
   FollowUpLog,
+  FollowUpBoard,
   TaskBoard,
   TaskList,
   Task,

@@ -22,10 +22,10 @@ import { has, isObject } from "lodash";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import withWidth, { isWidthUp } from "@material-ui/core/withWidth";
 import { i18n } from "../../translate/i18n";
-import SaveIcon from '@mui/icons-material/Save';
-import AddIcon from '@mui/icons-material/Add';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ForumIcon from '@mui/icons-material/Forum';
+import SaveIcon from "@mui/icons-material/Save";
+import AddIcon from "@mui/icons-material/Add";
+import CancelIcon from "@mui/icons-material/Cancel";
+import ForumIcon from "@mui/icons-material/Forum";
 import useSafeApi from "../../hooks/useSafeApi";
 import { useSocket } from "../../context/SocketContext";
 import SafeComponent from "../../components/SafeComponent";
@@ -37,27 +37,99 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     position: "relative",
     flex: 1,
-    height: `calc(100% - 48px)`,
+    height: "calc(100% - 48px)",
     overflowY: "hidden",
+    padding: theme.spacing(2),
+    background:
+      "radial-gradient(circle at top left, rgba(59,130,246,0.12), transparent 28%), linear-gradient(180deg, #f6f8fc 0%, #eef3f8 100%)",
   },
   gridContainer: {
     flex: 1,
     height: "100%",
-    border: "1px solid rgba(0, 0, 0, 0.1)",
-    background: theme.palette.background.paper,
-    borderRadius: 8,
+    border: "1px solid rgba(15, 23, 42, 0.08)",
+    background: "rgba(255,255,255,0.84)",
+    backdropFilter: "blur(14px)",
+    borderRadius: 24,
     overflow: "hidden",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    boxShadow: "0 22px 55px rgba(15,23,42,0.12)",
   },
   gridItem: {
     height: "100%",
   },
-  gridItemTab: {
-    height: "92%",
-    width: "100%",
-  },
   btnContainer: {
-    padding: "10px 12px 8px",
+    padding: "18px 18px 12px",
+  },
+  sidebarPanel: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    background:
+      "linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(239,246,255,0.94) 100%)",
+    borderRight: "1px solid rgba(148,163,184,0.16)",
+  },
+  sidebarHeader: {
+    padding: "20px 18px 0",
+  },
+  sidebarEyebrow: {
+    fontSize: "0.72rem",
+    fontWeight: 800,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    color: "#2563eb",
+    marginBottom: 6,
+  },
+  sidebarTitle: {
+    fontSize: "1.12rem",
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+  sidebarSubtitle: {
+    fontSize: "0.84rem",
+    color: "#475569",
+    marginTop: 4,
+    lineHeight: 1.5,
+  },
+  addButton: {
+    color: "#fff",
+    background: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
+    boxShadow: "0 14px 30px rgba(34,197,94,0.28)",
+    borderRadius: 14,
+    padding: "12px 16px",
+    fontWeight: 800,
+    textTransform: "none",
+    "&:hover": {
+      background: "linear-gradient(135deg, #15803d 0%, #16a34a 100%)",
+      boxShadow: "0 18px 36px rgba(34,197,94,0.34)",
+    },
+  },
+  mobileTabs: {
+    margin: "0 18px 12px",
+    padding: 4,
+    background: "#e2e8f0",
+    borderRadius: 14,
+    minHeight: 48,
+    "& .MuiTabs-indicator": {
+      height: "calc(100% - 8px)",
+      borderRadius: 12,
+      background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+      zIndex: 0,
+    },
+  },
+  mobileTab: {
+    minHeight: 40,
+    borderRadius: 10,
+    fontWeight: 700,
+    textTransform: "none",
+    color: "#334155",
+    zIndex: 1,
+    "&.Mui-selected": {
+      color: "#ffffff",
+    },
+  },
+  messagePanel: {
+    height: "100%",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.98) 100%)",
   },
   emptyChat: {
     display: "flex",
@@ -65,9 +137,30 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
-    gap: 12,
+    gap: 14,
     padding: 32,
-    color: theme.palette.text.secondary,
+    background:
+      "radial-gradient(circle at top, rgba(37,99,235,0.08), transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,245,249,0.92))",
+  },
+  emptyIconWrap: {
+    width: 92,
+    height: 92,
+    borderRadius: 28,
+    display: "grid",
+    placeItems: "center",
+    background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(16,185,129,0.14))",
+    color: "#1d4ed8",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.55)",
+  },
+  emptyTitle: {
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+  emptyText: {
+    maxWidth: 360,
+    textAlign: "center",
+    color: "#475569",
+    lineHeight: 1.6,
   },
 }));
 
@@ -107,10 +200,10 @@ export function ChatModal({
           title,
         });
         handleLoadNewChat(data);
-        window.location.reload(); // Recarrega a página após salvar um novo chat
+        window.location.reload();
       }
       handleClose();
-    } catch (err) { }
+    } catch (err) {}
   };
 
   return (
@@ -120,7 +213,9 @@ export function ChatModal({
       aria-labelledby="alert-dialog-title"
       aria-describedby="alert-dialog-description"
     >
-      <DialogTitle id="alert-dialog-title">{i18n.t("chatInternal.modal.title")}</DialogTitle>
+      <DialogTitle id="alert-dialog-title">
+        {i18n.t("chatInternal.modal.title")}
+      </DialogTitle>
       <DialogContent>
         <Grid spacing={2} container>
           <Grid xs={12} style={{ padding: 18 }} item>
@@ -136,7 +231,7 @@ export function ChatModal({
           </Grid>
           <Grid xs={12} item>
             <UsersFilter
-              onFiltered={(users) => setUsers(users)}
+              onFiltered={(filteredUsers) => setUsers(filteredUsers)}
               initialUsers={users}
             />
           </Grid>
@@ -150,7 +245,7 @@ export function ChatModal({
             color: "white",
             backgroundColor: "#db6565",
             boxShadow: "none",
-            borderRadius: "5px",
+            borderRadius: 8,
           }}
         >
           {i18n.t("chatInternal.modal.cancel")}
@@ -160,12 +255,18 @@ export function ChatModal({
           startIcon={<SaveIcon />}
           style={{
             color: "white",
-            backgroundColor: "#4ec24e",
+            backgroundColor: "#16a34a",
             boxShadow: "none",
-            borderRadius: "5px",
+            borderRadius: 8,
           }}
           variant="contained"
-          disabled={users === undefined || users.length === 0 || title === null || title === "" || title === undefined}
+          disabled={
+            users === undefined ||
+            users.length === 0 ||
+            title === null ||
+            title === "" ||
+            title === undefined
+          }
         >
           {i18n.t("chatInternal.modal.save")}
         </Button>
@@ -192,19 +293,20 @@ function Chat(props) {
   const isMounted = useRef(true);
 
   useEffect(() => {
-    return () => { isMounted.current = false; };
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
-  // FASE 2: Consumo seguro de API via Hook
   const {
     data: chatsData,
     loading: loadingChats,
     error: errorChats,
     request: findChats,
-    setData: setChatsData
+    setData: setChatsData,
   } = useSafeApi("/chats", { manual: false });
 
-  const { socket, isReady, on } = useSocket();
+  const { isReady, on } = useSocket();
 
   useEffect(() => {
     if (chatsData?.records && id) {
@@ -221,28 +323,35 @@ function Chat(props) {
     }
   }, [currentChat]);
 
-  // FASE 3: Socket Seguro via useSocket + on() helper
   useEffect(() => {
     if (!isReady) return;
 
     const companyId = user.companyId;
 
-    const cleanupChatUser = on(`company-${companyId}-chat-user-${user.id}`, (data) => {
-      if (data.action === "create") {
-        setChatsData(prev => ({ ...prev, records: [data.record, ...prev.records] }));
+    const cleanupChatUser = on(
+      `company-${companyId}-chat-user-${user.id}`,
+      (data) => {
+        if (data.action === "create") {
+          setChatsData((prev) => ({ ...prev, records: [data.record, ...prev.records] }));
+        }
+        if (data.action === "update") {
+          setChatsData((prev) => ({
+            ...prev,
+            records: prev.records.map((c) =>
+              c.id === data.record.id ? data.record : c
+            ),
+          }));
+          if (currentChat.id === data.record.id) setCurrentChat(data.record);
+        }
       }
-      if (data.action === "update") {
-        setChatsData(prev => ({
-          ...prev,
-          records: prev.records.map(c => c.id === data.record.id ? data.record : c)
-        }));
-        if (currentChat.id === data.record.id) setCurrentChat(data.record);
-      }
-    });
+    );
 
     const cleanupChat = on(`company-${companyId}-chat`, (data) => {
       if (data.action === "delete") {
-        setChatsData(prev => ({ ...prev, records: prev.records.filter(c => c.id !== +data.id) }));
+        setChatsData((prev) => ({
+          ...prev,
+          records: prev.records.filter((c) => c.id !== +data.id),
+        }));
         if (currentChat.id === +data.id) {
           setCurrentChat({});
           history.push("/chats");
@@ -254,7 +363,7 @@ function Chat(props) {
     if (currentChat?.id) {
       cleanupCurrentChat = on(`company-${companyId}-chat-${currentChat.id}`, (data) => {
         if (data.action === "new-message") {
-          setMessages(prev => [...prev, data.newMessage]);
+          setMessages((prev) => [...prev, data.newMessage]);
           if (scrollToBottomRef.current) {
             scrollToBottomRef.current();
           }
@@ -279,7 +388,7 @@ function Chat(props) {
     try {
       const { data } = await api.get(`/chats/${chatId}/messages?pageNumber=${page}`);
       if (data && data.records) {
-        setMessages(prev => page === 1 ? data.records : [...data.records, ...prev]);
+        setMessages((prev) => (page === 1 ? data.records : [...data.records, ...prev]));
         setMessagesPageInfo(data);
         if (page === 1) setTimeout(() => scrollToBottomRef.current?.(), 200);
       }
@@ -341,7 +450,7 @@ function Chat(props) {
         type={dialogType}
         handleClose={() => setShowDialog(false)}
         handleLoadNewChat={(data) => {
-          setChatsData(prev => ({ ...prev, records: [data, ...prev.records] }));
+          setChatsData((prev) => ({ ...prev, records: [data, ...prev.records] }));
           selectChat(data);
           history.push(`/chats/${data.uuid}`);
         }}
@@ -349,88 +458,122 @@ function Chat(props) {
 
       <Paper className={classes.gridContainer}>
         <Grid className={classes.gridItem} container>
-          {/* LISTA DE CHATS */}
           {(isMdUp || tab === 0) && (
             <Grid className={classes.gridItem} xs={12} md={3} item>
-              <div className={classes.btnContainer}>
-                <Button
-                  onClick={() => { setDialogType("new"); setShowDialog(true); }}
-                  color="primary"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  fullWidth
-                  style={{
-                    color: "white",
-                    backgroundColor: "#4ec24e",
-                    boxShadow: "none",
-                    borderRadius: "5px",
-                  }}
-                >
-                  Adicionar chat
-                </Button>
-              </div>
+              <div className={classes.sidebarPanel}>
+                <div className={classes.sidebarHeader}>
+                  <Typography className={classes.sidebarEyebrow}>
+                    Comunicacao interna
+                  </Typography>
+                  <Typography className={classes.sidebarTitle}>
+                    Chat da equipe
+                  </Typography>
+                  <Typography className={classes.sidebarSubtitle}>
+                    Centralize alinhamentos, destaque as conversas mais importantes
+                    e acompanhe novas mensagens com mais clareza.
+                  </Typography>
+                </div>
 
-              {!isMdUp && (
-                <Tabs value={tab} onChange={(e, v) => setTab(v)} indicatorColor="primary" textColor="primary" variant="fullWidth" style={{ marginBottom: 10 }}>
-                  <Tab label="Chats" />
-                  <Tab label="Mensagens" disabled={!currentChat.id} />
-                </Tabs>
-              )}
-
-              <SafeComponent
-                loading={loadingChats}
-                error={errorChats}
-                data={chatsData?.records}
-                onRetry={findChats}
-                emptyMessage="Nenhum chat interno ativo."
-                renderData={(records) => (
-                  <ChatList
-                    chats={records}
-                    currentChat={currentChat}
-                    selectChat={(chat) => {
-                      selectChat(chat);
-                      history.push(`/chats/${chat.uuid}`);
+                <div className={classes.btnContainer}>
+                  <Button
+                    onClick={() => {
+                      setDialogType("new");
+                      setShowDialog(true);
                     }}
-                    handleDeleteChat={handleDeleteChat}
-                    handleEditChat={(chat) => { if (chat) setCurrentChat(chat); setDialogType("edit"); setShowDialog(true); }}
-                    user={user}
-                  />
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    fullWidth
+                    className={classes.addButton}
+                  >
+                    Novo chat interno
+                  </Button>
+                </div>
+
+                {!isMdUp && (
+                  <Tabs
+                    value={tab}
+                    onChange={(e, v) => setTab(v)}
+                    variant="fullWidth"
+                    className={classes.mobileTabs}
+                  >
+                    <Tab label="Conversas" className={classes.mobileTab} />
+                    <Tab
+                      label="Mensagens"
+                      disabled={!currentChat.id}
+                      className={classes.mobileTab}
+                    />
+                  </Tabs>
                 )}
-              />
+
+                <SafeComponent
+                  loading={loadingChats}
+                  error={errorChats}
+                  data={chatsData?.records}
+                  onRetry={findChats}
+                  emptyMessage="Nenhum chat interno ativo."
+                  renderData={(records) => (
+                    <ChatList
+                      chats={records}
+                      currentChat={currentChat}
+                      selectChat={(chat) => {
+                        selectChat(chat);
+                        history.push(`/chats/${chat.uuid}`);
+                      }}
+                      handleDeleteChat={handleDeleteChat}
+                      handleEditChat={(chat) => {
+                        if (chat) setCurrentChat(chat);
+                        setDialogType("edit");
+                        setShowDialog(true);
+                      }}
+                      user={user}
+                    />
+                  )}
+                />
+              </div>
             </Grid>
           )}
 
-          {/* MENSAGENS */}
           {(isMdUp || tab === 1) && (
             <Grid className={classes.gridItem} xs={12} md={9} item>
               {!isMdUp && (
-                <Tabs value={tab} onChange={(e, v) => setTab(v)} indicatorColor="primary" textColor="primary" variant="fullWidth" style={{ marginBottom: 10 }}>
-                  <Tab label="Chats" />
-                  <Tab label="Mensagens" />
+                <Tabs
+                  value={tab}
+                  onChange={(e, v) => setTab(v)}
+                  variant="fullWidth"
+                  className={classes.mobileTabs}
+                >
+                  <Tab label="Conversas" className={classes.mobileTab} />
+                  <Tab label="Mensagens" className={classes.mobileTab} />
                 </Tabs>
               )}
 
-              {currentChat.id ? (
-                <ChatMessages
-                  chat={currentChat}
-                  messages={messages}
-                  handleSendMessage={handleSendMessage}
-                  handleLoadMore={handleLoadMoreMessages}
-                  scrollToBottomRef={scrollToBottomRef}
-                  loading={loadingMessages}
-                  hasMore={messagesPageInfo.hasMore}
-                />
-              ) : (
-                <div className={classes.emptyChat}>
-                  <ForumIcon style={{ fontSize: 56, opacity: 0.2 }} />
-                  <Typography variant="h6" color="textSecondary" style={{ fontWeight: 600, opacity: 0.5 }}>
-                    Selecione uma conversa
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" style={{ opacity: 0.4, textAlign: "center" }}>
-                    Escolha um chat na lista ao lado ou crie uma nova conversa
-                  </Typography>
-                </div>
-              )}
+              <div className={classes.messagePanel}>
+                {currentChat.id ? (
+                  <ChatMessages
+                    chat={currentChat}
+                    messages={messages}
+                    handleSendMessage={handleSendMessage}
+                    handleLoadMore={handleLoadMoreMessages}
+                    scrollToBottomRef={scrollToBottomRef}
+                    pageInfo={messagesPageInfo}
+                    loading={loadingMessages}
+                  />
+                ) : (
+                  <div className={classes.emptyChat}>
+                    <div className={classes.emptyIconWrap}>
+                      <ForumIcon style={{ fontSize: 42 }} />
+                    </div>
+                    <Typography variant="h5" className={classes.emptyTitle}>
+                      Selecione uma conversa
+                    </Typography>
+                    <Typography variant="body2" className={classes.emptyText}>
+                      Abra um chat na coluna ao lado para visualizar mensagens,
+                      anexos e participantes em um painel mais organizado e com
+                      leitura mais rápida.
+                    </Typography>
+                  </div>
+                )}
+              </div>
             </Grid>
           )}
         </Grid>

@@ -16,6 +16,7 @@ import {
 import Company from "./Company";
 import Whatsapp from "./Whatsapp";
 import FollowUpStage from "./FollowUpStage";
+import FollowUpBoard from "./FollowUpBoard";
 
 @Table({ tableName: "FollowUpCampaigns" })
 class FollowUpCampaign extends Model<FollowUpCampaign> {
@@ -48,6 +49,11 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
   @Column(DataType.STRING)
   boardColumn: string;
 
+  @AllowNull(true)
+  @ForeignKey(() => FollowUpBoard)
+  @Column
+  boardId: number;
+
   @CreatedAt
   createdAt: Date;
 
@@ -59,6 +65,9 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
+
+  @BelongsTo(() => FollowUpBoard)
+  board: FollowUpBoard;
 
   @HasMany(() => FollowUpStage, { foreignKey: "followUpCampaignId" })
   stages: FollowUpStage[];
