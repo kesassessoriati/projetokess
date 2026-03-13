@@ -22,6 +22,8 @@ interface Request {
   state?: string;
   status?: "active" | "inactive" | "blocked";
   clientSince?: Date;
+  acquiredProduct?: string;
+  expirationDate?: Date;
   ownerUserId?: number;
   notes?: string;
   decisorName?: string;
@@ -112,7 +114,9 @@ const UpdateCrmClientService = async ({
   // Sanitiza o telefone antes de atualizar
   const updateData = {
     ...validatedData,
-    phone: data.phone ? data.phone.replace(/\D/g, "") : data.phone
+    phone: data.phone ? data.phone.replace(/\D/g, "") : data.phone,
+    acquiredProduct: data.acquiredProduct,
+    expirationDate: data.expirationDate || null
   };
 
   await client.update(updateData);

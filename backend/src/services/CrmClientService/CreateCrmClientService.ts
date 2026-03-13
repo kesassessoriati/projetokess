@@ -20,6 +20,8 @@ export interface CreateCrmClientRequest {
   state?: string;
   status?: "active" | "inactive" | "blocked";
   clientSince?: Date;
+  acquiredProduct?: string;
+  expirationDate?: Date;
   ownerUserId?: number;
   notes?: string;
   decisorName?: string;
@@ -105,7 +107,9 @@ const CreateCrmClientService = async (
     ...validatedData,
     type: validatedData.type || "pf",
     status: validatedData.status || "active",
-    phone: data.phone ? data.phone.replace(/\D/g, "") : undefined
+    phone: data.phone ? data.phone.replace(/\D/g, "") : undefined,
+    acquiredProduct: data.acquiredProduct || undefined,
+    expirationDate: data.expirationDate || null
   };
 
   const client = await CrmClient.create(clientData);

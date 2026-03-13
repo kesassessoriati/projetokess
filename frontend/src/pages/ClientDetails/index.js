@@ -575,6 +575,18 @@ const ClientDetails = () => {
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
+            <span className={classes.infoLabel}>Produto adquirido</span>
+            <span className={classes.infoValue}>{client?.acquiredProduct || "Não informado"}</span>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Box className={classes.infoItem}>
+            <span className={classes.infoLabel}>Data de vencimento</span>
+            <span className={classes.infoValue}>{formatDate(client?.expirationDate) || "—"}</span>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Data de nascimento</span>
             <span className={classes.infoValue}>{formatDate(client?.birthDate) || "—"}</span>
           </Box>
@@ -615,6 +627,12 @@ const ClientDetails = () => {
                 <span className={classes.infoValue}>{client?.phone || "Não informado"}</span>
               </Box>
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box className={classes.infoItem}>
+                <span className={classes.infoLabel}>Produto adquirido</span>
+                <span className={classes.infoValue}>{client?.acquiredProduct || "Não informado"}</span>
+              </Box>
+            </Grid>
             <Grid item xs={12}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Endereço</span>
@@ -633,8 +651,10 @@ const ClientDetails = () => {
             </Grid>
             <Grid item xs={12}>
               <Box className={classes.infoItem}>
-                <span className={classes.infoLabel}>Data de nascimento</span>
-                <span className={classes.infoValue}>{formatDate(client?.birthDate) || "—"}</span>
+                <span className={classes.infoLabel}>Datas importantes</span>
+                <span className={classes.infoValue}>
+                  Nascimento: {formatDate(client?.birthDate) || "—"} | Vencimento: {formatDate(client?.expirationDate) || "—"}
+                </span>
               </Box>
             </Grid>
           </Grid>

@@ -461,7 +461,7 @@ const Clients = () => {
         return toastError(new Error("Nenhum cliente para exportar."));
       }
       const csvRows = [
-        ["ID", "Nome", "Email", "Telefone", "Tipo", "Documento", "Cidade", "Responsável", "Desde", "Status"]
+        ["ID", "Nome", "Email", "Telefone", "Tipo", "Documento", "Cidade", "Responsável", "Produto", "Desde", "Vencimento", "Status"]
       ];
       clientsToExport.forEach(client => {
         csvRows.push([
@@ -473,7 +473,9 @@ const Clients = () => {
           `"${client.document || ""}"`,
           `"${client.city || ""}"`,
           `"${client.ownerUserId || ""}"`,
+          `"${client.acquiredProduct || ""}"`,
           `"${client.clientSince || ""}"`,
+          `"${client.expirationDate || ""}"`,
           `"${client.status || ""}"`
         ]);
       });
@@ -794,7 +796,9 @@ const Clients = () => {
                     <span>Documento: {client.document || "N/A"}</span>
                     <span>Cidade: {client.city || "N/A"}</span>
                     <span>Responsável: {client.ownerUserId || "N/A"}</span>
+                    <span>Produto: {client.acquiredProduct || "N/A"}</span>
                     <span>Cliente desde: {client.clientSince || "N/A"}</span>
+                    <span>Vencimento: {client.expirationDate || "N/A"}</span>
                   </Box>
                 </Box>
 

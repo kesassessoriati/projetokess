@@ -130,6 +130,7 @@ import executeFollowUpCampaigns from "./services/FollowUpCampaignService/Execute
 import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailChannelService";
 import { processScheduledGroupCampaigns } from "./services/GroupManagementServices/GroupCampaignProcessorService";
 import SyncGoogleCalendarService from "./services/AppointmentServices/SyncGoogleCalendarService";
+import ProcessExpiredCrmClientsService from "./services/CrmClientService/ProcessExpiredCrmClientsService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -169,4 +170,9 @@ cron.schedule("*/5 * * * *", async () => {
   } catch (err) {
     // Non-blocking: log silently
   }
+});
+
+// Process expired CRM clients every hour
+cron.schedule("0 * * * *", () => {
+  ProcessExpiredCrmClientsService().catch(() => {});
 });

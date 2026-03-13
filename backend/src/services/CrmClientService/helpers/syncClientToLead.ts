@@ -51,6 +51,10 @@ const syncClientToLead = async ({
       updates.companyName = client.companyName;
     }
 
+    if (client.acquiredProduct && client.acquiredProduct !== lead.product) {
+      updates.product = client.acquiredProduct;
+    }
+
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
     }

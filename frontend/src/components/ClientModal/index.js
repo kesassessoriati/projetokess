@@ -67,6 +67,7 @@ const defaultForm = {
   temperatura: "",
   score: 0,
   tags: "",
+  acquiredProduct: "",
   zipCode: "",
   address: "",
   number: "",
@@ -76,6 +77,7 @@ const defaultForm = {
   state: "",
   status: "active",
   clientSince: "",
+  expirationDate: "",
   ownerUserId: "",
   notes: ""
 };
@@ -132,6 +134,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         temperatura: data.temperatura || "",
         score: data.score || 0,
         tags: data.tags || "",
+        acquiredProduct: data.acquiredProduct || "",
         zipCode: data.zipCode || "",
         address: data.address || "",
         number: data.number || "",
@@ -141,6 +144,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         state: data.state || "",
         status: data.status || "active",
         clientSince: data.clientSince ? data.clientSince.substring(0, 10) : "",
+        expirationDate: data.expirationDate ? data.expirationDate.substring(0, 10) : "",
         ownerUserId: data.ownerUserId || "",
         notes: data.notes || ""
       });
@@ -174,7 +178,8 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         ...form,
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : undefined,
         birthDate: form.birthDate || undefined,
-        clientSince: form.clientSince || undefined
+        clientSince: form.clientSince || undefined,
+        expirationDate: form.expirationDate || null
       };
 
       if (clientId) {
@@ -433,6 +438,17 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Produto adquirido"
+                  name="acquiredProduct"
+                  value={form.acquiredProduct}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
               
               <Grid item xs={12} sm={4}>
                 <TextField
@@ -497,6 +513,20 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                   type="date"
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Data de vencimento"
+                  name="expirationDate"
+                  value={form.expirationDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Ao atingir a data, o cliente será marcado como inativo."
                 />
               </Grid>
 

@@ -92,6 +92,12 @@ class CrmClient extends Model<CrmClient> {
   @Column({ field: "client_since", type: DataType.DATEONLY })
   clientSince: Date;
 
+  @Column({ field: "acquired_product", type: DataType.STRING })
+  acquiredProduct: string;
+
+  @Column({ field: "expiration_date", type: DataType.DATEONLY })
+  expirationDate: Date;
+
   @ForeignKey(() => User)
   @Column({ field: "owner_user_id" })
   ownerUserId: number;
