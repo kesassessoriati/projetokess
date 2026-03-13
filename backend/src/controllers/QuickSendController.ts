@@ -7,6 +7,7 @@ import { getIO } from "../libs/socket";
 import Whatsapp from "../models/Whatsapp";
 import Contact from "../models/Contact";
 import Ticket from "../models/Ticket";
+import CrmLead from "../models/CrmLead";
 import CompaniesSettings from "../models/CompaniesSettings";
 
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
@@ -33,6 +34,7 @@ interface QuickSendBody {
     number: string;
     message: string;
     whatsappId: number;
+    leadId?: number | string;
     name?: string;
     queueId?: number;
     createIfNotExists?: boolean;
@@ -51,6 +53,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         number,
         message,
         whatsappId,
+        leadId,
         name,
         queueId,
         createIfNotExists = true,
@@ -154,6 +157,56 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 4. Buscar ticket aberto ou criar novo ────────────────────────────────
+        const shouldReconcileContact =
+            !contact ||
+            contact.number !== validatedNumber ||
+            contact.remoteJid !== remoteJid ||
+            (!!name && contact.name !== name);
+
+        if (shouldReconcileContact) {
+            logger.info(
+                { normalized, companyId, existingContactId: contact?.id || null },
+                "QuickSend: Reconciling contact"
+            );
+
+            contact = await CreateOrUpdateContactService({
+                name: name || contact?.name || validatedNumber,
+                number: validatedNumber,
+                remoteJid,
+                companyId,
+                isGroup: false,
+                channel: "whatsapp",
+                profilePicUrl: "",
+                whatsappId: Number(whatsappId)
+            });
+        }
+
+        let lead: CrmLead | null = null;
+        if (leadId) {
+            lead = await CrmLead.findOne({
+                where: {
+                    id: Number(leadId),
+                    companyId
+                }
+            });
+
+            if (lead) {
+                const leadUpdates: Record<string, any> = {};
+
+                if (lead.contactId !== contact.id) {
+                    leadUpdates.contactId = contact.id;
+                }
+
+                if (lead.phone !== validatedNumber) {
+                    leadUpdates.phone = validatedNumber;
+                }
+
+                if (Object.keys(leadUpdates).length > 0) {
+                    await lead.update(leadUpdates);
+                }
+            }
+        }
+
         logger.debug({ contactId: contact.id }, "QuickSend: Seeking or creating ticket");
         
         const io = getIO();
@@ -182,6 +235,17 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                     whatsappId: whatsapp.id
                 }
             });
+
+            if (lead && ticket.crmLeadId !== lead.id) {
+                await Ticket.update(
+                    { crmLeadId: lead.id },
+                    { where: { id: ticket.id, companyId } }
+                );
+            }
+
+            if (lead && lead.primaryTicketId !== ticket.id) {
+                await lead.update({ primaryTicketId: ticket.id });
+            }
 
             return await ShowTicketService(ticket.id, companyId);
         });

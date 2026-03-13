@@ -1,3 +1,4 @@
+import path from "path";
 import { Request, Response } from "express";
 import { Op, literal } from "sequelize";
 import Whatsapp from "../models/Whatsapp";
@@ -38,14 +39,41 @@ const buildGroupWhere = (companyId: number, query: any) => {
   return where;
 };
 
+const normalizePhone = (value: any): string => String(value || "").replace(/\D/g, "");
+
+const formatParticipantJid = (value: string): string => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("@")) return trimmed;
+  const phone = normalizePhone(trimmed);
+  return phone ? `${phone}@s.whatsapp.net` : "";
+};
+
+const exportableParticipant = (participant: any) => {
+  const rawId = String(participant?.id || participant?.memberJid || "");
+  const phone = normalizePhone(rawId.split("@")[0]);
+  return {
+    id: rawId,
+    phone,
+    valid: phone.length >= 10,
+    isAdmin: !!participant?.isAdmin,
+    isSuperAdmin: !!participant?.isSuperAdmin
+  };
+};
+
 const resolveGroupSelection = async (companyId: number, body: any) => {
   const where = buildGroupWhere(companyId, body?.filters || {});
   let groups: GroupDirectory[] = [];
   if (Array.isArray(body?.groupIds) && body.groupIds.length) {
+    const numericIds = body.groupIds.map((value: any) => Number(value)).filter(Boolean);
+    const jidIds = body.groupIds.map((value: any) => String(value || "").trim()).filter((value: string) => value.includes("@"));
     groups = await GroupDirectory.findAll({
       where: {
         companyId,
-        id: { [Op.in]: body.groupIds.map(Number).filter(Boolean) }
+        [Op.or]: [
+          numericIds.length ? { id: { [Op.in]: numericIds } } : null,
+          jidIds.length ? { groupJid: { [Op.in]: jidIds } } : null
+        ].filter(Boolean) as any
       }
     });
   } else {
@@ -227,6 +255,49 @@ export const getGroupInfo = async (req: Request, res: Response): Promise<Respons
   });
 };
 
+export const exportGroupMembers = async (req: Request, res: Response): Promise<Response> => {
+  const { jid } = req.params;
+  const { whatsappId } = req.query;
+  const { companyId } = req.user;
+
+  if (!whatsappId) {
+    return res.status(400).json({ error: "whatsappId query param required" });
+  }
+
+  const wa = await ensureConnectionAccess(companyId, Number(whatsappId));
+  if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
+
+  let participants: any[] = [];
+  try {
+    const provider = getProvider(wa);
+    const metadata = await provider.getGroupMetadata(jid);
+    participants = Array.isArray(metadata?.participants) ? metadata.participants : [];
+  } catch (err) {
+    logger.warn(`[GroupManagement] exportGroupMembers fallback for ${jid}: ${err?.message}`);
+  }
+
+  if (!participants.length) {
+    const directory = await GroupDirectory.findOne({ where: { companyId, groupJid: jid } });
+    if (directory) {
+      const members = await GroupMember.findAll({ where: { companyId, groupId: directory.id }, order: [["memberJid", "ASC"]] });
+      participants = members.map((member) => ({
+        id: member.memberJid,
+        isAdmin: member.isAdmin,
+        isSuperAdmin: member.isSuperAdmin
+      }));
+    }
+  }
+
+  const contacts = participants.map(exportableParticipant).filter((item) => item.phone);
+
+  return res.json({
+    groupJid: jid,
+    total: contacts.length,
+    validContacts: contacts.filter((item) => item.valid).length,
+    contacts
+  });
+};
+
 export const createGroup = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { whatsappId, subject, participants = [] } = req.body;
@@ -236,10 +307,7 @@ export const createGroup = async (req: Request, res: Response): Promise<Response
 
   try {
     const provider = getProvider(wa);
-    const participantJids = (participants || [])
-      .map((p: string) => String(p || "").trim())
-      .filter(Boolean)
-      .map((p: string) => (p.includes("@") ? p : `${p.replace(/\D/g, "")}@s.whatsapp.net`));
+    const participantJids = (participants || []).map(formatParticipantJid).filter(Boolean);
     const result = await provider.createGroup(subject, participantJids);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.status(201).json({ success: true, result });
@@ -283,7 +351,8 @@ export const addMember = async (req: Request, res: Response): Promise<Response> 
 
   try {
     const provider = getProvider(wa);
-    const participant = String(memberId || "").includes("@") ? String(memberId) : `${String(memberId || "").replace(/\D/g, "")}@s.whatsapp.net`;
+    const participant = formatParticipantJid(String(memberId || ""));
+    if (!participant) return res.status(400).json({ error: "memberId is required" });
     await provider.addMember(jid, participant);
     await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
     return res.json({ success: true });
@@ -291,6 +360,53 @@ export const addMember = async (req: Request, res: Response): Promise<Response> 
     logger.error(`[GroupManagement] addMember error: ${error?.message}`);
     return res.status(500).json({ error: "Failed to add member" });
   }
+};
+
+export const bulkAddMembers = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { whatsappId, groupIds = [], members = [], strategy = "round_robin" } = req.body;
+
+  const wa = await ensureConnectionAccess(companyId, Number(whatsappId));
+  if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
+
+  const groups = await resolveGroupSelection(companyId, { groupIds, filters: { whatsappId } });
+  if (!groups.length) return res.status(400).json({ error: "Nenhum grupo selecionado." });
+
+  const normalizedMembers = members.map(formatParticipantJid).filter(Boolean);
+  if (!normalizedMembers.length) return res.status(400).json({ error: "Nenhum membro valido informado." });
+
+  const provider = getProvider(wa);
+  const failures: any[] = [];
+  let assigned = 0;
+
+  for (let memberIndex = 0; memberIndex < normalizedMembers.length; memberIndex += 1) {
+    const member = normalizedMembers[memberIndex];
+    const targetGroups = strategy === "all"
+      ? groups
+      : [groups[memberIndex % groups.length]];
+
+    for (const group of targetGroups) {
+      try {
+        await provider.addMember(group.groupJid, member);
+        assigned += 1;
+      } catch (error) {
+        failures.push({
+          member,
+          groupId: group.id,
+          groupJid: group.groupJid,
+          error: error?.message || "Failed to add member"
+        });
+      }
+    }
+  }
+
+  await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
+  return res.json({
+    success: failures.length === 0,
+    assigned,
+    failed: failures.length,
+    failures
+  });
 };
 
 export const kickMember = async (req: Request, res: Response): Promise<Response> => {
@@ -388,6 +504,31 @@ export const updateGroupPicture = async (_req: Request, res: Response): Promise<
   return res.status(501).json({
     error: "Atualização de imagem de grupo não suportada de forma estável na infraestrutura atual."
   });
+};
+
+export const updateGroupPictureUpload = async (req: Request, res: Response): Promise<Response> => {
+  const { jid } = req.params;
+  const { whatsappId } = req.body;
+  const { companyId } = req.user;
+  const wa = await ensureConnectionAccess(companyId, Number(whatsappId));
+  if (!wa) return res.status(404).json({ error: "WhatsApp connection not found" });
+  if (!req.file) return res.status(400).json({ error: "Arquivo da foto e obrigatorio." });
+
+  try {
+    const provider = getProvider(wa);
+    if (!provider.updateGroupPicture) {
+      return res.status(501).json({ error: "Atualizacao de foto nao suportada nesta conexao." });
+    }
+
+    const publicFolder = path.resolve(__dirname, "..", "..", "public");
+    const filePath = path.join(publicFolder, `company${companyId}`, req.file.filename);
+    await provider.updateGroupPicture(jid, filePath);
+    await syncCompanyGroups({ companyId, whatsappIds: [wa.id] });
+    return res.json({ success: true, mediaPath: req.file.filename });
+  } catch (error) {
+    logger.error(`[GroupManagement] updateGroupPictureUpload error: ${error?.message}`);
+    return res.status(500).json({ error: error?.message || "Failed to update group picture" });
+  }
 };
 
 export const getInviteLink = async (req: Request, res: Response): Promise<Response> => {
@@ -582,7 +723,8 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
   const wa = await ensureConnectionAccess(companyId, Number(whatsappId));
   if (!wa) return res.status(404).json({ error: "Conexão não encontrada." });
 
-  const groups = await resolveGroupSelection(companyId, { groupIds, filters });
+  const normalizedFilters = { ...(filters || {}), whatsappId: Number(whatsappId) };
+  const groups = await resolveGroupSelection(companyId, { groupIds, filters: normalizedFilters });
   if (!groups.length) return res.status(400).json({ error: "Nenhum grupo encontrado para os filtros selecionados." });
 
   const campaign = await GroupCampaign.create({
@@ -597,7 +739,7 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
     buttons,
     listItems,
     segmentedMentions,
-    filters,
+    filters: normalizedFilters,
     groupIds: groups.map((g) => g.id),
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     recurrenceRule,

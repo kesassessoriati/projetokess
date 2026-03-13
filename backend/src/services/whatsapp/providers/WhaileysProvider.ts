@@ -92,6 +92,14 @@ export class WhaileysProvider extends BaseProvider {
     return await this.connection.groupUpdateDescription(groupJid, description);
   }
 
+  async updateGroupPicture(groupId: string, filePath: string): Promise<any> {
+    const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    if (typeof this.connection.updateProfilePicture !== "function") {
+      throw new Error("Atualizacao de foto nao suportada nesta conexao.");
+    }
+    return await this.connection.updateProfilePicture(groupJid, { url: filePath });
+  }
+
   async mentionAll(groupId: string, message: string): Promise<any> {
     const groupJid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
     const members = await this.getGroupMembers(groupId);

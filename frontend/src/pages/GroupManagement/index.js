@@ -1,31 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
-import {
-  makeStyles,
-  Box,
-  Paper,
-  Typography,
-  Tabs,
-  Tab,
-  Grid,
-  Button,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from "@material-ui/core";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { makeStyles, Box, Paper, Typography, Tabs, Tab, Grid, Button, TextField, InputAdornment, FormControl, InputLabel, Select, MenuItem, Chip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions } from "@material-ui/core";
 import GroupIcon from "@material-ui/icons/Group";
 import SearchIcon from "@material-ui/icons/Search";
 import RefreshIcon from "@material-ui/icons/Refresh";
 import SendIcon from "@material-ui/icons/Send";
 import AddIcon from "@material-ui/icons/Add";
+import GroupAddIcon from "@material-ui/icons/GroupAdd";
+import DescriptionIcon from "@material-ui/icons/Description";
+import PhotoCameraIcon from "@material-ui/icons/PhotoCamera";
+import GetAppIcon from "@material-ui/icons/GetApp";
 import StarIcon from "@material-ui/icons/Star";
 import StarBorderIcon from "@material-ui/icons/StarBorder";
 import { toast } from "react-toastify";
@@ -34,117 +17,79 @@ import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
-  root: {
-    height: "100%",
-    minHeight: "calc(100vh - 112px)",
-    background: "radial-gradient(circle at top left, #effaf2 0%, #e5f2e9 42%, #ddebe3 100%)",
-    padding: 14,
-    overflow: "hidden",
-    [theme.breakpoints.down("md")]: {
-      minHeight: "calc(100vh - 64px)",
-    }
-  },
+  root: { height: "100%", minHeight: "calc(100vh - 112px)", background: "radial-gradient(circle at top left, #effaf2 0%, #e5f2e9 42%, #ddebe3 100%)", padding: 14, overflow: "hidden" },
   shell: { height: "100%", display: "flex", flexDirection: "column", gap: 10 },
-  header: {
-    borderRadius: 16,
-    border: "1px solid #cfe2d5",
-    background: "#ffffffeb",
-    boxShadow: "0 10px 24px rgba(16,24,40,0.07)",
-    padding: "14px 16px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
+  header: { borderRadius: 16, border: "1px solid #cfe2d5", background: "#ffffffeb", boxShadow: "0 10px 24px rgba(16,24,40,0.07)", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 },
   titleRow: { display: "flex", alignItems: "center", gap: 10 },
-  titleIcon: {
-    width: 42, height: 42, borderRadius: 10, background: "#dff4e7", color: "#0f7a40",
-    display: "inline-flex", alignItems: "center", justifyContent: "center"
-  },
+  titleIcon: { width: 42, height: 42, borderRadius: 10, background: "#dff4e7", color: "#0f7a40", display: "inline-flex", alignItems: "center", justifyContent: "center" },
   title: { fontSize: "1rem", fontWeight: 800, color: "#173624" },
   subtitle: { fontSize: ".75rem", color: "#5d7d6b" },
-  primaryBtn: {
-    textTransform: "none",
-    borderRadius: 10,
-    background: "linear-gradient(135deg, #20a45a 0%, #157a43 100%)",
-    color: "#fff",
-    fontWeight: 700
-  },
-  secondaryBtn: {
-    textTransform: "none",
-    borderRadius: 10,
-    border: "1px solid #bfd7c7",
-    color: "#1c5a35",
-    background: "#f7fcf9",
-    fontWeight: 700
-  },
+  primaryBtn: { textTransform: "none", borderRadius: 10, background: "linear-gradient(135deg, #20a45a 0%, #157a43 100%)", color: "#fff", fontWeight: 700 },
+  secondaryBtn: { textTransform: "none", borderRadius: 10, border: "1px solid #bfd7c7", color: "#1c5a35", background: "#f7fcf9", fontWeight: 700 },
   summary: { display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10 },
   card: { border: "1px solid #cfe2d5", borderRadius: 12, padding: 10, background: "#fff" },
   cardLabel: { fontSize: ".68rem", color: "#5d7d6b", textTransform: "uppercase" },
   cardValue: { fontSize: "1.2rem", fontWeight: 800, color: "#173624" },
   tabsShell: { border: "1px solid #cedfd3", borderRadius: 14, background: "#ffffffdc", padding: 6 },
   tabs: { "& .MuiTabs-indicator": { display: "none" } },
-  tab: {
-    textTransform: "none", border: "1px solid #d1e2d5", borderRadius: 10, marginRight: 8,
-    minHeight: 44, color: "#365745", fontWeight: 700, background: "#f7fbf8",
-    "&.Mui-selected": { color: "#fff", background: "linear-gradient(135deg, #22ab5d 0%, #15763f 100%)" }
-  },
+  tab: { textTransform: "none", border: "1px solid #d1e2d5", borderRadius: 10, marginRight: 8, minHeight: 44, color: "#365745", fontWeight: 700, background: "#f7fbf8", "&.Mui-selected": { color: "#fff", background: "linear-gradient(135deg, #22ab5d 0%, #15763f 100%)" } },
+  actionsBar: { display: "flex", gap: 8, flexWrap: "wrap", padding: 10, border: "1px solid #cedfd3", borderRadius: 14, background: "#ffffffdc" },
   content: { flex: 1, overflowY: "auto", ...theme.scrollbarStyles },
   panel: { border: "1px solid #cfe2d5", borderRadius: 12, background: "#fff", overflow: "hidden" },
-  panelHead: { padding: "10px 12px", borderBottom: "1px solid #edf3ef", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  panelHead: { padding: "10px 12px", borderBottom: "1px solid #edf3ef", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
   panelTitle: { fontSize: ".84rem", fontWeight: 800, color: "#173624" },
-  controls: { display: "grid", gridTemplateColumns: "220px 1fr 100px 100px auto auto", gap: 8, padding: 10 },
-  list: { maxHeight: "58vh", overflowY: "auto", padding: 8 },
+  toolbar: { display: "grid", gridTemplateColumns: "2fr 1.5fr .7fr .7fr auto auto", gap: 8, padding: 12, borderBottom: "1px solid #edf3ef" },
+  helper: { margin: "0 12px 12px", padding: 12, borderRadius: 12, border: "1px solid #d7e8dd", background: "linear-gradient(135deg, #f8fdf9 0%, #edf8f0 100%)" },
+  list: { maxHeight: "60vh", overflowY: "auto", padding: 8 },
   row: { border: "1px solid #e4eee8", borderRadius: 10, padding: "8px 10px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
   rowActive: { borderColor: "#2ea75e", background: "#eaf8ef" },
+  meta: { fontSize: ".71rem", color: "#5d7d6b" },
   badge: { fontSize: ".68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#edf8f1", color: "#1c5a35", border: "1px solid #c7dfcf" },
+  form: { display: "grid", gap: 10, padding: 12 },
   log: { maxHeight: 360, overflowY: "auto", borderTop: "1px solid #edf3ef", padding: 8 },
   logLine: { fontSize: ".73rem", color: "#355946", borderBottom: "1px solid #edf3ef", padding: "7px 2px" }
 }));
 
-const TABS = ["Dashboard", "Grupos", "Campanhas", "Agendamentos", "Templates", "Histórico", "Relatórios"];
+const TABS = ["Dashboard", "Grupos", "Campanhas", "Agendamentos", "Templates", "Historico", "Relatorios"];
+const initialCampaign = { name: "", whatsappId: "", templateId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [] };
+const initialTemplate = { name: "", messageType: "text", message: "", mediaContent: null };
 const statusBg = (status) => ({ DRAFT: "#64748b", SCHEDULED: "#f59e0b", PROCESSING: "#0ea5e9", PAUSED: "#a855f7", SENT: "#16a34a", FAILED: "#dc2626", CANCELED: "#6b7280" }[status] || "#64748b");
 
 export default function GroupManagement() {
   const classes = useStyles();
   const { socket } = useSocket();
   const { user } = useContext(AuthContext);
-
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(1);
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState({});
   const [groups, setGroups] = useState([]);
   const [connections, setConnections] = useState([]);
-  const [selectedConnection, setSelectedConnection] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [groupInfo, setGroupInfo] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [reports, setReports] = useState(null);
   const [campaignLogs, setCampaignLogs] = useState([]);
+  const [selectedConnection, setSelectedConnection] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupInfo, setGroupInfo] = useState(null);
   const [search, setSearch] = useState("");
   const [minMembers, setMinMembers] = useState("");
   const [maxMembers, setMaxMembers] = useState("");
-  const [campaignForm, setCampaignForm] = useState({ name: "", whatsappId: "", templateId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
-  const [templateForm, setTemplateForm] = useState({ name: "", messageType: "text", message: "", mediaContent: null, buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
-  const [createGroupModal, setCreateGroupModal] = useState(false);
-  const [newGroupForm, setNewGroupForm] = useState({ whatsappId: "", subject: "", participants: "" });
+  const [campaignForm, setCampaignForm] = useState(initialCampaign);
+  const [templateForm, setTemplateForm] = useState(initialTemplate);
   const [campaignFileKey, setCampaignFileKey] = useState(0);
   const [templateFileKey, setTemplateFileKey] = useState(0);
+  const [dialogs, setDialogs] = useState({ batch: false, bulkMembers: false, description: false, picture: false });
+  const [batchForm, setBatchForm] = useState({ whatsappId: "", baseName: "", quantity: 1, participants: "" });
+  const [bulkMembersForm, setBulkMembersForm] = useState({ whatsappId: "", strategy: "round_robin", members: "" });
+  const [description, setDescription] = useState("");
+  const [pictureFile, setPictureFile] = useState(null);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [m, g, c, s, t, h, r] = await Promise.allSettled([
-        api.get("/group-management/dashboard"),
-        api.get("/group-management/groups"),
-        api.get("/group-management/campaigns"),
-        api.get("/group-management/schedules"),
-        api.get("/group-management/templates"),
-        api.get("/group-management/history?limit=300"),
-        api.get("/group-management/reports")
-      ]);
+      const [m, g, c, s, t, h, r] = await Promise.allSettled([api.get("/group-management/dashboard"), api.get("/group-management/groups"), api.get("/group-management/campaigns"), api.get("/group-management/schedules"), api.get("/group-management/templates"), api.get("/group-management/history?limit=300"), api.get("/group-management/reports")]);
       if (m.status === "fulfilled") setMetrics(m.value.data || {});
       if (c.status === "fulfilled") setCampaigns(Array.isArray(c.value.data) ? c.value.data : []);
       if (s.status === "fulfilled") setSchedules(Array.isArray(s.value.data) ? s.value.data : []);
@@ -152,16 +97,14 @@ export default function GroupManagement() {
       if (h.status === "fulfilled") setHistoryLogs(Array.isArray(h.value.data) ? h.value.data : []);
       if (r.status === "fulfilled") setReports(r.value.data || null);
       if (g.status === "fulfilled") {
-        const allGroups = [];
-        const allConnections = [];
+        const nextConnections = [];
+        const nextGroups = [];
         (g.value.data || []).forEach((conn) => {
-          if (conn.whatsappId && conn.whatsappName) {
-            allConnections.push({ id: conn.whatsappId, name: conn.whatsappName });
-          }
-          (conn.groups || []).forEach((group) => allGroups.push({ ...group, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
+          if (conn.whatsappId && conn.whatsappName) nextConnections.push({ id: conn.whatsappId, name: conn.whatsappName });
+          (conn.groups || []).forEach((group) => nextGroups.push({ ...group, whatsappId: conn.whatsappId, whatsappName: conn.whatsappName }));
         });
-        setGroups(allGroups);
-        setConnections(allConnections);
+        setConnections(nextConnections);
+        setGroups(nextGroups);
       }
     } finally {
       setLoading(false);
@@ -170,28 +113,24 @@ export default function GroupManagement() {
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
   useEffect(() => {
-    if (!socket || !user) return;
+    if (!socket || !user) return undefined;
     const channel = `company-${user.companyId}-group-campaign`;
     socket.on(channel, refreshAll);
     return () => socket.off(channel, refreshAll);
   }, [socket, user, refreshAll]);
 
-  const filteredGroups = useMemo(() => groups.filter((g) => {
-    if (selectedConnection && g.whatsappId !== Number(selectedConnection)) return false;
-    if (search && !String(g.subject || "").toLowerCase().includes(search.toLowerCase())) return false;
-    if (minMembers && Number(g.size || 0) < Number(minMembers)) return false;
-    if (maxMembers && Number(g.size || 0) > Number(maxMembers)) return false;
-    return true;
-  }), [groups, selectedConnection, search, minMembers, maxMembers]);
+  const filteredGroups = useMemo(() => groups.filter((g) => (!selectedConnection || g.whatsappId === Number(selectedConnection)) && (!search || String(g.subject || "").toLowerCase().includes(search.toLowerCase())) && (!minMembers || Number(g.size || 0) >= Number(minMembers)) && (!maxMembers || Number(g.size || 0) <= Number(maxMembers))), [groups, selectedConnection, search, minMembers, maxMembers]);
+  const campaignGroups = useMemo(() => groups.filter((g) => !campaignForm.whatsappId || g.whatsappId === Number(campaignForm.whatsappId)), [groups, campaignForm.whatsappId]);
 
   const loadGroupInfo = async (group) => {
     setSelectedGroup(group);
     try {
       const { data } = await api.get(`/group-management/groups/${encodeURIComponent(group.id)}/info`, { params: { whatsappId: group.whatsappId } });
       setGroupInfo(data);
-    } catch {
-      toast.error("Erro ao carregar detalhes do grupo.");
+      setDescription(data.desc || "");
+    } catch (error) {
       setGroupInfo(null);
+      toast.error(error?.response?.data?.error || "Erro ao carregar detalhes do grupo.");
     }
   };
 
@@ -200,27 +139,31 @@ export default function GroupManagement() {
       await api.post("/group-management/sync", { whatsappIds: selectedConnection ? [Number(selectedConnection)] : [] });
       toast.success("Grupos sincronizados.");
       refreshAll();
-    } catch { toast.error("Falha ao sincronizar grupos."); }
+    } catch (error) { toast.error(error?.response?.data?.error || "Falha ao sincronizar grupos."); }
+  };
+
+  const exportMembers = async (format) => {
+    if (!selectedGroup) return;
+    try {
+      const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/export`, { params: { whatsappId: selectedGroup.whatsappId } });
+      const items = (data.contacts || []).map((item) => ({ numero_real_whatsapp: item.phone, contato_valido: item.valid ? "Sim" : "Nao", grupo: selectedGroup.subject, admin: item.isAdmin ? "Sim" : "Nao", id: item.id }));
+      const blob = format === "json" ? new Blob([JSON.stringify(items, null, 2)], { type: "application/json" }) : new Blob([["NumeroRealWhatsApp,ContatoValido,Grupo,Admin,ID", ...items.map((item) => `${item.numero_real_whatsapp},${item.contato_valido},"${item.grupo}",${item.admin},${item.id}`)].join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `grupo-${selectedGroup.subject.replace(/[^a-zA-Z0-9]/g, "_")}.${format === "json" ? "json" : "csv"}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exportacao concluida. ${data.validContacts || 0} contatos validos.`);
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao exportar contatos."); }
   };
 
   const createCampaign = async () => {
     try {
-      if (!campaignForm.name) {
-        return toast.error("Insira o nome da campanha.");
-      }
-      if (!campaignForm.whatsappId) {
-        return toast.error("Selecione a conexão.");
-      }
-      if (campaignForm.messageType !== "text" && !campaignForm.mediaContent) {
-        return toast.error("Selecione o arquivo de mídia.");
-      }
-      if (campaignForm.scheduleMode === "scheduled" && !campaignForm.scheduledAt) {
-        return toast.error("Selecione a data e hora do agendamento.");
-      }
-
+      if (!campaignForm.name) return toast.error("Insira o nome da campanha.");
+      if (!campaignForm.whatsappId) return toast.error("Selecione a conexao.");
       let mediaPath = null;
       let mediaName = null;
-
       if (campaignForm.mediaContent) {
         const formData = new FormData();
         formData.append("media", campaignForm.mediaContent);
@@ -228,36 +171,19 @@ export default function GroupManagement() {
         mediaPath = data.mediaPath;
         mediaName = data.mediaName;
       }
-
-      await api.post("/group-management/campaigns", { 
-        ...campaignForm, 
-        whatsappId: Number(campaignForm.whatsappId), 
-        intervalSeconds: Number(campaignForm.intervalSeconds) || 0, 
-        scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null,
-        mediaPath,
-        mediaName,
-        templateId: campaignForm.templateId || null
-      });
+      await api.post("/group-management/campaigns", { ...campaignForm, whatsappId: Number(campaignForm.whatsappId), templateId: campaignForm.templateId || null, groupIds: (campaignForm.groupIds || []).map(Number).filter(Boolean), filters: { whatsappId: Number(campaignForm.whatsappId) }, scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null, intervalSeconds: Number(campaignForm.intervalSeconds) || 0, mediaPath, mediaName });
       toast.success("Campanha criada.");
-      setCampaignForm({ name: "", whatsappId: "", templateId: "", message: "", mentionsMode: "none", messageType: "text", recurrenceRule: "none", intervalSeconds: 3, scheduledAt: "", scheduleMode: "now", mediaContent: null, groupIds: [], buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
-      setCampaignFileKey(k => k + 1);
+      setCampaignForm(initialCampaign);
+      setCampaignFileKey((v) => v + 1);
       refreshAll();
-    } catch { toast.error("Erro ao criar campanha."); }
-  };
-
-  const campaignAction = async (id, action) => {
-    try { await api.post(`/group-management/campaigns/${id}/${action}`); toast.success("Ação executada."); refreshAll(); } catch { toast.error("Falha na ação."); }
+      setTab(2);
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao criar campanha."); }
   };
 
   const saveTemplate = async () => {
     try {
-      if (!templateForm.name || !templateForm.name.trim()) {
-        return toast.error("Insira o nome do template.");
-      }
-      
       let mediaPath = null;
       let mediaName = null;
-
       if (templateForm.mediaContent) {
         const formData = new FormData();
         formData.append("media", templateForm.mediaContent);
@@ -265,367 +191,69 @@ export default function GroupManagement() {
         mediaPath = data.mediaPath;
         mediaName = data.mediaName;
       }
-
       await api.post("/group-management/templates", { ...templateForm, mediaPath, mediaName });
       toast.success("Template salvo.");
-      setTemplateForm({ name: "", messageType: "text", message: "", mediaContent: null, buttons: [{ displayText: "" }], listItems: [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }] });
-      setTemplateFileKey(k => k + 1);
+      setTemplateForm(initialTemplate);
+      setTemplateFileKey((v) => v + 1);
       refreshAll();
-    } catch { toast.error("Erro ao salvar template."); }
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao salvar template."); }
   };
 
-  const handleCreateGroup = async () => {
+  const campaignAction = async (id, action) => {
+    try { await api.post(`/group-management/campaigns/${id}/${action}`); refreshAll(); } catch (error) { toast.error(error?.response?.data?.error || "Falha na acao."); }
+  };
+
+  const handleBatchCreate = async () => {
     try {
-      if (!newGroupForm.whatsappId || !newGroupForm.subject) return toast.error("Preencha conexão e nome.");
-      const participants = newGroupForm.participants.split(",").map(p => p.trim()).filter(Boolean);
-      await api.post("/group-management/groups", { whatsappId: Number(newGroupForm.whatsappId), subject: newGroupForm.subject, participants });
-      toast.success("Grupo criado com sucesso!");
-      setCreateGroupModal(false);
-      setNewGroupForm({ whatsappId: "", subject: "", participants: "" });
+      const participants = batchForm.participants.split(/[\n,;]/).map((i) => i.trim()).filter(Boolean);
+      const groupsPayload = Array.from({ length: Number(batchForm.quantity) }).map((_, index) => ({ whatsappId: Number(batchForm.whatsappId), subject: `${batchForm.baseName} #${index + 1}`, participants }));
+      const { data } = await api.post("/group-management/groups/batch", { groups: groupsPayload });
+      toast.success(`Criacao em massa finalizada. ${data.created || 0} grupos criados.`);
+      setDialogs((d) => ({ ...d, batch: false }));
+      setBatchForm({ whatsappId: "", baseName: "", quantity: 1, participants: "" });
       refreshAll();
-    } catch {
-      toast.error("Erro ao criar grupo.");
-    }
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao criar grupos."); }
   };
 
-  const exportMembers = (format) => {
-    if (!selectedGroup || !groupInfo) return;
-    const items = (groupInfo.participants || []).map(p => ({
-      telefone: String(p.id).split("@")[0],
-      id: p.id,
-      grupo: selectedGroup.subject,
-      admin: p.isAdmin ? 'Sim' : 'Não'
-    }));
-    
-    if (format === 'json') {
-      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `membros-${selectedGroup.subject.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
-      a.click();
-    } else {
-      const csv = ["Telefone,ID,Grupo,Admin", ...items.map(i => `${i.telefone},${i.id},"${i.grupo}",${i.admin}`)].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `membros-${selectedGroup.subject.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
-      a.click();
-    }
-    toast.success("Exportação iniciada.");
+  const handleBulkMembers = async () => {
+    try {
+      const members = bulkMembersForm.members.split(/[\n,;]/).map((i) => i.trim()).filter(Boolean);
+      const groupIds = selectedGroup ? [selectedGroup.groupId] : filteredGroups.map((g) => g.groupId);
+      const whatsappId = Number(selectedGroup?.whatsappId || bulkMembersForm.whatsappId || selectedConnection);
+      const { data } = await api.post("/group-management/groups/bulk-add-members", { whatsappId, groupIds, members, strategy: bulkMembersForm.strategy });
+      toast.success(`Distribuicao concluida. ${data.assigned || 0} inclusoes processadas.`);
+      setDialogs((d) => ({ ...d, bulkMembers: false }));
+      setBulkMembersForm({ whatsappId: "", strategy: "round_robin", members: "" });
+      refreshAll();
+      if (selectedGroup) loadGroupInfo(selectedGroup);
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao adicionar membros."); }
   };
 
-  const renderDashboard = (
-    <Paper className={classes.panel}>
-      <Box className={classes.panelHead}>
-        <Typography className={classes.panelTitle}>Resumo executivo e produtividade</Typography>
-        <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={refreshAll}>Atualizar dados</Button>
-      </Box>
-      <Box style={{ padding: 12 }}>
-        <Typography style={{ color: "#5d7d6b", fontSize: ".8rem" }}>
-          Este painel consolida grupos sincronizados, membros, campanhas e execução operacional em tempo real.
-        </Typography>
-      </Box>
-    </Paper>
-  );
+  const handleDescription = async () => {
+    try { await api.put(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/description`, { whatsappId: selectedGroup.whatsappId, description }); toast.success("Descricao atualizada."); setDialogs((d) => ({ ...d, description: false })); refreshAll(); loadGroupInfo(selectedGroup); } catch (error) { toast.error(error?.response?.data?.error || "Erro ao atualizar descricao."); }
+  };
 
-  const renderGroups = (
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={5}>
-        <Paper className={classes.panel}>
-          <Box className={classes.controls}>
-            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={selectedConnection} onChange={(e) => setSelectedConnection(e.target.value)} label="Conexão"><MenuItem value="">Todas</MenuItem>{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
-            <TextField variant="outlined" size="small" placeholder="Buscar grupo" value={search} onChange={(e) => setSearch(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
-            <TextField variant="outlined" size="small" placeholder="Mín" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} />
-            <TextField variant="outlined" size="small" placeholder="Máx" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
-            <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button>
-            <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={() => setCreateGroupModal(true)}>Novo</Button>
-          </Box>
-          <Box className={classes.list}>
-            {filteredGroups.map((g) => (
-              <Box key={`${g.id}-${g.whatsappId}`} className={`${classes.row} ${selectedGroup?.id === g.id ? classes.rowActive : ""}`} onClick={() => loadGroupInfo(g)}>
-                <Box>
-                  <Typography style={{ fontWeight: 700, color: "#173624", fontSize: ".82rem" }}>{g.subject || g.id}</Typography>
-                  <Typography style={{ color: "#5d7d6b", fontSize: ".71rem" }}>{g.size || 0} membros • {g.whatsappName}</Typography>
-                </Box>
-                <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span className={classes.badge}>{g.tags?.length || 0} tags</span>
-                  <Button size="small" className={classes.secondaryBtn} onClick={(e) => { e.stopPropagation(); api.patch(`/group-management/groups/meta/${g.groupId}`, { isFavorite: !g.isFavorite }).then(refreshAll); }}>{g.isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}</Button>
-                </Box>
-              </Box>
-            ))}
-            {!filteredGroups.length ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Nenhum grupo encontrado.</Box> : null}
-          </Box>
-        </Paper>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <Paper className={classes.panel}>
-          {!selectedGroup ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Selecione um grupo para ver membros e ações.</Box> : (
-            <>
-              <Box className={classes.panelHead}>
-                <Box><Typography className={classes.panelTitle}>{selectedGroup.subject}</Typography><Typography style={{ color: "#5d7d6b", fontSize: ".72rem" }}>{(groupInfo?.participants || []).length} membros</Typography></Box>
-                <Box style={{ display: "flex", gap: 8 }}>
-                  <Button className={classes.secondaryBtn} onClick={async () => { try { await api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/tag-all`, { whatsappId: selectedGroup.whatsappId, message: "Comunicado para todos:" }); toast.success("Menção enviada."); } catch { toast.error("Erro ao mencionar."); } }}>Mencionar todos</Button>
-                  <Button className={classes.secondaryBtn} onClick={async () => { try { const { data } = await api.get(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/invite-link`, { params: { whatsappId: selectedGroup.whatsappId } }); if (navigator.clipboard) navigator.clipboard.writeText(data.inviteLink); toast.success("Link copiado."); } catch { toast.error("Erro ao obter link."); } }}>Link convite</Button>
-                  <Button className={classes.secondaryBtn} onClick={() => exportMembers('csv')}>Exportar</Button>
-                </Box>
-              </Box>
-              <Box className={classes.list}>
-                {(groupInfo?.participants || []).map((member) => (
-                  <Box key={member.id} className={classes.row} style={{ cursor: "default" }}>
-                    <Box><Typography style={{ fontSize: ".8rem", fontWeight: 700 }}>{String(member.id).split("@")[0]}</Typography><Typography style={{ fontSize: ".7rem", color: "#5d7d6b" }}>{member.id}</Typography></Box>
-                    <Box style={{ display: "flex", gap: 6 }}>
-                      {member.isAdmin ? <Chip size="small" label="Admin" style={{ background: "#fef3c7" }} /> : null}
-                      {!member.isAdmin ? <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}/promote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Promover</Button> : <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}/demote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Rebaixar</Button>}
-                      <Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(member.id)}`, { data: { whatsappId: selectedGroup.whatsappId } }).then(() => loadGroupInfo(selectedGroup))}>Remover</Button>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </>
-          )}
-        </Paper>
-      </Grid>
-    </Grid>
-  );
+  const handlePicture = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("picture", pictureFile);
+      formData.append("whatsappId", String(selectedGroup.whatsappId));
+      await api.put(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/picture`, formData);
+      toast.success("Foto do grupo atualizada.");
+      setDialogs((d) => ({ ...d, picture: false }));
+      setPictureFile(null);
+    } catch (error) { toast.error(error?.response?.data?.error || "Erro ao atualizar foto."); }
+  };
 
-  const renderCampaigns = (
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={8}>
-        <Paper className={classes.panel}>
-          <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Campanhas de grupos</Typography></Box>
-          <Box style={{ padding: 10, display: "grid", gap: 8 }}>
-            <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, name: value })); }} />
-            <FormControl variant="outlined" size="small"><InputLabel>Conexão</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, whatsappId: value })); }} label="Conexão">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
-            <FormControl variant="outlined" size="small">
-              <InputLabel>Template (Opcional)</InputLabel>
-              <Select 
-                value={campaignForm.templateId || ""} 
-                onChange={(e) => {
-                  const temp = templates.find(t => t.id === e.target.value);
-                  if (temp) {
-                    setCampaignForm(p => ({
-                      ...p,
-                      templateId: temp.id,
-                      messageType: temp.messageType || "text",
-                      message: temp.message || "",
-                      mediaContent: null,
-                      buttons: temp.buttons?.length ? temp.buttons : [{ displayText: "" }],
-                      listItems: temp.listItems?.length ? temp.listItems : [{ title: "Opções", rows: [{ title: "", rowId: "op1" }] }]
-                    }));
-                    setCampaignFileKey(k => k + 1);
-                  } else {
-                    setCampaignForm(p => ({ ...p, templateId: "" }));
-                  }
-                }} 
-                label="Template (Opcional)"
-              >
-                <MenuItem value="">Nenhum template</MenuItem>
-                {(templates || []).map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl variant="outlined" size="small">
-              <InputLabel>Tipo de conteúdo</InputLabel>
-              <Select value={campaignForm.messageType || "text"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, messageType: value, mediaContent: null })); setCampaignFileKey(k => k + 1); }} label="Tipo de conteúdo">
-                <MenuItem value="text">Texto</MenuItem>
-                <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
-                <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
-                <MenuItem value="imagem">Imagem</MenuItem>
-                <MenuItem value="video">Vídeo</MenuItem>
-                <MenuItem value="audio">Áudio PTT</MenuItem>
-                <MenuItem value="documento">Documento</MenuItem>
-              </Select>
-            </FormControl>
-            {["imagem","video","audio","documento"].includes(campaignForm.messageType) && (
-              <Box>
-                <input
-                  key={campaignFileKey}
-                  type="file"
-                  accept={
-                    campaignForm.messageType === "video" ? "video/mp4,video/quicktime" :
-                    campaignForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" :
-                    campaignForm.messageType === "imagem" ? "image/jpeg,image/png" :
-                    "*/*"
-                  }
-                  onChange={(e) => setCampaignForm(p => ({ ...p, mediaContent: e.target.files[0] }))}
-                />
-                <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
-                  {campaignForm.messageType === "video" ? "Formatos aceitos: mp4, mov" :
-                   campaignForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" :
-                   campaignForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" :
-                   "Formatos aceitos: pdf, docx, xlsx, etc"}
-                </Typography>
-              </Box>
-            )}
-
-            <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(campaignForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={campaignForm.message} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, message: value })); }} />
-
-            {campaignForm.messageType === "buttons" && (
-              <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
-                <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Botões (máx. 3)</Typography>
-                {(campaignForm.buttons || []).map((btn, i) => (
-                  <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                    <TextField
-                      variant="outlined" size="small" fullWidth
-                      placeholder={`Botão ${i + 1}`}
-                      value={btn.displayText}
-                      onChange={(e) => {
-                        const btns = [...campaignForm.buttons];
-                        btns[i] = { ...btns[i], displayText: e.target.value };
-                        setCampaignForm(p => ({ ...p, buttons: btns }));
-                      }}
-                    />
-                    <Button size="small" className={classes.secondaryBtn} onClick={() => setCampaignForm(p => ({ ...p, buttons: p.buttons.filter((_, idx) => idx !== i) }))}>✕</Button>
-                  </Box>
-                ))}
-                {(campaignForm.buttons || []).length < 3 && (
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => setCampaignForm(p => ({ ...p, buttons: [...p.buttons, { displayText: "" }] }))}>+ Adicionar botão</Button>
-                )}
-              </Box>
-            )}
-
-            {campaignForm.messageType === "list" && (
-              <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
-                <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Itens da lista</Typography>
-                {((campaignForm.listItems || [])[0]?.rows || []).map((row, i) => (
-                  <Box key={row.rowId || i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                    <TextField
-                      variant="outlined" size="small" fullWidth
-                      placeholder={`Item ${i + 1}`}
-                      value={row.title}
-                      onChange={(e) => {
-                        const items = JSON.parse(JSON.stringify(campaignForm.listItems));
-                        items[0].rows[i].title = e.target.value;
-                        setCampaignForm(p => ({ ...p, listItems: items }));
-                      }}
-                    />
-                    <Button size="small" className={classes.secondaryBtn} onClick={() => {
-                      const items = JSON.parse(JSON.stringify(campaignForm.listItems));
-                      items[0].rows = items[0].rows.filter((_, idx) => idx !== i);
-                      setCampaignForm(p => ({ ...p, listItems: items }));
-                    }}>✕</Button>
-                  </Box>
-                ))}
-                <Button size="small" className={classes.secondaryBtn} onClick={() => {
-                  const items = JSON.parse(JSON.stringify(campaignForm.listItems));
-                  const newRowId = `op${Date.now()}`;
-                  items[0].rows.push({ title: "", rowId: newRowId });
-                  setCampaignForm(p => ({ ...p, listItems: items }));
-                }}>+ Adicionar item</Button>
-              </Box>
-            )}
-            
-            <FormControl variant="outlined" size="small">
-              <InputLabel>Mencionar membros</InputLabel>
-              <Select value={campaignForm.mentionsMode || "none"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, mentionsMode: value })); }} label="Mencionar membros">
-                <MenuItem value="none">Não mencionar</MenuItem>
-                <MenuItem value="all">Mencionar todos (@todos)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl variant="outlined" size="small">
-              <InputLabel>Grupos alvos (Vazio = Todos da conexão)</InputLabel>
-              <Select 
-                multiple 
-                value={campaignForm.groupIds || []} 
-                onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, groupIds: value })); }} 
-                label="Grupos alvos (Vazio = Todos da conexão)"
-                renderValue={(selected) => <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{selected.map((val) => <Chip key={val} size="small" label={groups.find(g => g.id === val)?.subject || val} />)}</Box>}
-              >
-                {groups.filter(g => !campaignForm.whatsappId || g.whatsappId === Number(campaignForm.whatsappId)).map((g) => (
-                  <MenuItem key={g.id} value={g.id}>{g.subject}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <TextField 
-                type="number" 
-                variant="outlined" 
-                size="small" 
-                label="Intervalo entre grupos (segundos)" 
-                value={campaignForm.intervalSeconds} 
-                onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, intervalSeconds: value })); }} 
-              />
-              <FormControl variant="outlined" size="small">
-                <InputLabel>Simular digitação/gravação</InputLabel>
-                <Select value="yes" label="Simular digitação/gravação" disabled>
-                  <MenuItem value="yes">Sim</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            
-            <FormControl variant="outlined" size="small">
-              <InputLabel>Tipo de envio</InputLabel>
-              <Select value={campaignForm.scheduleMode || "now"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, scheduleMode: value })); }} label="Tipo de envio">
-                <MenuItem value="now">Enviar agora</MenuItem>
-                <MenuItem value="scheduled">Agendar envio</MenuItem>
-              </Select>
-            </FormControl>
-            {campaignForm.scheduleMode === "scheduled" && (
-              <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <TextField type="datetime-local" variant="outlined" size="small" label="Data e hora do envio" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, scheduledAt: value })); }} />
-                <FormControl variant="outlined" size="small">
-                  <InputLabel>Recorrência</InputLabel>
-                  <Select value={campaignForm.recurrenceRule || "none"} onChange={(e) => { const value = e.target.value; setCampaignForm((p) => ({ ...p, recurrenceRule: value })); }} label="Recorrência">
-                    <MenuItem value="none">Único</MenuItem>
-                    <MenuItem value="daily">Diário</MenuItem>
-                    <MenuItem value="weekly">Semanal</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
-
-            <Button className={classes.primaryBtn} startIcon={<SendIcon />} onClick={createCampaign}>Criar campanha</Button>
-          </Box>
-          <Box className={classes.list}>
-            {campaigns.map((c) => (
-              <Box key={c.id} className={classes.row} style={{ cursor: "default" }}>
-                <Box><Typography style={{ fontSize: ".82rem", fontWeight: 700 }}>{c.name}</Typography><Typography style={{ fontSize: ".7rem", color: "#5d7d6b" }}>{c.totalGroups || 0} grupos • {c.successCount || 0} sucesso • {c.failedCount || 0} falhas</Typography></Box>
-                <Box style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <Chip size="small" label={c.status} style={{ backgroundColor: `${statusBg(c.status)}22`, color: statusBg(c.status), fontWeight: 700 }} />
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "start")}>Iniciar</Button>
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "pause")}>Pausar</Button>
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "resume")}>Retomar</Button>
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "cancel")}>Cancelar</Button>
-                  <Button size="small" className={classes.secondaryBtn} onClick={() => api.get(`/group-management/campaigns/${c.id}/logs`).then((r) => setCampaignLogs(r.data || []))}>Logs</Button>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <Paper className={classes.panel}>
-          <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Logs da campanha</Typography></Box>
-          <Box className={classes.log}>{campaignLogs.map((l) => <Box key={l.id} className={classes.logLine}><strong>[{l.type}]</strong> {l.message}<br />{new Date(l.createdAt).toLocaleString("pt-BR")}</Box>)}</Box>
-        </Paper>
-      </Grid>
-    </Grid>
-  );
-
-  const renderSimpleList = (title, items, field = "name") => (
-    <Paper className={classes.panel}>
-      <Box className={classes.panelHead}><Typography className={classes.panelTitle}>{title}</Typography></Box>
-      <Box className={classes.list}>
-        {(items || []).map((it) => <Box key={it.id || it.createdAt} className={classes.row} style={{ cursor: "default" }}><Typography>{it[field] || it.message || "-"}</Typography></Box>)}
-        {!items?.length ? <Box style={{ padding: 20, textAlign: "center", color: "#6a8978" }}>Sem dados.</Box> : null}
-      </Box>
-    </Paper>
-  );
+  const simpleList = (title, items, field = "name") => <Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>{title}</Typography></Box><Box className={classes.list}>{(items || []).map((item) => <Box key={item.id || item.createdAt} className={classes.row} style={{ cursor: "default" }}><Box><Typography style={{ fontWeight: 700, fontSize: ".82rem" }}>{item[field] || item.message || "-"}</Typography>{item.createdAt ? <Typography className={classes.meta}>{new Date(item.createdAt).toLocaleString("pt-BR")}</Typography> : null}</Box></Box>)}{!items?.length ? <Box style={{ padding: 20, textAlign: "center", color: "#6a8978" }}>Sem dados.</Box> : null}</Box></Paper>;
 
   return (
     <Box className={classes.root}>
       <Box className={classes.shell}>
         <Box className={classes.header}>
-          <Box className={classes.titleRow}>
-            <Box className={classes.titleIcon}><GroupIcon /></Box>
-            <Box><Typography className={classes.title}>Gestão de Grupos • Centro Operacional</Typography><Typography className={classes.subtitle}>Ecossistema de grupos no padrão verde premium do módulo de Disparos.</Typography></Box>
-          </Box>
+          <Box className={classes.titleRow}><Box className={classes.titleIcon}><GroupIcon /></Box><Box><Typography className={classes.title}>Gestao de Grupos • Centro Operacional</Typography><Typography className={classes.subtitle}>Controle de comunidades, campanhas e extracao de contatos.</Typography></Box></Box>
           <Box style={{ display: "flex", gap: 8 }}><Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={refreshAll}>Atualizar</Button><Button className={classes.primaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button></Box>
         </Box>
-
         <Box className={classes.summary}>
           <Paper className={classes.card}><Typography className={classes.cardLabel}>Grupos</Typography><Typography className={classes.cardValue}>{metrics.totalGroups || 0}</Typography></Paper>
           <Paper className={classes.card}><Typography className={classes.cardLabel}>Membros</Typography><Typography className={classes.cardValue}>{metrics.totalMembers || 0}</Typography></Paper>
@@ -634,142 +262,75 @@ export default function GroupManagement() {
           <Paper className={classes.card}><Typography className={classes.cardLabel}>Enviadas</Typography><Typography className={classes.cardValue}>{metrics.campaignsSent || 0}</Typography></Paper>
           <Paper className={classes.card}><Typography className={classes.cardLabel}>Falhas</Typography><Typography className={classes.cardValue}>{metrics.campaignsFailed || 0}</Typography></Paper>
         </Box>
-
-        <Box className={classes.tabsShell}><Tabs className={classes.tabs} value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">{TABS.map((label) => <Tab key={label} label={label} className={classes.tab} />)}</Tabs></Box>
-
+        <Box className={classes.tabsShell}><Tabs className={classes.tabs} value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">{TABS.map((label) => <Tab key={label} label={label} className={classes.tab} />)}</Tabs></Box>
+        <Box className={classes.actionsBar}>
+          <Button className={classes.secondaryBtn} startIcon={<AddIcon />} onClick={() => setDialogs((d) => ({ ...d, batch: true }))}>Criar grupos em massa</Button>
+          <Button className={classes.secondaryBtn} startIcon={<GroupAddIcon />} onClick={() => setDialogs((d) => ({ ...d, bulkMembers: true }))}>Adicionar membros em massa</Button>
+          <Button className={classes.secondaryBtn} startIcon={<DescriptionIcon />} disabled={!selectedGroup} onClick={() => setDialogs((d) => ({ ...d, description: true }))}>Editar descricao</Button>
+          <Button className={classes.secondaryBtn} startIcon={<PhotoCameraIcon />} disabled={!selectedGroup} onClick={() => setDialogs((d) => ({ ...d, picture: true }))}>Alterar foto</Button>
+          <Button className={classes.secondaryBtn} startIcon={<GetAppIcon />} disabled={!selectedGroup} onClick={() => exportMembers("csv")}>Exportar contatos</Button>
+        </Box>
         <Box className={classes.content}>
           {loading ? <Box style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><CircularProgress style={{ color: "#15763f" }} /></Box> : null}
-          {!loading && tab === 0 ? renderDashboard : null}
-          {!loading && tab === 1 ? renderGroups : null}
-          {!loading && tab === 2 ? renderCampaigns : null}
-          {!loading && tab === 3 ? renderSimpleList("Agendamentos", schedules) : null}
-          {!loading && tab === 4 ? (
-            <Paper className={classes.panel}>
-              <Box className={classes.panelHead}><Typography className={classes.panelTitle}>Templates</Typography></Box>
-              <Box style={{ padding: 10, display: "grid", gap: 8 }}>
-                <TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, name: value })); }} />
-                
-                <FormControl variant="outlined" size="small">
-                  <InputLabel>Tipo de conteúdo</InputLabel>
-                  <Select value={templateForm.messageType || "text"} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, messageType: value, mediaContent: null })); setTemplateFileKey(k => k + 1); }} label="Tipo de conteúdo">
-                    <MenuItem value="text">Texto</MenuItem>
-                    <MenuItem value="buttons">Botões de ação (Whaileys/WhatsMeow)</MenuItem>
-                    <MenuItem value="list">Lista de opções (Whaileys/WhatsMeow)</MenuItem>
-                    <MenuItem value="imagem">Imagem</MenuItem>
-                    <MenuItem value="video">Vídeo</MenuItem>
-                    <MenuItem value="audio">Áudio PTT</MenuItem>
-                    <MenuItem value="documento">Documento</MenuItem>
-                  </Select>
-                </FormControl>
-                
-                {["imagem","video","audio","documento"].includes(templateForm.messageType) && (
-                  <Box>
-                    <input
-                      key={templateFileKey}
-                      type="file"
-                      accept={
-                        templateForm.messageType === "video" ? "video/mp4,video/quicktime" :
-                        templateForm.messageType === "audio" ? "audio/mpeg,audio/ogg,audio/wav" :
-                        templateForm.messageType === "imagem" ? "image/jpeg,image/png" :
-                        "*/*"
-                      }
-                      onChange={(e) => setTemplateForm(p => ({ ...p, mediaContent: e.target.files[0] }))}
-                    />
-                    <Typography style={{ fontSize: '.7rem', color: '#5d7d6b' }}>
-                      {templateForm.messageType === "video" ? "Formatos aceitos: mp4, mov" :
-                       templateForm.messageType === "audio" ? "Formatos aceitos: mp3, ogg, wav" :
-                       templateForm.messageType === "imagem" ? "Formatos aceitos: jpg, png" :
-                       "Formatos aceitos: pdf, docx, xlsx, etc"}
-                    </Typography>
+          {!loading && tab === 0 ? <Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>Resumo executivo</Typography></Box><Box style={{ padding: 12 }}><Typography className={classes.meta}>Acompanhe grupos sincronizados, volume de membros e desempenho das campanhas.</Typography></Box></Paper> : null}
+          {!loading && tab === 1 ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={5}>
+                <Paper className={classes.panel}>
+                  <Box className={classes.toolbar}>
+                    <FormControl variant="outlined" size="small"><InputLabel>Conexao</InputLabel><Select value={selectedConnection} onChange={(e) => setSelectedConnection(e.target.value)} label="Conexao"><MenuItem value="">Todas</MenuItem>{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
+                    <TextField variant="outlined" size="small" label="Buscar grupo" value={search} onChange={(e) => setSearch(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
+                    <TextField variant="outlined" size="small" label="Min" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} />
+                    <TextField variant="outlined" size="small" label="Max" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
+                    <Button className={classes.secondaryBtn} startIcon={<RefreshIcon />} onClick={syncGroups}>Sincronizar</Button>
+                    <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={() => setDialogs((d) => ({ ...d, batch: true }))}>Novo</Button>
                   </Box>
-                )}
-
-                <TextField variant="outlined" size="small" label={["imagem","video","audio","documento"].includes(templateForm.messageType) ? "Legenda (Opcional)" : "Mensagem"} multiline rows={3} value={templateForm.message} onChange={(e) => { const value = e.target.value; setTemplateForm((p) => ({ ...p, message: value })); }} />
-                
-                {templateForm.messageType === "buttons" && (
-                  <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
-                    <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Botões (máx. 3)</Typography>
-                    {(templateForm.buttons || []).map((btn, i) => (
-                      <Box key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                        <TextField
-                          variant="outlined" size="small" fullWidth
-                          placeholder={`Botão ${i + 1}`}
-                          value={btn.displayText}
-                          onChange={(e) => {
-                            const btns = [...templateForm.buttons];
-                            btns[i] = { ...btns[i], displayText: e.target.value };
-                            setTemplateForm(p => ({ ...p, buttons: btns }));
-                          }}
-                        />
-                        <Button size="small" className={classes.secondaryBtn} onClick={() => setTemplateForm(p => ({ ...p, buttons: p.buttons.filter((_, idx) => idx !== i) }))}>✕</Button>
-                      </Box>
-                    ))}
-                    {(templateForm.buttons || []).length < 3 && (
-                      <Button size="small" className={classes.secondaryBtn} onClick={() => setTemplateForm(p => ({ ...p, buttons: [...p.buttons, { displayText: "" }] }))}>+ Adicionar botão</Button>
-                    )}
-                  </Box>
-                )}
-
-                {templateForm.messageType === "list" && (
-                  <Box style={{ border: "1px solid #cfe2d5", borderRadius: 8, padding: 8 }}>
-                    <Typography style={{ fontSize: ".75rem", fontWeight: 700, color: "#173624", marginBottom: 6 }}>Itens da lista</Typography>
-                    {((templateForm.listItems || [])[0]?.rows || []).map((row, i) => (
-                      <Box key={row.rowId || i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                        <TextField
-                          variant="outlined" size="small" fullWidth
-                          placeholder={`Item ${i + 1}`}
-                          value={row.title}
-                          onChange={(e) => {
-                            const items = JSON.parse(JSON.stringify(templateForm.listItems));
-                            items[0].rows[i].title = e.target.value;
-                            setTemplateForm(p => ({ ...p, listItems: items }));
-                          }}
-                        />
-                        <Button size="small" className={classes.secondaryBtn} onClick={() => {
-                          const items = JSON.parse(JSON.stringify(templateForm.listItems));
-                          items[0].rows = items[0].rows.filter((_, idx) => idx !== i);
-                          setTemplateForm(p => ({ ...p, listItems: items }));
-                        }}>✕</Button>
-                      </Box>
-                    ))}
-                    <Button size="small" className={classes.secondaryBtn} onClick={() => {
-                      const items = JSON.parse(JSON.stringify(templateForm.listItems));
-                      const newRowId = `op${Date.now()}`;
-                      if (!items[0]) items[0] = { title: "Opções", rows: [] };
-                      if (!items[0].rows) items[0].rows = [];
-                      items[0].rows.push({ title: "", rowId: newRowId });
-                      setTemplateForm(p => ({ ...p, listItems: items }));
-                    }}>+ Adicionar item</Button>
-                  </Box>
-                )}
-
-                <Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={saveTemplate}>Salvar template</Button>
-              </Box>
-              <Box className={classes.list}>{(templates || []).filter(t => t?.id).map((t) => <Box key={t.id} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name || "Sem nome"}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box>)}</Box>
-            </Paper>
+                  {selectedGroup ? <Box className={classes.helper}><Typography style={{ fontWeight: 800, color: "#185033" }}>Grupo: {selectedGroup.subject}</Typography><Typography style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f7a40" }}>Membros: {groupInfo?.memberCount || selectedGroup.size || 0}</Typography></Box> : null}
+                  <Box className={classes.list}>{filteredGroups.map((g) => <Box key={`${g.groupId}-${g.whatsappId}`} className={`${classes.row} ${selectedGroup?.groupId === g.groupId ? classes.rowActive : ""}`} onClick={() => loadGroupInfo(g)}><Box><Typography style={{ fontWeight: 700, color: "#173624", fontSize: ".82rem" }}>{g.subject || g.id}</Typography><Typography className={classes.meta}>{g.size || 0} membros • {g.whatsappName}</Typography></Box><Box style={{ display: "flex", alignItems: "center", gap: 6 }}><span className={classes.badge}>{g.tags?.length || 0} tags</span><Button size="small" className={classes.secondaryBtn} onClick={(e) => { e.stopPropagation(); api.patch(`/group-management/groups/meta/${g.groupId}`, { isFavorite: !g.isFavorite }).then(refreshAll); }}>{g.isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}</Button></Box></Box>)}{!filteredGroups.length ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Nenhum grupo encontrado.</Box> : null}</Box>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={7}>
+                <Paper className={classes.panel}>
+                  {!selectedGroup ? <Box style={{ padding: 24, textAlign: "center", color: "#6a8978" }}>Selecione um grupo para ver membros e acoes.</Box> : <>
+                    <Box className={classes.panelHead}><Box><Typography className={classes.panelTitle}>{selectedGroup.subject}</Typography><Typography className={classes.meta}>{groupInfo?.memberCount || selectedGroup.size || 0} membros • {selectedGroup.whatsappName}</Typography></Box><Box style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button className={classes.secondaryBtn} onClick={() => exportMembers("csv")}>Exportar CSV</Button><Button className={classes.secondaryBtn} onClick={() => exportMembers("json")}>Exportar JSON</Button></Box></Box>
+                    <Box className={classes.list}>{(groupInfo?.participants || []).map((m) => <Box key={m.id} className={classes.row} style={{ cursor: "default" }}><Box><Typography style={{ fontSize: ".8rem", fontWeight: 700 }}>{String(m.id).split("@")[0]}</Typography><Typography className={classes.meta}>{m.isSuperAdmin ? "Super admin" : m.isAdmin ? "Admin" : "Membro"}</Typography></Box><Box style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{!m.isAdmin ? <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(m.id)}/promote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Promover</Button> : <Button size="small" className={classes.secondaryBtn} onClick={() => api.post(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(m.id)}/demote`, { whatsappId: selectedGroup.whatsappId }).then(() => loadGroupInfo(selectedGroup))}>Rebaixar</Button>}<Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/groups/${encodeURIComponent(selectedGroup.id)}/members/${encodeURIComponent(m.id)}`, { data: { whatsappId: selectedGroup.whatsappId } }).then(() => loadGroupInfo(selectedGroup))}>Remover</Button></Box></Box>)}</Box>
+                  </>}
+                </Paper>
+              </Grid>
+            </Grid>
           ) : null}
-          {!loading && tab === 5 ? renderSimpleList("Histórico", historyLogs, "message") : null}
-          {!loading && tab === 6 ? renderSimpleList("Relatórios de campanhas", reports?.campaigns || []) : null}
+          {!loading && tab === 2 ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>Campanhas de grupos</Typography></Box><Box className={classes.form}>
+                  <TextField variant="outlined" size="small" label="Nome" value={campaignForm.name} onChange={(e) => setCampaignForm((p) => ({ ...p, name: e.target.value }))} />
+                  <FormControl variant="outlined" size="small"><InputLabel>Conexao</InputLabel><Select value={campaignForm.whatsappId} onChange={(e) => setCampaignForm((p) => ({ ...p, whatsappId: e.target.value, groupIds: [] }))} label="Conexao">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl>
+                  <FormControl variant="outlined" size="small"><InputLabel>Template</InputLabel><Select value={campaignForm.templateId} onChange={(e) => setCampaignForm((p) => ({ ...p, templateId: e.target.value }))} label="Template"><MenuItem value="">Nenhum</MenuItem>{templates.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}</Select></FormControl>
+                  <FormControl variant="outlined" size="small"><InputLabel>Tipo de conteudo</InputLabel><Select value={campaignForm.messageType} onChange={(e) => setCampaignForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null }))} label="Tipo de conteudo"><MenuItem value="text">Texto</MenuItem><MenuItem value="imagem">Imagem</MenuItem><MenuItem value="video">Video</MenuItem><MenuItem value="audio">Audio</MenuItem><MenuItem value="documento">Documento</MenuItem></Select></FormControl>
+                  {["imagem", "video", "audio", "documento"].includes(campaignForm.messageType) ? <input key={campaignFileKey} type="file" onChange={(e) => setCampaignForm((p) => ({ ...p, mediaContent: e.target.files[0] }))} /> : null}
+                  <TextField variant="outlined" size="small" label="Mensagem" multiline rows={4} value={campaignForm.message} onChange={(e) => setCampaignForm((p) => ({ ...p, message: e.target.value }))} />
+                  <FormControl variant="outlined" size="small"><InputLabel>Mencionar membros</InputLabel><Select value={campaignForm.mentionsMode} onChange={(e) => setCampaignForm((p) => ({ ...p, mentionsMode: e.target.value }))} label="Mencionar membros"><MenuItem value="none">Nao mencionar</MenuItem><MenuItem value="all">Mencionar todos</MenuItem></Select></FormControl>
+                  <FormControl variant="outlined" size="small"><InputLabel>Grupos alvo</InputLabel><Select multiple value={campaignForm.groupIds} onChange={(e) => setCampaignForm((p) => ({ ...p, groupIds: e.target.value }))} label="Grupos alvo" renderValue={(selected) => <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{selected.map((value) => <Chip key={value} size="small" label={campaignGroups.find((g) => g.groupId === value)?.subject || value} />)}</Box>}>{campaignGroups.map((g) => <MenuItem key={g.groupId} value={g.groupId}>{g.subject}</MenuItem>)}</Select></FormControl>
+                  <Box style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}><TextField type="number" variant="outlined" size="small" label="Intervalo entre grupos (segundos)" value={campaignForm.intervalSeconds} onChange={(e) => setCampaignForm((p) => ({ ...p, intervalSeconds: e.target.value }))} /><FormControl variant="outlined" size="small"><InputLabel>Tipo de envio</InputLabel><Select value={campaignForm.scheduleMode} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduleMode: e.target.value }))} label="Tipo de envio"><MenuItem value="now">Enviar agora</MenuItem><MenuItem value="scheduled">Agendar envio</MenuItem></Select></FormControl></Box>
+                  {campaignForm.scheduleMode === "scheduled" ? <Box style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}><TextField type="datetime-local" variant="outlined" size="small" label="Data e hora" InputLabelProps={{ shrink: true }} value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduledAt: e.target.value }))} /><FormControl variant="outlined" size="small"><InputLabel>Recorrencia</InputLabel><Select value={campaignForm.recurrenceRule} onChange={(e) => setCampaignForm((p) => ({ ...p, recurrenceRule: e.target.value }))} label="Recorrencia"><MenuItem value="none">Unico</MenuItem><MenuItem value="daily">Diario</MenuItem><MenuItem value="weekly">Semanal</MenuItem></Select></FormControl></Box> : null}
+                  <Button className={classes.primaryBtn} startIcon={<SendIcon />} onClick={createCampaign}>Criar campanha</Button>
+                </Box></Paper>
+              </Grid>
+              <Grid item xs={12} md={4}><Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>Logs da campanha</Typography></Box><Box className={classes.log}>{campaignLogs.map((l) => <Box key={l.id} className={classes.logLine}><strong>[{l.type}]</strong> {l.message}<br />{new Date(l.createdAt).toLocaleString("pt-BR")}</Box>)}</Box></Paper></Grid>
+              <Grid item xs={12}><Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>Campanhas existentes</Typography></Box><Box className={classes.list}>{campaigns.map((c) => <Box key={c.id} className={classes.row} style={{ cursor: "default" }}><Box><Typography style={{ fontSize: ".82rem", fontWeight: 700 }}>{c.name}</Typography><Typography className={classes.meta}>{c.totalGroups || 0} grupos • {c.successCount || 0} sucesso • {c.failedCount || 0} falhas</Typography></Box><Box style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}><Chip size="small" label={c.status} style={{ backgroundColor: `${statusBg(c.status)}22`, color: statusBg(c.status), fontWeight: 700 }} /><Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "start")}>Iniciar</Button><Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "pause")}>Pausar</Button><Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "resume")}>Retomar</Button><Button size="small" className={classes.secondaryBtn} onClick={() => campaignAction(c.id, "cancel")}>Cancelar</Button><Button size="small" className={classes.secondaryBtn} onClick={() => api.get(`/group-management/campaigns/${c.id}/logs`).then((r) => setCampaignLogs(r.data || []))}>Logs</Button></Box></Box>)}</Box></Paper></Grid>
+            </Grid>
+          ) : null}
+          {!loading && tab === 3 ? simpleList("Agendamentos", schedules) : null}
+          {!loading && tab === 4 ? <Paper className={classes.panel}><Box className={classes.panelHead}><Typography className={classes.panelTitle}>Templates</Typography></Box><Box className={classes.form}><TextField variant="outlined" size="small" label="Nome do template" value={templateForm.name} onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))} /><FormControl variant="outlined" size="small"><InputLabel>Tipo</InputLabel><Select value={templateForm.messageType} onChange={(e) => setTemplateForm((p) => ({ ...p, messageType: e.target.value, mediaContent: null }))} label="Tipo"><MenuItem value="text">Texto</MenuItem><MenuItem value="imagem">Imagem</MenuItem><MenuItem value="video">Video</MenuItem><MenuItem value="audio">Audio</MenuItem><MenuItem value="documento">Documento</MenuItem></Select></FormControl>{["imagem", "video", "audio", "documento"].includes(templateForm.messageType) ? <input key={templateFileKey} type="file" onChange={(e) => setTemplateForm((p) => ({ ...p, mediaContent: e.target.files[0] }))} /> : null}<TextField variant="outlined" size="small" multiline rows={3} label="Mensagem" value={templateForm.message} onChange={(e) => setTemplateForm((p) => ({ ...p, message: e.target.value }))} /><Button className={classes.primaryBtn} startIcon={<AddIcon />} onClick={saveTemplate}>Salvar template</Button></Box><Box className={classes.list}>{templates.map((t) => <Box key={t.id} className={classes.row} style={{ cursor: "default" }}><Typography>{t.name || "Sem nome"}</Typography><Button size="small" className={classes.secondaryBtn} onClick={() => api.delete(`/group-management/templates/${t.id}`).then(refreshAll)}>Excluir</Button></Box>)}</Box></Paper> : null}
+          {!loading && tab === 5 ? simpleList("Historico", historyLogs, "message") : null}
+          {!loading && tab === 6 ? simpleList("Relatorios", reports?.campaigns || []) : null}
         </Box>
       </Box>
 
-      <Dialog open={createGroupModal} onClose={() => setCreateGroupModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Criar Novo Grupo</DialogTitle>
-        <DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}>
-          <FormControl variant="outlined" size="small" fullWidth>
-            <InputLabel>Conexão (WhatsApp)</InputLabel>
-            <Select value={newGroupForm.whatsappId} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, whatsappId: value })); }} label="Conexão (WhatsApp)">
-              {connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <TextField variant="outlined" size="small" label="Nome do grupo" fullWidth value={newGroupForm.subject} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, subject: value })); }} />
-          <TextField variant="outlined" size="small" label="Participantes (Separados por vírgula)" fullWidth multiline rows={3} value={newGroupForm.participants} onChange={(e) => { const value = e.target.value; setNewGroupForm(p => ({ ...p, participants: value })); }} placeholder="Ex: 5511999999999, 5511888888888" />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateGroupModal(false)} color="secondary">Cancelar</Button>
-          <Button onClick={handleCreateGroup} color="primary" variant="contained">Criar Grupo</Button>
-        </DialogActions>
-      </Dialog>
+      <Dialog open={dialogs.batch} onClose={() => setDialogs((d) => ({ ...d, batch: false }))} fullWidth maxWidth="sm"><DialogTitle>Criar grupos em massa</DialogTitle><DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}><FormControl variant="outlined" size="small" fullWidth><InputLabel>Conexao</InputLabel><Select value={batchForm.whatsappId} onChange={(e) => setBatchForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexao">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl><TextField variant="outlined" size="small" label="Nome base" value={batchForm.baseName} onChange={(e) => setBatchForm((p) => ({ ...p, baseName: e.target.value }))} /><TextField variant="outlined" size="small" type="number" label="Quantidade" value={batchForm.quantity} onChange={(e) => setBatchForm((p) => ({ ...p, quantity: e.target.value }))} /><TextField variant="outlined" size="small" label="Participantes iniciais" multiline rows={4} value={batchForm.participants} onChange={(e) => setBatchForm((p) => ({ ...p, participants: e.target.value }))} placeholder="Separe por virgula ou quebra de linha" /></DialogContent><DialogActions><Button onClick={() => setDialogs((d) => ({ ...d, batch: false }))}>Cancelar</Button><Button color="primary" variant="contained" onClick={handleBatchCreate}>Criar</Button></DialogActions></Dialog>
+      <Dialog open={dialogs.bulkMembers} onClose={() => setDialogs((d) => ({ ...d, bulkMembers: false }))} fullWidth maxWidth="sm"><DialogTitle>Adicionar membros em massa</DialogTitle><DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}>{!selectedGroup ? <FormControl variant="outlined" size="small" fullWidth><InputLabel>Conexao</InputLabel><Select value={bulkMembersForm.whatsappId || selectedConnection} onChange={(e) => setBulkMembersForm((p) => ({ ...p, whatsappId: e.target.value }))} label="Conexao">{connections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}</Select></FormControl> : null}<FormControl variant="outlined" size="small" fullWidth><InputLabel>Estrategia</InputLabel><Select value={bulkMembersForm.strategy} onChange={(e) => setBulkMembersForm((p) => ({ ...p, strategy: e.target.value }))} label="Estrategia"><MenuItem value="round_robin">Distribuir entre grupos</MenuItem><MenuItem value="all">Adicionar em todos os grupos</MenuItem></Select></FormControl><TextField variant="outlined" size="small" label="Contatos" multiline rows={6} value={bulkMembersForm.members} onChange={(e) => setBulkMembersForm((p) => ({ ...p, members: e.target.value }))} placeholder="5511999999999&#10;5511888888888" /></DialogContent><DialogActions><Button onClick={() => setDialogs((d) => ({ ...d, bulkMembers: false }))}>Cancelar</Button><Button color="primary" variant="contained" onClick={handleBulkMembers}>Adicionar</Button></DialogActions></Dialog>
+      <Dialog open={dialogs.description} onClose={() => setDialogs((d) => ({ ...d, description: false }))} fullWidth maxWidth="sm"><DialogTitle>Editar descricao do grupo</DialogTitle><DialogContent style={{ paddingTop: 8 }}><TextField variant="outlined" size="small" fullWidth multiline rows={5} label="Descricao" value={description} onChange={(e) => setDescription(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setDialogs((d) => ({ ...d, description: false }))}>Cancelar</Button><Button color="primary" variant="contained" onClick={handleDescription}>Salvar</Button></DialogActions></Dialog>
+      <Dialog open={dialogs.picture} onClose={() => setDialogs((d) => ({ ...d, picture: false }))} fullWidth maxWidth="sm"><DialogTitle>Alterar foto do grupo</DialogTitle><DialogContent style={{ display: "grid", gap: 12, paddingTop: 8 }}><input type="file" accept="image/*" onChange={(e) => setPictureFile(e.target.files[0] || null)} /><Typography className={classes.meta}>Use uma imagem JPG ou PNG. Algumas conexoes podem nao suportar esta acao.</Typography></DialogContent><DialogActions><Button onClick={() => setDialogs((d) => ({ ...d, picture: false }))}>Cancelar</Button><Button color="primary" variant="contained" onClick={handlePicture}>Salvar foto</Button></DialogActions></Dialog>
     </Box>
   );
 }

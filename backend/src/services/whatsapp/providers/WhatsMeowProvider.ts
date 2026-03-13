@@ -158,6 +158,10 @@ export class WhatsMeowProvider extends BaseProvider {
     return res.data;
   }
 
+  async updateGroupPicture(): Promise<any> {
+    throw new Error("Atualizacao de foto nao suportada no provedor WhatsMeow atual.");
+  }
+
   async mentionAll(groupId: string, message: string): Promise<any> {
     // WhatsMeow Go service doesn't support native mentions yet, falls back to regular group message
     return await this.sendGroupMessage(groupId, message);

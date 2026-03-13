@@ -149,6 +149,7 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
             const formData = new FormData();
             formData.append("number", normalized);
             formData.append("whatsappId", Number(selectedWhatsappId));
+            formData.append("leadId", Number(leadId));
             formData.append("createIfNotExists", "true");
             if (op?.contact?.name) formData.append("name", op.contact.name);
 

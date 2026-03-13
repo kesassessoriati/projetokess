@@ -700,6 +700,19 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     handleMenuItemClick();
   };
 
+  const handleSubmitSend = (e) => {
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
+
+    if (showSelectMessageCheckbox) {
+      handleOpenModalForward();
+      return;
+    }
+
+    handleSendMessage();
+  };
+
   const handleStartRecording = async () => {
     setLoading(true);
     try {
@@ -1000,7 +1013,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
           onDrop={(e) => handleInputDrop(e)}
         >
           {(replyingMessage && renderReplyingMessage(replyingMessage)) || (editingMessage && renderReplyingMessage(editingMessage))}
-          <div className={classes.newMessageBox}>
+          <form className={classes.newMessageBox} onSubmit={handleSubmitSend}>
             <Hidden only={["sm", "xs"]}>
               <IconButton
                 aria-label="emojiPicker"
@@ -1237,11 +1250,9 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                         (ticketStatus === "open" || ticketStatus === "group") &&
                           handleInputPaste(e);
                       }}
-                      onKeyPress={(e) => {
-                        if (loading || e.shiftKey) return;
-                        else if (e.key === "Enter") {
-                          handleSendMessage();
-                        }
+                      onKeyDown={(e) => {
+                        if (loading || e.shiftKey || e.key !== "Enter") return;
+                        handleSubmitSend(e);
                       }}
                     />
                     {typeBar ? (
@@ -1284,11 +1295,9 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                         (ticketStatus === "open" || ticketStatus === "group") &&
                           handleInputPaste(e);
                       }}
-                      onKeyPress={(e) => {
-                        if (loading || e.shiftKey) return;
-                        else if (e.key === "Enter") {
-                          handleSendMessage();
-                        }
+                      onKeyDown={(e) => {
+                        if (loading || e.shiftKey || e.key !== "Enter") return;
+                        handleSubmitSend(e);
                       }}
                     />
                     {typeBar ? (
@@ -1338,7 +1347,8 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                   <>
                     <IconButton
                       aria-label="sendMessage"
-                      onClick={showSelectMessageCheckbox ? handleOpenModalForward : handleSendMessage}
+                      type="submit"
+                      onClick={handleSubmitSend}
                       disabled={loading}
                     >
                       {showSelectMessageCheckbox ?
@@ -1391,7 +1401,8 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                 <IconButton
                   aria-label="sendMessage"
                   component="span"
-                  onClick={showSelectMessageCheckbox ? handleOpenModalForward : handleSendMessage}
+                  type="submit"
+                  onClick={handleSubmitSend}
                   disabled={loading}
                 >
                   {showSelectMessageCheckbox ?
@@ -1407,7 +1418,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                 contactId={contactId}
               />
             )}
-          </div>
+          </form>
         </Paper>
         <QuickRepliesModal
           open={quickMessagesDialogOpen}

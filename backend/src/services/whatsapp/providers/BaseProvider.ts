@@ -23,5 +23,6 @@ export abstract class BaseProvider {
   abstract createGroup(subject: string, participants: string[]): Promise<any>;
   abstract updateGroupSubject(groupId: string, subject: string): Promise<any>;
   abstract updateGroupDescription(groupId: string, description: string): Promise<any>;
+  abstract updateGroupPicture?(groupId: string, filePath: string): Promise<any>;
   abstract mentionAll(groupId: string, message: string): Promise<any>;
 }

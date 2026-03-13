@@ -15,13 +15,15 @@ groupManagementRoutes.post("/group-management/sync", isAuth, GroupManagementCont
 // Group directory
 groupManagementRoutes.get("/group-management/groups", isAuth, GroupManagementController.listGroups);
 groupManagementRoutes.get("/group-management/groups/:jid/info", isAuth, GroupManagementController.getGroupInfo);
+groupManagementRoutes.get("/group-management/groups/:jid/export", isAuth, GroupManagementController.exportGroupMembers);
 groupManagementRoutes.patch("/group-management/groups/meta/:groupId", isAuth, GroupManagementController.updateGroupMeta);
 groupManagementRoutes.post("/group-management/groups", isAuth, GroupManagementController.createGroup);
 groupManagementRoutes.post("/group-management/groups/batch", isAuth, GroupManagementController.createGroupBatch);
 groupManagementRoutes.put("/group-management/groups/:jid/subject", isAuth, GroupManagementController.updateGroupSubject);
 groupManagementRoutes.put("/group-management/groups/:jid/description", isAuth, GroupManagementController.updateGroupDescription);
-groupManagementRoutes.put("/group-management/groups/:jid/picture", isAuth, GroupManagementController.updateGroupPicture);
+groupManagementRoutes.put("/group-management/groups/:jid/picture", isAuth, upload.single("picture"), GroupManagementController.updateGroupPictureUpload);
 groupManagementRoutes.post("/group-management/groups/:jid/add-member", isAuth, GroupManagementController.addMember);
+groupManagementRoutes.post("/group-management/groups/bulk-add-members", isAuth, GroupManagementController.bulkAddMembers);
 groupManagementRoutes.delete("/group-management/groups/:jid/members/:memberId", isAuth, GroupManagementController.kickMember);
 groupManagementRoutes.post("/group-management/groups/:jid/members/:memberId/promote", isAuth, GroupManagementController.promoteMember);
 groupManagementRoutes.post("/group-management/groups/:jid/members/:memberId/demote", isAuth, GroupManagementController.demoteMember);
