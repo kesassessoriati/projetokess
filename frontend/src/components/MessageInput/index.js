@@ -1338,7 +1338,6 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                   <>
                     <IconButton
                       aria-label="sendMessage"
-                      component="span"
                       onClick={showSelectMessageCheckbox ? handleOpenModalForward : handleSendMessage}
                       disabled={loading}
                     >

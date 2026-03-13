@@ -1806,6 +1806,7 @@ export const ActionsWebhookService = async (
                   pipelineId: resolvedPipelineId,
                   stageId,
                   contactId: ticket.contactId,
+                  ticketId: ticket.id,
                   title: contactName,
                   value: 0
                 });
@@ -2160,6 +2161,7 @@ export const ActionsWebhookService = async (
                   pipelineId: resolvedPipelineId,
                   stageId,
                   contactId: ticket.contactId,
+                  ticketId: ticket.id,
                   title: contactName,
                   value: 0
                 });

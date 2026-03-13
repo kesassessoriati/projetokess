@@ -12,6 +12,7 @@ import CompaniesSettings from "../models/CompaniesSettings";
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
+import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTicketService";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
@@ -117,15 +118,18 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 3. Buscar ou criar contato ───────────────────────────────────────────
+        // Melhoria na busca: tenta encontrar o contato de forma mais flexível (com/sem 55)
         let contact = await Contact.findOne({
-            where: { number: validatedNumber, companyId }
+            where: {
+                companyId,
+                [Op.or]: [
+                    { number: validatedNumber },
+                    { number: normalized },
+                    { number: validatedNumber.replace(/^55/, "") },
+                    { number: `55${normalized}` }
+                ]
+            }
         });
-
-        if (!contact && validatedNumber !== normalized) {
-            contact = await Contact.findOne({
-                where: { number: normalized, companyId }
-            });
-        }
 
         if (!contact) {
             if (!createIfNotExists) {
@@ -154,85 +158,32 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         
         const io = getIO();
 
-        let ticket = await quickSendMutex.runExclusive(async () => {
-            // Priorizar tickets JÁ ABERTOS para o contato, independentemente da conexão
-            let t = await Ticket.findOne({
-                where: {
-                    contactId: contact.id,
-                    companyId,
-                    status: { [Op.in]: ["open", "pending"] },
-                    channel: "whatsapp"
-                },
-                order: [["updatedAt", "DESC"]]
+        const ticket = await quickSendMutex.runExclusive(async () => {
+             // Usar FindOrCreateTicketService para garantir consistência e evitar duplicados
+             const ticket = await FindOrCreateTicketService(
+                contact,
+                whatsapp,
+                0, // unreadMessages
+                companyId,
+                queueId || null,
+                userId,
+                undefined, // groupContact
+                "whatsapp" // channel
+            );
+
+            // Sempre garantir que o ticket está associado ao usuário correto e aberto
+            await UpdateTicketService({
+                ticketId: ticket.id,
+                companyId,
+                ticketData: {
+                    status: "open",
+                    userId,
+                    queueId: queueId || ticket.queueId,
+                    whatsappId: whatsapp.id
+                }
             });
 
-            // Se não houver nenhum aberto, procurar o último (mesmo fechado) na conexão especificada
-            if (!t) {
-                t = await Ticket.findOne({
-                    where: {
-                        contactId: contact.id,
-                        companyId,
-                        whatsappId: whatsapp.id
-                    },
-                    order: [["updatedAt", "DESC"]]
-                });
-            }
-
-            if (t && ["closed", "nps", "lgpd"].includes(t.status)) {
-                await UpdateTicketService({
-                    ticketId: t.id,
-                    companyId,
-                    ticketData: {
-                        status: "open",
-                        userId,
-                        queueId: queueId || t.queueId,
-                        whatsappId: whatsapp.id
-                    }
-                });
-                t = await ShowTicketService(t.id, companyId);
-                io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
-                    action: "update",
-                    ticket: t
-                });
-            } else if (!t) {
-                t = await Ticket.create({
-                    contactId: contact.id,
-                    whatsappId: whatsapp.id,
-                    companyId,
-                    userId,
-                    queueId: queueId || null,
-                    status: "open",
-                    isGroup: false,
-                    unreadMessages: 0,
-                    isActiveDemand: true,
-                    channel: "whatsapp",
-                    isBot: false
-                });
-
-                await CreateLogTicketService({ ticketId: t.id, type: "create" });
-                t = await ShowTicketService(t.id, companyId);
-
-                io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
-                    action: "update",
-                    ticket: t
-                });
-            } else {
-                // Ticket está aberto: atualizamos userId/queueId se fornecidos, 
-                // mas NÃO mudamos o whatsappId para evitar "context hijacking" se a conversa
-                // está acontecendo por outra conexão ativa do cliente.
-                await UpdateTicketService({
-                    ticketId: t.id,
-                    companyId,
-                    ticketData: {
-                        status: "open",
-                        userId,
-                        queueId: queueId || t.queueId
-                        // Explicitamente não atualizando whatsappId
-                    }
-                });
-                t = await ShowTicketService(t.id, companyId);
-            }
-            return t;
+            return await ShowTicketService(ticket.id, companyId);
         });
 
         // ─── 5. Enviar mensagem ───────────────────────────────────────────────────

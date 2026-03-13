@@ -217,6 +217,7 @@ class ScheduleFollowUpService {
                   pipelineId: stage.pipelineId,
                   stageId: stage.id,
                   contactId: ticket.contactId,
+                  ticketId: ticket.id,
                   title: ticket.contact?.name || "Lead Follow-up",
                   value: 0
                 });
