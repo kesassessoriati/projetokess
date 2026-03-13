@@ -62,8 +62,8 @@ import { useSocket } from "../../context/SocketContext";
 const useStyles = makeStyles(() => ({
   root: {
     minHeight: "100vh",
-    backgroundColor: "#0f0f0f",
-    color: "#f0f0f0",
+    backgroundColor: "#FFFFFF",
+    color: "#1F2937",
     padding: "24px",
     fontFamily: "'Inter', 'Roboto', sans-serif",
   },
@@ -73,12 +73,12 @@ const useStyles = makeStyles(() => ({
   pageTitle: {
     fontSize: "26px",
     fontWeight: 700,
-    color: "#f0f0f0",
+    color: "#1F2937",
     lineHeight: 1.2,
   },
   pageSubtitle: {
     fontSize: "14px",
-    color: "#888",
+    color: "#6B7280",
     marginTop: "4px",
   },
   // Summary cards
@@ -89,13 +89,19 @@ const useStyles = makeStyles(() => ({
     marginBottom: "24px",
   },
   statCard: {
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#F8FAFC",
+    border: "1px solid #E5E7EB",
     borderRadius: "12px",
     padding: "20px",
     display: "flex",
     alignItems: "center",
     gap: "16px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    transition: "box-shadow 0.2s, transform 0.2s",
+    "&:hover": {
+      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+      transform: "translateY(-1px)",
+    },
   },
   statIconWrap: {
     width: "48px",
@@ -108,7 +114,7 @@ const useStyles = makeStyles(() => ({
   },
   statLabel: {
     fontSize: "12px",
-    color: "#888",
+    color: "#6B7280",
     marginBottom: "4px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
@@ -116,7 +122,7 @@ const useStyles = makeStyles(() => ({
   statValue: {
     fontSize: "28px",
     fontWeight: 700,
-    color: "#f0f0f0",
+    color: "#1F2937",
     lineHeight: 1,
   },
   // Main layout
@@ -128,19 +134,20 @@ const useStyles = makeStyles(() => ({
   },
   // Left panel
   leftPanel: {
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "12px",
     overflow: "hidden",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
   },
   leftPanelHeader: {
     padding: "16px 20px",
-    borderBottom: "1px solid #2a2a2a",
+    borderBottom: "1px solid #E5E7EB",
   },
   leftPanelTitle: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#f0f0f0",
+    color: "#1F2937",
   },
   connectionList: {
     maxHeight: "calc(100vh - 280px)",
@@ -149,40 +156,40 @@ const useStyles = makeStyles(() => ({
       width: "6px",
     },
     "&::-webkit-scrollbar-track": {
-      background: "#1a1a1a",
+      background: "#F8FAFC",
     },
     "&::-webkit-scrollbar-thumb": {
-      background: "#3a3a3a",
+      background: "#D1D5DB",
       borderRadius: "3px",
     },
   },
   connectionItem: {
     padding: "14px 20px",
-    borderBottom: "1px solid #1f1f1f",
+    borderBottom: "1px solid #E5E7EB",
     cursor: "pointer",
     transition: "background 0.15s",
     "&:hover": {
-      backgroundColor: "#222",
+      backgroundColor: "#F1F5F9",
     },
     "&:last-child": {
       borderBottom: "none",
     },
   },
   connectionItemSelected: {
-    backgroundColor: "#222",
-    borderLeft: "3px solid #ff6b35",
+    backgroundColor: "#F1F5F9",
+    borderLeft: "3px solid #22C55E",
   },
   connectionName: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#f0f0f0",
+    color: "#1F2937",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
   connectionNumber: {
     fontSize: "12px",
-    color: "#888",
+    color: "#6B7280",
     marginTop: "2px",
   },
   connectionMeta: {
@@ -210,11 +217,12 @@ const useStyles = makeStyles(() => ({
   },
   // Right panel
   rightPanel: {
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "12px",
     overflow: "hidden",
     minHeight: "400px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
   },
   placeholderWrap: {
     display: "flex",
@@ -223,31 +231,31 @@ const useStyles = makeStyles(() => ({
     justifyContent: "center",
     height: "400px",
     gap: "12px",
-    color: "#555",
+    color: "#9CA3AF",
   },
   placeholderIcon: {
     fontSize: "56px",
-    color: "#333",
+    color: "#D1D5DB",
   },
   placeholderText: {
     fontSize: "15px",
-    color: "#555",
+    color: "#9CA3AF",
     textAlign: "center",
   },
   // Tabs
   tabsRoot: {
-    borderBottom: "1px solid #2a2a2a",
+    borderBottom: "1px solid #E5E7EB",
     "& .MuiTabs-indicator": {
-      backgroundColor: "#ff6b35",
+      backgroundColor: "#22C55E",
     },
   },
   tabItem: {
-    color: "#888",
+    color: "#6B7280",
     fontSize: "13px",
     fontWeight: 500,
     minWidth: "100px",
     "&.Mui-selected": {
-      color: "#ff6b35",
+      color: "#22C55E",
     },
   },
   tabContent: {
@@ -255,16 +263,17 @@ const useStyles = makeStyles(() => ({
   },
   // Chart
   chartWrap: {
-    backgroundColor: "#141414",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "10px",
     padding: "16px",
     marginBottom: "20px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   },
   chartTitle: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#aaa",
+    color: "#6B7280",
     marginBottom: "12px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
@@ -277,14 +286,15 @@ const useStyles = makeStyles(() => ({
     marginBottom: "20px",
   },
   miniStatCard: {
-    backgroundColor: "#141414",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "10px",
     padding: "14px",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
   },
   miniStatLabel: {
     fontSize: "11px",
-    color: "#666",
+    color: "#9CA3AF",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     marginBottom: "6px",
@@ -292,17 +302,17 @@ const useStyles = makeStyles(() => ({
   miniStatValue: {
     fontSize: "20px",
     fontWeight: 700,
-    color: "#f0f0f0",
+    color: "#1F2937",
   },
   miniStatSub: {
     fontSize: "11px",
-    color: "#666",
+    color: "#9CA3AF",
     marginTop: "2px",
   },
   // Log feed
   logFeedWrap: {
-    backgroundColor: "#0d0d0d",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#F8FAFC",
+    border: "1px solid #E5E7EB",
     borderRadius: "10px",
     padding: "12px",
     maxHeight: "260px",
@@ -313,10 +323,10 @@ const useStyles = makeStyles(() => ({
       width: "6px",
     },
     "&::-webkit-scrollbar-track": {
-      background: "#0d0d0d",
+      background: "#F8FAFC",
     },
     "&::-webkit-scrollbar-thumb": {
-      background: "#2a2a2a",
+      background: "#E5E7EB",
       borderRadius: "3px",
     },
   },
@@ -324,14 +334,14 @@ const useStyles = makeStyles(() => ({
     display: "flex",
     gap: "10px",
     padding: "3px 0",
-    borderBottom: "1px solid #181818",
+    borderBottom: "1px solid #E5E7EB",
     alignItems: "flex-start",
     "&:last-child": {
       borderBottom: "none",
     },
   },
   logTime: {
-    color: "#444",
+    color: "#9CA3AF",
     flexShrink: 0,
     fontSize: "11px",
     paddingTop: "1px",
@@ -343,7 +353,7 @@ const useStyles = makeStyles(() => ({
   logSectionTitle: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#aaa",
+    color: "#6B7280",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     marginBottom: "10px",
@@ -375,7 +385,7 @@ const useStyles = makeStyles(() => ({
   },
   formLabel: {
     fontSize: "12px",
-    color: "#888",
+    color: "#6B7280",
     marginBottom: "6px",
     display: "block",
     textTransform: "uppercase",
@@ -383,83 +393,83 @@ const useStyles = makeStyles(() => ({
   },
   darkInput: {
     "& .MuiOutlinedInput-root": {
-      backgroundColor: "#141414",
+      backgroundColor: "#FFFFFF",
       borderRadius: "8px",
-      color: "#f0f0f0",
+      color: "#1F2937",
       "& fieldset": {
-        borderColor: "#2a2a2a",
+        borderColor: "#E5E7EB",
       },
       "&:hover fieldset": {
-        borderColor: "#3a3a3a",
+        borderColor: "#D1D5DB",
       },
       "&.Mui-focused fieldset": {
-        borderColor: "#ff6b35",
+        borderColor: "#22C55E",
       },
     },
     "& .MuiInputLabel-root": {
-      color: "#666",
+      color: "#9CA3AF",
       "&.Mui-focused": {
-        color: "#ff6b35",
+        color: "#22C55E",
       },
     },
     "& .MuiSelect-root": {
-      color: "#f0f0f0",
+      color: "#1F2937",
     },
     "& .MuiSelect-icon": {
-      color: "#666",
+      color: "#9CA3AF",
     },
     "& .MuiInputBase-input": {
-      color: "#f0f0f0",
+      color: "#1F2937",
     },
   },
   darkSelect: {
-    backgroundColor: "#141414",
+    backgroundColor: "#FFFFFF",
     borderRadius: "8px",
-    color: "#f0f0f0",
+    color: "#1F2937",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#2a2a2a",
+      borderColor: "#E5E7EB",
     },
     "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#3a3a3a",
+      borderColor: "#D1D5DB",
     },
     "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#ff6b35",
+      borderColor: "#22C55E",
     },
     "& .MuiSelect-icon": {
-      color: "#666",
+      color: "#9CA3AF",
     },
   },
   rampUpBox: {
-    backgroundColor: "#141414",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "10px",
     padding: "16px",
     marginTop: "4px",
   },
   primaryBtn: {
-    backgroundColor: "#ff6b35",
+    backgroundColor: "#22C55E",
     color: "#fff",
     fontWeight: 600,
     borderRadius: "8px",
     padding: "8px 20px",
     textTransform: "none",
     "&:hover": {
-      backgroundColor: "#e55a25",
+      backgroundColor: "#16A34A",
     },
     "&:disabled": {
-      backgroundColor: "#3a3a3a",
-      color: "#666",
+      backgroundColor: "#D1D5DB",
+      color: "#9CA3AF",
     },
   },
   secondaryBtn: {
-    backgroundColor: "#2a2a2a",
-    color: "#f0f0f0",
+    backgroundColor: "#E5E7EB",
+    color: "#1F2937",
     fontWeight: 600,
     borderRadius: "8px",
     padding: "8px 20px",
     textTransform: "none",
     "&:hover": {
-      backgroundColor: "#333",
+      backgroundColor: "#D1D5DB",
     },
   },
   // Scripts tab
@@ -470,26 +480,26 @@ const useStyles = makeStyles(() => ({
     "&::-webkit-scrollbar": {
       width: "6px",
     },
-    "&::-webkit-scrollbar-track": { background: "#141414" },
-    "&::-webkit-scrollbar-thumb": { background: "#2a2a2a", borderRadius: "3px" },
+    "&::-webkit-scrollbar-track": { background: "#FFFFFF" },
+    "&::-webkit-scrollbar-thumb": { background: "#E5E7EB", borderRadius: "3px" },
   },
   scriptItem: {
     display: "flex",
     alignItems: "flex-start",
     gap: "8px",
     padding: "8px 0",
-    borderBottom: "1px solid #1f1f1f",
+    borderBottom: "1px solid #E5E7EB",
     "&:last-child": { borderBottom: "none" },
   },
   scriptText: {
     flex: 1,
     fontSize: "13px",
-    color: "#ccc",
+    color: "#4B5563",
     lineHeight: 1.5,
   },
   aiSection: {
-    backgroundColor: "#141414",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E5E7EB",
     borderRadius: "10px",
     padding: "16px",
     marginBottom: "16px",
@@ -497,15 +507,15 @@ const useStyles = makeStyles(() => ({
   aiSectionTitle: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#ff6b35",
+    color: "#22C55E",
     marginBottom: "12px",
     display: "flex",
     alignItems: "center",
     gap: "6px",
   },
   previewScripts: {
-    backgroundColor: "#0d0d0d",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#F8FAFC",
+    border: "1px solid #E5E7EB",
     borderRadius: "8px",
     padding: "12px",
     maxHeight: "200px",
@@ -514,14 +524,14 @@ const useStyles = makeStyles(() => ({
     "&::-webkit-scrollbar": {
       width: "6px",
     },
-    "&::-webkit-scrollbar-track": { background: "#0d0d0d" },
-    "&::-webkit-scrollbar-thumb": { background: "#2a2a2a", borderRadius: "3px" },
+    "&::-webkit-scrollbar-track": { background: "#F8FAFC" },
+    "&::-webkit-scrollbar-thumb": { background: "#E5E7EB", borderRadius: "3px" },
   },
   previewScriptItem: {
     fontSize: "12px",
-    color: "#aaa",
+    color: "#6B7280",
     padding: "6px 0",
-    borderBottom: "1px solid #181818",
+    borderBottom: "1px solid #E5E7EB",
     "&:last-child": { borderBottom: "none" },
   },
   addScriptRow: {
@@ -530,24 +540,24 @@ const useStyles = makeStyles(() => ({
     alignItems: "flex-start",
   },
   sectionDivider: {
-    borderColor: "#2a2a2a",
+    borderColor: "#E5E7EB",
     margin: "20px 0",
   },
   switchLabel: {
     "& .MuiFormControlLabel-label": {
       fontSize: "13px",
-      color: "#ccc",
+      color: "#4B5563",
     },
     "& .MuiSwitch-colorPrimary.Mui-checked": {
-      color: "#ff6b35",
+      color: "#22C55E",
     },
     "& .MuiSwitch-colorPrimary.Mui-checked + .MuiSwitch-track": {
-      backgroundColor: "#ff6b35",
+      backgroundColor: "#22C55E",
     },
   },
   emptyLogs: {
     textAlign: "center",
-    color: "#444",
+    color: "#9CA3AF",
     padding: "20px",
     fontSize: "13px",
   },
@@ -558,12 +568,32 @@ const useStyles = makeStyles(() => ({
     padding: "40px",
   },
   menuPaper: {
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #2a2a2a",
+    backgroundColor: "#F8FAFC",
+    border: "1px solid #E5E7EB",
     "& .MuiMenuItem-root": {
-      color: "#f0f0f0",
+      color: "#1F2937",
       fontSize: "13px",
-      "&:hover": { backgroundColor: "#2a2a2a" },
+      "&:hover": { backgroundColor: "#E5E7EB" },
+    },
+  },
+  // ── Responsive overrides ──────────────────────────────────────────────
+  "@media (max-width: 1280px)": {
+    summaryRow: {
+      gridTemplateColumns: "repeat(2, 1fr)",
+    },
+    mainLayout: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  "@media (max-width: 960px)": {
+    root: {
+      padding: "16px",
+    },
+    summaryRow: {
+      gridTemplateColumns: "1fr",
+    },
+    mainLayout: {
+      gridTemplateColumns: "1fr",
     },
   },
 }));
@@ -789,7 +819,7 @@ function DashboardTab({ warmup, stats, logs, loadingStats }) {
   if (loadingStats) {
     return (
       <Box className={classes.loadingWrap}>
-        <CircularProgress size={32} style={{ color: "#ff6b35" }} />
+        <CircularProgress size={32} style={{ color: "#22C55E" }} />
       </Box>
     );
   }
@@ -813,19 +843,19 @@ function DashboardTab({ warmup, stats, logs, loadingStats }) {
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-              <XAxis dataKey="date" tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="date" tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
               <RechartsTooltip
-                contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", color: "#f0f0f0" }}
-                labelStyle={{ color: "#aaa" }}
-                itemStyle={{ color: "#ff6b35" }}
+                contentStyle={{ backgroundColor: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: "8px", color: "#1F2937" }}
+                labelStyle={{ color: "#6B7280" }}
+                itemStyle={{ color: "#22C55E" }}
               />
-              <Bar dataKey="Mensagens" fill="#ff6b35" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Mensagens" fill="#22C55E" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <Box style={{ textAlign: "center", color: "#444", padding: "40px 0", fontSize: "13px" }}>
+          <Box style={{ textAlign: "center", color: "#9CA3AF", padding: "40px 0", fontSize: "13px" }}>
             Nenhum dado disponível ainda.
           </Box>
         )}
@@ -1019,9 +1049,9 @@ function ConfigTab({ warmup, selectedId, onSaved }) {
                 inputProps={{ min: 1, max: 50 }}
               />
               <Box style={{ display: "flex", alignItems: "center" }}>
-                <Typography style={{ color: "#888", fontSize: "13px" }}>
+                <Typography style={{ color: "#6B7280", fontSize: "13px" }}>
                   Dia atual de ramp-up:{" "}
-                  <strong style={{ color: "#f0f0f0" }}>
+                  <strong style={{ color: "#1F2937" }}>
                     #{warmup && warmup.dailyRampUp ? warmup.rampUpDay || 1 : "—"}
                   </strong>
                 </Typography>
@@ -1136,12 +1166,12 @@ function ScriptsTab({ warmup, selectedId, onSaved }) {
       {scripts.length === 0 ? (
         <Box
           style={{
-            backgroundColor: "#141414",
-            border: "1px solid #2a2a2a",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E5E7EB",
             borderRadius: "8px",
             padding: "20px",
             textAlign: "center",
-            color: "#555",
+            color: "#9CA3AF",
             fontSize: "13px",
             marginBottom: "16px",
           }}
@@ -1152,8 +1182,8 @@ function ScriptsTab({ warmup, selectedId, onSaved }) {
         <Box
           className={classes.scriptsList}
           style={{
-            backgroundColor: "#141414",
-            border: "1px solid #2a2a2a",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E5E7EB",
             borderRadius: "8px",
             padding: "8px 12px",
             marginBottom: "16px",
@@ -1237,7 +1267,7 @@ function ScriptsTab({ warmup, selectedId, onSaved }) {
 
         {previewScripts.length > 0 && (
           <Box style={{ marginTop: "12px" }}>
-            <Typography style={{ fontSize: "12px", color: "#888", marginBottom: "6px" }}>
+            <Typography style={{ fontSize: "12px", color: "#6B7280", marginBottom: "6px" }}>
               Pré-visualização ({previewScripts.length} scripts):
             </Typography>
             <Box className={classes.previewScripts}>
@@ -1409,8 +1439,8 @@ function WarmupSessionBuilder({
   };
 
   return (
-    <Box style={{ marginTop: 24, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, padding: 20 }}>
-      <Typography style={{ fontSize: 16, fontWeight: 700, color: "#f0f0f0", marginBottom: 12 }}>
+    <Box style={{ marginTop: 24, background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 12, padding: 20 }}>
+      <Typography style={{ fontSize: 16, fontWeight: 700, color: "#1F2937", marginBottom: 12 }}>
         Sessões de Aquecimento
       </Typography>
       <Typography style={{ color: "#9ca3af", fontSize: 13, marginBottom: 18 }}>
@@ -1495,7 +1525,7 @@ function WarmupSessionBuilder({
         />
       </Box>
 
-      <Box style={{ marginTop: 14, borderTop: "1px solid #2a2a2a", paddingTop: 14 }}>
+      <Box style={{ marginTop: 14, borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
         <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
           Gerador com IA
         </Typography>
@@ -1510,7 +1540,7 @@ function WarmupSessionBuilder({
         </Box>
       </Box>
 
-      <Box style={{ marginTop: 16, borderTop: "1px solid #2a2a2a", paddingTop: 14 }}>
+      <Box style={{ marginTop: 16, borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
         <Typography style={{ fontSize: 13, color: "#a3a3a3", marginBottom: 8 }}>
           Editor de script por etapas
         </Typography>
@@ -1542,12 +1572,12 @@ function WarmupSessionBuilder({
           <Button className={classes.secondaryBtn} onClick={handleAddStep} startIcon={<AddIcon />}>Adicionar</Button>
         </Box>
 
-        <Box style={{ marginTop: 10, background: "#141414", border: "1px solid #262626", borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
+        <Box style={{ marginTop: 10, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
           {manualSteps.length === 0 ? (
-            <Typography style={{ color: "#666", fontSize: 12, padding: 12 }}>Nenhuma etapa adicionada.</Typography>
+            <Typography style={{ color: "#9CA3AF", fontSize: 12, padding: 12 }}>Nenhuma etapa adicionada.</Typography>
           ) : manualSteps.map((step, idx) => (
-            <Box key={`step-${idx}`} style={{ padding: "8px 12px", borderBottom: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography style={{ color: "#d4d4d4", fontSize: 12 }}>
+            <Box key={`step-${idx}`} style={{ padding: "8px 12px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography style={{ color: "#4B5563", fontSize: 12 }}>
                 {step.type === "wait"
                   ? `${idx + 1}. Aguardar ${step.seconds}s`
                   : `${idx + 1}. #${step.fromWhatsappId} envia para #${step.toWhatsappId}: ${step.message}`}
@@ -1602,26 +1632,26 @@ function WarmupSessionsHistory({ sessions, selectedSessionId, onSelectSession, o
 
   return (
     <Box style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 12 }}>
-      <Box style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden" }}>
-        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #2a2a2a" }}>
-          <Typography style={{ color: "#f0f0f0", fontWeight: 700, fontSize: 14 }}>Sessões criadas</Typography>
+      <Box style={{ background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #E5E7EB" }}>
+          <Typography style={{ color: "#1F2937", fontWeight: 700, fontSize: 14 }}>Sessões criadas</Typography>
         </Box>
         <Box style={{ maxHeight: 360, overflowY: "auto" }}>
           {sessions.length === 0 ? (
-            <Typography style={{ color: "#666", fontSize: 12, padding: 14 }}>Nenhuma sessão cadastrada.</Typography>
+            <Typography style={{ color: "#9CA3AF", fontSize: 12, padding: 14 }}>Nenhuma sessão cadastrada.</Typography>
           ) : sessions.map((session) => (
             <Box
               key={session.id}
               onClick={() => onSelectSession(session.id)}
               style={{
                 padding: 12,
-                borderBottom: "1px solid #232323",
+                borderBottom: "1px solid #E5E7EB",
                 cursor: "pointer",
-                background: selectedSessionId === session.id ? "#202020" : "transparent",
+                background: selectedSessionId === session.id ? "#DCFCE7" : "transparent",
               }}
             >
               <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <Typography style={{ color: "#f5f5f5", fontSize: 13, fontWeight: 600 }}>
+                <Typography style={{ color: "#1F2937", fontSize: 13, fontWeight: 600 }}>
                   {session.name || `Sessão #${session.id}`}
                 </Typography>
                 <SessionStatusBadge status={session.status} />
@@ -1652,21 +1682,21 @@ function WarmupSessionsHistory({ sessions, selectedSessionId, onSelectSession, o
         </Box>
       </Box>
 
-      <Box style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden" }}>
-        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #2a2a2a" }}>
-          <Typography style={{ color: "#f0f0f0", fontWeight: 700, fontSize: 14 }}>
+      <Box style={{ background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <Box style={{ padding: "14px 16px", borderBottom: "1px solid #E5E7EB" }}>
+          <Typography style={{ color: "#1F2937", fontWeight: 700, fontSize: 14 }}>
             Histórico da sessão {selectedSessionId ? `#${selectedSessionId}` : ""}
           </Typography>
         </Box>
         <Box style={{ maxHeight: 360, overflowY: "auto", padding: 10 }}>
           {!selectedSessionId ? (
-            <Typography style={{ color: "#666", fontSize: 12 }}>Selecione uma sessão para ver os logs.</Typography>
+            <Typography style={{ color: "#9CA3AF", fontSize: 12 }}>Selecione uma sessão para ver os logs.</Typography>
           ) : sessionLogs.length === 0 ? (
-            <Typography style={{ color: "#666", fontSize: 12 }}>Sem logs para esta sessão.</Typography>
+            <Typography style={{ color: "#9CA3AF", fontSize: 12 }}>Sem logs para esta sessão.</Typography>
           ) : sessionLogs.map((log) => (
-            <Box key={log.id} style={{ borderBottom: "1px solid #232323", padding: "8px 2px" }}>
-              <Typography style={{ color: "#7dd3fc", fontSize: 11 }}>{formatDateTime(log.createdAt)}</Typography>
-              <Typography style={{ color: "#d4d4d4", fontSize: 12 }}>
+            <Box key={log.id} style={{ borderBottom: "1px solid #E5E7EB", padding: "8px 2px" }}>
+              <Typography style={{ color: "#22C55E", fontSize: 11 }}>{formatDateTime(log.createdAt)}</Typography>
+              <Typography style={{ color: "#4B5563", fontSize: 12 }}>
                 [{log.type}] {log.message}
               </Typography>
             </Box>
@@ -1913,11 +1943,32 @@ export default function AquecimentoWhatsApp() {
   return (
     <Box className={classes.root}>
       {/* Header */}
-      <Box className={classes.pageHeader}>
-        <Typography className={classes.pageTitle}>🔥 Aquecimento WhatsApp</Typography>
-        <Typography className={classes.pageSubtitle}>
-          Mantenha seus chips saudáveis e com alta entregabilidade
-        </Typography>
+      <Box className={classes.pageHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+        <Box>
+          <Typography className={classes.pageTitle}>🔥 Aquecimento WhatsApp</Typography>
+          <Typography className={classes.pageSubtitle}>
+            Mantenha seus chips saudáveis e com alta entregabilidade
+          </Typography>
+        </Box>
+        <Box style={{ display: "flex", gap: "12px" }}>
+          <Button 
+            className={classes.secondaryBtn}
+            startIcon={<AutorenewIcon />}
+            onClick={fetchSummary}
+            disabled={loadingSummary}
+          >
+            Sincronizar
+          </Button>
+          <Button 
+            className={classes.primaryBtn}
+            startIcon={<PlayArrowIcon />}
+            onClick={() => {
+              window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }}
+          >
+            Criar Sessão
+          </Button>
+        </Box>
       </Box>
 
       {/* Summary cards */}
@@ -1930,7 +1981,7 @@ export default function AquecimentoWhatsApp() {
         />
         <StatCard
           icon={RouterIcon}
-          iconBg="rgba(255,107,53,0.2)"
+          iconBg="rgba(34,197,94,0.15)"
           label="Aquecendo"
           value={loadingSummary ? "..." : computedStats.aquecendo}
         />
@@ -1967,10 +2018,10 @@ export default function AquecimentoWhatsApp() {
 
           {loadingSummary ? (
             <Box className={classes.loadingWrap}>
-              <CircularProgress size={28} style={{ color: "#ff6b35" }} />
+              <CircularProgress size={28} style={{ color: "#22C55E" }} />
             </Box>
           ) : summary.length === 0 ? (
-            <Box style={{ padding: "32px 20px", textAlign: "center", color: "#555", fontSize: "13px" }}>
+            <Box style={{ padding: "32px 20px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>
               Nenhuma conexão WhatsApp encontrada.
             </Box>
           ) : (
@@ -2005,7 +2056,7 @@ export default function AquecimentoWhatsApp() {
                     </Box>
 
                     <Box className={classes.connectionToggleRow}>
-                      <Typography style={{ fontSize: "11px", color: "#666" }}>
+                      <Typography style={{ fontSize: "11px", color: "#9CA3AF" }}>
                         {isActive ? "Aquecimento ativo" : "Aquecimento inativo"}
                       </Typography>
                       <Tooltip title={isActive ? "Desativar aquecimento" : "Ativar aquecimento"}>
@@ -2017,7 +2068,7 @@ export default function AquecimentoWhatsApp() {
                             disabled={!!toggling[conn.whatsappId]}
                             color="primary"
                             style={{
-                              "& .MuiSwitch-colorPrimary.Mui-checked": { color: "#ff6b35" },
+                              "& .MuiSwitch-colorPrimary.Mui-checked": { color: "#22C55E" },
                             }}
                           />
                         </span>
@@ -2033,15 +2084,18 @@ export default function AquecimentoWhatsApp() {
         {/* Right: detail panel */}
         <Box className={classes.rightPanel}>
           {!selectedId ? (
-            <Box className={classes.placeholderWrap}>
-              <WhatsAppIcon className={classes.placeholderIcon} />
-              <Typography className={classes.placeholderText}>
-                Selecione uma conexão à esquerda para gerenciar o aquecimento
+            <Box className={classes.placeholderWrap} style={{ background: "#F8FAFC", border: "1px dashed #D1D5DB", margin: "24px", borderRadius: "12px", height: "calc(100% - 48px)" }}>
+              <WhatsAppIcon style={{ fontSize: "64px", color: "#D1D5DB", marginBottom: "16px" }} />
+              <Typography style={{ fontSize: "16px", fontWeight: 600, color: "#9CA3AF" }}>
+                Nenhuma conexão selecionada
+              </Typography>
+              <Typography style={{ fontSize: "14px", color: "#9CA3AF", textAlign: "center", padding: "0 20px" }}>
+                Selecione uma conexão à esquerda para gerenciar o aquecimento e ver estatísticas
               </Typography>
             </Box>
           ) : loadingDetail ? (
             <Box className={classes.loadingWrap} style={{ height: "400px" }}>
-              <CircularProgress size={36} style={{ color: "#ff6b35" }} />
+              <CircularProgress size={36} style={{ color: "#22C55E" }} />
             </Box>
           ) : (
             <Box>
@@ -2050,7 +2104,7 @@ export default function AquecimentoWhatsApp() {
                 <Box
                   style={{
                     padding: "16px 24px",
-                    borderBottom: "1px solid #2a2a2a",
+                    borderBottom: "1px solid #E5E7EB",
                     display: "flex",
                     alignItems: "center",
                     gap: "12px",
@@ -2058,11 +2112,11 @@ export default function AquecimentoWhatsApp() {
                 >
                   <WhatsAppIcon style={{ color: "#25d366", fontSize: "20px" }} />
                   <Box>
-                    <Typography style={{ fontSize: "15px", fontWeight: 600, color: "#f0f0f0" }}>
+                    <Typography style={{ fontSize: "15px", fontWeight: 600, color: "#1F2937" }}>
                       {selectedConn.name || `Chip ${selectedConn.whatsappId}`}
                     </Typography>
                     {selectedConn.number && (
-                      <Typography style={{ fontSize: "12px", color: "#888" }}>
+                      <Typography style={{ fontSize: "12px", color: "#6B7280" }}>
                         {selectedConn.number}
                       </Typography>
                     )}
