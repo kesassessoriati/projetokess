@@ -43,8 +43,24 @@ interface QuickSendBody {
 }
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
-const normalizeNumber = (raw: string): string => {
-    const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+const getAreaCodeFromReference = (reference?: string | null): string => {
+    const digits = String(reference || "").replace(/\D/g, "").replace(/^0+/, "");
+    const normalized = normalizePhoneNumber(digits) || digits;
+    const national = normalized.startsWith("55") ? normalized.slice(2) : normalized;
+
+    return national.length >= 10 ? national.slice(0, 2) : "";
+};
+
+const normalizeNumber = (raw: string, referenceNumber?: string | null): string => {
+    let digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+
+    if (digits.length === 8 || digits.length === 9) {
+        const areaCode = getAreaCodeFromReference(referenceNumber);
+        if (areaCode) {
+            digits = `${areaCode}${digits}`;
+        }
+    }
+
     return normalizePhoneNumber(digits) || digits;
 };
 
@@ -78,6 +94,25 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
     logger.info({ companyId, userId, number, whatsappId }, "QuickSend request started");
 
     try {
+        let lead: CrmLead | null = null;
+        if (leadId) {
+            lead = await CrmLead.findOne({
+                where: {
+                    id: Number(leadId),
+                    companyId
+                },
+                include: [
+                    {
+                        model: Contact,
+                        as: "contact",
+                        attributes: ["id", "number", "remoteJid", "name"]
+                    }
+                ]
+            });
+        }
+
+        const referenceNumber = lead?.phone || lead?.contact?.number || "";
+        const normalizedInput = normalizeNumber(number, referenceNumber);
         // ─── Validação de entrada ──────────────────────────────────────────────────
         const schema = Yup.object().shape({
             number: Yup.string()
@@ -88,13 +123,13 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         });
 
         try {
-            await schema.validate({ number: normalizeNumber(number), message, whatsappId });
+            await schema.validate({ number: normalizedInput, message, whatsappId });
         } catch (err) {
             logger.warn({ number, err: err.message }, "QuickSend validation failed");
             return res.status(400).json({ error: err.message });
         }
 
-        const normalized = normalizeNumber(number);
+        const normalized = normalizedInput;
 
         // ─── 1. Verificar conexão WhatsApp (pertence à empresa) ───────────────────
         const whatsapp = await Whatsapp.findOne({
@@ -124,17 +159,21 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
 
         // ─── 3. Buscar ou criar contato ───────────────────────────────────────────
         // Melhoria na busca: tenta encontrar o contato de forma mais flexível (com/sem 55)
-        let contact = await Contact.findOne({
-            where: {
-                companyId,
-                [Op.or]: [
-                    { number: validatedNumber },
-                    { number: normalized },
-                    { number: validatedNumber.replace(/^55/, "") },
-                    { number: normalized.replace(/^55/, "") }
-                ]
-            }
-        });
+        let contact = lead?.contact || null;
+
+        if (!contact) {
+            contact = await Contact.findOne({
+                where: {
+                    companyId,
+                    [Op.or]: [
+                        { number: validatedNumber },
+                        { number: normalized },
+                        { number: validatedNumber.replace(/^55/, "") },
+                        { number: normalized.replace(/^55/, "") }
+                    ]
+                }
+            });
+        }
 
         if (!contact) {
             if (!createIfNotExists) {
@@ -183,29 +222,19 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             });
         }
 
-        let lead: CrmLead | null = null;
-        if (leadId) {
-            lead = await CrmLead.findOne({
-                where: {
-                    id: Number(leadId),
-                    companyId
-                }
-            });
+        if (lead) {
+            const leadUpdates: Record<string, any> = {};
 
-            if (lead) {
-                const leadUpdates: Record<string, any> = {};
+            if (lead.contactId !== contact.id) {
+                leadUpdates.contactId = contact.id;
+            }
 
-                if (lead.contactId !== contact.id) {
-                    leadUpdates.contactId = contact.id;
-                }
+            if (lead.phone !== validatedNumber) {
+                leadUpdates.phone = validatedNumber;
+            }
 
-                if (lead.phone !== validatedNumber) {
-                    leadUpdates.phone = validatedNumber;
-                }
-
-                if (Object.keys(leadUpdates).length > 0) {
-                    await lead.update(leadUpdates, { hooks: false });
-                }
+            if (Object.keys(leadUpdates).length > 0) {
+                await lead.update(leadUpdates, { hooks: false });
             }
         }
 

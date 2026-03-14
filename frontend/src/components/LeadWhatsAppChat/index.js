@@ -99,6 +99,17 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
 
     const normalizeDestinationNumber = (value = "") => {
         let digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
+        const referenceDigits = String(op?.contact?.number || op?.lead?.phone || "")
+            .replace(/\D/g, "")
+            .replace(/^0+/, "");
+        const referenceNational = referenceDigits.startsWith("55")
+            ? referenceDigits.slice(2)
+            : referenceDigits;
+        const referenceDdd = referenceNational.length >= 10 ? referenceNational.slice(0, 2) : "";
+
+        if ((digits.length === 8 || digits.length === 9) && referenceDdd) {
+            digits = `${referenceDdd}${digits}`;
+        }
 
         if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
             digits = `55${digits}`;
