@@ -1,6 +1,7 @@
 // @ts-nocheck
 import fs from "fs";
 import path from "path";
+import mime from "mime-types";
 import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
 
@@ -44,6 +45,19 @@ export const sendFollowUpStageMessage = async ({
 
   if (stage.mediaUrl) {
     const filePath = resolveFollowUpMediaPath(stage.mediaUrl);
+
+    if (stage.messageType === "audio") {
+      const mimeType = String(mime.lookup(filePath) || stage.mediaType || "audio/ogg");
+      const isPtt = mimeType.includes("ogg") || mimeType.includes("opus");
+
+      await wbot.sendMessage(jid, {
+        audio: fs.readFileSync(filePath),
+        mimetype: mimeType,
+        ptt: isPtt
+      });
+      return { status: "sent" };
+    }
+
     const options = await getMessageOptions(
       path.basename(stage.mediaUrl),
       filePath,

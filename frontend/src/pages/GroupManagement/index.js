@@ -162,7 +162,9 @@ export default function GroupManagement() {
 
   const createCampaign = async () => {
     try {
-      if (!campaignForm.name) return toast.error("Insira o nome da campanha.");
+      const campaignName = String(campaignForm.name || "").trim();
+      const campaignMessage = String(campaignForm.message || "");
+      if (!campaignName) return toast.error("Insira o nome da campanha.");
       if (!campaignForm.whatsappId) return toast.error("Selecione a conexao.");
       let mediaPath = null;
       let mediaName = null;
@@ -173,7 +175,7 @@ export default function GroupManagement() {
         mediaPath = data.mediaPath;
         mediaName = data.mediaName;
       }
-      await api.post("/group-management/campaigns", { ...campaignForm, whatsappId: Number(campaignForm.whatsappId), templateId: campaignForm.templateId || null, groupIds: (campaignForm.groupIds || []).map(Number).filter(Boolean), filters: { whatsappId: Number(campaignForm.whatsappId) }, scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null, intervalSeconds: Number(campaignForm.intervalSeconds) || 0, mediaPath, mediaName });
+      await api.post("/group-management/campaigns", { ...campaignForm, name: campaignName, message: campaignMessage, whatsappId: Number(campaignForm.whatsappId), templateId: campaignForm.templateId || null, groupIds: (campaignForm.groupIds || []).map(Number).filter(Boolean), filters: { whatsappId: Number(campaignForm.whatsappId) }, scheduledAt: campaignForm.scheduleMode === "scheduled" && campaignForm.scheduledAt ? new Date(campaignForm.scheduledAt).toISOString() : null, intervalSeconds: Number(campaignForm.intervalSeconds) || 0, mediaPath, mediaName });
       toast.success("Campanha criada.");
       setCampaignForm(initialCampaign);
       setCampaignFileKey((v) => v + 1);
@@ -184,6 +186,8 @@ export default function GroupManagement() {
 
   const saveTemplate = async () => {
     try {
+      const templateName = String(templateForm.name || "").trim();
+      if (!templateName) return toast.error("Informe o nome do template.");
       let mediaPath = null;
       let mediaName = null;
       if (templateForm.mediaContent) {
@@ -193,7 +197,7 @@ export default function GroupManagement() {
         mediaPath = data.mediaPath;
         mediaName = data.mediaName;
       }
-      await api.post("/group-management/templates", { ...templateForm, mediaPath, mediaName });
+      await api.post("/group-management/templates", { ...templateForm, name: templateName, mediaPath, mediaName });
       toast.success("Template salvo.");
       setTemplateForm(initialTemplate);
       setTemplateFileKey((v) => v + 1);
@@ -207,8 +211,10 @@ export default function GroupManagement() {
 
   const handleBatchCreate = async () => {
     try {
+      const baseName = String(batchForm.baseName || "").trim();
+      if (!batchForm.whatsappId || !baseName) return toast.error("Preencha a conexao e o nome base.");
       const participants = batchForm.participants.split(/[\n,;]/).map((i) => i.trim()).filter(Boolean);
-      const groupsPayload = Array.from({ length: Number(batchForm.quantity) }).map((_, index) => ({ whatsappId: Number(batchForm.whatsappId), subject: `${batchForm.baseName} #${index + 1}`, participants }));
+      const groupsPayload = Array.from({ length: Number(batchForm.quantity) }).map((_, index) => ({ whatsappId: Number(batchForm.whatsappId), subject: `${baseName} #${index + 1}`, participants }));
       const { data } = await api.post("/group-management/groups/batch", { groups: groupsPayload });
       toast.success(`Criacao em massa finalizada. ${data.created || 0} grupos criados.`);
       setDialogs((d) => ({ ...d, batch: false }));
@@ -220,6 +226,7 @@ export default function GroupManagement() {
   const handleBulkMembers = async () => {
     try {
       const members = bulkMembersForm.members.split(/[\n,;]/).map((i) => i.trim()).filter(Boolean);
+      if (!members.length) return toast.error("Informe ao menos um contato.");
       const chosenGroupId = Number(bulkMembersForm.groupId || selectedGroup?.groupId || 0);
       const groupIds = chosenGroupId ? [chosenGroupId] : filteredGroups.map((g) => g.groupId);
       const whatsappId = Number(bulkMembersForm.whatsappId || selectedGroup?.whatsappId || selectedConnection);
