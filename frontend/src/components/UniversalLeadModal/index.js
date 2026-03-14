@@ -665,6 +665,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 <LeadWhatsAppChat
                                     leadId={leadId || (op && (op.leadId || op.id)) || null}
                                     op={op}
+                                    onBackToInfo={() => setTabValue(0)}
                                 />
                             </Box>
                         </TabPanel>

@@ -93,7 +93,7 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-const LeadWhatsAppChat = ({ leadId, op }) => {
+const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
 
@@ -180,6 +180,13 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
             toast.error(errMsg);
         } finally {
             setLoadingTicket(false);
+        }
+    };
+
+    const handleBackToInfo = () => {
+        setPreModalOpen(false);
+        if (typeof onBackToInfo === "function") {
+            onBackToInfo();
         }
     };
 
@@ -281,15 +288,13 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                 </DialogContent>
 
                 <DialogActions style={{ padding: "10px 16px", gap: 8, backgroundColor: "#f0f2f5" }}>
-                    {selectedWhatsappName && activeTicket && (
-                        <Button
-                            onClick={() => setPreModalOpen(false)}
-                            style={{ textTransform: "none", color: "#54656f" }}
-                            size="small"
-                        >
-                            Cancelar
-                        </Button>
-                    )}
+                    <Button
+                        onClick={handleBackToInfo}
+                        style={{ textTransform: "none", color: "#54656f" }}
+                        size="small"
+                    >
+                        Voltar
+                    </Button>
                     <Button
                         variant="contained"
                         fullWidth
@@ -347,10 +352,18 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                         </ReplyMessageProvider>
                     </QueueSelectedProvider>
                 ) : (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                    <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" style={{ gap: 16 }}>
                         <Typography color="textSecondary">
                             Para iniciar a conversa, confirme o número e a conexão.
                         </Typography>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setPreModalOpen(true)}
+                            style={{ textTransform: "none" }}
+                        >
+                            Iniciar Chat
+                        </Button>
                     </Box>
                 )}
             </Paper>
