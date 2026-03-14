@@ -18,6 +18,11 @@ FRONTEND_IMAGE="${DOCKER_USER}/atendzappy-frontend"
 VERSION_FILE=".docker_version"
 if [ -f "$VERSION_FILE" ]; then
     CURRENT_VERSION=$(cat "$VERSION_FILE")
+    # Força a versão mínima 1.9.200 se o patch for menor que 200
+    IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+    if [ "$major" -eq 1 ] && [ "$minor" -eq 9 ] && [ "$patch" -lt 200 ]; then
+        CURRENT_VERSION="1.9.200"
+    fi
 else
     CURRENT_VERSION="1.9.200"
 fi
