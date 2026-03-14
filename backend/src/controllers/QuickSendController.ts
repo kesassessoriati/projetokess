@@ -204,7 +204,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                 }
 
                 if (Object.keys(leadUpdates).length > 0) {
-                    await lead.update(leadUpdates);
+                    await lead.update(leadUpdates, { hooks: false });
                 }
             }
         }
@@ -246,7 +246,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             }
 
             if (lead && lead.primaryTicketId !== ticket.id) {
-                await lead.update({ primaryTicketId: ticket.id });
+                await lead.update({ primaryTicketId: ticket.id }, { hooks: false });
             }
 
             return await ShowTicketService(ticket.id, companyId);
