@@ -19,7 +19,7 @@ VERSION_FILE=".docker_version"
 if [ -f "$VERSION_FILE" ]; then
     CURRENT_VERSION=$(cat "$VERSION_FILE")
 else
-    CURRENT_VERSION="1.9.1"
+    CURRENT_VERSION="1.9.200"
 fi
 
 IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
