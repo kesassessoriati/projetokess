@@ -5,6 +5,9 @@ import FollowUpCampaign from "../models/FollowUpCampaign";
 import FollowUpStage from "../models/FollowUpStage";
 import FollowUpLog from "../models/FollowUpLog";
 import FollowUpBoard from "../models/FollowUpBoard";
+import Whatsapp from "../models/Whatsapp";
+import { getWbot } from "../libs/wbot";
+import { sendFollowUpStageMessage } from "../services/FollowUpCampaignService/FollowUpStageSender";
 
 const DEFAULT_BOARD_NAME = "Quadro Principal";
 const DEFAULT_FUNNEL_NAME = "Geral";
@@ -97,6 +100,35 @@ const getBoardById = async (companyId: number, boardId?: number | string | null)
   }
 
   return board;
+};
+
+const normalizePhone = (value: string) => String(value || "").replace(/\D/g, "");
+
+const resolveWhatsappForFollowUp = async (companyId: number, whatsappId?: number | string | null) => {
+  let resolvedWhatsappId = whatsappId ? Number(whatsappId) : null;
+
+  if (!resolvedWhatsappId) {
+    const fallback = await Whatsapp.findOne({
+      where: { companyId, status: "CONNECTED" },
+      order: [["isDefault", "DESC"], ["updatedAt", "DESC"]],
+      attributes: ["id"],
+    });
+    resolvedWhatsappId = fallback?.id ?? null;
+  }
+
+  if (!resolvedWhatsappId) {
+    throw new Error("WHATSAPP_NOT_FOUND");
+  }
+
+  const whatsapp = await Whatsapp.findOne({
+    where: { id: resolvedWhatsappId, companyId, status: "CONNECTED" },
+  });
+
+  if (!whatsapp) {
+    throw new Error("WHATSAPP_NOT_FOUND");
+  }
+
+  return whatsapp;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -378,4 +410,80 @@ export const overviewStats = async (req: Request, res: Response): Promise<Respon
     activeCampaigns,
     totalBoards,
   });
+};
+
+export const uploadMedia = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const file = req.file as Express.Multer.File | undefined;
+
+  if (!file) {
+    return res.status(400).json({ error: "Nenhum arquivo enviado" });
+  }
+
+  return res.status(200).json({
+    fileName: file.originalname,
+    filePath: `/public/company${companyId}/followups/${file.filename}`,
+    mediaType: file.mimetype.split("/")[0],
+  });
+};
+
+export const test = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { whatsappId, targetNumber, stages = [] } = req.body;
+
+  const normalizedNumber = normalizePhone(targetNumber);
+  if (!normalizedNumber || normalizedNumber.length < 10 || normalizedNumber.length > 15) {
+    return res.status(400).json({ error: "Numero de WhatsApp invalido" });
+  }
+
+  const activeStages = Array.isArray(stages)
+    ? [...stages]
+        .filter((stage) => stage?.isActive !== false)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    : [];
+
+  if (!activeStages.length) {
+    return res.status(400).json({ error: "Adicione ao menos um estagio ativo para testar" });
+  }
+
+  try {
+    const whatsapp = await resolveWhatsappForFollowUp(companyId, whatsappId);
+    const wbot = getWbot(whatsapp.id);
+    const jid = `${normalizedNumber}@s.whatsapp.net`;
+
+    const results = [];
+    for (const stage of activeStages) {
+      try {
+        const result = await sendFollowUpStageMessage({
+          wbot,
+          jid,
+          stage,
+          companyId,
+        });
+        results.push({
+          order: stage.order ?? results.length + 1,
+          messageType: stage.messageType || "text",
+          status: result.status || "sent",
+        });
+      } catch (error) {
+        results.push({
+          order: stage.order ?? results.length + 1,
+          messageType: stage.messageType || "text",
+          status: "failed",
+          error: error?.message || "Erro ao enviar etapa de teste",
+        });
+      }
+    }
+
+    return res.json({
+      ok: results.some((result) => result.status === "sent"),
+      results,
+    });
+  } catch (error) {
+    if (error.message === "WHATSAPP_NOT_FOUND") {
+      return res.status(404).json({ error: "Nenhuma conexao WhatsApp conectada encontrada para o teste" });
+    }
+
+    return res.status(500).json({ error: error?.message || "Erro ao executar teste do follow-up" });
+  }
 };

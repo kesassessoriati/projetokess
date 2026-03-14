@@ -255,6 +255,61 @@ const emptyForm = (boards = []) => {
   };
 };
 
+const FollowUpTestDialog = ({ open, onClose, onSubmit, loading, defaultWhatsappId }) => {
+  const [number, setNumber] = useState("");
+  const [whatsappId, setWhatsappId] = useState(defaultWhatsappId || "");
+
+  useEffect(() => {
+    if (!open) return;
+    setWhatsappId(defaultWhatsappId || "");
+  }, [defaultWhatsappId, open]);
+
+  const handleSubmit = () => {
+    if (!number.trim()) {
+      toast.warn("Informe um numero de WhatsApp para testar");
+      return;
+    }
+
+    onSubmit({ number, whatsappId });
+  };
+
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Testar Follow-up</DialogTitle>
+      <DialogContent>
+        <Box display="flex" flexDirection="column" gridGap={16}>
+          <TextField
+            label="Numero de WhatsApp"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+            fullWidth
+            variant="outlined"
+            size="small"
+            placeholder="5511999999999"
+            helperText="Use DDD + numero, com ou sem 55."
+          />
+          <TextField
+            label="Conexao WhatsApp do teste"
+            value={whatsappId}
+            onChange={(e) => setWhatsappId(e.target.value)}
+            fullWidth
+            variant="outlined"
+            size="small"
+            placeholder="Opcional"
+            helperText="Se vazio, o sistema usa a primeira conexao conectada."
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>Cancelar</Button>
+        <Button onClick={handleSubmit} color="primary" variant="contained" disabled={loading}>
+          {loading ? "Testando..." : "Executar teste"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const StatsDialog = ({ open, onClose, campaignId, campaignName }) => {
   const classes = useStyles();
   const [stats, setStats] = useState(null);
@@ -536,6 +591,9 @@ const BoardManagerDialog = ({ open, onClose, boards, onSave, onDelete, isAdmin }
 const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) => {
   const classes = useStyles();
   const [form, setForm] = useState(emptyForm(boards));
+  const [uploadingStageIndex, setUploadingStageIndex] = useState(null);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (campaign) {
@@ -580,13 +638,17 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("typeArch", "followups");
     try {
-      const { data } = await api.post("/upload", formData);
+      setUploadingStageIndex(idx);
+      const { data } = await api.post("/follow-up-campaigns/upload", formData);
       updateStage(idx, "mediaUrl", data.filePath);
-      updateStage(idx, "mediaType", type);
+      updateStage(idx, "mediaType", data.mediaType || type);
       toast.success("Arquivo anexado com sucesso!");
     } catch {
       toast.error("Erro no upload do arquivo");
+    } finally {
+      setUploadingStageIndex(null);
     }
   };
 
@@ -598,7 +660,12 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
   };
 
   const removeStage = (idx) => {
-    setForm((p) => ({ ...p, stages: p.stages.filter((_, i) => i !== idx) }));
+    setForm((p) => ({
+      ...p,
+      stages: p.stages
+        .filter((_, i) => i !== idx)
+        .map((stage, index) => ({ ...stage, order: index + 1 })),
+    }));
   };
 
   const addButton = (idx) => {
@@ -651,15 +718,45 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
     if (!form.boardId) return toast.warn("Selecione um quadro");
     onSave({
       ...form,
+      stages: form.stages.map((stage, index) => ({ ...stage, order: index + 1 })),
       boardColumn: selectedBoardColumns.includes(form.boardColumn) ? form.boardColumn : selectedBoardColumns[0],
     });
   };
 
+  const handleQuickTest = async ({ number, whatsappId }) => {
+    if (!form.stages.length) {
+      toast.warn("Adicione ao menos um estagio antes de testar");
+      return;
+    }
+
+    try {
+      setTesting(true);
+      const { data } = await api.post("/follow-up-campaigns/test", {
+        whatsappId: whatsappId || form.whatsappId || "",
+        targetNumber: number,
+        stages: form.stages.map((stage, index) => ({ ...stage, order: index + 1 })),
+      });
+
+      const failures = (data?.results || []).filter((result) => result.status !== "sent");
+      if (!failures.length) {
+        toast.success("Teste executado com sucesso!");
+      } else {
+        toast.warn("Teste concluido com falhas em uma ou mais etapas.");
+      }
+      setTestDialogOpen(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || "Erro ao testar follow-up");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{campaign ? "Editar Follow-up" : "Novo Follow-up"}</DialogTitle>
-      <DialogContent>
-        <Box display="flex" flexDirection="column" gap={2} mt={1}>
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle>{campaign ? "Editar Follow-up" : "Novo Follow-up"}</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <TextField
             label="Nome da campanha"
             value={form.name}
@@ -824,6 +921,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
                       }
                       onChange={(e) => handleUpload(e, idx, stage.messageType)} 
                     />
+                    {uploadingStageIndex === idx && <CircularProgress size={18} />}
                   </Box>
                   {stage.mediaUrl && (
                     <Box mt={2} mb={2}>
@@ -899,15 +997,27 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
               )}
             </Box>
           ))}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleSave} color="primary" variant="contained">
-          Salvar
-        </Button>
-      </DialogActions>
-    </Dialog>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTestDialogOpen(true)} variant="outlined">
+            Testar Follow-up
+          </Button>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} color="primary" variant="contained">
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <FollowUpTestDialog
+        open={testDialogOpen}
+        onClose={() => setTestDialogOpen(false)}
+        onSubmit={handleQuickTest}
+        loading={testing}
+        defaultWhatsappId={form.whatsappId}
+      />
+    </>
   );
 };
 
