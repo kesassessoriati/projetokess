@@ -23,6 +23,7 @@ import fs from "fs";
 import path from "path";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import CreateLogTicketService from "../services/TicketServices/CreateLogTicketService";
+import { normalizePhoneNumber } from "../helpers/normalizeContactNumber";
 import { Op } from "sequelize";
 import logger from "../utils/logger";
 import { Mutex } from "async-mutex";
@@ -43,7 +44,8 @@ interface QuickSendBody {
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
 const normalizeNumber = (raw: string): string => {
-    return raw.replace(/\D/g, "");
+    const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+    return normalizePhoneNumber(digits) || digits;
 };
 
 // ─── POST /quick-send ─────────────────────────────────────────────────────────
@@ -129,7 +131,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                     { number: validatedNumber },
                     { number: normalized },
                     { number: validatedNumber.replace(/^55/, "") },
-                    { number: `55${normalized}` }
+                    { number: normalized.replace(/^55/, "") }
                 ]
             }
         });

@@ -97,6 +97,16 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
 
+    const normalizeDestinationNumber = (value = "") => {
+        let digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
+
+        if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
+            digits = `55${digits}`;
+        }
+
+        return digits;
+    };
+
     // ── Pre-modal state ───────────────────────────────────────────────────────
     const [preModalOpen, setPreModalOpen] = useState(true);
     const [connections, setConnections] = useState([]);
@@ -131,8 +141,8 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
 
     // ── Confirm pre-modal ─────────────────────────────────────────────────────
     const handleConfirm = async () => {
-        const normalized = selectedPhone.replace(/\D/g, "");
-        if (normalized.length < 10) {
+        const normalized = normalizeDestinationNumber(selectedPhone);
+        if (normalized.length < 12) {
             toast.warning("Informe um número válido (mínimo 10 dígitos com DDI + DDD).");
             return;
         }
@@ -284,7 +294,7 @@ const LeadWhatsAppChat = ({ leadId, op }) => {
                         variant="contained"
                         fullWidth
                         onClick={handleConfirm}
-                        disabled={loadingTicket || !selectedPhone.replace(/\D/g, "") || !selectedWhatsappId}
+                        disabled={loadingTicket || !normalizeDestinationNumber(selectedPhone) || !selectedWhatsappId}
                         style={{
                             background: "linear-gradient(135deg, #075E54, #25D366)",
                             color: "#fff",
