@@ -464,6 +464,8 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
           order: stage.order ?? results.length + 1,
           messageType: stage.messageType || "text",
           status: result.status || "sent",
+          resolvedPath: result.resolvedPath ?? null,
+          attemptedPaths: result.attemptedPaths ?? [],
         });
       } catch (error) {
         results.push({
@@ -471,6 +473,8 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
           messageType: stage.messageType || "text",
           status: "failed",
           error: error?.message || "Erro ao enviar etapa de teste",
+          resolvedPath: error?.resolvedPath ?? null,
+          attemptedPaths: error?.attemptedPaths ?? [],
         });
       }
     }
@@ -480,6 +484,10 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
       results,
     });
   } catch (error) {
+    if (res.headersSent) {
+      return res;
+    }
+
     if (error.message === "WHATSAPP_NOT_FOUND") {
       return res.status(404).json({ error: "Nenhuma conexao WhatsApp conectada encontrada para o teste" });
     }

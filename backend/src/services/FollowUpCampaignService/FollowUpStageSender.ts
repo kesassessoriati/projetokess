@@ -27,6 +27,36 @@ export const resolveFollowUpMediaPath = (mediaUrl?: string | null): string | nul
   return fullPath;
 };
 
+const resolveExistingFollowUpMediaPath = (mediaUrl: string, companyId: string | number) => {
+  const directPath = resolveFollowUpMediaPath(mediaUrl);
+  const attemptedPaths: string[] = [];
+
+  if (directPath) {
+    attemptedPaths.push(directPath);
+  }
+
+  if (directPath && (directPath.startsWith("http") || fs.existsSync(directPath))) {
+    return { resolvedPath: directPath, attemptedPaths };
+  }
+
+  const baseName = path.basename(mediaUrl);
+  const companyFolder = path.resolve(publicFolder, `company${companyId}`);
+  const candidates = [
+    path.resolve(companyFolder, "followups", baseName),
+    path.resolve(companyFolder, baseName),
+    path.resolve(publicFolder, baseName),
+  ];
+
+  for (const candidate of candidates) {
+    attemptedPaths.push(candidate);
+    if (fs.existsSync(candidate)) {
+      return { resolvedPath: candidate, attemptedPaths };
+    }
+  }
+
+  return { resolvedPath: directPath, attemptedPaths };
+};
+
 export const sendFollowUpStageMessage = async ({
   wbot,
   jid,
@@ -35,16 +65,23 @@ export const sendFollowUpStageMessage = async ({
 }) => {
   if (stage.messageType === "buttons" && stage.buttons?.length) {
     await sendButtonMessage(wbot, jid, stage.message || "", "", stage.buttons);
-    return { status: "sent" };
+    return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
   if (stage.messageType === "text" || !stage.messageType) {
     await wbot.sendMessage(jid, { text: stage.message || "" });
-    return { status: "sent" };
+    return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
   if (stage.mediaUrl) {
-    const filePath = resolveFollowUpMediaPath(stage.mediaUrl);
+    const { resolvedPath: filePath, attemptedPaths } = resolveExistingFollowUpMediaPath(stage.mediaUrl, companyId);
+
+    if (!filePath || (!filePath.startsWith("http") && !fs.existsSync(filePath))) {
+      const error: any = new Error(`Arquivo de midia nao encontrado: ${stage.mediaUrl}`);
+      error.resolvedPath = filePath || null;
+      error.attemptedPaths = attemptedPaths;
+      throw error;
+    }
 
     if (stage.messageType === "audio") {
       const mimeType = String(mime.lookup(filePath) || stage.mediaType || "audio/ogg");
@@ -55,7 +92,7 @@ export const sendFollowUpStageMessage = async ({
         mimetype: mimeType,
         ptt: isPtt
       });
-      return { status: "sent" };
+      return { status: "sent", resolvedPath: filePath, attemptedPaths };
     }
 
     const options = await getMessageOptions(
@@ -66,17 +103,17 @@ export const sendFollowUpStageMessage = async ({
     );
 
     if (!options) {
-      return { status: "failed" };
+      return { status: "failed", resolvedPath: filePath, attemptedPaths };
     }
 
     await wbot.sendMessage(jid, { ...options });
-    return { status: "sent" };
+    return { status: "sent", resolvedPath: filePath, attemptedPaths };
   }
 
   if (stage.message) {
     await wbot.sendMessage(jid, { text: stage.message });
-    return { status: "sent" };
+    return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
-  return { status: "skipped" };
+  return { status: "skipped", resolvedPath: null, attemptedPaths: [] };
 };
