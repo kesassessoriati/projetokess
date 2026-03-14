@@ -9,6 +9,7 @@ const upload = multer(uploadConfig);
 const quickReplyRoutes = Router();
 
 quickReplyRoutes.get("/quick-replies", isAuth, QuickReplyController.index);
+quickReplyRoutes.get("/quick-replies/:id/media", isAuth, QuickReplyController.mediaShow);
 quickReplyRoutes.post("/quick-replies", isAuth, QuickReplyController.store);
 quickReplyRoutes.put("/quick-replies/:id", isAuth, QuickReplyController.update);
 quickReplyRoutes.post("/quick-replies/:id/media", isAuth, upload.single("media"), QuickReplyController.mediaUpload);

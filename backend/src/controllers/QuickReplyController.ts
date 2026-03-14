@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
+import path from "path";
+import fs from "fs";
 import QuickReply from "../models/QuickReply";
 import QuickReplyGroup from "../models/QuickReplyGroup";
 
@@ -87,6 +89,42 @@ export const mediaUpload = async (req: Request, res: Response): Promise<Response
   });
 
   return res.status(200).json(quickReply);
+};
+
+export const mediaShow = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+
+  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
+  if (!quickReply) {
+    return res.status(404).json({ error: "Quick reply not found" });
+  }
+
+  const mediaFileName = quickReply.getDataValue("mediaUrl");
+  if (!mediaFileName) {
+    return res.status(404).json({ error: "Quick reply media not found" });
+  }
+
+  const mediaPath = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "public",
+    `company${companyId}`,
+    "quickReply",
+    mediaFileName
+  );
+
+  if (!fs.existsSync(mediaPath)) {
+    return res.status(404).json({ error: "Quick reply media not found" });
+  }
+
+  if (quickReply.mediaType) {
+    res.type(quickReply.mediaType);
+  }
+
+  res.sendFile(mediaPath);
+  return res;
 };
 
 export const remove = async (req: Request, res: Response): Promise<Response> => {

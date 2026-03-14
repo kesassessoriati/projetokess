@@ -211,8 +211,10 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
     const mediaUrlToLoad = reply.mediaUrl || reply.mediaPath; // Compatibility
     if (mediaUrlToLoad) {
       try {
-        const { data } = await api.get(mediaUrlToLoad, { responseType: "blob" });
-        const fileName = mediaUrlToLoad.split("/").pop();
+        const { data } = await api.get(`/quick-replies/${reply.id}/media`, {
+          responseType: "blob"
+        });
+        const fileName = mediaUrlToLoad.split("/").pop().split("?")[0];
         const file = new File([data], fileName, { type: reply.mediaType || data.type });
         onSelect(reply.message, file, autoSend);
       } catch (err) {
