@@ -64,6 +64,43 @@ const normalizeNumber = (raw: string, referenceNumber?: string | null): string =
     return normalizePhoneNumber(digits) || digits;
 };
 
+/**
+ * Gera todas as variantes de um número brasileiro (com e sem o nono dígito).
+ * Garante que a busca por contato funcione independentemente do formato armazenado.
+ */
+const getBrazilianPhoneVariants = (number: string): string[] => {
+    const variants = new Set<string>([number]);
+    if (!number) return [];
+
+    const hasBrPrefix = number.startsWith("55");
+    const national = hasBrPrefix ? number.slice(2) : number;
+    const ddd = national.slice(0, 2);
+    const subscriber = national.slice(2);
+
+    // Se assinante tem 9 dígitos começando com "9" → adiciona variante sem o nono dígito (8 dígitos)
+    if (subscriber.length === 9 && subscriber[0] === "9") {
+        const without9 = subscriber.slice(1);
+        variants.add(`55${ddd}${without9}`); // com DDI, sem nono
+        variants.add(`${ddd}${without9}`);   // sem DDI, sem nono
+    }
+
+    // Se assinante tem 8 dígitos → adiciona variante com o nono dígito (9 dígitos)
+    if (subscriber.length === 8) {
+        const with9 = `9${subscriber}`;
+        variants.add(`55${ddd}${with9}`);    // com DDI, com nono
+        variants.add(`${ddd}${with9}`);      // sem DDI, com nono
+    }
+
+    // Adiciona variantes com/sem prefixo 55
+    if (hasBrPrefix) {
+        variants.add(national); // sem DDI
+    } else if (number.length >= 10) {
+        variants.add(`55${number}`); // com DDI
+    }
+
+    return Array.from(variants).filter(v => v.length >= 10 && v.length <= 13);
+};
+
 // ─── POST /quick-send ─────────────────────────────────────────────────────────
 export const quickSend = async (req: Request, res: Response): Promise<Response> => {
     const { companyId, id: userId } = req.user;
@@ -158,19 +195,25 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 3. Buscar ou criar contato ───────────────────────────────────────────
-        // Melhoria na busca: tenta encontrar o contato de forma mais flexível (com/sem 55)
-        let contact = lead?.contact || null;
+        // Busca flexível: inclui variantes com e sem o nono dígito brasileiro
+        const numberVariants = [
+            ...new Set([
+                ...getBrazilianPhoneVariants(validatedNumber),
+                ...getBrazilianPhoneVariants(normalized)
+            ])
+        ];
+
+        // O contato do lead pode ter o número no formato antigo (sem nono dígito).
+        // Verificamos se é equivalente ao número solicitado antes de aceitar.
+        let contact = (lead?.contact && numberVariants.includes(lead.contact.number))
+            ? lead.contact
+            : null;
 
         if (!contact) {
             contact = await Contact.findOne({
                 where: {
                     companyId,
-                    [Op.or]: [
-                        { number: validatedNumber },
-                        { number: normalized },
-                        { number: validatedNumber.replace(/^55/, "") },
-                        { number: normalized.replace(/^55/, "") }
-                    ]
+                    number: { [Op.in]: numberVariants }
                 }
             });
         }
@@ -198,9 +241,13 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 4. Buscar ticket aberto ou criar novo ────────────────────────────────
+        // Reconcilia contato somente se o remoteJid diverge (WhatsApp confirmou outro número)
+        // ou se nome foi fornecido e difere — ignora diferença de nono dígito no número isolado.
+        const contactNumberVariants = getBrazilianPhoneVariants(validatedNumber);
+        const contactNumberIsEquivalent = contact && contactNumberVariants.includes(contact.number);
         const shouldReconcileContact =
             !contact ||
-            contact.number !== validatedNumber ||
+            (!contactNumberIsEquivalent && contact.number !== validatedNumber) ||
             contact.remoteJid !== remoteJid ||
             (!!name && contact.name !== name);
 
