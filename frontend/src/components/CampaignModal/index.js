@@ -43,6 +43,7 @@ import EmojiPicker from 'emoji-picker-react';
 import Draggable from 'react-draggable';
 import Paper from '@material-ui/core/Paper';
 import { getBackendUrl } from "../../config";
+import MediaDrivePickerModal from "../MediaDrivePickerModal";
 
 // Icons for fields
 import CampaignIcon from '@mui/icons-material/Campaign';
@@ -388,6 +389,7 @@ const CampaignModal = ({
   const [tagLists, setTagLists] = useState([]);
     const [messageTab, setMessageTab] = useState(0);
   const [attachment, setAttachment] = useState(null);
+  const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
   const [campaignEditable, setCampaignEditable] = useState(true);
   const attachmentFile = useRef(null);
 
@@ -545,6 +547,7 @@ const CampaignModal = ({
     const file = head(e.target.files);
     if (file) {
       setAttachment(file);
+      setCampaign((prev) => ({ ...prev, mediaPath: "", mediaName: "" }));
     }
   };
 
@@ -553,6 +556,8 @@ const CampaignModal = ({
       const dataValues = {
         ...values,
         whatsappId: whatsappId,
+        mediaPath: attachment ? values.mediaPath : campaign.mediaPath || null,
+        mediaName: attachment ? values.mediaName : campaign.mediaName || null
       };
 
       Object.entries(values).forEach(([key, value]) => {
@@ -695,6 +700,19 @@ const CampaignModal = ({
         disableBackdropClick
         disableEscapeKeyDown
       >
+        <MediaDrivePickerModal
+          open={mediaDriveOpen}
+          onClose={() => setMediaDriveOpen(false)}
+          onSelect={(media) => {
+            setAttachment(null);
+            setCampaign((prev) => ({
+              ...prev,
+              mediaPath: media.storagePath,
+              mediaName: media.name
+            }));
+          }}
+          title="Selecionar mídia da campanha"
+        />
         <DialogTitle
           id="draggable-dialog-title"
           className={classes.dialogTitle}
@@ -1410,21 +1428,37 @@ const CampaignModal = ({
                     </Button>
                   )}
                   {!attachment && !campaign.mediaPath && campaignEditable && (
-                    <Button
-                      style={{
-                        color: "white",
-                        backgroundColor: "#4ec24e",
-                        boxShadow: "none",
-                        borderRadius: "5px",
-                        fontSize: "12px",
-                      }}
-                      startIcon={<AttachFileIcon />}
-                      onClick={() => attachmentFile.current.click()}
-                      disabled={isSubmitting}
-                      variant="contained"
-                    >
-                      {i18n.t("campaigns.dialog.buttons.attach")}
-                    </Button>
+                    <Box display="flex" alignItems="center" gridGap={8}>
+                      <Button
+                        style={{
+                          color: "white",
+                          backgroundColor: "#4ec24e",
+                          boxShadow: "none",
+                          borderRadius: "5px",
+                          fontSize: "12px",
+                        }}
+                        startIcon={<AttachFileIcon />}
+                        onClick={() => attachmentFile.current.click()}
+                        disabled={isSubmitting}
+                        variant="contained"
+                      >
+                        {i18n.t("campaigns.dialog.buttons.attach")}
+                      </Button>
+                      <Button
+                        style={{
+                          color: "white",
+                          backgroundColor: "#2563eb",
+                          boxShadow: "none",
+                          borderRadius: "5px",
+                          fontSize: "12px",
+                        }}
+                        onClick={() => setMediaDriveOpen(true)}
+                        disabled={isSubmitting}
+                        variant="contained"
+                      >
+                        Mídia Drive
+                      </Button>
+                    </Box>
                   )}
                 </Box>
                 <Box display="flex" alignItems="center" gap={2}>

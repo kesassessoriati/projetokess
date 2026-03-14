@@ -9,12 +9,13 @@ import MicRecorder from "mic-recorder-to-mp3";
 import React, { useState, useEffect, useContext, useRef } from "react";
 import RecordingTimer from "./RecordingTimer";
 import ScheduleModal from "../ScheduleModal";
+import MediaDrivePickerModal from "../MediaDrivePickerModal";
 import api from "../../services/api";
 import clsx from "clsx";
 import toastError from "../../errors/toastError";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import QuickRepliesModal from "../QuickRepliesModal";
-import { AttachFile, CheckCircleOutline, Clear, Comment, Create, Description, HighlightOff, Mic, Mood, MoreVert, Send, PermMedia, Person, Reply, Duo, Timer, } from "@material-ui/icons";
+import { AttachFile, CheckCircleOutline, Clear, Comment, Create, Description, Folder, HighlightOff, Mic, Mood, MoreVert, Send, PermMedia, Person, Reply, Duo, Timer, } from "@material-ui/icons";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { CameraAlt } from "@material-ui/icons";
 import { CircularProgress, ClickAwayListener, IconButton, InputBase, makeStyles, Paper, Hidden, Menu, MenuItem, Tooltip, Fab, Dialog, DialogTitle, DialogContent, Button, Grid, } from "@material-ui/core";
@@ -376,6 +377,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const [privateMessageInputVisible, setPrivateMessageInputVisible] = useState(false);
   const [senVcardModalOpen, setSenVcardModalOpen] = useState(false);
   const [showModalMedias, setShowModalMedias] = useState(false);
+  const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
   const [quickMessagesDialogOpen, setQuickMessagesDialogOpen] = useState(false);
 
   const {
@@ -534,6 +536,11 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setShowModalMedias(true);
   };
 
+  const handleSelectFromMediaDrive = (media) => {
+    setMediasUpload([{ file: media.file, caption: "", type: media.mimeType || media.file.type || "", mediaFileId: media.id }]);
+    setShowModalMedias(true);
+  };
+
   const handleChangeSign = (e) => {
     getStatusSingMessageLocalstogare();
   };
@@ -598,7 +605,11 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
       const isAudio = fileType.startsWith("audio");
       const validCaption = isAudio ? "" : (media.caption || "");
       formData.append("body", validCaption);
-      formData.append("medias", media.file);
+      if (media.mediaFileId) {
+        formData.append("mediaFileIds", media.mediaFileId);
+      } else {
+        formData.append("medias", media.file);
+      }
     });
 
     try {
@@ -964,6 +975,12 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
             onCapture={handleCapture}
           />
         )}
+        <MediaDrivePickerModal
+          open={mediaDriveOpen}
+          onClose={() => setMediaDriveOpen(false)}
+          onSelect={handleSelectFromMediaDrive}
+          title="Selecionar do Mídia Drive"
+        />
         {senVcardModalOpen && (
           <ContactSendModal
             modalOpen={senVcardModalOpen}
@@ -1040,6 +1057,17 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                     </Fab>
                     {i18n.t("messageInput.type.imageVideo")}
                   </label>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick();
+                    setMediaDriveOpen(true);
+                  }}
+                >
+                  <Fab aria-label="upload-drive" component="span" className={classes.invertedFabMenuMP}>
+                    <Folder />
+                  </Fab>
+                  Selecionar do Mídia Drive
                 </MenuItem>
                 <MenuItem onClick={handleCameraModalOpen}>
                   <Fab className={classes.invertedFabMenuCamera}>
@@ -1162,6 +1190,16 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                       <AttachFile className={classes.sendMessageIcons} />
                     </IconButton>
                   </label>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick();
+                    setMediaDriveOpen(true);
+                  }}
+                >
+                  <IconButton component="span" disabled={disableOption()}>
+                    <Folder className={classes.sendMessageIcons} />
+                  </IconButton>
                 </MenuItem>
                 {signMessagePar && (
                   <Tooltip title="Habilitar/Desabilitar Assinatura">

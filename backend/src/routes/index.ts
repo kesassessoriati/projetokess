@@ -125,6 +125,7 @@ import crmAiRoutes from "./crmAiRoutes";
 import emailChannelRoutes from "./emailChannelRoutes";
 import socialRoutes from "./socialRoutes";
 import mySiteBoardRoutes from "./mySiteBoardRoutes";
+import mediaDriveRoutes from "./mediaDriveRoutes";
 
 const routes = Router();
 
@@ -275,6 +276,7 @@ routes.use(crmAiRoutes);
 routes.use(emailChannelRoutes);
 routes.use(socialRoutes);
 routes.use(mySiteBoardRoutes);
+routes.use(mediaDriveRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);

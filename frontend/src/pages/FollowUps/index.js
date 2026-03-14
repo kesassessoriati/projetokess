@@ -41,6 +41,7 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
+import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 
 const GREEN = "#2e7d32";
 const GREEN_DARK = "#1f5b24";
@@ -533,10 +534,11 @@ const BoardManagerDialog = ({ open, onClose, boards, onSave, onDelete, isAdmin }
   );
 };
 
-const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) => {
+const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, companyId }) => {
   const classes = useStyles();
   const [form, setForm] = useState(emptyForm(boards));
   const [uploadingStageIndex, setUploadingStageIndex] = useState(null);
+  const [mediaDriveStageIndex, setMediaDriveStageIndex] = useState(null);
   const [testing, setTesting] = useState(false);
   const [testNumber, setTestNumber] = useState("");
 
@@ -596,6 +598,14 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
     } finally {
       setUploadingStageIndex(null);
     }
+  };
+
+  const handleSelectStageMedia = (media) => {
+    if (mediaDriveStageIndex === null) return;
+    updateStage(mediaDriveStageIndex, "mediaUrl", media.storagePath);
+    updateStage(mediaDriveStageIndex, "mediaType", media.mediaType);
+    toast.success("Mídia vinculada do Mídia Drive.");
+    setMediaDriveStageIndex(null);
   };
 
   const addStage = () => {
@@ -702,6 +712,17 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <MediaDrivePickerModal
+        open={mediaDriveStageIndex !== null}
+        onClose={() => setMediaDriveStageIndex(null)}
+        allowedTypes={
+          mediaDriveStageIndex !== null && form.stages?.[mediaDriveStageIndex]?.messageType
+            ? [form.stages[mediaDriveStageIndex].messageType]
+            : ["image", "video", "audio", "document"]
+        }
+        onSelect={handleSelectStageMedia}
+        title="Selecionar mídia do follow-up"
+      />
       <DialogTitle>{campaign ? "Editar Follow-up" : "Novo Follow-up"}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
@@ -869,6 +890,9 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
                       }
                       onChange={(e) => handleUpload(e, idx, stage.messageType)} 
                     />
+                    <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
+                      Selecionar do Mídia Drive
+                    </Button>
                     {uploadingStageIndex === idx && <CircularProgress size={18} />}
                   </Box>
                   {stage.mediaUrl && (
@@ -877,7 +901,11 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
                       {stage.messageType === "image" && (
                         <Box mt={1}>
                           <img
-                            src={stage.mediaUrl?.startsWith("http") ? stage.mediaUrl : `${(process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "")}${stage.mediaUrl}`}
+                            src={
+                              stage.mediaUrl?.startsWith("http")
+                                ? stage.mediaUrl
+                                : `${(process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "")}/public/company${companyId}/${String(stage.mediaUrl || "").replace(/^\/+/, "")}`
+                            }
                             alt="preview"
                             style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }}
                           />
@@ -1435,6 +1463,7 @@ const FollowUps = () => {
         campaign={editing}
         whatsApps={whatsApps}
         boards={boards}
+        companyId={user?.companyId}
       />
 
       <BoardManagerDialog

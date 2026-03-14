@@ -51,11 +51,11 @@ import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import BugReportIcon from "@mui/icons-material/BugReport";
 import TerminalIcon from "@mui/icons-material/Terminal";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import SpeedIcon from "@mui/icons-material/Speed";
 import PublicIcon from "@mui/icons-material/Public";
 import LanguageIcon from "@mui/icons-material/Language";
 import SmartButtonIcon from "@mui/icons-material/SmartButton";
+import PermMediaIcon from "@mui/icons-material/PermMedia";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -69,6 +69,9 @@ import api from "../services/api";
 import toastError from "../errors/toastError";
 import { i18n } from "../translate/i18n";
 import { embeddedLinks } from "../config/embedded_links";
+import usePlans from "../hooks/usePlans";
+import useVersion from "../hooks/useVersion";
+import moment from "moment";
 
 const submenuWidth = 280;
 
@@ -633,7 +636,8 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
     location.pathname.startsWith("/kanban") ||
     location.pathname.startsWith("/todolist") ||
     location.pathname.startsWith("/helps") ||
-    location.pathname.startsWith("/documentacao");
+    location.pathname.startsWith("/documentacao") ||
+    location.pathname.startsWith("/media-drive");
 
   useEffect(() => {
     if (location.pathname.startsWith("/tickets")) {
@@ -1446,6 +1450,30 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 primary={
                   <Typography className={`${classes.listItemText} ${activeSubmenu === "tools" ? "active" : ""}`}>
                     Ferramentas
+                  </Typography>
+                }
+              />
+            )}
+          </ListItem>
+        </Tooltip>
+
+        <Tooltip title={collapsed ? "Mídia Drive" : ""} placement="right">
+          <ListItem
+            button
+            component={RouterLink}
+            to="/media-drive"
+            className={`${classes.listItem} ${location.pathname.startsWith("/media-drive") ? "active" : ""}`}
+          >
+            <ListItemIcon className={classes.listItemIcon}>
+              <Avatar className={classes.iconAvatar}>
+                <PermMediaIcon />
+              </Avatar>
+            </ListItemIcon>
+            {!collapsed && (
+              <ListItemText
+                primary={
+                  <Typography className={`${classes.listItemText} ${location.pathname.startsWith("/media-drive") ? "active" : ""}`}>
+                    Mídia Drive
                   </Typography>
                 }
               />

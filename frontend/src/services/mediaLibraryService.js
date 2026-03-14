@@ -15,7 +15,10 @@ export const deleteMediaFolder = (folderId) =>
 export const getFolderFiles = (folderId) =>
   api.get(`/media-folders/${folderId}/files`);
 
-export const uploadMediaFile = (folderId, data, config = {}) =>
+export const getMediaFiles = (params = {}) =>
+  api.get("/media-files", { params });
+
+export const uploadMediaFiles = (folderId, data, config = {}) =>
   api.post(`/media-folders/${folderId}/files`, data, {
     headers: { "Content-Type": "multipart/form-data" },
     ...config
@@ -26,3 +29,6 @@ export const updateMediaFile = (fileId, payload) =>
 
 export const deleteMediaFile = (fileId) =>
   api.delete(`/media-files/${fileId}`);
+
+export const downloadMediaFile = (fileId) =>
+  api.get(`/media-files/${fileId}/download`, { responseType: "blob" });

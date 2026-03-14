@@ -46,6 +46,7 @@ import { notifyNewMessage } from "./NotificationController";
 import SendEmailMessageService from "../services/EmailChannelServices/SendEmailMessageService";
 import { SendTextOfficialService } from "../services/WhatsAppOfficial/SendTextOfficialService";
 import { SendMediaOfficialService } from "../services/WhatsAppOfficial/SendMediaOfficialService";
+import MediaFile from "../models/MediaFile";
 
 type IndexQuery = {
   pageNumber: string;
@@ -545,10 +546,36 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
 
   const { body, quotedMsg, vCard, isPrivate = "false" }: MessageData = req.body;
-  const medias = req.files as Express.Multer.File[];
+  let medias = req.files as Express.Multer.File[];
   const { companyId } = req.user;
+  const mediaFileIds = []
+    .concat(req.body.mediaFileIds || [])
+    .filter(Boolean)
+    .map((item: string) => Number(item));
 
   const ticket = await ShowTicketService(ticketId, companyId);
+
+  if ((!medias || !medias.length) && mediaFileIds.length) {
+    const libraryFiles = await MediaFile.findAll({
+      where: {
+        id: mediaFileIds,
+        companyId
+      }
+    });
+
+    medias = libraryFiles.map((file: any) => {
+      const absolutePath = path.resolve("public", `company${companyId}`, file.storagePath);
+      return {
+        fieldname: "medias",
+        originalname: file.customName || file.originalName,
+        encoding: "7bit",
+        mimetype: file.mimeType,
+        filename: path.basename(file.storagePath),
+        path: absolutePath,
+        size: Number(file.size || 0)
+      } as Express.Multer.File;
+    });
+  }
 
   if (ticket.channel === "whatsapp" && ticket.whatsappId) {
     SetTicketMessagesAsRead(ticket);
@@ -598,10 +625,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           }
 
           //limpar arquivo nao utilizado mais após envio
-          const filePath = path.resolve("public", `company${companyId}`, media.filename);
+          const filePath = media.path || path.resolve("public", `company${companyId}`, media.filename);
           const fileExists = fs.existsSync(filePath);
 
-          if (fileExists && isPrivate === "false") {
+          if (fileExists && isPrivate === "false" && !filePath.includes(`${path.sep}media-drive${path.sep}`)) {
             fs.unlinkSync(filePath);
           }
         })

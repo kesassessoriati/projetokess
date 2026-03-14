@@ -115,6 +115,7 @@ import AtendimentosMobile from "../pages/atendimentomobile";
 import Tasks from "../pages/Tasks";
 import RedesSociais from "../pages/RedesSociais";
 import MeusSites from "../pages/MeusSites";
+import MediaLibrary from "../pages/MediaLibrary";
 import { QueueSelectedProvider } from "../context/QueuesSelected/QueuesSelectedContext";
 import NotificationToast from "../components/NotificationToast";
 import EmbeddedLink from "../pages/EmbeddedLink";
@@ -267,6 +268,7 @@ const Routes = () => {
                         <Route exact path="/crm/tasks" component={Tasks} isPrivate />
                         <Route exact path="/social-media" component={RedesSociais} isPrivate />
                         <Route exact path="/my-sites" component={MeusSites} isPrivate />
+                        <Route exact path="/media-drive" component={MediaLibrary} isPrivate />
                         {/* [DEPRECATED] TagsKanban - migrado para Board Inteligente */}
                         {/* <Route exact path="/TagsKanban" component={TagsKanban} isPrivate /> */}
                         <Route exact path="/prompts" component={Agentes} isPrivate />

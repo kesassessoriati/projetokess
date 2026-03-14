@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
   Box,
-  MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
+  MenuItem,
   Select,
-  Typography,
+  TextField,
+  Typography
 } from "@material-ui/core";
-import api from "../../services/api";
 import { toast } from "react-toastify";
+import api from "../../services/api";
+import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 import toastError from "../../errors/toastError";
 
 const ReplyModal = ({ open, onClose, reply, groups }) => {
@@ -23,7 +24,9 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
   const [groupId, setGroupId] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [file, setFile] = useState(null);
+  const [libraryMedia, setLibraryMedia] = useState(null);
   const [type, setType] = useState("text");
+  const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
 
   useEffect(() => {
     if (reply) {
@@ -31,14 +34,16 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
       setMessage(reply.message || "");
       setGroupId(reply.groupId || "");
       setMediaUrl(reply.mediaUrl || "");
+      setFile(null);
+      setLibraryMedia(null);
 
       if (reply.mediaUrl) {
-          if (reply.mediaType?.startsWith('image')) setType('image');
-          else if (reply.mediaType?.startsWith('video')) setType('video');
-          else if (reply.mediaType?.startsWith('audio')) setType('audio');
-          else setType('file');
+        if (reply.mediaType?.startsWith("image")) setType("image");
+        else if (reply.mediaType?.startsWith("video")) setType("video");
+        else if (reply.mediaType?.startsWith("audio")) setType("audio");
+        else setType("file");
       } else {
-          setType("text");
+        setType("text");
       }
     } else {
       setShortcut("");
@@ -46,24 +51,27 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
       setGroupId("");
       setMediaUrl("");
       setFile(null);
+      setLibraryMedia(null);
       setType("text");
     }
   }, [reply, open]);
 
   const handleTypeChange = (newType) => {
-    if (newType === 'text') {
-        setFile(null);
-    } else if (newType === 'audio') {
-        setMessage("");
+    if (newType === "text") {
+      setFile(null);
+      setLibraryMedia(null);
+    } else if (newType === "audio") {
+      setMessage("");
     }
     setType(newType);
   };
 
   const handleSave = async () => {
     try {
-      if (type === 'audio') {
-        setMessage(""); 
+      if (type === "audio") {
+        setMessage("");
       }
+
       const payload = { shortcut, message, groupId: groupId || null };
       let replyResponse;
 
@@ -71,7 +79,7 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
         replyResponse = await api.put(`/quick-replies/${reply.id}`, payload);
         toast.success("Resposta atualizada com sucesso!");
       } else {
-        replyResponse = await api.post(`/quick-replies`, payload);
+        replyResponse = await api.post("/quick-replies", payload);
         toast.success("Resposta criada com sucesso!");
       }
 
@@ -83,9 +91,11 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
         formData.append("typeArch", "quickReply");
         await api.post(`/quick-replies/${id}/media`, formData);
         toast.success("Mídia anexada com sucesso!");
+      } else if (libraryMedia?.id) {
+        await api.post(`/quick-replies/${id}/media-from-library`, { mediaFileId: libraryMedia.id });
+        toast.success("Mídia vinculada do Mídia Drive!");
       } else if (type !== "text" && !mediaUrl) {
-         // if they didn't upload file and didn't have one initially, warn maybe?
-         toast.warn("Lembre-se de anexar uma mídia caso tenha mudado o tipo.");
+        toast.warn("Lembre-se de anexar uma mídia caso tenha mudado o tipo.");
       }
 
       onClose();
@@ -94,33 +104,42 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
     }
   };
 
+  const allowedTypes =
+    type === "image" ? ["image"] :
+    type === "video" ? ["video"] :
+    type === "audio" ? ["audio"] :
+    ["image", "video", "audio", "document"];
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <MediaDrivePickerModal
+        open={mediaDriveOpen}
+        onClose={() => setMediaDriveOpen(false)}
+        allowedTypes={allowedTypes}
+        onSelect={(media) => {
+          setLibraryMedia(media);
+          setFile(null);
+        }}
+      />
+
       <DialogTitle>{reply ? "Editar Resposta" : "Nova Resposta"}</DialogTitle>
       <DialogContent dividers>
         <Box display="flex" flexDirection="column">
           <FormControl variant="outlined" style={{ marginBottom: 16 }}>
             <InputLabel>Grupo</InputLabel>
-            <Select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              label="Grupo"
-            >
+            <Select value={groupId} onChange={(e) => setGroupId(e.target.value)} label="Grupo">
               <MenuItem value="">Nenhum (Geral)</MenuItem>
-              {groups.map((g) => (
-                <MenuItem key={g.id} value={g.id}>
-                  {g.name}
+              {groups.map((group) => (
+                <MenuItem key={group.id} value={group.id}>
+                  {group.name}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+
           <FormControl variant="outlined" style={{ marginBottom: 16 }}>
             <InputLabel>Tipo de Resposta</InputLabel>
-            <Select
-              value={type}
-              onChange={(e) => handleTypeChange(e.target.value)}
-              label="Tipo de Resposta"
-            >
+            <Select value={type} onChange={(e) => handleTypeChange(e.target.value)} label="Tipo de Resposta">
               <MenuItem value="text">Texto</MenuItem>
               <MenuItem value="image">Imagem</MenuItem>
               <MenuItem value="video">Vídeo</MenuItem>
@@ -128,6 +147,7 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
               <MenuItem value="file">Arquivo / Outros</MenuItem>
             </Select>
           </FormControl>
+
           <TextField
             label="Atalho"
             fullWidth
@@ -137,6 +157,7 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
             style={{ marginBottom: 16 }}
             helperText="Ex: /bomdia"
           />
+
           {type !== "audio" && (
             <TextField
               label={type === "text" ? "Mensagem" : "Legenda (opcional)"}
@@ -150,20 +171,30 @@ const ReplyModal = ({ open, onClose, reply, groups }) => {
               helperText="Variáveis dinâmicas suportadas: {firstName}, {name}, {date}, {time}"
             />
           )}
+
           {type !== "text" && (
-            <Button variant="outlined" component="label" style={{ marginBottom: 8 }}>
-              Upload de Mídia
-              <input
-                type="file"
-                hidden
-                accept={type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*'}
-                onChange={(e) => setFile(e.target.files[0])}
-              />
-            </Button>
+            <Box display="flex" gridGap={8} style={{ marginBottom: 8 }}>
+              <Button variant="outlined" component="label">
+                Upload de Mídia
+                <input
+                  type="file"
+                  hidden
+                  accept={type === "image" ? "image/*" : type === "video" ? "video/*" : type === "audio" ? "audio/*" : "*/*"}
+                  onChange={(e) => {
+                    setFile(e.target.files[0]);
+                    setLibraryMedia(null);
+                  }}
+                />
+              </Button>
+              <Button variant="outlined" onClick={() => setMediaDriveOpen(true)}>
+                Selecionar do Mídia Drive
+              </Button>
+            </Box>
           )}
-          {(file || mediaUrl) && type !== "text" && (
+
+          {(file || mediaUrl || libraryMedia) && type !== "text" && (
             <Typography variant="caption" color="primary">
-              Mídia selecionada: {file ? file.name : (mediaUrl ? mediaUrl.split('/').pop() : '')}
+              Mídia selecionada: {file ? file.name : libraryMedia?.name || (mediaUrl ? mediaUrl.split("/").pop() : "")}
             </Typography>
           )}
         </Box>

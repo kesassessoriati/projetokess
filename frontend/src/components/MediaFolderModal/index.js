@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Button,
-  makeStyles
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  makeStyles,
+  MenuItem,
+  Select,
+  TextField
 } from "@material-ui/core";
 import { toast } from "react-toastify";
-
-import {
-  createMediaFolder,
-  updateMediaFolder
-} from "../../services/mediaLibraryService";
+import { createMediaFolder, updateMediaFolder } from "../../services/mediaLibraryService";
 import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles((theme) => ({
@@ -31,17 +31,19 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-const MediaFolderModal = ({ open, onClose, folder, onSuccess }) => {
+const MediaFolderModal = ({ open, onClose, folder, folders = [], parentFolderId = "", onSuccess }) => {
   const classes = useStyles();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(folder?.name || "");
     setDescription(folder?.description || "");
-  }, [folder, open]);
+    setSelectedParentId(folder?.parentId || parentFolderId || "");
+  }, [folder, open, parentFolderId]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -54,7 +56,8 @@ const MediaFolderModal = ({ open, onClose, folder, onSuccess }) => {
     try {
       const payload = {
         name: name.trim(),
-        description: description.trim() || undefined
+        description: description.trim() || undefined,
+        parentId: selectedParentId || null
       };
 
       if (folder?.id) {
@@ -91,6 +94,7 @@ const MediaFolderModal = ({ open, onClose, folder, onSuccess }) => {
             className={classes.formField}
             required
           />
+
           <TextField
             label="Descrição"
             fullWidth
@@ -101,19 +105,31 @@ const MediaFolderModal = ({ open, onClose, folder, onSuccess }) => {
             multiline
             rows={3}
           />
+
+          <FormControl fullWidth variant="outlined" className={classes.formField}>
+            <InputLabel>Pasta pai</InputLabel>
+            <Select
+              value={selectedParentId}
+              onChange={(event) => setSelectedParentId(event.target.value)}
+              label="Pasta pai"
+            >
+              <MenuItem value="">Raiz</MenuItem>
+              {folders
+                .filter((item) => item.id !== folder?.id)
+                .map((item) => (
+                  <MenuItem key={item.id} value={item.id}>
+                    {item.name}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
         </form>
       </DialogContent>
       <DialogActions className={classes.dialogActions}>
         <Button onClick={onClose} disabled={submitting}>
           Cancelar
         </Button>
-        <Button
-          color="primary"
-          variant="contained"
-          type="submit"
-          form="media-folder-form"
-          disabled={submitting}
-        >
+        <Button color="primary" variant="contained" type="submit" form="media-folder-form" disabled={submitting}>
           {folder ? "Salvar alterações" : "Criar pasta"}
         </Button>
       </DialogActions>

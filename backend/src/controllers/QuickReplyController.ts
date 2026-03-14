@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import QuickReply from "../models/QuickReply";
 import QuickReplyGroup from "../models/QuickReplyGroup";
+import MediaFile from "../models/MediaFile";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
@@ -86,6 +87,60 @@ export const mediaUpload = async (req: Request, res: Response): Promise<Response
   await quickReply.update({
     mediaUrl: media.filename,
     mediaType: media.mimetype
+  });
+
+  return res.status(200).json(quickReply);
+};
+
+export const mediaFromLibrary = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { mediaFileId } = req.body;
+
+  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
+  if (!quickReply) {
+    return res.status(404).json({ error: "Quick reply not found" });
+  }
+
+  const mediaFile = await MediaFile.findOne({ where: { id: mediaFileId, companyId } });
+  if (!mediaFile) {
+    return res.status(404).json({ error: "Media file not found" });
+  }
+
+  const sourcePath = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "public",
+    `company${companyId}`,
+    mediaFile.storagePath
+  );
+
+  if (!fs.existsSync(sourcePath)) {
+    return res.status(404).json({ error: "Media source not found" });
+  }
+
+  const quickReplyFolder = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "public",
+    `company${companyId}`,
+    "quickReply"
+  );
+
+  if (!fs.existsSync(quickReplyFolder)) {
+    fs.mkdirSync(quickReplyFolder, { recursive: true });
+  }
+
+  const destinationName = `${Date.now()}_${(mediaFile.customName || mediaFile.originalName).replace(/\s+/g, "_")}`;
+  const destinationPath = path.resolve(quickReplyFolder, destinationName);
+
+  fs.copyFileSync(sourcePath, destinationPath);
+
+  await quickReply.update({
+    mediaUrl: destinationName,
+    mediaType: mediaFile.mimeType
   });
 
   return res.status(200).json(quickReply);

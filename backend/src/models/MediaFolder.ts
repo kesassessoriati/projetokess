@@ -40,8 +40,19 @@ class MediaFolder extends Model<MediaFolder> {
   @Column({ field: "company_id" })
   companyId: number;
 
+  @ForeignKey(() => MediaFolder)
+  @AllowNull(true)
+  @Column({ field: "parent_id" })
+  parentId?: number;
+
   @BelongsTo(() => Company)
   company: Company;
+
+  @BelongsTo(() => MediaFolder, "parentId")
+  parent?: MediaFolder;
+
+  @HasMany(() => MediaFolder, "parentId")
+  children: MediaFolder[];
 
   @HasMany(() => MediaFile, "folderId")
   files: MediaFile[];
