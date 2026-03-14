@@ -8,6 +8,8 @@ import GroupCampaign from "../models/GroupCampaign";
 import GroupCampaignTarget from "../models/GroupCampaignTarget";
 import GroupCampaignLog from "../models/GroupCampaignLog";
 import GroupTemplate from "../models/GroupTemplate";
+import Contact from "../models/Contact";
+import CrmLead from "../models/CrmLead";
 import { getWbot } from "../libs/wbot";
 import logger from "../utils/logger";
 import { syncCompanyGroups } from "../services/GroupManagementServices/GroupSyncService";
@@ -17,7 +19,7 @@ import { ProviderFactory } from "../services/whatsapp/providers/ProviderFactory"
 const ensureConnectionAccess = async (companyId: number, whatsappId: number) => {
   return Whatsapp.findOne({
     where: { id: Number(whatsappId), companyId },
-    attributes: ["id", "name", "number", "status", "provider"]
+    attributes: ["id", "name", "number", "status", "provider", "companyId"]
   });
 };
 
@@ -59,6 +61,56 @@ const exportableParticipant = (participant: any) => {
     isAdmin: !!participant?.isAdmin,
     isSuperAdmin: !!participant?.isSuperAdmin
   };
+};
+
+const enrichParticipants = async (companyId: number, participants: any[]) => {
+  const phones = Array.from(new Set(
+    participants
+      .map((participant) => normalizePhone(String(participant?.id || participant?.memberJid || "").split("@")[0]))
+      .filter(Boolean)
+  ));
+
+  if (!phones.length) return participants;
+
+  const contacts = await Contact.findAll({
+    where: {
+      companyId,
+      number: { [Op.in]: phones }
+    },
+    attributes: ["id", "name", "number"]
+  });
+
+  const contactByPhone = new Map(contacts.map((contact) => [String(contact.number), contact]));
+  const contactIds = contacts.map((contact) => contact.id);
+  const leads = contactIds.length ? await CrmLead.findAll({
+    where: {
+      companyId,
+      [Op.or]: [
+        { contactId: { [Op.in]: contactIds } },
+        { phone: { [Op.in]: phones } }
+      ]
+    },
+    attributes: ["id", "name", "phone", "contactId"]
+  }) : [];
+
+  const leadByContactId = new Map(leads.filter((lead) => lead.contactId).map((lead) => [Number(lead.contactId), lead]));
+  const leadByPhone = new Map(leads.filter((lead) => lead.phone).map((lead) => [normalizePhone(lead.phone), lead]));
+
+  return participants.map((participant) => {
+    const rawId = String(participant?.id || participant?.memberJid || "");
+    const phone = normalizePhone(rawId.split("@")[0]);
+    const contact = contactByPhone.get(phone);
+    const lead = (contact && leadByContactId.get(Number(contact.id))) || leadByPhone.get(phone);
+
+    return {
+      ...participant,
+      phone,
+      contactId: contact?.id || null,
+      contactName: contact?.name || null,
+      leadId: lead?.id || null,
+      leadName: lead?.name || null
+    };
+  });
 };
 
 const resolveGroupSelection = async (companyId: number, body: any) => {
@@ -229,7 +281,7 @@ export const getGroupInfo = async (req: Request, res: Response): Promise<Respons
     ? await GroupMember.findAll({ where: { companyId, groupId: directory.id }, order: [["memberJid", "ASC"]] })
     : [];
 
-  const participants = metadata?.participants?.length
+  const baseParticipants = metadata?.participants?.length
     ? metadata.participants.map((p: any) => ({
       id: p.id,
       isAdmin: p.admin === "admin" || p.admin === "superadmin",
@@ -240,6 +292,8 @@ export const getGroupInfo = async (req: Request, res: Response): Promise<Respons
       isAdmin: m.isAdmin,
       isSuperAdmin: m.isSuperAdmin
     }));
+
+  const participants = await enrichParticipants(companyId, baseParticipants);
 
   return res.json({
     id: jid,
@@ -288,7 +342,12 @@ export const exportGroupMembers = async (req: Request, res: Response): Promise<R
     }
   }
 
-  const contacts = participants.map(exportableParticipant).filter((item) => item.phone);
+  const enrichedParticipants = await enrichParticipants(companyId, participants);
+  const contacts = enrichedParticipants.map((participant) => ({
+    ...exportableParticipant(participant),
+    contactName: participant.contactName || null,
+    leadName: participant.leadName || null
+  })).filter((item) => item.phone);
 
   return res.json({
     groupJid: jid,

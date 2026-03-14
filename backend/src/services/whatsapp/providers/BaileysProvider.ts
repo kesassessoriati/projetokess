@@ -1,5 +1,7 @@
 import { BaseProvider } from "./BaseProvider";
 
+import Jimp from "jimp";
+
 export class BaileysProvider extends BaseProvider {
   async sendMessage(to: string, content: any): Promise<any> {
     const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
@@ -95,7 +97,10 @@ export class BaileysProvider extends BaseProvider {
     if (typeof this.connection.updateProfilePicture !== "function") {
       throw new Error("Atualizacao de foto nao suportada nesta conexao.");
     }
-    return await this.connection.updateProfilePicture(groupJid, { url: filePath });
+    const image = await Jimp.read(filePath);
+    image.cover(640, 640);
+    const buffer = await image.quality(90).getBufferAsync(Jimp.MIME_JPEG);
+    return await this.connection.updateProfilePicture(groupJid, buffer);
   }
 
   async mentionAll(groupId: string, message: string): Promise<any> {
