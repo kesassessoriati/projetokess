@@ -10,7 +10,6 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import RecordingTimer from "./RecordingTimer";
 import ScheduleModal from "../ScheduleModal";
 import api from "../../services/api";
-import axios from "axios";
 import clsx from "clsx";
 import toastError from "../../errors/toastError";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
@@ -494,11 +493,13 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const handleQuickAnswersClick = async (value) => {
     if (value.mediaPath) {
       try {
-        const { data } = await axios.get(value.mediaPath, {
+        const { data } = await api.get(`/quick-replies/${value.id}/media`, {
           responseType: "blob",
         });
-
-        handleUploadQuickMessageMedia(data, value.value);
+        const fileName = value.mediaPath.split("/").pop().split("?")[0];
+        const file = new File([data], fileName, { type: value.mediaType || data.type || "" });
+        setMediasUpload([{ file, caption: value.value || "", type: file.type || value.mediaType || "" }]);
+        setShowModalMedias(true);
         setInputMessage("");
         return;
       } catch (err) {
@@ -736,6 +737,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
             truncatedMessage = m.message.substring(0, 90) + "...";
           }
           return {
+            id: m.id,
             value: m.message,
             label: `${m.shortcut} - ${truncatedMessage}`,
             mediaPath: m.mediaUrl,
@@ -802,37 +804,6 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
       setLoading(false);
     }
     setLoading(false);
-  };
-
-  const handleUploadQuickMessageMedia = async (blob, message) => {
-    setLoading(true);
-    try {
-      const extension = blob.name
-        ? blob.name.split(".").pop()
-        : (blob.type ? blob.type.split("/")[1].split(";")[0].trim() : "file");
-
-      const formData = new FormData();
-      const filename = `${new Date().getTime()}.${extension}`;
-      formData.append("medias", blob, filename);
-      const isAudio = blob.type && blob.type.startsWith("audio");
-      const validMessage = isAudio ? "" : (message || "");
-      formData.append("body", privateMessage ? `\u200d${validMessage}` : validMessage);
-      formData.append("fromMe", true);
-      
-      if (isMounted.current) {
-        if (notificameHub) {
-          await api.post(`/hub-message/${ticketId}`, formData);
-        } else {
-          await api.post(`/messages/${ticketId}`, formData);
-        }
-      }
-    } catch (err) {
-      toastError(err);
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
   };
 
   const handleUploadAudio = async () => {
@@ -950,12 +921,8 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
 
   const handleSelectQuickMessage = (message, file, autoSend = true) => {
     if (file) {
-      if (autoSend) {
-        handleUploadQuickMessageMedia(file, message);
-      } else {
-        setMediasUpload([{ file, caption: message || "", type: file.type || "" }]);
-        setShowModalMedias(true);
-      }
+      setMediasUpload([{ file, caption: message || "", type: file.type || "" }]);
+      setShowModalMedias(true);
       setInputMessage("");
     } else {
       if (autoSend) {

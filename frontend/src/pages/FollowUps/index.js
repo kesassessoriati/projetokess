@@ -255,61 +255,6 @@ const emptyForm = (boards = []) => {
   };
 };
 
-const FollowUpTestDialog = ({ open, onClose, onSubmit, loading, defaultWhatsappId }) => {
-  const [number, setNumber] = useState("");
-  const [whatsappId, setWhatsappId] = useState(defaultWhatsappId || "");
-
-  useEffect(() => {
-    if (!open) return;
-    setWhatsappId(defaultWhatsappId || "");
-  }, [defaultWhatsappId, open]);
-
-  const handleSubmit = () => {
-    if (!number.trim()) {
-      toast.warn("Informe um numero de WhatsApp para testar");
-      return;
-    }
-
-    onSubmit({ number, whatsappId });
-  };
-
-  return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Testar Follow-up</DialogTitle>
-      <DialogContent>
-        <Box display="flex" flexDirection="column" gridGap={16}>
-          <TextField
-            label="Numero de WhatsApp"
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            fullWidth
-            variant="outlined"
-            size="small"
-            placeholder="5511999999999"
-            helperText="Use DDD + numero, com ou sem 55."
-          />
-          <TextField
-            label="Conexao WhatsApp do teste"
-            value={whatsappId}
-            onChange={(e) => setWhatsappId(e.target.value)}
-            fullWidth
-            variant="outlined"
-            size="small"
-            placeholder="Opcional"
-            helperText="Se vazio, o sistema usa a primeira conexao conectada."
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancelar</Button>
-        <Button onClick={handleSubmit} color="primary" variant="contained" disabled={loading}>
-          {loading ? "Testando..." : "Executar teste"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
 const StatsDialog = ({ open, onClose, campaignId, campaignName }) => {
   const classes = useStyles();
   const [stats, setStats] = useState(null);
@@ -592,8 +537,8 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
   const classes = useStyles();
   const [form, setForm] = useState(emptyForm(boards));
   const [uploadingStageIndex, setUploadingStageIndex] = useState(null);
-  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [testNumber, setTestNumber] = useState("");
 
   useEffect(() => {
     if (campaign) {
@@ -614,6 +559,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
     } else {
       setForm(emptyForm(boards));
     }
+    setTestNumber("");
   }, [campaign, open, boards]);
 
   const setField = (key, value) => setForm((p) => ({ ...p, [key]: value }));
@@ -723,17 +669,21 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
     });
   };
 
-  const handleQuickTest = async ({ number, whatsappId }) => {
+  const handleQuickTest = async () => {
     if (!form.stages.length) {
       toast.warn("Adicione ao menos um estagio antes de testar");
+      return;
+    }
+    if (!testNumber.trim()) {
+      toast.warn("Informe um numero de teste antes de enviar");
       return;
     }
 
     try {
       setTesting(true);
       const { data } = await api.post("/follow-up-campaigns/test", {
-        whatsappId: whatsappId || form.whatsappId || "",
-        targetNumber: number,
+        whatsappId: form.whatsappId || "",
+        targetNumber: testNumber,
         stages: form.stages.map((stage, index) => ({ ...stage, order: index + 1 })),
       });
 
@@ -743,7 +693,6 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
       } else {
         toast.warn("Teste concluido com falhas em uma ou mais etapas.");
       }
-      setTestDialogOpen(false);
     } catch (error) {
       toast.error(error?.response?.data?.error || "Erro ao testar follow-up");
     } finally {
@@ -752,11 +701,10 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
   };
 
   return (
-    <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>{campaign ? "Editar Follow-up" : "Novo Follow-up"}</DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>{campaign ? "Editar Follow-up" : "Novo Follow-up"}</DialogTitle>
+      <DialogContent>
+        <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <TextField
             label="Nome da campanha"
             value={form.name}
@@ -997,27 +945,35 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards }) =
               )}
             </Box>
           ))}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gridGap={12} width="100%">
+          <Box display="flex" alignItems="center" flexWrap="wrap" gridGap={12}>
+            <TextField
+              label="Numero de teste"
+              value={testNumber}
+              onChange={(e) => setTestNumber(e.target.value)}
+              variant="outlined"
+              size="small"
+              placeholder="+55 77 98888-8888"
+              style={{ minWidth: 260 }}
+              helperText="Numero usado exclusivamente no teste do follow-up."
+            />
+            <Button onClick={handleQuickTest} variant="outlined" disabled={testing}>
+              {testing ? "Testando..." : "Testar Follow-up"}
+            </Button>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTestDialogOpen(true)} variant="outlined">
-            Testar Follow-up
-          </Button>
-          <Button onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} color="primary" variant="contained">
-            Salvar
-          </Button>
-        </DialogActions>
-      </Dialog>
 
-      <FollowUpTestDialog
-        open={testDialogOpen}
-        onClose={() => setTestDialogOpen(false)}
-        onSubmit={handleQuickTest}
-        loading={testing}
-        defaultWhatsappId={form.whatsappId}
-      />
-    </>
+          <Box display="flex" alignItems="center" gridGap={8}>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button onClick={handleSave} color="primary" variant="contained">
+              Salvar
+            </Button>
+          </Box>
+        </Box>
+      </DialogActions>
+    </Dialog>
   );
 };
 
