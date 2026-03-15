@@ -81,4 +81,18 @@ flowBuilder.post(
   FlowBuilderController.testFlow
 );
 
+// Webhook trigger - dispara um fluxo via HTTP POST
+flowBuilder.post(
+  "/flowbuilder/trigger",
+  isAuth,
+  FlowBuilderController.triggerFlowWebhook
+);
+
+// Logs de execução
+flowBuilder.get(
+  "/flowbuilder/executions",
+  isAuth,
+  FlowBuilderController.listFlowExecutions
+);
+
 export default flowBuilder;

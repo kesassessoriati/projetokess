@@ -59,6 +59,7 @@ import { FlowDefaultModel } from "../models/FlowDefault";
 import { FlowBuilderModel } from "../models/FlowBuilder";
 import { FlowAudioModel } from "../models/FlowAudio";
 import { FlowCampaignModel } from "../models/FlowCampaign";
+import FlowExecution from "../models/FlowExecution";
 import { FlowImgModel } from "../models/FlowImg";
 import { WebhookModel } from "../models/Webhook";
 import MobileWebhook from "../models/MobileWebhook";
@@ -266,6 +267,7 @@ const models = [
   FlowAudioModel,
   FlowCampaignModel,
   FlowImgModel,
+  FlowExecution,
   WebhookModel,
   MobileWebhook,
   GoogleCalendarIntegration,

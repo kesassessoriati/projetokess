@@ -237,7 +237,7 @@ export const ActionsWebhookService = async (
     const lengthLoop = nodes.length;
     const whatsapp = await GetDefaultWhatsApp(whatsappId, companyId);
 
-    // Função para verificar se ticket tem usuário atribuído e encerrar se necessário
+    // Função para verificar se ticket tem usuário atribuído e pausar fluxo se necessário
     const checkAndCloseTicketIfAssigned = async (ticketId: string) => {
       try {
         const ticket = await Ticket.findOne({
@@ -246,24 +246,8 @@ export const ActionsWebhookService = async (
         });
 
         if (ticket && ticket.userId) {
-          console.log(`Ticket ${ticketId} está com usuário ${ticket.user.name}, encerrando fluxo automático`);
-
-          // Atualizar status para closed
-          await ticket.update({
-            status: "closed",
-            closedAt: new Date()
-          });
-
-          // Emitir WebSocket para atualizar frontend
-          const io = getIO();
-          const ticketUpdated = await ShowTicketService(ticket.id, companyId);
-          io.of(String(companyId))
-            .emit(`company-${companyId}-ticket`, {
-              action: "update",
-              ticket: ticketUpdated
-            });
-
-          return true; // Indica que o fluxo deve parar
+          console.log(`Ticket ${ticketId} está com usuário ${ticket.user?.name}, pausando fluxo automático`);
+          return true; // Para o fluxo mas não fecha o ticket
         }
 
         return false; // Continua o fluxo normalmente

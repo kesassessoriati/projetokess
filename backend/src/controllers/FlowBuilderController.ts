@@ -19,6 +19,8 @@ import ExportFlowBuilderService from "../services/FlowBuilderService/ExportFlowB
 import ImportFlowBuilderService from "../services/FlowBuilderService/ImportFlowBuilderService";
 import fs from "fs";
 import TestFlowBuilderService from "../services/FlowBuilderService/TestFlowBuilderService";
+import TriggerFlowWebhookService from "../services/FlowBuilderService/TriggerFlowWebhookService";
+import ListFlowExecutionsService from "../services/FlowBuilderService/ListFlowExecutionsService";
 // import { handleMessage } from "../services/FacebookServices/facebookMessageListener";
 
 export const createFlow = async (
@@ -335,4 +337,47 @@ export const testFlow = async (
       details: error.message 
     });
   }
+};
+export const triggerFlowWebhook = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { flowId, whatsappId, contactNumber, contactName, triggerPhrase } = req.body;
+
+  if (!flowId || !whatsappId || !contactNumber) {
+    return res.status(400).json({ error: "flowId, whatsappId e contactNumber são obrigatórios" });
+  }
+
+  try {
+    const result = await TriggerFlowWebhookService({
+      companyId,
+      flowId: parseInt(flowId),
+      whatsappId: parseInt(whatsappId),
+      contactNumber: String(contactNumber),
+      contactName: contactName || undefined,
+      triggerPhrase: triggerPhrase || undefined
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Erro ao disparar fluxo" });
+  }
+};
+
+export const listFlowExecutions = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { flowId, status, trigger, pageNumber } = req.query;
+
+  const data = await ListFlowExecutionsService({
+    companyId,
+    flowId: flowId ? parseInt(flowId as string) : undefined,
+    status: status as string,
+    trigger: trigger as string,
+    pageNumber: pageNumber as string
+  });
+
+  return res.status(200).json(data);
 };

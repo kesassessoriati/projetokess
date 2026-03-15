@@ -108,6 +108,7 @@ import { add, differenceInMilliseconds } from "date-fns";
 import { FlowCampaignModel } from "../../models/FlowCampaign";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import FlowExecution from "../../models/FlowExecution";
 import { handleOpenAi } from "../IntegrationsServices/OpenAiService";
 import { IOpenAi } from "../../@types/openai";
 
@@ -4099,44 +4100,39 @@ const flowbuilderIntegration = async (
       email: contact.email
     };
 
-    //const worker = new Worker("./src/services/WebhookService/WorkerAction.ts");
+    const execStart = Date.now();
+    const execution = await FlowExecution.create({
+      companyId: ticket.companyId,
+      flowId: flowDispar.flowId,
+      ticketId: ticket.id,
+      contactNumber: contact.number,
+      trigger: "campaign",
+      triggerPhrase: body,
+      status: "started",
+      nodesExecuted: 0
+    }).catch(() => null);
 
-    //console.log('DISPARO3')
-    // Enviar as variáveis como parte da mensagem para o Worker
-    // const data = {
-    //   idFlowDb: flowDispar.flowId,
-    //   companyId: ticketUpdate.companyId,
-    //   nodes: nodes,
-    //   connects: connections,
-    //   nextStage: flow.flow["nodes"][0].id,
-    //   dataWebhook: null,
-    //   details: "",
-    //   hashWebhookId: "",
-    //   pressKey: null,
-    //   idTicket: ticketUpdate.id,
-    //   numberPhrase: mountDataContact
-    // };
-    // worker.postMessage(data);
-
-    // worker.on("message", message => {
-    //   console.log(`Mensagem do worker: ${message}`);
-    // });
-
-    await ActionsWebhookService(
-      whatsapp.id,
-      flowDispar.flowId,
-      ticket.companyId,
-      nodes,
-      connections,
-      flow.flow["nodes"][0].id,
-      null,
-      "",
+    try {
+      await ActionsWebhookService(
+        whatsapp.id,
+        flowDispar.flowId,
+        ticket.companyId,
+        nodes,
+        connections,
+        flow.flow["nodes"][0].id,
+        null,
+        "",
       "",
       null,
       ticket.id,
       mountDataContact,
       msg || null
     );
+      if (execution) await execution.update({ status: "completed", durationMs: Date.now() - execStart }).catch(() => null);
+    } catch (err) {
+      if (execution) await execution.update({ status: "error", errorMessage: err?.message || String(err), durationMs: Date.now() - execStart }).catch(() => null);
+      throw err;
+    }
     return;
   }
 
