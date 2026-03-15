@@ -932,6 +932,14 @@ const LoggedInLayout = ({ children }) => {
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
+  const isQuickNavItemActive = (item) => {
+    if (Array.isArray(item.activePaths) && item.activePaths.length > 0) {
+      return item.activePaths.some((path) => isActivePath(path));
+    }
+
+    return isActivePath(item.path);
+  };
+
   // Detectar se está dentro de uma conversa de ticket (para ocultar menu mobile e header)
   const isInsideTicketConversation =
     /\/tickets\/[a-zA-Z0-9-]+$/i.test(location.pathname) ||
@@ -1018,6 +1026,30 @@ const LoggedInLayout = ({ children }) => {
         path: "/chips",
         icon: <SimCardIcon style={{ fontSize: 15 }} />,
       },
+      {
+        key: "agente-ia",
+        title: "Agente de IA",
+        label: "Agente de IA",
+        path: "/agentes",
+        activePaths: ["/agentes", "/prompts"],
+        icon: <PsychologyIcon style={{ fontSize: 15 }} />,
+      },
+      {
+        key: "construtor-fluxo",
+        title: "Construtor de Fluxo",
+        label: "Construtor de Fluxo",
+        path: "/flowbuilders",
+        activePaths: ["/flowbuilders", "/flowbuilder"],
+        icon: <AccountTreeIcon style={{ fontSize: 15 }} />,
+      },
+      {
+        key: "automacoes",
+        title: "Automações",
+        label: "Automações",
+        path: "/automations",
+        activePaths: ["/automations"],
+        icon: <FlashOnIcon style={{ fontSize: 15 }} />,
+      },
     ],
     []
   );
@@ -1027,7 +1059,7 @@ const LoggedInLayout = ({ children }) => {
       <Tooltip key={item.key} title={item.title}>
         <button
           type="button"
-          className={`${buttonClassName} ${isActivePath(item.path) ? "quickNavActive" : ""}`}
+          className={`${buttonClassName} ${isQuickNavItemActive(item) ? "quickNavActive" : ""}`}
           onClick={() => history.push(item.path)}
         >
           {item.icon}
