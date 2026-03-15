@@ -1429,7 +1429,7 @@ const messages = {
         },
       },
       schedules: {
-        title: "Agendamentos",
+        title: "Mensagens Agendadas",
         confirmationModal: {
           deleteTitle: "Você tem certeza que quer excluir este Agendamento?",
           deleteMessage: "Esta ação não pode ser revertida.",

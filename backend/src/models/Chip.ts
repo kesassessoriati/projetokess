@@ -37,9 +37,29 @@ class Chip extends Model<Chip> {
   @BelongsTo(() => Company)
   company: Company;
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Column(DataType.STRING(30))
-  number: string;
+  number?: string | null;
+
+  @Column({ field: "source_connection_name", type: DataType.STRING(120) })
+  sourceConnectionName?: string | null;
+
+  @Column({ field: "source_connection_status", type: DataType.STRING(40) })
+  sourceConnectionStatus?: string | null;
+
+  @Column({ field: "source_connection_id", type: DataType.INTEGER })
+  sourceConnectionId?: number | null;
+
+  @Default("manual")
+  @Column({ field: "sync_source", type: DataType.STRING(40) })
+  syncSource: string;
+
+  @Default({})
+  @Column({ field: "source_metadata", type: DataType.JSONB })
+  sourceMetadata?: Record<string, any>;
+
+  @Column({ field: "last_channel_sync_at", type: DataType.DATE })
+  lastChannelSyncAt?: Date | null;
 
   @Column(DataType.STRING(120))
   carrier?: string;

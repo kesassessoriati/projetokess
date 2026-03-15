@@ -1,7 +1,10 @@
 import {
   applyChipLevelPreset,
   calculateChipHealth,
-  calculatePredictedBlockAt
+  calculatePredictedBlockAt,
+  getChipDisplayLabel,
+  isWhatsAppChannel,
+  normalizeConnectionNumber
 } from "../services/ChipServices/ChipMonitoringService";
 import { resolveDispatchWhatsapp } from "../services/ChipServices/ChipRoutingService";
 
@@ -31,6 +34,22 @@ describe("Chip services", () => {
 
   it("calculates predicted block date from recharge data", () => {
     expect(calculatePredictedBlockAt("2026-03-10", 30)).toBe("2026-04-09");
+  });
+
+  it("normalizes channel numbers safely", () => {
+    expect(normalizeConnectionNumber("BR (77) 98827-2902")).toBe("77988272902");
+    expect(normalizeConnectionNumber("")).toBeNull();
+  });
+
+  it("detects whatsapp-based channels", () => {
+    expect(isWhatsAppChannel("whatsapp")).toBe(true);
+    expect(isWhatsAppChannel("whatsapp_whaileys")).toBe(true);
+    expect(isWhatsAppChannel("facebook")).toBe(false);
+  });
+
+  it("builds a fallback display label for channels without number", () => {
+    expect(getChipDisplayLabel({ sourceConnectionName: "Canal sem numero" } as any)).toBe("Canal sem numero");
+    expect(getChipDisplayLabel({ sourceConnectionId: 12 } as any)).toBe("Conexao #12");
   });
 
   it("returns high health for stable connected chips", () => {

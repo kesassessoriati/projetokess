@@ -34,6 +34,41 @@ export const getChipLevelPreset = (level?: number | null) => {
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 
+const WHATSAPP_CHANNEL_PREFIX = "whatsapp";
+
+export const isWhatsAppChannel = (channel?: string | null) =>
+  !channel || String(channel).toLowerCase().includes(WHATSAPP_CHANNEL_PREFIX);
+
+export const normalizeConnectionNumber = (value?: string | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits || null;
+};
+
+export const getChipDisplayLabel = (chip: Partial<Chip>) =>
+  chip.number ||
+  chip.sourceConnectionName ||
+  (chip.sourceConnectionId ? `Conexao #${chip.sourceConnectionId}` : "Chip sem numero");
+
+const buildChannelMetadata = (whatsapp: Whatsapp) => ({
+  channel: whatsapp.channel || "whatsapp",
+  provider: whatsapp.provider || null,
+  isDefault: Boolean(whatsapp.isDefault),
+  allowGroup: Boolean(whatsapp.allowGroup),
+  battery: whatsapp.battery || null,
+  plugged: whatsapp.plugged ?? null
+});
+
+const buildChannelSyncPayload = (whatsapp: Whatsapp) => ({
+  number: whatsapp.number || null,
+  whatsappId: whatsapp.id,
+  sourceConnectionId: whatsapp.id,
+  sourceConnectionName: whatsapp.name || null,
+  sourceConnectionStatus: whatsapp.status || null,
+  syncSource: "whatsapp_channel",
+  sourceMetadata: buildChannelMetadata(whatsapp),
+  lastChannelSyncAt: new Date()
+});
+
 const daysBetween = (date?: string | Date | null) => {
   if (!date) return 0;
   const base = new Date(date);
@@ -184,7 +219,7 @@ export const syncChipHealth = async (chip: Chip) => {
         chipId: chip.id,
         companyId: chip.companyId,
         eventType: CHIP_EVENT_TYPES.CONNECTION,
-        description: `Chip ${chip.number} reconectado a sessao ${whatsapp.name || whatsapp.id}.`,
+        description: `Chip ${getChipDisplayLabel(chip)} reconectado a sessao ${whatsapp.name || whatsapp.id}.`,
         metadata: { whatsappId: whatsapp.id, status: whatsapp.status }
       });
     } else if (chip.lastConnectedAt) {
@@ -198,7 +233,7 @@ export const syncChipHealth = async (chip: Chip) => {
       chipId: chip.id,
       companyId: chip.companyId,
       eventType: CHIP_EVENT_TYPES.DISCONNECTION,
-      description: `Chip ${chip.number} desconectado da sessao ${whatsapp?.name || chip.whatsappId}.`,
+      description: `Chip ${getChipDisplayLabel(chip)} desconectado da sessao ${whatsapp?.name || chip.whatsappId}.`,
       metadata: { whatsappId: chip.whatsappId, status: whatsapp?.status || "DISCONNECTED" }
     });
   }
@@ -218,7 +253,119 @@ export const syncChipHealth = async (chip: Chip) => {
   return chip;
 };
 
-export const syncCompanyChips = async (companyId: number) => {
+export const syncWhatsAppChannelsIntoChips = async (companyId: number) => {
+  const [whatsapps, chips] = await Promise.all([
+    Whatsapp.findAll({
+      where: { companyId },
+      order: [["id", "ASC"]]
+    }),
+    Chip.findAll({
+      where: { companyId },
+      order: [["id", "ASC"]]
+    })
+  ]);
+
+  const channelSessions = whatsapps.filter(whatsapp => isWhatsAppChannel(whatsapp.channel));
+  const byWhatsappId = new Map<number, Chip>();
+  const bySourceConnectionId = new Map<number, Chip>();
+  const byNormalizedNumber = new Map<string, Chip[]>();
+
+  chips.forEach(chip => {
+    if (chip.whatsappId) {
+      byWhatsappId.set(Number(chip.whatsappId), chip);
+    }
+    if (chip.sourceConnectionId) {
+      bySourceConnectionId.set(Number(chip.sourceConnectionId), chip);
+    }
+    const normalizedNumber = normalizeConnectionNumber(chip.number);
+    if (normalizedNumber) {
+      const records = byNormalizedNumber.get(normalizedNumber) || [];
+      records.push(chip);
+      byNormalizedNumber.set(normalizedNumber, records);
+    }
+  });
+
+  const touchedChipIds = new Set<number>();
+  const syncedConnectionIds = new Set<number>();
+
+  for (const whatsapp of channelSessions) {
+    syncedConnectionIds.add(whatsapp.id);
+    const normalizedNumber = normalizeConnectionNumber(whatsapp.number);
+    const eligibleNumberMatches = normalizedNumber
+      ? (byNormalizedNumber.get(normalizedNumber) || []).filter(candidate =>
+          !candidate.sourceConnectionId || Number(candidate.sourceConnectionId) === Number(whatsapp.id)
+        )
+      : [];
+    const safeNumberMatch = eligibleNumberMatches.length === 1 ? eligibleNumberMatches[0] : undefined;
+    const matchedChip =
+      byWhatsappId.get(whatsapp.id) ||
+      bySourceConnectionId.get(whatsapp.id) ||
+      safeNumberMatch;
+
+    const payload = buildChannelSyncPayload(whatsapp);
+
+    if (matchedChip) {
+      await matchedChip.update(payload);
+      touchedChipIds.add(matchedChip.id);
+      byWhatsappId.set(whatsapp.id, matchedChip);
+      bySourceConnectionId.set(whatsapp.id, matchedChip);
+      if (normalizedNumber) {
+        const records = byNormalizedNumber.get(normalizedNumber) || [];
+        if (!records.some(candidate => candidate.id === matchedChip.id)) {
+          records.push(matchedChip);
+          byNormalizedNumber.set(normalizedNumber, records);
+        }
+      }
+      continue;
+    }
+
+    const createdChip = await Chip.create({
+      companyId,
+      ...payload,
+      status: whatsapp.status === "CONNECTED" ? "active" : "disconnected"
+    });
+
+    touchedChipIds.add(createdChip.id);
+    byWhatsappId.set(whatsapp.id, createdChip);
+    bySourceConnectionId.set(whatsapp.id, createdChip);
+    if (normalizedNumber) {
+      const records = byNormalizedNumber.get(normalizedNumber) || [];
+      records.push(createdChip);
+      byNormalizedNumber.set(normalizedNumber, records);
+    }
+
+    await createChipActivityLog({
+      chipId: createdChip.id,
+      companyId,
+      eventType: CHIP_EVENT_TYPES.CONNECTION,
+      description: `Chip sincronizado automaticamente a partir do canal ${getChipDisplayLabel(createdChip)}.`,
+      metadata: { whatsappId: whatsapp.id, syncSource: "whatsapp_channel" }
+    });
+  }
+
+  const orphanedSyncedChips = chips.filter(chip =>
+    chip.syncSource === "whatsapp_channel" &&
+    chip.sourceConnectionId &&
+    !syncedConnectionIds.has(Number(chip.sourceConnectionId))
+  );
+
+  for (const chip of orphanedSyncedChips) {
+    await chip.update({
+      whatsappId: null,
+      sourceConnectionStatus: "REMOVED",
+      lastChannelSyncAt: new Date()
+    });
+    touchedChipIds.add(chip.id);
+  }
+
+  return Array.from(touchedChipIds);
+};
+
+export const syncCompanyChips = async (companyId: number, options?: { syncChannels?: boolean }) => {
+  if (options?.syncChannels) {
+    await syncWhatsAppChannelsIntoChips(companyId);
+  }
+
   const chips = await Chip.findAll({
     where: { companyId },
     include: [{ model: Whatsapp }]
@@ -261,7 +408,7 @@ export const getChipByIdOrThrow = async (id: number, companyId: number) => {
 };
 
 export const buildChipDashboard = async (companyId: number) => {
-  const chips = await syncCompanyChips(companyId);
+  const chips = await syncCompanyChips(companyId, { syncChannels: true });
   const now = new Date();
   const alerts = chips
     .filter(chip => {
@@ -270,7 +417,7 @@ export const buildChipDashboard = async (companyId: number) => {
     })
     .map(chip => ({
       chipId: chip.id,
-      number: chip.number,
+      number: getChipDisplayLabel(chip),
       type: "recharge",
       severity: chip.blockingRiskLevel,
       message: chip.blockingRiskReason,
@@ -320,7 +467,14 @@ export const getAvailableDispatchChips = async (companyId: number, chipIds: numb
 };
 
 export const attachChipToWhatsapp = async (chip: Chip, whatsappId?: number | null) => {
+  const whatsapp = whatsappId ? await Whatsapp.findByPk(whatsappId) : null;
+
   chip.whatsappId = whatsappId ?? null;
+  if (whatsapp && isWhatsAppChannel(whatsapp.channel)) {
+    Object.assign(chip, buildChannelSyncPayload(whatsapp));
+  } else if (!whatsappId) {
+    chip.sourceConnectionStatus = chip.syncSource === "whatsapp_channel" ? "REMOVED" : chip.sourceConnectionStatus || null;
+  }
   await chip.save();
 
   const warmup = whatsappId

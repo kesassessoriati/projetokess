@@ -8,6 +8,7 @@ import {
   attachChipToWhatsapp,
   buildChipDashboard,
   createChipActivityLog,
+  getChipDisplayLabel,
   getChipByIdOrThrow,
   getChipLogs,
   syncChipHealth,
@@ -23,7 +24,7 @@ const ensureAdminForWrite = (req: Request) => {
 const buildPayload = (body: any) => {
   const preset = body.warmupLevel !== undefined ? applyChipLevelPreset({ warmupLevel: body.warmupLevel } as any) : null;
   return {
-    number: body.number,
+    number: body.number || null,
     carrier: body.carrier,
     planType: body.planType,
     lastRechargeAt: body.lastRechargeAt || null,
@@ -51,10 +52,15 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const search = String(req.query.search || "").trim();
   const status = String(req.query.status || "").trim();
 
+  await syncCompanyChips(companyId, { syncChannels: true });
+
   const where: any = { companyId };
   if (status) where.status = status;
   if (search) {
-    where.number = { [Op.iLike]: `%${search}%` };
+    where[Op.or] = [
+      { number: { [Op.iLike]: `%${search}%` } },
+      { sourceConnectionName: { [Op.iLike]: `%${search}%` } }
+    ];
   }
 
   const chips = await Chip.findAll({
@@ -90,7 +96,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     chipId: chip.id,
     companyId: chip.companyId,
     eventType: CHIP_EVENT_TYPES.CONNECTION,
-    description: `Chip ${chip.number} cadastrado no modulo de infraestrutura.`,
+    description: `Chip ${getChipDisplayLabel(chip)} cadastrado no modulo de infraestrutura.`,
     metadata: { whatsappId: chip.whatsappId || null }
   });
 
@@ -102,6 +108,11 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   ensureAdminForWrite(req);
   const chip = await getChipByIdOrThrow(Number(req.params.id), req.user.companyId);
   const payload = buildPayload(req.body);
+
+  if (chip.syncSource === "whatsapp_channel") {
+    payload.number = chip.number || null;
+    payload.whatsappId = chip.whatsappId || null;
+  }
 
   await chip.update({
     ...payload,
@@ -135,7 +146,7 @@ export const recharge = async (req: Request, res: Response): Promise<Response> =
     chipId: chip.id,
     companyId: chip.companyId,
     eventType: CHIP_EVENT_TYPES.RECHARGE,
-    description: `Recarga registrada para o chip ${chip.number}.`,
+    description: `Recarga registrada para o chip ${getChipDisplayLabel(chip)}.`,
     metadata: { rechargeValue, lastRechargeAt }
   });
 
@@ -159,6 +170,6 @@ export const linkWhatsapp = async (req: Request, res: Response): Promise<Respons
 
 export const refreshMonitoring = async (req: Request, res: Response): Promise<Response> => {
   ensureAdminForWrite(req);
-  const chips = await syncCompanyChips(req.user.companyId);
+  const chips = await syncCompanyChips(req.user.companyId, { syncChannels: true });
   return res.json({ success: true, count: chips.length });
 };

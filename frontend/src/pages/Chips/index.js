@@ -280,6 +280,21 @@ const LEVEL_LABELS = {
 const formatDate = value => value ? new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR") : "—";
 const formatDateTime = value => value ? new Date(value).toLocaleString("pt-BR") : "—";
 const formatCurrency = value => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const isChannelSyncedChip = chip => chip?.syncSource === "whatsapp_channel";
+const getChipPrimaryLabel = chip => chip?.number || chip?.sourceConnectionName || (chip?.sourceConnectionId ? `Conexao #${chip.sourceConnectionId}` : "Sem numero");
+const getChipSourceSummary = chip => {
+  const parts = [];
+  if (chip?.sourceConnectionName && chip?.sourceConnectionName !== chip?.number) {
+    parts.push(chip.sourceConnectionName);
+  }
+  if (!chip?.number) {
+    parts.push("Sem numero");
+  }
+  if (chip?.sourceConnectionId) {
+    parts.push(`ID ${chip.sourceConnectionId}`);
+  }
+  return parts.join(" • ");
+};
 
 const statusColor = status => ({
   active: { bg: "#dcfce7", color: "#166534" },
@@ -304,6 +319,8 @@ export default function Chips() {
   const [form, setForm] = useState(DEFAULT_FORM);
 
   const isAdmin = user?.profile === "admin";
+  const selectedChipData = selectedChip?.chip || null;
+  const isSyncedEditing = isChannelSyncedChip(selectedChipData) && Boolean(editingId);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -313,6 +330,8 @@ export default function Chips() {
       const nextChips = Array.isArray(data?.chips) ? data.chips : [];
       if (!selectedChipId && nextChips[0]?.id) {
         setSelectedChipId(nextChips[0].id);
+      } else if (selectedChipId && !nextChips.some(chip => chip.id === selectedChipId)) {
+        setSelectedChipId(nextChips[0]?.id || null);
       }
     } catch (error) {
       toast.error("Erro ao carregar modulo de chips.");
@@ -376,7 +395,7 @@ export default function Chips() {
   };
 
   const handleSave = async () => {
-    if (!form.number.trim()) return toast.error("Informe o numero do chip.");
+    if (!form.number.trim() && !isSyncedEditing) return toast.error("Informe o numero do chip.");
     setSaving(true);
     try {
       const payload = { ...form, whatsappId: form.whatsappId || null };
@@ -398,7 +417,7 @@ export default function Chips() {
 
   const handleDelete = async () => {
     if (!selectedChip?.chip?.id) return;
-    if (!window.confirm(`Excluir chip ${selectedChip.chip.number}?`)) return;
+    if (!window.confirm(`Excluir chip ${getChipPrimaryLabel(selectedChip.chip)}?`)) return;
     try {
       await api.delete(`/chips/${selectedChip.chip.id}`);
       toast.success("Chip excluido.");
@@ -437,15 +456,18 @@ export default function Chips() {
     const chip = selectedChip.chip;
     const colors = statusColor(chip.status);
     const session = (whatsApps || []).find(wa => wa.id === chip.whatsappId);
+    const syncedByChannel = isChannelSyncedChip(chip);
 
     return (
       <>
         <Box className={classes.detailHeader}>
           <SimCardIcon style={{ color: "#15763f" }} />
           <Box>
-            <Typography style={{ fontSize: 18, fontWeight: 800 }}>{chip.number}</Typography>
+            <Typography style={{ fontSize: 18, fontWeight: 800 }}>{getChipPrimaryLabel(chip)}</Typography>
             <Typography style={{ fontSize: 12, color: "#5d7d6b" }}>
-              {chip.carrier || "Operadora nao informada"} • Nivel {chip.warmupLevel} ({LEVEL_LABELS[chip.warmupLevel]})
+              {[getChipSourceSummary(chip), chip.carrier || "Operadora nao informada", `Nivel ${chip.warmupLevel} (${LEVEL_LABELS[chip.warmupLevel]})`]
+                .filter(Boolean)
+                .join(" • ")}
             </Typography>
           </Box>
           <Chip
@@ -468,8 +490,10 @@ export default function Chips() {
           <Box className={classes.detailGrid}>
             <Paper className={classes.detailCard} elevation={0}>
               <Typography className={classes.detailLabel}>Sessao WhatsApp</Typography>
-              <Typography className={classes.detailValue}>{session?.name || (chip.whatsappId ? `Sessao #${chip.whatsappId}` : "Nao associada")}</Typography>
-              <Typography style={{ fontSize: 12, color: "#6f897a", marginTop: 4 }}>{chip.sessionStatus}</Typography>
+              <Typography className={classes.detailValue}>{session?.name || chip.sourceConnectionName || (chip.whatsappId ? `Sessao #${chip.whatsappId}` : "Nao associada")}</Typography>
+              <Typography style={{ fontSize: 12, color: "#6f897a", marginTop: 4 }}>
+                {(chip.sourceConnectionStatus || chip.sessionStatus || "Sem status")} • {chip.sourceConnectionId ? `ID ${chip.sourceConnectionId}` : "Sem vinculo"}
+              </Typography>
             </Paper>
             <Paper className={classes.detailCard} elevation={0}>
               <Typography className={classes.detailLabel}>Recarga</Typography>
@@ -503,7 +527,7 @@ export default function Chips() {
               <Typography className={classes.detailLabel}>Infraestrutura</Typography>
               <Typography className={classes.detailValue}>{chip.device || "Nao informado"}</Typography>
               <Typography style={{ fontSize: 12, color: "#6f897a", marginTop: 4 }}>
-                Responsavel: {chip.responsible || "Nao informado"}
+                {`Responsavel: ${chip.responsible || "Nao informado"}${syncedByChannel ? " • Sincronizado automaticamente de Canais" : ""}`}
               </Typography>
             </Paper>
           </Box>
@@ -596,11 +620,13 @@ export default function Chips() {
                       onClick={() => setSelectedChipId(chip.id)}
                     >
                       <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Typography className={classes.chipName}>{chip.number}</Typography>
+                        <Typography className={classes.chipName}>{getChipPrimaryLabel(chip)}</Typography>
                         <Chip label={`${chip.healthScore}%`} size="small" style={{ backgroundColor: colors.bg, color: colors.color, fontWeight: 700 }} />
                       </Box>
-                      <Typography className={classes.chipMeta}>{chip.carrier || "Operadora nao informada"} • {chip.status}</Typography>
-                      <Typography className={classes.chipMeta}>Sessao: {chip.sessionStatus} • Nivel {chip.warmupLevel}</Typography>
+                      <Typography className={classes.chipMeta}>
+                        {[getChipSourceSummary(chip), chip.carrier || "Operadora nao informada", chip.status].filter(Boolean).join(" • ")}
+                      </Typography>
+                      <Typography className={classes.chipMeta}>Sessao: {chip.sourceConnectionStatus || chip.sessionStatus} • Nivel {chip.warmupLevel}</Typography>
                     </Box>
                   );
                 })}
@@ -628,10 +654,17 @@ export default function Chips() {
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{editingId ? "Editar chip" : "Cadastrar chip"}</DialogTitle>
+        <DialogTitle>{editingId ? "Gerenciar chip" : "Cadastrar chip"}</DialogTitle>
         <DialogContent dividers>
+          {isSyncedEditing && (
+            <Box mb={2}>
+              <Typography style={{ fontSize: 12, color: "#5d7d6b" }}>
+                Nome da conexao, numero e vinculo WhatsApp sao sincronizados automaticamente a partir do modulo Canais.
+              </Typography>
+            </Box>
+          )}
           <Box className={classes.formGrid}>
-            <TextField label="Numero do chip" variant="outlined" size="small" value={form.number} onChange={e => setForm(prev => ({ ...prev, number: e.target.value }))} />
+            <TextField label="Numero do chip" variant="outlined" size="small" value={form.number} disabled={isSyncedEditing} onChange={e => setForm(prev => ({ ...prev, number: e.target.value }))} />
             <TextField label="Operadora" variant="outlined" size="small" value={form.carrier} onChange={e => setForm(prev => ({ ...prev, carrier: e.target.value }))} />
             <TextField label="Plano" variant="outlined" size="small" value={form.planType} onChange={e => setForm(prev => ({ ...prev, planType: e.target.value }))} />
             <TextField label="Data ultima recarga" type="date" variant="outlined" size="small" InputLabelProps={{ shrink: true }} value={form.lastRechargeAt} onChange={e => setForm(prev => ({ ...prev, lastRechargeAt: e.target.value }))} />
@@ -641,7 +674,7 @@ export default function Chips() {
             <TextField label="Responsavel" variant="outlined" size="small" value={form.responsible} onChange={e => setForm(prev => ({ ...prev, responsible: e.target.value }))} />
             <FormControl variant="outlined" size="small">
               <InputLabel>Sessao WhatsApp</InputLabel>
-              <Select value={form.whatsappId} onChange={e => setForm(prev => ({ ...prev, whatsappId: e.target.value }))} label="Sessao WhatsApp">
+              <Select value={form.whatsappId} onChange={e => setForm(prev => ({ ...prev, whatsappId: e.target.value }))} label="Sessao WhatsApp" disabled={isSyncedEditing}>
                 <MenuItem value=""><em>Nenhuma</em></MenuItem>
                 {(whatsApps || []).map(wa => (
                   <MenuItem key={wa.id} value={wa.id}>{wa.name} ({wa.number || "sem numero"})</MenuItem>
