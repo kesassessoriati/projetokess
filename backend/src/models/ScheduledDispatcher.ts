@@ -54,6 +54,15 @@ class ScheduledDispatcher extends Model<ScheduledDispatcher> {
   @Column({ field: "send_interval_seconds", type: DataType.INTEGER })
   sendIntervalSeconds: number;
 
+  @Column({ field: "dispatch_mode", type: DataType.STRING(20) })
+  dispatchMode: string;
+
+  @Column({ field: "chip_ids", type: DataType.JSONB })
+  chipIds: number[];
+
+  @Column({ field: "rotation_cursor", type: DataType.INTEGER })
+  rotationCursor: number;
+
   @Column({ field: "days_before_due", type: DataType.INTEGER })
   daysBeforeDue: number | null;
 

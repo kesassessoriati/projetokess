@@ -2,6 +2,7 @@
 import WhatsappWarmup from "../../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../../models/WhatsappWarmupLog";
 import Whatsapp from "../../models/Whatsapp";
+import Chip from "../../models/Chip";
 import { getWbot } from "../../libs/wbot";
 import moment from "moment";
 import { getIO } from "../../libs/socket";
@@ -68,10 +69,11 @@ const emitLog = async (warmup: any, type: string, message: string) => {
 };
 
 const getEffectiveLimit = (warmup: any): number => {
-  if (!warmup.dailyRampUp) return warmup.messagesPerDay;
+  const baseLimit = warmup.chip ? warmup.chip.warmupMessageLimit : warmup.messagesPerDay;
+  if (!warmup.dailyRampUp) return baseLimit;
   const startMsgs = warmup.rampUpStartMessages || 5;
   const day = warmup.rampUpDay || 1;
-  return Math.min(Math.floor(startMsgs * Math.pow(1.2, day - 1)), warmup.messagesPerDay);
+  return Math.min(Math.floor(startMsgs * Math.pow(1.2, day - 1)), baseLimit);
 };
 
 const resetDailyCounterIfNeeded = async (warmup: any) => {
@@ -175,7 +177,7 @@ export const executeWhatsappWarmups = async (): Promise<void> => {
   try {
     const warmups = await WhatsappWarmup.findAll({
       where: { isActive: true },
-      include: [{ model: Whatsapp, as: "whatsapp" }],
+      include: [{ model: Whatsapp, as: "whatsapp" }, { model: Chip, as: "chip", required: false }],
     });
 
     for (const warmup of warmups) {

@@ -102,6 +102,7 @@ import GroupManagement from "../pages/GroupManagement";
 import FollowUps from "../pages/FollowUps";
 import AquecimentoWhatsApp from "../pages/AquecimentoWhatsApp";
 import DisparoBotoes from "../pages/DisparoBotoes";
+import Chips from "../pages/Chips";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -291,6 +292,7 @@ const Routes = () => {
                         <Route exact path="/compromissos" component={Agenda} isPrivate />
                         <Route exact path="/group-management" component={GroupManagement} isPrivate />
                         <Route exact path="/follow-ups" component={FollowUps} isPrivate />
+                        <Route exact path="/chips" component={Chips} isPrivate />
                         <Route exact path="/aquecimento-whatsapp" component={AquecimentoWhatsApp} isPrivate />
                         <Route exact path="/disparo-botoes" component={DisparoBotoes} isPrivate />
                         <Route exact path="/automations" component={Automations} isPrivate />

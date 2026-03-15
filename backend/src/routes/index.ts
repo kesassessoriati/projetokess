@@ -126,6 +126,7 @@ import emailChannelRoutes from "./emailChannelRoutes";
 import socialRoutes from "./socialRoutes";
 import mySiteBoardRoutes from "./mySiteBoardRoutes";
 import mediaDriveRoutes from "./mediaDriveRoutes";
+import chipRoutes from "./chipRoutes";
 
 const routes = Router();
 
@@ -277,6 +278,7 @@ routes.use(emailChannelRoutes);
 routes.use(socialRoutes);
 routes.use(mySiteBoardRoutes);
 routes.use(mediaDriveRoutes);
+routes.use(chipRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);

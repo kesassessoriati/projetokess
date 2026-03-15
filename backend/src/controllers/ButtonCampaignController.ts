@@ -23,6 +23,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const {
     name,
     whatsappId,
+    dispatchMode,
+    chipIds,
     messageType,
     message,
     footer,
@@ -37,6 +39,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const campaign = await ButtonCampaignService.createButtonCampaign({
     companyId,
     whatsappId: Number(whatsappId),
+    dispatchMode: dispatchMode === "round_robin" ? "round_robin" : "fixed",
+    chipIds: Array.isArray(chipIds) ? chipIds.map(Number).filter(Boolean) : [],
     name,
     messageType,
     message,

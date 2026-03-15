@@ -15,6 +15,7 @@ import {
 import Whatsapp from "./Whatsapp";
 import Company from "./Company";
 import WhatsappWarmupLog from "./WhatsappWarmupLog";
+import Chip from "./Chip";
 
 @Table
 class WhatsappWarmup extends Model<WhatsappWarmup> {
@@ -36,6 +37,13 @@ class WhatsappWarmup extends Model<WhatsappWarmup> {
 
     @BelongsTo(() => Company)
     company: Company;
+
+    @ForeignKey(() => Chip)
+    @Column
+    chipId: number;
+
+    @BelongsTo(() => Chip)
+    chip: Chip;
 
     @Default(false)
     @Column

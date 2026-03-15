@@ -7,6 +7,7 @@ import FinanceiroFatura from "../../models/FinanceiroFatura";
 import CrmClient from "../../models/CrmClient";
 import { addDispatchJob } from "../../queues/dispatchQueue";
 import logger from "../../utils/logger";
+import { resolveDispatchWhatsapp } from "../ChipServices/ChipRoutingService";
 
 const TZ = process.env.TZ || "America/Sao_Paulo";
 const OPEN_INVOICE_STATUS = ["aberta", "vencida"];
@@ -232,7 +233,7 @@ const ensureDispatcherReady = (
   if (now.isBefore(startDateTime)) {
     return false;
   }
-  if (!dispatcher.whatsappId) {
+  if (!dispatcher.whatsappId && (!Array.isArray(dispatcher.chipIds) || dispatcher.chipIds.length === 0)) {
     logger.warn(
       `[ScheduledDispatcher] Dispatcher ${dispatcher.id} sem whatsapp configurado`
     );
@@ -297,13 +298,30 @@ const runScheduledDispatchers = async () => {
 
       const variables = buildVariables(dispatcher, contact, extra, client || null);
 
+      const routing = await resolveDispatchWhatsapp({
+        companyId: dispatcher.companyId,
+        dispatchMode: dispatcher.dispatchMode,
+        chipIds: dispatcher.chipIds,
+        fallbackWhatsappId: dispatcher.whatsappId,
+        rotationCursor: dispatcher.rotationCursor
+      });
+
+      if (!routing.whatsappId) {
+        logger.warn(`[ScheduledDispatcher] Nenhum chip/conexao disponivel para dispatcher ${dispatcher.id}`);
+        continue;
+      }
+
+      if (dispatcher.dispatchMode === "round_robin" && routing.nextCursor !== dispatcher.rotationCursor) {
+        await dispatcher.update({ rotationCursor: routing.nextCursor });
+      }
+
       await addDispatchJob(
         {
           logId: log.id,
           dispatcherId: dispatcher.id,
           companyId: dispatcher.companyId,
           contactId: contact.id,
-          whatsappId: dispatcher.whatsappId!,
+          whatsappId: routing.whatsappId,
           template: dispatcher.messageTemplate,
           variables,
           delayMs,

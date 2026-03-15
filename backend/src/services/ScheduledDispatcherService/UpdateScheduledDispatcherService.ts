@@ -9,6 +9,8 @@ export interface UpdateScheduledDispatcherDTO {
   messageTemplate?: string | null;
   eventType?: "birthday" | "invoice_reminder" | "invoice_overdue";
   whatsappId?: number | null;
+  dispatchMode?: "fixed" | "round_robin";
+  chipIds?: number[];
   startTime?: string;
   sendIntervalSeconds?: number;
   daysBeforeDue?: number | null;
@@ -54,6 +56,8 @@ const UpdateScheduledDispatcherService = async (
     updates.messageTemplate = payload.messageTemplate ?? "";
   if (payload.eventType !== undefined) updates.eventType = payload.eventType;
   if (payload.whatsappId !== undefined) updates.whatsappId = payload.whatsappId;
+  if (payload.dispatchMode !== undefined) updates.dispatchMode = payload.dispatchMode;
+  if (payload.chipIds !== undefined) updates.chipIds = payload.chipIds.map(Number).filter(Boolean);
   if (payload.startTime !== undefined) updates.startTime = payload.startTime;
   if (payload.sendIntervalSeconds !== undefined)
     updates.sendIntervalSeconds = payload.sendIntervalSeconds;

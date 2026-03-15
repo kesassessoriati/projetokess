@@ -171,6 +171,8 @@ import GfManutencao from "../models/GfManutencao";
 import GfIaConfiguracao from "../models/GfIaConfiguracao";
 import GfIaUpload from "../models/GfIaUpload";
 import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
+import Chip from "../models/Chip";
+import ChipActivityLog from "../models/ChipActivityLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -375,7 +377,9 @@ const models = [
   GfManutencao,
   GfIaConfiguracao,
   GfIaUpload,
-  GfIaAnalysisResult
+  GfIaAnalysisResult,
+  Chip,
+  ChipActivityLog
 ];
 
 sequelize.addModels(models);

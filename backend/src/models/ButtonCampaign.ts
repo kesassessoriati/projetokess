@@ -67,6 +67,15 @@ class ButtonCampaign extends Model<ButtonCampaign> {
   @Column({ type: DataType.INTEGER, defaultValue: 3 })
   intervalSeconds: number;
 
+  @Column({ type: DataType.STRING(20), allowNull: false, defaultValue: "fixed" })
+  dispatchMode: string;
+
+  @Column({ type: DataType.JSONB, allowNull: false, defaultValue: [] })
+  chipIds: number[];
+
+  @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
+  rotationCursor: number;
+
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
   totalTargets: number;
 

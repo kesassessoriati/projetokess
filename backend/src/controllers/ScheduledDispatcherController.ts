@@ -73,6 +73,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }
 
   const { mediaUrl, mediaType } = resolveUploadedMedia(req);
+  const dispatchMode: "fixed" | "round_robin" = req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed";
 
   const payload = {
     companyId,
@@ -80,6 +81,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     messageTemplate: req.body.messageTemplate ?? "",
     eventType: req.body.eventType,
     whatsappId: req.body.whatsappId ? Number(req.body.whatsappId) : null,
+    dispatchMode,
+    chipIds: Array.isArray(req.body.chipIds)
+      ? req.body.chipIds.map((id: any) => Number(id)).filter(Boolean)
+      : typeof req.body.chipIds === "string" && req.body.chipIds
+        ? JSON.parse(req.body.chipIds).map((id: any) => Number(id)).filter(Boolean)
+        : [],
     startTime: req.body.startTime,
     sendIntervalSeconds: Number(req.body.sendIntervalSeconds),
     daysBeforeDue: req.body.daysBeforeDue != null ? Number(req.body.daysBeforeDue) : null,
@@ -142,6 +149,16 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     eventType: req.body.eventType,
     whatsappId: req.body.whatsappId !== undefined
       ? (req.body.whatsappId ? Number(req.body.whatsappId) : null)
+      : undefined,
+    dispatchMode: req.body.dispatchMode !== undefined
+      ? (req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed") as "fixed" | "round_robin"
+      : undefined,
+    chipIds: req.body.chipIds !== undefined
+      ? (Array.isArray(req.body.chipIds)
+        ? req.body.chipIds.map((id: any) => Number(id)).filter(Boolean)
+        : typeof req.body.chipIds === "string" && req.body.chipIds
+          ? JSON.parse(req.body.chipIds).map((id: any) => Number(id)).filter(Boolean)
+          : [])
       : undefined,
     startTime: req.body.startTime,
     sendIntervalSeconds: req.body.sendIntervalSeconds !== undefined

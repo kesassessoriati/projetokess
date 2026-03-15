@@ -56,6 +56,7 @@ import PublicIcon from "@mui/icons-material/Public";
 import LanguageIcon from "@mui/icons-material/Language";
 import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import PermMediaIcon from "@mui/icons-material/PermMedia";
+import SimCardIcon from "@mui/icons-material/SimCard";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -618,6 +619,8 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
     location.pathname.startsWith("/flowbuilders");
 
   const isAdministrationActive =
+    location.pathname.startsWith("/chips") ||
+    location.pathname.startsWith("/aquecimento-whatsapp") ||
     location.pathname.startsWith("/users") ||
     location.pathname.startsWith("/queues") ||
     location.pathname.startsWith("/prompts") ||
@@ -1093,6 +1096,28 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               </Typography>
             </div>
             <div className={classes.submenuContent}>
+              <Typography style={{ color: "#8fc3a3", fontSize: 11, fontWeight: 700, padding: "0 8px 8px", textTransform: "uppercase", letterSpacing: ".6px" }}>
+                Infraestrutura
+              </Typography>
+              <ListItemLink
+                to="/chips"
+                primary="Chips"
+                icon={<SimCardIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/aquecimento-whatsapp"
+                primary="Aquecimento WhatsApp"
+                icon={<FlashOnIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/connections"
+                primary="Sessoes WhatsApp"
+                icon={<SyncAltIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <Divider style={{ margin: "8px 0 12px", backgroundColor: "rgba(255,255,255,0.08)" }} />
               {user.super && (
                 <ListItemLink
                   to="/apps-config"

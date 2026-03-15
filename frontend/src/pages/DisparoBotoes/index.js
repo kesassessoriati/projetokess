@@ -11,6 +11,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
+  ListItemText,
   CircularProgress,
   IconButton,
   Chip,
@@ -126,10 +128,13 @@ export default function DisparoBotoes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [chips, setChips] = useState([]);
 
   const [form, setForm] = useState({
     name: "",
     whatsappId: "",
+    dispatchMode: "fixed",
+    chipIds: [],
     messageType: "buttons",
     message: "",
     footer: "",
@@ -144,6 +149,7 @@ export default function DisparoBotoes() {
   const whaileysConnections = (whatsApps || []).filter(
     w => (w.channel === "whatsapp_whaileys" || w.channel === "whatsapp_whatsmeow") && w.status === "CONNECTED"
   );
+  const dispatchableChips = chips.filter(chip => chip.whatsappId && chip.sessionStatus === "CONNECTED");
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -160,6 +166,12 @@ export default function DisparoBotoes() {
 
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
+  useEffect(() => {
+    api.get("/chips")
+      .then(({ data }) => setChips(Array.isArray(data) ? data : []))
+      .catch(() => setChips([]));
+  }, []);
+
   // Auto-refresh para campanhas em envio
   useEffect(() => {
     const sending = campaigns.some(c => c.status === "SENDING");
@@ -173,6 +185,8 @@ export default function DisparoBotoes() {
     setForm({
       name: "",
       whatsappId: whaileysConnections[0]?.id || "",
+      dispatchMode: "fixed",
+      chipIds: [],
       messageType: "buttons",
       message: "",
       footer: "",
@@ -193,6 +207,8 @@ export default function DisparoBotoes() {
     setForm({
       name: campaign.name || "",
       whatsappId: campaign.whatsappId || "",
+      dispatchMode: campaign.dispatchMode || "fixed",
+      chipIds: Array.isArray(campaign.chipIds) ? campaign.chipIds : [],
       messageType: campaign.messageType || "buttons",
       message: campaign.message || "",
       footer: campaign.footer || "",
@@ -225,6 +241,8 @@ export default function DisparoBotoes() {
       const payload = {
         name: form.name,
         whatsappId: form.whatsappId,
+        dispatchMode: form.dispatchMode,
+        chipIds: form.chipIds,
         messageType: form.messageType,
         message: form.message,
         footer: form.footer,
@@ -522,6 +540,45 @@ export default function DisparoBotoes() {
                 </Select>
               </FormControl>
             </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined" size="small">
+                <InputLabel>Modo de envio</InputLabel>
+                <Select
+                  value={form.dispatchMode}
+                  onChange={e => setForm(f => ({ ...f, dispatchMode: e.target.value }))}
+                  label="Modo de envio"
+                >
+                  <MenuItem value="fixed">ConexÃ£o fixa</MenuItem>
+                  <MenuItem value="round_robin">RotaÃ§Ã£o por chips</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {form.dispatchMode === "round_robin" && (
+              <Grid item xs={12}>
+                <FormControl fullWidth variant="outlined" size="small">
+                  <InputLabel>Chips para rotaÃ§Ã£o</InputLabel>
+                  <Select
+                    multiple
+                    value={form.chipIds}
+                    onChange={e => setForm(f => ({ ...f, chipIds: e.target.value }))}
+                    label="Chips para rotaÃ§Ã£o"
+                    renderValue={(selected) => dispatchableChips
+                      .filter(chip => selected.includes(chip.id))
+                      .map(chip => chip.number)
+                      .join(", ")}
+                  >
+                    {dispatchableChips.map(chip => (
+                      <MenuItem key={chip.id} value={chip.id}>
+                        <Checkbox checked={form.chipIds.includes(chip.id)} color="primary" />
+                        <ListItemText primary={`${chip.number} • ${chip.carrier || "Operadora"} • SessÃ£o #${chip.whatsappId}`} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
 
             {/* Tipo de mensagem */}
             <Grid item xs={12} sm={6}>

@@ -8,6 +8,8 @@ export interface CreateScheduledDispatcherDTO {
   messageTemplate?: string | null;
   eventType: "birthday" | "invoice_reminder" | "invoice_overdue";
   whatsappId?: number | null;
+  dispatchMode?: "fixed" | "round_robin";
+  chipIds?: number[];
   startTime: string;
   sendIntervalSeconds: number;
   daysBeforeDue?: number | null;
@@ -53,6 +55,8 @@ export const CreateScheduledDispatcherService = async (
     messageTemplate: payload.messageTemplate ?? "",
     eventType: payload.eventType,
     whatsappId: payload.whatsappId ?? null,
+    dispatchMode: payload.dispatchMode ?? "fixed",
+    chipIds: Array.isArray(payload.chipIds) ? payload.chipIds.map(Number).filter(Boolean) : [],
     startTime: payload.startTime,
     sendIntervalSeconds: payload.sendIntervalSeconds,
     daysBeforeDue:

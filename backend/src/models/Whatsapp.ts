@@ -24,6 +24,7 @@ import QueueIntegrations from "./QueueIntegrations";
 import Prompt from "./Prompt";
 import { FlowBuilderModel } from "./FlowBuilder";
 import WhatsappWarmup from "./WhatsappWarmup";
+import Chip from "./Chip";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -337,6 +338,9 @@ class Whatsapp extends Model<Whatsapp> {
 
   @HasOne(() => WhatsappWarmup, { foreignKey: "whatsappId" })
   warmup: WhatsappWarmup;
+
+  @HasMany(() => Chip, { foreignKey: "whatsappId" })
+  chips: Chip[];
 }
 
 export default Whatsapp;

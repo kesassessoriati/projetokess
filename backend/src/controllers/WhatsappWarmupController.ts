@@ -7,26 +7,81 @@ import WhatsappWarmupSession from "../models/WhatsappWarmupSession";
 import WhatsappWarmupSessionLog from "../models/WhatsappWarmupSessionLog";
 import Whatsapp from "../models/Whatsapp";
 import Setting from "../models/Setting";
+import Chip from "../models/Chip";
 import { buildWarmupScript } from "../services/WhatsappWarmupServices/WarmupScriptBuilderService";
 import { runWarmupSessionById } from "../services/WhatsappWarmupServices/WhatsappWarmupSessionEngineService";
+import {
+  CHIP_EVENT_TYPES,
+  createChipActivityLog
+} from "../services/ChipServices/ChipMonitoringService";
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
-  const warmup = await WhatsappWarmup.findOne({ where: { whatsappId, companyId } });
+  const warmup = await WhatsappWarmup.findOne({
+    where: { whatsappId, companyId },
+    include: [{ model: Chip, as: "chip", required: false }]
+  });
   return res.status(200).json(warmup);
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
-  const data = req.body;
+  const data = { ...req.body };
+  let chip: Chip | null = null;
+
+  if (data.chipId) {
+    chip = await Chip.findOne({
+      where: { id: Number(data.chipId), companyId }
+    });
+    if (!chip) {
+      return res.status(404).json({ error: "Chip nao encontrado para esta empresa." });
+    }
+
+    data.chipId = chip.id;
+    data.messagesPerDay = chip.warmupMessageLimit;
+    data.minInterval = chip.warmupMinInterval;
+    data.maxInterval = chip.warmupMaxInterval;
+
+    if (!chip.whatsappId || chip.whatsappId !== Number(whatsappId)) {
+      await chip.update({ whatsappId: Number(whatsappId) });
+    }
+  }
+
   let warmup = await WhatsappWarmup.findOne({ where: { whatsappId, companyId } });
+  const previousActive = !!warmup?.isActive;
   if (!warmup) {
     warmup = await WhatsappWarmup.create({ ...data, whatsappId, companyId });
   } else {
     await warmup.update(data);
   }
+
+  if (chip && warmup.chipId !== chip.id) {
+    await warmup.update({ chipId: chip.id });
+  }
+
+  if (data.isActive !== undefined && chip) {
+    const nextActive = Boolean(data.isActive);
+    if (!previousActive && nextActive) {
+      await createChipActivityLog({
+        chipId: chip.id,
+        companyId,
+        eventType: CHIP_EVENT_TYPES.WARMUP_START,
+        description: `Aquecimento iniciado para o chip ${chip.number}.`,
+        metadata: { whatsappId: Number(whatsappId) }
+      });
+    } else if (previousActive && !nextActive) {
+      await createChipActivityLog({
+        chipId: chip.id,
+        companyId,
+        eventType: CHIP_EVENT_TYPES.WARMUP_PAUSE,
+        description: `Aquecimento pausado para o chip ${chip.number}.`,
+        metadata: { whatsappId: Number(whatsappId) }
+      });
+    }
+  }
+
   return res.status(200).json(warmup);
 };
 
@@ -47,7 +102,10 @@ export const summary = async (req: Request, res: Response): Promise<Response> =>
   const whatsapps = await Whatsapp.findAll({
     where: { companyId },
     attributes: ["id", "name", "number", "status"],
-    include: [{ model: WhatsappWarmup, as: "warmup", required: false }],
+    include: [
+      { model: WhatsappWarmup, as: "warmup", required: false, include: [{ model: Chip, as: "chip", required: false }] },
+      { model: Chip, as: "chips", required: false }
+    ],
   });
   const result = whatsapps.map(w => ({
     whatsappId: w.id,
@@ -55,6 +113,7 @@ export const summary = async (req: Request, res: Response): Promise<Response> =>
     number: w.number,
     connectionStatus: w.status,
     warmup: (w as any).warmup || null,
+    chip: Array.isArray((w as any).chips) ? (w as any).chips[0] || null : null
   }));
   return res.status(200).json(result);
 };
@@ -82,7 +141,10 @@ export const stats = async (req: Request, res: Response): Promise<Response> => {
     chart.push({ date: dateStr, count: found ? Number(found.getDataValue("count")) : 0 });
   }
 
-  const warmup = await WhatsappWarmup.findOne({ where: { whatsappId, companyId } });
+  const warmup = await WhatsappWarmup.findOne({
+    where: { whatsappId, companyId },
+    include: [{ model: Chip, as: "chip", required: false }]
+  });
   return res.status(200).json({ chart, warmup });
 };
 

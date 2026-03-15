@@ -716,6 +716,7 @@ const AI_CATEGORIES = [
 ];
 
 const DEFAULT_FORM = {
+  chipId: "",
   warmupMode: "private",
   messagesPerDay: 20,
   minInterval: 5,
@@ -980,14 +981,19 @@ function DashboardTab({ warmup, stats, logs, loadingStats }) {
   );
 }
 
-function ConfigTab({ warmup, selectedId, onSaved }) {
+function ConfigTab({ warmup, selectedId, onSaved, chips }) {
   const classes = useStyles();
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
+  const selectedChip = useMemo(
+    () => (chips || []).find((chip) => Number(chip.id) === Number(form.chipId)) || null,
+    [chips, form.chipId]
+  );
 
   useEffect(() => {
     if (warmup) {
       setForm({
+        chipId: warmup.chipId || warmup.chip?.id || "",
         warmupMode: warmup.warmupMode || "private",
         messagesPerDay: warmup.messagesPerDay || 20,
         minInterval: warmup.minInterval || 5,
@@ -1024,6 +1030,32 @@ function ConfigTab({ warmup, selectedId, onSaved }) {
 
   return (
     <Box>
+      <Box className={classes.formRowFull}>
+        <FormControl variant="outlined" fullWidth className={classes.darkInput}>
+          <InputLabel>Chip vinculado</InputLabel>
+          <Select
+            value={form.chipId}
+            onChange={handleChange("chipId")}
+            label="Chip vinculado"
+            MenuProps={{ classes: { paper: classes.menuPaper } }}
+          >
+            <MenuItem value="">
+              <em>Sem chip especifico</em>
+            </MenuItem>
+            {(chips || []).map((chip) => (
+              <MenuItem key={chip.id} value={chip.id}>
+                {chip.number} • {chip.carrier || "Operadora"} • Nivel {chip.warmupLevel}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {selectedChip && (
+          <Typography style={{ fontSize: "12px", color: "#5d7d6b", marginTop: "8px" }}>
+            Limites herdados do chip: {selectedChip.warmupMessageLimit}/dia • intervalo {selectedChip.warmupMinInterval}-{selectedChip.warmupMaxInterval} min.
+          </Typography>
+        )}
+      </Box>
+
       {/* Warmup mode */}
       <Box className={classes.formRowFull}>
         <FormControl variant="outlined" fullWidth className={classes.darkInput}>
@@ -1052,6 +1084,7 @@ function ConfigTab({ warmup, selectedId, onSaved }) {
           value={form.messagesPerDay}
           onChange={handleChange("messagesPerDay")}
           inputProps={{ min: 1, max: 500 }}
+          disabled={!!selectedChip}
         />
         <Box /> {/* spacer */}
       </Box>
@@ -1067,6 +1100,7 @@ function ConfigTab({ warmup, selectedId, onSaved }) {
           value={form.minInterval}
           onChange={handleChange("minInterval")}
           inputProps={{ min: 1, max: 60 }}
+          disabled={!!selectedChip}
         />
         <TextField
           label="Intervalo máximo (min)"
@@ -1077,6 +1111,7 @@ function ConfigTab({ warmup, selectedId, onSaved }) {
           value={form.maxInterval}
           onChange={handleChange("maxInterval")}
           inputProps={{ min: 1, max: 120 }}
+          disabled={!!selectedChip}
         />
       </Box>
 
@@ -1815,6 +1850,7 @@ export default function AquecimentoWhatsApp() {
   const [sessionMetrics, setSessionMetrics] = useState(null);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [sessionLogs, setSessionLogs] = useState([]);
+  const [chips, setChips] = useState([]);
 
   // ── Fetch summary ──────────────────────────────────────────────────────────
   const fetchSummary = useCallback(async () => {
@@ -1833,6 +1869,15 @@ export default function AquecimentoWhatsApp() {
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  const fetchChips = useCallback(async () => {
+    try {
+      const { data } = await api.get("/chips");
+      setChips(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setChips([]);
+    }
+  }, []);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -1868,7 +1913,8 @@ export default function AquecimentoWhatsApp() {
   useEffect(() => {
     fetchSessions();
     fetchSessionMetrics();
-  }, [fetchSessions, fetchSessionMetrics]);
+    fetchChips();
+  }, [fetchSessions, fetchSessionMetrics, fetchChips]);
 
   // ── Fetch detail when connection selected ─────────────────────────────────
   const fetchDetail = useCallback(async (id) => {
@@ -2225,6 +2271,7 @@ export default function AquecimentoWhatsApp() {
                     warmup={warmupConfig}
                     selectedId={selectedId}
                     onSaved={handleSaved}
+                    chips={chips.filter(chip => !chip.whatsappId || Number(chip.whatsappId) === Number(selectedId))}
                   />
                 )}
                 {activeTab === 2 && (
