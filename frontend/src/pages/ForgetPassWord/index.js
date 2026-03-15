@@ -35,8 +35,8 @@ import Lock from "@material-ui/icons/Lock";
 import LoginIcon from '@mui/icons-material/Login';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import pkg from "../../../package.json";
-const { versionSystem, nomeEmpresa } = pkg;
 import ColorModeContext from "../../layout/themeContext";
+const { versionSystem, nomeEmpresa } = pkg;
 
 const useStyles = makeStyles((theme) => ({
   root: {

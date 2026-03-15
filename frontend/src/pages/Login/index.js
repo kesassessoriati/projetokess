@@ -33,11 +33,11 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import ColorModeContext from "../../layout/themeContext";
 import useSettings from "../../hooks/useSettings";
 import pkg from "../../../package.json";
-const { versionSystem, nomeEmpresa } = pkg;
 import { i18n } from "../../translate/i18n";
 import { getBackendUrl } from "../../config";
 import wallfundo from "../../assets/f002.png";
 import useMediaQuery from '@material-ui/core/useMediaQuery';
+const { versionSystem, nomeEmpresa } = pkg;
 
 const handleRedirect = () => {
   window.open(`#`, "_blank");
