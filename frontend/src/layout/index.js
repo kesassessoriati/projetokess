@@ -156,6 +156,12 @@ const useStyles = makeStyles((theme) => ({
     backdropFilter: "blur(4px)",
     borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
     borderTop: "1px solid rgba(0, 0, 0, 0.04)",
+    overflowX: "auto",
+    overflowY: "hidden",
+    scrollbarWidth: "none",
+    "&::-webkit-scrollbar": {
+      display: "none",
+    },
     [theme.breakpoints.down("md")]: {
       display: "none",
     },
@@ -221,6 +227,12 @@ const useStyles = makeStyles((theme) => ({
       display: "none",
     },
   },
+  secondaryQuickNavRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    minWidth: "max-content",
+  },
   quickNavBtn: {
     backgroundColor: "#111111",
     color: "#ffffff",
@@ -247,6 +259,13 @@ const useStyles = makeStyles((theme) => ({
       backgroundColor: "#000000",
       border: "1px solid rgba(255,255,255,0.18)",
       boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
+    },
+  },
+  secondaryQuickNavBtn: {
+    backgroundColor: "#0f172a",
+    border: "1px solid rgba(15, 23, 42, 0.15)",
+    "&:hover": {
+      backgroundColor: "#111827",
     },
   },
   mobileLogo: {
@@ -924,6 +943,92 @@ const LoggedInLayout = ({ children }) => {
     location.pathname !== "/flowbuilder" &&
     location.pathname !== "/flowbuilder/";
 
+  const primaryQuickNavItems = useMemo(
+    () => [
+      {
+        key: "dashboard",
+        title: "Dashboard",
+        label: "Dashboard",
+        path: "/painel",
+        icon: <DashboardIcon style={{ fontSize: 17 }} />,
+      },
+      {
+        key: "relatorios",
+        title: "Relatórios",
+        label: "Relatórios",
+        path: "/relatorios",
+        icon: <BarChartIcon style={{ fontSize: 17 }} />,
+      },
+      {
+        key: "disparos",
+        title: "Disparos",
+        label: "Disparos",
+        path: "/campanhas",
+        icon: <SendIcon style={{ fontSize: 17 }} />,
+      },
+      {
+        key: "campanhas",
+        title: "Campanhas",
+        label: "Campanhas",
+        path: "/phrase-lists",
+        icon: <CampaignOutlinedIcon style={{ fontSize: 17 }} />,
+      },
+      {
+        key: "chat-interno",
+        title: "Chat Interno",
+        label: "Chat Interno",
+        path: "/chats",
+        icon: <ChatBubbleOutlineIcon style={{ fontSize: 17 }} />,
+      },
+      {
+        key: "compromissos",
+        title: "Compromissos",
+        label: "Compromissos",
+        path: "/appointments",
+        icon: <CalendarMonthIcon style={{ fontSize: 17 }} />,
+      },
+    ],
+    []
+  );
+
+  const secondaryQuickNavItems = useMemo(
+    () => [
+      {
+        key: "aquecimento",
+        title: "Aquecimento WhatsApp",
+        label: "Aquecimento",
+        path: "/aquecimento-whatsapp",
+        icon: (
+          <span style={{ fontSize: 15 }} role="img" aria-label="Aquecimento">
+            {String.fromCodePoint(0x1f525)}
+          </span>
+        ),
+      },
+      {
+        key: "chips",
+        title: "Gerenciar Chips (SIM Cards)",
+        label: "Chips",
+        path: "/chips",
+        icon: <SimCardIcon style={{ fontSize: 15 }} />,
+      },
+    ],
+    []
+  );
+
+  const renderQuickNavItems = (items, buttonClassName = classes.quickNavBtn) =>
+    items.map((item) => (
+      <Tooltip key={item.key} title={item.title}>
+        <button
+          type="button"
+          className={`${buttonClassName} ${isActivePath(item.path) ? "quickNavActive" : ""}`}
+          onClick={() => history.push(item.path)}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
+      </Tooltip>
+    ));
+
   const menuGroups = useMemo(
     () => [
       // ── Conversas (grupo compacto: Conversas + Chamadas) ─────────────
@@ -1338,78 +1443,7 @@ const LoggedInLayout = ({ children }) => {
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
               {!isMobile && (
                 <div className={classes.quickNavRow}>
-                  <Tooltip title="Dashboard">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/painel") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/painel")}
-                    >
-                      <DashboardIcon style={{ fontSize: 17 }} />
-                      <span>Dashboard</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Relatórios">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/relatorios") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/relatorios")}
-                    >
-                      <BarChartIcon style={{ fontSize: 17 }} />
-                      <span>Relatórios</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Disparos">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/campanhas") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/campanhas")}
-                    >
-                      <SendIcon style={{ fontSize: 17 }} />
-                      <span>Disparos</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Campanhas">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/phrase-lists") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/phrase-lists")}
-                    >
-                      <CampaignOutlinedIcon style={{ fontSize: 17 }} />
-                      <span>Campanhas</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Chat Interno">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/chats") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/chats")}
-                    >
-                      <ChatBubbleOutlineIcon style={{ fontSize: 17 }} />
-                      <span>Chat Interno</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Compromissos">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/appointments") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/appointments")}
-                    >
-                      <CalendarMonthIcon style={{ fontSize: 17 }} />
-                      <span>Compromissos</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Aquecimento WhatsApp">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/aquecimento-whatsapp") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/aquecimento-whatsapp")}
-                    >
-                      <span style={{ fontSize: 15 }}>🔥</span>
-                      <span>Aquecimento</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip title="Gerenciar Chips (SIM Cards)">
-                    <button
-                      className={`${classes.quickNavBtn} ${isActivePath("/chips") ? "quickNavActive" : ""}`}
-                      onClick={() => history.push("/chips")}
-                    >
-                      <SimCardIcon style={{ fontSize: 15 }} />
-                      <span>Chips</span>
-                    </button>
-                  </Tooltip>
+                  {renderQuickNavItems(primaryQuickNavItems)}
                 </div>
               )}
 
@@ -1473,7 +1507,12 @@ const LoggedInLayout = ({ children }) => {
             </div>
           </Toolbar>
           <div className={classes.secondaryBar}>
-            {/* Espaço reservado para botões de acesso rápido secundários (futuro) */}
+            <div className={classes.secondaryQuickNavRow}>
+              {renderQuickNavItems(
+                secondaryQuickNavItems,
+                `${classes.quickNavBtn} ${classes.secondaryQuickNavBtn}`
+              )}
+            </div>
           </div>
         </AppBar>
       )}

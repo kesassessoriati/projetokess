@@ -242,7 +242,8 @@ const TIPOS = [
   { value: "imovel", label: "Imóvel" },
   { value: "fisico", label: "Físico" },
   { value: "servico", label: "Serviço" },
-  { value: "veiculo", label: "Veículo" }
+  { value: "veiculo", label: "Veículo" },
+  { value: "online", label: "Online" }
 ];
 
 const STATUS_LIST = [
