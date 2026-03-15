@@ -55,7 +55,7 @@ const useStyles = makeStyles((theme) => ({
         height: "calc(100vh - 48px)",
         display: "flex",
         flexDirection: "column",
-        background: "radial-gradient(circle at top left, #eefbf2 0%, #e3f2e8 42%, #dcebe2 100%)",
+        backgroundColor: "#FFFFFF",
         overflow: "hidden",
         marginTop: 0
     },
