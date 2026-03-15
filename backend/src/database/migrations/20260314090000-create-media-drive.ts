@@ -105,6 +105,21 @@ module.exports = {
       });
     }
 
+    // Ensure parent_id column exists before indexing (table may have been created without it)
+    const [[{ count: parentIdCount }]]: any = await queryInterface.sequelize.query(
+      `SELECT COUNT(*) AS count FROM information_schema.columns
+       WHERE table_name = 'media_folders' AND column_name = 'parent_id'`
+    );
+    if (Number(parentIdCount) === 0) {
+      await queryInterface.addColumn("media_folders", "parent_id", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "media_folders", key: "id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE"
+      });
+    }
+
     await addIndexIfNotExists(queryInterface, "media_folders", ["company_id"]);
     await addIndexIfNotExists(queryInterface, "media_folders", ["parent_id"]);
     await addIndexIfNotExists(queryInterface, "media_files", ["company_id"]);
