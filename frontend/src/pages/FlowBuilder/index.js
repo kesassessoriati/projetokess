@@ -500,6 +500,7 @@ const FlowBuilder = () => {
   };
 
   return (
+    <>
     <Box className={classes.root}>
       {/* Modais */}
       <FlowBuilderModal
@@ -805,6 +806,7 @@ const FlowBuilder = () => {
         </Button>
       </DialogActions>
     </Dialog>
+    </>
   );
 };
 
