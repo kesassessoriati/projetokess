@@ -4,7 +4,8 @@ import Button from "@material-ui/core/Button";
 import { useDate } from "../../hooks/useDate";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
-const packageVersion = require("../../../package.json").version;
+import pkg from "../../../package.json";
+const packageVersion = pkg.version;
 
 const VersionControl = () => {
   const { returnDays } = useDate();
