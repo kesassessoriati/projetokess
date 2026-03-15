@@ -5711,6 +5711,25 @@ const handleMessage = async (
       );
     }
 
+    // FlowCampaign / FlowDefault sem integração configurada no canal
+    if (
+      !ticket.imported &&
+      !msg.key.fromMe &&
+      !ticket.isGroup &&
+      !ticket.useIntegration &&
+      isNil(whatsapp.integrationId)
+    ) {
+      await flowbuilderIntegration(
+        msg,
+        wbot,
+        companyId,
+        undefined,
+        ticket,
+        contact,
+        isFirstMsg
+      );
+    }
+
     console.log("I - check typebot");
     console.log("Ticket.typebotSessionId: ", ticket.typebotSessionId);
     if (
