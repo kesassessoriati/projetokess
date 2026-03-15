@@ -1,6 +1,6 @@
 import { BaseProvider } from "./BaseProvider";
 
-import Jimp from "jimp";
+import fs from "fs";
 
 export class WhaileysProvider extends BaseProvider {
   // Whaileys (WAPI) is often a drop-in replacement or similar API to baileys
@@ -99,9 +99,7 @@ export class WhaileysProvider extends BaseProvider {
     if (typeof this.connection.updateProfilePicture !== "function") {
       throw new Error("Atualizacao de foto nao suportada nesta conexao.");
     }
-    const image = await Jimp.read(filePath);
-    image.cover(640, 640);
-    const buffer = await image.quality(90).getBufferAsync(Jimp.MIME_JPEG);
+    const buffer = await fs.promises.readFile(filePath);
     return await this.connection.updateProfilePicture(groupJid, buffer);
   }
 
