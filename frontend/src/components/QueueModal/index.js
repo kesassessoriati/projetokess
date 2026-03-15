@@ -114,7 +114,7 @@ const useStyles = makeStyles((theme) => ({
     overflow: 'hidden',
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
+    backgroundColor: "#000000",
     color: "white",
     padding: "16px 24px",
     fontSize: "1.25rem",
@@ -149,12 +149,12 @@ const useStyles = makeStyles((theme) => ({
   },
   saveButton: {
     color: "white",
-    backgroundColor: "#437db5",
+    backgroundColor: "#000000",
     boxShadow: "none",
     borderRadius: "5px",
     fontSize: "12px",
     "&:hover": {
-      backgroundColor: "#356a9a",
+      backgroundColor: "#1f1f1f",
     },
   },
   fieldIcon: {
