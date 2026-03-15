@@ -987,6 +987,13 @@ const LoggedInLayout = ({ children }) => {
         path: "/appointments",
         icon: <CalendarMonthIcon style={{ fontSize: 17 }} />,
       },
+      {
+        key: "chat-agendamento",
+        title: "Chat Agendamento",
+        label: "Chat Agendamento",
+        path: "/lembretes",
+        icon: <ScheduleIcon style={{ fontSize: 17 }} />,
+      },
     ],
     []
   );
@@ -1078,7 +1085,7 @@ const LoggedInLayout = ({ children }) => {
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
           { title: "Automações", path: "/automations" },
-          { title: "Lembretes", path: "/lembretes" },
+          { title: "Chat Agendamento", path: "/lembretes" },
         ],
       },
       {
