@@ -83,6 +83,7 @@ import ShareIcon from "@material-ui/icons/Share";
 import ChatIcon from "@material-ui/icons/Chat";
 import ExtensionIcon from "@material-ui/icons/Extension";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
+import SimCardIcon from "@mui/icons-material/SimCard";
 import QuestionAnswerIcon from "@material-ui/icons/QuestionAnswer";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import VideoLibraryIcon from "@material-ui/icons/VideoLibrary";
@@ -944,6 +945,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gestão de Grupos", path: "/group-management", icon: <GroupWorkIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Follow-ups", path: "/follow-ups", icon: <ScheduleIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Chips (SIM Cards)", path: "/chips", icon: <SimCardIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Aquecimento WhatsApp", path: "/aquecimento-whatsapp", icon: <FlashOnIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
@@ -1397,6 +1399,15 @@ const LoggedInLayout = ({ children }) => {
                     >
                       <span style={{ fontSize: 15 }}>🔥</span>
                       <span>Aquecimento</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip title="Gerenciar Chips (SIM Cards)">
+                    <button
+                      className={`${classes.quickNavBtn} ${isActivePath("/chips") ? "quickNavActive" : ""}`}
+                      onClick={() => history.push("/chips")}
+                    >
+                      <SimCardIcon style={{ fontSize: 15 }} />
+                      <span>Chips</span>
                     </button>
                   </Tooltip>
                 </div>

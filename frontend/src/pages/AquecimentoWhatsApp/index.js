@@ -51,6 +51,8 @@ import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
 import StopIcon from "@material-ui/icons/Stop";
 import ScheduleIcon from "@material-ui/icons/Schedule";
 
+import { useHistory } from "react-router-dom";
+import SimCardIcon from "@mui/icons-material/SimCard";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 // eslint-disable-next-line no-unused-vars
@@ -1828,6 +1830,7 @@ export default function AquecimentoWhatsApp() {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const { socket } = useSocket();
+  const history = useHistory();
 
   // Summary state
   const [summary, setSummary] = useState([]);
@@ -2084,7 +2087,14 @@ export default function AquecimentoWhatsApp() {
             </Box>
           </Box>
           <Box className={classes.headerActions}>
-          <Button 
+          <Button
+            className={classes.secondaryBtn}
+            startIcon={<SimCardIcon />}
+            onClick={() => history.push("/chips")}
+          >
+            Gerenciar Chips
+          </Button>
+          <Button
             className={classes.secondaryBtn}
             startIcon={<AutorenewIcon />}
             onClick={fetchSummary}
@@ -2092,7 +2102,7 @@ export default function AquecimentoWhatsApp() {
           >
             Sincronizar
           </Button>
-          <Button 
+          <Button
             className={classes.primaryBtn}
             startIcon={<PlayArrowIcon />}
             onClick={() => {
