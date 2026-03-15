@@ -23,6 +23,13 @@ import FileCopyIcon from "@material-ui/icons/FileCopy";
 import GetAppIcon from "@material-ui/icons/GetApp";
 import PublishIcon from "@material-ui/icons/Publish";
 import AndroidIcon from "@material-ui/icons/Android";
+import HistoryIcon from "@material-ui/icons/History";
+import Table from "@material-ui/core/Table";
+import TableBody from "@material-ui/core/TableBody";
+import TableCell from "@material-ui/core/TableCell";
+import TableHead from "@material-ui/core/TableHead";
+import TableRow from "@material-ui/core/TableRow";
+import Tooltip from "@material-ui/core/Tooltip";
 
 import Dialog from "@material-ui/core/Dialog";
 import DialogTitle from "@material-ui/core/DialogTitle";
@@ -320,6 +327,11 @@ const FlowBuilder = () => {
   const [importFile, setImportFile] = useState(null);
   const [importLoading, setImportLoading] = useState(false);
 
+  const [executionsOpen, setExecutionsOpen] = useState(false);
+  const [executionsFlow, setExecutionsFlow] = useState(null);
+  const [executions, setExecutions] = useState([]);
+  const [executionsLoading, setExecutionsLoading] = useState(false);
+
   useEffect(() => {
     const fetchFlows = async () => {
       setLoading(true);
@@ -378,6 +390,19 @@ const FlowBuilder = () => {
     }
     setDeletingFlow(null);
     setConfirmDuplicateOpen(false);
+  };
+
+  const handleOpenExecutions = async (flow) => {
+    setExecutionsFlow(flow);
+    setExecutionsOpen(true);
+    setExecutionsLoading(true);
+    try {
+      const { data } = await api.get(`/flowbuilder/executions?flowId=${flow.id}`);
+      setExecutions(data.executions || []);
+    } catch (err) {
+      toastError(err);
+    }
+    setExecutionsLoading(false);
   };
 
   const handleExportFlow = async (flowId) => {
@@ -641,6 +666,16 @@ const FlowBuilder = () => {
                   >
                     <GetAppIcon fontSize="small" />
                   </IconButton>
+                  <Tooltip title="Logs de Execução">
+                    <IconButton
+                      size="small"
+                      className={classes.actionButton}
+                      style={{ color: "#7c3aed" }}
+                      onClick={() => handleOpenExecutions(flow)}
+                    >
+                      <HistoryIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <IconButton
                     size="small"
                     className={`${classes.actionButton} ${classes.deleteButton}`}
@@ -664,6 +699,112 @@ const FlowBuilder = () => {
         )}
       </Box>
     </Box>
+
+    {/* Modal de Logs de Execução */}
+    <Dialog
+      open={executionsOpen}
+      onClose={() => setExecutionsOpen(false)}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>
+        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+          <HistoryIcon style={{ color: "#7c3aed" }} />
+          Logs de Execução — {executionsFlow?.name}
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        {executionsLoading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : executions.length === 0 ? (
+          <Box p={3} textAlign="center">
+            <Typography color="textSecondary">Nenhuma execução registrada ainda.</Typography>
+            <Typography variant="caption" color="textSecondary">
+              As execuções aparecem aqui após o fluxo ser disparado por campanha, boas-vindas ou webhook.
+            </Typography>
+          </Box>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Data</TableCell>
+                <TableCell>Trigger</TableCell>
+                <TableCell>Frase</TableCell>
+                <TableCell>Contato</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Duração</TableCell>
+                <TableCell>Erro</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {executions.map((exec) => (
+                <TableRow key={exec.id}>
+                  <TableCell style={{ whiteSpace: "nowrap", fontSize: 12 }}>
+                    {new Date(exec.createdAt).toLocaleString("pt-BR")}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={exec.trigger}
+                      style={{
+                        backgroundColor:
+                          exec.trigger === "campaign" ? "#dbeafe" :
+                          exec.trigger === "webhook" ? "#ede9fe" :
+                          exec.trigger === "welcome" ? "#dcfce7" : "#fef3c7",
+                        fontSize: 11,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell style={{ fontSize: 12, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {exec.triggerPhrase || "—"}
+                  </TableCell>
+                  <TableCell style={{ fontSize: 12 }}>{exec.contactNumber || "—"}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={exec.status}
+                      style={{
+                        backgroundColor:
+                          exec.status === "completed" ? "#dcfce7" :
+                          exec.status === "error" ? "#fee2e2" :
+                          exec.status === "stopped" ? "#fef3c7" : "#e0f2fe",
+                        color:
+                          exec.status === "completed" ? "#166534" :
+                          exec.status === "error" ? "#991b1b" :
+                          exec.status === "stopped" ? "#92400e" : "#0369a1",
+                        fontSize: 11,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell style={{ fontSize: 12 }}>
+                    {exec.durationMs ? `${exec.durationMs}ms` : "—"}
+                  </TableCell>
+                  <TableCell style={{ fontSize: 11, color: "#dc2626", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <Tooltip title={exec.errorMessage || ""}>
+                      <span>{exec.errorMessage ? exec.errorMessage.substring(0, 60) + (exec.errorMessage.length > 60 ? "…" : "") : "—"}</span>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={() => handleOpenExecutions(executionsFlow)}
+          color="primary"
+          size="small"
+        >
+          Atualizar
+        </Button>
+        <Button onClick={() => setExecutionsOpen(false)} color="default" size="small">
+          Fechar
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

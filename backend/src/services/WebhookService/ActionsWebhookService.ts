@@ -237,7 +237,7 @@ export const ActionsWebhookService = async (
     const lengthLoop = nodes.length;
     const whatsapp = await GetDefaultWhatsApp(whatsappId, companyId);
 
-    // Função para verificar se ticket tem usuário atribuído e pausar fluxo se necessário
+    // Parar o fluxo apenas se o ticket estiver "open" com agente ativo
     const checkAndCloseTicketIfAssigned = async (ticketId: string) => {
       try {
         const ticket = await Ticket.findOne({
@@ -245,9 +245,10 @@ export const ActionsWebhookService = async (
           include: [{ model: User, as: "user" }]
         });
 
-        if (ticket && ticket.userId) {
-          console.log(`Ticket ${ticketId} está com usuário ${ticket.user?.name}, pausando fluxo automático`);
-          return true; // Para o fluxo mas não fecha o ticket
+        // Só pausa o fluxo se o ticket estiver aberto (agente ativamente atendendo)
+        if (ticket && ticket.userId && ticket.status === "open") {
+          console.log(`Ticket ${ticketId} está aberto com agente ${ticket.user?.name}, pausando fluxo automático`);
+          return true;
         }
 
         return false; // Continua o fluxo normalmente
