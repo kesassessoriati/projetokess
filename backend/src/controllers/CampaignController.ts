@@ -11,6 +11,7 @@ import ShowService from "../services/CampaignService/ShowService";
 import UpdateService from "../services/CampaignService/UpdateService";
 import DeleteService from "../services/CampaignService/DeleteService";
 import FindService from "../services/CampaignService/FindService";
+import GetAnalyticsOverviewService from "../services/CampaignService/GetAnalyticsOverviewService";
 
 import Campaign from "../models/Campaign";
 
@@ -63,6 +64,17 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   });
 
   return res.json({ records, count, hasMore });
+};
+
+export const analyticsOverview = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+
+  const analytics = await GetAnalyticsOverviewService(companyId);
+
+  return res.status(200).json(analytics);
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {

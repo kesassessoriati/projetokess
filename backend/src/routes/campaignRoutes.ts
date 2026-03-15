@@ -10,6 +10,7 @@ const upload = multer(uploadConfig);
 const routes = express.Router();
 
 routes.get("/campaigns/list", isAuth, CampaignController.findList);
+routes.get("/campaigns/analytics/overview", isAuth, CampaignController.analyticsOverview);
 routes.get("/campaigns", isAuth, CampaignController.index);
 routes.get("/campaigns/:id", isAuth, CampaignController.show);
 routes.post("/campaigns", isAuth, CampaignController.store);

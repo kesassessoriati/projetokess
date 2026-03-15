@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer, useContext, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
@@ -18,6 +18,11 @@ import {
   Tooltip,
   CircularProgress,
   Chip,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
 } from "@material-ui/core";
 
 import SearchIcon from "@material-ui/icons/Search";
@@ -39,6 +44,7 @@ import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
 import CloseIcon from "@material-ui/icons/Close";
 import EmailIcon from "@material-ui/icons/Email";
 import PhoneIcon from "@material-ui/icons/Phone";
+import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -56,6 +62,7 @@ import ForbiddenPage from "../../components/ForbiddenPage";
 import usePlans from "../../hooks/usePlans";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useSocket } from "../../context/SocketContext";
+import Chart from "react-apexcharts";
 
 // ── Reducers ──────────────────────────────────────────────────────────────────
 const campaignReducer = (state, action) => {
@@ -120,6 +127,48 @@ const listReducer = (state, action) => {
   return state;
 };
 
+const TAB_INDEX = {
+  METRICS: 0,
+  WHATSAPP: 1,
+  EMAIL: 2,
+  CONTACTS: 3,
+};
+
+const STATUS_META = {
+  FINALIZADA: { label: "Finalizadas", color: "#16a34a" },
+  EM_ANDAMENTO: { label: "Em andamento", color: "#f59e0b" },
+  PROGRAMADA: { label: "Programadas", color: "#2563eb" },
+  CANCELADA: { label: "Canceladas", color: "#dc2626" },
+  INATIVA: { label: "Inativas", color: "#6b7280" },
+};
+
+const formatCompactDate = (value) => {
+  if (!value) return "Sem data";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+};
+
+const formatFullDate = (value) => {
+  if (!value) return "Sem data";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const formatInteger = (value) => Number(value || 0).toLocaleString("pt-BR");
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -131,11 +180,11 @@ const useStyles = makeStyles((theme) => ({
   },
   tabsShell: {
     margin: "14px 14px 10px",
-    padding: 6,
-    borderRadius: 16,
-    border: "1px solid #d4e3d8",
-    backgroundColor: "#ffffffd9",
-    boxShadow: "0 8px 24px rgba(16,24,40,0.06)",
+    padding: 8,
+    borderRadius: 18,
+    border: "1px solid #1f2937",
+    background: "linear-gradient(135deg, #0f1115 0%, #151922 100%)",
+    boxShadow: "0 14px 28px rgba(15, 23, 42, 0.28)",
     backdropFilter: "blur(2px)",
   },
   tabsBar: {
@@ -147,26 +196,26 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   tab: {
-    color: "#3c4b42",
-    fontWeight: 600,
+    color: "#ffffff",
+    fontWeight: 700,
     fontSize: "0.84rem",
     minWidth: 196,
     minHeight: 54,
     borderRadius: 12,
     marginRight: 8,
-    border: "1px solid #d3e1d7",
-    backgroundColor: "#f7fbf8",
+    border: "1px solid #16181d",
+    backgroundColor: "#0f1115",
     textTransform: "none",
     transition: "all .2s ease",
     "&:hover": {
-      backgroundColor: "#edf7f1",
-      borderColor: "#8fc9a1",
+      backgroundColor: "#171a20",
+      borderColor: "#2a2f38",
     },
     "&.Mui-selected": {
       color: "#ffffff",
-      background: "linear-gradient(135deg, #21a65b 0%, #168747 100%)",
-      borderColor: "#11753f",
-      boxShadow: "0 10px 24px rgba(24,135,71,.34)",
+      backgroundColor: "#1f9d55",
+      borderColor: "#1f9d55",
+      boxShadow: "0 12px 26px rgba(31,157,85,.34)",
     },
     "&.Mui-focusVisible": {
       boxShadow: "0 0 0 3px rgba(31,157,85,.3)",
@@ -188,7 +237,7 @@ const useStyles = makeStyles((theme) => ({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(12,78,36,0.08)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     "& svg": { fontSize: 16 },
     ".Mui-selected &": {
       backgroundColor: "rgba(255,255,255,0.2)",
@@ -206,7 +255,7 @@ const useStyles = makeStyles((theme) => ({
   },
   tabHelper: {
     fontSize: "0.67rem",
-    opacity: 0.82,
+    opacity: 0.74,
     marginTop: 2,
     whiteSpace: "nowrap",
   },
@@ -221,7 +270,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "0.72rem",
     fontWeight: 700,
     padding: "0 6px",
-    backgroundColor: "rgba(12,78,36,0.10)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    color: "#ffffff",
     ".Mui-selected &": {
       color: "#0b4d2b",
       backgroundColor: "#ffffff",
@@ -482,77 +532,297 @@ const useStyles = makeStyles((theme) => ({
     height: 30,
     borderRadius: 7,
   },
-  // Metrics
-  metricsContainer: { padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 },
-  sectionTitle: { fontSize: "0.95rem", fontWeight: 800, color: "#132218" },
-  metricCard: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: "16px 18px",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-    display: "flex",
-    alignItems: "center",
-    gap: 13,
-    "&:hover": { boxShadow: "0 3px 10px rgba(0,0,0,0.11)" },
-  },
-  metricIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 11,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    "& svg": { fontSize: 22 },
-  },
-  metricValue: { fontSize: "1.7rem", fontWeight: 800, lineHeight: 1.1 },
-  metricLabel: { fontSize: "0.76rem", color: "#666", marginTop: 2 },
-  progressSection: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: "16px 18px",
-    boxShadow: "0 4px 14px rgba(16,24,40,0.07)",
-    border: "1px solid #e4ece7",
-  },
-  progressRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 },
-  progressLabel: { fontSize: "0.8rem", fontWeight: 600, color: "#333" },
-  progressCount: { fontSize: "0.78rem", color: "#888" },
-  progressBarTrack: {
-    height: 8,
-    borderRadius: 6,
-    marginBottom: 12,
-    backgroundColor: "#e9efeb",
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 6,
-    transition: "width .25s ease",
-  },
+  // Module overview
   summaryRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0,1fr))",
-    gap: 10,
+    gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+    gap: 12,
     margin: "0 14px 12px",
+    [theme.breakpoints.down("md")]: {
+      gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+    },
     [theme.breakpoints.down("sm")]: {
       gridTemplateColumns: "1fr",
     },
   },
   summaryCard: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #dbe6dd",
-    borderRadius: 12,
-    boxShadow: "0 5px 14px rgba(16,24,40,0.05)",
-    padding: "11px 12px",
-    transition: "all .2s ease",
+    background: "linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(247,251,248,0.96) 100%)",
+    border: "1px solid #d9e7de",
+    borderRadius: 16,
+    boxShadow: "0 10px 26px rgba(16,24,40,0.08)",
+    padding: "14px 16px",
+    minHeight: 92,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
   },
-  summaryCardActive: {
-    borderColor: "#86c39f",
-    boxShadow: "0 10px 24px rgba(24,135,71,.18)",
-    background: "linear-gradient(180deg, #ffffff 0%, #f2fbf5 100%)",
+  summaryLabel: {
+    fontSize: "0.76rem",
+    color: "#607468",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: ".05em",
   },
-  summaryLabel: { fontSize: "0.75rem", color: "#5b7165", fontWeight: 600 },
-  summaryValue: { fontSize: "1.06rem", color: "#11221a", fontWeight: 800, marginTop: 2 },
+  summaryValue: { fontSize: "1.35rem", color: "#0f1720", fontWeight: 800, marginTop: 6 },
+  summaryFootnote: {
+    fontSize: "0.76rem",
+    color: "#62756a",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  // Metrics dashboard
+  metricsContainer: { padding: "6px 0 0", display: "flex", flexDirection: "column", gap: 18 },
+  dashboardHero: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 22,
+    padding: "24px 24px 22px",
+    border: "1px solid #193926",
+    background: "linear-gradient(135deg, #101418 0%, #15241b 45%, #1f9d55 140%)",
+    boxShadow: "0 18px 40px rgba(15,23,42,0.24)",
+    color: "#ffffff",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.5fr) minmax(320px, 1fr)",
+    gap: 18,
+    "&::after": {
+      content: "\"\"",
+      position: "absolute",
+      inset: "auto -10% -45% auto",
+      width: 280,
+      height: 280,
+      borderRadius: "50%",
+      background: "radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 68%)",
+    },
+    [theme.breakpoints.down("md")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  heroEyebrow: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 12px",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    letterSpacing: ".06em",
+    textTransform: "uppercase",
+  },
+  heroTitle: {
+    marginTop: 16,
+    fontSize: "2rem",
+    fontWeight: 800,
+    lineHeight: 1.08,
+    letterSpacing: "-0.04em",
+    [theme.breakpoints.down("sm")]: {
+      fontSize: "1.5rem",
+    },
+  },
+  heroSubtitle: {
+    marginTop: 12,
+    maxWidth: 700,
+    color: "rgba(255,255,255,0.78)",
+    fontSize: "0.93rem",
+    lineHeight: 1.6,
+  },
+  heroInsightGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+    gap: 12,
+    alignSelf: "stretch",
+    position: "relative",
+    zIndex: 1,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  heroInsightCard: {
+    borderRadius: 18,
+    padding: "18px 18px 16px",
+    backgroundColor: "rgba(6, 10, 14, 0.32)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+  },
+  heroInsightLabel: {
+    fontSize: "0.76rem",
+    textTransform: "uppercase",
+    letterSpacing: ".05em",
+    color: "rgba(255,255,255,0.62)",
+    fontWeight: 700,
+  },
+  heroInsightValue: {
+    marginTop: 8,
+    fontSize: "1.45rem",
+    fontWeight: 800,
+  },
+  heroInsightText: {
+    marginTop: 6,
+    fontSize: "0.8rem",
+    color: "rgba(255,255,255,0.68)",
+  },
+  sectionTitle: { fontSize: "1rem", fontWeight: 800, color: "#132218", letterSpacing: "-0.02em" },
+  kpiGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(6, minmax(0,1fr))",
+    gap: 12,
+    [theme.breakpoints.down("lg")]: {
+      gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+    },
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  metricCard: {
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%)",
+    borderRadius: 18,
+    padding: "18px",
+    boxShadow: "0 14px 30px rgba(16,24,40,0.08)",
+    border: "1px solid #dce9e1",
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+    minHeight: 168,
+  },
+  metricIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.26), 0 12px 24px rgba(15,23,42,0.10)",
+    "& svg": { fontSize: 24 },
+  },
+  metricLabel: {
+    fontSize: "0.78rem",
+    color: "#677a70",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: ".05em",
+  },
+  metricValue: {
+    fontSize: "1.9rem",
+    fontWeight: 800,
+    lineHeight: 1.05,
+    color: "#111827",
+    marginTop: 6,
+  },
+  metricHint: { fontSize: "0.8rem", color: "#617366", lineHeight: 1.5 },
+  chartsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(12, minmax(0,1fr))",
+    gap: 14,
+    [theme.breakpoints.down("md")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  chartCard: {
+    background: "linear-gradient(180deg, #ffffff 0%, #f9fcfa 100%)",
+    borderRadius: 18,
+    border: "1px solid #dce8e1",
+    boxShadow: "0 14px 32px rgba(16,24,40,0.08)",
+    padding: "18px 18px 12px",
+    minHeight: 360,
+    display: "flex",
+    flexDirection: "column",
+  },
+  chartCardLarge: { gridColumn: "span 7" },
+  chartCardMedium: { gridColumn: "span 5" },
+  chartCardWide: { gridColumn: "span 8" },
+  chartCardCompact: { gridColumn: "span 4" },
+  chartHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 16,
+  },
+  chartTitleWrap: { minWidth: 0 },
+  chartTitle: {
+    fontSize: "1rem",
+    fontWeight: 800,
+    color: "#10221a",
+    letterSpacing: "-0.02em",
+  },
+  chartSubtitle: {
+    marginTop: 5,
+    fontSize: "0.82rem",
+    color: "#64776b",
+    lineHeight: 1.5,
+  },
+  chartBadge: {
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: "0.74rem",
+    fontWeight: 700,
+    color: "#14532d",
+    backgroundColor: "#eaf7ef",
+    border: "1px solid #cde7d4",
+    whiteSpace: "nowrap",
+  },
+  chartBody: { flex: 1, minHeight: 260 },
+  emptyChartState: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#788c80",
+    fontSize: "0.88rem",
+    border: "1px dashed #d6e5dd",
+    borderRadius: 16,
+    backgroundColor: "#fbfdfc",
+  },
+  dataTableCard: {
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%)",
+    borderRadius: 18,
+    border: "1px solid #dce8e1",
+    boxShadow: "0 14px 32px rgba(16,24,40,0.08)",
+    padding: "18px",
+  },
+  dataTableScroll: {
+    overflowX: "auto",
+    borderRadius: 14,
+    border: "1px solid #e2ebe5",
+    backgroundColor: "#fbfdfc",
+  },
+  tableHeadCell: {
+    fontSize: "0.77rem",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: ".05em",
+    color: "#5b6e63",
+    backgroundColor: "#f3f8f5",
+    borderBottom: "1px solid #e1eae4",
+  },
+  tableCell: {
+    borderBottom: "1px solid #edf3ef",
+    fontSize: "0.82rem",
+    color: "#11221a",
+    whiteSpace: "nowrap",
+  },
+  tableNameCell: {
+    fontWeight: 700,
+    color: "#0f1720",
+  },
+  channelPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: "0.74rem",
+    fontWeight: 700,
+    border: "1px solid transparent",
+  },
+  tableEmptyState: {
+    padding: "24px 20px",
+    textAlign: "center",
+    color: "#708378",
+  },
 }));
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -560,7 +830,7 @@ const Campaigns = () => {
   const classes = useStyles();
   const history = useHistory();
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(TAB_INDEX.METRICS);
   const { user } = useContext(AuthContext);
   const { isConnected, on } = useSocket();
   const { datetimeToClient } = useDate();
@@ -578,6 +848,8 @@ const Campaigns = () => {
   const [searchParam, setSearchParam] = useState("");
   const [emailCampaignModalOpen, setEmailCampaignModalOpen] = useState(false);
   const [selectedEmailCampaign, setSelectedEmailCampaign] = useState(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [metricsData, setMetricsData] = useState(null);
 
   // Contact lists state
   const [contactLists, listDispatch] = useReducer(listReducer, []);
@@ -604,6 +876,20 @@ const Campaigns = () => {
   const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState(null);
 
+  const fetchMetrics = useCallback(async () => {
+    if (!user?.companyId) return;
+
+    try {
+      setMetricsLoading(true);
+      const { data } = await api.get("/campaigns/analytics/overview");
+      setMetricsData(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, [user?.companyId]);
+
   // Plan check
   useEffect(() => {
     (async () => {
@@ -615,6 +901,10 @@ const Campaigns = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
 
   // Campaigns fetch
   useEffect(() => { dispatch({ type: "RESET" }); setPageNumber(1); }, [searchParam]);
@@ -659,15 +949,17 @@ const Campaigns = () => {
         dispatch({ type: "UPDATE_CAMPAIGNS", payload: data.record });
       if (data.action === "delete")
         dispatch({ type: "DELETE_CAMPAIGN", payload: +data.id });
+      fetchMetrics();
     });
     const c2 = on(`company-${cid}-ContactList`, (data) => {
       if (data.action === "update" || data.action === "create")
         listDispatch({ type: "UPDATE_CONTACTLIST", payload: data.record });
       if (data.action === "delete")
         listDispatch({ type: "DELETE_CONTACTLIST", payload: +data.id });
+      fetchMetrics();
     });
     return () => { c1(); c2(); };
-  }, [isConnected, on, user?.companyId]);
+  }, [fetchMetrics, isConnected, on, user?.companyId]);
 
   // Reset list items page when search changes
   useEffect(() => {
@@ -709,12 +1001,14 @@ const Campaigns = () => {
   const handleDeleteCampaign = async (id) => {
     try { await api.delete(`/campaigns/${id}`); toast.success(i18n.t("campaigns.toasts.deleted")); }
     catch (err) { toastError(err); }
+    fetchMetrics();
     setDeletingCampaign(null); setSearchParam(""); setPageNumber(1);
   };
 
   const handleDeleteList = async (id) => {
     try { await api.delete(`/contact-lists/${id}`); toast.success(i18n.t("contactLists.toasts.deleted")); }
     catch (err) { toastError(err); }
+    fetchMetrics();
     setDeletingList(null); setListSearch(""); setListPage(1);
   };
 
@@ -732,6 +1026,7 @@ const Campaigns = () => {
       setListItems((prev) => prev.filter((c) => c.id !== id));
       if (viewingList) listDispatch({ type: "ADJUST_COUNT", payload: { id: viewingList.id, delta: -1 } });
       toast.success("Contato removido");
+      fetchMetrics();
     } catch (err) { toastError(err); }
     setDeletingItem(null);
   };
@@ -745,6 +1040,7 @@ const Campaigns = () => {
   const refreshListItems = () => {
     setListItems([]);
     setListItemPage(1);
+    fetchMetrics();
     // Re-fetch this list from server to get updated contactsCount
     if (viewingList) {
       api.get(`/contact-lists/${viewingList.id}`)
@@ -765,22 +1061,273 @@ const Campaigns = () => {
     return <Chip label={c.label} size="small" className={classes.statusChip} style={{ backgroundColor: c.bg, color: c.color }} />;
   };
 
-  const metricsByStatus = {
-    FINALIZADA: campaigns.filter((c) => c.status === "FINALIZADA").length,
-    EM_ANDAMENTO: campaigns.filter((c) => c.status === "EM_ANDAMENTO").length,
-    PROGRAMADA: campaigns.filter((c) => c.status === "PROGRAMADA").length,
-    CANCELADA: campaigns.filter((c) => c.status === "CANCELADA").length,
-    INATIVA: campaigns.filter((c) => c.status === "INATIVA").length,
+  const metricsSummary = metricsData?.summary || {
+    totalWhatsAppSends: 0,
+    totalEmailSends: 0,
+    activeCampaigns: 0,
+    messagesDelivered: 0,
+    failureRate: 0,
+    totalContacts: 0,
+    totalCampaigns: campaigns.length,
+    totalWhatsAppCampaigns: campaigns.filter((c) => !c.campaignType || c.campaignType === "whatsapp").length,
+    totalEmailCampaigns: campaigns.filter((c) => c.campaignType === "email").length,
+    totalContactLists: contactLists.length,
+    averageDeliveryRate: 0,
   };
-  const totalCampaigns = campaigns.length;
   const emailCampaigns = campaigns.filter((c) => c.campaignType === "email");
   const whatsappCampaigns = campaigns.filter((c) => !c.campaignType || c.campaignType === "whatsapp");
+  const statusDistribution = useMemo(
+    () => metricsData?.series?.statusDistribution || [],
+    [metricsData]
+  );
+  const metricsByStatus = useMemo(
+    () => Object.keys(STATUS_META).reduce((acc, key) => {
+      const found = statusDistribution.find((item) => item.status === key);
+      acc[key] = found?.count || 0;
+      return acc;
+    }, {}),
+    [statusDistribution]
+  );
+  const messagesOverTime = useMemo(
+    () => metricsData?.series?.messagesOverTime || [],
+    [metricsData]
+  );
+  const channelComparison = useMemo(
+    () => metricsData?.series?.channelComparison || [],
+    [metricsData]
+  );
+  const deliveryBreakdown = useMemo(
+    () => metricsData?.series?.deliveryBreakdown || [],
+    [metricsData]
+  );
+  const campaignPerformance = useMemo(
+    () => metricsData?.campaignPerformance || [],
+    [metricsData]
+  );
+  const totalCampaigns = metricsSummary.totalCampaigns || campaigns.length;
+  const deliveryTotals = deliveryBreakdown.reduce((acc, item) => acc + Number(item.value || 0), 0);
+  const performanceHighlights = [
+    {
+      label: "Taxa média de entrega",
+      value: `${Number(metricsSummary.averageDeliveryRate || 0).toFixed(1)}%`,
+      helper: deliveryTotals > 0 ? `${formatInteger(metricsSummary.messagesDelivered)} mensagens entregues` : "Sem histórico de envios ainda",
+    },
+    {
+      label: "Campanhas ativas",
+      value: formatInteger(metricsSummary.activeCampaigns),
+      helper: `${formatInteger(metricsByStatus.PROGRAMADA || 0)} programadas e ${formatInteger(metricsByStatus.EM_ANDAMENTO || 0)} em andamento`,
+    },
+    {
+      label: "Falhas monitoradas",
+      value: `${Number(metricsSummary.failureRate || 0).toFixed(1)}%`,
+      helper: "Baseado no volume total de tentativas processadas",
+    },
+    {
+      label: "Base de contatos",
+      value: formatInteger(metricsSummary.totalContacts),
+      helper: `${formatInteger(metricsSummary.totalContactLists)} listas ativas conectadas ao módulo`,
+    },
+  ];
+  const overviewCards = [
+    {
+      label: "Campanhas",
+      value: formatInteger(metricsSummary.totalCampaigns),
+      footnote: `${formatInteger(metricsSummary.activeCampaigns)} em operação`,
+    },
+    {
+      label: "Contatos em listas",
+      value: formatInteger(metricsSummary.totalContacts),
+      footnote: `${formatInteger(metricsSummary.totalContactLists)} bases cadastradas`,
+    },
+    {
+      label: "Mensagens entregues",
+      value: formatInteger(metricsSummary.messagesDelivered),
+      footnote: `${Number(metricsSummary.averageDeliveryRate || 0).toFixed(1)}% de entrega média`,
+    },
+    {
+      label: "Taxa de falha",
+      value: `${Number(metricsSummary.failureRate || 0).toFixed(1)}%`,
+      footnote: "Monitoramento consolidado por canal",
+    },
+  ];
+  const kpiCards = [
+    {
+      label: "Total WhatsApp Sends",
+      value: formatInteger(metricsSummary.totalWhatsAppSends),
+      hint: `${formatInteger(metricsSummary.totalWhatsAppCampaigns)} campanhas WhatsApp no módulo`,
+      Icon: WhatsAppIcon,
+      iconColor: "#16a34a",
+      iconBg: "#dcfce7",
+    },
+    {
+      label: "Total Email Sends",
+      value: formatInteger(metricsSummary.totalEmailSends),
+      hint: `${formatInteger(metricsSummary.totalEmailCampaigns)} campanhas de e-mail cadastradas`,
+      Icon: EmailIcon,
+      iconColor: "#2563eb",
+      iconBg: "#dbeafe",
+    },
+    {
+      label: "Active Campaigns",
+      value: formatInteger(metricsSummary.activeCampaigns),
+      hint: "Campanhas em andamento ou aguardando disparo",
+      Icon: ScheduleIcon,
+      iconColor: "#d97706",
+      iconBg: "#fef3c7",
+    },
+    {
+      label: "Messages Delivered",
+      value: formatInteger(metricsSummary.messagesDelivered),
+      hint: "Tentativas concluídas com entrega registrada",
+      Icon: CheckCircleIcon,
+      iconColor: "#15803d",
+      iconBg: "#dcfce7",
+    },
+    {
+      label: "Failure Rate",
+      value: `${Number(metricsSummary.failureRate || 0).toFixed(1)}%`,
+      hint: "Falhas acumuladas sobre o total processado",
+      Icon: CancelIcon,
+      iconColor: "#dc2626",
+      iconBg: "#fee2e2",
+    },
+    {
+      label: "Total Contacts",
+      value: formatInteger(metricsSummary.totalContacts),
+      hint: "Contatos disponíveis nas listas para campanhas",
+      Icon: PeopleIcon,
+      iconColor: "#0f766e",
+      iconBg: "#ccfbf1",
+    },
+  ];
+  const messagesOverTimeSeries = [
+    { name: "WhatsApp", data: messagesOverTime.map((item) => item.whatsapp || 0) },
+    { name: "E-mail", data: messagesOverTime.map((item) => item.email || 0) },
+  ];
+  const messagesOverTimeOptions = useMemo(
+    () => ({
+      chart: { type: "line", toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit" },
+      stroke: { curve: "smooth", width: 3 },
+      colors: ["#16a34a", "#2563eb"],
+      grid: { borderColor: "#e5ece7", strokeDashArray: 4 },
+      dataLabels: { enabled: false },
+      legend: { position: "top", horizontalAlign: "left" },
+      tooltip: { shared: true, theme: "light" },
+      xaxis: {
+        categories: messagesOverTime.map((item) => formatCompactDate(item.date)),
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      yaxis: {
+        labels: {
+          formatter: (value) => formatInteger(value),
+        },
+      },
+    }),
+    [messagesOverTime]
+  );
+  const channelComparisonOptions = useMemo(
+    () => ({
+      chart: { type: "bar", toolbar: { show: false }, fontFamily: "inherit" },
+      plotOptions: {
+        bar: {
+          borderRadius: 8,
+          columnWidth: "48%",
+        },
+      },
+      colors: ["#111827", "#1f9d55", "#dc2626"],
+      dataLabels: { enabled: false },
+      grid: { borderColor: "#e5ece7", strokeDashArray: 4 },
+      xaxis: {
+        categories: channelComparison.map((item) => item.channel),
+      },
+      legend: { position: "top", horizontalAlign: "left" },
+      yaxis: {
+        labels: {
+          formatter: (value) => formatInteger(value),
+        },
+      },
+    }),
+    [channelComparison]
+  );
+  const channelComparisonSeries = [
+    { name: "Envios", data: channelComparison.map((item) => item.total || 0) },
+    { name: "Entregues", data: channelComparison.map((item) => item.delivered || 0) },
+    { name: "Falhas", data: channelComparison.map((item) => item.failed || 0) },
+  ];
+  const deliveryBreakdownOptions = useMemo(
+    () => ({
+      chart: { type: "donut", toolbar: { show: false }, fontFamily: "inherit" },
+      labels: deliveryBreakdown.map((item) => item.label),
+      colors: ["#1f9d55", "#dc2626", "#f59e0b"],
+      legend: { position: "bottom" },
+      dataLabels: { enabled: false },
+      stroke: { colors: ["#ffffff"] },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: "68%",
+            labels: {
+              show: true,
+              total: {
+                show: true,
+                label: "Total",
+                formatter: () => formatInteger(deliveryTotals),
+              },
+            },
+          },
+        },
+      },
+    }),
+    [deliveryBreakdown, deliveryTotals]
+  );
+  const rankingSeries = [
+    {
+      name: "Taxa de entrega",
+      data: campaignPerformance.slice(0, 6).map((item) => Number(item.deliveryRate || 0)),
+    },
+  ];
+  const rankingOptions = useMemo(
+    () => ({
+      chart: { type: "bar", toolbar: { show: false }, fontFamily: "inherit" },
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          borderRadius: 8,
+          barHeight: "52%",
+        },
+      },
+      colors: ["#1f9d55"],
+      dataLabels: {
+        enabled: true,
+        formatter: (value) => `${Number(value || 0).toFixed(1)}%`,
+      },
+      grid: { borderColor: "#e5ece7", strokeDashArray: 4 },
+      xaxis: {
+        categories: campaignPerformance.slice(0, 6).map((item) => item.name),
+        max: 100,
+        labels: {
+          formatter: (value) => `${formatInteger(value)}%`,
+        },
+      },
+    }),
+    [campaignPerformance]
+  );
   const tabItems = [
     { label: "Disparos WhatsApp", helper: "Envios", count: whatsappCampaigns.length, Icon: CampaignIcon },
     { label: "Disparos E-mail", helper: "E-mail em massa", count: emailCampaigns.length, Icon: EmailIcon },
     { label: "Lista de contatos", helper: "Base", count: contactLists.length, Icon: ListAltIcon },
     { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: CheckCircleIcon },
   ];
+
+  tabItems.splice(
+    0,
+    tabItems.length,
+    { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: TrendingUpIcon },
+    { label: "Disparos WhatsApp", helper: "Envios", count: metricsSummary.totalWhatsAppCampaigns || whatsappCampaigns.length, Icon: CampaignIcon },
+    { label: "Disparos E-mail", helper: "E-mail em massa", count: metricsSummary.totalEmailCampaigns || emailCampaigns.length, Icon: EmailIcon },
+    { label: "Lista de contatos", helper: "Base", count: metricsSummary.totalContactLists || contactLists.length, Icon: ListAltIcon }
+  );
 
   if (user.profile === "user") return <ForbiddenPage />;
 
@@ -858,22 +1405,203 @@ const Campaigns = () => {
         </Tabs>
       </Box>
       <Box className={classes.summaryRow}>
-        <Paper className={`${classes.summaryCard} ${activeTab === 0 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Disparos WhatsApp</Typography>
-          <Typography className={classes.summaryValue}>{whatsappCampaigns.length}</Typography>
-        </Paper>
-        <Paper className={`${classes.summaryCard} ${activeTab === 1 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Disparos E-mail</Typography>
-          <Typography className={classes.summaryValue}>{emailCampaigns.length}</Typography>
-        </Paper>
-        <Paper className={`${classes.summaryCard} ${activeTab === 2 ? classes.summaryCardActive : ""}`} elevation={0}>
-          <Typography className={classes.summaryLabel}>Listas de contatos</Typography>
-          <Typography className={classes.summaryValue}>{contactLists.length}</Typography>
-        </Paper>
+        {overviewCards.map((card) => (
+          <Paper key={card.label} className={classes.summaryCard} elevation={0}>
+            <Typography className={classes.summaryLabel}>{card.label}</Typography>
+            <Typography className={classes.summaryValue}>{card.value}</Typography>
+            <Typography className={classes.summaryFootnote}>
+              <TrendingUpIcon style={{ fontSize: 14, color: "#1f9d55" }} />
+              {card.footnote}
+            </Typography>
+          </Paper>
+        ))}
       </Box>
 
       {/* ── TAB 0: Disparos ── */}
-      {activeTab === 0 && (
+      {activeTab === TAB_INDEX.METRICS && (
+        <Box className={classes.tabContent}>
+          <Box className={classes.metricsContainer}>
+            <Paper className={classes.dashboardHero} elevation={0}>
+              <Box style={{ position: "relative", zIndex: 1 }}>
+                <Typography className={classes.heroEyebrow}>
+                  <TrendingUpIcon style={{ fontSize: 15 }} />
+                  Dashboard de performance
+                </Typography>
+                <Typography className={classes.heroTitle}>
+                  Métricas operacionais para uma leitura rápida do funil de disparos
+                </Typography>
+                <Typography className={classes.heroSubtitle}>
+                  Acompanhe volume por canal, entregas, falhas e campanhas com melhor performance em um layout pensado para operação diária.
+                </Typography>
+              </Box>
+              <Box className={classes.heroInsightGrid}>
+                {performanceHighlights.map((item) => (
+                  <Box key={item.label} className={classes.heroInsightCard}>
+                    <Typography className={classes.heroInsightLabel}>{item.label}</Typography>
+                    <Typography className={classes.heroInsightValue}>{item.value}</Typography>
+                    <Typography className={classes.heroInsightText}>{item.helper}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+
+            {metricsLoading && !metricsData ? (
+              <Box className={classes.loadingContainer}>
+                <CircularProgress size={28} />
+              </Box>
+            ) : (
+              <>
+                <Box className={classes.kpiGrid}>
+                  {kpiCards.map(({ label, value, hint, Icon, iconColor, iconBg }) => (
+                    <Paper key={label} className={classes.metricCard} elevation={0}>
+                      <Box className={classes.metricIconBox} style={{ backgroundColor: iconBg }}>
+                        <Icon style={{ color: iconColor }} />
+                      </Box>
+                      <Box>
+                        <Typography className={classes.metricLabel}>{label}</Typography>
+                        <Typography className={classes.metricValue}>{value}</Typography>
+                      </Box>
+                      <Typography className={classes.metricHint}>{hint}</Typography>
+                    </Paper>
+                  ))}
+                </Box>
+
+                <Box className={classes.chartsGrid}>
+                  <Paper className={`${classes.chartCard} ${classes.chartCardLarge}`} elevation={0}>
+                    <Box className={classes.chartHeader}>
+                      <Box className={classes.chartTitleWrap}>
+                        <Typography className={classes.chartTitle}>Mensagens enviadas ao longo do tempo</Typography>
+                        <Typography className={classes.chartSubtitle}>
+                          Evolução diária dos envios processados nos últimos 14 dias, separando WhatsApp e e-mail.
+                        </Typography>
+                      </Box>
+                      <span className={classes.chartBadge}>Últimos 14 dias</span>
+                    </Box>
+                    <Box className={classes.chartBody}>
+                      <Chart options={messagesOverTimeOptions} series={messagesOverTimeSeries} type="line" height={290} />
+                    </Box>
+                  </Paper>
+
+                  <Paper className={`${classes.chartCard} ${classes.chartCardMedium}`} elevation={0}>
+                    <Box className={classes.chartHeader}>
+                      <Box className={classes.chartTitleWrap}>
+                        <Typography className={classes.chartTitle}>Sucesso vs falha</Typography>
+                        <Typography className={classes.chartSubtitle}>
+                          Distribuição consolidada das tentativas entre entregues, falhas e pendências.
+                        </Typography>
+                      </Box>
+                      <span className={classes.chartBadge}>Entrega</span>
+                    </Box>
+                    <Box className={classes.chartBody}>
+                      <Chart
+                        options={deliveryBreakdownOptions}
+                        series={deliveryBreakdown.map((item) => Number(item.value || 0))}
+                        type="donut"
+                        height={290}
+                      />
+                    </Box>
+                  </Paper>
+
+                  <Paper className={`${classes.chartCard} ${classes.chartCardCompact}`} elevation={0}>
+                    <Box className={classes.chartHeader}>
+                      <Box className={classes.chartTitleWrap}>
+                        <Typography className={classes.chartTitle}>WhatsApp vs E-mail</Typography>
+                        <Typography className={classes.chartSubtitle}>
+                          Comparativo por canal entre volume total, entregas e falhas registradas.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box className={classes.chartBody}>
+                      <Chart options={channelComparisonOptions} series={channelComparisonSeries} type="bar" height={290} />
+                    </Box>
+                  </Paper>
+
+                  <Paper className={`${classes.chartCard} ${classes.chartCardWide}`} elevation={0}>
+                    <Box className={classes.chartHeader}>
+                      <Box className={classes.chartTitleWrap}>
+                        <Typography className={classes.chartTitle}>Ranking de campanhas</Typography>
+                        <Typography className={classes.chartSubtitle}>
+                          Top campanhas por taxa de entrega, priorizando desempenho e volume processado.
+                        </Typography>
+                      </Box>
+                      <span className={classes.chartBadge}>Top 6</span>
+                    </Box>
+                    <Box className={classes.chartBody}>
+                      {campaignPerformance.length > 0 ? (
+                        <Chart options={rankingOptions} series={rankingSeries} type="bar" height={290} />
+                      ) : (
+                        <Box className={classes.emptyChartState}>Nenhuma campanha processada ainda para ranqueamento.</Box>
+                      )}
+                    </Box>
+                  </Paper>
+                </Box>
+
+                <Paper className={classes.dataTableCard} elevation={0}>
+                  <Box className={classes.chartHeader}>
+                    <Box className={classes.chartTitleWrap}>
+                      <Typography className={classes.chartTitle}>Campaign Performance Table</Typography>
+                      <Typography className={classes.chartSubtitle}>
+                        Visão estruturada por campanha com canal, volume, entregas, falhas e taxa de entrega.
+                      </Typography>
+                    </Box>
+                    <span className={classes.chartBadge}>{campaignPerformance.length} campanhas</span>
+                  </Box>
+                  <Box className={classes.dataTableScroll}>
+                    {campaignPerformance.length > 0 ? (
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell className={classes.tableHeadCell}>Campaign Name</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Channel</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Total Sends</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Delivered</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Failed</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Delivery Rate</TableCell>
+                            <TableCell className={classes.tableHeadCell}>Date</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {campaignPerformance.map((campaign) => (
+                            <TableRow key={campaign.id}>
+                              <TableCell className={`${classes.tableCell} ${classes.tableNameCell}`}>
+                                <Box style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <span>{campaign.name || `Campanha #${campaign.id}`}</span>
+                                  <span style={{ fontSize: "0.72rem", color: STATUS_META[campaign.status]?.color || "#64748b" }}>
+                                    {STATUS_META[campaign.status]?.label || campaign.status}
+                                  </span>
+                                </Box>
+                              </TableCell>
+                              <TableCell className={classes.tableCell}>
+                                <span
+                                  className={classes.channelPill}
+                                  style={campaign.channel === "E-mail" ? { backgroundColor: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" } : { backgroundColor: "#dcfce7", color: "#15803d", borderColor: "#bbf7d0" }}
+                                >
+                                  {campaign.channel}
+                                </span>
+                              </TableCell>
+                              <TableCell className={classes.tableCell}>{formatInteger(campaign.totalSends)}</TableCell>
+                              <TableCell className={classes.tableCell}>{formatInteger(campaign.delivered)}</TableCell>
+                              <TableCell className={classes.tableCell}>{formatInteger(campaign.failed)}</TableCell>
+                              <TableCell className={classes.tableCell}>{`${Number(campaign.deliveryRate || 0).toFixed(1)}%`}</TableCell>
+                              <TableCell className={classes.tableCell}>{formatFullDate(campaign.date)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <Box className={classes.tableEmptyState}>
+                        Nenhuma campanha processada ainda. Assim que os disparos forem executados, a tabela exibirá o ranking detalhado.
+                      </Box>
+                    )}
+                  </Box>
+                </Paper>
+              </>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {activeTab === TAB_INDEX.WHATSAPP && (
         <Box className={classes.tabContent} onScroll={handleCampaignScroll}>
           <Box className={classes.header}>
             <Box className={classes.headerLeft}>
@@ -985,7 +1713,7 @@ const Campaigns = () => {
       )}
 
       {/* ── TAB 1: Disparos de E-mail ── */}
-      {activeTab === 1 && (
+      {activeTab === TAB_INDEX.EMAIL && (
         <Box className={classes.tabContent} onScroll={handleCampaignScroll}>
           <Box className={classes.header}>
             <Box className={classes.headerLeft}>
@@ -1087,7 +1815,7 @@ const Campaigns = () => {
       )}
 
       {/* ── TAB 2: Listas de Contatos ── */}
-      {activeTab === 2 && (
+      {activeTab === TAB_INDEX.CONTACTS && (
         <Box className={classes.tabContent} onScroll={handleListScroll}>
           <Box className={classes.header}>
             <Box className={classes.headerLeft}>
@@ -1342,7 +2070,7 @@ const Campaigns = () => {
       </Drawer>
 
       {/* ── TAB 3: Métricas ── */}
-      {activeTab === 3 && (
+      {false && activeTab === 3 && (
         <Box className={classes.tabContent}>
           <Box className={classes.metricsContainer}>
 
