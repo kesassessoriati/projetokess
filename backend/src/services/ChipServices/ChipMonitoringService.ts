@@ -232,9 +232,20 @@ export const syncCompanyChips = async (companyId: number) => {
 };
 
 export const syncAllChips = async () => {
-  const chips = await Chip.findAll();
-  for (const chip of chips) {
-    await syncChipHealth(chip);
+  const BATCH_SIZE = 50;
+  let offset = 0;
+  while (true) {
+    const chips = await Chip.findAll({ limit: BATCH_SIZE, offset, order: [["id", "ASC"]] });
+    if (chips.length === 0) break;
+    for (const chip of chips) {
+      try {
+        await syncChipHealth(chip);
+      } catch (err) {
+        // log individual failure without aborting the rest
+        console.error(`[syncAllChips] Erro no chip ${chip.id}:`, err);
+      }
+    }
+    offset += BATCH_SIZE;
   }
 };
 

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import AppError from "../errors/AppError";
 import Chip from "../models/Chip";
 import {
@@ -50,12 +51,10 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const search = String(req.query.search || "").trim();
   const status = String(req.query.status || "").trim();
 
-  await syncCompanyChips(companyId);
-
   const where: any = { companyId };
   if (status) where.status = status;
   if (search) {
-    where.number = { [require("sequelize").Op.iLike]: `%${search}%` };
+    where.number = { [Op.iLike]: `%${search}%` };
   }
 
   const chips = await Chip.findAll({
