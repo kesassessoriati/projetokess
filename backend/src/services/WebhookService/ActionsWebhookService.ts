@@ -63,6 +63,7 @@ import WaitQuestionService from "../FlowBuilderService/WaitQuestionService";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
+import CrmLead from "../../models/CrmLead";
 import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
 
 // Função para extrair valores de objetos JSON usando path
@@ -2220,10 +2221,23 @@ export const ActionsWebhookService = async (
       };
 
       if (nodeSelected.type === "condition") {
-        // Garantir que o ticket existe
+        // Garantir que o ticket existe com as associações necessárias
         if (!ticket && idTicket) {
           ticket = await Ticket.findOne({
-            where: { id: idTicket, companyId }
+            where: { id: idTicket, companyId },
+            include: [
+              { model: Tag, as: "tags", attributes: ["name"], through: { attributes: [] } },
+              { model: CrmLead, as: "crmLead", include: [{ model: PipelineStage, as: "stage", attributes: ["name"] }] }
+            ]
+          });
+        } else if (ticket && idTicket && (!ticket.tags || !ticket.crmLead)) {
+          // Recarregar ticket com as associações extras se necessário
+          ticket = await Ticket.findOne({
+            where: { id: ticket.id, companyId },
+            include: [
+              { model: Tag, as: "tags", attributes: ["name"], through: { attributes: [] } },
+              { model: CrmLead, as: "crmLead", include: [{ model: PipelineStage, as: "stage", attributes: ["name"] }] }
+            ]
           });
         }
 
@@ -2238,7 +2252,23 @@ export const ActionsWebhookService = async (
         // Obter valor da variável
         let variableValue: any = "";
 
-        if (ticket?.dataWebhook?.variables) {
+        // Variáveis globais do ticket
+        const globalTicketVars: Record<string, any> = {
+          firstName: ticket?.contact?.name?.split(" ")[0] || "",
+          name: ticket?.contact?.name || "",
+          userName: ticket?.user?.name || "",
+          queue: ticket?.queue?.name || "",
+          connection: ticket?.whatsapp?.name || "",
+          ticket_id: ticket?.id || "",
+          status: ticket?.status || "",
+          tag: ticket?.tags?.map((t: any) => t.name).join(", ") || "",
+          kanban_stage: (ticket?.crmLead as any)?.stage?.name || "",
+          produto: (ticket?.crmLead as any)?.product || ""
+        };
+
+        if (normalizedKey && globalTicketVars[normalizedKey] !== undefined) {
+          variableValue = globalTicketVars[normalizedKey];
+        } else if (ticket?.dataWebhook?.variables) {
           if (normalizedKey && ticket.dataWebhook.variables[normalizedKey] !== undefined) {
             variableValue = ticket.dataWebhook.variables[normalizedKey];
           } else if (key && ticket.dataWebhook.variables[key] !== undefined) {

@@ -88,8 +88,12 @@ const GLOBAL_VARIABLES = [
   { token: "{{date}}", label: "Data atual (dd-mm-yyyy)" },
   { token: "{{hour}}", label: "Hora atual (hh:mm:ss)" },
   { token: "{{ticket_id}}", label: "ID do ticket" },
+  { token: "{{status}}", label: "Status do ticket (pending/open/closed)" },
   { token: "{{queue}}", label: "Nome da fila do ticket" },
-  { token: "{{connection}}", label: "Nome da conexão WhatsApp" }
+  { token: "{{connection}}", label: "Nome da conexão WhatsApp" },
+  { token: "{{tag}}", label: "Etiquetas do ticket (separadas por vírgula)" },
+  { token: "{{kanban_stage}}", label: "Estágio do Kanban/Pipeline do lead" },
+  { token: "{{produto}}", label: "Produto associado ao lead" }
 ];
 
 const ContactSchema = Yup.object().shape({

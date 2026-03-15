@@ -94,6 +94,10 @@ export default (
     data_hora: new Array(date(), hour()).join(" às "),
     protocol: new Array(control(), ticket ? ticket.id.toString() : "").join(""),
     name_company: ticket ? ticket?.company?.name : "",
+    status: ticket ? ticket?.status : "",
+    tag: ticket?.tags?.map((t: any) => t.name).join(", ") || "",
+    kanban_stage: (ticket as any)?.crmLead?.stage?.name || "",
+    produto: (ticket as any)?.crmLead?.product || "",
     ...(extraVariables || {})
   };
 
