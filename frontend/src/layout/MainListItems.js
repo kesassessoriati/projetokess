@@ -1106,12 +1106,6 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink
-                to="/aquecimento-whatsapp"
-                primary="Aquecimento WhatsApp"
-                icon={<FlashOnIcon />}
-                onNavigate={handleNavigateFromSubmenu}
-              />
-              <ListItemLink
                 to="/connections"
                 primary="Sessoes WhatsApp"
                 icon={<SyncAltIcon />}
