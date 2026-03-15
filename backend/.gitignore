@@ -48,3 +48,6 @@ backend/public/
 
 # Package lock (opcional, se quiser manter remova estas linhas)
 # package-lock.json
+
+# Cobertura de testes
+coverage/
