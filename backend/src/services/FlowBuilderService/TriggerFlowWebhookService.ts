@@ -61,8 +61,7 @@ const TriggerFlowWebhookService = async ({
     contact = await CreateContactService({
       name: contactName || contactNumber,
       number: contactNumber,
-      companyId,
-      isGroup: false
+      companyId
     });
   }
 
@@ -80,10 +79,11 @@ const TriggerFlowWebhookService = async ({
   if (!ticket) {
     ticket = await CreateTicketService({
       contactId: contact.id,
-      whatsappId,
+      whatsappId: String(whatsappId),
       companyId,
-      status: "pending"
-    });
+      status: "pending",
+      userId: null
+    } as any);
   }
 
   const nodes = flow.flow["nodes"];
