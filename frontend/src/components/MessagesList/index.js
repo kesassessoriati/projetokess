@@ -1052,7 +1052,7 @@ const MessagesList = ({
     }
   };
 
-  const path = require('path');
+
 
   const renderQuotedMessage = (message) => {
 
@@ -1282,7 +1282,7 @@ const MessagesList = ({
                   {message.quotedMsg && renderQuotedMessage(message)}
                   {
                     (
-                      (message.mediaUrl !== null && (message.mediaType === "image" || message.mediaType === "video") && path.basename(message.mediaUrl).trim() !== message.body.trim()) ||
+                      (message.mediaUrl !== null && (message.mediaType === "image" || message.mediaType === "video") && message.mediaUrl.split(/[\\/]/).pop().trim() !== message.body.trim()) ||
                       message.mediaType !== "audio" &&
                       message.mediaType !== "image" &&
                       message.mediaType !== "video" &&
@@ -1389,7 +1389,7 @@ const MessagesList = ({
                   {message.quotedMsg && renderQuotedMessage(message)}
 
                   {
-                    ((message.mediaType === "image" || message.mediaType === "video") && path.basename(message.mediaUrl) === message.body) ||
+                    ((message.mediaType === "image" || message.mediaType === "video") && message.mediaUrl.split(/[\\/]/).pop() === message.body) ||
                     (message.mediaType !== "audio" && message.mediaType != "reactionMessage" && message.mediaType != "locationMessage" && message.mediaType !== "contactMessage" && message.mediaType != "pollCreationMessageV3" && message.mediaType != "eventMessage" &&
                       message.mediaType != "listMessage" &&
                       message.mediaType != "viewOnceMessage" &&

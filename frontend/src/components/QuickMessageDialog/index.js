@@ -51,7 +51,7 @@ import {
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 import { useTheme } from '@material-ui/core/styles';
 
-const path = require('path');
+
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -547,7 +547,7 @@ const QuickMessageDialog = ({ open, onClose, quickemessageId, reload }) => {
       mediaPath: attachment
         ? String(attachment.name).replace(/ /g, "_")
         : values.mediaPath
-        ? path.basename(values.mediaPath).replace(/ /g, "_")
+        ? values.mediaPath.split(/[\\/]/).pop().replace(/ /g, "_")
         : null,
     };
 

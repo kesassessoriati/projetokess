@@ -67,7 +67,7 @@ import IconButton from "@material-ui/core/IconButton";
 import Chip from "@material-ui/core/Chip";
 
 const backendUrl = getBackendUrl();
-const path = require('path');
+
 
 const useStyles = makeStyles(theme => ({
   root: {
