@@ -691,7 +691,10 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
       setShowSchedules(planConfigs.plan.useSchedules);
       setShowInternalChat(planConfigs.plan.useInternalChat);
       setShowExternalApi(planConfigs.plan.useExternalApi);
-      setPlanExpired(moment(moment().format()).isBefore(user.company.dueDate));
+      // Plano ilimitado ou empresa ativa: nunca ocultar menu por data de vencimento
+      const isUnlimitedMenu = user.company?.billing_cycle === "unlimited" || ["Ilimitado", "ILIMITADO", "unlimited"].includes(user.company?.recurrence);
+      const notExpiredByDate = moment(moment().format()).isBefore(user.company?.dueDate);
+      setPlanExpired(isUnlimitedMenu || user.company?.status === true || notExpiredByDate);
     }
     fetchData();
   }, []);
