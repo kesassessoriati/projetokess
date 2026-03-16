@@ -4,7 +4,27 @@ import path from "path";
 import fs from "fs";
 import QuickReply from "../models/QuickReply";
 import QuickReplyGroup from "../models/QuickReplyGroup";
-import MediaFile from "../models/MediaFile";
+
+const QUICK_REPLY_MEDIA_DISABLED_MESSAGE =
+  "Os tipos de midia das respostas rapidas estao temporariamente desativados nesta versao.";
+
+const validateTextOnlyPayload = (body: Request["body"]): string | null => {
+  const hasMediaTypeField = body?.mediaType !== undefined && body?.mediaType !== null;
+  const mediaType = typeof body?.mediaType === "string" ? body.mediaType.trim().toLowerCase() : "";
+  const hasExplicitMediaReference = Boolean(body?.mediaUrl || body?.mediaFileId);
+
+  if ((hasMediaTypeField && mediaType !== "text") || hasExplicitMediaReference) {
+    return QUICK_REPLY_MEDIA_DISABLED_MESSAGE;
+  }
+
+  return null;
+};
+
+const buildTextOnlyQuickReplyPayload = (body: Request["body"]) => ({
+  shortcut: body?.shortcut,
+  message: body?.message,
+  groupId: body?.groupId || null
+});
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
@@ -35,16 +55,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { shortcut, message, groupId, mediaType } = req.body;
   const createdBy = req.user.id;
+  const validationError = validateTextOnlyPayload(req.body);
+
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
   const quickReply = await QuickReply.create({
-    shortcut,
-    message,
-    groupId,
-    mediaType,
+    ...buildTextOnlyQuickReplyPayload(req.body),
     companyId,
-    createdBy
+    createdBy,
+    mediaType: null
   });
 
   return res.status(200).json(quickReply);
@@ -53,97 +75,34 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-  const { shortcut, message, groupId, mediaType } = req.body;
+  const validationError = validateTextOnlyPayload(req.body);
+
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
   const quickReply = await QuickReply.findOne({ where: { id, companyId } });
   if (!quickReply) {
     return res.status(404).json({ error: "Quick reply not found" });
   }
 
-  await quickReply.update({
-    shortcut,
-    message,
-    groupId,
-    mediaType
-  });
+  // Preserve legacy media fields already stored on older records, but keep the
+  // active create/edit flow text-only until media support is re-enabled.
+  await quickReply.update(buildTextOnlyQuickReplyPayload(req.body));
 
   return res.status(200).json(quickReply);
 };
 
-export const mediaUpload = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
-  const { id } = req.params;
-
-  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
-  if (!quickReply) {
-    return res.status(404).json({ error: "Quick reply not found" });
-  }
-
-  const media = req.file as Express.Multer.File;
-  if (!media) {
-    return res.status(400).json({ error: "No media uploaded" });
-  }
-
-  await quickReply.update({
-    mediaUrl: media.filename,
-    mediaType: media.mimetype
-  });
-
-  return res.status(200).json(quickReply);
+export const mediaUpload = async (_req: Request, res: Response): Promise<Response> => {
+  // Keep the endpoint shape in place so the future media implementation remains
+  // easy to reactivate, but block it in the current text-only release.
+  return res.status(409).json({ error: QUICK_REPLY_MEDIA_DISABLED_MESSAGE });
 };
 
-export const mediaFromLibrary = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
-  const { id } = req.params;
-  const { mediaFileId } = req.body;
-
-  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
-  if (!quickReply) {
-    return res.status(404).json({ error: "Quick reply not found" });
-  }
-
-  const mediaFile = await MediaFile.findOne({ where: { id: mediaFileId, companyId } });
-  if (!mediaFile) {
-    return res.status(404).json({ error: "Media file not found" });
-  }
-
-  const sourcePath = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "public",
-    `company${companyId}`,
-    mediaFile.storagePath
-  );
-
-  if (!fs.existsSync(sourcePath)) {
-    return res.status(404).json({ error: "Media source not found" });
-  }
-
-  const quickReplyFolder = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "public",
-    `company${companyId}`,
-    "quickReply"
-  );
-
-  if (!fs.existsSync(quickReplyFolder)) {
-    fs.mkdirSync(quickReplyFolder, { recursive: true });
-  }
-
-  const destinationName = `${Date.now()}_${(mediaFile.customName || mediaFile.originalName).replace(/\s+/g, "_")}`;
-  const destinationPath = path.resolve(quickReplyFolder, destinationName);
-
-  fs.copyFileSync(sourcePath, destinationPath);
-
-  await quickReply.update({
-    mediaUrl: destinationName,
-    mediaType: mediaFile.mimeType
-  });
-
-  return res.status(200).json(quickReply);
+export const mediaFromLibrary = async (_req: Request, res: Response): Promise<Response> => {
+  // Keep the endpoint shape in place so the future media implementation remains
+  // easy to reactivate, but block it in the current text-only release.
+  return res.status(409).json({ error: QUICK_REPLY_MEDIA_DISABLED_MESSAGE });
 };
 
 export const mediaShow = async (req: Request, res: Response): Promise<Response> => {

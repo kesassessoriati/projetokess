@@ -99,7 +99,7 @@ const QuickMessages = () => {
     if (window.confirm("Deseja mesmo excluir este grupo?")) {
       try {
         await api.delete(`/quick-reply-groups/${id}`);
-        toast.success("Grupo excluído.");
+        toast.success("Grupo excluido.");
         fetchGroups();
       } catch (err) {
         toastError(err);
@@ -111,7 +111,7 @@ const QuickMessages = () => {
     if (window.confirm("Deseja mesmo excluir esta resposta?")) {
       try {
         await api.delete(`/quick-replies/${id}`);
-        toast.success("Resposta excluída.");
+        toast.success("Resposta excluida.");
         fetchReplies();
       } catch (err) {
         toastError(err);
@@ -122,7 +122,7 @@ const QuickMessages = () => {
   return (
     <Box className={classes.root}>
       <Box className={classes.header}>
-        <Typography className={classes.title}>Respostas Rápidas com Mídia</Typography>
+        <Typography className={classes.title}>Respostas Rapidas</Typography>
       </Box>
 
       <Paper className={classes.paper}>
@@ -133,7 +133,7 @@ const QuickMessages = () => {
           textColor="primary"
           style={{ marginBottom: 16 }}
         >
-          <Tab label="Respostas Rápidas" />
+          <Tab label="Respostas Rapidas" />
           <Tab label="Grupos de Respostas" />
         </Tabs>
 
@@ -157,9 +157,9 @@ const QuickMessages = () => {
                 <TableRow>
                   <TableCell>Atalho</TableCell>
                   <TableCell>Mensagem</TableCell>
-                  <TableCell>Mídia</TableCell>
+                  <TableCell>Midia legada</TableCell>
                   <TableCell>Grupo</TableCell>
-                  <TableCell>Ações</TableCell>
+                  <TableCell>Acoes</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -171,7 +171,7 @@ const QuickMessages = () => {
                         ? `${reply.message.substring(0, 50)}...`
                         : reply.message}
                     </TableCell>
-                    <TableCell>{reply.mediaUrl ? "Sim" : "Não"}</TableCell>
+                    <TableCell>{reply.mediaUrl ? "Preservada (desativada)" : "-"}</TableCell>
                     <TableCell>{reply.group?.name || "Sem Grupo"}</TableCell>
                     <TableCell>
                       <IconButton
@@ -216,8 +216,8 @@ const QuickMessages = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Nome</TableCell>
-                  <TableCell>Descrição</TableCell>
-                  <TableCell>Ações</TableCell>
+                  <TableCell>Descricao</TableCell>
+                  <TableCell>Acoes</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

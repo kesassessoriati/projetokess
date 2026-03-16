@@ -206,24 +206,12 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  const handleSelectReply = async (reply, autoSend = true) => {
+  const handleSelectReply = (reply, autoSend = true) => {
     setSendingId(reply.id);
-    const mediaUrlToLoad = reply.mediaUrl || reply.mediaPath; // Compatibility
-    if (mediaUrlToLoad) {
-      try {
-        const { data } = await api.get(`/quick-replies/${reply.id}/media`, {
-          responseType: "blob"
-        });
-        const fileName = mediaUrlToLoad.split("/").pop().split("?")[0];
-        const file = new File([data], fileName, { type: reply.mediaType || data.type });
-        onSelect(reply.message, file, autoSend);
-      } catch (err) {
-        toastError(err);
-        onSelect(reply.message, null, autoSend);
-      }
-    } else {
-      onSelect(reply.message, null, autoSend);
-    }
+    // Media quick replies are temporarily disabled in the active flow.
+    // Legacy records may still expose media metadata, but selection must
+    // behave as text-only until the media flow is re-enabled.
+    onSelect(reply.message, null, autoSend);
     setSendingId(null);
     onClose();
   };

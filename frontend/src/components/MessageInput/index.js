@@ -492,23 +492,9 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setButtonModalOpen(true);
   };
 
-  const handleQuickAnswersClick = async (value) => {
-    if (value.mediaPath) {
-      try {
-        const { data } = await api.get(`/quick-replies/${value.id}/media`, {
-          responseType: "blob",
-        });
-        const fileName = value.mediaPath.split("/").pop().split("?")[0];
-        const file = new File([data], fileName, { type: value.mediaType || data.type || "" });
-        setMediasUpload([{ file, caption: value.value || "", type: file.type || value.mediaType || "" }]);
-        setShowModalMedias(true);
-        setInputMessage("");
-        return;
-      } catch (err) {
-        toastError(err);
-      }
-    }
-
+  const handleQuickAnswersClick = (value) => {
+    // Media quick replies are temporarily disabled. Keep slash-command
+    // insertion text-only even for legacy records that still have media metadata.
     handleSendMessage(value.value);
     setInputMessage("");
     setTypeBar(false);
@@ -751,8 +737,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
             id: m.id,
             value: m.message,
             label: `${m.shortcut} - ${truncatedMessage}`,
-            mediaPath: m.mediaUrl,
-            mediaType: m.mediaType
+            hasLegacyMedia: Boolean(m.mediaUrl)
           };
         });
         if (isMounted.current) {
