@@ -609,7 +609,7 @@ export const ActionsWebhookService = async (
             prompt: cfg.prompt || "",
             apiKey: cfg.apiKey || "",
             provider: cfg.provider || "openai",
-            model: cfg.model || "gemini-2.0-flash",
+            model: cfg.model || "gemini-2.5-flash",
             voice: "texto",
             voiceKey: "",
             voiceRegion: "",

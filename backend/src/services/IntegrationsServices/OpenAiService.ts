@@ -538,7 +538,7 @@ const runAgentPrompt = async (
   }
 
   const model =
-    agentPrompt.model || (provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o");
+    agentPrompt.model || (provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o");
   const temperature = agentPrompt.temperature ?? 0.7;
   const maxTokens = agentPrompt.maxTokens || 800;
   const systemPrompt = agentPrompt.prompt || "";
@@ -573,7 +573,7 @@ const runAgentPrompt = async (
 
 // Função para chamar Gemini com ferramentas
 const resolveGeminiModelId = (modelName?: string | null): string => {
-  const base = (modelName || "gemini-2.0-flash").trim();
+  const base = (modelName || "gemini-2.5-flash").trim();
   if (base.startsWith("models/")) {
     return base;
   }
@@ -653,7 +653,7 @@ const callGemini = async (
   messagesOpenAi: any[],
   openAiSettings: IOpenAi
 ) => {
-  const model = openAiSettings.model || "gemini-2.0-flash";
+  const model = openAiSettings.model || "gemini-2.5-flash";
   const genModel = gemini.getGenerativeModel({ model: model });
 
   // Converter formato OpenAI para Gemini
@@ -752,7 +752,7 @@ async function normalizeMessageContent(
         const imageBase64 = Buffer.concat(chunks).toString("base64");
 
         if (provider === "gemini") {
-          const model = aiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
+          const model = aiClient.getGenerativeModel({ model: "gemini-2.5-flash" });
           const result = await model.generateContent([
             {
               inlineData: {
@@ -2460,7 +2460,7 @@ ${openAiSettings.prompt}
               }).join('\n') + `\n\nResultados das ferramentas:\n${toolResultsMessage}`;
 
               try {
-                const model = openAiSettings.model || "gemini-2.0-flash";
+                const model = openAiSettings.model || "gemini-2.5-flash";
                 // IMPORTANTE: Segunda chamada também precisa das ferramentas para continuar executando
                 const genModel = aiClient.getGenerativeModel({
                   model: model,
