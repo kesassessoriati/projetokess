@@ -3,6 +3,9 @@ import FollowUp from "../../models/FollowUp";
 import { Op } from "sequelize";
 import moment from "moment";
 
+// LEGACY FOLLOW-UP ENGINE
+// Flow Builder still uses this ticket-scoped scheduler. It is intentionally
+// kept separate from the FollowUpCampaign cron engine used by the Follow-ups UI.
 interface FollowUpNodeData {
   delayMinutes: number;
   action: {

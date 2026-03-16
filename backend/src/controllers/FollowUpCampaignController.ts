@@ -13,6 +13,7 @@ const DEFAULT_BOARD_NAME = "Quadro Principal";
 const DEFAULT_FUNNEL_NAME = "Geral";
 const DEFAULT_COLUMNS = ["Sem Categoria"];
 const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
+const FOLLOW_UP_TRIGGER_VALUE = "message_sent";
 
 const normalizeColumns = (columns: unknown): string[] => {
   const values = Array.isArray(columns) ? columns : [];
@@ -121,6 +122,12 @@ const normalizeFollowUpStageInput = (stage: any, index: number) => ({
 const normalizeFollowUpStagesInput = (stages: any): any[] =>
   Array.isArray(stages) ? stages.map((stage, index) => normalizeFollowUpStageInput(stage, index)) : [];
 
+const normalizeDeprecatedSourceType = (_sourceType?: string | null) => {
+  // Deprecated compatibility field: the active engine now uses a single trigger
+  // based on persisted outbound ticket messages and ignores manual/campaign splits.
+  return FOLLOW_UP_TRIGGER_VALUE;
+};
+
 const resolveWhatsappForFollowUp = async (companyId: number, whatsappId?: number | string | null) => {
   let resolvedWhatsappId = whatsappId ? Number(whatsappId) : null;
 
@@ -196,7 +203,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       companyId,
       whatsappId: whatsappId || null,
       isActive: isActive !== undefined ? isActive : true,
-      sourceType: sourceType || "manual",
+      sourceType: normalizeDeprecatedSourceType(sourceType),
       boardId: board.id,
       boardColumn: safeBoardColumn,
     });
@@ -261,7 +268,9 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       name: name ?? campaign.name,
       whatsappId: whatsappId !== undefined ? whatsappId : campaign.whatsappId,
       isActive: isActive !== undefined ? isActive : campaign.isActive,
-      sourceType: sourceType ?? campaign.sourceType,
+      sourceType: sourceType !== undefined
+        ? normalizeDeprecatedSourceType(sourceType)
+        : campaign.sourceType,
       boardId: board.id,
       boardColumn: nextBoardColumn,
     });

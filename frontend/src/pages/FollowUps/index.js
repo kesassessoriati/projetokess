@@ -46,6 +46,8 @@ import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 const GREEN = "#2e7d32";
 const GREEN_DARK = "#1f5b24";
 const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
+const FOLLOW_UP_TRIGGER_VALUE = "message_sent";
+const FOLLOW_UP_TRIGGER_LABEL = "Mensagem enviada ao cliente";
 
 const useStyles = makeStyles((theme) => ({
   root: { padding: theme.spacing(3) },
@@ -269,7 +271,7 @@ const emptyForm = (boards = []) => {
     name: "",
     whatsappId: "",
     isActive: true,
-    sourceType: "manual",
+    sourceType: FOLLOW_UP_TRIGGER_VALUE,
     boardId: firstBoard?.id || "",
     boardColumn: firstColumn,
     stages: [emptyStage()],
@@ -573,7 +575,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
         name: campaign.name || "",
         whatsappId: campaign.whatsappId || "",
         isActive: campaign.isActive !== false,
-        sourceType: campaign.sourceType || "manual",
+        sourceType: FOLLOW_UP_TRIGGER_VALUE,
         boardId,
         boardColumn: safeColumn,
         stages: normalizeFollowUpStages(campaign.stages),
@@ -772,17 +774,15 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
             </Select>
           </FormControl>
 
-          <FormControl variant="outlined" size="small" fullWidth>
-            <InputLabel>Tipo de origem</InputLabel>
-            <Select
-              value={form.sourceType}
-              onChange={(e) => setField("sourceType", e.target.value)}
-              label="Tipo de origem"
-            >
-              <MenuItem value="manual">Manual (qualquer mensagem enviada)</MenuItem>
-              <MenuItem value="campaign">Campanha (disparador)</MenuItem>
-            </Select>
-          </FormControl>
+          <TextField
+            label="Disparador"
+            value={FOLLOW_UP_TRIGGER_LABEL}
+            variant="outlined"
+            size="small"
+            fullWidth
+            disabled
+            helperText="O follow-up inicia quando uma mensagem enviada pela empresa ao cliente e registrada no ticket."
+          />
 
           <Box display="flex" gap={2} flexWrap="wrap">
             <FormControl variant="outlined" size="small" fullWidth style={{ minWidth: 220, flex: 1 }}>
@@ -1091,7 +1091,7 @@ const KanbanBoard = ({ board, campaigns, onEdit, onDrop, onDelete, whatsApps, ha
                        {c.stages?.length || 0} estágio(s)
                      </Typography>
                      <Typography variant="body2" color="textSecondary" style={{ marginBottom: 4 }}>
-                       Origem: {c.sourceType === "campaign" ? "Campanha" : "Manual"}
+                       Disparador: {FOLLOW_UP_TRIGGER_LABEL}
                      </Typography>
                      <Typography variant="body2" color="textSecondary" style={{ marginBottom: 4 }}>
                        Conexão: {wa ? wa.name : "Automático"}
@@ -1402,7 +1402,7 @@ const FollowUps = () => {
                 <TableCell>Quadro</TableCell>
                 <TableCell>Funil</TableCell>
                 <TableCell>Conexão</TableCell>
-                <TableCell>Origem</TableCell>
+                <TableCell>Disparador</TableCell>
                 <TableCell>Estágios</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Ações</TableCell>
@@ -1427,8 +1427,8 @@ const FollowUps = () => {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={c.sourceType === "campaign" ? "Campanha" : "Manual"}
-                        color={c.sourceType === "campaign" ? "primary" : "default"}
+                        label={FOLLOW_UP_TRIGGER_LABEL}
+                        color="primary"
                       />
                     </TableCell>
                     <TableCell>{c.stages?.length || 0} estágio(s)</TableCell>

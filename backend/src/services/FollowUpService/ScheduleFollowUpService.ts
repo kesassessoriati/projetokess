@@ -12,6 +12,10 @@ import { proto } from "@whiskeysockets/baileys";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 
+// LEGACY FOLLOW-UP ENGINE
+// Keep this scheduler intact for Flow Builder followUp nodes. The current
+// campaign follow-up engine lives in FollowUpCampaignService and is processed
+// separately by cron in ExecuteFollowUpCampaignService.
 interface FollowUpData {
   delayMinutes: number;
   action: {

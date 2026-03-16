@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import ScheduleFollowUpService from "../services/FollowUpService/ScheduleFollowUpService";
 import { getIO } from "../libs/socket";
 
+// LEGACY FOLLOW-UP ENGINE
+// These endpoints support the older Flow Builder scheduler and should remain
+// available while FollowUpCampaign is the active UI-driven follow-up system.
 class FollowUpController {
   private scheduleService: ScheduleFollowUpService;
 

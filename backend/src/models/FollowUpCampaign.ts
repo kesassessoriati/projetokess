@@ -41,9 +41,12 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
   @Column
   isActive: boolean;
 
+  // Deprecated: runtime no longer branches by source type.
+  // Follow-up campaigns now use a single trigger: any outbound message
+  // persisted to the Message table for the ticket/contact cycle.
   @Default("manual")
   @Column(DataType.STRING(30))
-  sourceType: string; // 'campaign' | 'manual'
+  sourceType: string; // legacy: 'campaign' | 'manual'; current canonical value: 'message_sent'
 
   @AllowNull(true)
   @Column(DataType.STRING)

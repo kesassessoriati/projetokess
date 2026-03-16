@@ -147,7 +147,9 @@ cron.schedule("* * * * *", () => {
   processScheduledGroupCampaigns();
 });
 
-// Process follow-up campaign stages every 5 minutes
+// Process the active FollowUpCampaign engine every 5 minutes.
+// This remains cron-based for now; the legacy singular FollowUp scheduler is
+// separate and is not executed from this cron.
 cron.schedule("*/5 * * * *", () => {
   executeFollowUpCampaigns();
 });

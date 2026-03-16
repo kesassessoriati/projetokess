@@ -36,6 +36,16 @@ class FollowUpLog extends Model<FollowUpLog> {
   @Column
   companyId: number;
 
+  // Canonical outbound-message trigger for the current follow-up cycle.
+  // Legacy rows may keep this null and are handled by compatibility logic.
+  @AllowNull(true)
+  @Column
+  triggerMessageId: number;
+
+  @AllowNull(true)
+  @Column
+  triggeredAt: Date;
+
   @AllowNull(true)
   @Column
   sentAt: Date;

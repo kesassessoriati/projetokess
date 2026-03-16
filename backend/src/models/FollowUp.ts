@@ -15,6 +15,10 @@ import {
 import Ticket from "./Ticket";
 import Company from "./Company";
 
+// LEGACY FOLLOW-UP ENGINE
+// This model belongs to the older per-ticket scheduler used by Flow Builder
+// nodes. The active Follow-up Campaign UI now runs through FollowUpCampaign,
+// FollowUpStage, FollowUpLog and ExecuteFollowUpCampaignService.
 @Table
 class FollowUp extends Model<FollowUp> {
   @PrimaryKey

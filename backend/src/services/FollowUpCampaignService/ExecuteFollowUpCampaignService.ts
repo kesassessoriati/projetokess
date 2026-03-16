@@ -2,11 +2,23 @@
 /**
  * ExecuteFollowUpCampaignService
  *
- * Runs every 5 minutes via cron. For each active FollowUpCampaign:
- * 1. Finds tickets in the company with outgoing messages in the last 48h
- * 2. Checks if the contact replied after the last outgoing message
- * 3. Sends the next pending stage message if enough time elapsed and no reply
- * 4. Logs activity in FollowUpLogs
+ * Active follow-up engine used by the Follow-up Campaign UI.
+ *
+ * Trigger model:
+ * - single trigger only: an outbound ticket message persisted in Message
+ * - legacy manual/campaign sourceType values are ignored by runtime
+ *
+ * Execution flow:
+ * 1. Cron loads active campaigns and their active stages.
+ * 2. For each open ticket with at least one outbound persisted message,
+ *    the newest outbound message becomes the current trigger cycle anchor.
+ * 3. Stage 1 delay is relative to that trigger message timestamp.
+ * 4. Subsequent stage delays are relative to the previously sent stage.
+ * 5. Any inbound reply after the current anchor stops the cycle.
+ * 6. FollowUpLog stores stage attempts and cycle metadata.
+ *
+ * This keeps cron execution for now while allowing sequences longer than 48h
+ * and deterministic sequential stage timing.
  */
 import { Op } from "sequelize";
 import FollowUpCampaign from "../../models/FollowUpCampaign";
@@ -19,7 +31,8 @@ import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import { sendFollowUpStageMessage } from "./FollowUpStageSender";
 
-const LOOKBACK_HOURS = 48;
+const SUCCESSFUL_LOG_STATUSES = new Set(["sent", "responded"]);
+const RESPONDABLE_LOG_STATUSES = new Set(["sent", "failed", "skipped"]);
 
 const executeFollowUpCampaigns = async () => {
   try {
@@ -69,15 +82,13 @@ async function processCampaign(campaign) {
   const stages = campaign.stages || [];
   if (!stages.length) return;
 
-  const cutoffDate = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000);
-
   const recentTickets = await Ticket.findAll({
     where: { companyId: campaign.companyId, status: { [Op.ne]: "closed" } },
     include: [
       {
         model: Message,
         as: "messages",
-        where: { fromMe: true, createdAt: { [Op.gte]: cutoffDate } },
+        where: { fromMe: true },
         required: true,
         separate: true,
         order: [["createdAt", "DESC"]],
@@ -106,87 +117,135 @@ async function processContact(campaign, stages, ticket) {
 
   const contactNumber = contact.number;
   const messages = ticket.messages || [];
+  const triggerMessage = messages[0];
+  if (!triggerMessage) return;
 
-  const firstOutgoingMs = messages.reduce((earliest, m) => {
-    const t = new Date(m.createdAt).getTime();
-    return !earliest || t < earliest ? t : earliest;
-  }, null);
+  const triggerAt = new Date(triggerMessage.createdAt);
+  const stageOrderMap = new Map(stages.map(stage => [stage.id, stage.order]));
 
-  if (!firstOutgoingMs) return;
+  const logs = await FollowUpLog.findAll({
+    where: {
+      followUpCampaignId: campaign.id,
+      contactNumber,
+      companyId: campaign.companyId
+    },
+    order: [["createdAt", "ASC"]]
+  });
 
-  // Check if contact replied after the first outgoing message
+  const cycleLogs = logs.filter(log => isCurrentTriggerCycle(log, triggerMessage.id, triggerAt));
+  const successfulCycleLogs = cycleLogs
+    .filter(log => SUCCESSFUL_LOG_STATUSES.has(log.status))
+    .sort((a, b) => resolveStageOrder(a, stageOrderMap) - resolveStageOrder(b, stageOrderMap));
+
+  const nextStage = resolveNextStage(stages, successfulCycleLogs, stageOrderMap);
+  if (!nextStage) return;
+
+  const anchorAt = resolveAnchorAt(triggerAt, nextStage.order, successfulCycleLogs, stageOrderMap);
+
   const replied = await Message.findOne({
     where: {
       ticketId: ticket.id,
       fromMe: false,
-      createdAt: { [Op.gt]: new Date(firstOutgoingMs) },
+      createdAt: { [Op.gt]: anchorAt },
     },
+    order: [["createdAt", "DESC"]]
   });
 
   if (replied) {
-    await FollowUpLog.update(
-      { respondedAt: replied.createdAt, status: "responded" },
-      {
-        where: {
-          followUpCampaignId: campaign.id,
-          contactNumber,
-          companyId: campaign.companyId,
-          status: { [Op.in]: ["pending", "sent"] },
-        },
-      }
-    );
+    await markCycleAsResponded(cycleLogs, replied.createdAt);
     return;
   }
 
-  const elapsedMinutes = Math.floor((Date.now() - firstOutgoingMs) / 60000);
+  const elapsedMinutes = Math.floor((Date.now() - anchorAt.getTime()) / 60000);
+  if (elapsedMinutes < nextStage.delayMinutes) return;
 
-  for (const stage of stages) {
-    if (elapsedMinutes < stage.delayMinutes) continue;
-
-    const existingLog = await FollowUpLog.findOne({
-      where: {
-        followUpCampaignId: campaign.id,
-        stageId: stage.id,
-        contactNumber,
-        companyId: campaign.companyId,
-        status: { [Op.in]: ["sent", "responded"] },
-      },
-    });
-
-    if (existingLog) continue;
-
-    let status = "sent";
-    try {
-      const wbot = await resolveWbot(campaign);
-      if (!wbot) {
-        status = "skipped";
-      } else {
-        const jid = `${contactNumber}@s.whatsapp.net`;
-        const result = await sendFollowUpStageMessage({
-          wbot,
-          jid,
-          stage,
-          companyId: campaign.companyId
-        });
-        status = result.status || status;
-      }
-    } catch (sendErr) {
-      console.error(`[FollowUpCampaign] Send error stage ${stage.id}:`, sendErr?.message);
-      status = "failed";
+  let status = "sent";
+  try {
+    const wbot = await resolveWbot(campaign);
+    if (!wbot) {
+      status = "skipped";
+    } else {
+      const jid = `${contactNumber}@s.whatsapp.net`;
+      const result = await sendFollowUpStageMessage({
+        wbot,
+        jid,
+        stage: nextStage,
+        companyId: campaign.companyId
+      });
+      status = result.status || status;
     }
-
-    await FollowUpLog.create({
-      followUpCampaignId: campaign.id,
-      stageId: stage.id,
-      contactNumber,
-      companyId: campaign.companyId,
-      sentAt: status === "sent" ? new Date() : null,
-      status,
-    });
-
-    // One stage per contact per run
-    break;
+  } catch (sendErr) {
+    console.error(`[FollowUpCampaign] Send error stage ${nextStage.id}:`, sendErr?.message);
+    status = "failed";
   }
+
+  await FollowUpLog.create({
+    followUpCampaignId: campaign.id,
+    stageId: nextStage.id,
+    contactNumber,
+    companyId: campaign.companyId,
+    triggerMessageId: triggerMessage.id,
+    triggeredAt: triggerAt,
+    sentAt: status === "sent" ? new Date() : null,
+    status,
+  });
+}
+
+function isCurrentTriggerCycle(log, triggerMessageId, triggerAt) {
+  if (Number(log.triggerMessageId) === Number(triggerMessageId)) {
+    return true;
+  }
+
+  if (log.triggerMessageId) {
+    return false;
+  }
+
+  // Backward compatibility for logs created before triggerMessageId existed.
+  const logMoment = log.sentAt || log.respondedAt || log.createdAt;
+  return !!logMoment && new Date(logMoment).getTime() >= triggerAt.getTime();
+}
+
+function resolveStageOrder(log, stageOrderMap) {
+  return stageOrderMap.get(log.stageId) || Number.MAX_SAFE_INTEGER;
+}
+
+function resolveNextStage(stages, successfulCycleLogs, stageOrderMap) {
+  const completedOrders = new Set(successfulCycleLogs.map(log => resolveStageOrder(log, stageOrderMap)));
+  return stages
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .find(stage => !completedOrders.has(stage.order));
+}
+
+function resolveAnchorAt(triggerAt, nextStageOrder, successfulCycleLogs, stageOrderMap) {
+  if (nextStageOrder <= 1) {
+    return triggerAt;
+  }
+
+  const previousStageLog = successfulCycleLogs
+    .filter(log => resolveStageOrder(log, stageOrderMap) === nextStageOrder - 1)
+    .sort((a, b) => new Date(b.sentAt || b.respondedAt || b.createdAt).getTime() - new Date(a.sentAt || a.respondedAt || a.createdAt).getTime())[0];
+
+  return previousStageLog?.sentAt
+    ? new Date(previousStageLog.sentAt)
+    : triggerAt;
+}
+
+async function markCycleAsResponded(cycleLogs, respondedAt) {
+  const logIds = cycleLogs
+    .filter(log => RESPONDABLE_LOG_STATUSES.has(log.status))
+    .map(log => log.id);
+
+  if (!logIds.length) return;
+
+  await FollowUpLog.update(
+    { respondedAt, status: "responded" },
+    {
+      where: {
+        id: { [Op.in]: logIds }
+      }
+    }
+  );
 }
 
 export default executeFollowUpCampaigns;

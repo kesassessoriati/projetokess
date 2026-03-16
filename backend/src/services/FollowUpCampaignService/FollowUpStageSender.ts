@@ -78,6 +78,9 @@ export const sendFollowUpStageMessage = async ({
   const activeStage = normalizeStageForTextOnlyDispatch(stage);
 
   if (activeStage.messageType === "text" || !activeStage.messageType) {
+    // Keep follow-up dispatch isolated from the Message persistence pipeline.
+    // The campaign engine is triggered only by outbound messages already stored
+    // in the Message table, so persisting follow-up stages here would recurse.
     await wbot.sendMessage(jid, { text: activeStage.message || "" });
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
