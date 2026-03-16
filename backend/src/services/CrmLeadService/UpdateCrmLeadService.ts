@@ -45,6 +45,7 @@ interface Request {
   tags?: any[];
   cardColor?: string;
   clientSince?: Date;
+  expirationDate?: Date;
 }
 
 const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
@@ -75,6 +76,7 @@ const UpdateCrmLeadService = async ({
       .nullable(),
     birthDate: Yup.date().nullable(),
     clientSince: Yup.date().nullable(),
+    expirationDate: Yup.date().nullable(),
     product: Yup.string()
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),

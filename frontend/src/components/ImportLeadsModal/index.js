@@ -91,6 +91,7 @@ const LEAD_FIELDS = [
     { id: "temperature", label: "Temperatura", required: false },
     { id: "birthDate", label: "Data de Nascimento", required: false },
     { id: "clientSince", label: "Cliente Desde", required: false },
+    { id: "expirationDate", label: "Data de Vencimento", required: false },
     { id: "score", label: "Score", required: false },
     { id: "notes", label: "Observações", required: false },
     { id: "tags", label: "Tags", required: false }

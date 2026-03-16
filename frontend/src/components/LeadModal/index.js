@@ -48,6 +48,7 @@ const normalizeLeadForm = (lead = {}) => {
     product: lead.product || "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
+    expirationDate: lead.expirationDate ? lead.expirationDate.substring(0, 10) : "",
     score: lead.score || 0,
     status: lead.status || lead.leadStatus || "novo",
     tags: Array.isArray(lead.tags) ? lead.tags : [],
@@ -113,6 +114,7 @@ const defaultForm = {
   linkedin: "",
   birthDate: "",
   clientSince: "",
+  expirationDate: "",
   position: "",
   source: "",
   campaign: "",
@@ -241,6 +243,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         temperature: form.temperature || null,
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
+        expirationDate: form.expirationDate || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
         cardColor: cardColor || form.cardColor
       };
@@ -444,6 +447,20 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   fullWidth
                   className={classes.formField}
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Data de vencimento"
+                  name="expirationDate"
+                  type="date"
+                  value={form.expirationDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Ao atingir a data, o lead expira."
                 />
               </Grid>
 

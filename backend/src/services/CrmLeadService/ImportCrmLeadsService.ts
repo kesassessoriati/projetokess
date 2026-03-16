@@ -134,7 +134,19 @@ const ImportCrmLeadsService = async ({
                     linkedin: leadRow.linkedin ? String(leadRow.linkedin) : undefined,
                     tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
                     birthDate: leadRow.birthDate ? new Date(leadRow.birthDate) : undefined,
-                    clientSince: leadRow.clientSince ? new Date(leadRow.clientSince) : undefined
+                    clientSince: leadRow.clientSince ? new Date(leadRow.clientSince) : undefined,
+                    // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
+                    expirationDate: (() => {
+                        const raw = leadRow.expirationDate || leadRow.dataVencimento;
+                        if (!raw) return undefined;
+                        const str = String(raw).trim();
+                        // Convert dd/mm/yyyy → yyyy-mm-dd before parsing
+                        const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        const parsed = brMatch
+                            ? new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`)
+                            : new Date(str);
+                        return isNaN(parsed.getTime()) ? undefined : parsed;
+                    })()
                 });
 
                 imported++;

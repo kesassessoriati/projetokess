@@ -50,6 +50,7 @@ interface Request {
   tags?: any[];
   cardColor?: string;
   clientSince?: Date;
+  expirationDate?: Date;
 }
 
 const normalizeNumber = (phone?: string): string | null => {
@@ -144,6 +145,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       .nullable(),
     birthDate: Yup.date().nullable(),
     clientSince: Yup.date().nullable(),
+    expirationDate: Yup.date().nullable(),
     product: Yup.string()
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
