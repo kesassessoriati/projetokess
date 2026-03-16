@@ -364,6 +364,27 @@ export const triggerFlowWebhook = async (
   }
 };
 
+export const toggleFlowActive = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { idFlow } = req.params;
+  const { companyId } = req.user;
+  const idFlowInt = parseInt(idFlow);
+
+  const flow = await import("../models/FlowBuilder").then(m =>
+    m.FlowBuilderModel.findOne({ where: { id: idFlowInt, company_id: companyId } })
+  );
+
+  if (!flow) {
+    return res.status(404).json({ error: "Fluxo não encontrado" });
+  }
+
+  await flow.update({ active: !flow.active });
+
+  return res.status(200).json({ id: flow.id, active: flow.active });
+};
+
 export const listFlowExecutions = async (
   req: Request,
   res: Response

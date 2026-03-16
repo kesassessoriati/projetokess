@@ -73,6 +73,12 @@ flowBuilder.post(
   FlowBuilderController.importFlow
 );
 
+flowBuilder.patch(
+  "/flowbuilder/:idFlow/toggle-active",
+  isAuth,
+  FlowBuilderController.toggleFlowActive
+);
+
 flowBuilder.get("/flowbuilder/:idFlow", isAuth, FlowBuilderController.flowOne);
 
 flowBuilder.post(

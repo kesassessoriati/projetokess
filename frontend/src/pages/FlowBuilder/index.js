@@ -24,6 +24,7 @@ import GetAppIcon from "@material-ui/icons/GetApp";
 import PublishIcon from "@material-ui/icons/Publish";
 import AndroidIcon from "@material-ui/icons/Android";
 import HistoryIcon from "@material-ui/icons/History";
+import PowerSettingsNewIcon from "@material-ui/icons/PowerSettingsNew";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
@@ -435,6 +436,18 @@ const FlowBuilder = () => {
     }
   };
 
+  const handleToggleActive = async (flow) => {
+    try {
+      const { data } = await api.patch(`/flowbuilder/${flow.id}/toggle-active`);
+      setFlows((prev) =>
+        prev.map((f) => (f.id === flow.id ? { ...f, active: data.active } : f))
+      );
+      toast.success(data.active ? "Fluxo ativado" : "Fluxo desativado");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleImportFlow = async () => {
     if (!importFile) {
       toast.error("Selecione um arquivo para importar");
@@ -675,6 +688,16 @@ const FlowBuilder = () => {
                       onClick={() => handleOpenExecutions(flow)}
                     >
                       <HistoryIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={flow.active ? "Desativar fluxo" : "Ativar fluxo"}>
+                    <IconButton
+                      size="small"
+                      className={classes.actionButton}
+                      style={{ color: flow.active ? "#f57c00" : "#4caf50" }}
+                      onClick={() => handleToggleActive(flow)}
+                    >
+                      <PowerSettingsNewIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <IconButton
