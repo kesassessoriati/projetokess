@@ -131,7 +131,12 @@ const ImportCrmClientsService = async ({
                             : new Date(str);
                         return isNaN(parsed.getTime()) ? undefined : parsed;
                     })(),
-                    status: clientRow.status || "active",
+                    status: (() => {
+                        const raw = String(clientRow.status || "").toLowerCase().trim();
+                        if (raw === "inactive" || raw === "inativo") return "inactive";
+                        if (raw === "blocked" || raw === "bloqueado") return "blocked";
+                        return "active";
+                    })(),
                     type: cleanDocument && cleanDocument.length > 11 ? "pj" : "pf"
                 });
 
