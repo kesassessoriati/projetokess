@@ -6,6 +6,18 @@ import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
 
 const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
+
+const normalizeStageForTextOnlyDispatch = (stage: any = {}) => ({
+  ...stage,
+  // Follow-up media/buttons are intentionally disabled for this release.
+  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
+  message: stage?.message ?? stage?.mediaCaption ?? "",
+  mediaUrl: null,
+  mediaType: null,
+  mediaCaption: null,
+  buttons: [],
+});
 
 export const resolveFollowUpMediaPath = (mediaUrl?: string | null): string | null => {
   if (!mediaUrl) return null;
@@ -63,13 +75,16 @@ export const sendFollowUpStageMessage = async ({
   stage,
   companyId
 }) => {
-  if (stage.messageType === "buttons" && stage.buttons?.length) {
-    await sendButtonMessage(wbot, jid, stage.message || "", "", stage.buttons);
+  const activeStage = normalizeStageForTextOnlyDispatch(stage);
+
+  if (activeStage.messageType === "text" || !activeStage.messageType) {
+    await wbot.sendMessage(jid, { text: activeStage.message || "" });
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
-  if (stage.messageType === "text" || !stage.messageType) {
-    await wbot.sendMessage(jid, { text: stage.message || "" });
+  // Legacy non-text delivery paths stay below for future follow-up reactivation.
+  if (stage.messageType === "buttons" && stage.buttons?.length) {
+    await sendButtonMessage(wbot, jid, stage.message || "", "", stage.buttons);
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 

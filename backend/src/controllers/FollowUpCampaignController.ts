@@ -12,6 +12,7 @@ import { sendFollowUpStageMessage } from "../services/FollowUpCampaignService/Fo
 const DEFAULT_BOARD_NAME = "Quadro Principal";
 const DEFAULT_FUNNEL_NAME = "Geral";
 const DEFAULT_COLUMNS = ["Sem Categoria"];
+const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
 
 const normalizeColumns = (columns: unknown): string[] => {
   const values = Array.isArray(columns) ? columns : [];
@@ -104,6 +105,22 @@ const getBoardById = async (companyId: number, boardId?: number | string | null)
 
 const normalizePhone = (value: string) => String(value || "").replace(/\D/g, "");
 
+const normalizeFollowUpStageInput = (stage: any, index: number) => ({
+  order: Number(stage?.order) > 0 ? Number(stage.order) : index + 1,
+  delayMinutes: Number(stage?.delayMinutes) > 0 ? Number(stage.delayMinutes) : 60,
+  // Media/buttons stay in the model for future reactivation, but the active flow is text-only for now.
+  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
+  message: stage?.message ?? stage?.mediaCaption ?? "",
+  mediaUrl: null,
+  mediaType: null,
+  mediaCaption: null,
+  buttons: null,
+  isActive: stage?.isActive !== undefined ? stage.isActive : true,
+});
+
+const normalizeFollowUpStagesInput = (stages: any): any[] =>
+  Array.isArray(stages) ? stages.map((stage, index) => normalizeFollowUpStageInput(stage, index)) : [];
+
 const resolveWhatsappForFollowUp = async (companyId: number, whatsappId?: number | string | null) => {
   let resolvedWhatsappId = whatsappId ? Number(whatsappId) : null;
 
@@ -172,6 +189,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     const board = await getBoardById(companyId, boardId);
     const normalizedColumns = normalizeColumns(board.columns);
     const safeBoardColumn = normalizedColumns.includes(boardColumn) ? boardColumn : "Sem Categoria";
+    const normalizedStages = normalizeFollowUpStagesInput(stages);
 
     const campaign = await FollowUpCampaign.create({
       name,
@@ -183,19 +201,19 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       boardColumn: safeBoardColumn,
     });
 
-    if (Array.isArray(stages) && stages.length) {
+    if (normalizedStages.length) {
       await FollowUpStage.bulkCreate(
-        stages.map((s, idx) => ({
+        normalizedStages.map((s) => ({
           followUpCampaignId: campaign.id,
-          order: s.order ?? idx + 1,
-          delayMinutes: s.delayMinutes ?? 60,
-          messageType: s.messageType ?? "text",
-          message: s.message ?? "",
-          mediaUrl: s.mediaUrl ?? null,
-          mediaType: s.mediaType ?? null,
-          mediaCaption: s.mediaCaption ?? null,
-          buttons: s.buttons ?? null,
-          isActive: s.isActive !== undefined ? s.isActive : true,
+          order: s.order,
+          delayMinutes: s.delayMinutes,
+          messageType: s.messageType,
+          message: s.message,
+          mediaUrl: s.mediaUrl,
+          mediaType: s.mediaType,
+          mediaCaption: s.mediaCaption,
+          buttons: s.buttons,
+          isActive: s.isActive,
         }))
       );
     }
@@ -231,6 +249,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       boardId !== undefined || !campaign.boardId
         ? await getBoardById(companyId, boardId ?? campaign.boardId)
         : await getBoardById(companyId, campaign.boardId);
+    const normalizedStages = normalizeFollowUpStagesInput(stages);
 
     const normalizedColumns = normalizeColumns(board.columns);
     const nextBoardColumn =
@@ -249,19 +268,19 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
     if (Array.isArray(stages)) {
       await FollowUpStage.destroy({ where: { followUpCampaignId: campaign.id } });
-      if (stages.length) {
+      if (normalizedStages.length) {
         await FollowUpStage.bulkCreate(
-          stages.map((s, idx) => ({
+          normalizedStages.map((s) => ({
             followUpCampaignId: campaign.id,
-            order: s.order ?? idx + 1,
-            delayMinutes: s.delayMinutes ?? 60,
-            messageType: s.messageType ?? "text",
-            message: s.message ?? "",
-            mediaUrl: s.mediaUrl ?? null,
-            mediaType: s.mediaType ?? null,
-            mediaCaption: s.mediaCaption ?? null,
-            buttons: s.buttons ?? null,
-            isActive: s.isActive !== undefined ? s.isActive : true,
+            order: s.order,
+            delayMinutes: s.delayMinutes,
+            messageType: s.messageType,
+            message: s.message,
+            mediaUrl: s.mediaUrl,
+            mediaType: s.mediaType,
+            mediaCaption: s.mediaCaption,
+            buttons: s.buttons,
+            isActive: s.isActive,
           }))
         );
       }
@@ -436,11 +455,9 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
     return res.status(400).json({ error: "Numero de WhatsApp invalido" });
   }
 
-  const activeStages = Array.isArray(stages)
-    ? [...stages]
-        .filter((stage) => stage?.isActive !== false)
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    : [];
+  const activeStages = normalizeFollowUpStagesInput(stages)
+    .filter((stage) => stage?.isActive !== false)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   if (!activeStages.length) {
     return res.status(400).json({ error: "Adicione ao menos um estagio ativo para testar" });

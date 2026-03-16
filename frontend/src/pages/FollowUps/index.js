@@ -45,6 +45,7 @@ import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 
 const GREEN = "#2e7d32";
 const GREEN_DARK = "#1f5b24";
+const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
 
 const useStyles = makeStyles((theme) => ({
   root: { padding: theme.spacing(3) },
@@ -240,6 +241,25 @@ const emptyStage = () => ({
   buttons: [],
   isActive: true,
 });
+
+const normalizeFollowUpStage = (stage = {}, order = 1) => ({
+  ...emptyStage(),
+  ...stage,
+  order: stage.order ?? order,
+  delayMinutes: Number(stage.delayMinutes) > 0 ? Number(stage.delayMinutes) : 60,
+  // Media and interactive follow-up types are intentionally disabled for this release.
+  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
+  message: stage.message ?? stage.mediaCaption ?? "",
+  mediaUrl: "",
+  mediaType: "",
+  mediaCaption: "",
+  buttons: [],
+});
+
+const normalizeFollowUpStages = (stages = []) => {
+  const safeStages = Array.isArray(stages) && stages.length ? stages : [emptyStage()];
+  return safeStages.map((stage, index) => normalizeFollowUpStage(stage, index + 1));
+};
 
 const emptyForm = (boards = []) => {
   const firstBoard = boards[0];
@@ -556,7 +576,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
         sourceType: campaign.sourceType || "manual",
         boardId,
         boardColumn: safeColumn,
-        stages: campaign.stages?.length ? campaign.stages : [emptyStage()],
+        stages: normalizeFollowUpStages(campaign.stages),
       });
     } else {
       setForm(emptyForm(boards));
@@ -569,7 +589,10 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
   const updateStage = (idx, key, value) => {
     setForm((p) => {
       const stages = [...p.stages];
-      stages[idx] = { ...stages[idx], [key]: value };
+      stages[idx] = normalizeFollowUpStage(
+        { ...stages[idx], [key]: key === "messageType" ? FOLLOW_UP_ALLOWED_MESSAGE_TYPE : value },
+        idx + 1
+      );
       return { ...p, stages };
     });
   };
@@ -674,7 +697,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
     if (!form.boardId) return toast.warn("Selecione um quadro");
     onSave({
       ...form,
-      stages: form.stages.map((stage, index) => ({ ...stage, order: index + 1 })),
+      stages: normalizeFollowUpStages(form.stages),
       boardColumn: selectedBoardColumns.includes(form.boardColumn) ? form.boardColumn : selectedBoardColumns[0],
     });
   };
@@ -694,7 +717,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       const { data } = await api.post("/follow-up-campaigns/test", {
         whatsappId: form.whatsappId || "",
         targetNumber: testNumber,
-        stages: form.stages.map((stage, index) => ({ ...stage, order: index + 1 })),
+        stages: normalizeFollowUpStages(form.stages),
       });
 
       const failures = (data?.results || []).filter((result) => result.status !== "sent");
@@ -837,16 +860,12 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                 <FormControl variant="outlined" size="small" style={{ minWidth: 150 }}>
                   <InputLabel>Tipo</InputLabel>
                   <Select
-                    value={stage.messageType}
+                    value={FOLLOW_UP_ALLOWED_MESSAGE_TYPE}
                     onChange={(e) => updateStage(idx, "messageType", e.target.value)}
                     label="Tipo"
+                    disabled
                   >
                     <MenuItem value="text">Texto</MenuItem>
-                    <MenuItem value="image">Imagem</MenuItem>
-                    <MenuItem value="video">Vídeo</MenuItem>
-                    <MenuItem value="audio">Áudio</MenuItem>
-                    <MenuItem value="document">Documento</MenuItem>
-                    <MenuItem value="buttons">Botões</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -873,6 +892,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                   rows={3}
                   variant="outlined"
                   size="small"
+                  helperText="Tipos de mídia e botões estão temporariamente desativados neste release."
                 />
               )}
 

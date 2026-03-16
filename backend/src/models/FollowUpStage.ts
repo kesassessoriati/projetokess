@@ -35,7 +35,7 @@ class FollowUpStage extends Model<FollowUpStage> {
 
   @Default("text")
   @Column(DataType.STRING(20))
-  messageType: string; // 'text' | 'buttons'
+  messageType: string; // text only in the active flow; media/button values are preserved for future reactivation
 
   @AllowNull(true)
   @Column(DataType.TEXT)
