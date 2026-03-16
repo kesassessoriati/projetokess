@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useState, useContext } from "react";
+import React, { useReducer, useEffect, useState, useContext, Component } from "react";
 import { useHistory } from "react-router-dom";
 import {
   Avatar,
@@ -38,6 +38,39 @@ import ImportClientsModal from "../../components/ImportClientsModal";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+class ClientListErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error("[Clients] Render error caught by boundary:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box style={{ padding: 24, textAlign: "center", color: "#dc2626" }}>
+          <Typography variant="h6">Erro ao renderizar a lista de clientes</Typography>
+          <Typography variant="body2" style={{ marginTop: 8 }}>
+            {String(this.state.error?.message || "Erro desconhecido")}
+          </Typography>
+          <Button
+            style={{ marginTop: 16 }}
+            variant="outlined"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Tentar novamente
+          </Button>
+        </Box>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const STATUS_OPTIONS = [
   { label: "Todos", value: "" },
   { label: "Ativo", value: "active" },
@@ -73,7 +106,7 @@ const reducer = (state, action) => {
     case "RESET":
       return [];
     case "LOAD_CLIENTS": {
-      const incoming = action.payload || [];
+      const incoming = (action.payload || []).filter((c) => c && c.id != null);
       const clone = [...state];
       incoming.forEach((client) => {
         const index = clone.findIndex((item) => item.id === client.id);
@@ -519,8 +552,8 @@ const Clients = () => {
     }
   };
 
-  const getInitials = (name = "") => {
-    if (!name.trim()) return "C";
+  const getInitials = (name) => {
+    if (!name || typeof name !== "string" || !name.trim()) return "C";
     const pieces = name.trim().split(" ");
     return pieces
       .slice(0, 2)
@@ -761,8 +794,9 @@ const Clients = () => {
             </Typography>
           </Box>
         ) : (
+          <ClientListErrorBoundary>
           <Box className={classes.list}>
-            {clients.map((client) => (
+            {clients.filter(c => c && c.id != null).map((client) => (
               <Box key={client.id} className={classes.listItem}>
                 <Checkbox
                   className={classes.hideOnMobile}
@@ -795,7 +829,7 @@ const Clients = () => {
                     <span>Tipo: {formatType(client.type)}</span>
                     <span>Documento: {client.document || "N/A"}</span>
                     <span>Cidade: {client.city || "N/A"}</span>
-                    <span>Responsável: {client.ownerUserId || "N/A"}</span>
+                    <span>Responsável: {typeof client.ownerUserId === "object" ? "N/A" : (client.ownerUserId || "N/A")}</span>
                     <span>Produto: {client.acquiredProduct || "N/A"}</span>
                     <span>Cliente desde: {client.clientSince || "N/A"}</span>
                     <span>Vencimento: {client.expirationDate || "N/A"}</span>
@@ -838,6 +872,7 @@ const Clients = () => {
               </Box>
             ))}
           </Box>
+          </ClientListErrorBoundary>
         )}
 
         {loading && (
