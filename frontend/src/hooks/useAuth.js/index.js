@@ -141,9 +141,11 @@ const useAuth = () => {
       var before = moment(moment().format()).isBefore(dueDate);
       var dias = moment.duration(diff).asDays();
 
+      // Plano ilimitado: sempre permite login
+      const isUnlimited = data.user.company?.billing_cycle === "unlimited" || data.user.company?.recurrence === "Ilimitado";
       // Se a empresa estiver ativa, permite login mesmo com fatura vencida
       const companyStatus = data.user.company?.status;
-      const allowLogin = companyStatus ? true : before;
+      const allowLogin = isUnlimited || companyStatus ? true : before;
 
       if (allowLogin) {
         localStorage.setItem("token", data.token);

@@ -42,9 +42,11 @@ export const PlanPermissionsProvider = ({ children }) => {
 
         const plan = planConfigs?.plan || {};
         if (planConfigs?.plan) {
+          // Plano ilimitado: sempre ativo independente de datas
+          const isUnlimited = user.company?.billing_cycle === "unlimited" || user.company?.recurrence === "Ilimitado";
           // Se a empresa estiver ativa, plano permanece ativo mesmo com fatura vencida
           const isExpired = moment().isBefore(user.company?.dueDate);
-          const planActive = user.company?.status ? true : isExpired;
+          const planActive = isUnlimited || user.company?.status ? true : isExpired;
           
           setState({
             loading: false,

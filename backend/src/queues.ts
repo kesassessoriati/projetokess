@@ -1827,8 +1827,19 @@ async function handleInvoiceCreate() {
     const companies = await Company.findAll();
     companies.map(async c => {
 
+      // Empresas com plano ilimitado nunca expiram — pular processamento de faturamento
+      if (c.billing_cycle === "unlimited" || c.recurrence === "Ilimitado") {
+        return;
+      }
+
       const status = c.status;
       const dueDate = c.dueDate;
+
+      // Se dueDate estiver vazio ou inválido, não há como calcular vencimento — pular
+      if (!dueDate) {
+        return;
+      }
+
       const date = moment(dueDate).format();
       const timestamp = moment().format();
       const hoje = moment().format("DD/MM/yyyy");
