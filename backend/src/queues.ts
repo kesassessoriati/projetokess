@@ -1828,7 +1828,7 @@ async function handleInvoiceCreate() {
     companies.map(async c => {
 
       // Empresas com plano ilimitado nunca expiram — pular processamento de faturamento
-      if (c.billing_cycle === "unlimited" || c.recurrence === "Ilimitado") {
+      if (c.billing_cycle === "unlimited" || ["Ilimitado", "ILIMITADO", "unlimited"].includes(c.recurrence)) {
         return;
       }
 

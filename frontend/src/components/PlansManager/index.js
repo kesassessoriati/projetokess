@@ -134,6 +134,7 @@ const RECURRENCE_OPTIONS = [
   { value: "TRIMESTRAL", label: "Trimestral" },
   { value: "SEMESTRAL", label: "Semestral" },
   { value: "ANUAL", label: "Anual" },
+  { value: "ILIMITADO", label: "Ilimitado" },
 ];
 
 const defaultPlanValues = {

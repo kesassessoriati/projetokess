@@ -74,7 +74,7 @@ export const PlanPermissionsProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [user?.companyId, user?.company?.dueDate]);
+  }, [user?.companyId, user?.company?.dueDate, user?.company?.status, user?.company?.billing_cycle, user?.company?.recurrence]);
 
   const value = useMemo(() => {
     const canAccess = (featureKey) => {

@@ -48,7 +48,7 @@ const ShowUserService = async (id: string | number, companyId: string | number):
         {
           model: Company,
           as: "company",
-          attributes: ["id", "name", "dueDate", "document"],
+          attributes: ["id", "name", "dueDate", "document", "status", "billing_cycle", "recurrence", "expiration_date"],
           include: [
             {
               model: Plan, as: "plan",
