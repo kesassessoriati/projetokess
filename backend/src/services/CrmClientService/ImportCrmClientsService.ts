@@ -119,6 +119,18 @@ const ImportCrmClientsService = async ({
                     tags: tagsStr,
                     birthDate: clientRow.birthDate || clientRow.dataNascimento ? new Date(clientRow.birthDate || clientRow.dataNascimento) : undefined,
                     clientSince: clientRow.clientSince || clientRow.clienteDesde ? new Date(clientRow.clientSince || clientRow.clienteDesde) : new Date(),
+                    // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
+                    expirationDate: (() => {
+                        const raw = clientRow.expirationDate || clientRow.dataVencimento;
+                        if (!raw) return undefined;
+                        const str = String(raw).trim();
+                        // Convert dd/mm/yyyy → yyyy-mm-dd before parsing
+                        const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        const parsed = brMatch
+                            ? new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`)
+                            : new Date(str);
+                        return isNaN(parsed.getTime()) ? undefined : parsed;
+                    })(),
                     status: clientRow.status || "active",
                     type: cleanDocument && cleanDocument.length > 11 ? "pj" : "pf"
                 });
