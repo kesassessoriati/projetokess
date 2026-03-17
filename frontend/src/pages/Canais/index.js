@@ -1281,6 +1281,8 @@ const Connections = () => {
                               </>
                             )}
                             <span>{format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm")}</span>
+                            <span>•</span>
+                            <span style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#888" }}>ID: {whatsApp.id}</span>
                           </Box>
                           <Box style={{ marginTop: 4 }}>
                             <span className={`${classes.statusBadge} ${statusInfo.class}`}>
