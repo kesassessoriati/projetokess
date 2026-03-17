@@ -4,6 +4,7 @@ import isAuth from "../middleware/isAuth";
 import uploadConfig from "../config/upload";
 
 import * as MessageController from "../controllers/MessageController";
+import * as PresenceController from "../controllers/PresenceController";
 
 const messageRoutes = Router();
 
@@ -25,5 +26,8 @@ messageRoutes.post("/messages/call/:ticketId", isAuth, MessageController.sendCAL
 messageRoutes.post("/messages/url/:ticketId", isAuth, MessageController.sendURLMessage);
 messageRoutes.post("/messages/PIX/:ticketId", isAuth, MessageController.sendPIXMessage);
 messageRoutes.post('/message/forward', isAuth, MessageController.forwardMessage)
+
+messageRoutes.post("/presence/typing", isAuth, PresenceController.sendTyping);
+messageRoutes.post("/presence/stop", isAuth, PresenceController.stopTyping);
 
 export default messageRoutes;
