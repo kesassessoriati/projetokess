@@ -5,7 +5,7 @@ import Whatsapp from "../models/Whatsapp";
 
 export const sendTyping = async (req: Request, res: Response): Promise<Response> => {
   const { number, whatsappId, duration = 3000 } = req.body;
-  const { companyId } = req.user;
+  const companyId = req.externalAuth?.companyId;
 
   if (!number || !whatsappId) {
     throw new AppError("ERR_MISSING_PARAMS: number e whatsappId são obrigatórios", 400);
@@ -17,8 +17,7 @@ export const sendTyping = async (req: Request, res: Response): Promise<Response>
   }
 
   const wbot = getWbot(Number(whatsappId));
-
-  const jid = `${number.replace(/\D/g, "")}@s.whatsapp.net`;
+  const jid = `${String(number).replace(/\D/g, "")}@s.whatsapp.net`;
 
   await wbot.presenceSubscribe(jid);
   await wbot.sendPresenceUpdate("composing", jid);
@@ -29,12 +28,12 @@ export const sendTyping = async (req: Request, res: Response): Promise<Response>
     } catch (_) {}
   }, Number(duration));
 
-  return res.json({ ok: true, jid, duration });
+  return res.json({ ok: true, jid, duration: Number(duration) });
 };
 
 export const stopTyping = async (req: Request, res: Response): Promise<Response> => {
   const { number, whatsappId } = req.body;
-  const { companyId } = req.user;
+  const companyId = req.externalAuth?.companyId;
 
   if (!number || !whatsappId) {
     throw new AppError("ERR_MISSING_PARAMS: number e whatsappId são obrigatórios", 400);
@@ -46,7 +45,7 @@ export const stopTyping = async (req: Request, res: Response): Promise<Response>
   }
 
   const wbot = getWbot(Number(whatsappId));
-  const jid = `${number.replace(/\D/g, "")}@s.whatsapp.net`;
+  const jid = `${String(number).replace(/\D/g, "")}@s.whatsapp.net`;
 
   await wbot.sendPresenceUpdate("paused", jid);
 

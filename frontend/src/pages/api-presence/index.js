@@ -90,7 +90,7 @@ const ApiPresencePage = () => {
   const handleSendTyping = async (values) => {
     try {
       const { data } = await axios.post(
-        `${getBaseUrl()}/presence/typing`,
+        `${getBaseUrl()}/api/external/presence/typing`,
         {
           number: values.number,
           whatsappId: Number(values.whatsappId),
@@ -108,7 +108,7 @@ const ApiPresencePage = () => {
   const handleStopTyping = async (values) => {
     try {
       const { data } = await axios.post(
-        `${getBaseUrl()}/presence/stop`,
+        `${getBaseUrl()}/api/external/presence/stop`,
         {
           number: values.number,
           whatsappId: Number(values.whatsappId)
@@ -123,8 +123,8 @@ const ApiPresencePage = () => {
   };
 
   const endpoints = [
-    { method: "POST", path: "/presence/typing", desc: "Envia o status 'digitando...' para um número. Para automaticamente após o duration." },
-    { method: "POST", path: "/presence/stop", desc: "Encerra imediatamente o status 'digitando...' para um número." }
+    { method: "POST", path: "/api/external/presence/typing", desc: "Envia o status 'digitando...' para um número. Para automaticamente após o duration." },
+    { method: "POST", path: "/api/external/presence/stop", desc: "Encerra imediatamente o status 'digitando...' para um número." }
   ];
 
   const methodColor = {
@@ -152,10 +152,10 @@ const ApiPresencePage = () => {
       <Box mb={3}>
         <Typography variant="subtitle1" gutterBottom><strong>Autenticação</strong></Typography>
         <Typography variant="body2" color="textSecondary" gutterBottom>
-          Esta API usa autenticação JWT (Bearer Token). Obtenha o token no endpoint de login.
+          Todas as requisições exigem o header <code>Authorization: Bearer</code> com o token gerado na página de Documentação (apikey da empresa).
         </Typography>
         <div className={classes.codeBlock}>
-          {`Authorization: Bearer <seu-jwt-token>`}
+          {`Authorization: Bearer <seu-api-token>`}
         </div>
       </Box>
 
@@ -211,8 +211,8 @@ const ApiPresencePage = () => {
       <Box mb={3}>
         <Typography variant="subtitle1" gutterBottom><strong>Exemplo de requisição</strong></Typography>
         <div className={classes.codeBlock}>
-          {`POST /presence/typing
-Authorization: Bearer <token>
+          {`POST /api/external/presence/typing
+Authorization: Bearer <api-token>
 Content-Type: application/json
 
 {
@@ -246,7 +246,7 @@ Content-Type: application/json
             <Form className={classes.formContainer}>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <Field as={TextField} label="Token JWT (Bearer)" name="token" variant="outlined" margin="dense" fullWidth required />
+                  <Field as={TextField} label="API Token (Bearer)" name="token" variant="outlined" margin="dense" fullWidth required />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Field as={TextField} label="Número (ex: 5511999999999)" name="number" variant="outlined" margin="dense" fullWidth required />
