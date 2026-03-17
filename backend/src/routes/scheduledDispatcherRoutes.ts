@@ -27,6 +27,13 @@ scheduledDispatcherRoutes.post(
   ScheduledDispatcherController.store
 );
 
+scheduledDispatcherRoutes.post(
+  "/scheduled-dispatchers/test",
+  isAuth,
+  upload.single("media"),
+  ScheduledDispatcherController.test
+);
+
 scheduledDispatcherRoutes.put(
   "/scheduled-dispatchers/:id",
   isAuth,

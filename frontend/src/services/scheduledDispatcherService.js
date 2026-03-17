@@ -50,6 +50,14 @@ export const createScheduledDispatcher = async payload => {
   return data;
 };
 
+export const testScheduledDispatcher = async payload => {
+  const fd = buildFormData(payload);
+  const { data } = await api.post("/scheduled-dispatchers/test", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  return data;
+};
+
 export const updateScheduledDispatcher = async (id, payload) => {
   const fd = buildFormData(payload);
   const { data } = await api.put(`/scheduled-dispatchers/${id}`, fd, {
@@ -70,12 +78,15 @@ export const toggleScheduledDispatcher = async (id, active) => {
   return data;
 };
 
-export default {
+const scheduledDispatcherService = {
   listScheduledDispatchers,
   getScheduledDispatcher,
   createScheduledDispatcher,
+  testScheduledDispatcher,
   updateScheduledDispatcher,
   deleteScheduledDispatcher,
   toggleScheduledDispatcher,
   eventTypeOptions
 };
+
+export default scheduledDispatcherService;

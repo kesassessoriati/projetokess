@@ -39,6 +39,7 @@ import {
   createScheduledDispatcher,
   eventTypeOptions,
   getScheduledDispatcher,
+  testScheduledDispatcher,
   updateScheduledDispatcher
 } from "../../services/scheduledDispatcherService";
 
@@ -174,6 +175,8 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testNumber, setTestNumber] = useState("");
 
   // Media state
   const [mediaFile, setMediaFile] = useState(null);          // new File to upload
@@ -197,6 +200,8 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       setForm(defaultForm);
       setLoading(false);
       setSaving(false);
+      setTesting(false);
+      setTestNumber("");
       setMediaFile(null);
       setMediaPreviewUrl("");
       setExistingMediaUrl(null);
@@ -207,6 +212,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
 
     if (!dispatcher) {
       setForm(defaultForm);
+      setTestNumber("");
       return;
     }
 
@@ -340,6 +346,48 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       toast.error("Não foi possível salvar. Verifique os campos e tente novamente.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleQuickTest = async () => {
+    if (!testNumber.trim()) {
+      toast.warn("Informe um numero de teste antes de enviar.");
+      return;
+    }
+    if (!form.whatsappId) {
+      toast.warn("Selecione a conexao WhatsApp antes de testar.");
+      return;
+    }
+    if (!form.messageTemplate.trim() && !hasMedia) {
+      toast.warn("Defina a mensagem de texto ou adicione uma midia antes de testar.");
+      return;
+    }
+
+    const payload = {
+      title: form.title || "Teste de automacao",
+      messageTemplate: form.messageTemplate,
+      eventType: form.eventType,
+      whatsappId: form.whatsappId || null,
+      startTime: form.startTime,
+      sendIntervalSeconds: Number(form.sendIntervalSeconds),
+      daysBeforeDue:
+        form.eventType === "invoice_reminder" ? Number(form.daysBeforeDue || 0) : null,
+      daysAfterDue:
+        form.eventType === "invoice_overdue" ? Number(form.daysAfterDue || 0) : null,
+      mediaCaption: hasMedia ? form.mediaCaption : null,
+      mediaUrl: !mediaFile && !removeMedia ? existingMediaUrl : null,
+      mediaFile: mediaFile || undefined,
+      targetNumber: testNumber
+    };
+
+    try {
+      setTesting(true);
+      await testScheduledDispatcher(payload);
+      toast.success("Teste da automacao executado com sucesso!");
+    } catch (error) {
+      toast.error(error?.response?.data?.error || "Erro ao testar automacao");
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -682,17 +730,49 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       </DialogContent>
 
       <DialogActions style={{ padding: 16 }}>
-        <Button onClick={() => onClose(false)} disabled={saving}>
-          Cancelar
-        </Button>
-        <Button
-          color="primary"
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={saving || loading}
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gridGap={12}
+          width="100%"
         >
-          {saving ? <CircularProgress size={20} /> : "Salvar disparo"}
-        </Button>
+          <Box display="flex" alignItems="center" flexWrap="wrap" gridGap={12}>
+            <TextField
+              label="Numero de teste"
+              value={testNumber}
+              onChange={event => setTestNumber(event.target.value)}
+              variant="outlined"
+              size="small"
+              placeholder="+55 11 99999-9999"
+              style={{ minWidth: 260 }}
+              helperText="Numero usado exclusivamente no teste da automacao."
+              disabled={testing || saving || loading}
+            />
+            <Button
+              onClick={handleQuickTest}
+              variant="outlined"
+              disabled={testing || saving || loading}
+            >
+              {testing ? "Testando..." : "Testar automacao"}
+            </Button>
+          </Box>
+
+          <Box display="flex" alignItems="center" gridGap={8}>
+            <Button onClick={() => onClose(false)} disabled={saving || testing}>
+              Cancelar
+            </Button>
+            <Button
+              color="primary"
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={saving || loading || testing}
+            >
+              {saving ? <CircularProgress size={20} /> : "Salvar disparo"}
+            </Button>
+          </Box>
+        </Box>
       </DialogActions>
     </Dialog>
   );

@@ -7,13 +7,21 @@ import ShowScheduledDispatcherService from "../services/ScheduledDispatcherServi
 import UpdateScheduledDispatcherService from "../services/ScheduledDispatcherService/UpdateScheduledDispatcherService";
 import DeleteScheduledDispatcherService from "../services/ScheduledDispatcherService/DeleteScheduledDispatcherService";
 import ToggleScheduledDispatcherService from "../services/ScheduledDispatcherService/ToggleScheduledDispatcherService";
+import TestScheduledDispatcherService from "../services/ScheduledDispatcherService/TestScheduledDispatcherService";
 
 const publicFolder = path.resolve(__dirname, "..", "..", "public");
 
 const ALLOWED_MIME_TYPES = [
-  "image/jpeg", "image/png", "image/gif", "image/webp",
-  "video/mp4", "video/mpeg",
-  "audio/mpeg", "audio/mp3", "audio/ogg", "audio/wav",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "video/mp4",
+  "video/mpeg",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/ogg",
+  "audio/wav",
   "application/pdf"
 ];
 
@@ -38,6 +46,39 @@ const resolveUploadedMedia = (req: Request) => {
   };
 };
 
+const validateUpload = (req: Request, companyId: number) => {
+  if (!req.file) return null;
+
+  if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
+    deleteMediaFile(`company${companyId}/${req.file.filename}`);
+    return { status: 400, error: "Tipo de arquivo nao permitido." };
+  }
+
+  const type = req.file.mimetype.split("/")[0];
+  const maxSize = MAX_FILE_SIZES[type] ?? MAX_FILE_SIZES.application;
+  if (req.file.size > maxSize) {
+    deleteMediaFile(`company${companyId}/${req.file.filename}`);
+    return {
+      status: 400,
+      error: `Arquivo muito grande. Limite: ${Math.round(maxSize / 1024 / 1024)}MB.`
+    };
+  }
+
+  return null;
+};
+
+const parseChipIds = (value: any) => {
+  if (Array.isArray(value)) {
+    return value.map((id: any) => Number(id)).filter(Boolean);
+  }
+
+  if (typeof value === "string" && value) {
+    return JSON.parse(value).map((id: any) => Number(id)).filter(Boolean);
+  }
+
+  return [];
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const dispatchers = await ListScheduledDispatchersService({ companyId });
@@ -58,22 +99,14 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-
-  if (req.file) {
-    if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
-      deleteMediaFile(`company${companyId}/${req.file.filename}`);
-      return res.status(400).json({ error: "Tipo de arquivo não permitido." });
-    }
-    const type = req.file.mimetype.split("/")[0];
-    const maxSize = MAX_FILE_SIZES[type] ?? MAX_FILE_SIZES.application;
-    if (req.file.size > maxSize) {
-      deleteMediaFile(`company${companyId}/${req.file.filename}`);
-      return res.status(400).json({ error: `Arquivo muito grande. Limite: ${Math.round(maxSize / 1024 / 1024)}MB.` });
-    }
+  const uploadError = validateUpload(req, companyId);
+  if (uploadError) {
+    return res.status(uploadError.status).json({ error: uploadError.error });
   }
 
   const { mediaUrl, mediaType } = resolveUploadedMedia(req);
-  const dispatchMode: "fixed" | "round_robin" = req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed";
+  const dispatchMode: "fixed" | "round_robin" =
+    req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed";
 
   const payload = {
     companyId,
@@ -82,16 +115,17 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     eventType: req.body.eventType,
     whatsappId: req.body.whatsappId ? Number(req.body.whatsappId) : null,
     dispatchMode,
-    chipIds: Array.isArray(req.body.chipIds)
-      ? req.body.chipIds.map((id: any) => Number(id)).filter(Boolean)
-      : typeof req.body.chipIds === "string" && req.body.chipIds
-        ? JSON.parse(req.body.chipIds).map((id: any) => Number(id)).filter(Boolean)
-        : [],
+    chipIds: parseChipIds(req.body.chipIds),
     startTime: req.body.startTime,
     sendIntervalSeconds: Number(req.body.sendIntervalSeconds),
     daysBeforeDue: req.body.daysBeforeDue != null ? Number(req.body.daysBeforeDue) : null,
     daysAfterDue: req.body.daysAfterDue != null ? Number(req.body.daysAfterDue) : null,
-    active: req.body.active === "false" ? false : req.body.active === "true" ? true : Boolean(req.body.active ?? true),
+    active:
+      req.body.active === "false"
+        ? false
+        : req.body.active === "true"
+          ? true
+          : Boolean(req.body.active ?? true),
     mediaUrl,
     mediaType,
     mediaCaption: req.body.mediaCaption ?? null
@@ -104,18 +138,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-
-  if (req.file) {
-    if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
-      deleteMediaFile(`company${companyId}/${req.file.filename}`);
-      return res.status(400).json({ error: "Tipo de arquivo não permitido." });
-    }
-    const type = req.file.mimetype.split("/")[0];
-    const maxSize = MAX_FILE_SIZES[type] ?? MAX_FILE_SIZES.application;
-    if (req.file.size > maxSize) {
-      deleteMediaFile(`company${companyId}/${req.file.filename}`);
-      return res.status(400).json({ error: `Arquivo muito grande. Limite: ${Math.round(maxSize / 1024 / 1024)}MB.` });
-    }
+  const uploadError = validateUpload(req, companyId);
+  if (uploadError) {
+    return res.status(uploadError.status).json({ error: uploadError.error });
   }
 
   const removeMedia = req.body.removeMedia === "true";
@@ -130,7 +155,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     const resolved = resolveUploadedMedia(req);
     mediaUrl = resolved.mediaUrl;
     mediaType = resolved.mediaType;
-    mediaCaption = req.body.mediaCaption !== undefined ? (req.body.mediaCaption ?? null) : undefined;
+    mediaCaption =
+      req.body.mediaCaption !== undefined ? req.body.mediaCaption ?? null : undefined;
   } else if (removeMedia) {
     const existing = await ShowScheduledDispatcherService({ id: Number(id), companyId });
     if (existing?.mediaUrl) deleteMediaFile(existing.mediaUrl);
@@ -147,32 +173,93 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     title: req.body.title,
     messageTemplate: req.body.messageTemplate,
     eventType: req.body.eventType,
-    whatsappId: req.body.whatsappId !== undefined
-      ? (req.body.whatsappId ? Number(req.body.whatsappId) : null)
-      : undefined,
-    dispatchMode: req.body.dispatchMode !== undefined
-      ? (req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed") as "fixed" | "round_robin"
-      : undefined,
-    chipIds: req.body.chipIds !== undefined
-      ? (Array.isArray(req.body.chipIds)
-        ? req.body.chipIds.map((id: any) => Number(id)).filter(Boolean)
-        : typeof req.body.chipIds === "string" && req.body.chipIds
-          ? JSON.parse(req.body.chipIds).map((id: any) => Number(id)).filter(Boolean)
-          : [])
-      : undefined,
+    whatsappId:
+      req.body.whatsappId !== undefined
+        ? req.body.whatsappId
+          ? Number(req.body.whatsappId)
+          : null
+        : undefined,
+    dispatchMode:
+      req.body.dispatchMode !== undefined
+        ? ((req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed") as
+            | "fixed"
+            | "round_robin")
+        : undefined,
+    chipIds: req.body.chipIds !== undefined ? parseChipIds(req.body.chipIds) : undefined,
     startTime: req.body.startTime,
-    sendIntervalSeconds: req.body.sendIntervalSeconds !== undefined
-      ? Number(req.body.sendIntervalSeconds)
-      : undefined,
-    daysBeforeDue: req.body.daysBeforeDue != null ? Number(req.body.daysBeforeDue) : undefined,
-    daysAfterDue: req.body.daysAfterDue != null ? Number(req.body.daysAfterDue) : undefined,
-    active: req.body.active === "false" ? false : req.body.active === "true" ? true : req.body.active,
+    sendIntervalSeconds:
+      req.body.sendIntervalSeconds !== undefined
+        ? Number(req.body.sendIntervalSeconds)
+        : undefined,
+    daysBeforeDue:
+      req.body.daysBeforeDue != null ? Number(req.body.daysBeforeDue) : undefined,
+    daysAfterDue:
+      req.body.daysAfterDue != null ? Number(req.body.daysAfterDue) : undefined,
+    active:
+      req.body.active === "false"
+        ? false
+        : req.body.active === "true"
+          ? true
+          : req.body.active,
     mediaUrl,
     mediaType,
     mediaCaption
   });
 
   return res.json(dispatcher);
+};
+
+export const test = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const uploadError = validateUpload(req, companyId);
+  if (uploadError) {
+    return res.status(uploadError.status).json({ error: uploadError.error });
+  }
+
+  const uploadedMedia = resolveUploadedMedia(req);
+  const mediaUrl = uploadedMedia.mediaUrl ?? req.body.mediaUrl ?? null;
+
+  try {
+    const result = await TestScheduledDispatcherService({
+      companyId,
+      targetNumber: req.body.targetNumber,
+      title: req.body.title,
+      messageTemplate: req.body.messageTemplate ?? "",
+      eventType: req.body.eventType,
+      whatsappId: req.body.whatsappId ? Number(req.body.whatsappId) : null,
+      dispatchMode: req.body.dispatchMode === "round_robin" ? "round_robin" : "fixed",
+      chipIds: parseChipIds(req.body.chipIds),
+      rotationCursor: req.body.rotationCursor ? Number(req.body.rotationCursor) : 0,
+      daysBeforeDue: req.body.daysBeforeDue != null ? Number(req.body.daysBeforeDue) : null,
+      daysAfterDue: req.body.daysAfterDue != null ? Number(req.body.daysAfterDue) : null,
+      mediaUrl,
+      mediaCaption: req.body.mediaCaption ?? null
+    });
+
+    return res.json({ ok: true, ...result });
+  } catch (error: any) {
+    if (error.message === "INVALID_TARGET_NUMBER") {
+      return res.status(400).json({ error: "Numero de WhatsApp invalido" });
+    }
+
+    if (error.message === "EMPTY_MESSAGE") {
+      return res
+        .status(400)
+        .json({ error: "Defina uma mensagem de texto ou midia para testar" });
+    }
+
+    if (error.message === "WHATSAPP_NOT_FOUND") {
+      return res
+        .status(404)
+        .json({ error: "Nenhuma conexao WhatsApp disponivel para o teste" });
+    }
+
+    return res.status(500).json({ error: error?.message || "Erro ao testar automacao" });
+  } finally {
+    if (uploadedMedia.mediaUrl && req.file) {
+      deleteMediaFile(uploadedMedia.mediaUrl);
+    }
+  }
 };
 
 export const toggle = async (req: Request, res: Response): Promise<Response> => {

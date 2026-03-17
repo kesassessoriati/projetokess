@@ -61,7 +61,7 @@ const sendDispatchMedia = async (
   const fullPath = path.resolve(publicFolder, mediaUrl);
 
   if (!fs.existsSync(fullPath)) {
-    throw new Error(`Arquivo de mídia não encontrado: ${fullPath}`);
+    throw new Error(`Arquivo de midia nao encontrado: ${fullPath}`);
   }
 
   const fileName = path.basename(fullPath);
@@ -69,7 +69,7 @@ const sendDispatchMedia = async (
 
   const options = await getMessageOptions(fileName, fullPath, companyId, caption);
   if (!options) {
-    throw new Error(`Não foi possível processar mídia: ${mediaUrl}`);
+    throw new Error(`Nao foi possivel processar midia: ${mediaUrl}`);
   }
 
   const wbot = await getWbot(ticket.whatsappId);
@@ -79,6 +79,50 @@ const sendDispatchMedia = async (
 
   const lastMessage = caption || fileName;
   await ticket.update({ lastMessage, imported: null });
+};
+
+export const executeScheduledDispatchDelivery = async ({
+  contact,
+  whatsapp,
+  companyId,
+  template,
+  variables = {},
+  mediaUrl = null,
+  mediaCaption = null
+}: {
+  contact: Contact;
+  whatsapp: Whatsapp;
+  companyId: number;
+  template: string;
+  variables?: Record<string, any>;
+  mediaUrl?: string | null;
+  mediaCaption?: string | null;
+}) => {
+  const ticket = await ensureTicket(contact, whatsapp, companyId);
+
+  if (mediaUrl) {
+    if (template && template.trim()) {
+      const message = renderMessage(template, variables, ticket);
+      if (message && message.trim()) {
+        await SendWhatsAppMessage({ body: message, ticket });
+      }
+    }
+
+    const renderedCaption = mediaCaption
+      ? Mustache.render(mediaCaption, variables || {})
+      : "";
+
+    await sendDispatchMedia(ticket, contact, mediaUrl, renderedCaption);
+    return { ticket };
+  }
+
+  const message = renderMessage(template, variables, ticket);
+  if (!message || !message.trim()) {
+    throw new Error("Template de mensagem vazio apos renderizacao");
+  }
+
+  await SendWhatsAppMessage({ body: message, ticket });
+  return { ticket };
 };
 
 const handleDispatchJob = async (job: Job<DispatchJobData>) => {
@@ -96,57 +140,41 @@ const handleDispatchJob = async (job: Job<DispatchJobData>) => {
 
   const log = await ScheduledDispatchLog.findByPk(logId);
   if (!log) {
-    logger.warn(`[DispatchQueue] Log ${logId} não encontrado, ignorando job`);
+    logger.warn(`[DispatchQueue] Log ${logId} nao encontrado, ignorando job`);
     return;
   }
 
   try {
     const dispatcher = await ScheduledDispatcher.findByPk(dispatcherId);
     if (!dispatcher) {
-      throw new Error(`Dispatcher ${dispatcherId} não encontrado`);
+      throw new Error(`Dispatcher ${dispatcherId} nao encontrado`);
     }
 
     const contact = await Contact.findByPk(contactId, {
       include: [Company]
     });
     if (!contact) {
-      throw new Error(`Contato ${contactId} não encontrado`);
+      throw new Error(`Contato ${contactId} nao encontrado`);
     }
 
     if (!contact.number) {
-      throw new Error(`Contato ${contactId} sem número válido`);
+      throw new Error(`Contato ${contactId} sem numero valido`);
     }
 
     const whatsapp = await Whatsapp.findByPk(whatsappId);
     if (!whatsapp) {
-      throw new Error(`WhatsApp ${whatsappId} não encontrado`);
+      throw new Error(`WhatsApp ${whatsappId} nao encontrado`);
     }
 
-    const ticket = await ensureTicket(contact, whatsapp, companyId);
-
-    if (mediaUrl) {
-      // Send text message first if template is non-empty
-      if (template && template.trim()) {
-        const message = renderMessage(template, variables, ticket);
-        if (message && message.trim()) {
-          await SendWhatsAppMessage({ body: message, ticket });
-        }
-      }
-
-      // Send media with optional caption (supports template variables)
-      const renderedCaption = mediaCaption
-        ? Mustache.render(mediaCaption, variables || {})
-        : "";
-
-      await sendDispatchMedia(ticket, contact, mediaUrl, renderedCaption);
-    } else {
-      // Text-only dispatch
-      const message = renderMessage(template, variables, ticket);
-      if (!message || !message.trim()) {
-        throw new Error("Template de mensagem vazio após renderização");
-      }
-      await SendWhatsAppMessage({ body: message, ticket });
-    }
+    const { ticket } = await executeScheduledDispatchDelivery({
+      contact,
+      whatsapp,
+      companyId,
+      template,
+      variables,
+      mediaUrl,
+      mediaCaption
+    });
 
     await log.update({
       status: "sent",

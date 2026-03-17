@@ -162,7 +162,7 @@ const formatCurrencyPtBr = (value?: string | number | null) => {
   });
 };
 
-const buildVariables = (
+export const buildVariables = (
   dispatcher: ScheduledDispatcher,
   contact: Contact,
   extra?: Record<string, any>,

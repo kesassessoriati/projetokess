@@ -314,7 +314,7 @@ const Automations = () => {
       <Box className={classes.pageHeader}>
         <Box>
           <Typography className={classes.headerTitle}>
-            Disparos automáticos
+            Automações, disparos e tarefas automatizadas
           </Typography>
           <Typography className={classes.headerSubtitle}>
             {stats.total}{" "}
@@ -372,7 +372,7 @@ const Automations = () => {
             <EventIcon fontSize="large" color="primary" />
             <Typography variant="h6">Nenhum disparo encontrado</Typography>
             <Typography variant="body2" color="textSecondary">
-              Inicie criando uma nova regra de disparo automático.
+              Inicie criando uma nova automação ou regra de disparo automático.
             </Typography>
             <Button
               color="primary"
