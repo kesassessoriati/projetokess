@@ -328,6 +328,7 @@ const Clients = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [clientSinceYearFilter, setClientSinceYearFilter] = useState("");
+  const [totalCount, setTotalCount] = useState(null);
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -347,6 +348,7 @@ const Clients = () => {
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
+    setTotalCount(null);
     setRefreshToken((prev) => prev + 1);
   }, [searchParam, statusFilter, typeFilter, clientSinceYearFilter]);
 
@@ -391,6 +393,7 @@ const Clients = () => {
         if (isMounted) {
           dispatch({ type: "LOAD_CLIENTS", payload: data.clients });
           setHasMore(data.hasMore);
+          setTotalCount(data.count ?? null);
           console.info("[Clients] Clients fetched", {
             received: data.clients?.length ?? 0,
             total: data.count,
@@ -673,7 +676,10 @@ const Clients = () => {
           <Box>
             <Typography className={classes.title}>Clientes</Typography>
             <Typography className={classes.subtitle}>
-              Gerencie a sua carteira de clientes • {clients.length} cliente(s)
+              Gerencie a sua carteira de clientes •{" "}
+              {totalCount != null
+                ? `${clients.length} carregado(s) de ${totalCount.toLocaleString("pt-BR")} total`
+                : `${clients.length} cliente(s)`}
             </Typography>
           </Box>
         </Box>
@@ -783,7 +789,9 @@ const Clients = () => {
           <Typography variant="body2">
             {selectedClients.length > 0
               ? `${selectedClients.length} selecionado(s)`
-              : `${clients.length} cliente(s)`}
+              : totalCount != null
+                ? `${clients.length} carregado(s) de ${totalCount.toLocaleString("pt-BR")} total`
+                : `${clients.length} cliente(s)`}
           </Typography>
           {selectedClients.length > 0 && selectedClients.length < clients.length && (
             <Button size="small" onClick={handleSelectAll} style={{ textTransform: "none" }}>
