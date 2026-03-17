@@ -16,16 +16,23 @@ export const index = async (
     searchParam,
     status,
     type,
+    clientSinceYear,
     ownerUserId,
     pageNumber,
     limit
   } = req.query as any;
+
+  const parsedClientSinceYear = Number(clientSinceYear);
 
   const result = await ListCrmClientsService({
     companyId,
     searchParam,
     status,
     type,
+    clientSinceYear:
+      Number.isInteger(parsedClientSinceYear) && parsedClientSinceYear > 0
+        ? parsedClientSinceYear
+        : undefined,
     ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
     pageNumber: pageNumber ? Number(pageNumber) : undefined,
     limit: limit ? Number(limit) : undefined

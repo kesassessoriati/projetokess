@@ -327,9 +327,11 @@ const Clients = () => {
   const [searchParam, setSearchParam] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [clientSinceYearFilter, setClientSinceYearFilter] = useState("");
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [exportConfirmModalOpen, setExportConfirmModalOpen] = useState(false);
   const [deletingClient, setDeletingClient] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [faturaModalOpen, setFaturaModalOpen] = useState(false);
@@ -346,7 +348,7 @@ const Clients = () => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
     setRefreshToken((prev) => prev + 1);
-  }, [searchParam, statusFilter, typeFilter]);
+  }, [searchParam, statusFilter, typeFilter, clientSinceYearFilter]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -370,6 +372,7 @@ const Clients = () => {
         searchParam,
         statusFilter,
         typeFilter,
+        clientSinceYearFilter,
         pageNumber
       });
       try {
@@ -378,6 +381,8 @@ const Clients = () => {
             searchParam,
             status: statusFilter,
             type: typeFilter,
+            clientSinceYear:
+              clientSinceYearFilter.length === 4 ? clientSinceYearFilter : undefined,
             pageNumber
           },
           signal: controller.signal
@@ -410,7 +415,7 @@ const Clients = () => {
       isMounted = false;
       controller.abort();
     };
-  }, [searchParam, statusFilter, typeFilter, pageNumber, refreshToken]);
+  }, [searchParam, statusFilter, typeFilter, clientSinceYearFilter, pageNumber, refreshToken]);
 
   const handleScroll = (event) => {
     if (!hasMore || loading) return;
@@ -487,7 +492,14 @@ const Clients = () => {
   const handleExportClients = async () => {
     try {
       const { data } = await api.get("/crm/clients", {
-        params: { searchParam, status: statusFilter, type: typeFilter, limit: -1 }
+        params: {
+          searchParam,
+          status: statusFilter,
+          type: typeFilter,
+          clientSinceYear:
+            clientSinceYearFilter.length === 4 ? clientSinceYearFilter : undefined,
+          limit: -1
+        }
       });
       const clientsToExport = data.clients;
       if (!clientsToExport || clientsToExport.length === 0) {
@@ -567,6 +579,11 @@ const Clients = () => {
 
   const formatType = (type) => TYPE_LABEL[type] || "Pessoa Física";
 
+  const handleClientSinceYearChange = (event) => {
+    const digitsOnly = event.target.value.replace(/\D/g, "").slice(0, 4);
+    setClientSinceYearFilter(digitsOnly);
+  };
+
   return (
     <Box className={classes.root} onScroll={handleScroll}>
       <FaturaModal
@@ -614,6 +631,15 @@ const Clients = () => {
         onConfirm={handleDeleteSelectedClients}
       >
         {`Você tem ${selectedClients.length} cliente(s) selecionado(s). Deseja realmente movê-los de volta para Leads Novos?`}
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        open={exportConfirmModalOpen}
+        onClose={() => setExportConfirmModalOpen(false)}
+        title="Exportar clientes"
+        onConfirm={handleExportClients}
+      >
+        Isso exportarÃ¡ todos os clientes retornados pelos filtros atuais. Deseja continuar com a exportaÃ§Ã£o?
       </ConfirmationModal>
 
       <Dialog open={bulkAssignModalOpen} onClose={() => setBulkAssignModalOpen(false)}>
@@ -701,6 +727,17 @@ const Clients = () => {
             ))}
           </TextField>
 
+          <TextField
+            size="small"
+            label="Ano (desde)"
+            variant="outlined"
+            value={clientSinceYearFilter}
+            onChange={handleClientSinceYearChange}
+            className={classes.selectField}
+            placeholder="AAAA"
+            inputProps={{ inputMode: "numeric" }}
+          />
+
           <Button
             variant="contained"
             color="primary"
@@ -714,7 +751,7 @@ const Clients = () => {
           <Button
             variant="outlined"
             style={{ color: "#10b981", borderColor: "#10b981" }}
-            onClick={handleExportClients}
+            onClick={() => setExportConfirmModalOpen(true)}
           >
             Exportar
           </Button>

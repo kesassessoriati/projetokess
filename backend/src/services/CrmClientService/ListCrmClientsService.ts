@@ -6,6 +6,7 @@ interface Request {
   searchParam?: string;
   status?: "active" | "inactive" | "blocked";
   type?: "pf" | "pj";
+  clientSinceYear?: number;
   ownerUserId?: number;
   pageNumber?: number;
   limit?: number;
@@ -16,6 +17,7 @@ const ListCrmClientsService = async ({
   searchParam,
   status,
   type,
+  clientSinceYear,
   ownerUserId,
   pageNumber = 1,
   limit = 20
@@ -30,6 +32,13 @@ const ListCrmClientsService = async ({
 
   if (type) {
     where.type = type;
+  }
+
+  if (clientSinceYear) {
+    (where as any).clientSince = {
+      [Op.gte]: `${clientSinceYear}-01-01`,
+      [Op.lt]: `${clientSinceYear + 1}-01-01`
+    };
   }
 
   if (ownerUserId) {
