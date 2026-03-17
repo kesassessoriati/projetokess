@@ -130,3 +130,41 @@ export const sanitizeRemoteJid = (
 
 	return "";
 };
+
+/**
+ * Gera todas as variantes de um número brasileiro com e sem o nono dígito.
+ * Usado para buscar contatos no banco independente do formato armazenado.
+ * Ex: 5511988887777 → [5511988887777, 551188887777, 1188887777, 11988887777]
+ */
+export const getBrazilianPhoneVariants = (number: string): string[] => {
+	const variants = new Set<string>([number]);
+	if (!number) return [];
+
+	const hasBrPrefix = number.startsWith("55");
+	const national = hasBrPrefix ? number.slice(2) : number;
+	const ddd = national.slice(0, 2);
+	const subscriber = national.slice(2);
+
+	// Assinante tem 9 dígitos começando com "9" → adiciona variante sem o nono dígito (8 dígitos)
+	if (subscriber.length === 9 && subscriber[0] === "9") {
+		const without9 = subscriber.slice(1);
+		variants.add(`55${ddd}${without9}`); // com DDI, sem nono
+		variants.add(`${ddd}${without9}`);   // sem DDI, sem nono
+	}
+
+	// Assinante tem 8 dígitos → adiciona variante com o nono dígito (9 dígitos)
+	if (subscriber.length === 8) {
+		const with9 = `9${subscriber}`;
+		variants.add(`55${ddd}${with9}`);    // com DDI, com nono
+		variants.add(`${ddd}${with9}`);      // sem DDI, com nono
+	}
+
+	// Adiciona variantes com/sem prefixo 55
+	if (hasBrPrefix) {
+		variants.add(national); // sem DDI
+	} else if (number.length >= 10) {
+		variants.add(`55${number}`); // com DDI
+	}
+
+	return Array.from(variants).filter(v => v.length >= 10 && v.length <= 13);
+};

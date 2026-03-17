@@ -18,7 +18,8 @@ import {
   resolveContactNumber,
   sanitizeRemoteJid,
   isGroupJid,
-  extractGroupId
+  extractGroupId,
+  getBrazilianPhoneVariants
 } from "../../helpers/normalizeContactNumber";
 import { FindDuplicateContact, MergeContacts } from "./ContactDeduplicationService";
 import { CalculatePotentialScore, UpdateContactScore } from "./ContactScoringService";
@@ -307,10 +308,12 @@ const CreateOrUpdateContactService = async ({
 
       const orConditions: any[] = [];
 
-      // Busca pelo número normalizado
+      // Busca pelo número normalizado incluindo variantes com/sem nono dígito brasileiro
       if (number) {
-        orConditions.push({ number });
-        orConditions.push({ number: number.replace(/^55/, "") });
+        const numberVariants = getBrazilianPhoneVariants(number);
+        for (const v of numberVariants) {
+          orConditions.push({ number: v });
+        }
       }
 
       // Busca pelo remoteJidAlt

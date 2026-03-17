@@ -5,9 +5,12 @@ import CrmClient from "../../models/CrmClient";
 import FinanceiroFatura from "../../models/FinanceiroFatura";
 import Whatsapp from "../../models/Whatsapp";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
+import CheckContactNumber from "../WbotServices/CheckNumber";
 import { resolveDispatchWhatsapp } from "../ChipServices/ChipRoutingService";
 import { buildVariables } from "./DispatchSchedulerService";
 import { executeScheduledDispatchDelivery } from "./DispatchProcessorService";
+import { getBrazilianPhoneVariants } from "../../helpers/normalizeContactNumber";
+import logger from "../../utils/logger";
 
 const TZ = process.env.TZ || "America/Sao_Paulo";
 const OPEN_INVOICE_STATUS = ["aberta", "vencida"];
@@ -112,23 +115,7 @@ const TestScheduledDispatcherService = async ({
     throw new Error("EMPTY_MESSAGE");
   }
 
-  const contact = await CreateOrUpdateContactService({
-    name: `Teste ${normalizedNumber}`,
-    number: normalizedNumber,
-    isGroup: false,
-    companyId,
-    remoteJid: `${normalizedNumber}@s.whatsapp.net`
-  });
-
-  const client = await findExistingClient(companyId, contact);
-  const invoice = await findContextInvoice({
-    companyId,
-    client,
-    eventType,
-    daysBeforeDue,
-    daysAfterDue
-  });
-
+  // Resolve WhatsApp routing early — needed for canonical number validation
   const routing = await resolveDispatchWhatsapp({
     companyId,
     dispatchMode,
@@ -145,6 +132,44 @@ const TestScheduledDispatcherService = async ({
   if (!whatsapp) {
     throw new Error("WHATSAPP_NOT_FOUND");
   }
+
+  // Obter número canônico do WhatsApp (resolve automaticamente com/sem nono dígito)
+  let canonicalNumber = normalizedNumber;
+  let remoteJid = `${normalizedNumber}@s.whatsapp.net`;
+  try {
+    const checkedNumber = await CheckContactNumber(normalizedNumber, companyId, false, routing.whatsappId);
+    if (checkedNumber) {
+      canonicalNumber = checkedNumber;
+      remoteJid = `${canonicalNumber}@s.whatsapp.net`;
+    }
+  } catch (err: any) {
+    logger.warn(`[TestDispatcher] Numero nao validado no WhatsApp ${normalizedNumber}: ${err?.message}`);
+  }
+
+  // Buscar contato existente com variantes do nono dígito antes de criar
+  const numberVariants = getBrazilianPhoneVariants(canonicalNumber);
+  let contact = await Contact.findOne({
+    where: { companyId, number: { [Op.in]: numberVariants } }
+  });
+
+  if (!contact) {
+    contact = await CreateOrUpdateContactService({
+      name: `Teste ${canonicalNumber}`,
+      number: canonicalNumber,
+      isGroup: false,
+      companyId,
+      remoteJid
+    });
+  }
+
+  const client = await findExistingClient(companyId, contact);
+  const invoice = await findContextInvoice({
+    companyId,
+    client,
+    eventType,
+    daysBeforeDue,
+    daysAfterDue
+  });
 
   const dispatcherLike = {
     title,
