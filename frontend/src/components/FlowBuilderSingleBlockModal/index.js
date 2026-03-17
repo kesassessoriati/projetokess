@@ -1260,12 +1260,18 @@ const FlowBuilderSingleBlockModal = ({
     }
     if (open === "create") {
       setLabels({
-        title: "Adicionar menu ao fluxo",
+        title: "Adicionar conteúdo ao fluxo",
         btn: "Adicionar",
       });
       setTextDig();
       setArrayOption([]);
       setActiveModal(true);
+      if (contentType === "message") {
+        setElements([messageLayout(0)]);
+        setNumberMessages(1);
+        setNumberMessagesLast(1);
+        setElementsSeq([`message0`]);
+      }
     }
   }, [open]);
 
