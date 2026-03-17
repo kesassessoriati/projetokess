@@ -167,6 +167,12 @@ const DocumentacaoPage = () => {
       title: "API de faturas",
       description: "Gerencie faturas via API externa. Suporta faturas normais e de projetos.",
       route: "/api-faturas"
+    },
+    {
+      title: "API de Presença — Digitando",
+      description: "Simule o status 'digitando...' no WhatsApp para um contato via API.",
+      route: "/api-presence",
+      isNew: true
     }
   ];
 
