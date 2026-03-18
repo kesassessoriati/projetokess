@@ -3,6 +3,7 @@ import { sub } from "date-fns";
 
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import { getBrazilianPhoneVariants } from "../../helpers/normalizeContactNumber";
 import ShowTicketService from "./ShowTicketService";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import { isNil } from "lodash";
@@ -175,6 +176,41 @@ const FindOrCreateTicketService = async (
         });
         
         break;
+      }
+    }
+  }
+
+  // 4️⃣ Se ainda não encontrou, busca por contatos com número equivalente (nono dígito)
+  if (!ticket && contact.number && !contact.lid) {
+    const numberVariants = getBrazilianPhoneVariants(contact.number);
+    if (numberVariants.length > 1) {
+      const equivalentContacts = await Contact.findAll({
+        where: {
+          companyId,
+          number: { [Op.in]: numberVariants },
+          id: { [Op.ne]: contact.id }
+        }
+      });
+
+      for (const eqContact of equivalentContacts) {
+        const eqTicket = await Ticket.findOne({
+          where: {
+            status: { [Op.or]: ["open", "pending", "group", "nps", "lgpd"] },
+            contactId: eqContact.id,
+            companyId,
+            whatsappId: whatsapp.id
+          },
+          order: [["id", "DESC"]]
+        });
+
+        if (eqTicket) {
+          logger.info(
+            `✅ Ticket encontrado por número equivalente (nono dígito): ${eqTicket.id} (contactId: ${eqContact.id} → ${baseContactId})`
+          );
+          ticket = eqTicket;
+          await ticket.update({ contactId: baseContactId });
+          break;
+        }
       }
     }
   }

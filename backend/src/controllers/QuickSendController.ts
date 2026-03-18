@@ -241,14 +241,23 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
 
         // ─── 4. Buscar ticket aberto ou criar novo ────────────────────────────────
-        // Reconcilia contato somente se o remoteJid diverge (WhatsApp confirmou outro número)
-        // ou se nome foi fornecido e difere — ignora diferença de nono dígito no número isolado.
+        // Reconcilia contato somente se o número não é equivalente (considerando o nono dígito)
+        // ou se nome foi fornecido e difere. Evita reconciliar quando a diferença é apenas o nono dígito.
         const contactNumberVariants = getBrazilianPhoneVariants(validatedNumber);
         const contactNumberIsEquivalent = contact && contactNumberVariants.includes(contact.number);
+
+        // Verifica se os remoteJids são equivalentes (mesma pessoa, diferença só no nono dígito)
+        const remoteJidNum = remoteJid.split("@")[0];
+        const contactRemoteJidNum = (contact?.remoteJid || "").split("@")[0];
+        const remoteJidsAreEquivalent =
+            remoteJidNum === contactRemoteJidNum ||
+            getBrazilianPhoneVariants(remoteJidNum).includes(contactRemoteJidNum) ||
+            getBrazilianPhoneVariants(contactRemoteJidNum).includes(remoteJidNum);
+
         const shouldReconcileContact =
             !contact ||
             (!contactNumberIsEquivalent && contact.number !== validatedNumber) ||
-            contact.remoteJid !== remoteJid ||
+            !remoteJidsAreEquivalent ||
             (!!name && contact.name !== name);
 
         if (shouldReconcileContact) {

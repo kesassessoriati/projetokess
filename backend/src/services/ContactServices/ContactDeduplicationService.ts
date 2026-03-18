@@ -1,6 +1,7 @@
 import Contact from "../../models/Contact";
 import logger from "../../utils/logger";
 import { Op } from "sequelize";
+import { getBrazilianPhoneVariants } from "../../helpers/normalizeContactNumber";
 
 interface FindDuplicateParams {
   number?: string;
@@ -28,14 +29,13 @@ export const FindDuplicateContact = async ({
     
     const orConditions: any[] = [];
     
-    // Busca por número (com e sem 55)
+    // Busca por número incluindo variantes com e sem o nono dígito brasileiro
     if (number) {
-      orConditions.push({ number });
-      orConditions.push({ number: number.replace(/^55/, "") });
-      
-      // Se número tem 55, busca também sem 55
-      if (number.startsWith("55")) {
-        orConditions.push({ number: number.substring(2) });
+      const variants = getBrazilianPhoneVariants(number);
+      if (variants.length > 0) {
+        orConditions.push({ number: { [Op.in]: variants } });
+      } else {
+        orConditions.push({ number });
       }
     }
     
