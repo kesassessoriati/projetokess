@@ -1309,7 +1309,7 @@ const LoggedInLayout = ({ children }) => {
         </Tooltip>
       </div>
 
-      {showMenuLabels && <ProductivityTimer userId={user?.id} />}
+      {/* ProductivityTimer moved to floating widget below */}
 
       <div className={classes.sidebarContent}>
         <List className={classes.menuList}>
@@ -1657,6 +1657,9 @@ const LoggedInLayout = ({ children }) => {
       <main className={`${classes.content} ${!isInsideTicketConversation && !isFlowBuilderPage && !isAtendimentosMobilePage ? classes.contentWithMobileNav : ""}`}>
         {children}
       </main>
+
+      {/* ── Floating Task Timer (persists across navigation) ─────── */}
+      {!shouldHideLayout && <ProductivityTimer userId={user?.id} />}
 
       {/* Menu Mobile Fixo - Oculto no desktop, dentro de conversa de ticket, no Flow Builder e na página atendimentomobile */}
       {!isInsideTicketConversation && !isFlowBuilderPage && !isAtendimentosMobilePage && (

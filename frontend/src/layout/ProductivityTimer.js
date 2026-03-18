@@ -16,7 +16,6 @@ import {
     Select,
     MenuItem as SelectItem,
     FormControl,
-    InputLabel,
     Tooltip
 } from "@material-ui/core";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
@@ -25,72 +24,118 @@ import StopIcon from "@material-ui/icons/Stop";
 import SettingsIcon from "@material-ui/icons/Settings";
 import DeleteIcon from "@material-ui/icons/Delete";
 import AddIcon from "@material-ui/icons/Add";
+import MinimizeIcon from "@material-ui/icons/Remove";
+import MaximizeIcon from "@material-ui/icons/OpenInBrowser";
 import api from "../services/api";
 import { toast } from "react-toastify";
 
-const useStyles = makeStyles((theme) => ({
-    timerContainer: {
-        padding: "16px",
+const useStyles = makeStyles(() => ({
+    floatingWidget: {
+        position: "fixed",
+        bottom: 20,
+        right: 20,
+        zIndex: 1200,
+        backgroundColor: "#1e1e2d",
+        color: "#fff",
+        borderRadius: 10,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+        overflow: "hidden",
+        transition: "all 0.2s ease",
+        userSelect: "none",
+    },
+    // ── Minimized bar ──────────────────────────────────────────────
+    minimizedBar: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        cursor: "pointer",
+        width: 210,
+    },
+    miniTime: {
+        fontFamily: "monospace",
+        fontSize: 14,
+        fontWeight: "bold",
+        color: "#3b82f6",
+        letterSpacing: 1,
+    },
+    miniTask: {
+        flex: 1,
+        fontSize: 11,
+        color: "#a1a1aa",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
+    miniDot: {
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        backgroundColor: "#22c55e",
+        flexShrink: 0,
+    },
+    miniDotPaused: {
+        backgroundColor: "#eab308",
+    },
+    miniDotIdle: {
+        backgroundColor: "#4b5563",
+    },
+    // ── Expanded widget ────────────────────────────────────────────
+    expanded: {
+        width: 220,
+    },
+    header: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "8px 10px 4px",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+    },
+    headerLabel: {
+        fontSize: 10,
+        color: "#6b7280",
+        fontWeight: 700,
+        letterSpacing: 1,
+        textTransform: "uppercase",
+    },
+    body: {
+        padding: "8px 10px 10px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        backgroundColor: "#1e1e2d", // dark background matching typical sidebar
-        color: "#fff",
-        borderRadius: "8px",
-        margin: "8px 16px",
-        boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
+        gap: 6,
     },
-    taskTitle: {
-        fontSize: "14px",
-        fontWeight: "bold",
-        marginBottom: "8px",
-        textAlign: "center",
-        maxWidth: "100%",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap"
+    taskSelect: {
+        width: "100%",
     },
     timerDisplay: {
-        fontSize: "32px",
-        fontWeight: "bold",
-        letterSpacing: "2px",
         fontFamily: "monospace",
-        margin: "8px 0",
-        color: "#3b82f6" // blue primary
+        fontSize: 26,
+        fontWeight: "bold",
+        letterSpacing: 2,
+        color: "#3b82f6",
+        margin: "4px 0",
     },
     controls: {
         display: "flex",
-        justifyContent: "space-between",
+        justifyContent: "center",
+        gap: 4,
         width: "100%",
-        marginTop: "8px"
     },
     iconBtn: {
+        padding: 6,
         color: "#a1a1aa",
-        padding: "8px",
         "&:hover": {
             color: "#fff",
-            backgroundColor: "rgba(255,255,255,0.1)"
-        }
+            backgroundColor: "rgba(255,255,255,0.1)",
+        },
     },
-    playBtn: {
-        color: "#22c55e", // green
-    },
-    pauseBtn: {
-        color: "#eab308", // yellow
-    },
-    stopBtn: {
-        color: "#ef4444", // red
-    },
-    settingsModal: {
-        minWidth: "400px"
-    },
-    formControl: {
-        width: "100%",
-        marginBottom: theme.spacing(2)
-    }
+    playBtn: { color: "#22c55e" },
+    pauseBtn: { color: "#eab308" },
+    stopBtn: { color: "#ef4444" },
+    miniBtn: { color: "#6b7280", padding: 4 },
 }));
 
-// Function to play beep sound
 const playBeep = (freq = 440, duration = 200, vol = 100) => {
     try {
         const context = new (window.AudioContext || window.webkitAudioContext)();
@@ -108,27 +153,42 @@ const playBeep = (freq = 440, duration = 200, vol = 100) => {
     }
 };
 
+const LS_STATE = (uid) => `timer_state_${uid}`;
+const LS_MINI = "timer_minimized";
+
 const ProductivityTimer = ({ userId }) => {
     const classes = useStyles();
+
+    const [minimized, setMinimized] = useState(
+        () => localStorage.getItem(LS_MINI) === "true"
+    );
+
     const [tasks, setTasks] = useState([]);
     const [selectedTaskId, setSelectedTaskId] = useState("");
-    const [timeLeft, setTimeLeft] = useState(10 * 60); // in seconds
+    const [timeLeft, setTimeLeft] = useState(10 * 60);
     const [isActive, setIsActive] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [sessionId, setSessionId] = useState(null);
+    const [defaultGlobalTime] = useState(10);
 
-    // Settings form
     const [newTaskName, setNewTaskName] = useState("");
     const [newTaskTime, setNewTaskTime] = useState(10);
-    const [defaultGlobalTime, setDefaultGlobalTime] = useState(10);
 
     const timerRef = useRef(null);
-    const lastTickRef = useRef(null);
+    const tasksRef = useRef(tasks);
+    tasksRef.current = tasks;
 
+    // ── Persist minimize state ─────────────────────────────────────
+    useEffect(() => {
+        localStorage.setItem(LS_MINI, minimized ? "true" : "false");
+    }, [minimized]);
+
+    // ── Load timer state on mount ──────────────────────────────────
     useEffect(() => {
         fetchTasks();
         loadState();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchTasks = async () => {
@@ -141,28 +201,28 @@ const ProductivityTimer = ({ userId }) => {
     };
 
     const loadState = () => {
-        const savedState = localStorage.getItem(`timer_state_${userId}`);
-        if (savedState) {
-            try {
-                const state = JSON.parse(savedState);
-                setSelectedTaskId(state.selectedTaskId || "");
-                setTimeLeft(state.timeLeft || 10 * 60);
-                setIsActive(state.isActive || false);
-                setIsPaused(state.isPaused || false);
-                setSessionId(state.sessionId || null);
+        const raw = localStorage.getItem(LS_STATE(userId));
+        if (!raw) return;
+        try {
+            const state = JSON.parse(raw);
+            setSelectedTaskId(state.selectedTaskId || "");
+            setIsActive(state.isActive || false);
+            setIsPaused(state.isPaused || false);
+            setSessionId(state.sessionId || null);
 
-                if (state.isActive && !state.isPaused && state.lastTick) {
-                    // Adjust for time elapsed while page was closed
-                    const elapsed = Math.floor((Date.now() - state.lastTick) / 1000);
-                    const newTimeLeft = Math.max(0, state.timeLeft - elapsed);
-                    setTimeLeft(newTimeLeft);
-                    if (newTimeLeft === 0) {
-                        handleComplete(state.sessionId);
-                    }
+            if (state.isActive && !state.isPaused && state.lastTick) {
+                // Restore real elapsed time
+                const elapsed = Math.floor((Date.now() - state.lastTick) / 1000);
+                const restored = Math.max(0, (state.timeLeft || 0) - elapsed);
+                setTimeLeft(restored);
+                if (restored === 0) {
+                    handleComplete(state.sessionId);
                 }
-            } catch (e) {
-                console.error("Error loading timer state", e);
+            } else {
+                setTimeLeft(state.timeLeft || 10 * 60);
             }
+        } catch (e) {
+            console.error("Error loading timer state", e);
         }
     };
 
@@ -173,18 +233,27 @@ const ProductivityTimer = ({ userId }) => {
             isActive,
             isPaused,
             sessionId,
-            lastTick: Date.now()
+            lastTick: Date.now(),
         };
-        localStorage.setItem(`timer_state_${userId}`, JSON.stringify(state));
+        localStorage.setItem(LS_STATE(userId), JSON.stringify(state));
     }, [selectedTaskId, timeLeft, isActive, isPaused, sessionId, userId]);
 
+    // Save on every state change
     useEffect(() => {
         saveState();
     }, [saveState]);
 
+    // Save every second while running (keeps lastTick fresh for accurate restore)
+    useEffect(() => {
+        if (isActive && !isPaused) {
+            const tickSaver = setInterval(saveState, 1000);
+            return () => clearInterval(tickSaver);
+        }
+    }, [isActive, isPaused, saveState]);
+
+    // ── Timer tick ─────────────────────────────────────────────────
     useEffect(() => {
         if (isActive && !isPaused && timeLeft > 0) {
-            lastTickRef.current = Date.now();
             timerRef.current = setInterval(() => {
                 setTimeLeft((prev) => {
                     if (prev <= 1) {
@@ -192,13 +261,8 @@ const ProductivityTimer = ({ userId }) => {
                         handleComplete(sessionId);
                         return 0;
                     }
-
-                    // Sound alerts
-                    if (prev === 31) playBeep(200, 100, 50); // Muted beep at 30s
-                    if (prev <= 11 && prev > 1) { // 10s countdown
-                        playBeep(440, 150, 70);
-                    }
-
+                    if (prev === 31) playBeep(200, 100, 50);
+                    if (prev <= 11 && prev > 1) playBeep(440, 150, 70);
                     return prev - 1;
                 });
             }, 1000);
@@ -206,41 +270,32 @@ const ProductivityTimer = ({ userId }) => {
             clearInterval(timerRef.current);
         }
         return () => clearInterval(timerRef.current);
-    }, [isActive, isPaused, sessionId]); // removed timeLeft from deps to avoid retriggering
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isActive, isPaused, sessionId]);
 
-    useEffect(() => {
-        // Save last tick every interval for accurate background time tracking
-        if (isActive && !isPaused) {
-            const tickSaver = setInterval(saveState, 5000);
-            return () => clearInterval(tickSaver);
-        }
-    }, [isActive, isPaused, saveState]);
-
+    // ── Timer actions ──────────────────────────────────────────────
     const handleStart = async () => {
         if (!selectedTaskId) {
             toast.warning("Selecione uma tarefa para iniciar o cronômetro.");
             return;
         }
-
         if (!isActive && !isPaused) {
-            // Create new session
             try {
                 const { data } = await api.post("/timer-sessions", {
                     taskId: selectedTaskId,
-                    status: "active"
+                    status: "active",
                 });
                 setSessionId(data.id);
             } catch (err) {
                 console.error(err);
                 toast.error("Erro ao iniciar sessão de tarefa.");
+                return;
             }
         } else if (isPaused && sessionId) {
-            // Resume session
             try {
                 await api.put(`/timer-sessions/${sessionId}`, { status: "active" });
-            } catch (e) { }
+            } catch (e) { /* non-critical */ }
         }
-
         setIsActive(true);
         setIsPaused(false);
     };
@@ -249,61 +304,54 @@ const ProductivityTimer = ({ userId }) => {
         setIsPaused(true);
         if (sessionId) {
             try {
-                const selectedTask = tasks.find(t => t.id === selectedTaskId);
-                const timeSpent = (selectedTask?.defaultTime * 60 || defaultGlobalTime * 60) - timeLeft;
+                const task = tasksRef.current.find((t) => t.id === selectedTaskId);
+                const timeSpent = (task?.defaultTime * 60 || defaultGlobalTime * 60) - timeLeft;
                 await api.put(`/timer-sessions/${sessionId}`, {
                     status: "paused",
-                    timeSpent: Math.max(0, timeSpent)
+                    timeSpent: Math.max(0, timeSpent),
                 });
-            } catch (err) { }
+            } catch (err) { /* non-critical */ }
         }
     };
 
     const handleReset = async () => {
         setIsActive(false);
         setIsPaused(false);
-
         if (sessionId) {
             try {
-                const selectedTask = tasks.find(t => t.id === selectedTaskId);
-                const timeSpent = (selectedTask?.defaultTime * 60 || defaultGlobalTime * 60) - timeLeft;
+                const task = tasksRef.current.find((t) => t.id === selectedTaskId);
+                const timeSpent = (task?.defaultTime * 60 || defaultGlobalTime * 60) - timeLeft;
                 await api.put(`/timer-sessions/${sessionId}`, {
                     status: "completed",
                     timeSpent: Math.max(0, timeSpent),
-                    endTime: new Date()
+                    endTime: new Date(),
                 });
-            } catch (err) { }
+            } catch (err) { /* non-critical */ }
         }
-
         setSessionId(null);
-        const selectedTask = tasks.find(t => t.id === selectedTaskId);
-        setTimeLeft(selectedTask ? selectedTask.defaultTime * 60 : defaultGlobalTime * 60);
+        const task = tasksRef.current.find((t) => t.id === selectedTaskId);
+        setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
     };
 
     const handleComplete = async (sid) => {
         setIsActive(false);
         setIsPaused(false);
-        // Play completion sound
         playBeep(880, 500, 100);
         setTimeout(() => playBeep(880, 500, 100), 600);
-
         toast.success("Tempo finalizado! 🎉");
-
         if (sid) {
             try {
-                const selectedTask = tasks.find(t => t.id === selectedTaskId);
+                const task = tasksRef.current.find((t) => t.id === selectedTaskId);
                 await api.put(`/timer-sessions/${sid}`, {
                     status: "completed",
-                    timeSpent: selectedTask ? selectedTask.defaultTime * 60 : defaultGlobalTime * 60,
-                    endTime: new Date()
+                    timeSpent: task ? task.defaultTime * 60 : defaultGlobalTime * 60,
+                    endTime: new Date(),
                 });
-            } catch (err) { }
+            } catch (err) { /* non-critical */ }
         }
         setSessionId(null);
-
-        // reset visual
-        const selectedTask = tasks.find(t => t.id === selectedTaskId);
-        setTimeLeft(selectedTask ? selectedTask.defaultTime * 60 : defaultGlobalTime * 60);
+        const task = tasksRef.current.find((t) => t.id === selectedTaskId);
+        setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
     };
 
     const handleTaskChange = (e) => {
@@ -313,8 +361,8 @@ const ProductivityTimer = ({ userId }) => {
         }
         const val = e.target.value;
         setSelectedTaskId(val);
-        const selectedTask = tasks.find(t => t.id === val);
-        setTimeLeft(selectedTask ? selectedTask.defaultTime * 60 : defaultGlobalTime * 60);
+        const task = tasksRef.current.find((t) => t.id === val);
+        setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
     };
 
     const formatTime = (seconds) => {
@@ -323,14 +371,11 @@ const ProductivityTimer = ({ userId }) => {
         return `${m}:${s}`;
     };
 
-    // Settings Handlers
+    // ── Settings handlers ──────────────────────────────────────────
     const handleSaveTask = async () => {
         if (!newTaskName) return;
         try {
-            await api.post("/timer-tasks", {
-                name: newTaskName,
-                defaultTime: newTaskTime
-            });
+            await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime });
             setNewTaskName("");
             setNewTaskTime(10);
             fetchTasks();
@@ -344,81 +389,131 @@ const ProductivityTimer = ({ userId }) => {
         try {
             await api.delete(`/timer-tasks/${id}`);
             fetchTasks();
-            if (selectedTaskId === id) {
-                setSelectedTaskId("");
-            }
+            if (selectedTaskId === id) setSelectedTaskId("");
         } catch (err) {
             toast.error("Erro ao deletar");
         }
     };
 
-    const selectedTaskObj = tasks.find(t => t.id === selectedTaskId);
+    const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+    const dotClass = isActive && !isPaused
+        ? classes.miniDot
+        : isPaused
+            ? `${classes.miniDot} ${classes.miniDotPaused}`
+            : `${classes.miniDot} ${classes.miniDotIdle}`;
 
+    // ── Render ─────────────────────────────────────────────────────
     return (
         <>
-            <div className={classes.timerContainer}>
-                <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <Typography variant="caption" style={{ color: "#a1a1aa" }}>TAREFA ATUAL</Typography>
-                    <Tooltip title="Configurações do Cronômetro">
-                        <SettingsIcon
-                            style={{ cursor: "pointer", fontSize: 16, color: "#a1a1aa" }}
-                            onClick={() => setSettingsOpen(true)}
-                        />
-                    </Tooltip>
-                </div>
-
-                {tasks.length > 0 ? (
-                    <FormControl className={classes.formControl} size="small" style={{ marginBottom: 0 }}>
-                        <Select
-                            value={selectedTaskId}
-                            onChange={handleTaskChange}
-                            disableUnderline
-                            displayEmpty
-                            style={{ color: "#fff", fontSize: 13, background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 8px" }}
-                        >
-                            <SelectItem value="" disabled>Selecione uma tarefa</SelectItem>
-                            {tasks.map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+            <div className={classes.floatingWidget}>
+                {minimized ? (
+                    // ── Minimized bar ──────────────────────────────
+                    <div
+                        className={classes.minimizedBar}
+                        onClick={() => setMinimized(false)}
+                        title="Expandir cronômetro"
+                    >
+                        <div className={dotClass} />
+                        <span className={classes.miniTime}>⏱ {formatTime(timeLeft)}</span>
+                        <span className={classes.miniTask}>
+                            {selectedTask ? selectedTask.name : "Sem tarefa"}
+                        </span>
+                        <MaximizeIcon style={{ fontSize: 14, color: "#6b7280", flexShrink: 0 }} />
+                    </div>
                 ) : (
-                    <Typography variant="body2" style={{ color: "#a1a1aa", fontSize: 12, marginBottom: 8 }}>
-                        Nenhuma tarefa cadastrada.
-                    </Typography>
+                    // ── Expanded widget ────────────────────────────
+                    <div className={classes.expanded}>
+                        <div className={classes.header}>
+                            <Typography className={classes.headerLabel}>Tarefa Atual</Typography>
+                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                <Tooltip title="Configurações">
+                                    <IconButton className={classes.miniBtn} size="small" onClick={() => setSettingsOpen(true)}>
+                                        <SettingsIcon style={{ fontSize: 14 }} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Minimizar">
+                                    <IconButton className={classes.miniBtn} size="small" onClick={() => setMinimized(true)}>
+                                        <MinimizeIcon style={{ fontSize: 14 }} />
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+                        </div>
+
+                        <div className={classes.body}>
+                            {tasks.length > 0 ? (
+                                <FormControl className={classes.taskSelect} size="small">
+                                    <Select
+                                        value={selectedTaskId}
+                                        onChange={handleTaskChange}
+                                        disableUnderline
+                                        displayEmpty
+                                        style={{
+                                            color: "#fff",
+                                            fontSize: 12,
+                                            background: "rgba(255,255,255,0.07)",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                        }}
+                                    >
+                                        <SelectItem value="" disabled>Selecione uma tarefa</SelectItem>
+                                        {tasks.map((t) => (
+                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            ) : (
+                                <Typography style={{ color: "#6b7280", fontSize: 11 }}>
+                                    Nenhuma tarefa. Clique em ⚙️ para criar.
+                                </Typography>
+                            )}
+
+                            <div className={classes.timerDisplay}>
+                                {formatTime(timeLeft)}
+                            </div>
+
+                            <div className={classes.controls}>
+                                {!isActive || isPaused ? (
+                                    <Tooltip title="Iniciar">
+                                        <IconButton
+                                            className={`${classes.iconBtn} ${classes.playBtn}`}
+                                            onClick={handleStart}
+                                            size="small"
+                                        >
+                                            <PlayArrowIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                ) : (
+                                    <Tooltip title="Pausar">
+                                        <IconButton
+                                            className={`${classes.iconBtn} ${classes.pauseBtn}`}
+                                            onClick={handlePause}
+                                            size="small"
+                                        >
+                                            <PauseIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                                <Tooltip title="Parar/Resetar">
+                                    <IconButton
+                                        className={`${classes.iconBtn} ${classes.stopBtn}`}
+                                        onClick={handleReset}
+                                        size="small"
+                                    >
+                                        <StopIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+                        </div>
+                    </div>
                 )}
-
-                <div className={classes.timerDisplay}>
-                    ⏱ {formatTime(timeLeft)}
-                </div>
-
-                <div className={classes.controls}>
-                    {!isActive || isPaused ? (
-                        <Tooltip title="Iniciar">
-                            <IconButton className={`${classes.iconBtn} ${classes.playBtn}`} onClick={handleStart} size="small">
-                                <PlayArrowIcon />
-                            </IconButton>
-                        </Tooltip>
-                    ) : (
-                        <Tooltip title="Pausar">
-                            <IconButton className={`${classes.iconBtn} ${classes.pauseBtn}`} onClick={handlePause} size="small">
-                                <PauseIcon />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    <Tooltip title="Parar/Resetar">
-                        <IconButton className={`${classes.iconBtn} ${classes.stopBtn}`} onClick={handleReset} size="small">
-                            <StopIcon />
-                        </IconButton>
-                    </Tooltip>
-                </div>
             </div>
 
+            {/* Settings dialog */}
             <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Configurações de Produtividade ⏱️</DialogTitle>
                 <DialogContent dividers>
                     <Typography variant="subtitle2" gutterBottom>Nova Tarefa Rápida</Typography>
-                    <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
                         <TextField
                             label="Nome da Tarefa"
                             variant="outlined"
@@ -432,27 +527,24 @@ const ProductivityTimer = ({ userId }) => {
                             variant="outlined"
                             size="small"
                             type="number"
-                            style={{ width: "120px" }}
+                            style={{ width: 110 }}
                             value={newTaskTime}
                             onChange={(e) => setNewTaskTime(Number(e.target.value))}
                         />
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleSaveTask}
-                            startIcon={<AddIcon />}
-                        >
+                        <Button variant="contained" color="primary" onClick={handleSaveTask} startIcon={<AddIcon />}>
                             Add
                         </Button>
                     </div>
 
-                    <Typography variant="subtitle2" gutterBottom>Minhas Tarefas ({tasks.length})</Typography>
-                    <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: "200px", overflow: "auto" }}>
-                        {tasks.map(t => (
+                    <Typography variant="subtitle2" gutterBottom>
+                        Minhas Tarefas ({tasks.length})
+                    </Typography>
+                    <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 200, overflow: "auto" }}>
+                        {tasks.map((t) => (
                             <ListItem key={t.id}>
                                 <ListItemText primary={t.name} secondary={`${t.defaultTime} min`} />
                                 <ListItemSecondaryAction>
-                                    <IconButton edge="end" onClick={() => handleDeleteTask(t.id)} size="small" style={{ color: "#ef4444" }}>
+                                    <IconButton edge="end" size="small" style={{ color: "#ef4444" }} onClick={() => handleDeleteTask(t.id)}>
                                         <DeleteIcon fontSize="small" />
                                     </IconButton>
                                 </ListItemSecondaryAction>
@@ -466,14 +558,12 @@ const ProductivityTimer = ({ userId }) => {
                     <div style={{ marginTop: 20 }}>
                         <Typography variant="subtitle2" gutterBottom>Aviso Sonoro</Typography>
                         <Typography variant="body2" color="textSecondary">
-                            O cronômetro emitirá alertas sonoros aos 30 segundos finais e uma contagem regressiva nos últimos 10 segundos.
+                            Alertas sonoros aos 30 segundos finais e contagem regressiva nos últimos 10 segundos.
                         </Typography>
                     </div>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setSettingsOpen(false)} color="primary">
-                        Fechar
-                    </Button>
+                    <Button onClick={() => setSettingsOpen(false)} color="primary">Fechar</Button>
                 </DialogActions>
             </Dialog>
         </>
