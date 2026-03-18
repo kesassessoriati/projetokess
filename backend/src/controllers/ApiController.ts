@@ -265,7 +265,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     queueId,
     sendSignature = false,
     closeTicket = false,
-    noRegister = true
+    noRegister = false
   }: MessageData = req.body;
   const medias = req.files as Express.Multer.File[];
 
