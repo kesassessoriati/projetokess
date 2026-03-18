@@ -6,7 +6,7 @@ import SavePromptToolSettingsService from "../PromptToolSettingService/SavePromp
 
 interface PromptData {
     name: string;
-    apiKey: string;
+    apiKey?: string;
     prompt: string;
     maxTokens?: number;
     temperature?: number;
@@ -19,26 +19,56 @@ interface PromptData {
     voice?: string;
     voiceKey?: string;
     voiceRegion?: string;
+    provider?: string;
+    model?: string;
+    aiUsageMode?: string;
+    templateKey?: string;
+    description?: string;
     toolsEnabled?: string[];
     knowledgeBase?: any[];
 }
 
 const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
     console.log("[CreatePromptService] Starting with promptData:", JSON.stringify(promptData, null, 2));
-    const { name, apiKey, prompt, queueId, maxMessages, companyId, toolsEnabled, knowledgeBase } = promptData;
+    const {
+        name,
+        apiKey,
+        prompt,
+        queueId,
+        maxMessages,
+        companyId,
+        toolsEnabled,
+        knowledgeBase,
+        provider,
+        model,
+        aiUsageMode,
+        templateKey,
+        description
+    } = promptData;
     console.log("[CreatePromptService] toolsEnabled:", toolsEnabled);
 
     const promptSchema = Yup.object().shape({
         name: Yup.string().required("ERR_PROMPT_NAME_INVALID"),
         prompt: Yup.string().required("ERR_PROMPT_INTELLIGENCE_INVALID"),
-        apiKey: Yup.string().required("ERR_PROMPT_APIKEY_INVALID"),
         queueId: Yup.number().required("ERR_PROMPT_QUEUEID_INVALID"),
         maxMessages: Yup.number().required("ERR_PROMPT_MAX_MESSAGES_INVALID"),
-        companyId: Yup.number().required("ERR_PROMPT_companyId_INVALID")
+        companyId: Yup.number().required("ERR_PROMPT_companyId_INVALID"),
+        provider: Yup.string().oneOf(["openai", "gemini"]).required("ERR_PROMPT_PROVIDER_INVALID"),
+        model: Yup.string().required("ERR_PROMPT_MODEL_INVALID"),
+        aiUsageMode: Yup.string().oneOf(["company_default", "system", "own"]).required("ERR_PROMPT_USAGE_MODE_INVALID")
     });
 
     try {
-        await promptSchema.validate({ name, apiKey, prompt, queueId,maxMessages,companyId });
+        await promptSchema.validate({
+            name,
+            prompt,
+            queueId,
+            maxMessages,
+            companyId,
+            provider,
+            model,
+            aiUsageMode
+        });
         console.log("[CreatePromptService] Validation passed");
     } catch (err) {
         console.error("[CreatePromptService] Validation error:", err);
@@ -47,6 +77,12 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
 
     let promptTable = await Prompt.create({
         ...promptData,
+        apiKey: apiKey || "",
+        provider,
+        model,
+        aiUsageMode,
+        templateKey,
+        description,
         knowledgeBase: knowledgeBase || []
     });
     console.log("[CreatePromptService] Prompt created with id:", promptTable.id);

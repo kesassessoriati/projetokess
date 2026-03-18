@@ -19,6 +19,10 @@ interface PlanData {
   useKanban?: boolean;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  aiCredits?: number;
+  aiEnabled?: boolean;
+  aiDailyCredits?: number;
+  aiAgentEnabled?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
   whatsapp_whaleys?: boolean;
@@ -30,6 +34,25 @@ interface PlanData {
 
 const UpdatePlanService = async (planData: PlanData): Promise<Plan> => {
   const { id } = planData;
+  const normalizedPlanData = {
+    ...planData,
+    aiCredits:
+      typeof planData.aiDailyCredits === "number"
+        ? planData.aiDailyCredits
+        : planData.aiCredits,
+    aiDailyCredits:
+      typeof planData.aiDailyCredits === "number"
+        ? planData.aiDailyCredits
+        : planData.aiCredits,
+    aiEnabled:
+      typeof planData.aiEnabled === "boolean"
+        ? planData.aiEnabled
+        : planData.useOpenAi,
+    aiAgentEnabled:
+      typeof planData.aiAgentEnabled === "boolean"
+        ? planData.aiAgentEnabled
+        : planData.useOpenAi
+  };
 
   let plan = await Plan.findByPk(id);
 
@@ -37,7 +60,7 @@ const UpdatePlanService = async (planData: PlanData): Promise<Plan> => {
     throw new AppError("ERR_NO_PLAN_FOUND", 404);
   }
 
-  await plan.update(planData);
+  await plan.update(normalizedPlanData);
 
   return plan;
 };

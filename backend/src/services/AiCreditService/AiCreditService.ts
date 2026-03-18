@@ -27,7 +27,7 @@ export const getCreditInfo = async (companyId: number): Promise<CreditInfo> => {
 
   company = await resetIfNeeded(company);
 
-  const allowed = company.plan?.aiCredits ?? 0;
+  const allowed = company.plan?.aiDailyCredits ?? company.plan?.aiCredits ?? 0;
   const used = company.aiCreditsUsed ?? 0;
   const remaining = Math.max(0, allowed - used);
 
@@ -42,7 +42,7 @@ export const consumeCredit = async (companyId: number): Promise<void> => {
 
   company = await resetIfNeeded(company);
 
-  const allowed = company.plan?.aiCredits ?? 0;
+  const allowed = company.plan?.aiDailyCredits ?? company.plan?.aiCredits ?? 0;
   const used = company.aiCreditsUsed ?? 0;
 
   if (allowed > 0 && used >= allowed) {

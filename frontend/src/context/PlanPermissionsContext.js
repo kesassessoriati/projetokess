@@ -9,6 +9,9 @@ const defaultState = {
   planActive: true,
   campaigns: false,
   openAi: false,
+  aiEnabled: false,
+  aiAgent: false,
+  aiDailyCredits: 0,
   kanban: false,
   internalChat: false,
   schedules: false,
@@ -54,11 +57,16 @@ export const PlanPermissionsProvider = ({ children }) => {
           const isExpired = moment().isBefore(user.company?.dueDate);
           const planActive = isUnlimited || user.company?.status ? true : isExpired;
           
+          const aiEnabled = typeof plan.aiEnabled === "boolean" ? Boolean(plan.aiEnabled) : Boolean(plan.useOpenAi);
+          const aiAgent = typeof plan.aiAgentEnabled === "boolean" ? Boolean(plan.aiAgentEnabled) : aiEnabled;
           setState({
             loading: false,
             planActive,
             campaigns: Boolean(plan.useCampaigns),
-            openAi: Boolean(plan.useOpenAi),
+            openAi: aiEnabled,
+            aiEnabled,
+            aiAgent,
+            aiDailyCredits: Number(plan.aiDailyCredits ?? plan.aiCredits ?? 0),
             kanban: Boolean(plan.useKanban),
             internalChat: Boolean(plan.useInternalChat),
             schedules: Boolean(plan.useSchedules),

@@ -1,14 +1,20 @@
 // @ts-nocheck
 import { Request, Response } from "express";
-import { getCreditInfo, consumeCredit } from "../services/AiCreditService/AiCreditService";
 import Setting from "../models/Setting";
 import CrmLead from "../models/CrmLead";
 import Pipeline from "../models/Pipeline";
 import PipelineStage from "../models/PipelineStage";
-import { Op } from "sequelize";
+import {
+  finalizeAIUsage,
+  getCompanyAiSettings,
+  resolveAIProviderConfig
+} from "../services/AIProviderService/AIProviderService";
 
-// Cascade: own company key → superadmin (company 1) key → env var
-const getSettingCascade = async (companyId: number, key: string, envFallback?: string): Promise<string | null> => {
+const getSettingCascade = async (
+  companyId: number,
+  key: string,
+  envFallback?: string
+): Promise<string | null> => {
   const own = await Setting.findOne({ where: { companyId, key } }).catch(() => null);
   if (own?.value) return own.value;
   if (companyId !== 1) {
@@ -18,36 +24,27 @@ const getSettingCascade = async (companyId: number, key: string, envFallback?: s
   return envFallback || null;
 };
 
-const getOpenAiKey = async (companyId: number): Promise<string | null> =>
-  getSettingCascade(companyId, "openaiApiKey", process.env.OPENAI_API_KEY);
-
-const getGeminiKey = async (companyId: number): Promise<string | null> =>
-  getSettingCascade(companyId, "geminiApiKey", process.env.GEMINI_API_KEY);
-
-const getPreferredProvider = async (companyId: number): Promise<string> =>
-  (await getSettingCascade(companyId, "aiProvider")) || "openai";
-
 const getCrmAiSystemPrompt = async (companyId: number): Promise<string> => {
   const custom = await getSettingCascade(companyId, "crmAiSystemPrompt");
   if (custom && custom.trim()) return custom.trim();
-  return `Você é o Assistente CRM IA, um especialista em vendas e gestão de pipeline.
-Responda de forma objetiva, prática e em português brasileiro.
+  return `VocÃª Ã© o Assistente CRM IA, um especialista em vendas e gestÃ£o de pipeline.
+Responda de forma objetiva, prÃ¡tica e em portuguÃªs brasileiro.
 Use os dados do CRM abaixo para contextualizar suas respostas.
-Ofereça insights acionáveis e dicas de vendas baseadas nos dados disponíveis.
-Seja direto e evite respostas genéricas.`;
+OfereÃ§a insights acionÃ¡veis e dicas de vendas baseadas nos dados disponÃ­veis.
+Seja direto e evite respostas genÃ©ricas.`;
 };
 
 const buildCrmContext = async (companyId: number): Promise<string> => {
   try {
     const pipelines = await Pipeline.findAll({
       where: { companyId },
-      include: [{ model: PipelineStage, as: "stages" }],
+      include: [{ model: PipelineStage, as: "stages" }]
     }).catch(() => []);
 
     const leads = await CrmLead.findAll({
       where: { companyId },
       attributes: ["id", "name", "status", "value", "stageId", "createdAt", "updatedAt"],
-      limit: 200,
+      limit: 200
     }).catch(() => []);
 
     const totalLeads = leads.length;
@@ -55,14 +52,15 @@ const buildCrmContext = async (companyId: number): Promise<string> => {
     const wonLeads = leads.filter((l: any) => l.status === "won").length;
     const lostLeads = leads.filter((l: any) => l.status === "lost").length;
     const totalValue = leads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
-    const wonValue = leads.filter((l: any) => l.status === "won").reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
+    const wonValue = leads
+      .filter((l: any) => l.status === "won")
+      .reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
-    // SLA check: leads open for more than 3 days without update
     const now = Date.now();
     const slaDelayed = leads.filter((l: any) => {
       if (l.status !== "open") return false;
       const lastUpdate = new Date(l.updatedAt).getTime();
-      return (now - lastUpdate) > 3 * 24 * 60 * 60 * 1000;
+      return now - lastUpdate > 3 * 24 * 60 * 60 * 1000;
     }).length;
 
     const pipelineNames = pipelines.map((p: any) => p.name).join(", ");
@@ -76,21 +74,26 @@ Contexto do CRM:
 - Leads perdidos: ${lostLeads}
 - Valor total em pipeline: R$ ${totalValue.toFixed(2)}
 - Valor convertido (ganhos): R$ ${wonValue.toFixed(2)}
-- Leads com SLA atrasado (sem atualização há +3 dias): ${slaDelayed}
-- Taxa de conversão: ${totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : 0}%
+- Leads com SLA atrasado (sem atualizaÃ§Ã£o hÃ¡ +3 dias): ${slaDelayed}
+- Taxa de conversÃ£o: ${totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : 0}%
 `;
   } catch {
-    return "Contexto do CRM indisponível no momento.";
+    return "Contexto do CRM indisponÃ­vel no momento.";
   }
 };
 
 export const credits = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   try {
-    const info = await getCreditInfo(companyId);
-    return res.status(200).json(info);
-  } catch (err) {
-    return res.status(500).json({ error: "Erro ao consultar créditos" });
+    const info = await getCompanyAiSettings(companyId);
+    return res.status(200).json({
+      ...info.creditInfo,
+      usageMode: info.usageMode,
+      preferredProvider: info.preferredProvider,
+      planInfo: info.planInfo
+    });
+  } catch {
+    return res.status(500).json({ error: "Erro ao consultar crÃ©ditos" });
   }
 };
 
@@ -99,94 +102,103 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
   const { message } = req.body;
 
   if (!message || typeof message !== "string" || message.trim().length === 0) {
-    return res.status(400).json({ error: "Mensagem inválida" });
+    return res.status(400).json({ error: "Mensagem invÃ¡lida" });
   }
 
-  // Check credits
-  const creditInfo = await getCreditInfo(companyId);
-  if (creditInfo.allowed > 0 && !creditInfo.hasCredits) {
-    return res.status(402).json({
-      error: "NO_CREDITS",
-      message: "Créditos de IA insuficientes. Contate o administrador.",
-      creditInfo,
-    });
-  }
-
+  const companyAiSettings = await getCompanyAiSettings(companyId);
   const crmContext = await buildCrmContext(companyId);
-  const provider = await getPreferredProvider(companyId);
   const basePrompt = await getCrmAiSystemPrompt(companyId);
-
-  const systemPrompt = `${basePrompt}
-
-${crmContext}`;
+  const systemPrompt = `${basePrompt}\n\n${crmContext}`;
 
   let reply = "";
+  let resolvedConfig: Awaited<ReturnType<typeof resolveAIProviderConfig>> | null = null;
 
   try {
-    if (provider === "gemini") {
-      const geminiKey = await getGeminiKey(companyId);
-      if (!geminiKey) throw new Error("Chave Gemini não configurada");
+    resolvedConfig = await resolveAIProviderConfig({
+      companyId,
+      provider: companyAiSettings.preferredProvider,
+      requestType: "crm_assistant"
+    });
 
+    if (resolvedConfig.provider === "gemini") {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(geminiKey);
+      const genAI = new GoogleGenerativeAI(resolvedConfig.apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent(`${systemPrompt}\n\nUsuário: ${message}`);
+      const result = await model.generateContent(`${systemPrompt}\n\nUsuÃ¡rio: ${message}`);
       reply = result.response.text();
     } else {
-      const openAiKey = await getOpenAiKey(companyId);
-      if (!openAiKey) throw new Error("Chave OpenAI não configurada");
-
       const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey: openAiKey });
+      const openai = new OpenAI({ apiKey: resolvedConfig.apiKey });
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: message },
+          { role: "user", content: message }
         ],
         temperature: 0.7,
-        max_tokens: 600,
+        max_tokens: 600
       });
       reply = completion.choices[0]?.message?.content || "Sem resposta";
     }
 
-    // Consume credit only on successful response
-    await consumeCredit(companyId).catch(() => { });
-    const newCreditInfo = await getCreditInfo(companyId);
+    const newCreditInfo = await finalizeAIUsage({
+      companyId,
+      provider: resolvedConfig.provider,
+      usageMode: resolvedConfig.usageMode,
+      requestType: "crm_assistant",
+      model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini",
+      status: "success",
+      metadata: { messageLength: message.length }
+    });
 
     return res.status(200).json({ reply, creditInfo: newCreditInfo });
   } catch (err: any) {
-    if (err.message === "NO_CREDITS") {
-      return res.status(402).json({ error: "NO_CREDITS", message: "Créditos insuficientes" });
-    }
-
-    // OpenAI / Gemini API errors have .status property
-    const apiStatus = err?.status || err?.response?.status || err?.code;
+    const apiStatus = err?.status || err?.response?.status || err?.code || err?.statusCode;
     const apiMessage = err?.message || err?.error?.message || "";
 
-    console.error(`[CrmAI] Provider: ${provider} | Error:`, apiMessage, "status:", apiStatus, err);
+    if (resolvedConfig) {
+      await finalizeAIUsage({
+        companyId,
+        provider: resolvedConfig.provider,
+        usageMode: resolvedConfig.usageMode,
+        requestType: "crm_assistant",
+        model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini",
+        status: "error",
+        errorCode: apiStatus ? String(apiStatus) : "provider_error",
+        metadata: { messageLength: message.length, apiMessage }
+      }).catch(() => undefined);
+    }
+
+    if (err.statusCode === 402 || apiMessage === "NO_CREDITS") {
+      return res.status(402).json({
+        error: "NO_CREDITS",
+        message: "CrÃ©ditos de IA insuficientes. Contate o administrador.",
+        creditInfo: companyAiSettings.creditInfo
+      });
+    }
 
     if (apiStatus === 429 || apiMessage.includes("429") || apiMessage.includes("quota") || apiMessage.includes("exceeded")) {
       return res.status(429).json({
         error: "QUOTA_EXCEEDED",
-        message: `Cota esgotada ou limite de taxa atingido na API (${provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}). Verifique seu saldo/plano na plataforma da ${provider}. (Detalhe: ${apiMessage || '429 Too Many Requests'})`,
+        message: `Cota esgotada ou limite de taxa atingido na API (${companyAiSettings.preferredProvider === "gemini" ? "Google Gemini" : "OpenAI"}). Verifique seu saldo/plano na plataforma da IA.`
       });
     }
 
     if (apiStatus === 401 || apiMessage.includes("401") || apiMessage.includes("Incorrect API key") || apiMessage.includes("invalid_api_key")) {
       return res.status(401).json({
         error: "INVALID_KEY",
-        message: "Chave de API inválida. Verifique as configurações em Whitelabel.",
+        message: "Chave de API invÃ¡lida. Revise a configuraÃ§Ã£o de IA da empresa."
       });
     }
 
-    if (apiMessage.includes("não configurada") || apiMessage.includes("not configured")) {
+    if (apiMessage.includes("configurada") || apiMessage.includes("configurada.")) {
       return res.status(503).json({
         error: "NO_API_KEY",
-        message: "Nenhuma chave de API de IA configurada. Acesse Configurações → Whitelabel para configurar.",
+        message: "Nenhuma chave de IA disponÃ­vel para este provedor."
       });
     }
 
+    console.error(`[CrmAI] Provider: ${companyAiSettings.preferredProvider} | Error:`, apiMessage, "status:", apiStatus, err);
     return res.status(500).json({ error: "Erro ao processar mensagem: " + (apiMessage || "erro desconhecido") });
   }
 };

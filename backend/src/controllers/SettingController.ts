@@ -11,6 +11,7 @@ import ListSettingsServiceOne from "../services/SettingServices/ListSettingsServ
 import GetSettingService from "../services/SettingServices/GetSettingService";
 import UpdateOneSettingService from "../services/SettingServices/UpdateOneSettingService";
 import GetPublicSettingService from "../services/SettingServices/GetPublicSettingService";
+import { getMaskedSecret } from "../services/AIProviderService/AIProviderService";
 
 type LogoRequest = {
   mode: string;
@@ -28,9 +29,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   //   throw new AppError("ERR_NO_PERMISSION", 403);
   // }
 
-  const settings = await ListSettingsService({ companyId });
+  const settings = (await ListSettingsService({ companyId })) || [];
 
-  return res.status(200).json(settings);
+  const maskedSettings = settings.map(setting => {
+    if (["openaiApiKey", "geminiApiKey"].includes(setting.key)) {
+      const payload = setting.toJSON() as Record<string, any>;
+      payload.value = getMaskedSecret(setting.value);
+      return payload;
+    }
+    return setting;
+  });
+
+  return res.status(200).json(maskedSettings);
 };
 
 export const showOne = async (req: Request, res: Response): Promise<Response> => {
@@ -43,6 +53,12 @@ export const showOne = async (req: Request, res: Response): Promise<Response> =>
 
   
   const settingsTransfTicket = await ListSettingsServiceOne({ companyId: companyId, key: key });
+
+  if (["openaiApiKey", "geminiApiKey"].includes(key) && settingsTransfTicket?.[0]) {
+    const payload = settingsTransfTicket[0].toJSON() as Record<string, any>;
+    payload.value = getMaskedSecret(settingsTransfTicket[0].value);
+    return res.status(200).json(payload);
+  }
 
   return res.status(200).json(settingsTransfTicket);
 };

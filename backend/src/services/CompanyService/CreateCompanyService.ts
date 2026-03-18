@@ -75,6 +75,8 @@ const CreateCompanyService = async (
       paymentMethod,
       type,
       segment,
+      aiUsageMode: "system",
+      aiPreferredProvider: "openai",
       expiration_date,
       billing_cycle
     },

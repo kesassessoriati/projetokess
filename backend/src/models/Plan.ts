@@ -111,6 +111,18 @@ class Plan extends Model<Plan> {
   @Default(0)
   @Column
   aiCredits: number;
+
+  @Default(false)
+  @Column
+  aiEnabled: boolean;
+
+  @Default(0)
+  @Column
+  aiDailyCredits: number;
+
+  @Default(false)
+  @Column
+  aiAgentEnabled: boolean;
 }
 
 export default Plan;

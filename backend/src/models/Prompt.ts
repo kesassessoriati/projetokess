@@ -32,7 +32,7 @@ class Prompt extends Model<Prompt> {
   prompt: string;
 
   @AllowNull(false)
-  @Column
+  @Column({ defaultValue: "" })
   apiKey: string;
 
   @Column({ defaultValue: 10 })
@@ -72,6 +72,18 @@ class Prompt extends Model<Prompt> {
   @AllowNull(true)
   @Column
   model: string;
+
+  @AllowNull(false)
+  @Column({ defaultValue: "company_default" })
+  aiUsageMode: string;
+
+  @AllowNull(true)
+  @Column
+  templateKey: string;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  description: string;
 
   @AllowNull
   @ForeignKey(() => Queue)

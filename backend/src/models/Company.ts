@@ -106,6 +106,14 @@ class Company extends Model<Company> {
   @Column(DataType.DATEONLY)
   aiCreditsLastReset: string;
 
+  @Default("system")
+  @Column(DataType.STRING)
+  aiUsageMode: string;
+
+  @Default("openai")
+  @Column(DataType.STRING)
+  aiPreferredProvider: string;
+
   @Column(DataType.DATE)
   expiration_date: Date;
 

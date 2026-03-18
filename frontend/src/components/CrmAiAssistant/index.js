@@ -21,6 +21,7 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 
 const useStyles = makeStyles(() => ({
   // Floating action button
@@ -526,6 +527,7 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
 
 export const CrmAiFab = ({ onNewLead }) => {
   const classes = useStyles();
+  const permissions = usePlanPermissions();
   const [menuOpen, setMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [pendingCount] = useState(0);
@@ -546,6 +548,10 @@ export const CrmAiFab = ({ onNewLead }) => {
     setMenuOpen(false);
     setChatOpen(true);
   };
+
+  if (permissions.loading || !permissions.aiEnabled) {
+    return null;
+  }
 
   return (
     <>

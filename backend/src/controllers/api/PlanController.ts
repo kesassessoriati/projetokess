@@ -46,6 +46,9 @@ type StorePlanData = {
   trialDays?: number;
   recurrence?: string;
   useOpenAi?: boolean;
+  aiEnabled?: boolean;
+  aiDailyCredits?: number;
+  aiAgentEnabled?: boolean;
   useIntegrations?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
@@ -74,6 +77,9 @@ type UpdatePlanData = {
   trialDays?: number;
   recurrence?: string;
   useOpenAi?: boolean;
+  aiEnabled?: boolean;
+  aiDailyCredits?: number;
+  aiAgentEnabled?: boolean;
   useIntegrations?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
@@ -121,6 +127,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     recurrence: Yup.string().required(),
     useKanban: Yup.boolean(),
     useOpenAi: Yup.boolean(),
+    aiEnabled: Yup.boolean(),
+    aiDailyCredits: Yup.number(),
+    aiAgentEnabled: Yup.boolean(),
     useIntegrations: Yup.boolean(),
     notifica_mehub: Yup.boolean(),
     whatsapp_whatsmeow: Yup.boolean(),
@@ -174,6 +183,9 @@ export const update = async (
     recurrence: Yup.string().required(),
     useKanban: Yup.boolean(),
     useOpenAi: Yup.boolean(),
+    aiEnabled: Yup.boolean(),
+    aiDailyCredits: Yup.number(),
+    aiAgentEnabled: Yup.boolean(),
     useIntegrations: Yup.boolean(),
     notifica_mehub: Yup.boolean(),
     whatsapp_whatsmeow: Yup.boolean(),

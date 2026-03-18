@@ -7,7 +7,7 @@ import SavePromptToolSettingsService from "../PromptToolSettingService/SavePromp
 interface PromptData {
     id?: number;
     name: string;
-    apiKey: string;
+    apiKey?: string;
     prompt: string;
     maxTokens?: number;
     temperature?: number;
@@ -22,6 +22,9 @@ interface PromptData {
     voiceRegion?: string;
     provider?: string;
     model?: string;
+    aiUsageMode?: string;
+    templateKey?: string;
+    description?: string;
     toolsEnabled?: string[];
     knowledgeBase?: any[];
 }
@@ -42,22 +45,76 @@ const UpdatePromptService = async ({
     const promptSchema = Yup.object().shape({
         name: Yup.string().required("ERR_PROMPT_NAME_INVALID"),
         prompt: Yup.string().required("ERR_PROMPT_PROMPT_INVALID"),
-        apiKey: Yup.string().required("ERR_PROMPT_APIKEY_INVALID"),
         queueId: Yup.number().required("ERR_PROMPT_QUEUEID_INVALID"),
         maxMessages: Yup.number().required("ERR_PROMPT_MAX_MESSAGES_INVALID"),
         provider: Yup.string().oneOf(['openai', 'gemini']).required("ERR_PROMPT_PROVIDER_INVALID"),
-        model: Yup.string().required("ERR_PROMPT_MODEL_INVALID")
+        model: Yup.string().required("ERR_PROMPT_MODEL_INVALID"),
+        aiUsageMode: Yup.string().oneOf(["company_default", "system", "own"]).required("ERR_PROMPT_USAGE_MODE_INVALID")
     });
 
-    const { name, apiKey, prompt, maxTokens, temperature, promptTokens, completionTokens, totalTokens, queueId, maxMessages, voice, voiceKey, voiceRegion, provider, model, toolsEnabled, knowledgeBase } = promptData;
+    const {
+        name,
+        apiKey,
+        prompt,
+        maxTokens,
+        temperature,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        queueId,
+        maxMessages,
+        voice,
+        voiceKey,
+        voiceRegion,
+        provider,
+        model,
+        aiUsageMode,
+        templateKey,
+        description,
+        toolsEnabled,
+        knowledgeBase
+    } = promptData;
 
     try {
-        await promptSchema.validate({ name, apiKey, prompt, maxTokens, temperature, promptTokens, completionTokens, totalTokens, queueId, maxMessages, provider, model });
+        await promptSchema.validate({
+            name,
+            prompt,
+            maxTokens,
+            temperature,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            queueId,
+            maxMessages,
+            provider,
+            model,
+            aiUsageMode
+        });
     } catch (err) {
         throw new AppError(`${JSON.stringify(err, undefined, 2)}`);
     }
 
-    await promptTable.update({ name, apiKey, prompt, maxTokens, temperature, promptTokens, completionTokens, totalTokens, queueId, maxMessages, voice, voiceKey, voiceRegion, provider, model, knowledgeBase: knowledgeBase || [] });
+    await promptTable.update({
+        name,
+        apiKey: apiKey || promptTable.apiKey || "",
+        prompt,
+        maxTokens,
+        temperature,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        queueId,
+        maxMessages,
+        voice,
+        voiceKey,
+        voiceRegion,
+        provider,
+        model,
+        aiUsageMode,
+        templateKey,
+        description,
+        knowledgeBase: knowledgeBase || []
+    });
 
     console.log("[UpdatePromptService] About to call SavePromptToolSettingsService with:", { companyId, promptId, toolsEnabled });
     

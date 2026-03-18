@@ -24,6 +24,7 @@ export interface IOpenAi {
   maxMessages: number | string;
   provider?: string;
   model?: string;
+  aiUsageMode?: string;
   promptId?: number | null;
   toolsEnabled?: string[] | null;
   knowledgeBase?: IKnowledgeBaseItem[];

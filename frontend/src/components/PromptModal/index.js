@@ -63,6 +63,8 @@ import api from "../../services/api";
 import { getBackendUrl } from "../../config";
 import toastError from "../../errors/toastError";
 import { TOOL_CATALOG, DEFAULT_SENSITIVE_TOOLS } from "../../constants/aiTools";
+import { getCompanyAiConfig, updateCompanyAiConfig } from "../../services/companyAiConfig";
+import { listAiAgentTemplates } from "../../services/aiAgentTemplates";
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -270,6 +272,61 @@ const useStyles = makeStyles(theme => ({
         border: "1px solid #e5e7eb",
         marginTop: theme.spacing(1),
     },
+    templateGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: theme.spacing(1.5),
+        marginTop: theme.spacing(1.5),
+    },
+    templateCard: {
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        padding: theme.spacing(1.5),
+        cursor: "pointer",
+        backgroundColor: "#fff",
+        transition: "all 0.2s ease",
+        "&:hover": {
+            borderColor: "#6366f1",
+            boxShadow: "0 10px 24px rgba(99, 102, 241, 0.12)",
+        },
+        "&.active": {
+            borderColor: "#4f46e5",
+            backgroundColor: "#eef2ff",
+            boxShadow: "0 12px 26px rgba(79, 70, 229, 0.18)",
+        }
+    },
+    usageModeGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: theme.spacing(1.5),
+        marginTop: theme.spacing(1.5),
+        marginBottom: theme.spacing(1.5),
+    },
+    usageModeCard: {
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        padding: theme.spacing(1.5),
+        cursor: "pointer",
+        backgroundColor: "#fff",
+        transition: "all 0.2s ease",
+        "&.active": {
+            borderColor: "#10b981",
+            backgroundColor: "#ecfdf5",
+        }
+    },
+    usageInfoBox: {
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        backgroundColor: "#f8fafc",
+        padding: theme.spacing(1.5),
+        marginTop: theme.spacing(1.5),
+    },
+    inlineMeta: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: theme.spacing(1),
+        marginTop: theme.spacing(1),
+    },
     toolGrid: {
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
@@ -472,6 +529,9 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [savedPrompts, setSavedPrompts] = useState([]);
     const [selectedSavedPrompt, setSelectedSavedPrompt] = useState("");
     const [knowledgeUploading, setKnowledgeUploading] = useState(false);
+    const [companyAiConfig, setCompanyAiConfig] = useState(null);
+    const [aiTemplates, setAiTemplates] = useState([]);
+    const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "" });
     const imageInputRef = useRef(null);
     const [linkForm, setLinkForm] = useState({ title: "", url: "" });
 
@@ -650,10 +710,13 @@ const PromptModal = ({ open, onClose, promptId }) => {
         maxTokens: 100,
         temperature: 1,
         apiKey: "",
+        aiUsageMode: "system",
         queueId: null,
         maxMessages: 10,
         provider: "openai",
         model: "",
+        templateKey: "",
+        description: "",
         toolsEnabled: [],
         knowledgeBase: []
     };
@@ -686,6 +749,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                     return {
                         ...prevState,
                         ...data,
+                        aiUsageMode: data.aiUsageMode || "system",
                         toolsEnabled: data.toolsEnabled || [],
                         knowledgeBase: data.knowledgeBase || []
                     };
@@ -702,11 +766,37 @@ const PromptModal = ({ open, onClose, promptId }) => {
     }, [promptId, open]);
 
     useEffect(() => {
+        const fetchAiMeta = async () => {
+            if (!open || !user?.companyId) return;
+            try {
+                const [companyConfig, templates] = await Promise.all([
+                    getCompanyAiConfig(user.companyId),
+                    listAiAgentTemplates()
+                ]);
+                setCompanyAiConfig(companyConfig);
+                setAiTemplates(Array.isArray(templates) ? templates : []);
+
+                if (!promptId) {
+                    const preferredProvider = companyConfig?.preferredProvider || "openai";
+                    setSelectedProvider(preferredProvider);
+                    setSelectedModel(
+                        (preferredProvider === "gemini" ? geminiModels : openaiModels)[0]?.value || ""
+                    );
+                }
+            } catch (err) {
+                toastError(err);
+            }
+        };
+
+        fetchAiMeta();
+    }, [open, promptId, user]);
+
+    useEffect(() => {
         const fetchSavedPrompts = async () => {
             if (!open) return;
             try {
                 const { data } = await api.get("/prompt");
-                setSavedPrompts(Array.isArray(data) ? data : []);
+                setSavedPrompts(Array.isArray(data?.prompts) ? data.prompts : []);
             } catch (err) {
                 toastError(err);
             }
@@ -722,6 +812,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
         setSelectedModel("");
         setActiveTab(0);
         setSelectedSavedPrompt("");
+        setCompanyApiKeyInput({ openai: "", gemini: "" });
         onClose();
     };
 
@@ -739,12 +830,51 @@ const PromptModal = ({ open, onClose, promptId }) => {
         return selectedProvider === "openai" ? openaiModels : geminiModels;
     };
 
+    const getCreditsLabel = useCallback(() => {
+        const creditInfo = companyAiConfig?.creditInfo;
+        if (!creditInfo) return "...";
+        if (creditInfo.allowed === 0) return "Ilimitado";
+        return `${creditInfo.remaining} restantes`;
+    }, [companyAiConfig]);
+
+    const handleApplyTemplate = useCallback((template, values, setFieldValue) => {
+        if (!template) return;
+        setFieldValue("templateKey", template.key);
+        setFieldValue("description", template.description || "");
+        setFieldValue("prompt", template.defaultPrompt || "");
+        setFieldValue("toolsEnabled", template.enabledTools || []);
+        setFieldValue("maxTokens", template.suggestedConfiguration?.maxTokens || values.maxTokens);
+        setFieldValue("temperature", template.suggestedConfiguration?.temperature || values.temperature);
+        setFieldValue("aiUsageMode", template.suggestedConfiguration?.usageMode || "system");
+        if (!values.name) {
+            setFieldValue("name", template.name || "");
+        }
+        setSelectedProvider(template.suggestedConfiguration?.provider || "openai");
+        setSelectedModel(template.suggestedConfiguration?.model || "");
+        toast.success("Template aplicado com sucesso.");
+    }, []);
+
+    const handleCompanyKeyInputChange = useCallback((provider, value) => {
+        setCompanyApiKeyInput(prev => ({ ...prev, [provider]: value }));
+    }, []);
+
     const handleSavePrompt = async values => {
+        const providerKeyField = selectedProvider === "gemini" ? "gemini" : "openai";
+        const nextUsageMode = values.aiUsageMode || "system";
+        const ownKeyInput = (companyApiKeyInput[providerKeyField] || "").trim();
+
+        if (nextUsageMode === "own" && !ownKeyInput && !companyAiConfig?.hasOwnKeys?.[providerKeyField]) {
+            toastError("Informe uma API key da empresa para usar o modo próprio.");
+            return;
+        }
+
         const promptData = { 
             ...values, 
             voice: selectedVoice, 
             provider: selectedProvider,
             model: selectedModel,
+            aiUsageMode: nextUsageMode,
+            apiKey: "",
             toolsEnabled: values.toolsEnabled || []
         };
         console.log("[PromptModal] Saving prompt with toolsEnabled:", promptData.toolsEnabled);
@@ -761,11 +891,24 @@ const PromptModal = ({ open, onClose, promptId }) => {
             return;
         }
         try {
+            const aiConfigPayload = {
+                aiUsageMode: nextUsageMode === "own" ? "own" : "system",
+                aiPreferredProvider: selectedProvider
+            };
+
+            if (nextUsageMode === "own" && ownKeyInput) {
+                aiConfigPayload[providerKeyField === "openai" ? "openaiApiKey" : "geminiApiKey"] = ownKeyInput;
+            }
+
+            await updateCompanyAiConfig(user.companyId, aiConfigPayload);
+
             if (promptId) {
                 await api.put(`/prompt/${promptId}`, promptData);
             } else {
                 await api.post("/prompt", promptData);
             }
+            const refreshedConfig = await getCompanyAiConfig(user.companyId);
+            setCompanyAiConfig(refreshedConfig);
             toast.success(i18n.t("promptModal.success"));
         } catch (err) {
             toastError(err);
@@ -822,6 +965,35 @@ const PromptModal = ({ open, onClose, promptId }) => {
 
                                 {activeTab === 0 && (
                                     <>
+                                        <Typography className={classes.sectionTitle}>
+                                            <SmartToyIcon className={classes.sectionIcon} />
+                                            Template pronto
+                                        </Typography>
+
+                                        <Typography variant="body2" color="textSecondary">
+                                            Selecione um template para criar um agente funcional em poucos segundos.
+                                        </Typography>
+
+                                        <div className={classes.templateGrid}>
+                                            {aiTemplates.map(template => (
+                                                <div
+                                                    key={template.key}
+                                                    className={`${classes.templateCard} ${values.templateKey === template.key ? "active" : ""}`}
+                                                    onClick={() => handleApplyTemplate(template, values, setFieldValue)}
+                                                >
+                                                    <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                        {template.name}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="textSecondary">
+                                                        {template.niche}
+                                                    </Typography>
+                                                    <Typography variant="body2" style={{ marginTop: 8, color: "#475569" }}>
+                                                        {template.description}
+                                                    </Typography>
+                                                </div>
+                                            ))}
+                                        </div>
+
                                         {/* Etapa 1: Nome */}
                                         <Typography className={classes.sectionTitle}>
                                             <PersonIcon className={classes.sectionIcon} />
@@ -913,8 +1085,33 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                         </Typography>
 
                                         <Typography variant="body2" color="textSecondary">
-                                            Escolha o provedor, modelo de IA e a chave de acesso que serão usados por este prompt.
+                                            Escolha o provedor, o modelo e como este agente deve consumir IA.
                                         </Typography>
+
+                                        <div className={classes.usageModeGrid}>
+                                            <div
+                                                className={`${classes.usageModeCard} ${values.aiUsageMode === "system" ? "active" : ""}`}
+                                                onClick={() => setFieldValue("aiUsageMode", "system")}
+                                            >
+                                                <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                    Usar créditos do sistema
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    Usa a chave central do backend e desconta créditos da empresa.
+                                                </Typography>
+                                            </div>
+                                            <div
+                                                className={`${classes.usageModeCard} ${values.aiUsageMode === "own" ? "active" : ""}`}
+                                                onClick={() => setFieldValue("aiUsageMode", "own")}
+                                            >
+                                                <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                    Usar minha API key
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    Usa a chave da própria empresa e não consome créditos do sistema.
+                                                </Typography>
+                                            </div>
+                                        </div>
 
                                         <div className={classes.multFieldLine}>
                                             <FormControl 
@@ -966,33 +1163,74 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                             </FormControl>
                                         </div>
 
-                                        <Field
-                                            as={TextField}
-                                            label={i18n.t("promptModal.form.apikey")}
-                                            name="apiKey"
-                                            type={showApiKey ? 'text' : 'password'}
-                                            error={touched.apiKey && Boolean(errors.apiKey)}
-                                            helperText={touched.apiKey && errors.apiKey}
-                                            variant="outlined"
-                                            margin="dense"
-                                            fullWidth
-                                            required
-                                            className={classes.formControl}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <VpnKeyIcon className={classes.fieldIcon} />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <IconButton onClick={handleToggleApiKey}>
-                                                            {showApiKey ? <VisibilityOff style={{ color: "#ef4444" }} /> : <Visibility style={{ color: "#6366f1" }} />}
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ),
-                                            }}
-                                        />
+                                        {values.aiUsageMode === "system" ? (
+                                            <div className={classes.usageInfoBox}>
+                                                <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                    Créditos disponíveis
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    Saldo atual da empresa: {getCreditsLabel()}
+                                                </Typography>
+                                                <div className={classes.inlineMeta}>
+                                                    <Chip label="Modo protegido via backend" size="small" color="primary" />
+                                                    <Chip
+                                                        label={`Provedor padrão: ${companyAiConfig?.preferredProvider || selectedProvider}`}
+                                                        size="small"
+                                                    />
+                                                </div>
+                                                <Button
+                                                    variant="outlined"
+                                                    color="primary"
+                                                    style={{ marginTop: 12 }}
+                                                    onClick={() => setFieldValue("aiUsageMode", "system")}
+                                                >
+                                                    Connect using system credits
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <div className={classes.usageInfoBox}>
+                                                <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                    API key da empresa
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    A chave fica armazenada no backend e não é devolvida ao frontend.
+                                                </Typography>
+                                                <TextField
+                                                    label={selectedProvider === "gemini" ? "Gemini API Key da empresa" : "OpenAI API Key da empresa"}
+                                                    value={companyApiKeyInput[selectedProvider === "gemini" ? "gemini" : "openai"]}
+                                                    onChange={event =>
+                                                        handleCompanyKeyInputChange(
+                                                            selectedProvider === "gemini" ? "gemini" : "openai",
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                    type={showApiKey ? "text" : "password"}
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                    helperText={
+                                                        companyAiConfig?.hasOwnKeys?.[selectedProvider === "gemini" ? "gemini" : "openai"]
+                                                            ? `Já existe uma chave salva: ${companyAiConfig?.maskedKeys?.[selectedProvider === "gemini" ? "gemini" : "openai"]}`
+                                                            : "Nenhuma chave salva ainda para este provedor."
+                                                    }
+                                                    InputProps={{
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <VpnKeyIcon className={classes.fieldIcon} />
+                                                            </InputAdornment>
+                                                        ),
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <IconButton onClick={handleToggleApiKey}>
+                                                                    {showApiKey ? <VisibilityOff style={{ color: "#ef4444" }} /> : <Visibility style={{ color: "#6366f1" }} />}
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
                                     </>
                                 )}
 

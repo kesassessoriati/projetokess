@@ -152,6 +152,8 @@ const defaultPlanValues = {
     useExternalApi: true,
     useKanban: true,
     useOpenAi: true,
+    aiEnabled: true,
+    aiAgentEnabled: true,
     useIntegrations: true,
     notifica_mehub: false,
     whatsapp_whatsmeow: false,
@@ -161,7 +163,8 @@ const defaultPlanValues = {
     gestor_financeiro_ia: false,
     recurrence: "MENSAL",
     isPublic: true,
-    aiCredits: 0
+    aiCredits: 0,
+    aiDailyCredits: 0
 };
 
 export function PlanManagerForm(props) {
@@ -397,7 +400,7 @@ export function PlanManagerForm(props) {
     <Field
       as={TextField}
       label="Créditos de IA / dia"
-      name="aiCredits"
+      name="aiDailyCredits"
       variant="outlined"
       size="small"
       type="number"
@@ -410,6 +413,46 @@ export function PlanManagerForm(props) {
       }}
       helperText="0 = ilimitado"
     />
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="ai-enabled-selection" style={{ fontWeight: "bold" }}>
+        Módulo IA
+      </InputLabel>
+      <Field as={Select} id="ai-enabled-selection" name="aiEnabled" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="ai-agent-enabled-selection" style={{ fontWeight: "bold" }}>
+        Agentes IA
+      </InputLabel>
+      <Field as={Select} id="ai-agent-enabled-selection" name="aiAgentEnabled" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
   </Box>
 
   <Box>
@@ -733,6 +776,8 @@ export default function PlansManager() {
         useExternalApi: true,
         useKanban: true,
         useOpenAi: true,
+        aiEnabled: true,
+        aiAgentEnabled: true,
         useIntegrations: true,
         notifica_mehub: false,
         whatsapp_whatsmeow: false,
@@ -742,7 +787,8 @@ export default function PlansManager() {
         gestor_financeiro_ia: false,
         recurrence: "MENSAL",
         isPublic: true,
-        aiCredits: 0
+        aiCredits: 0,
+        aiDailyCredits: 0
     })
 
     useEffect(() => {
@@ -817,6 +863,8 @@ export default function PlansManager() {
             useExternalApi: true,
             useKanban: true,
             useOpenAi: true,
+            aiEnabled: true,
+            aiAgentEnabled: true,
             useIntegrations: true,
             notifica_mehub: false,
             whatsapp_whatsmeow: false,
@@ -826,7 +874,8 @@ export default function PlansManager() {
             gestor_financeiro_ia: false,
             recurrence: "MENSAL",
             isPublic: true,
-            aiCredits: 0
+            aiCredits: 0,
+            aiDailyCredits: 0
         })
     }
 
@@ -841,6 +890,8 @@ export default function PlansManager() {
         let useExternalApi = data.useExternalApi === false ? false : true
         let useKanban = data.useKanban === false ? false : true
         let useOpenAi = data.useOpenAi === false ? false : true
+        let aiEnabled = typeof data.aiEnabled === "boolean" ? data.aiEnabled : useOpenAi
+        let aiAgentEnabled = typeof data.aiAgentEnabled === "boolean" ? data.aiAgentEnabled : aiEnabled
         let useIntegrations = data.useIntegrations === false ? false : true
         let notifica_mehub = Boolean(data.notifica_mehub)
         let whatsapp_whatsmeow = Boolean(data.whatsapp_whatsmeow)
@@ -865,6 +916,8 @@ export default function PlansManager() {
             useExternalApi,
             useKanban,
             useOpenAi,
+            aiEnabled,
+            aiAgentEnabled,
             useIntegrations,
             notifica_mehub,
             whatsapp_whatsmeow,
@@ -874,7 +927,8 @@ export default function PlansManager() {
             gestor_financeiro_ia,
             recurrence: data.recurrence || "MENSAL",
             isPublic: data.isPublic,
-            aiCredits: data.aiCredits || 0
+            aiCredits: data.aiDailyCredits || data.aiCredits || 0,
+            aiDailyCredits: data.aiDailyCredits || data.aiCredits || 0
         })
         setIsModalOpen(true)
     }

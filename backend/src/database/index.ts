@@ -174,6 +174,7 @@ import GfIaUpload from "../models/GfIaUpload";
 import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
 import Chip from "../models/Chip";
 import ChipActivityLog from "../models/ChipActivityLog";
+import AIUsageLog from "../models/AIUsageLog";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -257,6 +258,7 @@ const models = [
   LogTicket,
   Prompt,
   PromptToolSetting,
+  AIUsageLog,
   Partner,
   ContactWallet,
   ScheduledMessages,

@@ -16,6 +16,9 @@ interface PublicPlan {
   useExternalApi: boolean;
   useKanban: boolean;
   useOpenAi: boolean;
+  aiEnabled: boolean;
+  aiDailyCredits: number;
+  aiAgentEnabled: boolean;
   useIntegrations: boolean;
   notifica_mehub: boolean;
   whatsapp_whatsmeow: boolean;
@@ -35,7 +38,7 @@ const ListPublicPlansSimpleService = async (): Promise<PublicPlan[]> => {
       "id", "name", "amount", "users", "connections", "queues",
       "useWhatsapp", "useFacebook", "useInstagram", "useCampaigns", 
       "useSchedules", "useInternalChat", "useExternalApi", "useKanban",
-      "useOpenAi", "useIntegrations", "notifica_mehub", "whatsapp_whatsmeow",
+      "useOpenAi", "useIntegrations", "aiEnabled", "aiDailyCredits", "aiAgentEnabled", "notifica_mehub", "whatsapp_whatsmeow",
       "whatsapp_whaleys", "email", "gestor_financas", "gestor_financeiro_ia",
       "trial", "trialDays", "recurrence"
     ],

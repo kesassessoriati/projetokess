@@ -8,6 +8,7 @@ import UpdatePromptService from "../services/PromptServices/UpdatePromptService"
 import Whatsapp from "../models/Whatsapp";
 import { verify } from "jsonwebtoken";
 import authConfig from "../config/auth";
+import { getPromptSafeResponse } from "../services/AIProviderService/AIProviderService";
 
 interface TokenPayload {
   id: string;
@@ -31,7 +32,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = decoded as TokenPayload;
   const { prompts, count, hasMore } = await ListPromptsService({ searchParam, pageNumber, companyId });
 
-  return res.status(200).json({ prompts, count, hasMore });
+  return res.status(200).json({
+    prompts: prompts.map(prompt => getPromptSafeResponse(prompt)),
+    count,
+    hasMore
+  });
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
@@ -54,7 +59,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     voice,
     voiceKey,
     voiceRegion,
+    provider,
     model,
+    aiUsageMode,
+    templateKey,
+    description,
     toolsEnabled,
     knowledgeBase
   } = req.body;
@@ -74,6 +83,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     voice,
     voiceKey,
     voiceRegion,
+    provider,
+    model,
+    aiUsageMode,
+    templateKey,
+    description,
     toolsEnabled,
     knowledgeBase
   });
@@ -81,11 +95,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const io = getIO();
   io.of(String(companyId))
   .emit(`company-${companyId}-prompt`, {
-    action: "update",
-    prompt: promptTable
+    action: "create",
+    prompt: getPromptSafeResponse(promptTable)
   });
 
-  return res.status(200).json(promptTable);
+  return res.status(200).json(getPromptSafeResponse(promptTable));
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -96,7 +110,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = decoded as TokenPayload;
   const prompt = await ShowPromptService({ promptId, companyId });
 
-  return res.status(200).json(prompt);
+  return res.status(200).json(getPromptSafeResponse(prompt));
 };
 
 export const update = async (
@@ -118,10 +132,10 @@ export const update = async (
   io.of(String(companyId))
   .emit(`company-${companyId}-prompt`, {
     action: "update",
-    prompt
+    prompt: getPromptSafeResponse(prompt)
   });
 
-  return res.status(200).json(prompt);
+  return res.status(200).json(getPromptSafeResponse(prompt));
 };
 
 export const remove = async (
@@ -144,7 +158,7 @@ export const remove = async (
     io.of(String(companyId))
   .emit(`company-${companyId}-prompt`, {
       action: "delete",
-      intelligenceId: +promptId
+      promptId: +promptId
     });
 
     return res.status(200).json({ message: "Prompt deleted" });

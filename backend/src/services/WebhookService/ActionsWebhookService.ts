@@ -31,6 +31,7 @@ import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import ListFlowBuilderService from "../FlowBuilderService/ListFlowBuilderService";
 import ShowPromptService from "../PromptServices/ShowPromptService";
 import ListPromptToolSettingsService from "../PromptToolSettingService/ListPromptToolSettingsService";
+import { buildPromptRuntimeConfig, finalizeAIUsage } from "../AIProviderService/AIProviderService";
 import CreateMessageService, {
   MessageData
 } from "../MessageServices/CreateMessageService";
@@ -493,8 +494,15 @@ export const ActionsWebhookService = async (
               apiKey: prompt.apiKey,
               queueId: Number(prompt.queueId),
               maxMessages: Number(prompt.maxMessages),
-              promptId: Number(prompt.id)
+              promptId: Number(prompt.id),
+              provider: prompt.provider || "openai",
+              model: prompt.model,
+              aiUsageMode: prompt.aiUsageMode
             };
+            const runtimeConfig = await buildPromptRuntimeConfig(prompt, companyId);
+            openAiSettings.apiKey = runtimeConfig.apiKey;
+            openAiSettings.provider = runtimeConfig.provider;
+            openAiSettings.aiUsageMode = runtimeConfig.usageMode;
           } else {
             let {
               name,
@@ -580,6 +588,19 @@ export const ActionsWebhookService = async (
             null,
             ticketTraking
           );
+
+          if (nodeSelected.type === "openai" && openAiSettings.promptId) {
+            await finalizeAIUsage({
+              companyId,
+              promptId: openAiSettings.promptId,
+              provider: openAiSettings.provider || "openai",
+              usageMode: openAiSettings.aiUsageMode === "own" ? "own" : "system",
+              requestType: "agent",
+              model: openAiSettings.model,
+              status: "success",
+              metadata: { ticketId: ticket.id, source: "webhook_action" }
+            }).catch(() => undefined);
+          }
 
           console.log(`OpenAI: Processamento concluído com sucesso`);
         } catch (error: any) {

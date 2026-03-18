@@ -21,6 +21,10 @@ interface PlanData {
   recurrence?: string;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  aiCredits?: number;
+  aiEnabled?: boolean;
+  aiDailyCredits?: number;
+  aiAgentEnabled?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
   whatsapp_whaleys?: boolean;
@@ -32,6 +36,25 @@ interface PlanData {
 
 const CreatePlanService = async (planData: PlanData): Promise<Plan> => {
   const { name } = planData;
+  const normalizedPlanData = {
+    ...planData,
+    aiCredits:
+      typeof planData.aiDailyCredits === "number"
+        ? planData.aiDailyCredits
+        : planData.aiCredits,
+    aiDailyCredits:
+      typeof planData.aiDailyCredits === "number"
+        ? planData.aiDailyCredits
+        : planData.aiCredits,
+    aiEnabled:
+      typeof planData.aiEnabled === "boolean"
+        ? planData.aiEnabled
+        : Boolean(planData.useOpenAi),
+    aiAgentEnabled:
+      typeof planData.aiAgentEnabled === "boolean"
+        ? planData.aiAgentEnabled
+        : Boolean(planData.useOpenAi)
+  };
 
   const planSchema = Yup.object().shape({
     name: Yup.string()
@@ -59,7 +82,7 @@ const CreatePlanService = async (planData: PlanData): Promise<Plan> => {
     throw new AppError(err.message);
   }
 
-  const plan = await Plan.create(planData);
+  const plan = await Plan.create(normalizedPlanData);
 
   return plan;
 };

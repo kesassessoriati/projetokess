@@ -518,6 +518,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
   const [showKanban, setShowKanban] = useState(false);
   const [planExpired, setPlanExpired] = useState(false);
   const [showOpenAi, setShowOpenAi] = useState(false);
+  const [showAiAgents, setShowAiAgents] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showSchedules, setShowSchedules] = useState(false);
   const [showInternalChat, setShowInternalChat] = useState(false);
@@ -683,10 +684,19 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
     async function fetchData() {
       const companyId = user.companyId;
       const planConfigs = await getPlanCompany(undefined, companyId);
+      const aiEnabled =
+        typeof planConfigs.plan.aiEnabled === "boolean"
+          ? planConfigs.plan.aiEnabled
+          : Boolean(planConfigs.plan.useOpenAi);
+      const aiAgentEnabled =
+        typeof planConfigs.plan.aiAgentEnabled === "boolean"
+          ? planConfigs.plan.aiAgentEnabled
+          : aiEnabled;
 
       setShowCampaigns(planConfigs.plan.useCampaigns);
       setShowKanban(planConfigs.plan.useKanban);
-      setShowOpenAi(planConfigs.plan.useOpenAi);
+      setShowOpenAi(aiEnabled);
+      setShowAiAgents(aiAgentEnabled);
       setShowIntegrations(planConfigs.plan.useIntegrations);
       setShowSchedules(planConfigs.plan.useSchedules);
       setShowInternalChat(planConfigs.plan.useInternalChat);
@@ -1038,12 +1048,14 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 icon={<LocalAtmIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
-              <ListItemLink
-                to="/prompts"
-                primary={i18n.t("Agentes IA")}
-                icon={<AllInclusiveIcon />}
-                onNavigate={handleNavigateFromSubmenu}
-              />
+              {showAiAgents && (
+                <ListItemLink
+                  to="/prompts"
+                  primary={i18n.t("Agentes IA")}
+                  icon={<AllInclusiveIcon />}
+                  onNavigate={handleNavigateFromSubmenu}
+                />
+              )}
               <ListItemLink
                 to="/ia-workflows"
                 primary="Workflows de IA"

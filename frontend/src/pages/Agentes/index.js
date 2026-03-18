@@ -305,7 +305,15 @@ const Prompts = () => {
   useEffect(() => {
     async function fetchData() {
       const planConfigs = await getPlanCompany(undefined, companyId);
-      if (!planConfigs.plan.useOpenAi) {
+      const aiEnabled =
+        typeof planConfigs.plan.aiEnabled === "boolean"
+          ? planConfigs.plan.aiEnabled
+          : Boolean(planConfigs.plan.useOpenAi);
+      const aiAgentEnabled =
+        typeof planConfigs.plan.aiAgentEnabled === "boolean"
+          ? planConfigs.plan.aiAgentEnabled
+          : aiEnabled;
+      if (!aiEnabled || !aiAgentEnabled) {
         toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
         setTimeout(() => {
           history.push(`/`)
