@@ -569,7 +569,7 @@ const Clients = () => {
 
   const getInitials = (name) => {
     if (!name || typeof name !== "string" || !name.trim()) return "C";
-    const pieces = name.trim().split(" ");
+    const pieces = name.trim().split(" ").filter(Boolean);
     return pieces
       .slice(0, 2)
       .map((part) => part[0].toUpperCase())
