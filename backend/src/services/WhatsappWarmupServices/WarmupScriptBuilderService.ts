@@ -1,4 +1,18 @@
-import Setting from "../../models/Setting";
+import {
+  resolveAIProviderConfig,
+  finalizeAIUsage
+} from "../AIProviderService/AIProviderService";
+
+const WARMUP_STYLE_GUIDE = `Você é especialista em gerar conversas WhatsApp naturais para aquecimento de contas.
+Gere uma sequência de mensagens simulando um diálogo progressivo e natural entre duas pessoas que se conhecem.
+Características obrigatórias:
+- Mensagens curtas (1 a 3 frases cada)
+- A conversa deve ter progressão: cumprimento → assunto casual → tópico específico → encerramento natural
+- Tom amigável e informal em pt-BR
+- Perguntas genuínas e respostas engajadas (não mensagens isoladas)
+- Assuntos cotidianos variados: trabalho, projetos pessoais, rotina, alimentação, tecnologia, saúde, planos
+- SEM emojis, SEM formatação especial, SEM linguagem robótica ou genérica
+Retorne SOMENTE um array JSON de strings, sem explicações, numeração ou formatação extra.`;
 
 type BuildScriptInput = {
   companyId: number;
@@ -141,61 +155,83 @@ const buildConversationSteps = (
 
 const generateAiMessages = async (input: BuildScriptInput): Promise<string[]> => {
   const { companyId, aiConfig } = input;
+  const quantidadeMensagens = Math.max(8, Number(aiConfig?.quantidadeMensagens) || 20);
 
-  const openAiSetting = await Setting.findOne({ where: { companyId, key: "openaiApiKey" } }).catch(() => null);
-  const apiKey = openAiSetting?.value || process.env.OPENAI_API_KEY;
-  const quantidadeMensagens = Math.max(4, Number(aiConfig?.quantidadeMensagens) || 12);
+  // Resolve API key and check credits via shared AI infrastructure.
+  // Throws AppError (402/503/403) if credits exhausted, key missing, or plan disabled.
+  const resolved = await resolveAIProviderConfig({
+    companyId,
+    requestType: "warmup_script"
+  });
 
-  if (!apiKey) {
+  const userPrompt = [
+    `Tema: ${aiConfig?.tema || "conversa cotidiana entre dois conhecidos"}`,
+    `Tom: ${aiConfig?.tom || "amigável e informal"}`,
+    `Contexto: ${aiConfig?.contexto || "duas pessoas conversando pelo WhatsApp"}`,
+    `Idioma: ${aiConfig?.idioma || "pt-BR"}`,
+    `Objetivo: ${aiConfig?.objetivo || "manter conversa natural e progressiva"}`,
+    `Estilo: ${aiConfig?.estiloConversa || "diálogo fluido com múltiplos turnos"}`,
+    `Quantidade: ${quantidadeMensagens} mensagens`
+  ].join("\n");
+
+  let raw = "[]";
+  let apiStatus: "success" | "error" = "success";
+  let errorCode: string | null = null;
+
+  try {
+    if (resolved.provider === "gemini") {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(resolved.apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent(`${WARMUP_STYLE_GUIDE}\n\n${userPrompt}`);
+      raw = result.response.text();
+    } else {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: resolved.apiKey });
+      const resp = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.85,
+        max_tokens: 1400,
+        messages: [
+          { role: "system", content: WARMUP_STYLE_GUIDE },
+          { role: "user", content: userPrompt }
+        ]
+      });
+      raw = resp.choices?.[0]?.message?.content || "[]";
+    }
+  } catch (err: any) {
+    apiStatus = "error";
+    errorCode = err?.message || "AI_ERROR";
+  }
+
+  await finalizeAIUsage({
+    companyId,
+    provider: resolved.provider,
+    usageMode: resolved.usageMode,
+    requestType: "warmup_script",
+    model: resolved.provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini",
+    status: apiStatus,
+    errorCode
+  });
+
+  if (apiStatus === "error") {
     return [...DEFAULT_MESSAGES, ...RANDOM_MESSAGES].slice(0, quantidadeMensagens);
   }
 
   try {
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey });
-    const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.8,
-      max_tokens: 900,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Gere mensagens curtas para simular conversa natural entre contas WhatsApp. Retorne somente JSON array de strings."
-        },
-        {
-          role: "user",
-          content: [
-            `Tema: ${aiConfig?.tema || "aquecimento de atendimento"}`,
-            `Tom: ${aiConfig?.tom || "profissional amigavel"}`,
-            `Contexto: ${aiConfig?.contexto || "troca entre dois contatos"}`,
-            `Idioma: ${aiConfig?.idioma || "pt-BR"}`,
-            `Objetivo: ${aiConfig?.objetivo || "manter volume de conversa natural"}`,
-            `Estilo: ${aiConfig?.estiloConversa || "dialogo curto"}`,
-            `Quantidade: ${quantidadeMensagens}`
-          ].join("\n")
-        }
-      ]
-    });
-
-    const raw = resp.choices?.[0]?.message?.content || "[]";
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        return parsed.map(item => String(item).trim()).filter(Boolean);
-      }
-    } catch (error) {
-      // fallback below
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed.map(item => String(item).trim()).filter(Boolean);
     }
-
-    return raw
-      .split("\n")
-      .map(line => line.replace(/^[\d.\-•"\[\]]+/, "").trim())
-      .filter(Boolean)
-      .slice(0, quantidadeMensagens);
-  } catch (error) {
-    return [...DEFAULT_MESSAGES, ...RANDOM_MESSAGES].slice(0, quantidadeMensagens);
+  } catch {
+    // fallback to line parsing
   }
+
+  return raw
+    .split("\n")
+    .map(line => line.replace(/^[\d.\-•"[\]]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, quantidadeMensagens);
 };
 
 export const buildWarmupScript = async (input: BuildScriptInput): Promise<any[]> => {

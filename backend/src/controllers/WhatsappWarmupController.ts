@@ -6,8 +6,11 @@ import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
 import WhatsappWarmupSession from "../models/WhatsappWarmupSession";
 import WhatsappWarmupSessionLog from "../models/WhatsappWarmupSessionLog";
 import Whatsapp from "../models/Whatsapp";
-import Setting from "../models/Setting";
 import Chip from "../models/Chip";
+import {
+  resolveAIProviderConfig,
+  finalizeAIUsage
+} from "../services/AIProviderService/AIProviderService";
 import { buildWarmupScript } from "../services/WhatsappWarmupServices/WarmupScriptBuilderService";
 import { runWarmupSessionById } from "../services/WhatsappWarmupServices/WhatsappWarmupSessionEngineService";
 import {
@@ -148,11 +151,99 @@ export const stats = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json({ chart, warmup });
 };
 
+const WARMUP_SCRIPT_TEMPLATES: Record<string, string[]> = {
+  ecommerce: [
+    "Ola, voce tem esse produto em estoque?",
+    "Qual o prazo de entrega para o interior?",
+    "Aceita troca de produto?",
+    "Tem alguma promocao esta semana?",
+    "Como funciona o frete gratis?",
+    "Posso pagar parcelado no cartao?",
+    "Qual a politica de devolucao?",
+    "Tem versao maior desse produto?",
+    "Voces enviam para todo o Brasil?",
+    "Me manda o link do catalogo completo",
+    "Tem garantia no produto?",
+    "Aceita PIX com desconto?",
+    "Quando chega o produto que pedi?",
+    "Tem nota fiscal nos pedidos?",
+    "Qual o tamanho disponivel?",
+  ],
+  services: [
+    "Qual o preco do servico?",
+    "Voces atendem no final de semana?",
+    "Qual o horario de funcionamento?",
+    "Tem orcamento gratuito?",
+    "Quanto tempo demora o servico?",
+    "Voces emitem nota fiscal?",
+    "Tem servico de urgencia?",
+    "Posso agendar para semana que vem?",
+    "Qual a experiencia da equipe?",
+    "Atendem na minha regiao?",
+    "Tem garantia no servico?",
+    "Qual a forma de pagamento?",
+    "Tem fotos de servicos anteriores?",
+    "Posso ver referencias de clientes?",
+    "Me manda o contrato de servico",
+  ],
+  food: [
+    "Qual o cardapio do dia?",
+    "Tem opcao sem gluten?",
+    "Qual o tempo de entrega?",
+    "Aceita entrega pelo app?",
+    "Tem prato vegetariano?",
+    "Qual o horario de funcionamento?",
+    "Tem mesa disponivel para jantar?",
+    "Tem sobremesa sem lactose?",
+    "Faz entrega em meu bairro?",
+    "Tem promocao de almoco?",
+    "Posso fazer pedido pelo WhatsApp?",
+    "Tem porcao para criancas?",
+    "Me manda o link do cardapio online",
+    "Tem estacionamento?",
+    "Aceita voucher de alimentacao?",
+  ],
+  health: [
+    "Qual o valor da consulta?",
+    "Tem horario disponivel esta semana?",
+    "Aceita convenio?",
+    "Qual o endereco da clinica?",
+    "Precisa de encaminhamento medico?",
+    "Faz atendimento online?",
+    "Qual o tempo medio de consulta?",
+    "Tem especialidade em pediatria?",
+    "Posso cancelar a consulta?",
+    "Emite receita digital?",
+    "Tem estacionamento para pacientes?",
+    "Qual o prazo para resultado do exame?",
+    "Faz exame laboratorial no local?",
+    "Tem atendimento de emergencia?",
+    "Aceita pagamento no credito?",
+  ],
+  generic: [
+    "Ola, tudo bem?",
+    "Boa tarde, pode me ajudar?",
+    "Qual o horario de atendimento?",
+    "Como funciona o processo?",
+    "Tem alguma novidade?",
+    "Me manda mais informacoes",
+    "Qual o valor aproximado?",
+    "Aceita parcelamento?",
+    "Voces atendem online?",
+    "Tem suporte pos-venda?",
+    "Qual a diferenca dos planos?",
+    "Tem versao gratuita?",
+    "Posso testar antes de comprar?",
+    "Tem algum desconto para novo cliente?",
+    "Qual o diferencial de voces?",
+  ],
+};
+
 export const generateScript = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const {
     category = "generic",
-    count = 15,
+    count = 20,
     mode = "ai",
     connectionIds = [],
     starterWhatsappId,
@@ -162,155 +253,118 @@ export const generateScript = async (req: Request, res: Response): Promise<Respo
     aiConfig = {}
   } = req.body;
 
-  if (Array.isArray(connectionIds) && connectionIds.length >= 2) {
-    const steps = await buildWarmupScript({
-      companyId,
-      mode,
-      connectionIds: connectionIds.map(Number),
-      starterWhatsappId: starterWhatsappId ? Number(starterWhatsappId) : undefined,
-      turns: Number(turns) || 2,
-      minIntervalSeconds: Number(minIntervalSeconds) || 6,
-      maxIntervalSeconds: Number(maxIntervalSeconds) || 16,
-      aiConfig
-    });
-    return res.status(200).json({ steps, source: mode });
-  }
-
-  const openAiSetting = await Setting.findOne({ where: { companyId, key: "openaiApiKey" } }).catch(() => null);
-  const apiKey = openAiSetting?.value || process.env.OPENAI_API_KEY;
-
-  if (apiKey) {
-    try {
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey });
-      const labels: Record<string, string> = {
-        ecommerce: "loja virtual / e-commerce",
-        services: "prestacao de servicos",
-        food: "restaurante ou delivery de comida",
-        health: "clinica medica ou saude",
-        education: "escola ou cursos",
-        realestate: "imobiliaria",
-        generic: "negocio generico",
-      };
-      const label = labels[category] || "negocio generico";
-      const resp = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Voce e um especialista em aquecimento de chips WhatsApp. Gere mensagens curtas e naturais simulando clientes reais enviando mensagens para um " +
-              label +
-              ". Retorne SOMENTE um array JSON com as strings, sem explicacoes. Max 100 chars por mensagem. Sem emojis.",
-          },
-          { role: "user", content: "Gere " + count + " mensagens para " + label + "." },
-        ],
-        temperature: 0.9,
-        max_tokens: 700,
+  try {
+    if (Array.isArray(connectionIds) && connectionIds.length >= 2) {
+      const steps = await buildWarmupScript({
+        companyId,
+        mode,
+        connectionIds: connectionIds.map(Number),
+        starterWhatsappId: starterWhatsappId ? Number(starterWhatsappId) : undefined,
+        turns: Number(turns) || 2,
+        minIntervalSeconds: Number(minIntervalSeconds) || 6,
+        maxIntervalSeconds: Number(maxIntervalSeconds) || 16,
+        aiConfig
       });
-      const raw = resp.choices[0]?.message?.content || "[]";
-      let scripts: string[] = [];
-      try {
-        scripts = JSON.parse(raw);
-      } catch {
-        scripts = raw.split("\n").map((l: string) => l.replace(/^[\d.\-"[\]]+/, "").trim()).filter(Boolean);
-      }
-      return res.status(200).json({ scripts, source: "openai" });
-    } catch (err) {
-      console.log("[WarmupScript] OpenAI fallback:", err && err.message);
+      return res.status(200).json({ steps, source: mode });
     }
+
+    // Single-connection Scripts Tab: resolve AI config via shared infrastructure.
+    // resolveAIProviderConfig throws AppError (402/503/403) on credit/key/plan issues.
+    const resolved = await resolveAIProviderConfig({
+      companyId,
+      requestType: "warmup_script"
+    });
+
+    const labels: Record<string, string> = {
+      ecommerce: "loja virtual / e-commerce",
+      services: "prestacao de servicos",
+      food: "restaurante ou delivery de comida",
+      health: "clinica medica ou saude",
+      education: "escola ou cursos",
+      realestate: "imobiliaria",
+      generic: "negocio generico",
+    };
+    const label = labels[category] || "negocio generico";
+    const effectiveCount = Math.max(15, Math.min(Number(count) || 20, 40));
+
+    let scripts: string[] = [];
+    let apiStatus: "success" | "error" = "success";
+    let errorCode: string | null = null;
+
+    try {
+      if (resolved.provider === "gemini") {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(resolved.apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(
+          `Você é especialista em aquecimento de chips WhatsApp. Gere ${effectiveCount} mensagens curtas e naturais simulando uma conversa progressiva entre clientes para um ${label}. Retorne SOMENTE um array JSON de strings, sem emojis.`
+        );
+        const raw = result.response.text();
+        scripts = JSON.parse(raw);
+      } else {
+        const { default: OpenAI } = await import("openai");
+        const openai = new OpenAI({ apiKey: resolved.apiKey });
+        const resp = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `Você é especialista em aquecimento de chips WhatsApp. Gere mensagens curtas e naturais simulando uma conversa progressiva entre clientes para um ${label}. Retorne SOMENTE um array JSON de strings, sem explicações. Sem emojis.`
+            },
+            { role: "user", content: `Gere ${effectiveCount} mensagens para ${label}.` }
+          ],
+          temperature: 0.9,
+          max_tokens: 1000,
+        });
+        const raw = resp.choices[0]?.message?.content || "[]";
+        try {
+          scripts = JSON.parse(raw);
+        } catch {
+          scripts = raw.split("\n").map((l: string) => l.replace(/^[\d.\-"[\]]+/, "").trim()).filter(Boolean);
+        }
+      }
+    } catch (aiErr: any) {
+      apiStatus = "error";
+      errorCode = aiErr?.message || "AI_ERROR";
+      scripts = WARMUP_SCRIPT_TEMPLATES[category] || WARMUP_SCRIPT_TEMPLATES.generic;
+    }
+
+    await finalizeAIUsage({
+      companyId,
+      provider: resolved.provider,
+      usageMode: resolved.usageMode,
+      requestType: "warmup_script",
+      model: resolved.provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini",
+      status: apiStatus,
+      errorCode
+    });
+
+    return res.status(200).json({
+      scripts: Array.isArray(scripts) && scripts.length ? scripts : WARMUP_SCRIPT_TEMPLATES[category] || WARMUP_SCRIPT_TEMPLATES.generic,
+      source: apiStatus === "success" ? resolved.provider : "template"
+    });
+
+  } catch (err: any) {
+    const errMsg = err?.message || "";
+    const statusCode = err?.statusCode || 0;
+
+    if (statusCode === 402 || errMsg === "NO_CREDITS") {
+      return res.status(402).json({ error: "NO_CREDITS", message: "Créditos de IA insuficientes." });
+    }
+    if (statusCode === 503 || errMsg.includes("configurada")) {
+      return res.status(503).json({ error: "NO_API_KEY", message: errMsg || "Chave de IA não configurada." });
+    }
+    if (statusCode === 403) {
+      return res.status(403).json({ error: "PLAN_DISABLED", message: errMsg || "Plano sem acesso à IA." });
+    }
+    if (statusCode === 429 || errMsg.includes("quota") || errMsg.includes("exceeded")) {
+      return res.status(429).json({ error: "QUOTA_EXCEEDED", message: "Cota de API esgotada." });
+    }
+
+    console.error("[WarmupScript] generateScript error:", errMsg);
+    const scripts = WARMUP_SCRIPT_TEMPLATES[category] || WARMUP_SCRIPT_TEMPLATES.generic;
+    return res.status(200).json({ scripts, source: "template" });
   }
-
-  const TEMPLATES: Record<string, string[]> = {
-    ecommerce: [
-      "Ola, voce tem esse produto em estoque?",
-      "Qual o prazo de entrega para o interior?",
-      "Aceita troca de produto?",
-      "Tem alguma promocao esta semana?",
-      "Como funciona o frete gratis?",
-      "Posso pagar parcelado no cartao?",
-      "Qual a politica de devolucao?",
-      "Tem versao maior desse produto?",
-      "Voces enviam para todo o Brasil?",
-      "Me manda o link do catalogo completo",
-      "Tem garantia no produto?",
-      "Aceita PIX com desconto?",
-      "Quando chega o produto que pedi?",
-      "Tem nota fiscal nos pedidos?",
-      "Qual o tamanho disponivel?",
-    ],
-    services: [
-      "Qual o preco do servico?",
-      "Voces atendem no final de semana?",
-      "Qual o horario de funcionamento?",
-      "Tem orcamento gratuito?",
-      "Quanto tempo demora o servico?",
-      "Voces emitem nota fiscal?",
-      "Tem servico de urgencia?",
-      "Posso agendar para semana que vem?",
-      "Qual a experiencia da equipe?",
-      "Atendem na minha regiao?",
-      "Tem garantia no servico?",
-      "Qual a forma de pagamento?",
-      "Tem fotos de servicos anteriores?",
-      "Posso ver referencias de clientes?",
-      "Me manda o contrato de servico",
-    ],
-    food: [
-      "Qual o cardapio do dia?",
-      "Tem opcao sem gluten?",
-      "Qual o tempo de entrega?",
-      "Aceita entrega pelo app?",
-      "Tem prato vegetariano?",
-      "Qual o horario de funcionamento?",
-      "Tem mesa disponivel para jantar?",
-      "Tem sobremesa sem lactose?",
-      "Faz entrega em meu bairro?",
-      "Tem promocao de almoco?",
-      "Posso fazer pedido pelo WhatsApp?",
-      "Tem porcao para criancas?",
-      "Me manda o link do cardapio online",
-      "Tem estacionamento?",
-      "Aceita voucher de alimentacao?",
-    ],
-    health: [
-      "Qual o valor da consulta?",
-      "Tem horario disponivel esta semana?",
-      "Aceita convenio?",
-      "Qual o endereco da clinica?",
-      "Precisa de encaminhamento medico?",
-      "Faz atendimento online?",
-      "Qual o tempo medio de consulta?",
-      "Tem especialidade em pediatria?",
-      "Posso cancelar a consulta?",
-      "Emite receita digital?",
-      "Tem estacionamento para pacientes?",
-      "Qual o prazo para resultado do exame?",
-      "Faz exame laboratorial no local?",
-      "Tem atendimento de emergencia?",
-      "Aceita pagamento no credito?",
-    ],
-    generic: [
-      "Ola, tudo bem?",
-      "Boa tarde, pode me ajudar?",
-      "Qual o horario de atendimento?",
-      "Como funciona o processo?",
-      "Tem alguma novidade?",
-      "Me manda mais informacoes",
-      "Qual o valor aproximado?",
-      "Aceita parcelamento?",
-      "Voces atendem online?",
-      "Tem suporte pos-venda?",
-      "Qual a diferenca dos planos?",
-      "Tem versao gratuita?",
-      "Posso testar antes de comprar?",
-      "Tem algum desconto para novo cliente?",
-      "Qual o diferencial de voces?",
-    ],
-  };
-
-  const scripts = TEMPLATES[category] || TEMPLATES.generic;
-  return res.status(200).json({ scripts, source: "template" });
 };
 
 export const createSession = async (req: Request, res: Response): Promise<Response> => {
@@ -347,18 +401,35 @@ export const createSession = async (req: Request, res: Response): Promise<Respon
   }
 
   const safeStarter = ids.includes(Number(starterWhatsappId)) ? Number(starterWhatsappId) : ids[0];
-  const computedSteps = scriptMode === "manual"
-    ? scriptSteps
-    : await buildWarmupScript({
-      companyId,
-      mode: scriptMode,
-      connectionIds: ids,
-      starterWhatsappId: safeStarter,
-      turns: Number(turns) || 2,
-      minIntervalSeconds: Number(minIntervalSeconds) || 8,
-      maxIntervalSeconds: Number(maxIntervalSeconds) || 20,
-      aiConfig
-    });
+
+  let computedSteps: any[];
+  try {
+    computedSteps = scriptMode === "manual"
+      ? scriptSteps
+      : await buildWarmupScript({
+        companyId,
+        mode: scriptMode,
+        connectionIds: ids,
+        starterWhatsappId: safeStarter,
+        turns: Number(turns) || 2,
+        minIntervalSeconds: Number(minIntervalSeconds) || 8,
+        maxIntervalSeconds: Number(maxIntervalSeconds) || 20,
+        aiConfig
+      });
+  } catch (err: any) {
+    const errMsg = err?.message || "";
+    const statusCode = err?.statusCode || 0;
+    if (statusCode === 402 || errMsg === "NO_CREDITS") {
+      return res.status(402).json({ error: "NO_CREDITS", message: "Créditos de IA insuficientes." });
+    }
+    if (statusCode === 503) {
+      return res.status(503).json({ error: "NO_API_KEY", message: errMsg || "Chave de IA não configurada." });
+    }
+    if (statusCode === 403) {
+      return res.status(403).json({ error: "PLAN_DISABLED", message: errMsg });
+    }
+    throw err;
+  }
 
   const status = scheduleAt ? "scheduled" : autoStart ? "running" : "draft";
 

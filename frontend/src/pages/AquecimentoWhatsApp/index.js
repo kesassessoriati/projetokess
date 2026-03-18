@@ -1237,14 +1237,27 @@ function ScriptsTab({ warmup, selectedId, onSaved }) {
     try {
       const { data } = await api.post("/whatsapp-warmup/generate-script", {
         category: aiCategory,
-        count: 15,
+        count: 20,
       });
       setPreviewScripts(data.scripts || []);
-      const src = data.source === "openai" ? "OpenAI" : "templates locais";
+      const src = data.source === "openai" ? "OpenAI" : data.source === "gemini" ? "Google Gemini" : "templates locais";
       toast.info(`Scripts gerados via ${src}`);
     } catch (err) {
+      const status = err?.response?.status;
+      if (status === 402) {
+        toast.error("Créditos de IA insuficientes. Contate o administrador do sistema.");
+      } else if (status === 429) {
+        toast.error("Cota da API de IA esgotada. Tente novamente mais tarde.");
+      } else if (status === 401) {
+        toast.error("Chave de API de IA inválida. Verifique a configuração.");
+      } else if (status === 503) {
+        toast.error("Nenhuma chave de IA configurada. Contate o administrador.");
+      } else if (status === 403) {
+        toast.error("Seu plano não possui acesso ao módulo de IA.");
+      } else {
+        toast.error("Erro ao gerar scripts com IA.");
+      }
       console.error(err);
-      toast.error("Erro ao gerar scripts com IA.");
     } finally {
       setGenerating(false);
     }
@@ -1507,8 +1520,21 @@ function WarmupSessionBuilder({
       }
       toast.success("Script gerado com sucesso.");
     } catch (error) {
+      const status = error?.response?.status;
+      if (status === 402) {
+        toast.error("Créditos de IA insuficientes. Contate o administrador do sistema.");
+      } else if (status === 429) {
+        toast.error("Cota da API de IA esgotada. Tente novamente mais tarde.");
+      } else if (status === 401) {
+        toast.error("Chave de API de IA inválida. Verifique a configuração.");
+      } else if (status === 503) {
+        toast.error("Nenhuma chave de IA configurada. Contate o administrador.");
+      } else if (status === 403) {
+        toast.error("Seu plano não possui acesso ao módulo de IA.");
+      } else {
+        toast.error("Erro ao gerar script.");
+      }
       console.error(error);
-      toast.error("Erro ao gerar script.");
     } finally {
       setGeneratingSteps(false);
     }
