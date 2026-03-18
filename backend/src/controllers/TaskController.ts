@@ -130,7 +130,9 @@ export const indexBoards = async (req: Request, res: Response): Promise<Response
         order: [
             ["createdAt", "ASC"],
             [{ model: TaskList, as: "lists" }, "order", "ASC"],
-            [{ model: TaskList, as: "lists" }, { model: Task, as: "tasks" }, "order", "ASC"]
+            [{ model: TaskList, as: "lists" }, "id", "ASC"],
+            [{ model: TaskList, as: "lists" }, { model: Task, as: "tasks" }, "order", "ASC"],
+            [{ model: TaskList, as: "lists" }, { model: Task, as: "tasks" }, "id", "ASC"]
         ]
     });
 

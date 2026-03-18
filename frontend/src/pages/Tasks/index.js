@@ -5,7 +5,6 @@ import {
     Button,
     IconButton,
     Typography,
-    Paper,
     Dialog,
     DialogActions,
     DialogContent,
@@ -15,138 +14,267 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
-    Tooltip
+    CircularProgress,
+    Avatar,
+    Tooltip,
 } from "@material-ui/core";
-import { Add, Delete, Edit, MoreVert, Link as LinkIcon } from "@material-ui/icons";
+import {
+    Add,
+    Delete,
+    Link as LinkIcon,
+    DragIndicator,
+} from "@material-ui/icons";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isPast, isToday } from "date-fns";
 import ContextPageHeader from "../../components/ContextPageHeader";
 
+// ─── Priority config ─────────────────────────────────────────────────────────
+const PRIORITY_CONFIG = {
+    Baixa:   { bg: "#e3f2fd", color: "#1565c0" },
+    Média:   { bg: "#fff8e1", color: "#e65100" },
+    Alta:    { bg: "#fbe9e7", color: "#bf360c" },
+    Urgente: { bg: "#ffebee", color: "#b71c1c" },
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const useStyles = makeStyles((theme) => ({
-    mainContainer: {
+    root: {
         display: "flex",
         flexDirection: "column",
-        flex: 1,
         height: "100%",
-        backgroundColor: theme.palette.type === "dark" ? "#1e1e1e" : "#f5f7f9",
+        backgroundColor: theme.palette.type === "dark" ? "#1a1a2e" : "#f0f2f5",
     },
-    boardSelector: {
+    boardBar: {
         display: "flex",
         alignItems: "center",
-        marginBottom: theme.spacing(2),
-        gap: theme.spacing(2),
-        padding: theme.spacing(0, 2),
+        gap: theme.spacing(1.5),
+        padding: theme.spacing(1.5, 2),
+        backgroundColor: theme.palette.type === "dark" ? "#16213e" : "#fff",
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        flexWrap: "wrap",
     },
-    boardContainer: {
+    boardSelect: {
+        minWidth: 200,
+    },
+    boardCanvas: {
         display: "flex",
         flex: 1,
         overflowX: "auto",
         overflowY: "hidden",
         padding: theme.spacing(2),
         gap: theme.spacing(2),
-        "&::-webkit-scrollbar": {
-            height: "8px",
-        },
+        alignItems: "flex-start",
+        "&::-webkit-scrollbar": { height: 8 },
         "&::-webkit-scrollbar-thumb": {
-            borderRadius: "8px",
-            backgroundColor: theme.palette.type === "dark" ? "#555" : "#ccc",
+            borderRadius: 8,
+            backgroundColor: theme.palette.type === "dark" ? "#555" : "#c1c7d0",
         },
     },
     column: {
-        backgroundColor: theme.palette.type === "dark" ? "#2d2d2d" : "#ebecf0",
-        minWidth: "300px",
-        maxWidth: "300px",
-        borderRadius: "8px",
+        minWidth: 280,
+        maxWidth: 280,
+        borderRadius: 10,
         display: "flex",
         flexDirection: "column",
-        maxHeight: "100%",
-        padding: theme.spacing(1),
+        backgroundColor: theme.palette.type === "dark" ? "#2d2d2d" : "#ebecf0",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+        overflow: "hidden",
+        flexShrink: 0,
     },
     columnHeader: {
-        padding: theme.spacing(1),
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        fontWeight: "bold",
-        color: theme.palette.type === "dark" ? "#fff" : "#172b4d",
+        padding: theme.spacing(1, 1, 1, 1),
+        userSelect: "none",
+    },
+    columnTitle: {
+        fontWeight: 700,
+        fontSize: 13,
+        letterSpacing: 0.3,
+        flex: 1,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
+    columnActions: {
+        display: "flex",
+        alignItems: "center",
+        flexShrink: 0,
+    },
+    countBadge: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "1px 7px",
+        borderRadius: 10,
+        marginLeft: 4,
+        marginRight: 4,
+        flexShrink: 0,
     },
     taskList: {
         flex: 1,
         overflowY: "auto",
-        minHeight: "100px",
-        padding: theme.spacing(0.5),
-        "&::-webkit-scrollbar": {
-            width: "6px",
-        },
+        padding: theme.spacing(0.5, 1, 0, 1),
+        minHeight: 60,
+        "&::-webkit-scrollbar": { width: 4 },
         "&::-webkit-scrollbar-thumb": {
-            borderRadius: "6px",
-            backgroundColor: "rgba(0,0,0,0.2)",
+            borderRadius: 4,
+            backgroundColor: "rgba(0,0,0,0.15)",
         },
     },
+    emptyColumn: {
+        textAlign: "center",
+        padding: theme.spacing(2.5, 1),
+        color: theme.palette.text.disabled,
+        fontSize: 12,
+        borderRadius: 8,
+        border: `2px dashed ${theme.palette.divider}`,
+        margin: theme.spacing(0.5, 0),
+    },
     taskCard: {
-        backgroundColor: theme.palette.type === "dark" ? "#383838" : "#fff",
-        color: theme.palette.type === "dark" ? "#e0e0e0" : "#172b4d",
+        backgroundColor: theme.palette.type === "dark" ? "#3a3a3a" : "#fff",
+        borderRadius: 8,
         padding: theme.spacing(1.5),
         marginBottom: theme.spacing(1),
-        borderRadius: "6px",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        transition: "box-shadow 0.2s, background-color 0.2s",
+        border: "1px solid transparent",
+        transition: "box-shadow 0.15s, border-color 0.15s",
         "&:hover": {
-            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+            boxShadow: "0 3px 8px rgba(0,0,0,0.15)",
+            borderColor: theme.palette.primary.light,
         },
     },
     cardTitle: {
-        fontWeight: "600",
-        fontSize: "14px",
-        marginBottom: theme.spacing(0.5),
+        fontWeight: 600,
+        fontSize: 13,
+        lineHeight: 1.4,
+        marginBottom: 6,
+        wordBreak: "break-word",
     },
-    cardDate: {
-        fontSize: "12px",
-        color: theme.palette.type === "dark" ? "#aaa" : "#5e6c84",
-    },
-    cardTags: {
+    cardMeta: {
         display: "flex",
-        gap: "4px",
-        marginTop: "8px",
+        alignItems: "center",
         flexWrap: "wrap",
+        gap: 6,
     },
-    tag: {
-        fontSize: "11px",
-        padding: "2px 6px",
-        borderRadius: "12px",
-        backgroundColor: "#e0e0e0",
-        color: "#333",
+    priorityBadge: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "2px 8px",
+        borderRadius: 12,
     },
-    btnDanger: {
-        color: "red"
-    }
+    dueDateChip: {
+        fontSize: 11,
+        padding: "2px 8px",
+        borderRadius: 12,
+        fontWeight: 600,
+    },
+    responsibleAvatar: {
+        width: 20,
+        height: 20,
+        fontSize: 10,
+        marginLeft: "auto",
+    },
+    cardLink: {
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: 11,
+        color: "#3b82f6",
+        textDecoration: "none",
+        marginTop: 6,
+        "&:hover": { textDecoration: "underline" },
+    },
+    addCardBtn: {
+        width: "100%",
+        justifyContent: "flex-start",
+        borderRadius: 6,
+        padding: theme.spacing(0.5, 1),
+        fontSize: 12,
+        color: theme.palette.text.secondary,
+        "&:hover": {
+            backgroundColor: "rgba(0,0,0,0.05)",
+        },
+    },
+    emptyBoard: {
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: theme.spacing(1.5),
+        color: theme.palette.text.secondary,
+    },
+    loadingOverlay: {
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    noBoardsState: {
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: theme.spacing(2),
+        color: theme.palette.text.secondary,
+    },
 }));
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const getInitials = (name = "") =>
+    name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+const formatDueDate = (isoDate) => {
+    if (!isoDate) return null;
+    try {
+        const d = parseISO(isoDate);
+        return {
+            label:   format(d, "dd/MM/yyyy"),
+            overdue: isPast(d) && !isToday(d),
+            today:   isToday(d),
+        };
+    } catch {
+        return null;
+    }
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const Tasks = () => {
     const classes = useStyles();
-    const [boards, setBoards] = useState([]);
+
+    const [boards, setBoards]                   = useState([]);
     const [selectedBoardId, setSelectedBoardId] = useState("");
-    const [boardData, setBoardData] = useState(null);
+    const [boardData, setBoardData]             = useState(null);
+    const [loading, setLoading]                 = useState(false);
+    const [users, setUsers]                     = useState([]);
 
+    // Board modal
     const [openModalBoard, setOpenModalBoard] = useState(false);
-    const [boardForm, setBoardForm] = useState({ name: "", description: "" });
+    const [boardForm, setBoardForm]           = useState({ name: "", description: "" });
 
+    // Column modal
     const [openListModal, setOpenListModal] = useState(false);
-    const [listForm, setListForm] = useState({ name: "", color: "#ebecf0" });
+    const [listForm, setListForm]           = useState({ name: "", color: "#ebecf0" });
 
+    // Task modal
     const [openTaskModal, setOpenTaskModal] = useState(false);
-    const [taskForm, setTaskForm] = useState({ id: null, listId: "", title: "", description: "", priority: "Média", dueDate: "", tags: [], url: "", color: "#ffffff" });
+    const [taskForm, setTaskForm]           = useState({
+        id: null, listId: "", title: "", description: "",
+        priority: "Média", dueDate: "", tags: [], url: "",
+        color: "#ffffff", responsibleId: "",
+    });
 
+    // ── Mount ─────────────────────────────────────────────────────────────
     useEffect(() => {
         fetchBoards();
+        fetchUsers();
     }, []);
 
     useEffect(() => {
@@ -157,174 +285,413 @@ const Tasks = () => {
 
     useEffect(() => {
         if (selectedBoardId) {
-            const active = boards.find((b) => b.id === selectedBoardId);
-            setBoardData(active);
+            setBoardData(boards.find((b) => b.id === selectedBoardId) || null);
         }
     }, [selectedBoardId, boards]);
 
+    // ── Data fetchers ─────────────────────────────────────────────────────
     const fetchBoards = async () => {
+        setLoading(true);
         try {
             const { data } = await api.get("/tasks");
             setBoards(data);
-        } catch (err) {
+        } catch {
             toast.error("Erro ao carregar quadros");
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleSaveBoard = async () => {
+    const fetchUsers = async () => {
         try {
-            if (!boardForm.name) return toast.error("Nome é obrigatório");
+            const { data } = await api.get("/users", { params: { limit: 200 } });
+            setUsers(data.users || data || []);
+        } catch { /* non-critical */ }
+    };
+
+    // ── Board handlers ────────────────────────────────────────────────────
+    const handleSaveBoard = async () => {
+        if (!boardForm.name) return toast.error("Nome é obrigatório");
+        try {
             await api.post("/tasks", boardForm);
             toast.success("Quadro criado!");
             setOpenModalBoard(false);
-            fetchBoards();
             setBoardForm({ name: "", description: "" });
-        } catch (err) {
+            fetchBoards();
+        } catch {
             toast.error("Erro ao salvar quadro");
         }
     };
 
     const handleDeleteBoard = async () => {
         if (!selectedBoardId) return;
-        if (window.confirm("Deseja mesmo excluir o quadro atual?")) {
-            try {
-                await api.delete(`/tasks/${selectedBoardId}`);
-                toast.success("Quadro excluído");
-                setSelectedBoardId("");
-                fetchBoards();
-            } catch (err) {
-                toast.error("Erro ao excluir quadro");
-            }
+        if (!window.confirm("Deseja excluir o quadro atual e todo seu conteúdo?")) return;
+        try {
+            await api.delete(`/tasks/${selectedBoardId}`);
+            toast.success("Quadro excluído");
+            setSelectedBoardId("");
+            setBoardData(null);
+            fetchBoards();
+        } catch {
+            toast.error("Erro ao excluir quadro");
         }
     };
 
+    // ── Column handlers ───────────────────────────────────────────────────
     const handleSaveList = async () => {
+        if (!listForm.name) return;
         try {
-            if (!listForm.name) return;
-            await api.post(`/tasks/list`, { ...listForm, boardId: selectedBoardId });
+            // BUG FIX: always append at the end with the correct sequential order index
+            const nextOrder = boardData?.lists?.length ?? 0;
+            await api.post("/tasks/list", {
+                ...listForm,
+                boardId: selectedBoardId,
+                order: nextOrder,
+            });
             toast.success("Coluna criada!");
             setOpenListModal(false);
-            fetchBoards();
             setListForm({ name: "", color: "#ebecf0" });
-        } catch (err) {
+            fetchBoards();
+        } catch {
             toast.error("Erro ao salvar coluna");
         }
     };
 
     const handleDeleteList = async (id) => {
-        if (window.confirm("Deseja remover esta coluna e todas as tarefas dela?")) {
-            try {
-                await api.delete(`/tasks/list/${id}`);
-                fetchBoards();
-            } catch (err) {
-                toast.error("Erro ao remover coluna");
-            }
+        if (!window.confirm("Remover esta coluna e todas as tarefas?")) return;
+        try {
+            await api.delete(`/tasks/list/${id}`);
+            fetchBoards();
+        } catch {
+            toast.error("Erro ao remover coluna");
         }
     };
 
+    // ── Task handlers ─────────────────────────────────────────────────────
     const handleOpenTask = (listId, task = null) => {
         if (task) {
             setTaskForm({
-                id: task.id,
-                listId: task.listId,
-                title: task.title,
-                description: task.description || "",
-                priority: task.priority || "Média",
-                dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
-                tags: task.tags || [],
-                url: task.url || "",
-                color: task.color || "#ffffff"
+                id:            task.id,
+                listId:        task.listId,
+                title:         task.title,
+                description:   task.description || "",
+                priority:      task.priority || "Média",
+                dueDate:       task.dueDate ? task.dueDate.slice(0, 10) : "",
+                tags:          task.tags || [],
+                url:           task.url || "",
+                color:         task.color || "#ffffff",
+                responsibleId: task.responsible?.id || task.responsibleId || "",
             });
         } else {
-            setTaskForm({ id: null, listId, title: "", description: "", priority: "Média", dueDate: "", tags: [], url: "", color: "#ffffff" });
+            setTaskForm({
+                id: null, listId, title: "", description: "",
+                priority: "Média", dueDate: "", tags: [], url: "",
+                color: "#ffffff", responsibleId: "",
+            });
         }
         setOpenTaskModal(true);
     };
 
     const handleSaveTask = async () => {
+        if (!taskForm.title) return toast.error("Título é obrigatório");
         try {
-            if (!taskForm.title) return toast.error("Título é obrigatório");
+            const payload = { ...taskForm, responsibleId: taskForm.responsibleId || null };
             if (taskForm.id) {
-                await api.put(`/tasks/item/${taskForm.id}`, taskForm);
+                await api.put(`/tasks/item/${taskForm.id}`, payload);
                 toast.success("Tarefa atualizada");
             } else {
-                await api.post(`/tasks/item`, taskForm);
+                await api.post("/tasks/item", payload);
                 toast.success("Tarefa criada");
             }
             setOpenTaskModal(false);
             fetchBoards();
-        } catch (err) {
+        } catch {
             toast.error("Erro ao salvar tarefa");
         }
     };
 
     const handleDeleteTask = async () => {
-        if (window.confirm("Deseja remover esta tarefa?")) {
-            try {
-                await api.delete(`/tasks/item/${taskForm.id}`);
-                toast.success("Tarefa removida");
-                setOpenTaskModal(false);
-                fetchBoards();
-            } catch (err) {
-                toast.error("Erro");
-            }
+        if (!window.confirm("Remover esta tarefa?")) return;
+        try {
+            await api.delete(`/tasks/item/${taskForm.id}`);
+            toast.success("Tarefa removida");
+            setOpenTaskModal(false);
+            fetchBoards();
+        } catch {
+            toast.error("Erro ao remover tarefa");
         }
     };
 
+    // ── Drag & Drop ───────────────────────────────────────────────────────
     const onDragEnd = async (result) => {
         const { source, destination, type } = result;
         if (!destination) return;
-        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+        if (
+            source.droppableId === destination.droppableId &&
+            source.index === destination.index
+        ) return;
 
+        // ── Column reorder ─────────────────────────────────────────────────
         if (type === "COLUMN") {
-            let newBoards = [...boards];
-            let boardIndex = newBoards.findIndex(b => b.id === selectedBoardId);
-            const newLists = Array.from(newBoards[boardIndex].lists);
-            const [reorderedList] = newLists.splice(source.index, 1);
-            newLists.splice(destination.index, 0, reorderedList);
-            newBoards[boardIndex].lists = newLists;
-            setBoards(newBoards);
+            const newLists = Array.from(boardData.lists);
+            const [removed] = newLists.splice(source.index, 1);
+            newLists.splice(destination.index, 0, removed);
 
+            // Optimistic update
+            setBoards((prev) =>
+                prev.map((b) =>
+                    b.id === selectedBoardId ? { ...b, lists: newLists } : b
+                )
+            );
+
+            // BUG FIX: update ALL lists with sequential order values so the
+            // order field is fully deterministic — no more tie-at-zero instability
             try {
-                await api.put(`/tasks/list/${reorderedList.id}`, { order: destination.index });
-            } catch (err) {
-                toast.error("Erro ao mover coluna");
-                fetchBoards(); // rollback
+                await Promise.all(
+                    newLists.map((list, idx) =>
+                        api.put(`/tasks/list/${list.id}`, { order: idx })
+                    )
+                );
+            } catch {
+                toast.error("Erro ao reordenar colunas");
+                fetchBoards();
             }
             return;
         }
 
-        const sourceList = boardData.lists.find(l => l.id.toString() === source.droppableId);
-        const destList = boardData.lists.find(l => l.id.toString() === destination.droppableId);
+        // ── Task move ──────────────────────────────────────────────────────
+        const newBoards = [...boards];
+        const boardIdx  = newBoards.findIndex((b) => b.id === selectedBoardId);
+        const srcIdx    = newBoards[boardIdx].lists.findIndex(
+            (l) => l.id.toString() === source.droppableId
+        );
+        const dstIdx    = newBoards[boardIdx].lists.findIndex(
+            (l) => l.id.toString() === destination.droppableId
+        );
+        const task      = newBoards[boardIdx].lists[srcIdx].tasks[source.index];
 
-        const task = sourceList.tasks[source.index];
-
-        // Optimistic UI update
-        let newBoards = [...boards];
-        let boardIndex = newBoards.findIndex(b => b.id === selectedBoardId);
-        let slIndex = newBoards[boardIndex].lists.findIndex(l => l.id.toString() === source.droppableId);
-        let dlIndex = newBoards[boardIndex].lists.findIndex(l => l.id.toString() === destination.droppableId);
-
-        newBoards[boardIndex].lists[slIndex].tasks.splice(source.index, 1);
-
-        // update task listId explicitly
-        let updatedTask = { ...task, listId: parseInt(destination.droppableId) };
-        newBoards[boardIndex].lists[dlIndex].tasks.splice(destination.index, 0, updatedTask);
-
+        newBoards[boardIdx].lists[srcIdx].tasks.splice(source.index, 1);
+        const movedTask = { ...task, listId: parseInt(destination.droppableId) };
+        newBoards[boardIdx].lists[dstIdx].tasks.splice(destination.index, 0, movedTask);
         setBoards(newBoards);
 
-        // Persist API
         try {
-            await api.put(`/tasks/item/${task.id}`, { listId: destination.droppableId, order: destination.index });
-        } catch (err) {
-            toast.error("Erro ao mover");
-            fetchBoards(); // rollback
+            await api.put(`/tasks/item/${task.id}`, {
+                listId: destination.droppableId,
+                order:  destination.index,
+            });
+        } catch {
+            toast.error("Erro ao mover tarefa");
+            fetchBoards();
         }
     };
 
+    // ── Card renderer ─────────────────────────────────────────────────────
+    const renderCard = (task, provided, snapshot) => {
+        const due   = formatDueDate(task.dueDate);
+        const pConf = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG["Média"];
+        const hasBg = task.color && task.color !== "#ffffff";
+
+        return (
+            <div
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                className={classes.taskCard}
+                onClick={() => handleOpenTask(task.listId, task)}
+                style={{
+                    ...provided.draggableProps.style,
+                    backgroundColor: hasBg ? task.color : undefined,
+                    transform: snapshot.isDragging
+                        ? `${provided.draggableProps.style?.transform} scale(1.02)`
+                        : provided.draggableProps.style?.transform,
+                    zIndex:  snapshot.isDragging ? 999 : "auto",
+                    opacity: snapshot.isDragging ? 0.92 : 1,
+                }}
+            >
+                <Typography
+                    className={classes.cardTitle}
+                    style={{ color: hasBg ? "#000" : undefined }}
+                >
+                    {task.title}
+                </Typography>
+
+                <div className={classes.cardMeta}>
+                    <span
+                        className={classes.priorityBadge}
+                        style={{ backgroundColor: pConf.bg, color: pConf.color }}
+                    >
+                        {task.priority || "Média"}
+                    </span>
+
+                    {due && (
+                        <span
+                            className={classes.dueDateChip}
+                            style={{
+                                backgroundColor: due.overdue ? "#ffebee" : due.today ? "#fff8e1" : "#e8f5e9",
+                                color:           due.overdue ? "#c62828" : due.today ? "#e65100" : "#2e7d32",
+                            }}
+                        >
+                            {due.overdue ? "⚠ " : due.today ? "• " : ""}
+                            {due.label}
+                        </span>
+                    )}
+
+                    {task.responsible && (
+                        <Tooltip title={task.responsible.name} placement="top">
+                            <Avatar className={classes.responsibleAvatar}>
+                                {getInitials(task.responsible.name)}
+                            </Avatar>
+                        </Tooltip>
+                    )}
+                </div>
+
+                {task.url && (
+                    <a
+                        href={task.url.startsWith("http") ? task.url : `https://${task.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={classes.cardLink}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <LinkIcon style={{ fontSize: 13 }} /> Acessar Link
+                    </a>
+                )}
+            </div>
+        );
+    };
+
+    // ── Column renderer ───────────────────────────────────────────────────
+    const renderColumn = (list, index) => {
+        const taskCount = list.tasks?.length || 0;
+        const isDark    = list.color && list.color !== "#ebecf0";
+        const textColor = isDark ? "#fff" : undefined;
+        const iconSx    = isDark ? { color: "#fff" } : {};
+
+        return (
+            <Draggable
+                key={`list-${list.id}`}
+                draggableId={`list-${list.id}`}
+                index={index}
+            >
+                {(provided) => (
+                    <div
+                        className={classes.column}
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        style={{
+                            ...provided.draggableProps.style,
+                            backgroundColor: list.color || undefined,
+                        }}
+                    >
+                        {/* Header — drag handle */}
+                        <div className={classes.columnHeader} {...provided.dragHandleProps}>
+                            <DragIndicator
+                                style={{
+                                    fontSize: 16,
+                                    color:    isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.2)",
+                                    marginRight: 2,
+                                    flexShrink: 0,
+                                }}
+                            />
+                            <Typography
+                                className={classes.columnTitle}
+                                style={{ color: textColor }}
+                            >
+                                {list.name}
+                            </Typography>
+                            <span
+                                className={classes.countBadge}
+                                style={{
+                                    color:           textColor,
+                                    backgroundColor: isDark
+                                        ? "rgba(255,255,255,0.2)"
+                                        : "rgba(0,0,0,0.1)",
+                                }}
+                            >
+                                {taskCount}
+                            </span>
+                            <div className={classes.columnActions}>
+                                <Tooltip title="Nova tarefa">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenTask(list.id)}
+                                    >
+                                        <Add fontSize="small" style={iconSx} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Excluir coluna">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleDeleteList(list.id)}
+                                    >
+                                        <Delete fontSize="small" style={iconSx} />
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+                        </div>
+
+                        {/* Tasks */}
+                        <Droppable droppableId={list.id.toString()}>
+                            {(provided, snapshot) => (
+                                <div
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
+                                    className={classes.taskList}
+                                    style={{
+                                        backgroundColor: snapshot.isDraggingOver
+                                            ? "rgba(0,0,0,0.04)"
+                                            : "transparent",
+                                    }}
+                                >
+                                    {taskCount === 0 && (
+                                        <div className={classes.emptyColumn}>
+                                            Sem tarefas
+                                        </div>
+                                    )}
+                                    {list.tasks?.map((task, taskIndex) => (
+                                        <Draggable
+                                            key={task.id.toString()}
+                                            draggableId={task.id.toString()}
+                                            index={taskIndex}
+                                        >
+                                            {(provided, snapshot) =>
+                                                renderCard(task, provided, snapshot)
+                                            }
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                </div>
+                            )}
+                        </Droppable>
+
+                        {/* Quick-add button */}
+                        <div style={{ padding: "4px 8px 8px" }}>
+                            <Button
+                                className={classes.addCardBtn}
+                                size="small"
+                                startIcon={
+                                    <Add
+                                        fontSize="small"
+                                        style={{ color: isDark ? "rgba(255,255,255,0.65)" : undefined }}
+                                    />
+                                }
+                                style={{ color: isDark ? "rgba(255,255,255,0.65)" : undefined }}
+                                onClick={() => handleOpenTask(list.id)}
+                            >
+                                Adicionar tarefa
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Draggable>
+        );
+    };
+
+    // ── Main render ───────────────────────────────────────────────────────
     return (
         <MainContainer>
-            <div className={classes.mainContainer}>
+            <div className={classes.root}>
                 <ContextPageHeader
                     title="Tarefas"
                     subtitle="Gestão de quadros e atividades do CRM"
@@ -334,8 +701,13 @@ const Tasks = () => {
                     <Title>TaskBoard (Kanban)</Title>
                 </MainHeader>
 
-                <div className={classes.boardSelector}>
-                    <FormControl variant="outlined" size="small" style={{ minWidth: 200 }}>
+                {/* Toolbar */}
+                <div className={classes.boardBar}>
+                    <FormControl
+                        variant="outlined"
+                        size="small"
+                        className={classes.boardSelect}
+                    >
                         <InputLabel>Selecionar Quadro</InputLabel>
                         <Select
                             value={selectedBoardId}
@@ -349,110 +721,102 @@ const Tasks = () => {
                             ))}
                         </Select>
                     </FormControl>
+
                     {selectedBoardId && (
                         <>
-                            <Button size="small" startIcon={<Add />} variant="outlined" onClick={() => setOpenListModal(true)}>
+                            <Button
+                                size="small"
+                                startIcon={<Add />}
+                                variant="outlined"
+                                onClick={() => setOpenListModal(true)}
+                            >
                                 Nova Coluna
                             </Button>
-                            <IconButton size="small" color="secondary" onClick={handleDeleteBoard}>
-                                <Delete />
-                            </IconButton>
+                            <Tooltip title="Excluir quadro">
+                                <IconButton size="small" onClick={handleDeleteBoard}>
+                                    <Delete fontSize="small" color="error" />
+                                </IconButton>
+                            </Tooltip>
                         </>
                     )}
-                    <Button size="small" variant="contained" color="primary" onClick={() => setOpenModalBoard(true)}>
+
+                    <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => setOpenModalBoard(true)}
+                    >
                         Criar Quadro
                     </Button>
                 </div>
 
-                {boardData && (
+                {/* Canvas */}
+                {loading ? (
+                    <div className={classes.loadingOverlay}>
+                        <CircularProgress />
+                    </div>
+                ) : boards.length === 0 ? (
+                    <div className={classes.noBoardsState}>
+                        <Typography variant="h6" style={{ opacity: 0.45 }}>
+                            Nenhum quadro criado
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<Add />}
+                            onClick={() => setOpenModalBoard(true)}
+                        >
+                            Criar primeiro quadro
+                        </Button>
+                    </div>
+                ) : boardData ? (
                     <DragDropContext onDragEnd={onDragEnd}>
-                        <Droppable droppableId="board" type="COLUMN" direction="horizontal">
+                        <Droppable
+                            droppableId="board"
+                            type="COLUMN"
+                            direction="horizontal"
+                        >
                             {(provided) => (
-                                <div className={classes.boardContainer} ref={provided.innerRef} {...provided.droppableProps}>
-                                    {boardData.lists?.map((list, index) => (
-                                        <Draggable key={`list-${list.id}`} draggableId={`list-${list.id}`} index={index}>
-                                            {(provided) => (
-                                                <div
-                                                    className={classes.column}
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    {...provided.dragHandleProps}
-                                                    style={{ ...provided.draggableProps.style, backgroundColor: list.color || undefined }}
-                                                >
-                                                    <div className={classes.columnHeader}>
-                                                        <Typography variant="subtitle1" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined, textShadow: list.color && list.color !== "#ebecf0" ? "0 1px 2px rgba(0,0,0,0.5)" : "none" }}>{list.name}</Typography>
-                                                        <div>
-                                                            <IconButton size="small" onClick={() => handleOpenTask(list.id)}>
-                                                                <Add fontSize="small" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined }} />
-                                                            </IconButton>
-                                                            <IconButton size="small" onClick={() => handleDeleteList(list.id)}>
-                                                                <Delete fontSize="small" style={{ color: list.color && list.color !== "#ebecf0" ? "#fff" : undefined }} />
-                                                            </IconButton>
-                                                        </div>
-                                                    </div>
-                                                    <Droppable droppableId={list.id.toString()}>
-                                                        {(provided, snapshot) => (
-                                                            <div
-                                                                {...provided.droppableProps}
-                                                                ref={provided.innerRef}
-                                                                className={classes.taskList}
-                                                                style={{ backgroundColor: snapshot.isDraggingOver ? "rgba(0,0,0,0.05)" : "transparent" }}
-                                                            >
-                                                                {list.tasks?.map((task, taskIndex) => (
-                                                                    <Draggable key={task.id.toString()} draggableId={task.id.toString()} index={taskIndex}>
-                                                                        {(provided, snapshot) => (
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                {...provided.dragHandleProps}
-                                                                                className={classes.taskCard}
-                                                                                onClick={() => handleOpenTask(list.id, task)}
-                                                                                style={{
-                                                                                    ...provided.draggableProps.style,
-                                                                                    backgroundColor: task.color !== "#ffffff" ? task.color : undefined,
-                                                                                    transform: snapshot.isDragging ? `${provided.draggableProps.style?.transform} scale(1.02)` : provided.draggableProps.style?.transform,
-                                                                                    zIndex: snapshot.isDragging ? 100 : "auto"
-                                                                                }}
-                                                                            >
-                                                                                <Typography className={classes.cardTitle} style={{ color: task.color !== "#ffffff" ? "#000" : undefined }}>{task.title}</Typography>
-                                                                                {task.dueDate && (
-                                                                                    <Typography className={classes.cardDate} style={{ color: task.color !== "#ffffff" ? "#333" : undefined }}>
-                                                                                        Vence: {format(parseISO(task.dueDate), "dd/MM/yyyy")}
-                                                                                    </Typography>
-                                                                                )}
-                                                                                <div className={classes.cardTags}>
-                                                                                    <span className={classes.tag} style={{ backgroundColor: task.priority === 'Alta' ? '#ffebee' : task.priority === 'Urgente' ? '#ffcdd2' : '#e0e0e0' }}>
-                                                                                        {task.priority || "Normal"}
-                                                                                    </span>
-                                                                                </div>
-                                                                                {task.url && (
-                                                                                    <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                                                                                        <a href={task.url.startsWith('http') ? task.url : `https://${task.url}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#3b82f6', textDecoration: 'none' }}>
-                                                                                            <LinkIcon fontSize="small" /> Acessar Link
-                                                                                        </a>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-                                                                    </Draggable>
-                                                                ))}
-                                                                {provided.placeholder}
-                                                            </div>
-                                                        )}
-                                                    </Droppable>
-                                                </div>
-                                            )}
-                                        </Draggable>
-                                    ))}
+                                <div
+                                    className={classes.boardCanvas}
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                >
+                                    {boardData.lists?.length === 0 && (
+                                        <div className={classes.emptyBoard}>
+                                            <Typography
+                                                variant="body1"
+                                                style={{ opacity: 0.45 }}
+                                            >
+                                                Nenhuma coluna neste quadro
+                                            </Typography>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<Add />}
+                                                onClick={() => setOpenListModal(true)}
+                                            >
+                                                Adicionar coluna
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {boardData.lists?.map((list, index) =>
+                                        renderColumn(list, index)
+                                    )}
                                     {provided.placeholder}
                                 </div>
                             )}
                         </Droppable>
                     </DragDropContext>
-                )}
+                ) : null}
             </div>
 
-            <Dialog open={openModalBoard} onClose={() => setOpenModalBoard(false)}>
+            {/* ── Board dialog ──────────────────────────────────────────────── */}
+            <Dialog
+                open={openModalBoard}
+                onClose={() => setOpenModalBoard(false)}
+                fullWidth
+                maxWidth="xs"
+            >
                 <DialogTitle>Novo Quadro</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -460,24 +824,42 @@ const Tasks = () => {
                         margin="dense"
                         label="Nome do Quadro"
                         fullWidth
+                        variant="outlined"
                         value={boardForm.name}
-                        onChange={(e) => setBoardForm({ ...boardForm, name: e.target.value })}
+                        onChange={(e) =>
+                            setBoardForm({ ...boardForm, name: e.target.value })
+                        }
                     />
                     <TextField
                         margin="dense"
-                        label="Descrição"
+                        label="Descrição (opcional)"
                         fullWidth
+                        variant="outlined"
                         value={boardForm.description}
-                        onChange={(e) => setBoardForm({ ...boardForm, description: e.target.value })}
+                        onChange={(e) =>
+                            setBoardForm({ ...boardForm, description: e.target.value })
+                        }
                     />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenModalBoard(false)}>Cancelar</Button>
-                    <Button onClick={handleSaveBoard} color="primary" variant="contained">Salvar</Button>
+                    <Button
+                        onClick={handleSaveBoard}
+                        color="primary"
+                        variant="contained"
+                    >
+                        Criar
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={openListModal} onClose={() => setOpenListModal(false)}>
+            {/* ── Column dialog ─────────────────────────────────────────────── */}
+            <Dialog
+                open={openListModal}
+                onClose={() => setOpenListModal(false)}
+                fullWidth
+                maxWidth="xs"
+            >
                 <DialogTitle>Nova Coluna</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -485,27 +867,53 @@ const Tasks = () => {
                         margin="dense"
                         label="Nome da Coluna"
                         fullWidth
+                        variant="outlined"
                         value={listForm.name}
-                        onChange={(e) => setListForm({ ...listForm, name: e.target.value })}
+                        onChange={(e) =>
+                            setListForm({ ...listForm, name: e.target.value })
+                        }
                     />
                     <div style={{ marginTop: 16 }}>
-                        <Typography variant="caption">Cor da coluna de Fundo</Typography>
+                        <Typography variant="caption" color="textSecondary">
+                            Cor de fundo da coluna
+                        </Typography>
                         <input
                             type="color"
-                            style={{ width: "100%", height: 38, border: "1px solid #ccc", borderRadius: 4, marginTop: 4, padding: 2, cursor: "pointer" }}
+                            style={{
+                                width: "100%", height: 38,
+                                border: "1px solid #ccc", borderRadius: 6,
+                                marginTop: 4, padding: 2, cursor: "pointer",
+                                display: "block",
+                            }}
                             value={listForm.color}
-                            onChange={e => setListForm({ ...listForm, color: e.target.value })}
+                            onChange={(e) =>
+                                setListForm({ ...listForm, color: e.target.value })
+                            }
                         />
                     </div>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenListModal(false)}>Cancelar</Button>
-                    <Button onClick={handleSaveList} color="primary" variant="contained">Salvar</Button>
+                    <Button
+                        onClick={handleSaveList}
+                        color="primary"
+                        variant="contained"
+                    >
+                        Criar
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={openTaskModal} onClose={() => setOpenTaskModal(false)} fullWidth maxWidth="sm">
-                <DialogTitle>{taskForm.id ? "Editar Tarefa" : "Nova Tarefa"}</DialogTitle>
+            {/* ── Task dialog ───────────────────────────────────────────────── */}
+            <Dialog
+                open={openTaskModal}
+                onClose={() => setOpenTaskModal(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>
+                    {taskForm.id ? "Editar Tarefa" : "Nova Tarefa"}
+                </DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
@@ -514,7 +922,9 @@ const Tasks = () => {
                         fullWidth
                         variant="outlined"
                         value={taskForm.title}
-                        onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                        onChange={(e) =>
+                            setTaskForm({ ...taskForm, title: e.target.value })
+                        }
                     />
                     <TextField
                         margin="dense"
@@ -524,59 +934,108 @@ const Tasks = () => {
                         rows={3}
                         variant="outlined"
                         value={taskForm.description}
-                        onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                        onChange={(e) =>
+                            setTaskForm({ ...taskForm, description: e.target.value })
+                        }
                     />
-                    <FormControl variant="outlined" margin="dense" fullWidth>
-                        <InputLabel>Prioridade</InputLabel>
-                        <Select
-                            value={taskForm.priority}
-                            onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                            label="Prioridade"
-                        >
-                            <MenuItem value="Baixa">Baixa</MenuItem>
-                            <MenuItem value="Média">Média</MenuItem>
-                            <MenuItem value="Alta">Alta</MenuItem>
-                            <MenuItem value="Urgente">Urgente</MenuItem>
-                        </Select>
-                    </FormControl>
+
+                    <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                        <FormControl variant="outlined" margin="dense" style={{ flex: 1 }}>
+                            <InputLabel>Prioridade</InputLabel>
+                            <Select
+                                value={taskForm.priority}
+                                onChange={(e) =>
+                                    setTaskForm({ ...taskForm, priority: e.target.value })
+                                }
+                                label="Prioridade"
+                            >
+                                {Object.keys(PRIORITY_CONFIG).map((p) => (
+                                    <MenuItem key={p} value={p}>{p}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl variant="outlined" margin="dense" style={{ flex: 1 }}>
+                            <InputLabel>Responsável</InputLabel>
+                            <Select
+                                value={taskForm.responsibleId}
+                                onChange={(e) =>
+                                    setTaskForm({ ...taskForm, responsibleId: e.target.value })
+                                }
+                                label="Responsável"
+                            >
+                                <MenuItem value=""><em>Nenhum</em></MenuItem>
+                                {users.map((u) => (
+                                    <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </div>
+
                     <TextField
                         margin="dense"
                         label="Link Adicional (URL)"
                         fullWidth
                         variant="outlined"
                         value={taskForm.url}
-                        onChange={(e) => setTaskForm({ ...taskForm, url: e.target.value })}
+                        onChange={(e) =>
+                            setTaskForm({ ...taskForm, url: e.target.value })
+                        }
                         placeholder="https://exemplo.com"
                     />
-                    <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+
+                    <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
                         <TextField
                             margin="dense"
                             label="Data de Vencimento"
                             type="date"
-                            fullWidth
+                            style={{ flex: 1 }}
                             variant="outlined"
                             InputLabelProps={{ shrink: true }}
                             value={taskForm.dueDate}
-                            onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                            onChange={(e) =>
+                                setTaskForm({ ...taskForm, dueDate: e.target.value })
+                            }
                         />
                         <div style={{ flex: 1, marginTop: 8 }}>
-                            <Typography variant="caption" style={{ marginLeft: 4 }}>Cor de Fundo do Card</Typography>
+                            <Typography variant="caption" color="textSecondary" style={{ marginLeft: 4 }}>
+                                Cor de fundo do card
+                            </Typography>
                             <input
                                 type="color"
-                                style={{ width: "100%", height: 38, border: "1px solid #ccc", borderRadius: 4, marginTop: 4, padding: 2, cursor: "pointer" }}
+                                style={{
+                                    width: "100%", height: 38,
+                                    border: "1px solid #ccc", borderRadius: 6,
+                                    marginTop: 4, padding: 2, cursor: "pointer",
+                                    display: "block",
+                                }}
                                 value={taskForm.color}
-                                onChange={e => setTaskForm({ ...taskForm, color: e.target.value })}
+                                onChange={(e) =>
+                                    setTaskForm({ ...taskForm, color: e.target.value })
+                                }
                             />
                         </div>
                     </div>
                 </DialogContent>
-                <DialogActions>
+
+                <DialogActions style={{ padding: "8px 16px 12px" }}>
                     {taskForm.id && (
-                        <Button onClick={handleDeleteTask} className={classes.btnDanger}>Excluir</Button>
+                        <Button
+                            onClick={handleDeleteTask}
+                            style={{ color: "#d32f2f" }}
+                        >
+                            Excluir
+                        </Button>
                     )}
-                    <div style={{ flex: 1 }}></div>
+                    <div style={{ flex: 1 }} />
                     <Button onClick={() => setOpenTaskModal(false)}>Cancelar</Button>
-                    <Button onClick={handleSaveTask} color="primary" variant="contained">Salvar</Button>
+                    <Button
+                        onClick={handleSaveTask}
+                        color="primary"
+                        variant="contained"
+                    >
+                        Salvar
+                    </Button>
                 </DialogActions>
             </Dialog>
         </MainContainer>
