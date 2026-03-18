@@ -27,6 +27,16 @@ const getGeminiKey = async (companyId: number): Promise<string | null> =>
 const getPreferredProvider = async (companyId: number): Promise<string> =>
   (await getSettingCascade(companyId, "aiProvider")) || "openai";
 
+const getCrmAiSystemPrompt = async (companyId: number): Promise<string> => {
+  const custom = await getSettingCascade(companyId, "crmAiSystemPrompt");
+  if (custom && custom.trim()) return custom.trim();
+  return `Você é o Assistente CRM IA, um especialista em vendas e gestão de pipeline.
+Responda de forma objetiva, prática e em português brasileiro.
+Use os dados do CRM abaixo para contextualizar suas respostas.
+Ofereça insights acionáveis e dicas de vendas baseadas nos dados disponíveis.
+Seja direto e evite respostas genéricas.`;
+};
+
 const buildCrmContext = async (companyId: number): Promise<string> => {
   try {
     const pipelines = await Pipeline.findAll({
@@ -104,12 +114,9 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
 
   const crmContext = await buildCrmContext(companyId);
   const provider = await getPreferredProvider(companyId);
+  const basePrompt = await getCrmAiSystemPrompt(companyId);
 
-  const systemPrompt = `Você é o Assistente CRM IA, um especialista em vendas e gestão de pipeline integrado ao sistema AtendZappy.
-Responda de forma objetiva, prática e em português brasileiro.
-Use os dados do CRM abaixo para contextualizar suas respostas.
-Ofereça insights acionáveis e dicas de vendas baseadas nos dados disponíveis.
-Seja direto e evite respostas genéricas.
+  const systemPrompt = `${basePrompt}
 
 ${crmContext}`;
 

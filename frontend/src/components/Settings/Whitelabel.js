@@ -178,6 +178,7 @@ export default function Whitelabel(props) {
   const [openaiApiKey, setOpenaiApiKey] = useState(settingsLoaded.openaiApiKey || "");
   const [geminiApiKey, setGeminiApiKey] = useState(settingsLoaded.geminiApiKey || "");
   const [aiProvider, setAiProvider] = useState(settingsLoaded.aiProvider || "openai");
+  const [crmAiSystemPrompt, setCrmAiSystemPrompt] = useState(settingsLoaded.crmAiSystemPrompt || "");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   
@@ -1100,6 +1101,35 @@ export default function Whitelabel(props) {
                       ),
                     }}
                     placeholder="AIza..."
+                  />
+                </FormControl>
+              </Grid>
+
+              {/* Prompt personalizado do Assistente CRM IA */}
+              <Grid xs={12} item>
+                <Typography variant="caption" style={{ color: "#333", fontWeight: 500 }}>
+                  Prompt Personalizado — Assistente CRM IA
+                </Typography>
+                <Typography variant="caption" display="block" style={{ color: "#888", marginBottom: 4 }}>
+                  Instruções base enviadas ao assistente em toda conversa. Use para definir o nome do sistema, tom de voz e regras de resposta.
+                  Deixe em branco para usar o prompt padrão genérico.
+                </Typography>
+                <FormControl fullWidth>
+                  <TextField
+                    id="crm-ai-system-prompt-field"
+                    variant="standard"
+                    multiline
+                    minRows={4}
+                    maxRows={10}
+                    value={crmAiSystemPrompt}
+                    onChange={(e) => setCrmAiSystemPrompt(e.target.value)}
+                    onBlur={() => {
+                      if (crmAiSystemPrompt !== settingsLoaded.crmAiSystemPrompt) {
+                        handleSaveSetting("crmAiSystemPrompt", crmAiSystemPrompt);
+                      }
+                    }}
+                    placeholder={`Exemplo: Você é o Assistente IA da MinhaEmpresa, especialista em vendas e gestão de pipeline.\nResponda de forma objetiva e em português brasileiro.\nUse os dados do CRM abaixo para contextualizar suas respostas.`}
+                    InputProps={{ style: { backgroundColor: "#ffffff", fontFamily: "monospace", fontSize: 13 } }}
                   />
                 </FormControl>
               </Grid>
