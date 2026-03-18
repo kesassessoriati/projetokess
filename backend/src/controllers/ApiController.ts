@@ -125,13 +125,15 @@ const createContact = async (
     const mutex = new Mutex();
     // Inclui a busca de ticket aqui, se realmente não achar um ticket, então vai para o findorcreate
     const createTicket = await mutex.runExclusive(async () => {
+      // Não passa userId/queueId para evitar erro de conflito "Ticket em outro atendimento"
+      // O UpdateTicketService no index() ficará responsável por atribuí-los após o envio
       const ticket = await FindOrCreateTicketService(
         contact,
         whatsapp,
         0,
         companyId,
-        queueId,
-        userId,
+        undefined,
+        undefined,
         null,
         whatsapp.channel,
         null,
