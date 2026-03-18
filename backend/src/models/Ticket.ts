@@ -238,6 +238,15 @@ class Ticket extends Model<Ticket> {
 
   @Column
   typebotSessionTime: Date
+
+  /**
+   * Webhook pause TTL per ticket session.
+   * When set and > now, MESSAGE_RECEIVED webhook events are suppressed for this ticket only.
+   * Set by "Disable Chatbot" toggle (+1 hour); cleared on ticket close or manual re-enable.
+   */
+  @AllowNull
+  @Column
+  webhookPausedUntil: Date;
 }
 
 export default Ticket;

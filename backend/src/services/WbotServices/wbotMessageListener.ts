@@ -36,6 +36,7 @@ import { Mutex } from "async-mutex";
 import { getIO } from "../../libs/socket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import logger from "../../utils/logger";
+import { buildPromptRuntimeConfig, finalizeAIUsage } from "../AIProviderService/AIProviderService";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
@@ -4458,8 +4459,14 @@ export const handleMessageIntegration = async (
         promptId: Number(prompt.id),
         provider: prompt.provider || "openai",
         model: prompt.model,
+        aiUsageMode: prompt.aiUsageMode,
         knowledgeBase: prompt.knowledgeBase || []
       };
+
+      const runtimeConfig = await buildPromptRuntimeConfig(prompt, companyId);
+      openAiSettings.apiKey = runtimeConfig.apiKey;
+      openAiSettings.provider = runtimeConfig.provider;
+      openAiSettings.aiUsageMode = runtimeConfig.usageMode;
 
       try {
         const toolsEnabled = await ListPromptToolSettingsService({
@@ -4480,6 +4487,17 @@ export const handleMessageIntegration = async (
         undefined,
         undefined
       );
+
+      await finalizeAIUsage({
+        companyId,
+        promptId: Number(prompt.id),
+        provider: runtimeConfig.provider,
+        usageMode: runtimeConfig.usageMode,
+        requestType: "agent",
+        model: prompt.model,
+        status: "success",
+        metadata: { ticketId: ticket.id, source: "queue_integration" }
+      }).catch(() => undefined);
     }
   }
 };
@@ -5125,8 +5143,12 @@ const handleMessage = async (
       console.log(e);
     }
 
-    // Dispara evento MESSAGE_RECEIVED para webhooks configurados
-    if (!msg.key.fromMe && !ticket.isGroup) {
+    // Dispara evento MESSAGE_RECEIVED para webhooks configurados.
+    // Suprimido se o agente ativou "Desabilitar chatbot" (pause por 1 hora, por ticket).
+    const _webhookPaused =
+      ticket.webhookPausedUntil instanceof Date &&
+      ticket.webhookPausedUntil > new Date();
+    if (!msg.key.fromMe && !ticket.isGroup && !_webhookPaused) {
       webhookDispatch("MESSAGE_RECEIVED", companyId, {
         ticket: {
           id: ticket.id,

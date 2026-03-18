@@ -339,7 +339,8 @@ const UpdateTicketService = async ({
         status: "closed",
         lastFlowId: ticket.flowWebhook ? ticket.lastFlowId : null,
         dataWebhook: null,
-        hashFlowId: ticket.flowWebhook ? ticket.hashFlowId : null
+        hashFlowId: ticket.flowWebhook ? ticket.hashFlowId : null,
+        webhookPausedUntil: null // clear webhook pause on ticket close
       };
 
       if (shouldClearAssignments) {
