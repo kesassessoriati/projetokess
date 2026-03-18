@@ -50,6 +50,7 @@ export const serializeCrmLead = (lead: any) => {
     temperature: normalizeString(plainLead.temperature),
     notes: normalizeString(plainLead.notes),
     product: normalizeString(plainLead.product),
+    acquisitionDate: plainLead.acquisitionDate || null,
     ownerUserId: normalizeNullableNumber(plainLead.ownerUserId),
     pipelineId: normalizeNullableNumber(plainLead.pipelineId),
     stageId: normalizeNullableNumber(plainLead.stageId),

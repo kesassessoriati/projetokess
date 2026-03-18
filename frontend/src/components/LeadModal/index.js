@@ -48,6 +48,7 @@ const normalizeLeadForm = (lead = {}) => {
     product: lead.product || "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
+    acquisitionDate: lead.acquisitionDate ? lead.acquisitionDate.substring(0, 10) : "",
     expirationDate: lead.expirationDate ? lead.expirationDate.substring(0, 10) : "",
     score: lead.score || 0,
     status: lead.status || lead.leadStatus || "novo",
@@ -108,6 +109,7 @@ const defaultForm = {
   decisionMakerPhone: "",
   document: "",
   product: "",
+  acquisitionDate: "",
   gmn: "",
   website: "",
   instagram: "",
@@ -243,6 +245,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         temperature: form.temperature || null,
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
+        acquisitionDate: form.acquisitionDate || undefined,
         expirationDate: form.expirationDate || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
         cardColor: cardColor || form.cardColor
@@ -447,6 +450,20 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   fullWidth
                   className={classes.formField}
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Data de aquisição"
+                  name="acquisitionDate"
+                  type="date"
+                  value={form.acquisitionDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Quando o lead adquiriu o produto/plano."
                 />
               </Grid>
               <Grid item xs={12} sm={6}>

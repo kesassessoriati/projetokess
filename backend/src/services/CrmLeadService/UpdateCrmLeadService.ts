@@ -45,6 +45,7 @@ interface Request {
   tags?: any[];
   cardColor?: string;
   clientSince?: Date;
+  acquisitionDate?: Date;
   expirationDate?: Date;
 }
 

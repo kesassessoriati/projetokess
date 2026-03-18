@@ -63,6 +63,9 @@ class CrmLead extends Model<CrmLead> {
   @Column({ field: "expiration_date", type: DataType.DATEONLY })
   expirationDate: Date;
 
+  @Column({ field: "acquisition_date", type: DataType.DATEONLY })
+  acquisitionDate: Date;
+
   @Column
   document: string;
 

@@ -89,6 +89,7 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       status: "active",
       clientSince: lead.clientSince || new Date(),
       acquiredProduct: lead.product || null,
+      acquisitionDate: lead.acquisitionDate || null,
       ownerUserId: lead.ownerUserId,
       notes: lead.notes,
       decisorName: lead.decisionMakerName,
@@ -133,6 +134,9 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     }
     if (lead.product && lead.product !== client.acquiredProduct) {
       updates.acquiredProduct = lead.product;
+    }
+    if (lead.acquisitionDate && lead.acquisitionDate !== client.acquisitionDate) {
+      updates.acquisitionDate = lead.acquisitionDate;
     }
     if (
       contact?.birthday &&

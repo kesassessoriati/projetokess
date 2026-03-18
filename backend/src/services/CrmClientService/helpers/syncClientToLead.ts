@@ -55,6 +55,10 @@ const syncClientToLead = async ({
       updates.product = client.acquiredProduct;
     }
 
+    if (client.acquisitionDate && client.acquisitionDate !== lead.acquisitionDate) {
+      updates.acquisitionDate = client.acquisitionDate;
+    }
+
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
     }

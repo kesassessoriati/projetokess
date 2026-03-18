@@ -13,9 +13,12 @@ import {
   Typography,
   Divider
 } from "@material-ui/core";
+import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+
+const filter = createFilterOptions();
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
@@ -68,6 +71,7 @@ const defaultForm = {
   score: 0,
   tags: "",
   acquiredProduct: "",
+  acquisitionDate: "",
   zipCode: "",
   address: "",
   number: "",
@@ -88,20 +92,25 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState([]);
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
     if (!open) return;
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await api.get("/users/");
-        setUsers(data.users || []);
+        const [{ data: usersData }, { data: productsData }] = await Promise.all([
+          api.get("/users/"),
+          api.get("/produtos", { params: { limit: 100 } })
+        ]);
+        setUsers(usersData.users || []);
+        setProducts(Array.isArray(productsData?.produtos) ? productsData.produtos : (Array.isArray(productsData) ? productsData : []));
       } catch (err) {
         toastError(err);
       }
     };
 
-    fetchUsers();
+    fetchData();
 
     if (clientId) {
       loadClient();
@@ -135,6 +144,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         score: data.score || 0,
         tags: data.tags || "",
         acquiredProduct: data.acquiredProduct || "",
+        acquisitionDate: data.acquisitionDate ? data.acquisitionDate.substring(0, 10) : "",
         zipCode: data.zipCode || "",
         address: data.address || "",
         number: data.number || "",
@@ -179,6 +189,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : undefined,
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
+        acquisitionDate: form.acquisitionDate || null,
         expirationDate: form.expirationDate || null
       };
 
@@ -439,14 +450,47 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Produto adquirido"
-                  name="acquiredProduct"
-                  value={form.acquiredProduct}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
+                <Autocomplete
+                  freeSolo
+                  options={products}
+                  value={form.acquiredProduct || ""}
+                  onChange={(event, newValue) => {
+                    const productName =
+                      typeof newValue === "string"
+                        ? newValue
+                        : newValue?.inputValue || newValue?.nome || "";
+                    setForm((prev) => ({ ...prev, acquiredProduct: productName }));
+                  }}
+                  onInputChange={(event, newInputValue, reason) => {
+                    if (reason === "input") {
+                      setForm((prev) => ({ ...prev, acquiredProduct: newInputValue }));
+                    }
+                  }}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    return option?.inputValue || option?.nome || "";
+                  }}
+                  filterOptions={(options, params) => {
+                    const filtered = filter(options, params);
+                    const inputValue = params.inputValue.trim();
+                    if (
+                      inputValue &&
+                      !options.some((o) => (o?.nome || "").toLowerCase() === inputValue.toLowerCase())
+                    ) {
+                      filtered.push({ inputValue, nome: `Usar "${inputValue}"` });
+                    }
+                    return filtered;
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Produto adquirido"
+                      variant="outlined"
+                      fullWidth
+                      className={classes.formField}
+                      placeholder="Selecione ou digite um produto"
+                    />
+                  )}
                 />
               </Grid>
               
@@ -513,6 +557,20 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                   type="date"
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Data de aquisição"
+                  name="acquisitionDate"
+                  value={form.acquisitionDate}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Quando o cliente adquiriu o produto/plano."
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
