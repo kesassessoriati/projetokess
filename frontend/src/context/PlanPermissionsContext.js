@@ -14,6 +14,12 @@ const defaultState = {
   schedules: false,
   integrations: false,
   externalApi: false,
+  notifica_mehub: false,
+  whatsapp_whatsmeow: false,
+  whatsapp_whaleys: false,
+  email: false,
+  gestor_financas: false,
+  gestor_financeiro_ia: false,
 };
 
 const PlanPermissionsContext = createContext({
@@ -58,6 +64,12 @@ export const PlanPermissionsProvider = ({ children }) => {
             schedules: Boolean(plan.useSchedules),
             integrations: Boolean(plan.useIntegrations),
             externalApi: Boolean(plan.useExternalApi),
+            notifica_mehub: Boolean(plan.notifica_mehub),
+            whatsapp_whatsmeow: Boolean(plan.whatsapp_whatsmeow),
+            whatsapp_whaleys: Boolean(plan.whatsapp_whaleys),
+            email: Boolean(plan.email),
+            gestor_financas: Boolean(plan.gestor_financas),
+            gestor_financeiro_ia: Boolean(plan.gestor_financeiro_ia),
           });
         } else {
           setState((prev) => ({ ...defaultState, loading: false }));

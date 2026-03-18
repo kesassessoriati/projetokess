@@ -26,6 +26,12 @@ const ShowPlanCompanyService = async (id: string | number): Promise<Company> => 
                     "useKanban",
                     "useOpenAi",
                     "useIntegrations",
+                    "notifica_mehub",
+                    "whatsapp_whatsmeow",
+                    "whatsapp_whaleys",
+                    "email",
+                    "gestor_financas",
+                    "gestor_financeiro_ia",
                     "recurrence",
                     "trial",
                     "trialDays"

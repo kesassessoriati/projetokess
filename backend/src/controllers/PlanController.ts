@@ -47,6 +47,13 @@ type StorePlanData = {
   useKanban?: boolean;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  aiCredits?: number;
+  notifica_mehub?: boolean;
+  whatsapp_whatsmeow?: boolean;
+  whatsapp_whaleys?: boolean;
+  email?: boolean;
+  gestor_financas?: boolean;
+  gestor_financeiro_ia?: boolean;
   isPublic?: boolean;
 };
 
@@ -67,6 +74,13 @@ type UpdatePlanData = {
   useKanban?: boolean;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  aiCredits?: number;
+  notifica_mehub?: boolean;
+  whatsapp_whatsmeow?: boolean;
+  whatsapp_whaleys?: boolean;
+  email?: boolean;
+  gestor_financas?: boolean;
+  gestor_financeiro_ia?: boolean;
   isPublic?: boolean;
 };
 
@@ -120,7 +134,25 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const newPlan: StorePlanData = req.body;
 
   const schema = Yup.object().shape({
-    name: Yup.string().required()
+    name: Yup.string().required(),
+    useWhatsapp: Yup.boolean(),
+    useFacebook: Yup.boolean(),
+    useInstagram: Yup.boolean(),
+    useCampaigns: Yup.boolean(),
+    useSchedules: Yup.boolean(),
+    useInternalChat: Yup.boolean(),
+    useExternalApi: Yup.boolean(),
+    useKanban: Yup.boolean(),
+    useOpenAi: Yup.boolean(),
+    useIntegrations: Yup.boolean(),
+    aiCredits: Yup.number(),
+    isPublic: Yup.boolean(),
+    notifica_mehub: Yup.boolean(),
+    whatsapp_whatsmeow: Yup.boolean(),
+    whatsapp_whaleys: Yup.boolean(),
+    email: Yup.boolean(),
+    gestor_financas: Yup.boolean(),
+    gestor_financeiro_ia: Yup.boolean()
   });
 
   try {
@@ -171,7 +203,25 @@ export const update = async (
   const planData: UpdatePlanData = req.body;
 
   const schema = Yup.object().shape({
-    name: Yup.string()
+    name: Yup.string(),
+    useWhatsapp: Yup.boolean(),
+    useFacebook: Yup.boolean(),
+    useInstagram: Yup.boolean(),
+    useCampaigns: Yup.boolean(),
+    useSchedules: Yup.boolean(),
+    useInternalChat: Yup.boolean(),
+    useExternalApi: Yup.boolean(),
+    useKanban: Yup.boolean(),
+    useOpenAi: Yup.boolean(),
+    useIntegrations: Yup.boolean(),
+    aiCredits: Yup.number(),
+    isPublic: Yup.boolean(),
+    notifica_mehub: Yup.boolean(),
+    whatsapp_whatsmeow: Yup.boolean(),
+    whatsapp_whaleys: Yup.boolean(),
+    email: Yup.boolean(),
+    gestor_financas: Yup.boolean(),
+    gestor_financeiro_ia: Yup.boolean()
   });
 
   try {

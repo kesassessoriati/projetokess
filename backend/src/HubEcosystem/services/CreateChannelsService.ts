@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import Plan from "../../models/Plan";
 import { IChannel } from "../controllers/ChannelController";
+import { getPlanChannelLabel, isPlanChannelEnabled } from "../../helpers/planChannelRules";
 
 interface Request {
   companyId: number;
@@ -25,6 +26,22 @@ const CreateChannelsService = async ({
   });
 
   if (company !== null) {
+    const invalidChannel = channels.find(channel =>
+      !isPlanChannelEnabled(company.plan, {
+        channel: channel.channel,
+        notificameHub: true
+      })
+    );
+
+    if (invalidChannel) {
+      throw new AppError(
+        `Seu plano nÃ£o possui permissÃ£o para ${getPlanChannelLabel({
+          channel: invalidChannel.channel,
+          notificameHub: true
+        })}.`
+      );
+    }
+
     let whatsappCount = await Whatsapp.count({
       where: {
         companyId

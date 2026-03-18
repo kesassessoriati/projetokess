@@ -5,6 +5,9 @@ import Whatsapp from "../models/Whatsapp";
 import AppError from "../errors/AppError";
 import { getIO } from "../libs/socket";
 import { SyncOneEmailChannelService } from "../services/EmailChannelServices/SyncEmailChannelService";
+import ShowCompanyService from "../services/CompanyService/ShowCompanyService";
+import ShowPlanService from "../services/PlanService/ShowPlanService";
+import { getPlanChannelLabel, isPlanChannelEnabled } from "../helpers/planChannelRules";
 
 const hideSecrets = (row: Whatsapp) => {
   const plain = row.toJSON() as any;
@@ -19,8 +22,21 @@ const normalizeStatus = (value?: string) => {
   return status;
 };
 
+const ensureEmailPlanEnabled = async (companyId: number) => {
+  const company = await ShowCompanyService(companyId);
+  const plan = await ShowPlanService(company.planId);
+
+  if (!isPlanChannelEnabled(plan, { channel: "email" })) {
+    throw new AppError(
+      `Seu plano nÃ£o possui permissÃ£o para ${getPlanChannelLabel({ channel: "email" })}.`,
+      403
+    );
+  }
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
+  await ensureEmailPlanEnabled(companyId);
   const channels = await Whatsapp.findAll({
     where: { companyId, channel: "email" },
     order: [["updatedAt", "DESC"]]
@@ -31,6 +47,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { emailChannelId } = req.params;
+  await ensureEmailPlanEnabled(companyId);
 
   const channel = await Whatsapp.findOne({
     where: { id: emailChannelId, companyId, channel: "email" }
@@ -43,6 +60,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const payload = req.body || {};
+  await ensureEmailPlanEnabled(companyId);
 
   if (!payload.name || !payload.emailAddress) {
     throw new AppError("Nome e e-mail de origem sao obrigatorios.", 400);
@@ -101,6 +119,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   const { companyId } = req.user;
   const { emailChannelId } = req.params;
   const payload = req.body || {};
+  await ensureEmailPlanEnabled(companyId);
 
   const channel = await Whatsapp.findOne({
     where: { id: emailChannelId, companyId, channel: "email" }
@@ -171,6 +190,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 export const remove = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { emailChannelId } = req.params;
+  await ensureEmailPlanEnabled(companyId);
 
   const channel = await Whatsapp.findOne({
     where: { id: emailChannelId, companyId, channel: "email" }
@@ -192,6 +212,7 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
 export const syncNow = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { emailChannelId } = req.params;
+  await ensureEmailPlanEnabled(companyId);
   const result = await SyncOneEmailChannelService(Number(emailChannelId), companyId);
   return res.json(result);
 };

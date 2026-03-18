@@ -3,6 +3,9 @@ import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
 import Prompt from "../../models/Prompt";
 import PromptToolSetting from "../../models/PromptToolSetting";
+import Company from "../../models/Company";
+import Plan from "../../models/Plan";
+import { isPlanChannelEnabled } from "../../helpers/planChannelRules";
 
 interface Request {
   companyId: number;
@@ -13,6 +16,10 @@ const ListWhatsAppsService = async ({
   session,
   companyId
 }: Request): Promise<Whatsapp[]> => {
+  const company = await Company.findByPk(companyId, {
+    include: [{ model: Plan, as: "plan" }]
+  });
+
   const options: FindOptions = {
     where: {
       companyId
@@ -53,7 +60,12 @@ const ListWhatsAppsService = async ({
     }
   });
 
-  return whatsapps;
+  return whatsapps.filter(whatsapp =>
+    isPlanChannelEnabled(company?.plan, {
+      channel: whatsapp.channel,
+      notificameHub: whatsapp.notificameHub
+    })
+  );
 };
 
 

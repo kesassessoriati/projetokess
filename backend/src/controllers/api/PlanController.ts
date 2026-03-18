@@ -34,6 +34,25 @@ type StorePlanData = {
   connections: number | 0;
   queues: number | 0;
   amount: string | "0";
+  useWhatsapp?: boolean;
+  useFacebook?: boolean;
+  useInstagram?: boolean;
+  useCampaigns?: boolean;
+  useSchedules?: boolean;
+  useInternalChat?: boolean;
+  useExternalApi?: boolean;
+  useKanban?: boolean;
+  trial?: boolean;
+  trialDays?: number;
+  recurrence?: string;
+  useOpenAi?: boolean;
+  useIntegrations?: boolean;
+  notifica_mehub?: boolean;
+  whatsapp_whatsmeow?: boolean;
+  whatsapp_whaleys?: boolean;
+  email?: boolean;
+  gestor_financas?: boolean;
+  gestor_financeiro_ia?: boolean;
 };
 
 type UpdatePlanData = {
@@ -56,6 +75,12 @@ type UpdatePlanData = {
   recurrence?: string;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  notifica_mehub?: boolean;
+  whatsapp_whatsmeow?: boolean;
+  whatsapp_whaleys?: boolean;
+  email?: boolean;
+  gestor_financas?: boolean;
+  gestor_financeiro_ia?: boolean;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -94,7 +119,15 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     trial: Yup.boolean(),
     trialDays: Yup.number(),
     recurrence: Yup.string().required(),
-    useKanban: Yup.boolean()
+    useKanban: Yup.boolean(),
+    useOpenAi: Yup.boolean(),
+    useIntegrations: Yup.boolean(),
+    notifica_mehub: Yup.boolean(),
+    whatsapp_whatsmeow: Yup.boolean(),
+    whatsapp_whaleys: Yup.boolean(),
+    email: Yup.boolean(),
+    gestor_financas: Yup.boolean(),
+    gestor_financeiro_ia: Yup.boolean()
   });
 
   try {
@@ -139,7 +172,15 @@ export const update = async (
     trial: Yup.boolean(),
     trialDays: Yup.number(),
     recurrence: Yup.string().required(),
-    useKanban: Yup.boolean()
+    useKanban: Yup.boolean(),
+    useOpenAi: Yup.boolean(),
+    useIntegrations: Yup.boolean(),
+    notifica_mehub: Yup.boolean(),
+    whatsapp_whatsmeow: Yup.boolean(),
+    whatsapp_whaleys: Yup.boolean(),
+    email: Yup.boolean(),
+    gestor_financas: Yup.boolean(),
+    gestor_financeiro_ia: Yup.boolean()
   });
 
   try {
@@ -166,7 +207,13 @@ export const update = async (
     recurrence,
     useKanban,
     useIntegrations,
-    useOpenAi
+    useOpenAi,
+    notifica_mehub,
+    whatsapp_whatsmeow,
+    whatsapp_whaleys,
+    email,
+    gestor_financas,
+    gestor_financeiro_ia
   } = planData;
 
   const plan = await UpdatePlanService({
@@ -185,7 +232,13 @@ export const update = async (
     useExternalApi,
     useKanban,
     useIntegrations,
-    useOpenAi
+    useOpenAi,
+    notifica_mehub,
+    whatsapp_whatsmeow,
+    whatsapp_whaleys,
+    email,
+    gestor_financas,
+    gestor_financeiro_ia
   });
   return res.status(200).json(plan);
 };

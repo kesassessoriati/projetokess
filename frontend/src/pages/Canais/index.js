@@ -444,6 +444,14 @@ const Connections = () => {
   const { isReady, on } = useSocket();
   const [planConfig, setPlanConfig] = useState([]);
   const [confirmModalInfo, setConfirmModalInfo] = useState(confirmationModalInitialState);
+  const plan = planConfig?.plan || {};
+  const canUseWhatsapp = plan.useWhatsapp !== false;
+  const canUseFacebook = plan.useFacebook !== false;
+  const canUseInstagram = plan.useInstagram !== false;
+  const canUseWhatsMeow = Boolean(plan.whatsapp_whatsmeow);
+  const canUseWhaleys = Boolean(plan.whatsapp_whaleys);
+  const canUseEmail = Boolean(plan.email);
+  const canUseNotificaMehub = Boolean(plan.notifica_mehub);
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
@@ -1112,16 +1120,17 @@ const Connections = () => {
                         <AddIcon />
                       </IconButton>
                       <Menu {...bindMenu(popupState)}>
-                        <MenuItem
-                          disabled={planConfig?.plan?.useWhatsapp ? false : true}
-                          onClick={() => {
-                            handleOpenWhatsAppModal();
-                            popupState.close();
-                          }}
-                        >
-                          <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#25D366" }} />
-                          WhatsApp
-                        </MenuItem>
+                        {canUseWhatsapp && (
+                          <MenuItem
+                            onClick={() => {
+                              handleOpenWhatsAppModal();
+                              popupState.close();
+                            }}
+                          >
+                            <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#25D366" }} />
+                            WhatsApp
+                          </MenuItem>
+                        )}
                         <MenuItem
                           onClick={() => {
                             handleOpenWhatsAppOfficialModal();
@@ -1131,67 +1140,77 @@ const Connections = () => {
                           <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#128C7E" }} />
                           WhatsApp Oficial
                         </MenuItem>
-                        <MenuItem
-                          disabled={planConfig?.plan?.useWhatsapp ? false : true}
-                          onClick={() => {
-                            handleOpenWhatsAppWhaileysModal();
-                            popupState.close();
-                          }}
-                        >
-                          <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#00897B" }} />
-                          WhatsApp Whaileys
-                        </MenuItem>
-                        <MenuItem
-                          disabled={planConfig?.plan?.useWhatsapp ? false : true}
-                          onClick={() => {
-                            handleOpenWhatsAppWhatsMeowModal();
-                            popupState.close();
-                          }}
-                        >
-                          <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#1565C0" }} />
-                          WhatsApp WhatsMeow
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() => {
-                            handleOpenEmailModal();
-                            popupState.close();
-                          }}
-                        >
-                          <EmailIcon fontSize="small" style={{ marginRight: 10, color: "#2e7d32" }} />
-                          E-mail
-                        </MenuItem>
-                        <MenuItem onClick={() => { setHubChannelModalOpen(true); popupState.close(); }}>
-                          <img src={notificame_logo} alt="NotificaMe Hub" style={{ width: 16, height: 16, marginRight: 10, marginLeft: 2 }} />
-                          NotificaMe Hub
-                        </MenuItem>
-                        <FacebookLogin
-                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                          autoLoad={false}
-                          fields="name,email,picture"
-                          version="13.0"
-                          scope="public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                          callback={responseFacebook}
-                          render={(renderProps) => (
-                            <MenuItem onClick={renderProps.onClick}>
-                              <Facebook fontSize="small" style={{ marginRight: 10, color: "#3b5998" }} />
-                              Facebook
-                            </MenuItem>
-                          )}
-                        />
-                        <FacebookLogin
-                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                          autoLoad={false}
-                          fields="name,email,picture"
-                          version="13.0"
-                          scope="public_profile,instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                          callback={responseInstagram}
-                          render={(renderProps) => (
-                            <MenuItem onClick={renderProps.onClick}>
-                              <Instagram fontSize="small" style={{ marginRight: 10, color: "#e1306c" }} />
-                              Instagram
-                            </MenuItem>
-                          )}
-                        />
+                        {canUseWhaleys && (
+                          <MenuItem
+                            onClick={() => {
+                              handleOpenWhatsAppWhaileysModal();
+                              popupState.close();
+                            }}
+                          >
+                            <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#00897B" }} />
+                            WhatsApp Whaileys
+                          </MenuItem>
+                        )}
+                        {canUseWhatsMeow && (
+                          <MenuItem
+                            onClick={() => {
+                              handleOpenWhatsAppWhatsMeowModal();
+                              popupState.close();
+                            }}
+                          >
+                            <WhatsApp fontSize="small" style={{ marginRight: 10, color: "#1565C0" }} />
+                            WhatsApp WhatsMeow
+                          </MenuItem>
+                        )}
+                        {canUseEmail && (
+                          <MenuItem
+                            onClick={() => {
+                              handleOpenEmailModal();
+                              popupState.close();
+                            }}
+                          >
+                            <EmailIcon fontSize="small" style={{ marginRight: 10, color: "#2e7d32" }} />
+                            E-mail
+                          </MenuItem>
+                        )}
+                        {canUseNotificaMehub && (
+                          <MenuItem onClick={() => { setHubChannelModalOpen(true); popupState.close(); }}>
+                            <img src={notificame_logo} alt="NotificaMe Hub" style={{ width: 16, height: 16, marginRight: 10, marginLeft: 2 }} />
+                            NotificaMe Hub
+                          </MenuItem>
+                        )}
+                        {canUseFacebook && (
+                          <FacebookLogin
+                            appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
+                            autoLoad={false}
+                            fields="name,email,picture"
+                            version="13.0"
+                            scope="public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
+                            callback={responseFacebook}
+                            render={(renderProps) => (
+                              <MenuItem onClick={renderProps.onClick}>
+                                <Facebook fontSize="small" style={{ marginRight: 10, color: "#3b5998" }} />
+                                Facebook
+                              </MenuItem>
+                            )}
+                          />
+                        )}
+                        {canUseInstagram && (
+                          <FacebookLogin
+                            appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
+                            autoLoad={false}
+                            fields="name,email,picture"
+                            version="13.0"
+                            scope="public_profile,instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
+                            callback={responseInstagram}
+                            render={(renderProps) => (
+                              <MenuItem onClick={renderProps.onClick}>
+                                <Instagram fontSize="small" style={{ marginRight: 10, color: "#e1306c" }} />
+                                Instagram
+                              </MenuItem>
+                            )}
+                          />
+                        )}
                       </Menu>
                     </>
                   )}

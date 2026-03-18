@@ -153,6 +153,12 @@ const defaultPlanValues = {
     useKanban: true,
     useOpenAi: true,
     useIntegrations: true,
+    notifica_mehub: false,
+    whatsapp_whatsmeow: false,
+    whatsapp_whaleys: false,
+    email: false,
+    gestor_financas: false,
+    gestor_financeiro_ia: false,
     recurrence: "MENSAL",
     isPublic: true,
     aiCredits: 0
@@ -405,6 +411,126 @@ export function PlanManagerForm(props) {
       helperText="0 = ilimitado"
     />
   </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="notifica-mehub-selection" style={{ fontWeight: "bold" }}>
+        Notifica MeHub
+      </InputLabel>
+      <Field as={Select} id="notifica-mehub-selection" name="notifica_mehub" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="whatsapp-whatsmeow-selection" style={{ fontWeight: "bold" }}>
+        WhatsMeow
+      </InputLabel>
+      <Field as={Select} id="whatsapp-whatsmeow-selection" name="whatsapp_whatsmeow" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="whatsapp-whaleys-selection" style={{ fontWeight: "bold" }}>
+        Whaleys
+      </InputLabel>
+      <Field as={Select} id="whatsapp-whaleys-selection" name="whatsapp_whaleys" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="email-selection" style={{ fontWeight: "bold" }}>
+        E-mail
+      </InputLabel>
+      <Field as={Select} id="email-selection" name="email" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="gestor-financas-selection" style={{ fontWeight: "bold" }}>
+        Gestor FinanÃ§as
+      </InputLabel>
+      <Field as={Select} id="gestor-financas-selection" name="gestor_financas" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="gestor-financeiro-ia-selection" style={{ fontWeight: "bold" }}>
+        Gestor Financeiro IA
+      </InputLabel>
+      <Field as={Select} id="gestor-financeiro-ia-selection" name="gestor_financeiro_ia" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
 </div>
 
 <Divider />
@@ -608,6 +734,12 @@ export default function PlansManager() {
         useKanban: true,
         useOpenAi: true,
         useIntegrations: true,
+        notifica_mehub: false,
+        whatsapp_whatsmeow: false,
+        whatsapp_whaleys: false,
+        email: false,
+        gestor_financas: false,
+        gestor_financeiro_ia: false,
         recurrence: "MENSAL",
         isPublic: true,
         aiCredits: 0
@@ -686,6 +818,12 @@ export default function PlansManager() {
             useKanban: true,
             useOpenAi: true,
             useIntegrations: true,
+            notifica_mehub: false,
+            whatsapp_whatsmeow: false,
+            whatsapp_whaleys: false,
+            email: false,
+            gestor_financas: false,
+            gestor_financeiro_ia: false,
             recurrence: "MENSAL",
             isPublic: true,
             aiCredits: 0
@@ -704,6 +842,12 @@ export default function PlansManager() {
         let useKanban = data.useKanban === false ? false : true
         let useOpenAi = data.useOpenAi === false ? false : true
         let useIntegrations = data.useIntegrations === false ? false : true
+        let notifica_mehub = Boolean(data.notifica_mehub)
+        let whatsapp_whatsmeow = Boolean(data.whatsapp_whatsmeow)
+        let whatsapp_whaleys = Boolean(data.whatsapp_whaleys)
+        let email = Boolean(data.email)
+        let gestor_financas = Boolean(data.gestor_financas)
+        let gestor_financeiro_ia = Boolean(data.gestor_financeiro_ia)
 
         setRecord({
             id: data.id,
@@ -722,6 +866,12 @@ export default function PlansManager() {
             useKanban,
             useOpenAi,
             useIntegrations,
+            notifica_mehub,
+            whatsapp_whatsmeow,
+            whatsapp_whaleys,
+            email,
+            gestor_financas,
+            gestor_financeiro_ia,
             recurrence: data.recurrence || "MENSAL",
             isPublic: data.isPublic,
             aiCredits: data.aiCredits || 0

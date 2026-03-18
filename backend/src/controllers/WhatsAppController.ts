@@ -22,6 +22,7 @@ import UpdateWhatsAppServiceAdmin from "../services/WhatsappService/UpdateWhatsA
 import ListAllWhatsAppsService from "../services/WhatsappService/ListAllWhatsAppService";
 import ListFilterWhatsAppsService from "../services/WhatsappService/ListFilterWhatsAppsService";
 import User from "../models/User";
+import { getPlanChannelLabel, isPlanChannelEnabled } from "../helpers/planChannelRules";
 
 interface WhatsappData {
   name: string;
@@ -60,6 +61,7 @@ interface WhatsappData {
   queueIdImportMessages?: number;
   flowIdNotPhrase?: number;
   flowIdWelcome?: number;
+  channel?: string;
 }
 
 interface QueryParams {
@@ -120,14 +122,15 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     collectiveVacationStart,
     queueIdImportMessages,
     flowIdNotPhrase,
-    flowIdWelcome
+    flowIdWelcome,
+    channel = "whatsapp"
   }: WhatsappData = req.body;
   const { companyId } = req.user;
 
   const company = await ShowCompanyService(companyId)
   const plan = await ShowPlanService(company.planId);
 
-  if (!plan.useWhatsapp) {
+  if (!isPlanChannelEnabled(plan, { channel })) {
     return res.status(400).json({
       error: "Você não possui permissão para acessar este recurso!"
     });
@@ -173,7 +176,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     collectiveVacationStart,
     queueIdImportMessages,
     flowIdNotPhrase,
-    flowIdWelcome
+    flowIdWelcome,
+    channel
   });
 
   StartWhatsAppSession(whatsapp, companyId);
@@ -212,6 +216,15 @@ export const storeFacebook = async (
       addInstagram: boolean;
     } = req.body;
     const { companyId } = req.user;
+    const company = await ShowCompanyService(companyId);
+    const plan = await ShowPlanService(company.planId);
+    const requestedChannel = addInstagram ? "instagram" : "facebook";
+
+    if (!isPlanChannelEnabled(plan, { channel: requestedChannel })) {
+      return res.status(400).json({
+        error: `Seu plano nÃ£o possui permissÃ£o para ${getPlanChannelLabel({ channel: requestedChannel })}.`
+      });
+    }
 
     // const company = await ShowCompanyService(companyId)
     // const plan = await ShowPlanService(company.planId);

@@ -24,7 +24,13 @@ const ListCompaniesPlanService = async (): Promise<Company[]> => {
           "useExternalApi",
           "useKanban",
           "useOpenAi",
-          "useIntegrations"
+          "useIntegrations",
+          "notifica_mehub",
+          "whatsapp_whatsmeow",
+          "whatsapp_whaleys",
+          "email",
+          "gestor_financas",
+          "gestor_financeiro_ia"
         ]
       },
     ]

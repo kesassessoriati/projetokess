@@ -1,7 +1,8 @@
 import { FindOptions } from "sequelize/types";
-import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
-import Prompt from "../../models/Prompt";
+import Company from "../../models/Company";
+import Plan from "../../models/Plan";
+import { isPlanChannelEnabled } from "../../helpers/planChannelRules";
 
 interface Request {
   companyId: number;
@@ -14,6 +15,14 @@ const ListFilterWhatsAppsService = async ({
   companyId,
   channel = "whatsapp"
 }: Request): Promise<Whatsapp[]> => {
+  const company = await Company.findByPk(companyId, {
+    include: [{ model: Plan, as: "plan" }]
+  });
+
+  if (!isPlanChannelEnabled(company?.plan, { channel })) {
+    return [];
+  }
+
   const options: FindOptions = {
     where: {
       companyId,
@@ -27,7 +36,12 @@ const ListFilterWhatsAppsService = async ({
 
   const whatsapps = await Whatsapp.findAll(options);
 
-  return whatsapps;
+  return whatsapps.filter(whatsapp =>
+    isPlanChannelEnabled(company?.plan, {
+      channel: whatsapp.channel,
+      notificameHub: whatsapp.notificameHub
+    })
+  );
 };
 
 

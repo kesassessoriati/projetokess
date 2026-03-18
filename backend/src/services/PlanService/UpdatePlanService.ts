@@ -19,6 +19,12 @@ interface PlanData {
   useKanban?: boolean;
   useOpenAi?: boolean;
   useIntegrations?: boolean;
+  notifica_mehub?: boolean;
+  whatsapp_whatsmeow?: boolean;
+  whatsapp_whaleys?: boolean;
+  email?: boolean;
+  gestor_financas?: boolean;
+  gestor_financeiro_ia?: boolean;
   isPublic?: boolean;
 }
 

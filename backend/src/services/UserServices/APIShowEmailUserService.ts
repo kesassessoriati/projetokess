@@ -31,7 +31,13 @@ const APIShowEmailUserService = async (email: string): Promise<User> => {
                 "useExternalApi",
                 "useIntegrations",
                 "useOpenAi",
-                "useKanban"
+                "useKanban",
+                "notifica_mehub",
+                "whatsapp_whatsmeow",
+                "whatsapp_whaleys",
+                "email",
+                "gestor_financas",
+                "gestor_financeiro_ia"
               ]
             },
           ]

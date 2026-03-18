@@ -80,6 +80,30 @@ class Plan extends Model<Plan> {
   @Column
   useIntegrations: boolean;
 
+  @Default(false)
+  @Column
+  notifica_mehub: boolean;
+
+  @Default(false)
+  @Column
+  whatsapp_whatsmeow: boolean;
+
+  @Default(false)
+  @Column
+  whatsapp_whaleys: boolean;
+
+  @Default(false)
+  @Column
+  email: boolean;
+
+  @Default(false)
+  @Column
+  gestor_financas: boolean;
+
+  @Default(false)
+  @Column
+  gestor_financeiro_ia: boolean;
+
   @Default(true)
   @Column
   isPublic: boolean;

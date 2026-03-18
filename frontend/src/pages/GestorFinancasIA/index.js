@@ -1,5 +1,7 @@
 import React from "react";
 import { makeStyles } from "@material-ui/core/styles";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
+import ForbiddenPage from "../../components/ForbiddenPage";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -33,6 +35,15 @@ const useStyles = makeStyles((theme) => ({
 
 const GestorFinancasIA = () => {
     const classes = useStyles();
+    const { loading, gestor_financeiro_ia } = usePlanPermissions();
+
+    if (loading) {
+        return null;
+    }
+
+    if (!loading && !gestor_financeiro_ia) {
+        return <ForbiddenPage />;
+    }
 
     return (
         <div className={classes.root}>

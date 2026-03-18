@@ -823,7 +823,12 @@ const LoggedInLayout = ({ children }) => {
   const location = useLocation();
 
   const { user, handleLogout, loading, isMobileSession } = useContext(AuthContext);
-  const { planActive, loading: planLoading } = usePlanPermissions();
+  const {
+    planActive,
+    loading: planLoading,
+    gestor_financas,
+    gestor_financeiro_ia,
+  } = usePlanPermissions();
   const { showAlert } = useSystemAlert();
 
   // Verificar se está no modo mobile app (via URL params)
@@ -1143,34 +1148,66 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
     ],
-    [planActive, location.pathname]
+    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia]
   );
 
   const isAdmin = user?.profile === "admin";
   const isSuperAdmin = isAdmin && user?.companyId === 1;
 
   const filteredMenuGroups = useMemo(() => {
+    const applyPlanVisibility = (group) => {
+      if (!group) return null;
+
+      if (group.title === "Gestor Finanças") {
+        if (!gestor_financas) {
+          return null;
+        }
+
+        const financeChildren = (group.children || []).filter((child) => {
+          if (child.path === "/gestor-financas/gestor-financeiro-ia") {
+            return gestor_financeiro_ia;
+          }
+
+          return true;
+        });
+
+        if (!financeChildren.length) {
+          return null;
+        }
+
+        return { ...group, children: financeChildren };
+      }
+
+      return group;
+    };
+
     if (isAdmin) {
-      if (isSuperAdmin) return menuGroups;
+      if (isSuperAdmin) return menuGroups.map(applyPlanVisibility).filter(Boolean);
       // Admin normal: ocultar itens superAdmin
       return menuGroups
         .filter(Boolean)
         .map((group) => {
-          if (!group.children) return group;
-          const filtered = group.children.filter((child) => !child.superAdmin);
-          return { ...group, children: filtered };
-        });
+          const visibleGroup = applyPlanVisibility(group);
+          if (!visibleGroup) return null;
+          if (!visibleGroup.children) return visibleGroup;
+          const filtered = visibleGroup.children.filter((child) => !child.superAdmin);
+          return filtered.length ? { ...visibleGroup, children: filtered } : null;
+        })
+        .filter(Boolean);
     }
 
     // Para usuários comuns: Mostrar tudo, exceto grupo "Sistema" e itens adminOnly
     return menuGroups
       .filter((group) => group && group.title !== "Sistema" && !group.adminOnly)
       .map((group) => {
-        if (!group.children) return group;
-        const filtered = group.children.filter((child) => child && child.path !== "/users");
-        return { ...group, children: filtered };
-      });
-  }, [isAdmin, isSuperAdmin, menuGroups]);
+        const visibleGroup = applyPlanVisibility(group);
+        if (!visibleGroup) return null;
+        if (!visibleGroup.children) return visibleGroup;
+        const filtered = visibleGroup.children.filter((child) => child && child.path !== "/users");
+        return filtered.length ? { ...visibleGroup, children: filtered } : null;
+      })
+      .filter(Boolean);
+  }, [isAdmin, isSuperAdmin, menuGroups, gestor_financas, gestor_financeiro_ia]);
 
   const [openMenus, setOpenMenus] = useState({});
 
