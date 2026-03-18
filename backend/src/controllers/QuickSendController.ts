@@ -181,6 +181,9 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         // ─── 2. Verificar se número existe no WhatsApp (validação real) ───────────
         let remoteJid = `${normalized}@s.whatsapp.net`;
         let validatedNumber = normalized;
+        // Flag: indica se o número foi confirmado pelo WhatsApp (via onWhatsApp).
+        // Quando true, remoteJid contém o JID canônico retornado pelo servidor WhatsApp.
+        let whatsappValidated = false;
 
         try {
             logger.debug({ normalized, whatsappId }, "QuickSend: Checking number on WhatsApp");
@@ -189,6 +192,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             if (checkedNumber) {
                 validatedNumber = checkedNumber;
                 remoteJid = `${validatedNumber}@s.whatsapp.net`;
+                whatsappValidated = true;
             }
         } catch (err) {
             console.warn(`[QuickSend] Validação opcional de número falhou para ${normalized}:`, err.message);
@@ -254,10 +258,22 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             getBrazilianPhoneVariants(remoteJidNum).includes(contactRemoteJidNum) ||
             getBrazilianPhoneVariants(contactRemoteJidNum).includes(remoteJidNum);
 
+        // Quando o WhatsApp confirmou um JID canônico diferente do remoteJid armazenado
+        // (mas ainda equivalentes pelo nono dígito), devemos atualizar o remoteJid do contato
+        // para garantir que o envio vá para o destino real atual no WhatsApp.
+        // Ex: contato armazenado com "557788719888@s.whatsapp.net" mas WhatsApp retornou
+        // "5577988719888@s.whatsapp.net" → força reconciliação para atualizar só o remoteJid.
+        const canonicalJidMismatch =
+            whatsappValidated &&
+            !!contact?.remoteJid &&
+            remoteJid !== contact.remoteJid &&
+            remoteJidsAreEquivalent; // são variantes do nono dígito, não incompatíveis
+
         const shouldReconcileContact =
             !contact ||
             (!contactNumberIsEquivalent && contact.number !== validatedNumber) ||
             !remoteJidsAreEquivalent ||
+            canonicalJidMismatch ||
             (!!name && contact.name !== name);
 
         if (shouldReconcileContact) {

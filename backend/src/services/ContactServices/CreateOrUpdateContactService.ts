@@ -405,10 +405,23 @@ const CreateOrUpdateContactService = async ({
       const currentNumberIsLid = isLidNumber(contact.number || "");
       const newNumberIsReal = isRealPhoneNumber(number);
 
+      // Não sobrescreve o número armazenado se o novo número é apenas uma variante brasileira
+      // do nono dígito do número existente — ambos representam a mesma pessoa.
+      // Ex: "5577988719888" vs "557788719888" → variantes equivalentes, não corrompe.
+      const incomingIsNinthDigitVariant =
+        !currentNumberIsLid &&
+        !isLidNumber(number) &&
+        number !== contact.number &&
+        (getBrazilianPhoneVariants(number).includes(contact.number) ||
+          getBrazilianPhoneVariants(contact.number).includes(number));
+
       // Atualiza o número se:
       // 1. O número atual é um LID e temos um número real
-      // 2. Ou se o número é diferente e não é um LID
-      if ((currentNumberIsLid && newNumberIsReal) || (number !== contact.number && !isLidNumber(number))) {
+      // 2. Ou se o número é diferente, não é um LID, e não é apenas variante do nono dígito
+      if (
+        (currentNumberIsLid && newNumberIsReal) ||
+        (number !== contact.number && !isLidNumber(number) && !incomingIsNinthDigitVariant)
+      ) {
         logger.info(`Updating contact number from ${contact.number} to ${number}`);
         contact.number = number;
       }
