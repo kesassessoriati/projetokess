@@ -30,18 +30,30 @@ import api from "../services/api";
 import { toast } from "react-toastify";
 
 const useStyles = makeStyles(() => ({
-    floatingWidget: {
-        position: "fixed",
-        bottom: 20,
-        right: 20,
-        zIndex: 1200,
-        backgroundColor: "#1e1e2d",
+    sidebarWidget: {
+        backgroundColor: "rgba(0,0,0,0.2)",
         color: "#fff",
-        borderRadius: 10,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+        borderRadius: 8,
         overflow: "hidden",
         transition: "all 0.2s ease",
         userSelect: "none",
+        margin: "8px 8px 4px",
+        width: "calc(100% - 16px)",
+        boxSizing: "border-box",
+    },
+    // ── Collapsed sidebar (icon-only) view ─────────────────────────
+    collapsedView: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "6px 4px",
+        cursor: "pointer",
+        backgroundColor: "rgba(0,0,0,0.2)",
+        borderRadius: 8,
+        margin: "4px auto",
+        width: 52,
+        gap: 2,
     },
     // ── Minimized bar ──────────────────────────────────────────────
     minimizedBar: {
@@ -50,7 +62,9 @@ const useStyles = makeStyles(() => ({
         gap: 8,
         padding: "6px 10px",
         cursor: "pointer",
-        width: 210,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
     },
     miniTime: {
         fontFamily: "monospace",
@@ -82,7 +96,7 @@ const useStyles = makeStyles(() => ({
     },
     // ── Expanded widget ────────────────────────────────────────────
     expanded: {
-        width: 220,
+        width: "100%",
     },
     header: {
         display: "flex",
@@ -156,7 +170,7 @@ const playBeep = (freq = 440, duration = 200, vol = 100) => {
 const LS_STATE = (uid) => `timer_state_${uid}`;
 const LS_MINI = "timer_minimized";
 
-const ProductivityTimer = ({ userId }) => {
+const ProductivityTimer = ({ userId, collapsed }) => {
     const classes = useStyles();
 
     const [minimized, setMinimized] = useState(
@@ -405,7 +419,21 @@ const ProductivityTimer = ({ userId }) => {
     // ── Render ─────────────────────────────────────────────────────
     return (
         <>
-            <div className={classes.floatingWidget}>
+            {collapsed ? (
+                // Compact icon-only view when sidebar is collapsed (72px)
+                <Tooltip title="Cronômetro de Tarefa" placement="right">
+                    <div
+                        className={classes.collapsedView}
+                        onClick={() => setMinimized(false)}
+                    >
+                        <div className={dotClass} />
+                        <span className={classes.miniTime} style={{ fontSize: 11 }}>
+                            {formatTime(timeLeft)}
+                        </span>
+                    </div>
+                </Tooltip>
+            ) : (
+            <div className={classes.sidebarWidget}>
                 {minimized ? (
                     // ── Minimized bar ──────────────────────────────
                     <div
@@ -507,6 +535,7 @@ const ProductivityTimer = ({ userId }) => {
                     </div>
                 )}
             </div>
+            )}
 
             {/* Settings dialog */}
             <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
