@@ -723,10 +723,10 @@ const DEFAULT_FORM = {
   messagesPerDay: 20,
   minInterval: 5,
   maxInterval: 15,
-  startHour: "08:00",
-  endHour: "22:00",
+  startTime: "08:00",
+  endTime: "22:00",
   dailyRampUp: false,
-  rampUpStart: 5,
+  rampUpStartMessages: 5,
 };
 
 const SESSION_SCRIPT_MODES = [
@@ -1000,10 +1000,10 @@ function ConfigTab({ warmup, selectedId, onSaved, chips }) {
         messagesPerDay: warmup.messagesPerDay || 20,
         minInterval: warmup.minInterval || 5,
         maxInterval: warmup.maxInterval || 15,
-        startHour: warmup.startHour || "08:00",
-        endHour: warmup.endHour || "22:00",
+        startTime: warmup.startTime || "08:00",
+        endTime: warmup.endTime || "22:00",
         dailyRampUp: warmup.dailyRampUp || false,
-        rampUpStart: warmup.rampUpStart || 5,
+        rampUpStartMessages: warmup.rampUpStartMessages || 5,
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -1125,8 +1125,8 @@ function ConfigTab({ warmup, selectedId, onSaved, chips }) {
           variant="outlined"
           fullWidth
           className={classes.darkInput}
-          value={form.startHour}
-          onChange={handleChange("startHour")}
+          value={form.startTime}
+          onChange={handleChange("startTime")}
           InputLabelProps={{ shrink: true }}
         />
         <TextField
@@ -1135,8 +1135,8 @@ function ConfigTab({ warmup, selectedId, onSaved, chips }) {
           variant="outlined"
           fullWidth
           className={classes.darkInput}
-          value={form.endHour}
-          onChange={handleChange("endHour")}
+          value={form.endTime}
+          onChange={handleChange("endTime")}
           InputLabelProps={{ shrink: true }}
         />
       </Box>
@@ -1163,8 +1163,8 @@ function ConfigTab({ warmup, selectedId, onSaved, chips }) {
                 variant="outlined"
                 fullWidth
                 className={classes.darkInput}
-                value={form.rampUpStart}
-                onChange={handleChange("rampUpStart")}
+                value={form.rampUpStartMessages}
+                onChange={handleChange("rampUpStartMessages")}
                 inputProps={{ min: 1, max: 50 }}
               />
               <Box style={{ display: "flex", alignItems: "center" }}>

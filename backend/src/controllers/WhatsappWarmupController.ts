@@ -102,14 +102,34 @@ export const logs = async (req: Request, res: Response): Promise<Response> => {
 
 export const summary = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const whatsapps = await Whatsapp.findAll({
-    where: { companyId },
-    attributes: ["id", "name", "number", "status"],
-    include: [
-      { model: WhatsappWarmup, as: "warmup", required: false, include: [{ model: Chip, as: "chip", required: false }] },
-      { model: Chip, as: "chips", required: false }
-    ],
-  });
+
+  let whatsapps: Whatsapp[];
+  try {
+    whatsapps = await Whatsapp.findAll({
+      where: { companyId },
+      attributes: ["id", "name", "number", "status"],
+      include: [
+        { model: WhatsappWarmup, as: "warmup", required: false, include: [{ model: Chip, as: "chip", required: false }] },
+        { model: Chip, as: "chips", required: false }
+      ],
+    });
+  } catch (err) {
+    // Fallback: query without chip associations (handles missing DB columns from pending migrations)
+    console.warn("[WarmupSummary] Chip include failed, falling back to simple query:", (err as any)?.message);
+    try {
+      whatsapps = await Whatsapp.findAll({
+        where: { companyId },
+        attributes: ["id", "name", "number", "status"],
+        include: [
+          { model: WhatsappWarmup, as: "warmup", required: false }
+        ],
+      });
+    } catch (err2) {
+      console.error("[WarmupSummary] Fallback query also failed:", (err2 as any)?.message);
+      whatsapps = [];
+    }
+  }
+
   const result = whatsapps.map(w => ({
     whatsappId: w.id,
     name: w.name,

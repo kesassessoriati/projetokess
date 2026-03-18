@@ -52,7 +52,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const search = String(req.query.search || "").trim();
   const status = String(req.query.status || "").trim();
 
-  await syncCompanyChips(companyId, { syncChannels: true });
+  try {
+    await syncCompanyChips(companyId, { syncChannels: true });
+  } catch (syncErr) {
+    console.warn("[ChipController.index] syncCompanyChips falhou, retornando chips sem sincronizar:", (syncErr as any)?.message);
+  }
 
   const where: any = { companyId };
   if (status) where.status = status;

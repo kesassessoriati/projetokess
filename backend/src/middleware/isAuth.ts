@@ -64,7 +64,7 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
 
   // Verificação de expiração: ignorada para super admins
   if (profile !== "super" && companyId) {
-    const company = await Company.findByPk(companyId);
+    const company = await Company.findByPk(companyId, { attributes: ["id", "billing_cycle", "expiration_date"] });
     if (company && company.billing_cycle !== "unlimited" && company.expiration_date) {
       const today = moment().startOf("day");
       const expirationDate = moment(company.expiration_date).startOf("day");

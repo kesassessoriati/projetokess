@@ -82,6 +82,8 @@ module.exports = {
       type: DataTypes.TEXT,
       allowNull: false,
       defaultValue: ""
+    }).catch((err: any) => {
+      console.warn("[Migration] changeColumn Prompts.apiKey ignorado:", err?.message);
     });
 
     await queryInterface.createTable("AIUsageLogs", {
