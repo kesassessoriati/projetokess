@@ -1117,12 +1117,8 @@ const LoggedInLayout = ({ children }) => {
         icon: <SmartToyIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
-          { title: "Agente de IA", path: "/agentes" },
-          { title: "Construtor de Fluxo", path: "/flowbuilders" },
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
-          { title: "Automações", path: "/automations" },
-          { title: "Chat Agendamento", path: "/lembretes" },
         ],
       },
       {
