@@ -119,10 +119,10 @@
     "zustand": "^4.4.1"
   },
   "scripts": {
-    "start": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" react-scripts start",
-    "build": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" GENERATE_SOURCEMAP=false react-scripts build",
-    "builddev": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" react-scripts build",
-    "test": "react-scripts test",
+    "start": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" craco start",
+    "build": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" GENERATE_SOURCEMAP=false craco build",
+    "builddev": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max_old_space_size=8192\" craco build",
+    "test": "craco test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -144,6 +144,7 @@
     "@babel/core": "^7.16.0",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
     "@babel/plugin-proposal-optional-chaining": "^7.21.0",
+    "@craco/craco": "^7.1.0",
     "cross-env": "^10.1.0",
     "typescript": "^5.5.3"
   },
