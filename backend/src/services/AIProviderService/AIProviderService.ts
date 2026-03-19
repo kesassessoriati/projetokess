@@ -126,9 +126,18 @@ export const getPlanAiSnapshot = (plan?: Plan | null) => ({
     typeof plan?.aiDailyCredits === "number" ? plan.aiDailyCredits : (plan?.aiCredits || 0)
 });
 
+const SYSTEM_COMPANY_ID = 1;
+
 export const getCompanyAiSettings = async (companyId: number) => {
   const company = await loadCompanyWithPlan(companyId);
-  const preferredProviderSetting = await getProviderSetting(companyId, "aiProvider");
+
+  // Cascade: if the company has no own aiProvider setting, fall back to the system (companyId=1) setting
+  const ownProviderSetting = await getProviderSetting(companyId, "aiProvider");
+  const systemProviderSetting = companyId !== SYSTEM_COMPANY_ID
+    ? await getProviderSetting(SYSTEM_COMPANY_ID, "aiProvider")
+    : null;
+  const preferredProviderSetting = ownProviderSetting || systemProviderSetting;
+
   const ownOpenAiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.openai);
   const ownGeminiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.gemini);
   const creditInfo = await getCreditInfo(companyId);
@@ -183,7 +192,16 @@ export const resolveAIProviderConfig = async ({
     companyId,
     requestType === "crm_assistant" ? "general" : "agent"
   );
-  const selectedProvider = normalizeProvider(provider || company.aiPreferredProvider);
+
+  // Cascade provider: own setting → system (companyId=1) setting → company column → global default
+  const companyProviderSetting = await getProviderSetting(companyId, "aiProvider");
+  const systemProviderSetting = companyId !== SYSTEM_COMPANY_ID
+    ? await getProviderSetting(SYSTEM_COMPANY_ID, "aiProvider")
+    : null;
+  const selectedProvider = normalizeProvider(
+    provider || companyProviderSetting || systemProviderSetting || company.aiPreferredProvider
+  );
+
   const usageMode = resolveUsageMode(company, promptUsageMode);
   const creditInfo = await getCreditInfo(companyId);
 
@@ -211,9 +229,8 @@ export const resolveAIProviderConfig = async ({
     };
   }
 
-  const systemSettingCompanyId = 1;
   const systemKey =
-    (await getProviderSetting(systemSettingCompanyId, AI_KEY_SETTING_MAP[selectedProvider])) ||
+    (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[selectedProvider])) ||
     (selectedProvider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY);
 
   if (systemKey) {
@@ -230,7 +247,7 @@ export const resolveAIProviderConfig = async ({
 
   // Fallback: if company saved their own key but aiUsageMode was never switched to "own",
   // use the company key transparently so the assistant works regardless of mode configuration.
-  if (companyId !== systemSettingCompanyId) {
+  if (companyId !== SYSTEM_COMPANY_ID) {
     const ownKeyFallback = await getProviderSetting(companyId, AI_KEY_SETTING_MAP[selectedProvider]);
     if (ownKeyFallback) {
       return {
