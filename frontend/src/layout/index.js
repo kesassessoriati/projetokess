@@ -1055,6 +1055,13 @@ const LoggedInLayout = ({ children }) => {
         path: "/lembretes",
         icon: <ScheduleIcon style={{ fontSize: 15 }} />,
       },
+      {
+        key: "tutoriais",
+        title: "Tutoriais",
+        label: "Tutoriais",
+        path: "/helps",
+        icon: <PlayCircleOutlineIcon style={{ fontSize: 15 }} />,
+      },
     ],
     []
   );
@@ -1126,7 +1133,6 @@ const LoggedInLayout = ({ children }) => {
         icon: <HelpOutlineIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
-          { title: "Ajuda", path: "/helps" },
           { title: "Documentação", path: "/messages-api" },
         ],
       },
