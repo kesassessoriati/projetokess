@@ -25,7 +25,7 @@ import {
 import {
     Warning as WarningIcon,
     Timeline as TimelineIcon,
-    FilterList as FilterListIcon,
+    FilterList as FilterListIcon,
     Schedule as ClockIcon,
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
@@ -1119,7 +1119,10 @@ const PipelineBoard = () => {
             />
 
             {/* CRM AI Assistant FAB */}
-            <CrmAiFab onNewLead={() => { setSelectedOp(null); setUniversalModalOpen(true); }} />
+            <CrmAiFab
+                onNewLead={() => { setSelectedOp(null); setUniversalModalOpen(true); }}
+                pipelineId={selectedPipelineId || undefined}
+            />
         </Box>
     );
 };

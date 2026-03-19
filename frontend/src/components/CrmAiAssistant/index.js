@@ -9,7 +9,7 @@ import {
   Chip,
   Tooltip,
   Fade,
-  Paper,
+  Button,
 } from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
 import CloseIcon from "@material-ui/icons/Close";
@@ -18,13 +18,12 @@ import AddCommentIcon from "@mui/icons-material/AddComment";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import api from "../../services/api";
 import { toast } from "react-toastify";
-import { useHistory } from "react-router-dom";
 import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 
 const useStyles = makeStyles(() => ({
-  // Floating action button
   fab: {
     position: "fixed",
     right: 24,
@@ -101,7 +100,6 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Modal
   modalOverlay: {
     position: "fixed",
     inset: 0,
@@ -113,8 +111,8 @@ const useStyles = makeStyles(() => ({
     padding: "0 24px 24px 0",
   },
   modal: {
-    width: 420,
-    maxHeight: "80vh",
+    width: 440,
+    maxHeight: "85vh",
     backgroundColor: "#0f172a",
     borderRadius: 20,
     display: "flex",
@@ -130,6 +128,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 12,
     borderBottom: "1px solid rgba(99,102,241,0.2)",
+    flexShrink: 0,
   },
   modalHeaderIcon: {
     width: 40,
@@ -159,6 +158,19 @@ const useStyles = makeStyles(() => ({
     fontSize: "0.75rem",
     fontWeight: 600,
     whiteSpace: "nowrap",
+  },
+  pipelineBadge: {
+    backgroundColor: "rgba(34,164,93,0.15)",
+    border: "1px solid rgba(34,164,93,0.3)",
+    color: "#4ade80",
+    borderRadius: 8,
+    padding: "2px 8px",
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    maxWidth: 120,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
   messages: {
     flex: 1,
@@ -194,6 +206,7 @@ const useStyles = makeStyles(() => ({
     flexWrap: "wrap",
     gap: 6,
     padding: "8px 16px 4px",
+    flexShrink: 0,
   },
   quickChip: {
     backgroundColor: "rgba(99,102,241,0.12)",
@@ -207,7 +220,7 @@ const useStyles = makeStyles(() => ({
     },
   },
   msgBubble: {
-    maxWidth: "85%",
+    maxWidth: "88%",
     padding: "10px 14px",
     borderRadius: 14,
     fontSize: "0.85rem",
@@ -262,6 +275,33 @@ const useStyles = makeStyles(() => ({
     "0%, 80%, 100%": { transform: "translateY(0)", opacity: 0.5 },
     "40%": { transform: "translateY(-6px)", opacity: 1 },
   },
+  actionBlock: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(99,102,241,0.08)",
+    border: "1px solid rgba(99,102,241,0.3)",
+    borderRadius: 12,
+    padding: "10px 14px",
+    maxWidth: "88%",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  actionTitle: {
+    color: "#a5b4fc",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  actionDesc: {
+    color: "#cbd5e1",
+    fontSize: "0.82rem",
+    lineHeight: 1.4,
+  },
+  actionBtns: {
+    display: "flex",
+    gap: 8,
+  },
   noCreditsBar: {
     backgroundColor: "rgba(239,68,68,0.12)",
     border: "1px solid rgba(239,68,68,0.25)",
@@ -272,6 +312,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+    flexShrink: 0,
   },
   noCreditsText: {
     color: "#fca5a5",
@@ -284,6 +325,7 @@ const useStyles = makeStyles(() => ({
     display: "flex",
     gap: 8,
     alignItems: "flex-end",
+    flexShrink: 0,
   },
   input: {
     flex: 1,
@@ -314,19 +356,93 @@ const QUICK_PROMPTS = [
   "Como está meu pipeline?",
   "Quais leads devo priorizar?",
   "Leads com SLA atrasado",
-  "Como estão minhas metas?",
+  "Leads para fechar hoje",
   "Resumo do dia",
 ];
 
-const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
+// Regex para extrair blocos de ação da resposta da IA
+const ACTION_REGEX = /\[AÇÃO\]([\s\S]*?)\[\/AÇÃO\]/g;
+
+const parseActions = (text) => {
+  const actions = [];
+  let match;
+  ACTION_REGEX.lastIndex = 0;
+  while ((match = ACTION_REGEX.exec(text)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      actions.push(parsed);
+    } catch (_) {}
+  }
+  return actions;
+};
+
+const stripActionBlocks = (text) => text.replace(/\[AÇÃO\][\s\S]*?\[\/AÇÃO\]/g, "").trim();
+
+const actionLabel = (action) => {
+  switch (action.type) {
+    case "move_lead":
+      return `Mover "${action.leadName || `Lead #${action.leadId}`}" para "${action.stageName}"`;
+    case "add_note":
+      return `Adicionar nota em "${action.leadName || `Lead #${action.leadId}`}"`;
+    case "mark_won":
+      return `Marcar "${action.leadName || `Lead #${action.leadId}`}" como GANHO`;
+    case "mark_lost":
+      return `Marcar "${action.leadName || `Lead #${action.leadId}`}" como PERDIDO`;
+    default:
+      return "Executar ação";
+  }
+};
+
+const ActionBlock = ({ action, onConfirm, onDismiss, loading }) => {
   const classes = useStyles();
-  const history = useHistory();
+  return (
+    <div className={classes.actionBlock}>
+      <Typography className={classes.actionTitle}>Ação Sugerida pela IA</Typography>
+      <Typography className={classes.actionDesc}>{actionLabel(action)}</Typography>
+      {action.note && (
+        <Typography style={{ color: "#94a3b8", fontSize: "0.78rem", fontStyle: "italic" }}>
+          "{action.note}"
+        </Typography>
+      )}
+      {action.reason && (
+        <Typography style={{ color: "#94a3b8", fontSize: "0.78rem" }}>
+          Motivo: {action.reason}
+        </Typography>
+      )}
+      <div className={classes.actionBtns}>
+        <Button
+          size="small"
+          variant="contained"
+          disabled={loading}
+          style={{ backgroundColor: "#4f46e5", color: "#fff", textTransform: "none", borderRadius: 8, fontSize: "0.78rem" }}
+          onClick={() => onConfirm(action)}
+          startIcon={loading ? <CircularProgress size={14} style={{ color: "#fff" }} /> : <CheckCircleOutlineIcon fontSize="small" />}
+        >
+          Confirmar
+        </Button>
+        <Button
+          size="small"
+          disabled={loading}
+          style={{ color: "#64748b", textTransform: "none", borderRadius: 8, fontSize: "0.78rem" }}
+          onClick={() => onDismiss(action)}
+        >
+          Ignorar
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const CrmAiAssistant = ({ open, onClose, onNewLead, pipelineId }) => {
+  const classes = useStyles();
   const messagesEndRef = useRef(null);
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [creditInfo, setCreditInfo] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null); // actionId sendo executado
+  const [dismissedActions, setDismissedActions] = useState(new Set());
 
   const loadCredits = useCallback(async () => {
     try {
@@ -355,12 +471,28 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
 
     setInputText("");
     const userMsg = { role: "user", text: trimmed, time: new Date() };
-    setMessages(prev => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
-      const { data } = await api.post("/crm-ai/chat", { message: trimmed });
-      setMessages(prev => [...prev, { role: "ai", text: data.reply, time: new Date() }]);
+      // Monta histórico para memória multi-turn (últimas 10 mensagens)
+      const history = messages.slice(-10).map((m) => ({ role: m.role, text: m.text }));
+
+      const { data } = await api.post("/crm-ai/chat", {
+        message: trimmed,
+        pipelineId: pipelineId || undefined,
+        history,
+      });
+
+      const reply = data.reply || "";
+      const actions = parseActions(reply);
+      const cleanText = actions.length > 0 ? stripActionBlocks(reply) : reply;
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", text: cleanText, time: new Date(), actions },
+      ]);
       if (data.creditInfo) setCreditInfo(data.creditInfo);
     } catch (err) {
       const errData = err?.response?.data;
@@ -370,25 +502,53 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
       let aiErrorText = "";
 
       if (errCode === "NO_CREDITS") {
-        aiErrorText = errData?.message || "⚠️ Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.";
+        aiErrorText = errData?.message || "Créditos de IA insuficientes. Contate o administrador para ampliar seu plano.";
         await loadCredits();
       } else if (errCode === "QUOTA_EXCEEDED" || httpStatus === 429) {
-        aiErrorText = errData?.message || "⚠️ Cota da API de IA esgotada. O administrador precisa verificar o plano/cobrança da chave OpenAI ou Gemini.";
+        aiErrorText = errData?.message || "Cota da API de IA esgotada. O administrador precisa verificar o plano/cobrança da chave OpenAI ou Gemini.";
       } else if (errCode === "INVALID_KEY" || httpStatus === 401) {
-        aiErrorText = errData?.message || "⚠️ Chave de API inválida. O administrador precisa verificar as configurações em Whitelabel.";
+        aiErrorText = errData?.message || "Chave de API inválida. O administrador precisa verificar as configurações em Whitelabel.";
       } else if (errCode === "NO_API_KEY" || httpStatus === 503) {
-        aiErrorText = errData?.message || "⚠️ Nenhuma chave de IA configurada. Acesse Configurações → Whitelabel para configurar a chave OpenAI ou Gemini.";
+        aiErrorText = errData?.message || "Nenhuma chave de IA configurada. Acesse Configurações → Whitelabel para configurar a chave OpenAI ou Gemini.";
       } else {
-        aiErrorText = errData?.message ? `⚠️ ${errData?.message}` : "⚠️ Erro ao consultar a IA. Tente novamente em alguns instantes.";
+        aiErrorText = errData?.message ? `${errData?.message}` : "Erro ao consultar a IA. Tente novamente em alguns instantes.";
         toast.error(errData?.message || errData?.error || "Erro ao consultar IA");
       }
 
       if (aiErrorText) {
-        setMessages(prev => [...prev, { role: "ai", text: aiErrorText, time: new Date(), isError: true }]);
+        setMessages((prev) => [...prev, { role: "ai", text: aiErrorText, time: new Date(), isError: true }]);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmAction = async (action, msgIndex) => {
+    const actionKey = `${msgIndex}-${action.type}-${action.leadId}`;
+    setActionLoading(actionKey);
+
+    try {
+      await api.post("/crm-ai/action", {
+        type: action.type,
+        leadId: action.leadId,
+        stageId: action.stageId,
+        note: action.note,
+        reason: action.reason,
+      });
+      toast.success("Ação executada com sucesso!");
+      // Marca como executada removendo das mensagens
+      setDismissedActions((prev) => new Set([...prev, actionKey]));
+    } catch (err) {
+      const msg = err?.response?.data?.error || "Erro ao executar ação";
+      toast.error(msg);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDismissAction = (action, msgIndex) => {
+    const actionKey = `${msgIndex}-${action.type}-${action.leadId}`;
+    setDismissedActions((prev) => new Set([...prev, actionKey]));
   };
 
   const handleKeyDown = (e) => {
@@ -396,6 +556,11 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    setDismissedActions(new Set());
   };
 
   const hasNoCredits = creditInfo && creditInfo.allowed > 0 && !creditInfo.hasCredits;
@@ -416,18 +581,33 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
             <div className={classes.modalHeaderIcon}>
               <SmartToyIcon style={{ color: "#e0e7ff", fontSize: 22 }} />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Typography className={classes.modalTitle}>Assistente CRM IA</Typography>
-              <Typography className={classes.modalSubtitle}>Análises e sugestões em tempo real</Typography>
+              <Typography className={classes.modalSubtitle}>
+                {pipelineId ? `Pipeline #${pipelineId} selecionado` : "Análises e sugestões em tempo real"}
+              </Typography>
             </div>
+            {pipelineId && (
+              <span className={classes.pipelineBadge}>Pipeline ativo</span>
+            )}
             <span className={classes.creditsBadge}>{creditsLabel}</span>
             <Tooltip title="Novo chat">
-              <IconButton size="small" onClick={() => setMessages([])} style={{ color: "#94a3b8", marginLeft: 4 }} disabled={messages.length === 0}>
+              <IconButton
+                size="small"
+                onClick={handleClearChat}
+                style={{ color: "#94a3b8", marginLeft: 4 }}
+                disabled={messages.length === 0}
+              >
                 <AddCommentIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Limpar conversa">
-              <IconButton size="small" onClick={() => setMessages([])} style={{ color: "#94a3b8" }} disabled={messages.length === 0}>
+              <IconButton
+                size="small"
+                onClick={handleClearChat}
+                style={{ color: "#94a3b8" }}
+                disabled={messages.length === 0}
+              >
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -443,19 +623,49 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
                 <div className={classes.welcomeIcon}>✨</div>
                 <Typography className={classes.welcomeTitle}>Olá! Sou seu assistente de CRM</Typography>
                 <Typography className={classes.welcomeSubtitle}>
-                  Posso analisar seu pipeline, identificar oportunidades e sugerir próximas ações baseadas nos seus dados.
+                  Posso analisar seu pipeline, identificar oportunidades, sugerir próximas ações e até mover leads entre estágios.
                 </Typography>
               </div>
             )}
 
             {messages.map((msg, i) => (
-              <Box key={i} style={{ display: "flex", flexDirection: "column" }}>
-                <div className={`${classes.msgBubble} ${msg.role === "user" ? classes.msgUser : msg.isError ? classes.msgError : classes.msgAi}`}>
-                  {msg.text.split("\n").map((line, j) => (
-                    <span key={j}>{line}{j < msg.text.split("\n").length - 1 && <br />}</span>
-                  ))}
-                </div>
-                <Typography className={classes.msgTime} style={{ alignSelf: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              <Box key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {/* Bolha da mensagem */}
+                {msg.text && (
+                  <div
+                    className={`${classes.msgBubble} ${
+                      msg.role === "user" ? classes.msgUser : msg.isError ? classes.msgError : classes.msgAi
+                    }`}
+                  >
+                    {msg.text.split("\n").map((line, j) => (
+                      <span key={j}>
+                        {line}
+                        {j < msg.text.split("\n").length - 1 && <br />}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Blocos de ação sugeridos pela IA */}
+                {msg.actions && msg.actions.length > 0 &&
+                  msg.actions.map((action, ai) => {
+                    const actionKey = `${i}-${action.type}-${action.leadId}`;
+                    if (dismissedActions.has(actionKey)) return null;
+                    return (
+                      <ActionBlock
+                        key={ai}
+                        action={action}
+                        loading={actionLoading === actionKey}
+                        onConfirm={(a) => handleConfirmAction(a, i)}
+                        onDismiss={(a) => handleDismissAction(a, i)}
+                      />
+                    );
+                  })}
+
+                <Typography
+                  className={classes.msgTime}
+                  style={{ alignSelf: msg.role === "user" ? "flex-end" : "flex-start" }}
+                >
                   {msg.time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                 </Typography>
               </Box>
@@ -516,7 +726,11 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
               disabled={loading || !inputText.trim() || hasNoCredits}
               size="small"
             >
-              {loading ? <CircularProgress size={18} style={{ color: "#a5b4fc" }} /> : <SendIcon fontSize="small" />}
+              {loading ? (
+                <CircularProgress size={18} style={{ color: "#a5b4fc" }} />
+              ) : (
+                <SendIcon fontSize="small" />
+              )}
             </IconButton>
           </div>
         </div>
@@ -525,7 +739,7 @@ const CrmAiAssistant = ({ open, onClose, onNewLead }) => {
   );
 };
 
-export const CrmAiFab = ({ onNewLead }) => {
+export const CrmAiFab = ({ onNewLead, pipelineId }) => {
   const classes = useStyles();
   const permissions = usePlanPermissions();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -533,7 +747,6 @@ export const CrmAiFab = ({ onNewLead }) => {
   const [pendingCount] = useState(0);
   const menuRef = useRef(null);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -556,7 +769,6 @@ export const CrmAiFab = ({ onNewLead }) => {
   return (
     <>
       <div className={classes.fab} ref={menuRef}>
-        {/* Menu items */}
         {menuOpen && (
           <Fade in={menuOpen}>
             <div className={classes.fabMenu}>
@@ -565,18 +777,32 @@ export const CrmAiFab = ({ onNewLead }) => {
                   <SmartToyIcon style={{ color: "#fff", fontSize: 20 }} />
                 </div>
                 <div>
-                  <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>Assistente IA</Typography>
-                  <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>Análise e sugestões</Typography>
+                  <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                    Assistente IA
+                  </Typography>
+                  <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                    Análise e sugestões
+                  </Typography>
                 </div>
               </div>
               {onNewLead && (
-                <div className={classes.fabMenuItem} onClick={() => { setMenuOpen(false); onNewLead(); }}>
+                <div
+                  className={classes.fabMenuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onNewLead();
+                  }}
+                >
                   <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
                     <PersonAddIcon style={{ color: "#fff", fontSize: 20 }} />
                   </div>
                   <div>
-                    <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>Novo Lead</Typography>
-                    <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>Adicionar contato</Typography>
+                    <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                      Novo Lead
+                    </Typography>
+                    <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                      Adicionar contato
+                    </Typography>
                   </div>
                 </div>
               )}
@@ -584,16 +810,10 @@ export const CrmAiFab = ({ onNewLead }) => {
           </Fade>
         )}
 
-        {/* Main FAB button */}
         <Tooltip title="Ações do CRM" placement="left">
-          <button
-            className={classes.fabBtn}
-            onClick={() => setMenuOpen(prev => !prev)}
-          >
+          <button className={classes.fabBtn} onClick={() => setMenuOpen((prev) => !prev)}>
             <AutoAwesomeIcon style={{ color: "#fff", fontSize: 24 }} />
-            {pendingCount > 0 && (
-              <span className={classes.fabBadge}>{pendingCount}</span>
-            )}
+            {pendingCount > 0 && <span className={classes.fabBadge}>{pendingCount}</span>}
           </button>
         </Tooltip>
       </div>
@@ -602,6 +822,7 @@ export const CrmAiFab = ({ onNewLead }) => {
         open={chatOpen}
         onClose={() => setChatOpen(false)}
         onNewLead={onNewLead}
+        pipelineId={pipelineId}
       />
     </>
   );
