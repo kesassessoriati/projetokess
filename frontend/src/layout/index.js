@@ -1048,6 +1048,13 @@ const LoggedInLayout = ({ children }) => {
         activePaths: ["/automations"],
         icon: <FlashOnIcon style={{ fontSize: 15 }} />,
       },
+      {
+        key: "chat-agendamento",
+        title: "Chat Agendamento",
+        label: "Chat Agendamento",
+        path: "/lembretes",
+        icon: <ScheduleIcon style={{ fontSize: 15 }} />,
+      },
     ],
     []
   );
