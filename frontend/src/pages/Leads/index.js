@@ -303,6 +303,7 @@ const Leads = () => {
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [exportConfirmModalOpen, setExportConfirmModalOpen] = useState(false);
   const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
   const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
   const [users, setUsers] = useState([]);
@@ -520,6 +521,15 @@ const Leads = () => {
       </ConfirmationModal>
 
       <ConfirmationModal
+        open={exportConfirmModalOpen}
+        onClose={() => setExportConfirmModalOpen(false)}
+        title="Exportar leads"
+        onConfirm={handleExportLeads}
+      >
+        Isso exportará todos os leads retornados pelos filtros atuais. Deseja continuar com a exportação?
+      </ConfirmationModal>
+
+      <ConfirmationModal
         open={confirmBulkDeleteOpen}
         onClose={() => setConfirmBulkDeleteOpen(false)}
         title="Excluir leads selecionados"
@@ -616,7 +626,7 @@ const Leads = () => {
             color="primary"
             style={{ marginRight: 8 }}
             startIcon={<CloudDownloadIcon />}
-            onClick={handleExportLeads}
+            onClick={() => setExportConfirmModalOpen(true)}
           >
             Exportar Leads
 
