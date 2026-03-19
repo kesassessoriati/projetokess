@@ -27,11 +27,11 @@ const getSettingCascade = async (
 const getCrmAiSystemPrompt = async (companyId: number): Promise<string> => {
   const custom = await getSettingCascade(companyId, "crmAiSystemPrompt");
   if (custom && custom.trim()) return custom.trim();
-  return `VocÃª Ã© o Assistente CRM IA, um especialista em vendas e gestÃ£o de pipeline.
-Responda de forma objetiva, prÃ¡tica e em portuguÃªs brasileiro.
+  return `Você é o Assistente CRM IA, um especialista em vendas e gestão de pipeline.
+Responda de forma objetiva, prática e em português brasileiro.
 Use os dados do CRM abaixo para contextualizar suas respostas.
-OfereÃ§a insights acionÃ¡veis e dicas de vendas baseadas nos dados disponÃ­veis.
-Seja direto e evite respostas genÃ©ricas.`;
+Ofereça insights acionáveis e dicas de vendas baseadas nos dados disponíveis.
+Seja direto e evite respostas genéricas.`;
 };
 
 const buildCrmContext = async (companyId: number): Promise<string> => {
@@ -74,11 +74,11 @@ Contexto do CRM:
 - Leads perdidos: ${lostLeads}
 - Valor total em pipeline: R$ ${totalValue.toFixed(2)}
 - Valor convertido (ganhos): R$ ${wonValue.toFixed(2)}
-- Leads com SLA atrasado (sem atualizaÃ§Ã£o hÃ¡ +3 dias): ${slaDelayed}
-- Taxa de conversÃ£o: ${totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : 0}%
+- Leads com SLA atrasado (sem atualização há +3 dias): ${slaDelayed}
+- Taxa de conversão: ${totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : 0}%
 `;
   } catch {
-    return "Contexto do CRM indisponÃ­vel no momento.";
+    return "Contexto do CRM indisponível no momento.";
   }
 };
 
@@ -93,7 +93,7 @@ export const credits = async (req: Request, res: Response): Promise<Response> =>
       planInfo: info.planInfo
     });
   } catch {
-    return res.status(500).json({ error: "Erro ao consultar crÃ©ditos" });
+    return res.status(500).json({ error: "Erro ao consultar créditos" });
   }
 };
 
@@ -102,7 +102,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
   const { message } = req.body;
 
   if (!message || typeof message !== "string" || message.trim().length === 0) {
-    return res.status(400).json({ error: "Mensagem invÃ¡lida" });
+    return res.status(400).json({ error: "Mensagem inválida" });
   }
 
   const companyAiSettings = await getCompanyAiSettings(companyId);
@@ -172,7 +172,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
     if (err.statusCode === 402 || apiMessage === "NO_CREDITS") {
       return res.status(402).json({
         error: "NO_CREDITS",
-        message: "CrÃ©ditos de IA insuficientes. Contate o administrador.",
+        message: "Créditos de IA insuficientes. Contate o administrador.",
         creditInfo: companyAiSettings.creditInfo
       });
     }
@@ -187,14 +187,14 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
     if (apiStatus === 401 || apiMessage.includes("401") || apiMessage.includes("Incorrect API key") || apiMessage.includes("invalid_api_key")) {
       return res.status(401).json({
         error: "INVALID_KEY",
-        message: "Chave de API invÃ¡lida. Revise a configuraÃ§Ã£o de IA da empresa."
+        message: "Chave de API inválida. Revise a configuração de IA da empresa."
       });
     }
 
     if (apiMessage.includes("configurada") || apiMessage.includes("configurada.")) {
       return res.status(503).json({
         error: "NO_API_KEY",
-        message: "Nenhuma chave de IA disponÃ­vel para este provedor."
+        message: "Nenhuma chave de IA disponível para este provedor."
       });
     }
 

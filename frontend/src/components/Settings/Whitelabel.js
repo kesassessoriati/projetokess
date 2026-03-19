@@ -1016,7 +1016,7 @@ export default function Whitelabel(props) {
                     style={{ backgroundColor: "#ffffff" }}
                   >
                     <MenuItem value="openai">OpenAI (GPT-4o mini)</MenuItem>
-                    <MenuItem value="gemini">Google Gemini (gemini-1.5-flash)</MenuItem>
+                    <MenuItem value="gemini">Google Gemini (gemini-2.5-flash)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

@@ -139,7 +139,7 @@ export const getCompanyAiSettings = async (companyId: number) => {
     companyId,
     usageMode: resolveCompanyUsageMode(company),
     preferredProvider: normalizeProvider(
-      company.aiPreferredProvider || preferredProviderSetting || DEFAULT_SYSTEM_PROVIDER
+      preferredProviderSetting || company.aiPreferredProvider || DEFAULT_SYSTEM_PROVIDER
     ),
     ownKeys: {
       openai: ownOpenAiKey,
