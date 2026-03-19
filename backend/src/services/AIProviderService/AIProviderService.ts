@@ -216,22 +216,39 @@ export const resolveAIProviderConfig = async ({
     (await getProviderSetting(systemSettingCompanyId, AI_KEY_SETTING_MAP[selectedProvider])) ||
     (selectedProvider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY);
 
-  if (!systemKey) {
-    throw new AppError(
-      `Nenhuma chave de sistema ${selectedProvider === "gemini" ? "Google Gemini" : "OpenAI"} foi configurada.`,
-      503
-    );
+  if (systemKey) {
+    return {
+      provider: selectedProvider,
+      usageMode,
+      apiKey: systemKey,
+      shouldConsumeCredits: true,
+      creditInfo,
+      plan: company.plan || null,
+      company
+    };
   }
 
-  return {
-    provider: selectedProvider,
-    usageMode,
-    apiKey: systemKey,
-    shouldConsumeCredits: true,
-    creditInfo,
-    plan: company.plan || null,
-    company
-  };
+  // Fallback: if company saved their own key but aiUsageMode was never switched to "own",
+  // use the company key transparently so the assistant works regardless of mode configuration.
+  if (companyId !== systemSettingCompanyId) {
+    const ownKeyFallback = await getProviderSetting(companyId, AI_KEY_SETTING_MAP[selectedProvider]);
+    if (ownKeyFallback) {
+      return {
+        provider: selectedProvider,
+        usageMode: "own",
+        apiKey: ownKeyFallback,
+        shouldConsumeCredits: false,
+        creditInfo,
+        plan: company.plan || null,
+        company
+      };
+    }
+  }
+
+  throw new AppError(
+    `Nenhuma chave de sistema ${selectedProvider === "gemini" ? "Google Gemini" : "OpenAI"} foi configurada.`,
+    503
+  );
 };
 
 export const registerAIUsage = async ({

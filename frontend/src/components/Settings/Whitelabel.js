@@ -234,6 +234,7 @@ export default function Whitelabel(props) {
       const openaiApiKey = settings.find((s) => s.key === "openaiApiKey")?.value;
       const geminiApiKey = settings.find((s) => s.key === "geminiApiKey")?.value;
       const aiProvider = settings.find((s) => s.key === "aiProvider")?.value;
+      const crmAiSystemPrompt = settings.find((s) => s.key === "crmAiSystemPrompt")?.value;
       const verifyToken = settings.find((s) => s.key === "verifyToken")?.value;
       const facebookAppId = settings.find((s) => s.key === "facebookAppId")?.value;
       const facebookAppSecret = settings.find((s) => s.key === "facebookAppSecret")?.value;
@@ -254,13 +255,14 @@ export default function Whitelabel(props) {
       setOpenaiApiKey(openaiApiKey || "");
       setGeminiApiKey(geminiApiKey || "");
       setAiProvider(aiProvider || "openai");
+      setCrmAiSystemPrompt(crmAiSystemPrompt || "");
       setVerifyToken(verifyToken || "");
       setFacebookAppId(facebookAppId || "");
       setFacebookAppSecret(facebookAppSecret || "");
       setGoogleClientId(googleClientId || "");
       setGoogleClientSecret(googleClientSecret || "");
       setGoogleRedirectUri(googleRedirectUri || "");
-      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
+      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);

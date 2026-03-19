@@ -5,6 +5,7 @@ import AppError from "../errors/AppError";
 
 import { head } from "lodash";
 import User from "../models/User";
+import Company from "../models/Company";
 import UpdateSettingService from "../services/SettingServices/UpdateSettingService";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import ListSettingsServiceOne from "../services/SettingServices/ListSettingsServiceOne";
@@ -81,6 +82,13 @@ export const update = async (
     value,
     companyId
   });
+
+  // When a company saves their own API key with a real value, mark them as using "own" mode
+  // so resolveAIProviderConfig picks up the key they just saved.
+  const AI_KEY_FIELDS = ["openaiApiKey", "geminiApiKey"];
+  if (AI_KEY_FIELDS.includes(key) && value && value.trim() && !value.includes("****")) {
+    await Company.update({ aiUsageMode: "own" }, { where: { id: companyId } }).catch(() => undefined);
+  }
 
   const io = getIO();
   io.of(String(companyId))
