@@ -150,6 +150,22 @@ class CompaniesSettings extends Model<CompaniesSettings> {
   @Default(0.85)
   @Column(DataType.FLOAT)
   aiConfidenceThreshold: number;
+
+  @Default(false)
+  @Column
+  kanbanAutomationCompilerEnabled: boolean;
+
+  @Default(true)
+  @Column
+  kanbanAutomationShadowMode: boolean;
+
+  @Default(false)
+  @Column
+  kanbanAutomationActiveMode: boolean;
+
+  @Default(true)
+  @Column
+  kanbanAutomationLegacyFallbackEnabled: boolean;
 }
 
 export default CompaniesSettings;

@@ -54,6 +54,7 @@ const CreateOpportunityService = async ({
     });
 
     await OpportunityEvent.create({
+        companyId,
         opportunityId: opportunity.id,
         type: "CREATED",
         metadata: {
@@ -68,8 +69,14 @@ const CreateOpportunityService = async ({
         opportunityId: opportunity.id,
         pipelineId: opportunity.pipelineId,
         stageId: opportunity.stageId,
+        assignedUserId: opportunity.assignedUserId,
+        contactId: opportunity.contactId,
+        ticketId: opportunity.ticketId,
+        leadId: opportunity.leadId,
         companyId: opportunity.companyId,
-        value: opportunity.value
+        status: opportunity.status,
+        value: opportunity.value,
+        createdAt: opportunity.createdAt
     }, opportunity.companyId);
 
     return opportunity;

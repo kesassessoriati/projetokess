@@ -23,9 +23,21 @@ kanbanAutomationRoutes.put(
 );
 
 kanbanAutomationRoutes.get(
+    "/kanban-automations/:id/runs",
+    isAuth,
+    KanbanAutomationController.runs
+);
+
+kanbanAutomationRoutes.get(
     "/kanban-automations/:id",
     isAuth,
     KanbanAutomationController.show
+);
+
+kanbanAutomationRoutes.get(
+    "/kanban-automation-runs/:runId",
+    isAuth,
+    KanbanAutomationController.showRun
 );
 
 kanbanAutomationRoutes.delete(

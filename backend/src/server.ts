@@ -16,6 +16,8 @@ import SLASchedulerService from "./services/PipelineServices/SLASchedulerService
 import WebhookService from "./services/PipelineServices/WebhookService";
 import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 import InitPipelineTemplatesService from "./services/PipelineServices/InitPipelineTemplatesService";
+import KanbanAutomationShadowRouterService from "./services/KanbanAutomationServices/KanbanAutomationShadowRouterService";
+import KanbanAutomationTimerSchedulerService from "./services/KanbanAutomationServices/KanbanAutomationTimerSchedulerService";
 
 if (process.env.CERTIFICADOS == "true") {
 
@@ -52,6 +54,8 @@ if (process.env.CERTIFICADOS == "true") {
     WebhookService.init();
     AIAnalyzerService.init();
     InitPipelineTemplatesService();
+    KanbanAutomationShadowRouterService.init();
+    KanbanAutomationTimerSchedulerService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -102,6 +106,8 @@ if (process.env.CERTIFICADOS == "true") {
     WebhookService.init();
     AIAnalyzerService.init();
     InitPipelineTemplatesService();
+    KanbanAutomationShadowRouterService.init();
+    KanbanAutomationTimerSchedulerService.init();
   });
 
   process.on("uncaughtException", err => {

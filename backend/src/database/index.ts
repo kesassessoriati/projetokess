@@ -125,6 +125,9 @@ import LeadAttachment from "../models/LeadAttachment";
 import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
 import KanbanAutomation from "../models/KanbanAutomation";
+import KanbanAutomationRun from "../models/KanbanAutomationRun";
+import KanbanAutomationRunAction from "../models/KanbanAutomationRunAction";
+import KanbanAutomationTimer from "../models/KanbanAutomationTimer";
 import SmtpSetting from "../models/SmtpSetting";
 import WhatsappWarmup from "../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
@@ -336,6 +339,9 @@ const models = [
   TimerTask,
   TimerSession,
   KanbanAutomation,
+  KanbanAutomationRun,
+  KanbanAutomationRunAction,
+  KanbanAutomationTimer,
   WhatsappWarmup,
   WhatsappWarmupLog,
   WhatsappWarmupSession,

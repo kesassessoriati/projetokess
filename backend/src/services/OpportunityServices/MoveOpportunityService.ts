@@ -71,7 +71,7 @@ const MoveOpportunityService = async ({
         throw err;
     }
 
-    await OpportunityMovement.create({
+    const movement = await OpportunityMovement.create({
         opportunityId,
         fromStageId,
         toStageId,
@@ -82,6 +82,7 @@ const MoveOpportunityService = async ({
     const toStage = await PipelineStage.findOne({ where: { id: toStageId } });
 
     await OpportunityEvent.create({
+        companyId,
         opportunityId,
         type: "MOVED",
         metadata: {
@@ -99,8 +100,14 @@ const MoveOpportunityService = async ({
         pipelineId: opportunity.pipelineId,
         fromStageId,
         toStageId: opportunity.stageId,
+        assignedUserId: opportunity.assignedUserId,
         companyId: opportunity.companyId,
-        value: opportunity.value
+        status: opportunity.status,
+        value: opportunity.value,
+        movementId: movement.id,
+        movedBy,
+        reason,
+        movedAt: movement.createdAt
     }, opportunity.companyId);
 
     await opportunity.reload();

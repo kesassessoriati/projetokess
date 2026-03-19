@@ -45,6 +45,31 @@ class KanbanAutomation extends Model<KanbanAutomation> {
     @Column({ defaultValue: true })
     status: boolean;
 
+    @Column({ field: "runtime_plan", type: DataType.JSONB })
+    runtimePlan: any;
+
+    @Column({ field: "runtime_plan_version" })
+    runtimePlanVersion: number;
+
+    @Column({ field: "runtime_plan_compiler_version" })
+    runtimePlanCompilerVersion: string;
+
+    @Column({ field: "runtime_plan_source_hash" })
+    runtimePlanSourceHash: string;
+
+    @Column({
+        field: "runtime_plan_status",
+        type: DataType.ENUM("STALE", "VALID", "PARTIAL", "INVALID"),
+        defaultValue: "STALE"
+    })
+    runtimePlanStatus: string;
+
+    @Column({ field: "runtime_plan_diagnostics", type: DataType.JSONB, defaultValue: [] })
+    runtimePlanDiagnostics: any[];
+
+    @Column({ field: "last_compiled_at" })
+    lastCompiledAt: Date;
+
     @CreatedAt
     createdAt: Date;
 

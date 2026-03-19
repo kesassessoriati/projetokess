@@ -1000,13 +1000,6 @@ const LoggedInLayout = ({ children }) => {
         path: "/appointments",
         icon: <CalendarMonthIcon style={{ fontSize: 17 }} />,
       },
-      {
-        key: "chat-agendamento",
-        title: "Chat Agendamento",
-        label: "Chat Agendamento",
-        path: "/lembretes",
-        icon: <ScheduleIcon style={{ fontSize: 17 }} />,
-      },
     ],
     []
   );

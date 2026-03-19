@@ -16,6 +16,7 @@ import DeleteOpportunityEventService from "../services/OpportunityServices/Delet
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
 import { ExecuteKanbanAutomationService } from "../services/KanbanAutomationServices/ExecuteKanbanAutomationService";
 import { getIO } from "../libs/socket";
+import EventBus from "../libs/EventBus";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId, contactId, ticketId } = req.query;
@@ -125,6 +126,13 @@ export const addEvent = async (req: Request, res: Response): Promise<Response> =
     const { id } = req.params;
     const { type, metadata } = req.body;
     const { companyId } = req.user;
+    const opportunity = await Opportunity.findOne({
+        where: { id, companyId }
+    });
+
+    if (!opportunity) {
+        throw new AppError("Oportunidade nÃ£o encontrada", 404);
+    }
 
     const event = await CreateOpportunityEventService({
         opportunityId: Number(id),
@@ -132,6 +140,26 @@ export const addEvent = async (req: Request, res: Response): Promise<Response> =
         type,
         metadata
     });
+
+    await EventBus.publish("OPPORTUNITY_UPDATED", {
+        opportunityId: Number(id),
+        pipelineId: opportunity.pipelineId,
+        stageId: opportunity.stageId,
+        changes: {
+            manualEvent: {
+                before: null,
+                after: {
+                    type,
+                    metadata
+                }
+            }
+        },
+        assignedUserId: opportunity.assignedUserId,
+        status: opportunity.status,
+        value: opportunity.value,
+        updatedAt: event.createdAt,
+        version: `manual:${event.id}`
+    }, companyId);
 
     return res.status(201).json(event);
 };
@@ -188,12 +216,47 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     }
 
     const updateData: any = {};
-    if (status !== undefined) updateData.status = status;
-    if (title !== undefined) updateData.title = title;
-    if (value !== undefined) updateData.value = value;
-    if (assignedUserId !== undefined) updateData.assignedUserId = assignedUserId || null;
+    const changes: Record<string, { before: any; after: any }> = {};
+    if (status !== undefined) {
+        updateData.status = status;
+        changes.status = { before: opportunity.status, after: status };
+    }
+    if (title !== undefined) {
+        updateData.title = title;
+        changes.title = { before: opportunity.title, after: title };
+    }
+    if (value !== undefined) {
+        updateData.value = value;
+        changes.value = { before: opportunity.value, after: value };
+    }
+    if (assignedUserId !== undefined) {
+        updateData.assignedUserId = assignedUserId || null;
+        changes.assignedUserId = { before: opportunity.assignedUserId, after: assignedUserId || null };
+    }
 
     await opportunity.update(updateData);
+    await opportunity.reload();
+
+    await OpportunityEvent.create({
+        opportunityId: opportunity.id,
+        companyId,
+        type: "UPDATED",
+        metadata: {
+            changes
+        }
+    });
+
+    await EventBus.publish("OPPORTUNITY_UPDATED", {
+        opportunityId: opportunity.id,
+        pipelineId: opportunity.pipelineId,
+        stageId: opportunity.stageId,
+        changes,
+        assignedUserId: opportunity.assignedUserId,
+        status: opportunity.status,
+        value: opportunity.value,
+        updatedAt: opportunity.updatedAt,
+        version: opportunity.version
+    }, companyId);
 
     ExecuteKanbanAutomationService("OPPORTUNITY_UPDATED", opportunity.id, companyId, updateData);
 
