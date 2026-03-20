@@ -34,7 +34,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#f5f5f5",
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
+    backgroundColor: "#000000",
     color: "white",
     textAlign: "center",
     padding: theme.spacing(2),
@@ -446,7 +446,7 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
             style={{
             fontSize: "12px",
             color: "white",
-            backgroundColor: "#437db5",
+            backgroundColor: "#000000",
             boxShadow: "none",
             borderRadius: 0
             }}
