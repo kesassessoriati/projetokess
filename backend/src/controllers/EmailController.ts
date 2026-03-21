@@ -99,9 +99,9 @@ export const sendLeadEmail = async (req: Request, res: Response): Promise<Respon
     }
 
     return res.status(200).json({ message: "E-mail enviado com sucesso" });
-  } catch (error) {
-    console.error("Erro ao enviar e-mail via lead:", error);
-    return res.status(500).json({ error: error.message || "Erro interno ao enviar e-mail" });
+  } catch (error: any) {
+    console.error("Erro ao enviar e-mail via lead:", error?.message || error);
+    return res.status(500).json({ error: error?.message || "Erro interno ao enviar e-mail" });
   }
 };
 

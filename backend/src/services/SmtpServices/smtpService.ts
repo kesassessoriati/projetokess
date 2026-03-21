@@ -10,13 +10,19 @@ export interface SmtpConfig {
 }
 
 export function createTransporterFromConfig(config: SmtpConfig) {
+  const port = Number(config.port);
+  const secure = port === 465 ? true : Boolean(config.secure);
   return nodemailer.createTransport({
     host: config.host.trim(),
-    port: Number(config.port),
-    secure: Boolean(config.secure),
+    port,
+    secure,
+    requireTLS: !secure, // STARTTLS obrigatório em porta 587
     auth: {
       user: config.user.trim(),
       pass: config.password.trim()
+    },
+    tls: {
+      rejectUnauthorized: true
     }
   });
 }

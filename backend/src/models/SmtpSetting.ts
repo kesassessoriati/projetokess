@@ -10,7 +10,6 @@ import {
     BelongsTo,
     ForeignKey,
     BeforeSave,
-    BeforeUpdate,
     Default
 } from "sequelize-typescript";
 import Company from "./Company";
@@ -64,7 +63,6 @@ class SmtpSetting extends Model<SmtpSetting> {
     updatedAt: Date;
 
     @BeforeSave
-    @BeforeUpdate
     static encryptPassword(instance: SmtpSetting) {
         if (instance.changed("password")) {
             const plainPassword = instance.getDataValue('password'); // Gets the raw set value
