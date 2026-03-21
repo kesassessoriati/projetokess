@@ -25,7 +25,7 @@ import {
 import {
     Warning as WarningIcon,
     Timeline as TimelineIcon,
-    FilterList as FilterListIcon,
+    FilterList as FilterListIcon,
     Schedule as ClockIcon,
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
@@ -871,16 +871,6 @@ const PipelineBoard = () => {
                                 onClick={() => history.push({ pathname: "/kanban-automations", state: { from: history.location.pathname } })}
                             >
                                 Automações
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Chat Agendamento">
-                            <Button
-                                size="small"
-                                className={classes.crmTabBtn}
-                                startIcon={<ClockIcon style={{ fontSize: 15 }} />}
-                                onClick={() => history.push({ pathname: "/lembretes", state: { from: history.location.pathname } })}
-                            >
-                                Chat Agendamento
                             </Button>
                         </Tooltip>
                         <Tooltip title="Gerenciamento de Tarefas">
