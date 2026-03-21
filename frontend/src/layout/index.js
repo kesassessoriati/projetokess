@@ -1110,6 +1110,8 @@ const LoggedInLayout = ({ children }) => {
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Financeiro", path: "/financeiro", icon: <AttachMoneyIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Gateways de Pagamento", path: "/payment-settings", icon: <TuneIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       {
         title: "Gestor Finanças",
         icon: <LocalAtmIcon />,
@@ -1141,9 +1143,7 @@ const LoggedInLayout = ({ children }) => {
         icon: <BuildIcon />,
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
-          { title: "Financeiro", path: "/financeiro" },
           { title: "Configurações", path: "/settings" },
-          { title: "Gateways de Pagamento", path: "/payment-settings", adminOnly: true },
           { title: "SMTP (E-mail)", path: "/smtp" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
