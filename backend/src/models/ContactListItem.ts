@@ -25,7 +25,8 @@ class ContactListItem extends Model<ContactListItem> {
   @Column
   name: string;
 
-  @AllowNull(false)
+  @AllowNull(true)
+  @Default("")
   @Column
   number: string;
 

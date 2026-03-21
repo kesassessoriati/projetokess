@@ -12,6 +12,7 @@ import UpdateService from "../services/CampaignService/UpdateService";
 import DeleteService from "../services/CampaignService/DeleteService";
 import FindService from "../services/CampaignService/FindService";
 import GetAnalyticsOverviewService from "../services/CampaignService/GetAnalyticsOverviewService";
+import logger from "../utils/logger";
 
 import Campaign from "../models/Campaign";
 
@@ -72,9 +73,13 @@ export const analyticsOverview = async (
 ): Promise<Response> => {
   const { companyId } = req.user;
 
-  const analytics = await GetAnalyticsOverviewService(companyId);
-
-  return res.status(200).json(analytics);
+  try {
+    const analytics = await GetAnalyticsOverviewService(companyId);
+    return res.status(200).json(analytics);
+  } catch (err: any) {
+    logger.error(`[analyticsOverview] Erro companyId=${companyId}: ${err?.message || err} | stack: ${err?.stack}`);
+    return res.status(500).json({ error: err?.message || "Erro ao carregar analytics" });
+  }
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {

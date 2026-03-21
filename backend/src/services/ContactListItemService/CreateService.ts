@@ -27,23 +27,41 @@ const CreateService = async (data: Data): Promise<ContactListItem> => {
     throw new AppError(err.message);
   }
 
+  // number é opcional: contatos podem ser apenas email (ex: campanhas de e-mail)
+  const number = data.number ? String(data.number).trim() : "";
+
+  // Para findOrCreate: se não tem número, usar email como chave única; se não tem email, usar nome
+  const whereClause: any = {
+    companyId: data.companyId,
+    contactListId: data.contactListId
+  };
+  if (number) {
+    whereClause.number = number;
+  } else if (data.email) {
+    whereClause.email = data.email;
+  } else {
+    whereClause.name = name;
+  }
+
   const [record] = await ContactListItem.findOrCreate({
-    where: {
-      number: data.number,
-      companyId: data.companyId,
-      contactListId: data.contactListId
-    },
-    defaults: data
+    where: whereClause,
+    defaults: { ...data, number }
   });
 
-  try {
-    const response = await CheckContactNumber(record.number, record.companyId);
-    record.isWhatsappValid = response ? true : false;
-    const number = response;
-    record.number = number;
-    await record.save();
-  } catch (e) {
-    logger.error(`Número de contato inválido: ${record.number}`);
+  // Validar WhatsApp apenas se houver número
+  if (number) {
+    try {
+      const response = await CheckContactNumber(number, record.companyId);
+      record.isWhatsappValid = response ? true : false;
+      if (response) record.number = response;
+      await record.save();
+    } catch (e) {
+      logger.warn(`Número de WhatsApp inválido ou não encontrado: ${number}`);
+      record.isWhatsappValid = false;
+      await record.save();
+    }
+  } else {
+    record.isWhatsappValid = false;
   }
 
   return record;
