@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -37,6 +37,8 @@ import ViewColumnIcon from "@material-ui/icons/ViewColumn";
 import ViewListIcon from "@material-ui/icons/ViewList";
 import SettingsIcon from "@material-ui/icons/Settings";
 import SaveIcon from "@material-ui/icons/Save";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import ErrorIcon from "@material-ui/icons/Error";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -563,6 +565,8 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
   const [mediaDriveStageIndex, setMediaDriveStageIndex] = useState(null);
   const [testing, setTesting] = useState(false);
   const [testNumber, setTestNumber] = useState("");
+  const [testNumberValidation, setTestNumberValidation] = useState({ status: "idle", normalizedNumber: "", error: "" });
+  const testValidationTimerRef = useRef(null);
 
   useEffect(() => {
     if (campaign) {
@@ -584,7 +588,34 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       setForm(emptyForm(boards));
     }
     setTestNumber("");
+    setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
   }, [campaign, open, boards]);
+
+  // Validação de número de teste com debounce de 800ms
+  useEffect(() => {
+    if (testValidationTimerRef.current) clearTimeout(testValidationTimerRef.current);
+    const digits = testNumber.replace(/\D/g, "");
+    if (digits.length < 10 || !form.whatsappId) {
+      setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
+      return;
+    }
+    setTestNumberValidation((prev) => ({ ...prev, status: "loading" }));
+    testValidationTimerRef.current = setTimeout(async () => {
+      try {
+        const { data } = await api.get("/quick-send/validate", {
+          params: { number: digits, whatsappId: form.whatsappId },
+        });
+        setTestNumberValidation({
+          status: data.valid ? "valid" : "invalid",
+          normalizedNumber: data.normalizedNumber || "",
+          error: data.error || "",
+        });
+      } catch {
+        setTestNumberValidation({ status: "invalid", normalizedNumber: "", error: "Erro ao validar número" });
+      }
+    }, 800);
+    return () => clearTimeout(testValidationTimerRef.current);
+  }, [testNumber, form.whatsappId]);
 
   const setField = (key, value) => setForm((p) => ({ ...p, [key]: value }));
 
@@ -713,12 +744,16 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       toast.warn("Informe um numero de teste antes de enviar");
       return;
     }
+    if (testNumberValidation.status !== "valid") {
+      toast.warn("Valide o número antes de testar. Aguarde a verificação no WhatsApp.");
+      return;
+    }
 
     try {
       setTesting(true);
       const { data } = await api.post("/follow-up-campaigns/test", {
         whatsappId: form.whatsappId || "",
-        targetNumber: testNumber,
+        targetNumber: testNumberValidation.normalizedNumber || testNumber,
         stages: normalizeFollowUpStages(form.stages),
       });
 
@@ -998,17 +1033,36 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       <DialogActions>
         <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gridGap={12} width="100%">
           <Box display="flex" alignItems="center" flexWrap="wrap" gridGap={12}>
-            <TextField
-              label="Numero de teste"
-              value={testNumber}
-              onChange={(e) => setTestNumber(e.target.value)}
-              variant="outlined"
-              size="small"
-              placeholder="+55 77 98888-8888"
-              style={{ minWidth: 260 }}
-              helperText="Numero usado exclusivamente no teste do follow-up."
-            />
-            <Button onClick={handleQuickTest} variant="outlined" disabled={testing}>
+            <Box>
+              <TextField
+                label="Numero de teste"
+                value={testNumber}
+                onChange={(e) => setTestNumber(e.target.value)}
+                variant="outlined"
+                size="small"
+                placeholder="+55 77 98888-8888"
+                style={{ minWidth: 260 }}
+                error={testNumberValidation.status === "invalid"}
+                helperText={
+                  testNumberValidation.status === "loading"
+                    ? "Validando no WhatsApp..."
+                    : "Numero usado exclusivamente no teste do follow-up."
+                }
+              />
+              {testNumberValidation.status === "valid" && (
+                <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                  <CheckCircleIcon style={{ color: "#16a34a", fontSize: 14 }} />
+                  <Typography style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>Número válido no WhatsApp ✓</Typography>
+                </Box>
+              )}
+              {testNumberValidation.status === "invalid" && (
+                <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                  <ErrorIcon style={{ color: "#dc2626", fontSize: 14 }} />
+                  <Typography style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>Número inválido — envio bloqueado ✗</Typography>
+                </Box>
+              )}
+            </Box>
+            <Button onClick={handleQuickTest} variant="outlined" disabled={testing || testNumberValidation.status !== "valid"}>
               {testing ? "Testando..." : "Testar Follow-up"}
             </Button>
           </Box>

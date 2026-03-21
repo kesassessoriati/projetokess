@@ -25,9 +25,11 @@ import {
 import {
   AttachFile as AttachFileIcon,
   Audiotrack as AudioIcon,
+  CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   Description as DocIcon,
+  Error as ErrorIcon,
   FlashOn as FlashIcon,
   Image as ImageIcon,
   Message as MessageIcon,
@@ -35,6 +37,7 @@ import {
   Videocam as VideoIcon
 } from "@material-ui/icons";
 import useWhatsApps from "../../hooks/useWhatsApps";
+import api from "../../services/api";
 import {
   createScheduledDispatcher,
   eventTypeOptions,
@@ -177,6 +180,8 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testNumber, setTestNumber] = useState("");
+  const [testNumberValidation, setTestNumberValidation] = useState({ status: "idle", normalizedNumber: "", error: "" });
+  const testValidationTimerRef = useRef(null);
 
   // Media state
   const [mediaFile, setMediaFile] = useState(null);          // new File to upload
@@ -202,6 +207,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       setSaving(false);
       setTesting(false);
       setTestNumber("");
+      setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
       setMediaFile(null);
       setMediaPreviewUrl("");
       setExistingMediaUrl(null);
@@ -213,6 +219,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
     if (!dispatcher) {
       setForm(defaultForm);
       setTestNumber("");
+      setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
       return;
     }
 
@@ -253,6 +260,32 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
     };
   }, [mediaPreviewUrl]);
+
+  // Validação de número de teste com debounce de 800ms
+  useEffect(() => {
+    if (testValidationTimerRef.current) clearTimeout(testValidationTimerRef.current);
+    const digits = testNumber.replace(/\D/g, "");
+    if (digits.length < 10 || !form.whatsappId) {
+      setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
+      return;
+    }
+    setTestNumberValidation((prev) => ({ ...prev, status: "loading" }));
+    testValidationTimerRef.current = setTimeout(async () => {
+      try {
+        const { data } = await api.get("/quick-send/validate", {
+          params: { number: digits, whatsappId: form.whatsappId },
+        });
+        setTestNumberValidation({
+          status: data.valid ? "valid" : "invalid",
+          normalizedNumber: data.normalizedNumber || "",
+          error: data.error || "",
+        });
+      } catch {
+        setTestNumberValidation({ status: "invalid", normalizedNumber: "", error: "Erro ao validar número" });
+      }
+    }, 800);
+    return () => clearTimeout(testValidationTimerRef.current);
+  }, [testNumber, form.whatsappId]);
 
   const handleChange = event => {
     const { name, value } = event.target;
@@ -354,6 +387,10 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       toast.warn("Informe um numero de teste antes de enviar.");
       return;
     }
+    if (testNumberValidation.status !== "valid") {
+      toast.warn("Valide o número antes de testar. Aguarde a verificação no WhatsApp.");
+      return;
+    }
     if (!form.whatsappId) {
       toast.warn("Selecione a conexao WhatsApp antes de testar.");
       return;
@@ -377,7 +414,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       mediaCaption: hasMedia ? form.mediaCaption : null,
       mediaUrl: !mediaFile && !removeMedia ? existingMediaUrl : null,
       mediaFile: mediaFile || undefined,
-      targetNumber: testNumber
+      targetNumber: testNumberValidation.normalizedNumber || testNumber
     };
 
     try {
@@ -739,21 +776,40 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
           width="100%"
         >
           <Box display="flex" alignItems="center" flexWrap="wrap" gridGap={12}>
-            <TextField
-              label="Numero de teste"
-              value={testNumber}
-              onChange={event => setTestNumber(event.target.value)}
-              variant="outlined"
-              size="small"
-              placeholder="+55 11 99999-9999"
-              style={{ minWidth: 260 }}
-              helperText="Numero usado exclusivamente no teste da automacao."
-              disabled={testing || saving || loading}
-            />
+            <Box>
+              <TextField
+                label="Numero de teste"
+                value={testNumber}
+                onChange={event => setTestNumber(event.target.value)}
+                variant="outlined"
+                size="small"
+                placeholder="+55 11 99999-9999"
+                style={{ minWidth: 260 }}
+                error={testNumberValidation.status === "invalid"}
+                helperText={
+                  testNumberValidation.status === "loading"
+                    ? "Validando no WhatsApp..."
+                    : "Numero usado exclusivamente no teste da automacao."
+                }
+                disabled={testing || saving || loading}
+              />
+              {testNumberValidation.status === "valid" && (
+                <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                  <CheckCircleIcon style={{ color: "#16a34a", fontSize: 14 }} />
+                  <Typography style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>Número válido no WhatsApp ✓</Typography>
+                </Box>
+              )}
+              {testNumberValidation.status === "invalid" && (
+                <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                  <ErrorIcon style={{ color: "#dc2626", fontSize: 14 }} />
+                  <Typography style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>Número inválido — envio bloqueado ✗</Typography>
+                </Box>
+              )}
+            </Box>
             <Button
               onClick={handleQuickTest}
               variant="outlined"
-              disabled={testing || saving || loading}
+              disabled={testing || saving || loading || testNumberValidation.status !== "valid"}
             >
               {testing ? "Testando..." : "Testar automacao"}
             </Button>
