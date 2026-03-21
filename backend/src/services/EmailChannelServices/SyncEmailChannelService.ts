@@ -68,12 +68,20 @@ const processChannel = async (channel: Whatsapp): Promise<{ imported: number; er
     const lock = await client.getMailboxLock("INBOX");
 
     try {
-      const sinceDate = channel.emailLastSyncAt
-        ? new Date(channel.emailLastSyncAt)
-        : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      let fetchRange: number[];
 
-      const sequence = await client.search({ since: sinceDate });
-      const fetchRange = Array.isArray(sequence) ? sequence.slice(-100) : [];
+      if (channel.emailLastUid) {
+        // Busca apenas mensagens com UID maior que o último processado
+        const sequence = await client.search({ uid: `${channel.emailLastUid + 1}:*` } as any);
+        fetchRange = Array.isArray(sequence) ? sequence : [];
+      } else {
+        // Primeira sincronização: usa data dos últimos 7 dias, limite de 100
+        const sinceDate = channel.emailLastSyncAt
+          ? new Date(channel.emailLastSyncAt)
+          : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const sequence = await client.search({ since: sinceDate });
+        fetchRange = Array.isArray(sequence) ? sequence.slice(-100) : [];
+      }
 
       for await (const msg of client.fetch(fetchRange, {
         uid: true,
@@ -178,6 +186,11 @@ const processChannel = async (channel: Whatsapp): Promise<{ imported: number; er
             unreadMessages: fromMe ? ticket.unreadMessages : (ticket.unreadMessages || 0) + 1,
             updatedAt: new Date()
           });
+
+          // Atualiza o último UID processado para paginação incremental
+          if (msg.uid && (!channel.emailLastUid || msg.uid > channel.emailLastUid)) {
+            await channel.update({ emailLastUid: msg.uid });
+          }
 
           result.imported += 1;
         } catch (err) {

@@ -14,8 +14,11 @@ import {
   Unique,
   BelongsToMany,
   ForeignKey,
-  BelongsTo
+  BelongsTo,
+  BeforeSave,
+  BeforeUpdate
 } from "sequelize-typescript";
+import { encrypt, decrypt } from "../helpers/crypto";
 import Queue from "./Queue";
 import Ticket from "./Ticket";
 import WhatsappQueue from "./WhatsappQueue";
@@ -158,7 +161,10 @@ class Whatsapp extends Model<Whatsapp> {
   emailSmtpUser: string;
 
   @Column(DataType.STRING)
-  emailSmtpPassword: string;
+  get emailSmtpPassword(): string {
+    const raw = this.getDataValue("emailSmtpPassword" as any);
+    return raw ? decrypt(raw) : raw;
+  }
 
   @Column(DataType.STRING)
   emailImapHost: string;
@@ -174,7 +180,10 @@ class Whatsapp extends Model<Whatsapp> {
   emailImapUser: string;
 
   @Column(DataType.STRING)
-  emailImapPassword: string;
+  get emailImapPassword(): string {
+    const raw = this.getDataValue("emailImapPassword" as any);
+    return raw ? decrypt(raw) : raw;
+  }
 
   @Default(true)
   @Column
@@ -341,6 +350,19 @@ class Whatsapp extends Model<Whatsapp> {
 
   @HasMany(() => Chip, { foreignKey: "whatsappId" })
   chips: Chip[];
+
+  @BeforeSave
+  @BeforeUpdate
+  static encryptEmailPasswords(instance: Whatsapp) {
+    if (instance.changed("emailSmtpPassword" as any)) {
+      const plain = instance.getDataValue("emailSmtpPassword" as any);
+      if (plain) instance.setDataValue("emailSmtpPassword" as any, encrypt(plain));
+    }
+    if (instance.changed("emailImapPassword" as any)) {
+      const plain = instance.getDataValue("emailImapPassword" as any);
+      if (plain) instance.setDataValue("emailImapPassword" as any, encrypt(plain));
+    }
+  }
 }
 
 export default Whatsapp;

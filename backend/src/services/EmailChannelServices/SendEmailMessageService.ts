@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import path from "path";
 import { Op } from "sequelize";
 
@@ -7,6 +6,7 @@ import Message from "../../models/Message";
 import AppError from "../../errors/AppError";
 import ResolveSmtpConfigService from "./ResolveSmtpConfigService";
 import CreateMessageService from "../MessageServices/CreateMessageService";
+import { createTransporterFromConfig } from "../SmtpServices/smtpService";
 
 interface SendRequest {
   ticket: Ticket;
@@ -50,21 +50,13 @@ const SendEmailMessageService = async ({
 
   const smtp = await ResolveSmtpConfigService(ticket.whatsapp as any);
 
-  const transporterOptions: any = {
+  const transporter = createTransporterFromConfig({
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
-    auth: {
-      user: smtp.user,
-      pass: smtp.password
-    }
-  };
-
-  if (!smtp.secure) {
-    transporterOptions.tls = { rejectUnauthorized: false };
-  }
-
-  const transporter = nodemailer.createTransport(transporterOptions);
+    user: smtp.user,
+    password: smtp.password
+  });
 
   const latestThreadMessage = await Message.findOne({
     where: {

@@ -1,11 +1,6 @@
-import sequelize from "sequelize";
-import database from "../../database";
+import User from "../../models/User";
 import { createTransporter } from "../SmtpServices/smtpService";
 import { GetSmtpSettingByCompany } from "../../helpers/GetSmtpSettingByCompany";
-
-interface UserData {
-  companyId: number;
-}
 
 
 
@@ -14,8 +9,8 @@ const SendMail = async (email: string, tokenSenha: string) => {
   if (!hasResult) {
     return { status: 404, message: "Email não encontrado" };
   }
-  const userData = data[0][0] as UserData;
-  if (!userData || userData.companyId === undefined) {
+  const userData = data[0][0] as User;
+  if (!userData || (userData as any).companyId === undefined) {
     return { status: 404, message: "Dados do usuário não encontrados" };
   }
   const companyId = userData.companyId;
@@ -233,21 +228,19 @@ a[x-apple-data-detectors] {
         console.log(error);
       }
     }
-    sendEmail();
+    await sendEmail();
   }
 };
 const filterEmail = async (email: string) => {
-  const sql = `SELECT * FROM "Users"  WHERE email ='${email}'`;
-  const result = await database.query(sql, {
-    type: sequelize.QueryTypes.SELECT
-  });
-  return { hasResult: result.length > 0, data: [result] };
+  const user = await User.findOne({ where: { email } });
+  return { hasResult: !!user, data: [[user]] };
 };
+
 const insertToken = async (email: string, tokenSenha: string) => {
-  const sqls = `UPDATE "Users" SET "resetPassword"= '${tokenSenha}' WHERE email ='${email}'`;
-  const results = await database.query(sqls, {
-    type: sequelize.QueryTypes.UPDATE
-  });
-  return { hasResults: results.length > 0, datas: results };
+  const [affected] = await User.update(
+    { resetPassword: tokenSenha } as any,
+    { where: { email } }
+  );
+  return { hasResults: affected > 0, datas: [affected] };
 };
 export default SendMail;

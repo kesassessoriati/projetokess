@@ -19,6 +19,22 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
     const { host, port, user, password, secure, senderName, senderEmail } = req.body;
 
+    // Validações de input
+    if (!host || !String(host).trim()) {
+        throw new AppError("Host SMTP é obrigatório", 400);
+    }
+    const parsedPort = Number(port);
+    if (!parsedPort || parsedPort < 1 || parsedPort > 65535) {
+        throw new AppError("Porta SMTP inválida (deve ser entre 1 e 65535)", 400);
+    }
+    if (!user || !String(user).trim()) {
+        throw new AppError("Usuário SMTP é obrigatório", 400);
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (senderEmail && !emailRegex.test(String(senderEmail).trim())) {
+        throw new AppError("E-mail do remetente inválido", 400);
+    }
+
     // Trim para evitar espaços acidentais em campos críticos
     const cleanPassword = password ? String(password).trim() : undefined;
 
@@ -61,6 +77,10 @@ export const test = async (req: Request, res: Response): Promise<Response> => {
 
     if (!emailDestino) {
         throw new AppError("O e-mail de destino é obrigatório", 400);
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(emailDestino).trim())) {
+        throw new AppError("E-mail de destino inválido", 400);
     }
 
     try {

@@ -1,23 +1,38 @@
 import nodemailer from "nodemailer";
 import { GetSmtpSettingByCompany } from "../../helpers/GetSmtpSettingByCompany";
 
-export async function createTransporter(companyId: number) {
-    const config = await GetSmtpSettingByCompany(companyId);
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+}
 
-    if (!config) {
-        throw new Error("SMTP não configurado para esta empresa");
+export function createTransporterFromConfig(config: SmtpConfig) {
+  return nodemailer.createTransport({
+    host: config.host.trim(),
+    port: Number(config.port),
+    secure: Boolean(config.secure),
+    auth: {
+      user: config.user.trim(),
+      pass: config.password.trim()
     }
+  });
+}
 
-    const { host, port, secure, user, password } = config;
+export async function createTransporter(companyId: number) {
+  const config = await GetSmtpSettingByCompany(companyId);
 
-    return nodemailer.createTransport({
-        host: host.trim(),
-        port: Number(port),
-        secure: Boolean(secure),
-        auth: {
-            user: user.trim(),
-            pass: password.trim()
-        },
-        tls: { rejectUnauthorized: false }
-    });
+  if (!config) {
+    throw new Error("SMTP não configurado para esta empresa");
+  }
+
+  return createTransporterFromConfig({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    user: config.user,
+    password: config.password
+  });
 }

@@ -107,10 +107,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   } as any);
 
   const io = getIO();
-  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, {
-    action: "update",
-    whatsapp: hideSecrets(channel)
-  });
+  const channelPayload = { action: "update", whatsapp: hideSecrets(channel) };
+  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, channelPayload);
+  io.of(String(companyId)).emit(`company-${companyId}-channel`, channelPayload);
 
   return res.status(201).json(hideSecrets(channel));
 };
@@ -179,10 +178,9 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   } as any);
 
   const io = getIO();
-  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, {
-    action: "update",
-    whatsapp: hideSecrets(channel)
-  });
+  const channelPayload = { action: "update", whatsapp: hideSecrets(channel) };
+  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, channelPayload);
+  io.of(String(companyId)).emit(`company-${companyId}-channel`, channelPayload);
 
   return res.json(hideSecrets(channel));
 };
@@ -201,10 +199,9 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   await channel.destroy();
 
   const io = getIO();
-  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, {
-    action: "delete",
-    whatsappId: Number(emailChannelId)
-  });
+  const deletePayload = { action: "delete", whatsappId: Number(emailChannelId) };
+  io.of(String(companyId)).emit(`company-${companyId}-whatsapp`, deletePayload);
+  io.of(String(companyId)).emit(`company-${companyId}-channel`, deletePayload);
 
   return res.status(204).send();
 };

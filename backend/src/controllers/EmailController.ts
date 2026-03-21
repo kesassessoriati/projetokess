@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { SendMail } from "../helpers/SendMail";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 import { createTransporter } from "../services/SmtpServices/smtpService";
 import { GetSmtpSettingByCompany } from "../helpers/GetSmtpSettingByCompany";
@@ -7,8 +6,18 @@ import { GetSmtpSettingByCompany } from "../helpers/GetSmtpSettingByCompany";
 export const sendCrmEmail = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { nome, email, telefone, empresa, segmento, mensagem } = req.body;
+    const { companyId } = req.user;
 
-    // Montar HTML do email
+    const destinatario = process.env.CRM_CONTACT_EMAIL;
+    if (!destinatario) {
+      return res.status(500).json({ error: "Destinatário de contato CRM não configurado (CRM_CONTACT_EMAIL)." });
+    }
+
+    const smtpSetting = await GetSmtpSettingByCompany(companyId);
+    if (!smtpSetting) {
+      return res.status(400).json({ error: "SMTP não configurado para esta empresa." });
+    }
+
     const htmlContent = `
       <h2>Nova Solicitação de CRM Personalizado</h2>
       <p><strong>Nome:</strong> ${nome}</p>
@@ -22,9 +31,10 @@ export const sendCrmEmail = async (req: Request, res: Response): Promise<Respons
       <p><small>Enviado via formulário do dashboard</small></p>
     `;
 
-    // Usar a função SendMail existente
-    await SendMail({
-      to: "rafaeloficialpaixao@gmail.com",
+    const transporter = await createTransporter(companyId);
+    await transporter.sendMail({
+      from: `"${smtpSetting.senderName}" <${smtpSetting.senderEmail}>`,
+      to: destinatario,
       subject: `Solicitação CRM - ${empresa}`,
       html: htmlContent
     });
