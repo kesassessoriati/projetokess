@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -35,6 +35,9 @@ import { toast } from 'react-toastify';
 import { useHistory } from 'react-router-dom';
 import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
+
+// Estados possíveis de validação do número
+// idle → loading → valid | invalid
 
 const useStyles = makeStyles((theme) => ({
     dialog: {
@@ -226,6 +229,10 @@ export default function QuickSendModal({ open, onClose }) {
     const [queues, setQueues] = useState([]);
     const [result, setResult] = useState(null);
 
+    // Validação de número
+    const [numberValidation, setNumberValidation] = useState({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
+    const validationTimerRef = useRef(null);
+
     useEffect(() => {
         if (!open) return;
         setResult(null);
@@ -238,6 +245,7 @@ export default function QuickSendModal({ open, onClose }) {
         setUseButtons(false);
         setButtons([{ ...DEFAULT_BUTTON }]);
         setLoading(false);
+        setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
 
         const load = async () => {
             try {
@@ -255,6 +263,43 @@ export default function QuickSendModal({ open, onClose }) {
         };
         load();
     }, [open]);
+
+    // Validação de número com debounce de 800ms após parar de digitar
+    useEffect(() => {
+        if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+
+        const digits = number.replace(/\D/g, '');
+
+        if (digits.length < 10) {
+            setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
+            return;
+        }
+
+        if (!whatsappId) {
+            setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
+            return;
+        }
+
+        setNumberValidation(prev => ({ ...prev, status: 'loading' }));
+
+        validationTimerRef.current = setTimeout(async () => {
+            try {
+                const { data } = await api.get('/quick-send/validate', {
+                    params: { number: digits, whatsappId }
+                });
+                setNumberValidation({
+                    status: data.valid ? 'valid' : 'invalid',
+                    normalizedNumber: data.normalizedNumber || '',
+                    existingContact: data.existingContact || null,
+                    error: data.error || ''
+                });
+            } catch (err) {
+                setNumberValidation({ status: 'invalid', normalizedNumber: '', existingContact: null, error: 'Erro ao validar número' });
+            }
+        }, 800);
+
+        return () => clearTimeout(validationTimerRef.current);
+    }, [number, whatsappId]);
 
     const handleChangeMedias = (e) => {
         if (!e.target.files) return;
@@ -311,7 +356,7 @@ export default function QuickSendModal({ open, onClose }) {
     });
 
     const normalizedNumber = number.replace(/\D/g, '');
-    const isNumberValid = normalizedNumber.length >= 10 && normalizedNumber.length <= 15;
+    const isNumberValid = numberValidation.status === 'valid';
     const canSend = isNumberValid && message.trim().length > 0 && whatsappId &&
         (!useButtons || buttonsValid);
 
@@ -322,7 +367,9 @@ export default function QuickSendModal({ open, onClose }) {
 
         try {
             const formData = new FormData();
-            formData.append('number', normalizedNumber);
+            // Usa o número normalizado/validado pelo backend (com 55, variante correta)
+            const numberToSend = numberValidation.normalizedNumber || normalizedNumber;
+            formData.append('number', numberToSend);
             formData.append('message', message.trim());
             formData.append('whatsappId', Number(whatsappId));
             if (name.trim()) formData.append('name', name.trim());
@@ -409,13 +456,11 @@ export default function QuickSendModal({ open, onClose }) {
                             placeholder="5511999998888 (com DDD e código do país)"
                             value={number}
                             onChange={(e) => setNumber(e.target.value)}
-                            error={number.length > 0 && !isNumberValid}
+                            error={numberValidation.status === 'invalid'}
                             helperText={
-                                number.length > 0 && !isNumberValid
-                                    ? 'Informe pelo menos 10 dígitos (DDD + número)'
-                                    : normalizedNumber.length > 0
-                                        ? `${normalizedNumber.length} dígitos`
-                                        : 'Digite com DDI+DDD (ex: 5511999998888)'
+                                normalizedNumber.length > 0
+                                    ? `${normalizedNumber.length} dígitos`
+                                    : 'Digite com DDI+DDD (ex: 5511999998888)'
                             }
                             InputProps={{
                                 style: { borderRadius: 8, fontSize: 15 },
@@ -426,6 +471,42 @@ export default function QuickSendModal({ open, onClose }) {
                                 ),
                             }}
                         />
+
+                        {/* Feedback de validação em tempo real */}
+                        {numberValidation.status === 'loading' && (
+                            <Box display="flex" alignItems="center" mt={1} style={{ gap: 6 }}>
+                                <CircularProgress size={14} style={{ color: '#54656f' }} />
+                                <Typography style={{ fontSize: 12, color: '#54656f' }}>Validando número no WhatsApp...</Typography>
+                            </Box>
+                        )}
+                        {numberValidation.status === 'valid' && (
+                            <Box style={{ marginTop: 8, padding: '8px 12px', backgroundColor: '#dcfce7', borderRadius: 8, border: '1px solid #86efac' }}>
+                                <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                                    <CheckCircleIcon style={{ color: '#16a34a', fontSize: 16 }} />
+                                    <Typography style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>
+                                        Número válido no WhatsApp ✓
+                                    </Typography>
+                                </Box>
+                                {numberValidation.existingContact && (
+                                    <Typography style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>
+                                        Contato existente: <strong>{numberValidation.existingContact.name}</strong>
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
+                        {numberValidation.status === 'invalid' && (
+                            <Box style={{ marginTop: 8, padding: '8px 12px', backgroundColor: '#fee2e2', borderRadius: 8, border: '1px solid #fca5a5' }}>
+                                <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                                    <ErrorIcon style={{ color: '#dc2626', fontSize: 16 }} />
+                                    <Typography style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
+                                        Número inválido — não encontrado no WhatsApp ✗
+                                    </Typography>
+                                </Box>
+                                <Typography style={{ fontSize: 11, color: '#991b1b', marginTop: 2 }}>
+                                    Verifique o número e tente novamente. Envio bloqueado.
+                                </Typography>
+                            </Box>
+                        )}
                         <TextField
                             fullWidth variant="outlined" size="small"
                             placeholder="Nome do contato (opcional — usado ao criar)"

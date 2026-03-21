@@ -14,6 +14,13 @@ quickSendRoutes.get(
     QuickSendController.listConnections
 );
 
+// ─── Valida número no WhatsApp antes do envio ─────────────────────────────────
+quickSendRoutes.get(
+    "/quick-send/validate",
+    isAuth,
+    QuickSendController.validateNumber
+);
+
 // ─── Envio rápido: valida número, cria contato/ticket, envia mensagem ─────────
 quickSendRoutes.post(
     "/quick-send",

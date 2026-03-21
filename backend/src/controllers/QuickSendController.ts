@@ -431,3 +431,44 @@ export const listConnections = async (req: Request, res: Response): Promise<Resp
 
     return res.status(200).json(connections);
 };
+
+// ─── GET /quick-send/validate ─────────────────────────────────────────────────
+// Valida se o número existe no WhatsApp e busca contato existente na base
+export const validateNumber = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { number, whatsappId } = req.query as { number: string; whatsappId: string };
+
+    if (!number || !whatsappId) {
+        return res.status(400).json({ valid: false, error: "Parâmetros obrigatórios: number e whatsappId" });
+    }
+
+    const digits = String(number).replace(/\D/g, "").replace(/^0+/, "");
+    const normalized = normalizePhoneNumber(digits) || digits;
+
+    if (!normalized || normalized.length < 10) {
+        return res.status(200).json({ valid: false, error: "Número muito curto" });
+    }
+
+    // Busca contato existente por variantes brasileiras
+    const variants = getBrazilianPhoneVariants(normalized);
+    const existingContact = await Contact.findOne({
+        where: { companyId, number: { [Op.in]: variants } },
+        attributes: ["id", "name", "number", "profilePicUrl"]
+    });
+
+    // Valida no WhatsApp real
+    try {
+        const validatedNumber = await CheckContactNumber(normalized, companyId, false, Number(whatsappId));
+        return res.status(200).json({
+            valid: true,
+            normalizedNumber: validatedNumber || normalized,
+            existingContact: existingContact || null
+        });
+    } catch (err) {
+        return res.status(200).json({
+            valid: false,
+            error: "Número não encontrado no WhatsApp",
+            existingContact: existingContact || null
+        });
+    }
+};
