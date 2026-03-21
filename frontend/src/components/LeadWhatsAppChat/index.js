@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import {
     Box,
     Button,
@@ -17,6 +17,8 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import PhoneIcon from "@material-ui/icons/Phone";
 import WifiIcon from "@material-ui/icons/Wifi";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import ErrorIcon from "@material-ui/icons/Error";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 
@@ -126,6 +128,10 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
     const [selectedWhatsappName, setSelectedWhatsappName] = useState("");
     const [loadingConnections, setLoadingConnections] = useState(false);
 
+    // ── Validação de número ───────────────────────────────────────────────────
+    const [numberValidation, setNumberValidation] = useState({ status: "idle", normalizedNumber: "", error: "" });
+    const validationTimerRef = useRef(null);
+
     // ── Chat state ────────────────────────────────────────────────────────────
     const [activeTicket, setActiveTicket] = useState(null);
     const [loadingTicket, setLoadingTicket] = useState(false);
@@ -148,26 +154,58 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
 
         const contactNumber = op?.contact?.number || "";
         if (contactNumber) setSelectedPhone(contactNumber);
-    }, [op]); // Added op as dependency
+    }, [op]);
+
+    // ── Validação de número com debounce de 800ms ─────────────────────────────
+    useEffect(() => {
+        if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+
+        const digits = selectedPhone.replace(/\D/g, "");
+
+        if (digits.length < 10 || !selectedWhatsappId) {
+            setNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
+            return;
+        }
+
+        setNumberValidation((prev) => ({ ...prev, status: "loading" }));
+
+        validationTimerRef.current = setTimeout(async () => {
+            try {
+                const { data } = await api.get("/quick-send/validate", {
+                    params: { number: digits, whatsappId: selectedWhatsappId },
+                });
+                setNumberValidation({
+                    status: data.valid ? "valid" : "invalid",
+                    normalizedNumber: data.normalizedNumber || "",
+                    error: data.error || "",
+                });
+            } catch {
+                setNumberValidation({ status: "invalid", normalizedNumber: "", error: "Erro ao validar número" });
+            }
+        }, 800);
+
+        return () => clearTimeout(validationTimerRef.current);
+    }, [selectedPhone, selectedWhatsappId]);
 
     // ── Confirm pre-modal ─────────────────────────────────────────────────────
     const handleConfirm = async () => {
-        const normalized = normalizeDestinationNumber(selectedPhone);
-        if (normalized.length < 12) {
-            toast.warning("Informe um número válido (mínimo 10 dígitos com DDI + DDD).");
-            return;
-        }
         if (!selectedWhatsappId) {
             toast.warning("Selecione uma conexão WhatsApp.");
+            return;
+        }
+        if (numberValidation.status !== "valid") {
+            toast.warning("Aguarde a validação do número no WhatsApp antes de acessar o chat.");
             return;
         }
 
         const conn = connections.find((c) => c.id === selectedWhatsappId);
         if (conn) setSelectedWhatsappName(conn.name);
-        
+
         setLoadingTicket(true);
         try {
             const formData = new FormData();
+            // Usa número validado e normalizado pelo backend
+            const normalized = numberValidation.normalizedNumber || normalizeDestinationNumber(selectedPhone);
             formData.append("number", normalized);
             formData.append("whatsappId", Number(selectedWhatsappId));
             formData.append("leadId", Number(leadId));
@@ -241,8 +279,32 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
                             placeholder="5511999998888"
                             value={selectedPhone}
                             onChange={(e) => setSelectedPhone(e.target.value)}
+                            error={numberValidation.status === "invalid"}
+                            helperText={
+                                numberValidation.status === "loading"
+                                    ? "Validando no WhatsApp..."
+                                    : selectedPhone.replace(/\D/g, "").length > 0
+                                        ? `${selectedPhone.replace(/\D/g, "").length} dígitos`
+                                        : ""
+                            }
                             InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
                         />
+                        {numberValidation.status === "valid" && (
+                            <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                                <CheckCircleIcon style={{ color: "#16a34a", fontSize: 14 }} />
+                                <Typography style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>
+                                    Número válido no WhatsApp ✓
+                                </Typography>
+                            </Box>
+                        )}
+                        {numberValidation.status === "invalid" && (
+                            <Box display="flex" alignItems="center" style={{ gap: 4, marginTop: 4 }}>
+                                <ErrorIcon style={{ color: "#dc2626", fontSize: 14 }} />
+                                <Typography style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>
+                                    Número inválido — não encontrado no WhatsApp ✗
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
 
                     {/* Conexão WhatsApp */}
@@ -310,7 +372,7 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
                         variant="contained"
                         fullWidth
                         onClick={handleConfirm}
-                        disabled={loadingTicket || !normalizeDestinationNumber(selectedPhone) || !selectedWhatsappId}
+                        disabled={loadingTicket || numberValidation.status !== "valid" || !selectedWhatsappId}
                         style={{
                             background: "linear-gradient(135deg, #075E54, #25D366)",
                             color: "#fff",
