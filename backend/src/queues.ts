@@ -504,12 +504,15 @@ async function handleDispatchEmailCampaign(job) {
     Sentry.captureException(err);
     logger.error(`[EmailCampaign] handleDispatchEmailCampaign error: ${err.message}`);
 
-    // Registrar falha no shipping
+    // Registrar falha no shipping apenas se o e-mail ainda não foi entregue
     try {
-      await CampaignShipping.update(
-        { failedAt: new Date(), errorMessage: String(err.message).substring(0, 500) },
-        { where: { campaignId, contactId } }
-      );
+      const existingShipping = await CampaignShipping.findOne({ where: { campaignId, contactId } });
+      if (!existingShipping?.deliveredAt) {
+        await CampaignShipping.update(
+          { failedAt: new Date(), errorMessage: String(err.message).substring(0, 500) },
+          { where: { campaignId, contactId } }
+        );
+      }
     } catch (_) {}
   }
 }
@@ -887,9 +890,9 @@ export function randomValue(min, max) {
 }
 
 async function verifyAndFinalizeCampaign(campaign) {
-  const { companyId, contacts } = campaign.contactList;
-
-  const count1 = contacts.length;
+  const count1 = await ContactListItem.count({
+    where: { contactListId: campaign.contactListId }
+  });
 
   const count2 = await CampaignShipping.count({
     where: {
@@ -901,12 +904,12 @@ async function verifyAndFinalizeCampaign(campaign) {
     }
   });
 
-  if (count1 === count2) {
+  if (count1 > 0 && count1 === count2) {
     await campaign.update({ status: "FINALIZADA", completedAt: moment() });
   }
 
   const io = getIO();
-  io.of(companyId)
+  io.of(String(campaign.companyId))
     .emit(`company-${campaign.companyId}-campaign`, {
       action: "update",
       record: campaign

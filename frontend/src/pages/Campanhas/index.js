@@ -1005,6 +1005,15 @@ const Campaigns = () => {
     setDeletingCampaign(null); setSearchParam(""); setPageNumber(1);
   };
 
+  const handleCancelCampaign = async (campaign) => {
+    try {
+      await api.post(`/campaigns/${campaign.id}/cancel`);
+      toast.success("Campanha cancelada com sucesso");
+      fetchMetrics();
+      setSearchParam(""); setPageNumber(1);
+    } catch (err) { toastError(err); }
+  };
+
   const handleDeleteList = async (id) => {
     try { await api.delete(`/contact-lists/${id}`); toast.success(i18n.t("contactLists.toasts.deleted")); }
     catch (err) { toastError(err); }
@@ -1797,6 +1806,17 @@ const Campaigns = () => {
                     >
                       Editar
                     </Button>
+                    {campaign.status === "EM_ANDAMENTO" && (
+                      <Button
+                        size="small"
+                        className={`${classes.actionTextButton}`}
+                        style={{ color: "#d97706" }}
+                        startIcon={<CancelIcon style={{ fontSize: 15 }} />}
+                        onClick={() => handleCancelCampaign(campaign)}
+                      >
+                        Cancelar
+                      </Button>
+                    )}
                     <Button
                       size="small"
                       className={`${classes.actionTextButton} ${classes.deleteAction}`}
