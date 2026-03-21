@@ -1112,6 +1112,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Financeiro", path: "/financeiro", icon: <AttachMoneyIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gateways de Pagamento", path: "/payment-settings", icon: <TuneIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
+      { title: "Documentação", path: "/messages-api", icon: <HelpOutlineIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       {
         title: "Gestor Finanças",
         icon: <LocalAtmIcon />,
@@ -1128,14 +1129,6 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
-        ],
-      },
-      {
-        title: "Ajuda",
-        icon: <HelpOutlineIcon />,
-        disabled: !planActive && location.pathname !== "/financeiro",
-        children: [
-          { title: "Documentação", path: "/messages-api" },
         ],
       },
       {
