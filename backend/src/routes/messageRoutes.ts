@@ -24,6 +24,9 @@ messageRoutes.post("/messages/copy/:ticketId", isAuth, MessageController.sendCop
 messageRoutes.post("/messages/call/:ticketId", isAuth, MessageController.sendCALLMessage);
 messageRoutes.post("/messages/url/:ticketId", isAuth, MessageController.sendURLMessage);
 messageRoutes.post("/messages/PIX/:ticketId", isAuth, MessageController.sendPIXMessage);
+messageRoutes.post("/messages/buttons/:ticketId", isAuth, MessageController.sendButtonsMessage);
+messageRoutes.post("/messages/carousel/:ticketId", isAuth, MessageController.sendCarouselMessage);
+messageRoutes.post("/messages/poll/:ticketId", isAuth, MessageController.sendPollMessage);
 messageRoutes.post('/message/forward', isAuth, MessageController.forwardMessage)
 
 export default messageRoutes;

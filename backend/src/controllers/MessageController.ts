@@ -41,7 +41,7 @@ import { verifyMessageFace, verifyMessageMedia } from "../services/FacebookServi
 import EditWhatsAppMessage from "../services/MessageServices/EditWhatsAppMessage";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import TranscribeAudioMessageToText from "../services/MessageServices/TranscribeAudioMessageService";
-import { generateWAMessageFromContent, generateWAMessageContent } from "@whiskeysockets/baileys";
+import { generateWAMessageFromContent, generateWAMessageContent, prepareWAMessageMedia } from "@whiskeysockets/baileys";
 import { notifyNewMessage } from "./NotificationController";
 import SendEmailMessageService from "../services/EmailChannelServices/SendEmailMessageService";
 import { SendTextOfficialService } from "../services/WhatsAppOfficial/SendTextOfficialService";
@@ -468,6 +468,185 @@ export const sendPIXMessage = async (req: Request, res: Response): Promise<Respo
   } catch (error) {
     console.error('Erro ao enviar a mensagem:', error);
     return res.status(500).json({ message: "Erro ao enviar a mensagem" });
+  }
+};
+
+// ==================== MENSAGENS INTERATIVAS AVANÇADAS ====================
+
+// Botões mistos (quick_reply, cta_url, cta_call, cta_copy) numa única mensagem
+export const sendButtonsMessage = async (req: Request, res: Response): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { text, footer, buttons } = req.body;
+  // buttons: Array<{ type: 'quick_reply'|'cta_url'|'cta_call'|'cta_copy', displayText: string, id?, url?, phoneNumber?, code? }>
+
+  try {
+    const ticket = await Ticket.findByPk(ticketId);
+    if (!ticket) throw new AppError("Ticket not found", 404);
+
+    const contact = await Contact.findByPk(ticket.contactId);
+    if (!contact) throw new AppError("Contact not found", 404);
+
+    const whatsapp = await Whatsapp.findOne({ where: { id: ticket.whatsappId } });
+    if (!whatsapp?.number) throw new Error('WhatsApp não encontrado');
+
+    const wbot = await GetTicketWbot(ticket);
+    const number = `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+    const botNumber = whatsapp.number;
+
+    const nativeButtons = (buttons || []).map((btn: any) => {
+      const { type, displayText, id, url, phoneNumber, code } = btn;
+      if (type === 'quick_reply') {
+        return { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: displayText, id: id || displayText }) };
+      } else if (type === 'cta_url') {
+        return { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: displayText, url }) };
+      } else if (type === 'cta_call') {
+        return { name: 'cta_call', buttonParamsJson: JSON.stringify({ display_text: displayText, phoneNumber }) };
+      } else if (type === 'cta_copy') {
+        return { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: displayText, copy_code: code }) };
+      }
+      return null;
+    }).filter(Boolean);
+
+    const msg = {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage: {
+            body: { text },
+            footer: { text: footer || '' },
+            nativeFlowMessage: {
+              buttons: nativeButtons,
+              messageParamsJson: JSON.stringify({ from: 'apiv2', templateId: '4194019344155670' }),
+            },
+          },
+        },
+      },
+    };
+
+    const newMsg = generateWAMessageFromContent(number, msg, { userJid: botNumber });
+    await wbot.relayMessage(number, newMsg.message!, { messageId: newMsg.key.id });
+    await wbot.upsertMessage(newMsg, 'notify');
+
+    return res.status(200).json({ message: "Buttons message sent successfully", newMsg });
+  } catch (error) {
+    console.error('Erro ao enviar mensagem de botões:', error);
+    throw new AppError("Error sending buttons message", 500);
+  }
+};
+
+// Carrossel com cards (header imagem/vídeo + body + footer + botões por card)
+export const sendCarouselMessage = async (req: Request, res: Response): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { cards } = req.body;
+  // cards: Array<{ header?: { imageUrl?, title?, subtitle? }, body: string, footer?: string, buttons: [...] }>
+
+  try {
+    const ticket = await Ticket.findByPk(ticketId);
+    if (!ticket) throw new AppError("Ticket not found", 404);
+
+    const contact = await Contact.findByPk(ticket.contactId);
+    if (!contact) throw new AppError("Contact not found", 404);
+
+    const whatsapp = await Whatsapp.findOne({ where: { id: ticket.whatsappId } });
+    if (!whatsapp?.number) throw new Error('WhatsApp não encontrado');
+
+    const wbot = await GetTicketWbot(ticket);
+    const number = `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+    const botNumber = whatsapp.number;
+
+    const carouselCards: any[] = [];
+    for (const card of (cards || [])) {
+      const headerObj: any = {};
+
+      if (card.header?.imageUrl) {
+        try {
+          const mediaPrepared = await prepareWAMessageMedia(
+            { image: { url: card.header.imageUrl } },
+            { upload: (wbot as any).waUploadToServer }
+          );
+          headerObj.imageMessage = mediaPrepared.imageMessage;
+          headerObj.hasMediaAttachment = true;
+        } catch (e) {
+          console.error('[Carousel] Erro ao fazer upload da imagem:', e);
+        }
+      }
+      if (card.header?.title) headerObj.title = card.header.title;
+      if (card.header?.subtitle) headerObj.subtitle = card.header.subtitle;
+
+      const nativeButtons = (card.buttons || []).map((btn: any) => {
+        if (btn.type === 'quick_reply') {
+          return { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: btn.displayText, id: btn.id || btn.displayText }) };
+        } else if (btn.type === 'cta_url') {
+          return { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: btn.displayText, url: btn.url }) };
+        } else if (btn.type === 'cta_call') {
+          return { name: 'cta_call', buttonParamsJson: JSON.stringify({ display_text: btn.displayText, phoneNumber: btn.phoneNumber }) };
+        } else if (btn.type === 'cta_copy') {
+          return { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: btn.displayText, copy_code: btn.code }) };
+        }
+        return null;
+      }).filter(Boolean);
+
+      carouselCards.push({
+        header: headerObj,
+        body: { text: card.body || '' },
+        ...(card.footer ? { footer: { text: card.footer } } : {}),
+        nativeFlowMessage: {
+          buttons: nativeButtons,
+          messageParamsJson: JSON.stringify({ from: 'apiv2', templateId: '4194019344155670' }),
+        },
+      });
+    }
+
+    const carouselContent = {
+      interactiveMessage: {
+        carouselMessage: {
+          cards: carouselCards,
+        },
+      },
+    };
+
+    const newMsg = generateWAMessageFromContent(number, carouselContent, { userJid: botNumber });
+    await wbot.relayMessage(number, newMsg.message!, { messageId: newMsg.key.id });
+    await wbot.upsertMessage(newMsg, 'notify');
+
+    return res.status(200).json({ message: "Carousel sent successfully", newMsg });
+  } catch (error) {
+    console.error('Erro ao enviar carrossel:', error);
+    throw new AppError("Error sending carousel message", 500);
+  }
+};
+
+// Enquete (Poll)
+export const sendPollMessage = async (req: Request, res: Response): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { name, options, selectableCount } = req.body;
+  // name: string, options: string[], selectableCount: number (1 = single choice, 0 = multiple)
+
+  try {
+    const ticket = await Ticket.findByPk(ticketId);
+    if (!ticket) throw new AppError("Ticket not found", 404);
+
+    const contact = await Contact.findByPk(ticket.contactId);
+    if (!contact) throw new AppError("Contact not found", 404);
+
+    const wbot = await GetTicketWbot(ticket);
+    const number = `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+
+    const newMsg = await wbot.sendMessage(number, {
+      poll: {
+        name,
+        values: options,
+        selectableCount: selectableCount ?? 1,
+      },
+    } as any);
+
+    if (newMsg) {
+      await verifyMessage(newMsg, ticket, contact);
+    }
+
+    return res.status(200).json({ message: "Poll sent successfully", newMsg });
+  } catch (error) {
+    console.error('Erro ao enviar enquete:', error);
+    throw new AppError("Error sending poll message", 500);
   }
 };
 
