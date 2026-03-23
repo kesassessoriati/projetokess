@@ -1030,13 +1030,6 @@ const LoggedInLayout = ({ children }) => {
         path: "/chats",
         icon: <ChatBubbleOutlineIcon style={{ fontSize: 17 }} />,
       },
-      {
-        key: "compromissos",
-        title: "Compromissos",
-        label: "Compromissos",
-        path: "/appointments",
-        icon: <CalendarMonthIcon style={{ fontSize: 17 }} />,
-      },
     ],
     []
   );
@@ -1091,6 +1084,13 @@ const LoggedInLayout = ({ children }) => {
         label: "Chat Agendamento",
         path: "/lembretes",
         icon: <ScheduleIcon style={{ fontSize: 15 }} />,
+      },
+      {
+        key: "compromissos",
+        title: "Compromissos",
+        label: "Compromissos",
+        path: "/appointments",
+        icon: <CalendarMonthIcon style={{ fontSize: 15 }} />,
       },
       {
         key: "tutoriais",
