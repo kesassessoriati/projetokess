@@ -972,7 +972,54 @@ const CampaignModal = ({
                               setFieldValue("messageType", newType);
                               if (newType !== "carousel") setFieldValue("carouselCards", []);
                               if (newType === "text") setFieldValue("buttons", []);
-                              if (newType === "poll" && !(values.buttons || []).length) {
+
+                              if (newType === "buttons") {
+                                setFieldValue("buttons", [
+                                  { displayText: "Sim, quero!", type: "reply", value: "btn_sim" },
+                                  { displayText: "Não, obrigado", type: "reply", value: "btn_nao" },
+                                  { displayText: "Ver site", type: "url", value: "https://seusite.com.br" },
+                                  { displayText: "Ligar agora", type: "call", value: "5511999998888" },
+                                ]);
+                              }
+
+                              if (newType === "list") {
+                                setFieldValue("buttons", [
+                                  { displayText: "Suporte técnico", type: "reply", value: "suporte" },
+                                  { displayText: "Financeiro / Pagamentos", type: "reply", value: "financeiro" },
+                                  { displayText: "Vendas e orçamentos", type: "reply", value: "vendas" },
+                                  { displayText: "Outros assuntos", type: "reply", value: "outros" },
+                                ]);
+                              }
+
+                              if (newType === "carousel") {
+                                setFieldValue("carouselCards", [
+                                  {
+                                    headerTitle: "Oferta Especial",
+                                    imageUrl: "https://www.w3schools.com/w3css/img_lights.jpg",
+                                    body: "Aproveite nossas melhores ofertas com desconto exclusivo!",
+                                    footer: "Válido até hoje",
+                                    buttons: [
+                                      { displayText: "Ver oferta", type: "url", value: "https://seusite.com.br/oferta" },
+                                      { displayText: "Quero!", type: "reply", value: "btn_quero" },
+                                    ],
+                                  },
+                                  {
+                                    headerTitle: "Novo Produto",
+                                    imageUrl: "https://www.w3schools.com/w3css/img_forest.jpg",
+                                    body: "Conheça nossa nova linha de produtos premium.",
+                                    footer: "Frete grátis",
+                                    buttons: [
+                                      { displayText: "Saber mais", type: "reply", value: "btn_info" },
+                                      { displayText: "Ligar", type: "call", value: "5511999998888" },
+                                    ],
+                                  },
+                                ]);
+                              }
+
+                              if (newType === "poll") {
+                                if (!values.message1) {
+                                  setFieldValue("message1", "Qual o seu horário preferido para atendimento?");
+                                }
                                 setFieldValue("buttons", [
                                   { displayText: "Manhã (8h–12h)", type: "reply", value: "" },
                                   { displayText: "Tarde (13h–17h)", type: "reply", value: "" },
@@ -995,8 +1042,11 @@ const CampaignModal = ({
                       {(values.messageType === "buttons" || values.messageType === "list") && (
                         <Grid item xs={12}>
                           <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: "#555" }}>
+                            <Box style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: "#555" }}>
                               {values.messageType === "list" ? "Itens da lista (máx. 10)" : "Botões (máx. 4)"}
+                            </Box>
+                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 10 }}>
+                              ✏️ Modelo pré-preenchido com exemplos. Edite os textos e valores com seus dados reais antes de salvar.
                             </Box>
                             {(values.buttons || []).map((btn, idx) => (
                               <Grid container spacing={1} key={idx} style={{ marginBottom: 6 }}>
@@ -1087,8 +1137,11 @@ const CampaignModal = ({
                       {values.messageType === "carousel" && (
                         <Grid item xs={12}>
                           <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: "#555" }}>
-                              Cards do Carrossel (máx. 10)
+                            <Box style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: "#555" }}>
+                              🎠 Cards do Carrossel (máx. 10)
+                            </Box>
+                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 10 }}>
+                              ✏️ Modelo pré-preenchido com 2 cards de exemplo. Edite título, imagem, texto e botões com seus dados reais antes de salvar.
                             </Box>
                             {(values.carouselCards || []).map((card, cidx) => (
                               <Box key={cidx} style={{ border: "1px dashed #ccc", borderRadius: 6, padding: 10, marginBottom: 10 }}>
@@ -1279,6 +1332,9 @@ const CampaignModal = ({
                           <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, backgroundColor: "#fffbf0" }}>
                             <Box style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
                               📊 Enquete — Pergunta e opções de resposta
+                            </Box>
+                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
+                              ✏️ Modelo pré-preenchido. Edite a pergunta no campo <strong>Mensagem 1</strong> acima e substitua as opções pelos textos reais.
                             </Box>
                             <Box style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
                               A <strong>pergunta</strong> vem do campo Mensagem 1 acima. As <strong>opções</strong> são os textos de botão abaixo (mín. 2, máx. 12).
