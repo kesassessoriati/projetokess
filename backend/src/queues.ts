@@ -1176,6 +1176,16 @@ async function handleDispatchCampaign(job) {
             } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
               await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
               sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+            } else if (campaign.messageType === "poll" && campaignShipping.message && campaign.buttons?.length) {
+              // Para enquete: message = pergunta, buttons[].displayText = opções
+              const pollOptions = (campaign.buttons as any[]).map((b: any) => b.displayText).filter(Boolean);
+              if (pollOptions.length >= 2) {
+                sentMessage = await wbot.sendMessage(chatId, {
+                  poll: { name: campaignShipping.message, values: pollOptions, selectableCount: 1 }
+                } as any);
+              } else {
+                sentMessage = await wbot.sendMessage(chatId, { text: `\u200c ${campaignShipping.message}` });
+              }
             } else {
               sentMessage = await wbot.sendMessage(chatId, {
                 text: `\u200c ${campaignShipping.message}`
@@ -1239,6 +1249,15 @@ async function handleDispatchCampaign(job) {
             await sendListMessage(wbot, chatId, campaignShipping.message, "Ver opções", campaign.buttons);
           } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
             await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
+          } else if (campaign.messageType === "poll" && campaignShipping.message && campaign.buttons?.length) {
+            const pollOptions = (campaign.buttons as any[]).map((b: any) => b.displayText).filter(Boolean);
+            if (pollOptions.length >= 2) {
+              await wbot.sendMessage(chatId, {
+                poll: { name: campaignShipping.message, values: pollOptions, selectableCount: 1 }
+              } as any);
+            } else {
+              await wbot.sendMessage(chatId, { text: campaignShipping.message });
+            }
           } else {
             await wbot.sendMessage(chatId, {
               text: campaignShipping.message

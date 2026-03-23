@@ -39,7 +39,12 @@ interface QuickSendBody {
     name?: string;
     queueId?: number;
     createIfNotExists?: boolean;
-    buttons?: string | any[]; // JSON string ou array de InteractiveButton[]
+    buttons?: string | any[];        // JSON string ou array de InteractiveButton[]
+    messageType?: string;            // text | buttons | carousel | poll
+    carouselCards?: string | any[];  // JSON string ou array de CarouselCard[]
+    pollName?: string;
+    pollOptions?: string | string[];
+    pollSelectableCount?: string | number;
 }
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
@@ -112,7 +117,12 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         name,
         queueId,
         createIfNotExists = true,
-        buttons: buttonsRaw
+        buttons: buttonsRaw,
+        messageType = 'text',
+        carouselCards: carouselRaw,
+        pollName,
+        pollOptions: pollOptionsRaw,
+        pollSelectableCount: pollSelectableCountRaw
     }: QuickSendBody = req.body;
 
     // Parse botões se enviados
@@ -127,6 +137,33 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             return res.status(400).json({ error: "Campo 'buttons' inválido. Envie um JSON array." });
         }
     }
+
+    // Parse carrossel
+    let parsedCarouselCards: any[] | null = null;
+    if (carouselRaw) {
+        try {
+            parsedCarouselCards = Array.isArray(carouselRaw)
+                ? carouselRaw
+                : JSON.parse(carouselRaw as string);
+            if (!Array.isArray(parsedCarouselCards) || parsedCarouselCards.length === 0) parsedCarouselCards = null;
+        } catch {
+            return res.status(400).json({ error: "Campo 'carouselCards' inválido. Envie um JSON array." });
+        }
+    }
+
+    // Parse enquete
+    let parsedPollOptions: string[] | null = null;
+    if (pollOptionsRaw) {
+        try {
+            parsedPollOptions = Array.isArray(pollOptionsRaw)
+                ? pollOptionsRaw
+                : JSON.parse(pollOptionsRaw as string);
+            if (!Array.isArray(parsedPollOptions) || parsedPollOptions.length < 2) parsedPollOptions = null;
+        } catch {
+            return res.status(400).json({ error: "Campo 'pollOptions' inválido. Envie um JSON array." });
+        }
+    }
+    const pollSelectableCount = parseInt(String(pollSelectableCountRaw || 1)) || 1;
 
     logger.info({ companyId, userId, number, whatsappId }, "QuickSend request started");
 
@@ -360,10 +397,26 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             logger.info({ ticketId: ticket.id, hasButtons: !!parsedButtons }, "QuickSend: Sending message(s)");
 
             if (parsedButtons && parsedButtons.length > 0) {
-                // Envio com botões interativos
+                // Envio com botões interativos (formato legado: reply/url/call/copy)
                 const wbot = getWbot(Number(whatsappId));
-                const jid = remoteJid;
-                await sendButtonMessage(wbot, jid, message || "", "", parsedButtons);
+                await sendButtonMessage(wbot, remoteJid, message || "", "", parsedButtons);
+
+            } else if (messageType === 'carousel' && parsedCarouselCards && parsedCarouselCards.length > 0) {
+                // Envio de carrossel
+                const { sendCarouselMessage } = require("../helpers/SendInteractiveMessage");
+                const wbot = getWbot(Number(whatsappId));
+                await sendCarouselMessage(wbot, remoteJid, parsedCarouselCards);
+
+            } else if (messageType === 'poll' && pollName && parsedPollOptions && parsedPollOptions.length >= 2) {
+                // Envio de enquete
+                const wbot = getWbot(Number(whatsappId));
+                await wbot.sendMessage(remoteJid, {
+                    poll: {
+                        name: pollName,
+                        values: parsedPollOptions,
+                        selectableCount: pollSelectableCount,
+                    },
+                } as any);
 
             } else if (medias && medias.length > 0) {
                 await Promise.all(

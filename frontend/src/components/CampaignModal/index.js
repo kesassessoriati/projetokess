@@ -968,9 +968,17 @@ const CampaignModal = ({
                             label="Tipo de Mensagem"
                             value={values.messageType || "text"}
                             onChange={(e) => {
-                              setFieldValue("messageType", e.target.value);
-                              if (e.target.value !== "carousel") setFieldValue("carouselCards", []);
-                              if (e.target.value === "text") setFieldValue("buttons", []);
+                              const newType = e.target.value;
+                              setFieldValue("messageType", newType);
+                              if (newType !== "carousel") setFieldValue("carouselCards", []);
+                              if (newType === "text") setFieldValue("buttons", []);
+                              if (newType === "poll" && !(values.buttons || []).length) {
+                                setFieldValue("buttons", [
+                                  { displayText: "Manhã (8h–12h)", type: "reply", value: "" },
+                                  { displayText: "Tarde (13h–17h)", type: "reply", value: "" },
+                                  { displayText: "Noite (18h–22h)", type: "reply", value: "" },
+                                ]);
+                              }
                             }}
                             disabled={!campaignEditable}
                           >
@@ -978,6 +986,7 @@ const CampaignModal = ({
                             <MenuItem value="buttons">Botões de ação</MenuItem>
                             <MenuItem value="list">Lista selecionável</MenuItem>
                             <MenuItem value="carousel">Carrossel de cards</MenuItem>
+                            <MenuItem value="poll">Enquete (Poll)</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
@@ -1258,6 +1267,83 @@ const CampaignModal = ({
                                 style={{ marginTop: 4 }}
                               >
                                 + Adicionar card
+                              </Button>
+                            )}
+                          </Box>
+                        </Grid>
+                      )}
+
+                      {/* Enquete (Poll) */}
+                      {values.messageType === "poll" && (
+                        <Grid item xs={12}>
+                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, backgroundColor: "#fffbf0" }}>
+                            <Box style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
+                              📊 Enquete — Pergunta e opções de resposta
+                            </Box>
+                            <Box style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
+                              A <strong>pergunta</strong> vem do campo Mensagem 1 acima. As <strong>opções</strong> são os textos de botão abaixo (mín. 2, máx. 12).
+                            </Box>
+                            {(values.buttons || []).map((opt, idx) => (
+                              <Grid container spacing={1} key={idx} style={{ marginBottom: 6 }}>
+                                <Grid item xs={10}>
+                                  <TextField
+                                    label={`Opção ${idx + 1}`}
+                                    value={opt.displayText || ""}
+                                    placeholder={idx === 0 ? "Ex: Manhã (8h–12h)" : idx === 1 ? "Ex: Tarde (13h–17h)" : "Ex: Noite (18h–22h)"}
+                                    onChange={(e) => {
+                                      const updated = [...(values.buttons || [])];
+                                      updated[idx] = { displayText: e.target.value, type: "reply", value: "" };
+                                      setFieldValue("buttons", updated);
+                                    }}
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                    inputProps={{ maxLength: 100 }}
+                                  />
+                                </Grid>
+                                <Grid item xs={2} style={{ display: "flex", alignItems: "center" }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const updated = (values.buttons || []).filter((_, i) => i !== idx);
+                                      setFieldValue("buttons", updated);
+                                    }}
+                                    disabled={!campaignEditable || (values.buttons || []).length <= 2}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Grid>
+                              </Grid>
+                            ))}
+                            {(values.buttons || []).length < 12 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => setFieldValue("buttons", [
+                                  ...(values.buttons || []),
+                                  { displayText: "", type: "reply", value: "" }
+                                ])}
+                                disabled={!campaignEditable}
+                                style={{ marginTop: 4 }}
+                              >
+                                + Adicionar opção
+                              </Button>
+                            )}
+                            {(values.buttons || []).length === 0 && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setFieldValue("buttons", [
+                                  { displayText: "Manhã (8h–12h)", type: "reply", value: "" },
+                                  { displayText: "Tarde (13h–17h)", type: "reply", value: "" },
+                                  { displayText: "Noite (18h–22h)", type: "reply", value: "" },
+                                ])}
+                                disabled={!campaignEditable}
+                              >
+                                Usar modelo de exemplo
                               </Button>
                             )}
                           </Box>
