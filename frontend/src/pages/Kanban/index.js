@@ -27,6 +27,9 @@ const useStyles = makeStyles(theme => ({
     height: "100vh",
     backgroundColor: "#f5f5f5",
     overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      height: "calc(100vh - 70px)",
+    },
   },
   header: {
     display: "flex",
@@ -37,6 +40,10 @@ const useStyles = makeStyles(theme => ({
     borderBottom: "1px solid #e0e0e0",
     flexWrap: "wrap",
     gap: "16px",
+    [theme.breakpoints.down("sm")]: {
+      padding: "10px 12px",
+      gap: "10px",
+    },
   },
   headerLeft: {
     display: "flex",
@@ -70,6 +77,11 @@ const useStyles = makeStyles(theme => ({
     alignItems: "center",
     gap: "12px",
     flexWrap: "wrap",
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      flexDirection: "column",
+      alignItems: "stretch",
+    },
   },
   filterSelect: {
     minWidth: 200,
@@ -77,6 +89,11 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 8,
     "& .MuiOutlinedInput-root": {
       borderRadius: 8,
+    },
+    [theme.breakpoints.down("sm")]: {
+      minWidth: "unset",
+      flex: 1,
+      width: "100%",
     },
   },
   kanbanContainer: {

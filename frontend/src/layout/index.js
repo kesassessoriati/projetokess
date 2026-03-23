@@ -172,10 +172,23 @@ const useStyles = makeStyles((theme) => ({
     gap: "16px",
     flex: 1,
   },
-  menuButton: {
+  menuButton: (props) => ({
     display: "none",
     color: "#3b82f6",
-  },
+    [theme.breakpoints.down("md")]: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "40px",
+      height: "40px",
+      borderRadius: "50%",
+      backgroundColor: props.primaryColor || "#3b82f6",
+      "& .MuiSvgIcon-root": {
+        fontSize: "20px",
+        color: "#ffffff",
+      },
+    },
+  }),
   hamburgerButton: (props) => ({
     width: "40px",
     height: "40px",
@@ -644,6 +657,10 @@ const useStyles = makeStyles((theme) => ({
       marginTop: props.shouldHideLayout ? 0 : "64px",
       height: props.shouldHideLayout ? "100vh" : "calc(100vh - 64px)",
     },
+    [theme.breakpoints.down("sm")]: {
+      marginTop: props.shouldHideLayout ? 0 : "64px",
+      height: props.shouldHideLayout ? "100vh" : "calc(100vh - 64px - 70px)",
+    },
   }),
   // Mobile Bottom Navigation
   mobileBottomNav: {
@@ -727,10 +744,31 @@ const useStyles = makeStyles((theme) => ({
   },
   contentWithMobileNav: {
     [theme.breakpoints.down("sm")]: {
-      paddingBottom: "-80px",
+      paddingBottom: "80px",
     },
   },
   hideOnMobile: {
+    [theme.breakpoints.down("sm")]: {
+      display: "none !important",
+    },
+  },
+  mobileSearchBtn: (props) => ({
+    display: "none",
+    [theme.breakpoints.down("sm")]: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "40px",
+      height: "40px",
+      borderRadius: "50%",
+      backgroundColor: props.primaryColor || "#3b82f6",
+      "& .MuiSvgIcon-root": {
+        fontSize: "20px",
+        color: "#ffffff",
+      },
+    },
+  }),
+  hideOnSmMobile: {
     [theme.breakpoints.down("sm")]: {
       display: "none !important",
     },
@@ -1281,6 +1319,8 @@ const LoggedInLayout = ({ children }) => {
       if (!isActive) {
         history.push(path);
       }
+      // Auto-close mobile sidebar after navigation
+      if (isMobile) setMobileOpen(false);
     };
 
     const item = (
@@ -1423,6 +1463,7 @@ const LoggedInLayout = ({ children }) => {
                           key={child.path}
                           onClick={() => {
                             if (!isChildActive) history.push(child.path);
+                            if (isMobile) setMobileOpen(false);
                           }}
                           className={`${classes.submenuItem} ${isChildActive ? "active" : ""}`}
                         >
@@ -1584,9 +1625,18 @@ const LoggedInLayout = ({ children }) => {
 
             {/* Seção Direita */}
             <div className={classes.headerRight}>
-              {/* Botão Refresh */}
+              {/* Busca - Ícone Mobile (visível apenas em telas pequenas) */}
               <IconButton
-                className={classes.iconButton}
+                className={classes.mobileSearchBtn}
+                onClick={() => setSearchModalOpen(true)}
+                title="Buscar"
+              >
+                <SearchIcon />
+              </IconButton>
+
+              {/* Botão Refresh - Oculto em telas muito pequenas */}
+              <IconButton
+                className={`${classes.iconButton} ${classes.hideOnSmMobile}`}
                 onClick={handleRefreshPage}
                 title="Atualizar"
               >

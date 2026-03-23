@@ -56,7 +56,10 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "column",
         backgroundColor: "#FFFFFF",
         overflow: "hidden",
-        marginTop: 0
+        marginTop: 0,
+        [theme.breakpoints.down("sm")]: {
+            height: "calc(100vh - 48px - 70px)",
+        },
     },
     header: {
         padding: theme.spacing(2, 3, 1.75, 3),
@@ -123,6 +126,11 @@ const useStyles = makeStyles((theme) => ({
     },
     selector: {
         minWidth: 220,
+        [theme.breakpoints.down("sm")]: {
+            minWidth: "unset",
+            flex: 1,
+            width: "100%",
+        },
         "& .MuiOutlinedInput-root": {
             borderRadius: 10,
             backgroundColor: "#f9fcfa",
@@ -204,7 +212,11 @@ const useStyles = makeStyles((theme) => ({
         flexWrap: "wrap",
         marginTop: 12,
         paddingTop: 12,
-        borderTop: "1px solid #e4efe8"
+        borderTop: "1px solid #e4efe8",
+        [theme.breakpoints.down("sm")]: {
+            flexDirection: "column",
+            alignItems: "stretch",
+        },
     },
     searchBox: {
         display: "flex",
@@ -217,6 +229,11 @@ const useStyles = makeStyles((theme) => ({
         minWidth: 250,
         maxWidth: 340,
         flex: 1,
+        [theme.breakpoints.down("sm")]: {
+            minWidth: "unset",
+            width: "100%",
+            maxWidth: "100%",
+        },
         "&:focus-within": {
             border: "1px solid #1f9d55",
             backgroundColor: "#fff",
@@ -291,6 +308,11 @@ const useStyles = makeStyles((theme) => ({
     },
     memberSelect: {
         minWidth: 190,
+        [theme.breakpoints.down("sm")]: {
+            minWidth: "unset",
+            flex: 1,
+            width: "100%",
+        },
         "& .MuiOutlinedInput-root": { borderRadius: 10, height: 36, fontSize: "0.82rem", backgroundColor: "#fff" },
         "& .MuiInputLabel-outlined": { fontSize: "0.82rem" }
     },
@@ -327,7 +349,11 @@ const useStyles = makeStyles((theme) => ({
         border: "1px solid #cfe1d5",
         boxShadow: "0 10px 24px rgba(16,24,40,0.09)",
         overflow: "hidden",
-        transition: "background-color 0.2s"
+        transition: "background-color 0.2s",
+        [theme.breakpoints.down("sm")]: {
+            minWidth: 300,
+            maxWidth: 300,
+        },
     },
     laneHeader: {
         padding: theme.spacing(1.75, 1.75, 1.5, 1.75),
