@@ -27,10 +27,13 @@ import {
     DragIndicator as DragIcon,
     Settings as SettingsIcon,
     Palette as PaletteIcon,
-    Timer as TimerIcon
+    Timer as TimerIcon,
+    Code as CodeIcon,
+    Timeline as TimelineIcon
 } from "@material-ui/icons";
 import api from "../../services/api";
 import { toast } from "react-toastify";
+import { useHistory } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import ColorPicker from "../../components/ColorPicker";
@@ -76,6 +79,7 @@ const useStyles = makeStyles((theme) => ({
 
 const PipelineConfig = () => {
     const classes = useStyles();
+    const history = useHistory();
     const [pipelines, setPipelines] = useState([]);
     const [selectedPipeline, setSelectedPipeline] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -274,28 +278,45 @@ const PipelineConfig = () => {
                 title="Configuração de Funil"
                 subtitle="Estruture pipelines, estágios e regras do CRM"
                 fallbackTo="/kanban"
-                actions={!selectedPipeline ? (
-                    <Box display="flex" gap={2}>
-                        <Button
-                            variant="outlined"
-                            color="secondary"
-                            onClick={handleMigrateLegacy}
-                            style={{ borderRadius: 12 }}
-                        >
-                            Migrar Kanban Legado
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            startIcon={<AddIcon />}
-                            onClick={handleOpenCreatePipeline}
-                            style={{ borderRadius: 12 }}
-                        >
-                            Novo Funil
-                        </Button>
-                    </Box>
-                ) : null}
             />
+
+            {!selectedPipeline && (
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                    <Box display="flex" gap={1}>
+                        <Tooltip title="Webhooks CRM">
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<CodeIcon style={{ fontSize: 15 }} />}
+                                onClick={() => history.push({ pathname: "/crm-webhooks", state: { from: history.location.pathname } })}
+                                style={{ borderRadius: 12 }}
+                            >
+                                Webhooks
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Automações do Kanban">
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<TimelineIcon style={{ fontSize: 15 }} />}
+                                onClick={() => history.push({ pathname: "/kanban-automations", state: { from: history.location.pathname } })}
+                                style={{ borderRadius: 12 }}
+                            >
+                                Automações
+                            </Button>
+                        </Tooltip>
+                    </Box>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenCreatePipeline}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Novo Funil
+                    </Button>
+                </Box>
+            )}
 
             {!selectedPipeline ? (
                 <Grid container spacing={4}>
@@ -323,7 +344,7 @@ const PipelineConfig = () => {
                         <Grid item xs={12}>
                             <Paper style={{ padding: 40, textAlign: "center", borderRadius: 16 }}>
                                 <Typography variant="h6">Nenhum funil encontrado.</Typography>
-                                <Typography color="textSecondary" style={{ marginTop: 8 }}>Você ainda não possui funis configurados. Clique em "Migrar Kanban Legado" para importar seus dados ou crie um novo funil do zero.</Typography>
+                                <Typography color="textSecondary" style={{ marginTop: 8 }}>Você ainda não possui funis configurados. Clique em "Novo Funil" para criar seu primeiro funil.</Typography>
                             </Paper>
                         </Grid>
                     )}

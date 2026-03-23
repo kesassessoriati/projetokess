@@ -25,7 +25,7 @@ import {
 import {
     Warning as WarningIcon,
     Timeline as TimelineIcon,
-    FilterList as FilterListIcon,
+    FilterList as FilterListIcon,
     Schedule as ClockIcon,
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
@@ -35,8 +35,7 @@ import {
     Person as PersonIcon,
     Clear as ClearIcon,
     Dashboard as DashboardIcon,
-    Tune as TuneIcon,
-    Code as CodeIcon
+    Tune as TuneIcon
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -851,26 +850,6 @@ const PipelineBoard = () => {
                                 onClick={() => history.push({ pathname: "/pipeline-config", state: { from: history.location.pathname } })}
                             >
                                 Config. Funil
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Webhooks CRM">
-                            <Button
-                                size="small"
-                                className={classes.crmTabBtn}
-                                startIcon={<CodeIcon style={{ fontSize: 15 }} />}
-                                onClick={() => history.push({ pathname: "/crm-webhooks", state: { from: history.location.pathname } })}
-                            >
-                                Webhooks
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Automações do Kanban">
-                            <Button
-                                size="small"
-                                className={classes.crmTabBtn}
-                                startIcon={<TimelineIcon style={{ fontSize: 15 }} />}
-                                onClick={() => history.push({ pathname: "/kanban-automations", state: { from: history.location.pathname } })}
-                            >
-                                Automações
                             </Button>
                         </Tooltip>
                         <Tooltip title="Gerenciamento de Tarefas">
