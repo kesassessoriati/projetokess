@@ -93,29 +93,6 @@ function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
   });
 }
 
-function mapButtonsToSendMessageNative(buttons: InteractiveButton[]): any[] {
-  const baseId = Date.now();
-  return buttons.map((btn, index) => {
-    const text = btn.displayText || `Botão ${index + 1}`;
-    const type = (btn.type || "reply").toLowerCase();
-
-    if (type === "url") {
-      return { type: "url", text, url: btn.value || "" };
-    }
-    if (type === "call") {
-      return { type: "call", text, phoneNumber: btn.value || "" };
-    }
-    if (type === "copy") {
-      return { type: "copy", text, copyText: btn.value || "" };
-    }
-
-    return {
-      type: "reply",
-      id: btn.value?.trim() || `btn_${baseId}_${index + 1}`,
-      text
-    };
-  });
-}
 
 function toNativeListSections(sections: ListSection[]): any[] {
   return sections.map((section, sectionIndex) => ({
@@ -221,6 +198,9 @@ async function downloadMediaBuffer(url: string): Promise<Buffer | null> {
 /**
  * Envia mensagem com botões de ação (URL, Call, Reply, Copy).
  * Suporta até 4 botões por mensagem.
+ *
+ * Usa exatamente o mesmo padrão que foi confirmado em produção:
+ * generateWAMessageFromContent + viewOnceMessage + nativeFlowMessage + messageParamsJson.
  */
 export async function sendButtonMessage(
   wbot: any,
@@ -232,46 +212,24 @@ export async function sendButtonMessage(
   try {
     const nativeButtons = mapButtonsToNative(buttons);
 
-    const interactiveMsg: any = {
-      body: { text },
-      nativeFlowMessage: { buttons: nativeButtons }
+    const msg: any = {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage: {
+            body: { text: String(text || "") },
+            footer: { text: footer || "" },
+            nativeFlowMessage: {
+              buttons: nativeButtons,
+              messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
+            },
+          },
+        },
+      },
     };
 
-    if (footer) {
-      interactiveMsg.footer = { text: footer };
-    }
-
-    try {
-      const nativeButtons = mapButtonsToSendMessageNative(buttons);
-      await wbot.sendMessage(jid, {
-        nativeButtons,
-        text: String(text || ""),
-        footer: footer || undefined
-      });
-      logger.info(`[SendInteractiveMessage] Botões enviados com nativeButtons para ${jid}`);
-      return;
-    } catch {
-      logger.warn(`[SendInteractiveMessage] nativeButtons indisponível para ${jid}, usando relayMessage`);
-    }
-
     const userJid = wbot.user?.id || jid;
-    let newMsg: any;
-
-    try {
-      const wrappedContent = {
-        viewOnceMessage: {
-          message: {
-            interactiveMessage: interactiveMsg
-          }
-        }
-      };
-      newMsg = generateWAMessageFromContent(jid, wrappedContent, { userJid });
-      await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
-    } catch (_) {
-      newMsg = generateWAMessageFromContent(jid, { interactiveMessage: interactiveMsg }, { userJid });
-      await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
-    }
-
+    const newMsg = generateWAMessageFromContent(jid, msg, { userJid });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
     await wbot.upsertMessage(newMsg, "notify");
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {
