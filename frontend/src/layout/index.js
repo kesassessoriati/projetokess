@@ -199,6 +199,32 @@ const useStyles = makeStyles((theme) => ({
       display: "none",
     },
   }),
+  topMenuToggleBtn: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    color: "#111111",
+    backgroundColor: "rgba(0,0,0,0.07)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.2s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: "20px",
+      color: "#111111",
+    },
+    "&:hover": {
+      backgroundColor: "rgba(0,0,0,0.13)",
+      transform: "scale(1.05)",
+    },
+    "&:focus-visible": {
+      outline: "2px solid #3b82f6",
+      outlineOffset: "2px",
+    },
+    [theme.breakpoints.down("md")]: {
+      display: "none",
+    },
+  },
   searchContainer: {
     position: "relative",
     backgroundColor: "#f3f4f6",
@@ -610,10 +636,10 @@ const useStyles = makeStyles((theme) => ({
   content: (props) => ({
     flex: 1,
     overflow: "auto",
-    marginTop: props.shouldHideLayout ? 0 : "112px",
+    marginTop: props.shouldHideLayout ? 0 : (props.topMenuVisible ? "112px" : "64px"),
     backgroundColor: "#f8f9fa",
-    height: props.shouldHideLayout ? "100vh" : "calc(100vh - 112px)",
-    transition: "all 0.2s ease",
+    height: props.shouldHideLayout ? "100vh" : (props.topMenuVisible ? "calc(100vh - 112px)" : "calc(100vh - 64px)"),
+    transition: "margin-top 0.25s ease, height 0.25s ease",
     [theme.breakpoints.down("md")]: {
       marginTop: props.shouldHideLayout ? 0 : "64px",
       height: props.shouldHideLayout ? "100vh" : "calc(100vh - 64px)",
@@ -843,13 +869,18 @@ const LoggedInLayout = ({ children }) => {
   // Ocultar layout completamente se estiver na página atendimentomobile
   const shouldHideLayout = isAtendimentosMobilePage;
 
+  const [topMenuVisible, setTopMenuVisible] = useState(() => {
+    return localStorage.getItem("topMenuVisible") !== "false";
+  });
+
   const classes = useStyles({
     theme,
     drawerWidth,
     drawerExpanded,
     isMobileSession,
     primaryColor: theme?.palette?.primary?.main || "#3b82f6",
-    shouldHideLayout
+    shouldHideLayout,
+    topMenuVisible,
   });
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -931,6 +962,12 @@ const LoggedInLayout = ({ children }) => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleToggleTopMenu = () => {
+    const newValue = !topMenuVisible;
+    setTopMenuVisible(newValue);
+    localStorage.setItem("topMenuVisible", String(newValue));
   };
 
   const isActivePath = (path) => {
@@ -1475,7 +1512,7 @@ const LoggedInLayout = ({ children }) => {
                 </IconButton>
               )}
 
-              {/* Hamburger Button - Desktop */}
+              {/* Hamburger Button - Desktop (sidebar toggle) */}
               {!isFlowBuilderPage && !isMobile && (
                 <IconButton
                   className={classes.hamburgerButton}
@@ -1484,6 +1521,22 @@ const LoggedInLayout = ({ children }) => {
                 >
                   {sidebarPinned ? <CloseIcon style={{ fontSize: 22 }} /> : <MenuIcon style={{ fontSize: 22 }} />}
                 </IconButton>
+              )}
+
+              {/* Top Menu Toggle Button - Desktop (mostra/oculta barra de navegação superior) */}
+              {!isFlowBuilderPage && !isMobile && (
+                <Tooltip title={topMenuVisible ? "Ocultar menu superior" : "Exibir menu superior"}>
+                  <IconButton
+                    className={classes.topMenuToggleBtn}
+                    onClick={handleToggleTopMenu}
+                    aria-label={topMenuVisible ? "Ocultar menu superior" : "Exibir menu superior"}
+                    aria-expanded={topMenuVisible}
+                  >
+                    {topMenuVisible
+                      ? <ExpandLessIcon style={{ fontSize: 20 }} />
+                      : <ExpandMoreIcon style={{ fontSize: 20 }} />}
+                  </IconButton>
+                </Tooltip>
               )}
 
               {/* Busca - Oculto no mobile */}
@@ -1510,7 +1563,7 @@ const LoggedInLayout = ({ children }) => {
               </div>
 
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
-              {!isMobile && (
+              {!isMobile && topMenuVisible && (
                 <div className={classes.quickNavRow}>
                   {renderQuickNavItems(primaryQuickNavItems)}
                 </div>
@@ -1575,12 +1628,21 @@ const LoggedInLayout = ({ children }) => {
               </Avatar>
             </div>
           </Toolbar>
-          <div className={classes.secondaryBar}>
-            <div className={classes.secondaryQuickNavRow}>
-              {renderQuickNavItems(
-                secondaryQuickNavItems,
-                `${classes.quickNavBtn} ${classes.secondaryQuickNavBtn}`
-              )}
+          <div
+            style={{
+              overflow: "hidden",
+              maxHeight: topMenuVisible ? "56px" : "0",
+              opacity: topMenuVisible ? 1 : 0,
+              transition: "max-height 0.25s ease, opacity 0.2s ease",
+            }}
+          >
+            <div className={classes.secondaryBar}>
+              <div className={classes.secondaryQuickNavRow}>
+                {renderQuickNavItems(
+                  secondaryQuickNavItems,
+                  `${classes.quickNavBtn} ${classes.secondaryQuickNavBtn}`
+                )}
+              </div>
             </div>
           </div>
         </AppBar>
