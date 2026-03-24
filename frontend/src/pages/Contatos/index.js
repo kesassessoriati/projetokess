@@ -363,6 +363,7 @@ const Contatos = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam, setSearchParam] = useState("");
   const [contacts, dispatch] = useReducer(reducer, []);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [importContactModalOpen, setImportContactModalOpen] = useState(false);
@@ -427,11 +428,12 @@ const Contatos = () => {
     const delayDebounceFn = setTimeout(async () => {
       if (!isMounted.current) return;
       const data = await fetchContacts({
-        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) }
+        params: { searchParam, pageNumber, limit: 20, contactTag: JSON.stringify(selectedTags) }
       });
       if (data && isMounted.current) {
         dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
         setHasMore(data.hasMore);
+        if (pageNumber === 1) setTotalCount(data.count ?? 0);
       }
     }, searchParam ? 500 : 0);
     return () => clearTimeout(delayDebounceFn);
@@ -678,7 +680,7 @@ const Contatos = () => {
               {i18n.t("contacts.title")}
             </Typography>
             <Typography className={classes.subtitle}>
-              Gerencie seus contatos • {contacts.length} contato(s)
+              Gerencie seus contatos • {totalCount} contato(s)
             </Typography>
           </Box>
         </Box>

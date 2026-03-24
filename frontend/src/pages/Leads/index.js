@@ -292,6 +292,7 @@ const Leads = () => {
   const [leads, dispatch] = useReducer(reducer, []);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -345,6 +346,7 @@ const Leads = () => {
         if (isMounted) {
           dispatch({ type: "LOAD_LEADS", payload: data.leads });
           setHasMore(data.hasMore);
+          if (pageNumber === 1) setTotalCount(data.count ?? 0);
           console.info("[Leads] Leads fetched", {
             received: data.leads?.length ?? 0,
             total: data.count,
@@ -569,7 +571,7 @@ const Leads = () => {
           <Box>
             <Typography className={classes.title}>Leads</Typography>
             <Typography className={classes.subtitle}>
-              Gerencie oportunidades e cadastros • {leads.length} lead(s)
+              Gerencie oportunidades e cadastros • {totalCount} lead(s)
             </Typography>
           </Box>
         </Box>
@@ -773,13 +775,6 @@ const Leads = () => {
           <Box className={classes.loadingBox}>
             <CircularProgress size={20} />
             <Typography variant="body2">Carregando leads...</Typography>
-          </Box>
-        )}
-        {!loading && hasMore && (
-          <Box className={classes.loadingBox}>
-            <Button size="small" onClick={() => setPageNumber((prev) => prev + 1)}>
-              Carregar mais
-            </Button>
           </Box>
         )}
       </Box>
