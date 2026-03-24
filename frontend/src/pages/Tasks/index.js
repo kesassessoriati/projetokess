@@ -86,7 +86,9 @@ const useStyles = makeStyles((theme) => ({
         [theme.breakpoints.down("sm")]: {
             padding: theme.spacing(1),
             gap: theme.spacing(1),
+            overflowY: "auto",
             WebkitOverflowScrolling: "touch",
+            alignItems: "flex-start",
         },
     },
     column: {

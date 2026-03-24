@@ -175,11 +175,30 @@ const useStyles = makeStyles((theme) => ({
   },
   actions: {
     display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1),
+    [theme.breakpoints.down("sm")]: {
+      width: "100%"
+    }
+  },
+  filtersGroup: {
+    display: "flex",
     alignItems: "center",
     gap: theme.spacing(1),
     flexWrap: "wrap",
     [theme.breakpoints.down("sm")]: {
-      width: "100%"
+      width: "100%",
+      "& > *": { flex: 1, minWidth: "calc(50% - 4px)" }
+    }
+  },
+  buttonsGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    flexWrap: "wrap",
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      "& > *": { flex: 1 }
     }
   },
   searchField: {
@@ -685,90 +704,94 @@ const Clients = () => {
         </Box>
 
         <Box className={classes.actions}>
-          <TextField
-            size="small"
-            variant="outlined"
-            placeholder="Pesquisar por nome, documento ou email"
-            value={searchParam}
-            onChange={(event) => setSearchParam(event.target.value)}
-            className={classes.searchField}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="disabled" />
-                </InputAdornment>
-              )
-            }}
-          />
+          <Box className={classes.filtersGroup}>
+            <TextField
+              size="small"
+              variant="outlined"
+              placeholder="Pesquisar por nome, documento ou email"
+              value={searchParam}
+              onChange={(event) => setSearchParam(event.target.value)}
+              className={classes.searchField}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="disabled" />
+                  </InputAdornment>
+                )
+              }}
+            />
 
-          <TextField
-            select
-            size="small"
-            label="Tipo"
-            variant="outlined"
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            className={classes.selectField}
-          >
-            {TYPE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            <TextField
+              select
+              size="small"
+              label="Tipo"
+              variant="outlined"
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className={classes.selectField}
+            >
+              {TYPE_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
 
-          <TextField
-            select
-            size="small"
-            label="Status"
-            variant="outlined"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className={classes.selectField}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            <TextField
+              select
+              size="small"
+              label="Status"
+              variant="outlined"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className={classes.selectField}
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
 
-          <TextField
-            size="small"
-            label="Ano (desde)"
-            variant="outlined"
-            value={clientSinceYearFilter}
-            onChange={handleClientSinceYearChange}
-            className={classes.selectField}
-            placeholder="AAAA"
-            inputProps={{ inputMode: "numeric" }}
-          />
+            <TextField
+              size="small"
+              label="Ano (desde)"
+              variant="outlined"
+              value={clientSinceYearFilter}
+              onChange={handleClientSinceYearChange}
+              className={classes.selectField}
+              placeholder="AAAA"
+              inputProps={{ inputMode: "numeric" }}
+            />
+          </Box>
 
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            className={classes.addButton}
-            onClick={() => handleOpenModal()}
-          >
-            Novo Cliente
-          </Button>
+          <Box className={classes.buttonsGroup}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              className={classes.addButton}
+              onClick={() => handleOpenModal()}
+            >
+              Novo Cliente
+            </Button>
 
-          <Button
-            variant="outlined"
-            style={{ color: "#10b981", borderColor: "#10b981" }}
-            onClick={() => setExportConfirmModalOpen(true)}
-          >
-            Exportar
-          </Button>
+            <Button
+              variant="outlined"
+              style={{ color: "#10b981", borderColor: "#10b981" }}
+              onClick={() => setExportConfirmModalOpen(true)}
+            >
+              Exportar
+            </Button>
 
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => setImportModalOpen(true)}
-          >
-            Importar
-          </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => setImportModalOpen(true)}
+            >
+              Importar
+            </Button>
+          </Box>
         </Box>
       </Box>
 

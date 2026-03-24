@@ -51,15 +51,12 @@ const fCurrency = (value) => {
 
 const useStyles = makeStyles((theme) => ({
     container: {
-        height: "calc(100vh - 48px)",
+        height: "100%",
         display: "flex",
         flexDirection: "column",
         backgroundColor: "#FFFFFF",
         overflow: "hidden",
         marginTop: 0,
-        [theme.breakpoints.down("sm")]: {
-            height: "calc(100vh - 48px - 70px)",
-        },
     },
     header: {
         padding: theme.spacing(2, 3, 1.75, 3),
@@ -182,7 +179,8 @@ const useStyles = makeStyles((theme) => ({
         gap: 10,
         marginTop: 12,
         [theme.breakpoints.down("sm")]: {
-            gridTemplateColumns: "1fr",
+            gap: 6,
+            marginTop: 8,
         }
     },
     metricCard: {
@@ -190,20 +188,30 @@ const useStyles = makeStyles((theme) => ({
         border: "1px solid #cfe2d5",
         background: "#ffffff",
         padding: "10px 12px",
-        boxShadow: "0 6px 18px rgba(16,24,40,0.07)"
+        boxShadow: "0 6px 18px rgba(16,24,40,0.07)",
+        [theme.breakpoints.down("sm")]: {
+            padding: "6px 8px",
+            borderRadius: 8,
+        }
     },
     metricLabel: {
         fontSize: "0.67rem",
         color: "#111111",
         letterSpacing: ".04em",
         textTransform: "uppercase",
-        fontWeight: 800
+        fontWeight: 800,
+        [theme.breakpoints.down("sm")]: {
+            fontSize: "0.58rem",
+        }
     },
     metricValue: {
         marginTop: 2,
         fontSize: "1.05rem",
         fontWeight: 900,
-        lineHeight: 1.2
+        lineHeight: 1.2,
+        [theme.breakpoints.down("sm")]: {
+            fontSize: "0.88rem",
+        }
     },
     controlBar: {
         display: "flex",
@@ -214,8 +222,14 @@ const useStyles = makeStyles((theme) => ({
         paddingTop: 12,
         borderTop: "1px solid #e4efe8",
         [theme.breakpoints.down("sm")]: {
-            flexDirection: "column",
-            alignItems: "stretch",
+            flexWrap: "nowrap",
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
+            paddingBottom: 4,
+            gap: 6,
+            marginTop: 8,
+            paddingTop: 8,
+            "& > *": { flexShrink: 0 },
         },
     },
     searchBox: {
@@ -230,9 +244,9 @@ const useStyles = makeStyles((theme) => ({
         maxWidth: 340,
         flex: 1,
         [theme.breakpoints.down("sm")]: {
-            minWidth: "unset",
-            width: "100%",
-            maxWidth: "100%",
+            minWidth: 200,
+            maxWidth: 260,
+            flex: "0 0 200px",
         },
         "&:focus-within": {
             border: "1px solid #1f9d55",
@@ -309,9 +323,8 @@ const useStyles = makeStyles((theme) => ({
     memberSelect: {
         minWidth: 190,
         [theme.breakpoints.down("sm")]: {
-            minWidth: "unset",
-            flex: 1,
-            width: "100%",
+            minWidth: 160,
+            flex: "0 0 160px",
         },
         "& .MuiOutlinedInput-root": { borderRadius: 10, height: 36, fontSize: "0.82rem", backgroundColor: "#fff" },
         "& .MuiInputLabel-outlined": { fontSize: "0.82rem" }
