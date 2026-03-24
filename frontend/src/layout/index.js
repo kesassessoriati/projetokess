@@ -1542,14 +1542,22 @@ const LoggedInLayout = ({ children }) => {
                 </IconButton>
               )}
 
-              {/* Menu Button Mobile - Oculto no Flow Builder */}
-              {!isFlowBuilderPage && (
+              {/* Menu Button Mobile - renderizado condicionalmente via isMobile */}
+              {!isFlowBuilderPage && isMobile && (
                 <IconButton
-                  className={classes.menuButton}
                   onClick={handleDrawerToggle}
                   edge="start"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    backgroundColor: primaryColor,
+                    color: "#ffffff",
+                    padding: 0,
+                    flexShrink: 0,
+                  }}
                 >
-                  <MenuIcon />
+                  <MenuIcon style={{ fontSize: "22px", color: "#ffffff" }} />
                 </IconButton>
               )}
 
@@ -1625,23 +1633,34 @@ const LoggedInLayout = ({ children }) => {
 
             {/* Seção Direita */}
             <div className={classes.headerRight}>
-              {/* Busca - Ícone Mobile (visível apenas em telas pequenas) */}
-              <IconButton
-                className={classes.mobileSearchBtn}
-                onClick={() => setSearchModalOpen(true)}
-                title="Buscar"
-              >
-                <SearchIcon />
-              </IconButton>
+              {/* Busca - Ícone Mobile (renderizado condicionalmente via isMobile) */}
+              {isMobile && (
+                <IconButton
+                  onClick={() => setSearchModalOpen(true)}
+                  title="Buscar"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    backgroundColor: primaryColor,
+                    color: "#ffffff",
+                    padding: 0,
+                  }}
+                >
+                  <SearchIcon style={{ fontSize: "20px", color: "#ffffff" }} />
+                </IconButton>
+              )}
 
-              {/* Botão Refresh - Oculto em telas muito pequenas */}
-              <IconButton
-                className={`${classes.iconButton} ${classes.hideOnSmMobile}`}
-                onClick={handleRefreshPage}
-                title="Atualizar"
-              >
-                <CachedIcon />
-              </IconButton>
+              {/* Botão Refresh - Oculto no mobile */}
+              {!isMobile && (
+                <IconButton
+                  className={classes.iconButton}
+                  onClick={handleRefreshPage}
+                  title="Atualizar"
+                >
+                  <CachedIcon />
+                </IconButton>
+              )}
 
               {/* ── Botão Quick Send (Mensagem Rápida) ─────────────────── */}
               <Tooltip title="Mensagem Rápida">
@@ -1658,15 +1677,19 @@ const LoggedInLayout = ({ children }) => {
                 </IconButton>
               </Tooltip>
 
-              {/* Chat Interno Popover */}
-              <div className={classes.iconButton}>
-                <ChatPopover />
-              </div>
+              {/* Chat Interno Popover - Oculto no mobile para não lotar o header */}
+              {!isMobile && (
+                <div className={classes.iconButton}>
+                  <ChatPopover />
+                </div>
+              )}
 
-              {/* Volume */}
-              <div className={classes.iconButton}>
-                <NotificationsVolume setVolume={setVolume} volume={volume} />
-              </div>
+              {/* Volume - Oculto no mobile */}
+              {!isMobile && (
+                <div className={classes.iconButton}>
+                  <NotificationsVolume setVolume={setVolume} volume={volume} />
+                </div>
+              )}
 
               {/* Avatar do Usuário */}
               <Avatar
