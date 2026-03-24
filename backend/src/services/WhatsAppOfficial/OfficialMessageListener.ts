@@ -225,6 +225,8 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
             whatsapp: {
               id: connection.id,
               name: connection.name,
+              number: connection.number,
+              token: connection.token,
               channel: "whatsapp_official"
             }
           });

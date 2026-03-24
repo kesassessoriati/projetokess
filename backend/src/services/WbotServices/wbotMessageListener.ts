@@ -5171,7 +5171,9 @@ const handleMessage = async (
         },
         whatsapp: {
           id: whatsapp?.id,
-          name: whatsapp?.name
+          name: whatsapp?.name,
+          number: whatsapp?.number,
+          token: whatsapp?.token
         }
       });
     }
