@@ -703,7 +703,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
       setShowExternalApi(planConfigs.plan.useExternalApi);
       // Plano ilimitado ou empresa ativa: nunca ocultar menu por data de vencimento
       const isUnlimitedMenu = user.company?.billing_cycle === "unlimited" || ["Ilimitado", "ILIMITADO", "unlimited"].includes(user.company?.recurrence);
-      const notExpiredByDate = moment(moment().format()).isBefore(user.company?.dueDate);
+      const notExpiredByDate = moment(moment().format()).isBefore(user.company?.expiration_date || user.company?.dueDate);
       setPlanExpired(isUnlimitedMenu || user.company?.status === true || notExpiredByDate);
     }
     fetchData();

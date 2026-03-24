@@ -131,7 +131,7 @@ const useAuth = () => {
       if (data.user.company.id === 1) {
         dueDate = "2999-12-31T00:00:00.000Z";
       } else {
-        dueDate = data.user.company.dueDate;
+        dueDate = data.user.company.expiration_date || data.user.company.dueDate;
       }
       const hoje = moment(moment()).format("DD/MM/yyyy");
       const vencimento = moment(dueDate).format("DD/MM/yyyy");

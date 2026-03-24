@@ -54,7 +54,7 @@ export const PlanPermissionsProvider = ({ children }) => {
           // Plano ilimitado: sempre ativo independente de datas
           const isUnlimited = user.company?.billing_cycle === "unlimited" || user.company?.recurrence === "Ilimitado";
           // Se a empresa estiver ativa, plano permanece ativo mesmo com fatura vencida
-          const isExpired = moment().isBefore(user.company?.dueDate);
+          const isExpired = moment().isBefore(user.company?.expiration_date || user.company?.dueDate);
           const planActive = isUnlimited || user.company?.status ? true : isExpired;
           
           const aiEnabled = typeof plan.aiEnabled === "boolean" ? Boolean(plan.aiEnabled) : Boolean(plan.useOpenAi);
@@ -94,7 +94,7 @@ export const PlanPermissionsProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [user?.companyId, user?.company?.dueDate, user?.company?.status, user?.company?.billing_cycle, user?.company?.recurrence]);
+  }, [user?.companyId, user?.company?.expiration_date, user?.company?.dueDate, user?.company?.status, user?.company?.billing_cycle, user?.company?.recurrence]);
 
   const value = useMemo(() => {
     const canAccess = (featureKey) => {
