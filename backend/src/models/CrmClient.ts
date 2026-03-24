@@ -95,6 +95,12 @@ class CrmClient extends Model<CrmClient> {
   @Column({ field: "acquired_product", type: DataType.STRING })
   acquiredProduct: string;
 
+  @Column({ field: "payment_type", type: DataType.STRING })
+  paymentType: string;
+
+  @Column({ field: "purchase_type", type: DataType.STRING })
+  purchaseType: string;
+
   @Column({ field: "expiration_date", type: DataType.DATEONLY })
   expirationDate: Date;
 

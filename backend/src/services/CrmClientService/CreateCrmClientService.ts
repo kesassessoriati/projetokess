@@ -21,6 +21,8 @@ export interface CreateCrmClientRequest {
   status?: "active" | "inactive" | "blocked";
   clientSince?: Date;
   acquiredProduct?: string;
+  paymentType?: string;
+  purchaseType?: string;
   acquisitionDate?: Date;
   expirationDate?: Date;
   ownerUserId?: number;
@@ -110,6 +112,8 @@ const CreateCrmClientService = async (
     status: validatedData.status || "active",
     phone: data.phone ? data.phone.replace(/\D/g, "") : undefined,
     acquiredProduct: data.acquiredProduct || undefined,
+    paymentType: data.paymentType || undefined,
+    purchaseType: data.purchaseType || undefined,
     acquisitionDate: data.acquisitionDate || null,
     expirationDate: data.expirationDate || null
   };

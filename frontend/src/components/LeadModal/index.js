@@ -46,6 +46,8 @@ const normalizeLeadForm = (lead = {}) => {
     ...lead,
     document: formatDocument(rawDocument),
     product: lead.product || "",
+    paymentType: lead.paymentType || "",
+    purchaseType: lead.purchaseType || "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
     acquisitionDate: lead.acquisitionDate ? lead.acquisitionDate.substring(0, 10) : "",
@@ -100,6 +102,13 @@ const getUTMParameters = () => {
   return { source: '', campaign: '' };
 };
 
+const PURCHASE_TYPE_OPTIONS = [
+  { value: "novo", label: "Novo" },
+  { value: "migracao", label: "Migração" },
+  { value: "renovacao", label: "Renovação" },
+  { value: "recuperacao_novo", label: "Recuperação Novo" }
+];
+
 const defaultForm = {
   name: "",
   companyName: "",
@@ -109,6 +118,8 @@ const defaultForm = {
   decisionMakerPhone: "",
   document: "",
   product: "",
+  paymentType: "",
+  purchaseType: "",
   acquisitionDate: "",
   gmn: "",
   website: "",
@@ -238,6 +249,8 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         document: normalizeDigits(form.document),
         cnpj: normalizeDigits(form.document).length === 14 ? normalizeDigits(form.document) : "",
         product: (form.product || "").trim(),
+        paymentType: form.paymentType || null,
+        purchaseType: form.purchaseType || null,
         pipelineId: form.pipelineId || null,
         stageId: form.stageId || null,
         score: Number(form.score) || 0,
@@ -479,6 +492,37 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   InputLabelProps={{ shrink: true }}
                   helperText="Ao atingir a data, o lead expira."
                 />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Tipo de pagamento"
+                  name="paymentType"
+                  value={form.paymentType}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Tipo de compra"
+                  name="purchaseType"
+                  value={form.purchaseType}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  <MenuItem value="">Nenhum</MenuItem>
+                  {PURCHASE_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
 
               {/* Row 5 */}

@@ -23,6 +23,8 @@ interface Request {
   status?: "active" | "inactive" | "blocked";
   clientSince?: Date;
   acquiredProduct?: string;
+  paymentType?: string;
+  purchaseType?: string;
   acquisitionDate?: Date;
   expirationDate?: Date;
   ownerUserId?: number;
@@ -117,6 +119,8 @@ const UpdateCrmClientService = async ({
     ...validatedData,
     phone: data.phone ? data.phone.replace(/\D/g, "") : data.phone,
     acquiredProduct: data.acquiredProduct,
+    paymentType: data.paymentType,
+    purchaseType: data.purchaseType,
     acquisitionDate: data.acquisitionDate || null,
     expirationDate: data.expirationDate || null
   };

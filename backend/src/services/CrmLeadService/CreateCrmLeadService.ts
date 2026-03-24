@@ -21,6 +21,8 @@ interface Request {
   decisionMakerPhone?: string;
   cnpj?: string;
   product?: string;
+  paymentType?: string;
+  purchaseType?: string;
   gmn?: string;
   website?: string;
   instagram?: string;

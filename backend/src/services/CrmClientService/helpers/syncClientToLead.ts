@@ -55,6 +55,14 @@ const syncClientToLead = async ({
       updates.product = client.acquiredProduct;
     }
 
+    if (client.paymentType && client.paymentType !== lead.paymentType) {
+      updates.paymentType = client.paymentType;
+    }
+
+    if (client.purchaseType && client.purchaseType !== lead.purchaseType) {
+      updates.purchaseType = client.purchaseType;
+    }
+
     if (client.acquisitionDate && client.acquisitionDate !== lead.acquisitionDate) {
       updates.acquisitionDate = client.acquisitionDate;
     }

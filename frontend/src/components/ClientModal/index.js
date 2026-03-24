@@ -40,6 +40,13 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
+const PURCHASE_TYPE_OPTIONS = [
+  { value: "novo", label: "Novo" },
+  { value: "migracao", label: "Migração" },
+  { value: "renovacao", label: "Renovação" },
+  { value: "recuperacao_novo", label: "Recuperação Novo" }
+];
+
 const STATUS_OPTIONS = [
   { value: "active", label: "Ativo" },
   { value: "inactive", label: "Inativo" },
@@ -71,6 +78,8 @@ const defaultForm = {
   score: 0,
   tags: "",
   acquiredProduct: "",
+  paymentType: "",
+  purchaseType: "",
   acquisitionDate: "",
   zipCode: "",
   address: "",
@@ -144,6 +153,8 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         score: data.score || 0,
         tags: data.tags || "",
         acquiredProduct: data.acquiredProduct || "",
+        paymentType: data.paymentType || "",
+        purchaseType: data.purchaseType || "",
         acquisitionDate: data.acquisitionDate ? data.acquisitionDate.substring(0, 10) : "",
         zipCode: data.zipCode || "",
         address: data.address || "",
@@ -586,6 +597,36 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   InputLabelProps={{ shrink: true }}
                   helperText="Ao atingir a data, o cliente será marcado como inativo."
                 />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Tipo de pagamento"
+                  name="paymentType"
+                  value={form.paymentType}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Tipo de compra"
+                  name="purchaseType"
+                  value={form.purchaseType}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  <MenuItem value="">Nenhum</MenuItem>
+                  {PURCHASE_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
 
               <Grid item xs={12}>

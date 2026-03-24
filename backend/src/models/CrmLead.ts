@@ -87,6 +87,12 @@ class CrmLead extends Model<CrmLead> {
   @Column
   product: string;
 
+  @Column({ field: "payment_type" })
+  paymentType: string;
+
+  @Column({ field: "purchase_type" })
+  purchaseType: string;
+
   @Column
   gmn: string;
 
