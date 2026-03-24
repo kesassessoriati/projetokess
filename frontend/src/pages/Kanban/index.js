@@ -27,8 +27,8 @@ const useStyles = makeStyles(theme => ({
     height: "100vh",
     backgroundColor: "#f5f5f5",
     overflow: "hidden",
-    [theme.breakpoints.down("sm")]: {
-      height: "calc(100vh - 70px)",
+    [theme.breakpoints.down("md")]: {
+      height: "100%",
     },
   },
   header: {
@@ -101,6 +101,10 @@ const useStyles = makeStyles(theme => ({
     width: "100%",
     overflow: "auto",
     padding: theme.spacing(1),
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(0.5),
+      WebkitOverflowScrolling: "touch",
+    },
   },
   connectionTag: {
     background: "green",

@@ -47,6 +47,7 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: "column",
         height: "100%",
         backgroundColor: theme.palette.type === "dark" ? "#1a1a2e" : "#f0f2f5",
+        overflow: "hidden",
     },
     boardBar: {
         display: "flex",
@@ -56,9 +57,18 @@ const useStyles = makeStyles((theme) => ({
         backgroundColor: theme.palette.type === "dark" ? "#16213e" : "#fff",
         borderBottom: `1px solid ${theme.palette.divider}`,
         flexWrap: "wrap",
+        flexShrink: 0,
+        [theme.breakpoints.down("sm")]: {
+            padding: theme.spacing(1),
+            gap: theme.spacing(1),
+        },
     },
     boardSelect: {
         minWidth: 200,
+        [theme.breakpoints.down("sm")]: {
+            minWidth: 140,
+            flex: 1,
+        },
     },
     boardCanvas: {
         display: "flex",
@@ -73,6 +83,11 @@ const useStyles = makeStyles((theme) => ({
             borderRadius: 8,
             backgroundColor: theme.palette.type === "dark" ? "#555" : "#c1c7d0",
         },
+        [theme.breakpoints.down("sm")]: {
+            padding: theme.spacing(1),
+            gap: theme.spacing(1),
+            WebkitOverflowScrolling: "touch",
+        },
     },
     column: {
         minWidth: 280,
@@ -84,6 +99,10 @@ const useStyles = makeStyles((theme) => ({
         boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
         overflow: "hidden",
         flexShrink: 0,
+        [theme.breakpoints.down("sm")]: {
+            minWidth: 240,
+            maxWidth: 240,
+        },
     },
     columnHeader: {
         display: "flex",

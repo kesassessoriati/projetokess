@@ -34,27 +34,48 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     gap: theme.spacing(3),
     height: "100%",
-    backgroundColor: theme.palette.background.default
+    backgroundColor: theme.palette.background.default,
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1.5),
+      gap: theme.spacing(2),
+    },
   },
   header: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: theme.palette.text.primary
+    color: theme.palette.text.primary,
+    [theme.breakpoints.down("sm")]: {
+      fontSize: 20,
+    },
   },
   paper: {
     padding: theme.spacing(2),
     height: "100%",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1),
+    },
   },
   actions: {
     marginBottom: theme.spacing(2)
-  }
+  },
+  tableWrapper: {
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
+    flex: 1,
+    "& table": {
+      minWidth: 480,
+    },
+  },
 }));
 
 const QuickMessages = () => {
@@ -152,48 +173,50 @@ const QuickMessages = () => {
                 Nova Resposta
               </Button>
             </Box>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Atalho</TableCell>
-                  <TableCell>Mensagem</TableCell>
-                  <TableCell>Midia legada</TableCell>
-                  <TableCell>Grupo</TableCell>
-                  <TableCell>Acoes</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {replies.map((reply) => (
-                  <TableRow key={reply.id}>
-                    <TableCell>{reply.shortcut}</TableCell>
-                    <TableCell>
-                      {reply.message.length > 50
-                        ? `${reply.message.substring(0, 50)}...`
-                        : reply.message}
-                    </TableCell>
-                    <TableCell>{reply.mediaUrl ? "Preservada (desativada)" : "-"}</TableCell>
-                    <TableCell>{reply.group?.name || "Sem Grupo"}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setSelectedReply(reply);
-                          setReplyModalOpen(true);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteReply(reply.id)}
-                      >
-                        <DeleteOutlineIcon color="secondary" />
-                      </IconButton>
-                    </TableCell>
+            <div className={classes.tableWrapper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Atalho</TableCell>
+                    <TableCell>Mensagem</TableCell>
+                    <TableCell>Midia legada</TableCell>
+                    <TableCell>Grupo</TableCell>
+                    <TableCell>Acoes</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {replies.map((reply) => (
+                    <TableRow key={reply.id}>
+                      <TableCell>{reply.shortcut}</TableCell>
+                      <TableCell>
+                        {reply.message.length > 50
+                          ? `${reply.message.substring(0, 50)}...`
+                          : reply.message}
+                      </TableCell>
+                      <TableCell>{reply.mediaUrl ? "Preservada (desativada)" : "-"}</TableCell>
+                      <TableCell>{reply.group?.name || "Sem Grupo"}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedReply(reply);
+                            setReplyModalOpen(true);
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteReply(reply.id)}
+                        >
+                          <DeleteOutlineIcon color="secondary" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </>
         )}
 
@@ -212,40 +235,42 @@ const QuickMessages = () => {
                 Novo Grupo
               </Button>
             </Box>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Nome</TableCell>
-                  <TableCell>Descricao</TableCell>
-                  <TableCell>Acoes</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {groups.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell>{group.name}</TableCell>
-                    <TableCell>{group.description}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setSelectedGroup(group);
-                          setGroupModalOpen(true);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteGroup(group.id)}
-                      >
-                        <DeleteOutlineIcon color="secondary" />
-                      </IconButton>
-                    </TableCell>
+            <div className={classes.tableWrapper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Nome</TableCell>
+                    <TableCell>Descricao</TableCell>
+                    <TableCell>Acoes</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {groups.map((group) => (
+                    <TableRow key={group.id}>
+                      <TableCell>{group.name}</TableCell>
+                      <TableCell>{group.description}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedGroup(group);
+                            setGroupModalOpen(true);
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteGroup(group.id)}
+                        >
+                          <DeleteOutlineIcon color="secondary" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </>
         )}
       </Paper>

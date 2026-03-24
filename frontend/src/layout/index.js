@@ -718,29 +718,81 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "center",
     lineHeight: 1.2,
   },
-  mobileNavHomeBtn: {
+  mobileNavHamburgerBtn: {
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    width: "56px",
-    height: "56px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-    color: "#ffffff",
-    boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)",
-    marginTop: "-20px",
+    padding: "8px 12px",
+    borderRadius: "12px",
     cursor: "pointer",
     transition: "all 0.2s ease",
+    color: "#000000",
+    minWidth: "56px",
     "&:hover": {
-      transform: "scale(1.05)",
-      boxShadow: "0 6px 20px rgba(59, 130, 246, 0.5)",
+      backgroundColor: "rgba(59, 130, 246, 0.08)",
     },
-    "&:active": {
-      transform: "scale(0.95)",
+    "&.active": {
+      color: "#3b82f6",
+      backgroundColor: "rgba(59, 130, 246, 0.12)",
     },
   },
-  mobileNavHomeIcon: {
-    fontSize: "28px",
+  mobileNavHamburgerIcon: {
+    fontSize: "24px",
+    marginBottom: "2px",
+  },
+  mobileNavDrawer: {
+    "& .MuiDrawer-paper": {
+      borderTopLeftRadius: "16px",
+      borderTopRightRadius: "16px",
+      maxHeight: "70vh",
+      padding: "0 0 env(safe-area-inset-bottom)",
+    },
+  },
+  mobileNavDrawerHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 16px 8px",
+    borderBottom: "1px solid #e5e7eb",
+  },
+  mobileNavDrawerTitle: {
+    fontWeight: 600,
+    fontSize: "15px",
+    color: "#1a1a1a",
+  },
+  mobileNavDrawerGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "8px",
+    padding: "12px",
+    overflowY: "auto",
+  },
+  mobileNavDrawerItem: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "12px 8px",
+    borderRadius: "12px",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    color: "#374151",
+    gap: "6px",
+    "&:hover": {
+      backgroundColor: "rgba(59, 130, 246, 0.08)",
+      color: "#3b82f6",
+    },
+    "&.active": {
+      backgroundColor: "rgba(59, 130, 246, 0.12)",
+      color: "#3b82f6",
+    },
+  },
+  mobileNavDrawerItemLabel: {
+    fontSize: "11px",
+    fontWeight: 500,
+    textAlign: "center",
+    lineHeight: 1.2,
   },
   contentWithMobileNav: {
     [theme.breakpoints.down("sm")]: {
@@ -930,6 +982,7 @@ const LoggedInLayout = ({ children }) => {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [quickSendOpen, setQuickSendOpen] = useState(false);
   const [warmupModalOpen, setWarmupModalOpen] = useState(false);
+  const [mobileNavMenuOpen, setMobileNavMenuOpen] = useState(false);
 
   useEffect(() => {
     if (sidebarPinned) {
@@ -1810,12 +1863,13 @@ const LoggedInLayout = ({ children }) => {
             <span className={classes.mobileNavLabel}>Contatos</span>
           </div>
 
-          {/* Botão Home (Centro) - Tickets */}
+          {/* Botão Centro - Menu de Navegação (Hambúrguer) */}
           <div
-            className={classes.mobileNavHomeBtn}
-            onClick={() => history.push("/atendimentos")}
+            className={`${classes.mobileNavHamburgerBtn} ${mobileNavMenuOpen ? "active" : ""}`}
+            onClick={() => setMobileNavMenuOpen(true)}
           >
-            <ChatIcon className={classes.mobileNavHomeIcon} />
+            <MenuIcon className={classes.mobileNavHamburgerIcon} />
+            <span className={classes.mobileNavLabel}>Menu</span>
           </div>
 
           {/* Botão 4 - Canais */}
@@ -1861,6 +1915,50 @@ const LoggedInLayout = ({ children }) => {
           </div>
         </div>
       )}
+
+      {/* Drawer do Menu de Navegação Mobile */}
+      <Drawer
+        anchor="bottom"
+        open={mobileNavMenuOpen}
+        onClose={() => setMobileNavMenuOpen(false)}
+        className={classes.mobileNavDrawer}
+      >
+        <div className={classes.mobileNavDrawerHeader}>
+          <span className={classes.mobileNavDrawerTitle}>Navegação</span>
+          <IconButton size="small" onClick={() => setMobileNavMenuOpen(false)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.mobileNavDrawerGrid}>
+          {[
+            { path: "/atendimentos", label: "Conversas", icon: <ChatIcon style={{ fontSize: 22 }} /> },
+            { path: "/kanban", label: "CRM Kanban", icon: <ViewKanbanIcon style={{ fontSize: 22 }} /> },
+            { path: "/leads", label: "Leads", icon: <PeopleOutlineIcon style={{ fontSize: 22 }} /> },
+            { path: "/contatos", label: "Contatos", icon: <ContactsIcon style={{ fontSize: 22 }} /> },
+            { path: "/canais", label: "Canais", icon: <DeviceHubIcon style={{ fontSize: 22 }} /> },
+            { path: "/quick-messages", label: "Respostas Rápidas", icon: <QuestionAnswerIcon style={{ fontSize: 22 }} /> },
+            { path: "/campanhas", label: "Disparos", icon: <SendIcon style={{ fontSize: 22 }} /> },
+            { path: "/phrase-lists", label: "Campanhas", icon: <CampaignOutlinedIcon style={{ fontSize: 22 }} /> },
+            { path: "/relatorios", label: "Relatórios", icon: <BarChartIcon style={{ fontSize: 22 }} /> },
+            { path: "/painel", label: "Dashboard", icon: <DashboardIcon style={{ fontSize: 22 }} /> },
+            { path: "/produtos", label: "Produtos", icon: <ExtensionIcon style={{ fontSize: 22 }} /> },
+            { path: "/crm/tasks", label: "Tarefas", icon: <AssignmentIcon style={{ fontSize: 22 }} /> },
+            { path: "/settings", label: "Configurações", icon: <SettingsIcon style={{ fontSize: 22 }} /> },
+            { path: "/chats", label: "Chat Interno", icon: <ChatBubbleOutlineIcon style={{ fontSize: 22 }} /> },
+            { path: "/clientes", label: "Clientes", icon: <BusinessCenterIcon style={{ fontSize: 22 }} /> },
+            { path: "/users", label: "Usuários", icon: <GroupIcon style={{ fontSize: 22 }} /> },
+          ].map(item => (
+            <div
+              key={item.path}
+              className={`${classes.mobileNavDrawerItem} ${isActivePath(item.path) ? "active" : ""}`}
+              onClick={() => { history.push(item.path); setMobileNavMenuOpen(false); }}
+            >
+              {item.icon}
+              <span className={classes.mobileNavDrawerItemLabel}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </Drawer>
     </div>
   );
 };

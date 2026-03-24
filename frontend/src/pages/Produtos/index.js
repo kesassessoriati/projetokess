@@ -38,6 +38,9 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#f5f5f5",
     overflowY: "auto",
     ...theme.scrollbarStyles,
+    [theme.breakpoints.down("sm")]: {
+      height: "100%",
+    },
   },
   header: {
     display: "flex",
@@ -48,6 +51,10 @@ const useStyles = makeStyles((theme) => ({
     borderBottom: "1px solid #e0e0e0",
     flexWrap: "wrap",
     gap: "16px",
+    [theme.breakpoints.down("sm")]: {
+      padding: "12px 16px",
+      gap: "10px",
+    },
   },
   headerLeft: {
     display: "flex",
@@ -81,6 +88,10 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     gap: "12px",
     flexWrap: "wrap",
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      justifyContent: "space-between",
+    },
   },
   searchField: {
     backgroundColor: "#fff",
@@ -101,6 +112,10 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 8,
     "& .MuiOutlinedInput-root": {
       borderRadius: 8,
+    },
+    [theme.breakpoints.down("sm")]: {
+      minWidth: "unset",
+      flex: 1,
     },
   },
   addButton: {
@@ -123,6 +138,9 @@ const useStyles = makeStyles((theme) => ({
   content: {
     flex: 1,
     padding: "16px 24px",
+    [theme.breakpoints.down("sm")]: {
+      padding: "12px 12px",
+    },
   },
   listItem: {
     display: "flex",
@@ -135,6 +153,11 @@ const useStyles = makeStyles((theme) => ({
     transition: "all 0.2s ease",
     "&:hover": {
       boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+    },
+    [theme.breakpoints.down("sm")]: {
+      padding: "12px",
+      flexWrap: "wrap",
+      gap: "8px",
     },
   },
   itemIcon: {
@@ -162,6 +185,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     gap: 4,
+    minWidth: 0,
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: 8,
+    },
   },
   itemName: {
     fontSize: "1rem",
@@ -171,9 +198,10 @@ const useStyles = makeStyles((theme) => ({
   itemDetails: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
     fontSize: "0.8rem",
     color: "#666",
+    flexWrap: "wrap",
   },
   itemValue: {
     fontSize: "0.9rem",
@@ -188,6 +216,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: "auto",
+    },
   },
   actionButton: {
     width: 36,
