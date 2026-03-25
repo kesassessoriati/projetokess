@@ -221,7 +221,6 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const handleEditActivity = (activity) => {
         setEditingActivity(activity);
         setActivityText(activity.metadata?.text || "");
-        setActivityType(activity.type);
     };
 
     const handleCancelEditActivity = () => {
