@@ -48,12 +48,7 @@ module.exports = {
       await queryInterface.addColumn("appointments", "created_by_user_id", {
         type: DataTypes.INTEGER,
         allowNull: true,
-        defaultValue: null,
-        references: {
-          model: "users",
-          key: "id"
-        },
-        onDelete: "SET NULL"
+        defaultValue: null
       });
     }
   },
