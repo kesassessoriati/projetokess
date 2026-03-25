@@ -17,6 +17,7 @@ import TaskList from "./TaskList";
 import User from "./User";
 import TaskChecklist from "./TaskChecklist";
 import TaskComment from "./TaskComment";
+import CrmLead from "./CrmLead";
 
 @Table({
     tableName: "Tasks",
@@ -68,6 +69,14 @@ class Task extends Model<Task> {
     @AllowNull(true)
     @Column({ type: DataType.JSON })
     tags: string[];
+
+    @ForeignKey(() => CrmLead)
+    @AllowNull(true)
+    @Column
+    leadId: number;
+
+    @BelongsTo(() => CrmLead)
+    lead: CrmLead;
 
     @AllowNull(false)
     @Column({ defaultValue: 0 })

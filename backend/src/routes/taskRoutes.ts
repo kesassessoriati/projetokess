@@ -16,6 +16,9 @@ taskRoutes.post("/tasks/list", isAuth, TaskController.storeList);
 taskRoutes.put("/tasks/list/:id", isAuth, TaskController.updateList);
 taskRoutes.delete("/tasks/list/:id", isAuth, TaskController.deleteList);
 
+// Tasks by Lead
+taskRoutes.get("/tasks/lead/:leadId", isAuth, TaskController.indexTasksByLead);
+
 // Task Items
 taskRoutes.post("/tasks/item", isAuth, TaskController.storeTask);
 taskRoutes.put("/tasks/item/:id", isAuth, TaskController.updateTask);

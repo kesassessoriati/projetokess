@@ -243,9 +243,32 @@ export const deleteList = async (req: Request, res: Response): Promise<Response>
 
 // ======================= TASKS =======================
 
+export const indexTasksByLead = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { leadId } = req.params;
+
+    const tasks = await Task.findAll({
+        where: { leadId: parseInt(leadId, 10) },
+        include: [
+            {
+                model: TaskList,
+                as: "list",
+                include: [{ model: TaskBoard, as: "board", where: { companyId }, required: true }],
+                required: true,
+            },
+            { model: TaskChecklist, as: "checklists" },
+            { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
+            { model: User, as: "responsible", attributes: ["id", "name"] },
+        ],
+        order: [["createdAt", "DESC"]],
+    });
+
+    return res.status(200).json(tasks);
+};
+
 export const storeTask = async (req: Request, res: Response): Promise<Response> => {
     const { id: userId, profile, companyId } = req.user;
-    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order } = req.body;
+    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId } = req.body;
 
     const board = await resolveBoardByListId(listId, companyId);
     if (!board) return res.status(404).json({ error: "Board not found" });
@@ -254,7 +277,7 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
         return res.status(403).json({ error: "Access denied" });
     }
 
-    const task = await Task.create({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order });
+    const task = await Task.create({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId: leadId || null });
 
     const createdTask = await Task.findByPk(task.id, {
         include: [
@@ -270,7 +293,7 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
 export const updateTask = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
     const { id: userId, profile, companyId } = req.user;
-    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order } = req.body;
+    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId } = req.body;
 
     const task = await Task.findByPk(id);
     if (!task) return res.status(404).json({ error: "Task not found" });
@@ -282,7 +305,7 @@ export const updateTask = async (req: Request, res: Response): Promise<Response>
         return res.status(403).json({ error: "Access denied" });
     }
 
-    await task.update({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order });
+    await task.update({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, ...(leadId !== undefined && { leadId: leadId || null }) });
 
     const updatedTask = await Task.findByPk(task.id, {
         include: [

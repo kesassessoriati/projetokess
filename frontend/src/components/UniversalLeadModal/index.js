@@ -22,6 +22,7 @@ import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import InfoIcon from "@material-ui/icons/Info";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
+import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
 import { toast } from "react-toastify";
@@ -31,6 +32,7 @@ import LeadWhatsAppChat from "../LeadWhatsAppChat";
 import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
 import LeadAttachmentsTab from "../LeadAttachmentsTab";
+import LeadTasksTab from "../LeadTasksTab";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -118,7 +120,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
-    const [activityType, setActivityType] = useState("LIGACAO");
+    const [activityType] = useState("ATIVIDADE");
     const [leadAppointmentOpen, setLeadAppointmentOpen] = useState(false);
     const [activities, setActivities] = useState([]);
     const [cardColor, setCardColor] = useState(null);
@@ -163,7 +165,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     };
 
     useEffect(() => {
-        if (open && op && op.id && (tabValue === 1 || tabValue === 2 || tabValue === 4)) {
+        if (open && op && op.id && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
             fetchActivities();
         }
     }, [open, (op && op.id), tabValue]);
@@ -436,6 +438,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         >
                             <Tab icon={<InfoIcon fontSize="small" />} label="Informações" style={{ minWidth: 100 }} />
                             <Tab icon={<ListAltIcon fontSize="small" />} label="Atividade" style={{ minWidth: 100 }} />
+                            <Tab icon={<CheckBoxOutlineBlankIcon fontSize="small" />} label="Tarefas" style={{ minWidth: 100 }} />
                             <Tab icon={<EventNoteIcon fontSize="small" />} label="Anotações" style={{ minWidth: 100 }} />
                             <Tab icon={<ScheduleIcon fontSize="small" />} label="Agendador" style={{ minWidth: 100 }} />
                             <Tab icon={<MailOutlineIcon fontSize="small" />} label="E-mail" style={{ minWidth: 100 }} />
@@ -481,33 +484,6 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                     onChange={(e) => setActivityText(e.target.value)}
                                 />
                                 <Box className={classes.actionBox}>
-                                    <Button
-                                        variant={activityType === "LIGACAO" ? "contained" : "outlined"}
-                                        color={activityType === "LIGACAO" ? "primary" : "default"}
-                                        size="small"
-                                        style={{ textTransform: "none", boxShadow: "none" }}
-                                        onClick={() => setActivityType("LIGACAO")}
-                                    >
-                                        📱 Ligação
-                                    </Button>
-                                    <Button
-                                        variant={activityType === "REUNIAO" ? "contained" : "outlined"}
-                                        color={activityType === "REUNIAO" ? "primary" : "default"}
-                                        size="small"
-                                        style={{ textTransform: "none", boxShadow: "none" }}
-                                        onClick={() => setActivityType("REUNIAO")}
-                                    >
-                                        👥 Reunião
-                                    </Button>
-                                    <Button
-                                        variant={activityType === "TAREFA" ? "contained" : "outlined"}
-                                        color={activityType === "TAREFA" ? "primary" : "default"}
-                                        size="small"
-                                        style={{ textTransform: "none", boxShadow: "none" }}
-                                        onClick={() => setActivityType("TAREFA")}
-                                    >
-                                        🎯 Tarefa
-                                    </Button>
                                     <Box flexGrow={1} />
                                     <Button
                                         variant="contained"
@@ -563,8 +539,16 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             </Box>
                         </TabPanel>
 
-                        {/* Anotações Gerais */}
+                        {/* Tarefas */}
                         <TabPanel value={tabValue} index={2}>
+                            <LeadTasksTab
+                                leadId={leadId || (op && op.leadId) || null}
+                                op={op}
+                            />
+                        </TabPanel>
+
+                        {/* Anotações Gerais */}
+                        <TabPanel value={tabValue} index={3}>
                             <Typography className={classes.sectionTitle}>
                                 <EventNoteIcon style={{ marginRight: 8 }} /> Anotações
                             </Typography>
@@ -630,7 +614,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </TabPanel>
 
                         {/* Agendador */}
-                        <TabPanel value={tabValue} index={3}>
+                        <TabPanel value={tabValue} index={4}>
                             <Typography className={classes.sectionTitle}>
                                 <ScheduleIcon style={{ marginRight: 8 }} /> Agendador de Reunião
                             </Typography>
@@ -648,7 +632,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </TabPanel>
 
                         {/* E-mail */}
-                        <TabPanel value={tabValue} index={4}>
+                        <TabPanel value={tabValue} index={5}>
                             <Typography className={classes.sectionTitle}>
                                 <MailOutlineIcon style={{ marginRight: 8 }} /> Comunicação por E-mail
                             </Typography>
@@ -660,7 +644,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </TabPanel>
 
                         {/* Chat (Simulacao) */}
-                        <TabPanel value={tabValue} index={5}>
+                        <TabPanel value={tabValue} index={6}>
                             <Box height="500px">
                                 <LeadWhatsAppChat
                                     leadId={leadId || (op && (op.leadId || op.id)) || null}
@@ -671,7 +655,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </TabPanel>
 
                         {/* Arquivos */}
-                        <TabPanel value={tabValue} index={6}>
+                        <TabPanel value={tabValue} index={7}>
                             <LeadAttachmentsTab
                                 leadId={leadId || (op && (op.leadId || op.id)) || null}
                                 op={op}
