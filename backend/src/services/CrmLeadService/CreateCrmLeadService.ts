@@ -7,6 +7,8 @@ import { Op } from "sequelize";
 import syncLeadToClient from "./helpers/syncLeadToClient";
 import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import CheckContactNumber from "../WbotServices/CheckNumber";
+import logger from "../../utils/logger";
 
 interface Request {
   companyId: number;
@@ -112,6 +114,42 @@ const resolveContactId = async (
   return contact?.id;
 };
 
+/**
+ * Valida o número no WhatsApp e cria o contato se ainda não existir.
+ * Retorna o id do contato criado/encontrado, ou undefined se o número não for válido.
+ */
+const syncLeadPhoneToContact = async (
+  companyId: number,
+  name: string,
+  phone: string,
+  email?: string
+): Promise<number | undefined> => {
+  try {
+    const validatedNumber = await CheckContactNumber(phone, companyId);
+    if (!validatedNumber) return undefined;
+
+    const [contact] = await Contact.findOrCreate({
+      where: { number: validatedNumber, companyId },
+      defaults: {
+        name: name || validatedNumber,
+        number: validatedNumber,
+        email: email || "",
+        isGroup: false,
+        companyId,
+        channel: "whatsapp",
+        profilePicUrl: "",
+        acceptAudioMessage: true,
+        active: true
+      }
+    });
+
+    return contact.id;
+  } catch (err) {
+    logger.warn(`[CreateCrmLead] Não foi possível sincronizar contato para ${phone}: ${err}`);
+    return undefined;
+  }
+};
+
 const resolvePrimaryTicketId = async (
   companyId: number,
   primaryTicketId?: number
@@ -192,11 +230,21 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
   }
 
-  const contactId = await resolveContactId(
+  let contactId = await resolveContactId(
     data.companyId,
     data.contactId,
     data.phone
   );
+
+  // Se não encontrou contato existente mas tem telefone, tenta validar no WhatsApp e criar o contato
+  if (!contactId && data.phone) {
+    contactId = await syncLeadPhoneToContact(
+      data.companyId,
+      data.name,
+      data.phone,
+      data.email
+    );
+  }
 
   if (contactId) {
     const existingLeadByContact = await CrmLead.findOne({
