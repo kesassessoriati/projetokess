@@ -14,6 +14,8 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     const { user } = useContext(AuthContext);
 
@@ -26,6 +28,13 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     const [scheduleId, setScheduleId] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [schedules, setSchedules] = useState([]);
+
+    // Novos campos
+    const [leadName, setLeadName] = useState("");
+    const [leadPhone, setLeadPhone] = useState("");
+    const [participantEmails, setParticipantEmails] = useState("");
+    const [meetingLink, setMeetingLink] = useState("");
+    const [operationalNote, setOperationalNote] = useState("");
 
     useEffect(() => {
         if (open) {
@@ -44,13 +53,29 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     };
 
     const resetForm = () => {
-        setTitle(`Reunião: ${(op && op.title) || (op && op.name) || "Novo Lead"}`);
+        setTitle(`Reunião: ${(op && op.title) || (op && op.name) || (op && op.lead && op.lead.name) || "Novo Lead"}`);
         setDescription("Reunião de negócios para consultoria e análise estratégica.");
         setClientEmail((op && op.contact && op.contact.email) || (op && op.lead && op.lead.email) || "");
         setOrganizerEmail((user && user.email) || "");
         setStartDatetime("");
         setDurationMinutes("60");
         setScheduleId("");
+        // Pré-preencher nome e telefone do lead
+        setLeadName(
+            (op && op.lead && op.lead.name) ||
+            (op && op.contact && op.contact.name) ||
+            (op && op.name) ||
+            (op && op.title) ||
+            ""
+        );
+        setLeadPhone(
+            (op && op.contact && op.contact.number) ||
+            (op && op.lead && op.lead.phone) ||
+            ""
+        );
+        setParticipantEmails("");
+        setMeetingLink("");
+        setOperationalNote("");
     };
 
     const handleSubmit = async () => {
@@ -65,6 +90,18 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         if (!scheduleId) {
             toast.error("Selecione uma agenda");
             return;
+        }
+
+        // Validar e parsear participantEmails
+        let parsedParticipantEmails = [];
+        if (participantEmails.trim()) {
+            const emailList = participantEmails.split(",").map(e => e.trim()).filter(Boolean);
+            const invalidEmails = emailList.filter(e => !EMAIL_REGEX.test(e));
+            if (invalidEmails.length > 0) {
+                toast.error(`E-mails inválidos: ${invalidEmails.join(", ")}`);
+                return;
+            }
+            parsedParticipantEmails = emailList;
         }
 
         setSubmitting(true);
@@ -88,7 +125,12 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                 status: "scheduled",
                 scheduleId: parseInt(scheduleId, 10),
                 contactId: (op && op.contact && op.contact.id) || null,
-                clientId: null // Não vincular como client_id para evitar erro de Foreign Key (pois é um Lead, não CRM Client)
+                clientId: null, // Lead não é CRM Client
+                leadName: leadName.trim() || null,
+                leadPhone: leadPhone.trim() || null,
+                participantEmails: parsedParticipantEmails,
+                meetingLink: meetingLink.trim() || null,
+                operationalNote: operationalNote.trim() || null
             };
 
             await api.post("/appointments", payload);
@@ -109,10 +151,11 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     const activeSchedules = schedules.filter(s => s.active);
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
             <DialogTitle>Agendar Reunião (Integração Agenda)</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={2}>
+                    {/* Nome do evento */}
                     <Grid item xs={12}>
                         <TextField
                             label="Nome do evento"
@@ -124,6 +167,31 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                         />
                     </Grid>
 
+                    {/* Nome do lead (pré-preenchido) */}
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            label="Nome do lead"
+                            fullWidth
+                            variant="outlined"
+                            value={leadName}
+                            onChange={(e) => setLeadName(e.target.value)}
+                            placeholder="Nome do lead ou cliente"
+                        />
+                    </Grid>
+
+                    {/* Telefone WhatsApp do lead (pré-preenchido) */}
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            label="Telefone WhatsApp do lead"
+                            fullWidth
+                            variant="outlined"
+                            value={leadPhone}
+                            onChange={(e) => setLeadPhone(e.target.value)}
+                            placeholder="5511999999999"
+                        />
+                    </Grid>
+
+                    {/* E-mails */}
                     <Grid item xs={12} sm={6}>
                         <TextField
                             label="E-mail do cliente (Lead)"
@@ -146,19 +214,61 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                         />
                     </Grid>
 
+                    {/* Descrição do evento */}
                     <Grid item xs={12}>
                         <TextField
                             label="Descrição do evento"
                             fullWidth
                             multiline
-                            rows={3}
+                            rows={5}
                             variant="outlined"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={12}>
+                    {/* Participantes (e-mails separados por vírgula) */}
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Participantes (e-mails separados por vírgula)"
+                            fullWidth
+                            variant="outlined"
+                            value={participantEmails}
+                            onChange={(e) => setParticipantEmails(e.target.value)}
+                            placeholder="email1@exemplo.com, email2@exemplo.com"
+                            helperText="Separe múltiplos e-mails com vírgula"
+                        />
+                    </Grid>
+
+                    {/* Link da Reunião */}
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Link da Reunião"
+                            fullWidth
+                            variant="outlined"
+                            value={meetingLink}
+                            onChange={(e) => setMeetingLink(e.target.value)}
+                            placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                            helperText="Opcional — insira um link de videoconferência"
+                        />
+                    </Grid>
+
+                    {/* Nota Operacional */}
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Nota Operacional"
+                            fullWidth
+                            multiline
+                            rows={3}
+                            variant="outlined"
+                            value={operationalNote}
+                            onChange={(e) => setOperationalNote(e.target.value)}
+                            placeholder="Anotações internas, instruções para o atendimento..."
+                        />
+                    </Grid>
+
+                    {/* Agenda */}
+                    <Grid item xs={12}>
                         <TextField
                             select
                             label="Agenda"
@@ -179,6 +289,7 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                         </TextField>
                     </Grid>
 
+                    {/* Data/Hora / Duração */}
                     <Grid item xs={12} sm={6}>
                         <TextField
                             type="datetime-local"
@@ -205,7 +316,6 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                             helperText="Ex: 60 = 1 hora"
                         />
                     </Grid>
-
                 </Grid>
             </DialogContent>
             <DialogActions>
