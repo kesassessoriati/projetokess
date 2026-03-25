@@ -2,6 +2,7 @@ import { head } from "lodash";
 import XLSX from "xlsx";
 import { has } from "lodash";
 import ContactListItem from "../../models/ContactListItem";
+import Contact from "../../models/Contact";
 import CheckContactNumber from "../WbotServices/CheckNumber";
 import logger from "../../utils/logger";
 // import CheckContactNumber from "../WbotServices/CheckNumber";
@@ -73,6 +74,28 @@ export async function ImportContacts(
         const number = response;
         newContact.number = number;
         await newContact.save();
+
+        // Sincroniza com tabela de Contatos se o número tem WhatsApp válido
+        if (newContact.isWhatsappValid && number) {
+          try {
+            await Contact.findOrCreate({
+              where: { number, companyId },
+              defaults: {
+                name: newContact.name || number,
+                number,
+                email: newContact.email || "",
+                isGroup: false,
+                companyId,
+                channel: "whatsapp",
+                profilePicUrl: "",
+                acceptAudioMessage: true,
+                active: true
+              }
+            });
+          } catch (contactErr) {
+            logger.warn(`Não foi possível criar contato para número ${number}: ${contactErr}`);
+          }
+        }
       } catch (e) {
         console.log(e)
         logger.error(`Número de contato inválido: ${newContact.number}`);
