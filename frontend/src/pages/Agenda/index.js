@@ -168,7 +168,21 @@ const useStyles = makeStyles(theme => ({
   primaryAction: {
     borderRadius: 14,
     padding: theme.spacing(1.2, 2.2),
-    boxShadow: "0 10px 24px rgba(37, 99, 235, 0.25)"
+    color: theme.palette.getContrastText(theme.palette.primary.main),
+    border: "1px solid rgba(255,255,255,0.14)",
+    boxShadow: `${theme.shadows[4]}, 0 12px 28px ${theme.palette.primary.main}42`,
+    transition: "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
+    "& .MuiButton-label": {
+      fontWeight: 700
+    },
+    "&:hover": {
+      boxShadow: `${theme.shadows[8]}, 0 18px 34px ${theme.palette.primary.main}57`,
+      transform: "translateY(-2px)",
+      filter: "brightness(1.04)"
+    },
+    "&:focus-visible": {
+      boxShadow: `0 0 0 3px rgba(255,255,255,0.2), ${theme.shadows[8]}, 0 18px 34px ${theme.palette.primary.main}57`
+    }
   },
   secondaryAction: {
     borderRadius: 14,
@@ -189,22 +203,44 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 20,
     background: "rgba(15, 23, 42, 0.24)",
     border: "1px solid rgba(255,255,255,0.12)",
-    backdropFilter: "blur(14px)"
+    backdropFilter: "blur(14px)",
+    color: theme.palette.common.white,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 36px rgba(15, 23, 42, 0.16)"
   },
   highlightLabel: {
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    color: "rgba(191, 219, 254, 0.92)"
+    color: "rgba(219, 234, 254, 0.95)",
+    fontWeight: 700
   },
   highlightValue: {
-    marginTop: theme.spacing(0.5),
-    fontSize: 28,
-    fontWeight: 800
+    marginTop: theme.spacing(0.75),
+    fontSize: 34,
+    lineHeight: 1.1,
+    letterSpacing: "-0.04em",
+    fontWeight: 800,
+    color: theme.palette.common.white,
+    textShadow: "0 2px 14px rgba(15, 23, 42, 0.3)",
+    overflowWrap: "anywhere",
+    [theme.breakpoints.down("sm")]: {
+      fontSize: 30
+    }
   },
   highlightSubtext: {
     marginTop: theme.spacing(0.75),
-    color: "rgba(226, 232, 240, 0.84)"
+    color: "rgba(226, 232, 240, 0.92)",
+    fontWeight: 500,
+    lineHeight: 1.5
+  },
+  highlightProgress: {
+    height: 10,
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.16)",
+    "& .MuiLinearProgress-bar": {
+      borderRadius: 999,
+      background: "linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(191,219,254,1) 100%)"
+    }
   },
   statsRow: {
     display: "grid",
@@ -815,7 +851,11 @@ const Agenda = () => {
               Confirmados + concluidos em relacao ao total de compromissos visiveis.
             </Typography>
             <Box mt={1.5}>
-              <LinearProgress variant="determinate" value={completionRate} style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.14)" }} />
+              <LinearProgress
+                variant="determinate"
+                value={completionRate}
+                className={classes.highlightProgress}
+              />
             </Box>
           </Paper>
         </Box>
