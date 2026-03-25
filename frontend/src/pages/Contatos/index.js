@@ -97,7 +97,7 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
     flexDirection: "column",
-    minHeight: "100vh",
+    height: "100vh",
     backgroundColor: theme.palette.background.default,
     padding: theme.spacing(3),
     gap: theme.spacing(3),
