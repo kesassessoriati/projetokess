@@ -91,6 +91,7 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       acquiredProduct: lead.product || null,
       paymentType: lead.paymentType || null,
       purchaseType: lead.purchaseType || null,
+      purchaseValue: lead.purchaseValue != null ? lead.purchaseValue : null,
       acquisitionDate: lead.acquisitionDate || null,
       ownerUserId: lead.ownerUserId,
       notes: lead.notes,
@@ -142,6 +143,9 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     }
     if (lead.purchaseType && lead.purchaseType !== client.purchaseType) {
       updates.purchaseType = lead.purchaseType;
+    }
+    if (lead.purchaseValue != null && lead.purchaseValue !== client.purchaseValue) {
+      updates.purchaseValue = lead.purchaseValue;
     }
     if (lead.acquisitionDate && lead.acquisitionDate !== client.acquisitionDate) {
       updates.acquisitionDate = lead.acquisitionDate;

@@ -93,6 +93,9 @@ class CrmLead extends Model<CrmLead> {
   @Column({ field: "purchase_type" })
   purchaseType: string;
 
+  @Column({ field: "purchase_value", type: DataType.DECIMAL(15, 2) })
+  purchaseValue: number;
+
   @Column
   gmn: string;
 

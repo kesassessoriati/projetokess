@@ -23,6 +23,7 @@ export interface CreateCrmClientRequest {
   acquiredProduct?: string;
   paymentType?: string;
   purchaseType?: string;
+  purchaseValue?: number;
   acquisitionDate?: Date;
   expirationDate?: Date;
   ownerUserId?: number;
@@ -114,6 +115,7 @@ const CreateCrmClientService = async (
     acquiredProduct: data.acquiredProduct || undefined,
     paymentType: data.paymentType || undefined,
     purchaseType: data.purchaseType || undefined,
+    purchaseValue: data.purchaseValue != null ? Number(data.purchaseValue) : undefined,
     acquisitionDate: data.acquisitionDate || null,
     expirationDate: data.expirationDate || null
   };

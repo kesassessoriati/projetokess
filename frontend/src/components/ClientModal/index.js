@@ -80,6 +80,7 @@ const defaultForm = {
   acquiredProduct: "",
   paymentType: "",
   purchaseType: "",
+  purchaseValue: "",
   acquisitionDate: "",
   zipCode: "",
   address: "",
@@ -155,6 +156,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         acquiredProduct: data.acquiredProduct || "",
         paymentType: data.paymentType || "",
         purchaseType: data.purchaseType || "",
+        purchaseValue: data.purchaseValue != null ? data.purchaseValue : "",
         acquisitionDate: data.acquisitionDate ? data.acquisitionDate.substring(0, 10) : "",
         zipCode: data.zipCode || "",
         address: data.address || "",
@@ -201,7 +203,8 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
         acquisitionDate: form.acquisitionDate || null,
-        expirationDate: form.expirationDate || null
+        expirationDate: form.expirationDate || null,
+        purchaseValue: form.purchaseValue !== "" && form.purchaseValue != null ? Number(form.purchaseValue) : null
       };
 
       if (clientId) {
@@ -627,6 +630,20 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                     </MenuItem>
                   ))}
                 </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor da compra"
+                  name="purchaseValue"
+                  type="number"
+                  value={form.purchaseValue}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  inputProps={{ min: 0, step: "0.01" }}
+                />
               </Grid>
 
               <Grid item xs={12}>

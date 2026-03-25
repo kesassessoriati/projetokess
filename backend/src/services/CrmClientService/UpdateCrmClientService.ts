@@ -25,6 +25,7 @@ interface Request {
   acquiredProduct?: string;
   paymentType?: string;
   purchaseType?: string;
+  purchaseValue?: number;
   acquisitionDate?: Date;
   expirationDate?: Date;
   ownerUserId?: number;
@@ -121,6 +122,7 @@ const UpdateCrmClientService = async ({
     acquiredProduct: data.acquiredProduct,
     paymentType: data.paymentType,
     purchaseType: data.purchaseType,
+    purchaseValue: data.purchaseValue != null ? Number(data.purchaseValue) : data.purchaseValue,
     acquisitionDate: data.acquisitionDate || null,
     expirationDate: data.expirationDate || null
   };

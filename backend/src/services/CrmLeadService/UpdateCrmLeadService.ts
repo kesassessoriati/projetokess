@@ -26,6 +26,7 @@ interface Request {
   product?: string;
   paymentType?: string;
   purchaseType?: string;
+  purchaseValue?: number;
   gmn?: string;
   website?: string;
   instagram?: string;

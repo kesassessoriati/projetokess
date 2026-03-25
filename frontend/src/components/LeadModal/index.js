@@ -48,6 +48,7 @@ const normalizeLeadForm = (lead = {}) => {
     product: lead.product || "",
     paymentType: lead.paymentType || "",
     purchaseType: lead.purchaseType || "",
+    purchaseValue: lead.purchaseValue != null ? lead.purchaseValue : "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
     acquisitionDate: lead.acquisitionDate ? lead.acquisitionDate.substring(0, 10) : "",
@@ -120,6 +121,7 @@ const defaultForm = {
   product: "",
   paymentType: "",
   purchaseType: "",
+  purchaseValue: "",
   acquisitionDate: "",
   gmn: "",
   website: "",
@@ -251,6 +253,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         product: (form.product || "").trim(),
         paymentType: form.paymentType || null,
         purchaseType: form.purchaseType || null,
+        purchaseValue: form.purchaseValue !== "" && form.purchaseValue != null ? Number(form.purchaseValue) : null,
         pipelineId: form.pipelineId || null,
         stageId: form.stageId || null,
         score: Number(form.score) || 0,
@@ -523,6 +526,20 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                     </MenuItem>
                   ))}
                 </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor da compra"
+                  name="purchaseValue"
+                  type="number"
+                  value={form.purchaseValue}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  inputProps={{ min: 0, step: "0.01" }}
+                />
               </Grid>
 
               {/* Row 5 */}

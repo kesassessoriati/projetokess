@@ -101,6 +101,9 @@ class CrmClient extends Model<CrmClient> {
   @Column({ field: "purchase_type", type: DataType.STRING })
   purchaseType: string;
 
+  @Column({ field: "purchase_value", type: DataType.DECIMAL(15, 2) })
+  purchaseValue: number;
+
   @Column({ field: "expiration_date", type: DataType.DATEONLY })
   expirationDate: Date;
 
