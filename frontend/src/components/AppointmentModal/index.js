@@ -47,6 +47,8 @@ const AppointmentModal = (props) => {
   const [participantEmails, setParticipantEmails] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [operationalNote, setOperationalNote] = useState("");
+  const [createdByUserId, setCreatedByUserId] = useState("");
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     if (open) {
@@ -67,6 +69,7 @@ const AppointmentModal = (props) => {
       setLeadPhone(appointment.leadPhone || "");
       setMeetingLink(appointment.googleMeetLink || appointment.meetingLink || "");
       setOperationalNote(appointment.operationalNote || "");
+      setCreatedByUserId(appointment.createdByUserId ? String(appointment.createdByUserId) : "");
       // For participantEmails: use appointment.participantEmails if available, otherwise participants
       const emailsArr = appointment.participantEmails || appointment.participants || [];
       setParticipantEmails(Array.isArray(emailsArr) ? emailsArr.join(", ") : "");
@@ -95,6 +98,13 @@ const AppointmentModal = (props) => {
       setSchedules(schedulesRes.schedules || []);
     } catch (err) {
       console.error("Erro ao carregar agendas:", err);
+    }
+
+    try {
+      const { data: usersRes } = await api.get("/users?pageNumber=1");
+      setUsers(usersRes.users || []);
+    } catch (err) {
+      console.error("Erro ao carregar usuários:", err);
     }
 
     // Se userServices foi passado, usar apenas esses serviços
@@ -126,6 +136,7 @@ const AppointmentModal = (props) => {
       setParticipantEmails("");
       setMeetingLink("");
       setOperationalNote("");
+      setCreatedByUserId(user?.id ? String(user.id) : "");
     }
   };
 
@@ -267,7 +278,8 @@ const AppointmentModal = (props) => {
         leadPhone: leadPhone.trim() || null,
         participantEmails: parsedParticipantEmails,
         meetingLink: meetingLink.trim() || null,
-        operationalNote: operationalNote.trim() || null
+        operationalNote: operationalNote.trim() || null,
+        createdByUserId: createdByUserId ? parseInt(createdByUserId, 10) : null
       };
 
       if (appointment && appointment.id) {
@@ -411,6 +423,28 @@ const AppointmentModal = (props) => {
               onChange={(e) => setOperationalNote(e.target.value)}
               placeholder="Anotações internas, instruções para o atendimento..."
             />
+          </Grid>
+
+          {/* Criado por / Responsável */}
+          <Grid item xs={12}>
+            <TextField
+              select
+              label="Criado por / Responsável"
+              fullWidth
+              variant="outlined"
+              value={createdByUserId}
+              onChange={(e) => setCreatedByUserId(e.target.value)}
+              helperText="Usuário que criou ou é responsável por este compromisso"
+            >
+              <MenuItem value="">
+                <em>Selecione um usuário</em>
+              </MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.id} value={String(u.id)}>
+                  {u.name} {u.id === user?.id ? "(você)" : ""}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
 
           {/* Agenda / Serviço */}

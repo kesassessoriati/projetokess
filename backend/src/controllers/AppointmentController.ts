@@ -81,7 +81,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       participantEmails: Array.isArray(participantEmails) ? participantEmails : undefined,
       meetingLink: meetingLink || undefined,
       operationalNote: operationalNote || undefined,
-      createdByUserId: userId ? Number(userId) : undefined
+      createdByUserId: req.body.createdByUserId ? Number(req.body.createdByUserId) : (userId ? Number(userId) : undefined)
     });
 
     return res.status(201).json(appointment);
@@ -125,7 +125,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     leadPhone: leadPhone !== undefined ? leadPhone : undefined,
     participantEmails: Array.isArray(participantEmails) ? participantEmails : undefined,
     meetingLink: meetingLink !== undefined ? meetingLink : undefined,
-    operationalNote: operationalNote !== undefined ? operationalNote : undefined
+    operationalNote: operationalNote !== undefined ? operationalNote : undefined,
+    createdByUserId: req.body.createdByUserId ? Number(req.body.createdByUserId) : undefined
   });
 
   return res.json(appointment);
