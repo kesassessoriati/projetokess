@@ -34,7 +34,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
+  const { companyId, id: userId } = req.user;
   const {
     title,
     description,
@@ -46,7 +46,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     clientId,
     contactId,
     clientEmail,
-    organizerEmail
+    organizerEmail,
+    leadName,
+    leadPhone,
+    participantEmails,
+    meetingLink,
+    operationalNote
   } = req.body;
 
   console.log("Creating appointment:", {
@@ -70,7 +75,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       contactId: contactId ? Number(contactId) : undefined,
       companyId: Number(companyId),
       clientEmail,
-      organizerEmail
+      organizerEmail,
+      leadName: leadName || undefined,
+      leadPhone: leadPhone || undefined,
+      participantEmails: Array.isArray(participantEmails) ? participantEmails : undefined,
+      meetingLink: meetingLink || undefined,
+      operationalNote: operationalNote || undefined,
+      createdByUserId: userId ? Number(userId) : undefined
     });
 
     return res.status(201).json(appointment);
@@ -91,7 +102,12 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     status,
     serviceId,
     clientId,
-    contactId
+    contactId,
+    leadName,
+    leadPhone,
+    participantEmails,
+    meetingLink,
+    operationalNote
   } = req.body;
 
   const appointment = await UpdateAppointmentService({
@@ -104,7 +120,12 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     serviceId,
     clientId,
     contactId,
-    companyId: Number(companyId)
+    companyId: Number(companyId),
+    leadName: leadName !== undefined ? leadName : undefined,
+    leadPhone: leadPhone !== undefined ? leadPhone : undefined,
+    participantEmails: Array.isArray(participantEmails) ? participantEmails : undefined,
+    meetingLink: meetingLink !== undefined ? meetingLink : undefined,
+    operationalNote: operationalNote !== undefined ? operationalNote : undefined
   });
 
   return res.json(appointment);

@@ -20,6 +20,12 @@ interface CreateAppointmentData {
   companyId: number;
   clientEmail?: string;
   organizerEmail?: string;
+  leadName?: string;
+  leadPhone?: string;
+  participantEmails?: string[];
+  meetingLink?: string;
+  operationalNote?: string;
+  createdByUserId?: number;
 }
 
 const CreateAppointmentService = async (
@@ -146,7 +152,13 @@ const CreateAppointmentService = async (
     serviceId: data.serviceId || null,
     clientId: data.clientId || null,
     contactId: data.contactId || null,
-    companyId: data.companyId
+    companyId: data.companyId,
+    leadName: data.leadName || null,
+    leadPhone: data.leadPhone || null,
+    participantEmails: data.participantEmails && data.participantEmails.length > 0 ? data.participantEmails : null,
+    meetingLink: data.meetingLink || null,
+    operationalNote: data.operationalNote || null,
+    createdByUserId: data.createdByUserId || null
   });
 
   // Verificar se a agenda tem integração com Google Calendar
@@ -193,6 +205,13 @@ const CreateAppointmentService = async (
         const attendees: any[] = [];
         if (data.clientEmail) attendees.push({ email: data.clientEmail });
         if (data.organizerEmail) attendees.push({ email: data.organizerEmail });
+        if (data.participantEmails && data.participantEmails.length > 0) {
+          data.participantEmails.forEach(email => {
+            if (!attendees.find(a => a.email === email)) {
+              attendees.push({ email });
+            }
+          });
+        }
 
         const crypto = require("crypto");
         const eventBody: any = {

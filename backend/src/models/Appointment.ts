@@ -16,6 +16,7 @@ import UserSchedule from "./UserSchedule";
 import Servico from "./Servico";
 import CrmClient from "./CrmClient";
 import Contact from "./Contact";
+import User from "./User";
 
 @Table({ tableName: "appointments" })
 class Appointment extends Model<Appointment> {
@@ -86,6 +87,28 @@ class Appointment extends Model<Appointment> {
 
   @BelongsTo(() => Contact)
   contact: Contact;
+
+  @Column({ field: "lead_name", type: DataType.STRING(200), allowNull: true })
+  leadName: string;
+
+  @Column({ field: "lead_phone", type: DataType.STRING(50), allowNull: true })
+  leadPhone: string;
+
+  @Column({ field: "participant_emails", type: DataType.JSONB, allowNull: true })
+  participantEmails: string[];
+
+  @Column({ field: "meeting_link", type: DataType.TEXT, allowNull: true })
+  meetingLink: string;
+
+  @Column({ field: "operational_note", type: DataType.TEXT, allowNull: true })
+  operationalNote: string;
+
+  @ForeignKey(() => User)
+  @Column({ field: "created_by_user_id", allowNull: true })
+  createdByUserId: number;
+
+  @BelongsTo(() => User, { foreignKey: "created_by_user_id", as: "createdByUser" })
+  createdByUser: User;
 
   @ForeignKey(() => Company)
   @Column({ field: "company_id" })

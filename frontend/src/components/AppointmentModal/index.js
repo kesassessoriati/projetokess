@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Button from "@material-ui/core/Button";
 import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
@@ -10,13 +10,23 @@ import MenuItem from "@material-ui/core/MenuItem";
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Box from "@material-ui/core/Box";
+import VideoCallIcon from "@material-ui/icons/VideoCall";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
+import PersonIcon from "@material-ui/icons/Person";
+import GroupIcon from "@material-ui/icons/Group";
 import { toast } from "react-toastify";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { AuthContext } from "../../context/Auth/AuthContext";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const AppointmentModal = (props) => {
-  const { open, onClose, appointment, onSave, initialScheduleId, userServices, userConfig, existingAppointments } = props;
+  const { open, onClose, appointment, onSave, initialScheduleId, userServices, userConfig, existingAppointments, leadContext } = props;
+
+  const { user } = useContext(AuthContext);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -30,6 +40,13 @@ const AppointmentModal = (props) => {
   const [submitting, setSubmitting] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [services, setServices] = useState([]);
+
+  // New fields
+  const [leadName, setLeadName] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [participantEmails, setParticipantEmails] = useState("");
+  const [meetingLink, setMeetingLink] = useState("");
+  const [operationalNote, setOperationalNote] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -46,6 +63,13 @@ const AppointmentModal = (props) => {
       setStatus(appointment.status || "scheduled");
       setScheduleId(String(appointment.scheduleId || ""));
       setServiceId(appointment.serviceId ? String(appointment.serviceId) : "");
+      setLeadName(appointment.leadName || "");
+      setLeadPhone(appointment.leadPhone || "");
+      setMeetingLink(appointment.googleMeetLink || appointment.meetingLink || "");
+      setOperationalNote(appointment.operationalNote || "");
+      // For participantEmails: use appointment.participantEmails if available, otherwise participants
+      const emailsArr = appointment.participantEmails || appointment.participants || [];
+      setParticipantEmails(Array.isArray(emailsArr) ? emailsArr.join(", ") : "");
 
       if (appointment.startDatetime) {
         try {
@@ -90,13 +114,18 @@ const AppointmentModal = (props) => {
     if (!appointment) {
       setTitle("");
       setDescription("");
-      setClientEmail("");
-      setOrganizerEmail("");
+      setClientEmail(leadContext?.email || "");
+      setOrganizerEmail(user?.email || "");
       setStartDatetime("");
       setDurationMinutes("60");
       setStatus("scheduled");
       setScheduleId(initialScheduleId ? String(initialScheduleId) : "");
       setServiceId("");
+      setLeadName(leadContext?.name || "");
+      setLeadPhone(leadContext?.phone || "");
+      setParticipantEmails("");
+      setMeetingLink("");
+      setOperationalNote("");
     }
   };
 
@@ -199,6 +228,18 @@ const AppointmentModal = (props) => {
       return;
     }
 
+    // Validar e parsear participantEmails
+    let parsedParticipantEmails = [];
+    if (participantEmails.trim()) {
+      const emailList = participantEmails.split(",").map(e => e.trim()).filter(Boolean);
+      const invalidEmails = emailList.filter(e => !EMAIL_REGEX.test(e));
+      if (invalidEmails.length > 0) {
+        toast.error(`E-mails inválidos: ${invalidEmails.join(", ")}`);
+        return;
+      }
+      parsedParticipantEmails = emailList;
+    }
+
     setSubmitting(true);
 
     try {
@@ -221,7 +262,12 @@ const AppointmentModal = (props) => {
         durationMinutes: parseInt(durationMinutes, 10) || 60,
         status: status,
         scheduleId: parseInt(scheduleId, 10),
-        serviceId: serviceId ? parseInt(serviceId, 10) : null
+        serviceId: serviceId ? parseInt(serviceId, 10) : null,
+        leadName: leadName.trim() || null,
+        leadPhone: leadPhone.trim() || null,
+        participantEmails: parsedParticipantEmails,
+        meetingLink: meetingLink.trim() || null,
+        operationalNote: operationalNote.trim() || null
       };
 
       if (appointment && appointment.id) {
@@ -246,12 +292,13 @@ const AppointmentModal = (props) => {
   const activeSchedules = schedules.filter(s => s.active);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         {appointment ? "Editar Compromisso" : "Novo Compromisso"}
       </DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
+          {/* Nome do evento */}
           <Grid item xs={12}>
             <TextField
               label="Nome do evento"
@@ -263,6 +310,31 @@ const AppointmentModal = (props) => {
             />
           </Grid>
 
+          {/* Nome do lead */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Nome do lead"
+              fullWidth
+              variant="outlined"
+              value={leadName}
+              onChange={(e) => setLeadName(e.target.value)}
+              placeholder="Nome do lead ou cliente"
+            />
+          </Grid>
+
+          {/* Telefone WhatsApp do lead */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Telefone WhatsApp do lead"
+              fullWidth
+              variant="outlined"
+              value={leadPhone}
+              onChange={(e) => setLeadPhone(e.target.value)}
+              placeholder="5511999999999"
+            />
+          </Grid>
+
+          {/* E-mails (apenas para novo compromisso) */}
           {!appointment && (
             <>
               <Grid item xs={12} sm={6}>
@@ -288,18 +360,60 @@ const AppointmentModal = (props) => {
             </>
           )}
 
+          {/* Descrição do evento */}
           <Grid item xs={12}>
             <TextField
               label="Descrição do evento"
               fullWidth
               multiline
-              rows={2}
+              rows={5}
               variant="outlined"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Grid>
 
+          {/* Participantes (e-mails separados por vírgula) */}
+          <Grid item xs={12}>
+            <TextField
+              label="Participantes (e-mails separados por vírgula)"
+              fullWidth
+              variant="outlined"
+              value={participantEmails}
+              onChange={(e) => setParticipantEmails(e.target.value)}
+              placeholder="email1@exemplo.com, email2@exemplo.com"
+              helperText="Separe múltiplos e-mails com vírgula"
+            />
+          </Grid>
+
+          {/* Link da Reunião */}
+          <Grid item xs={12}>
+            <TextField
+              label="Link da Reunião"
+              fullWidth
+              variant="outlined"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+              placeholder="https://meet.google.com/xxx-xxxx-xxx"
+              helperText={appointment && appointment.googleMeetLink ? "Link gerado pelo Google Meet já preenchido" : "Opcional — insira um link de videoconferência"}
+            />
+          </Grid>
+
+          {/* Nota Operacional */}
+          <Grid item xs={12}>
+            <TextField
+              label="Nota Operacional"
+              fullWidth
+              multiline
+              rows={3}
+              variant="outlined"
+              value={operationalNote}
+              onChange={(e) => setOperationalNote(e.target.value)}
+              placeholder="Anotações internas, instruções para o atendimento..."
+            />
+          </Grid>
+
+          {/* Agenda / Serviço */}
           <Grid item xs={12} sm={6}>
             <TextField
               select
@@ -342,6 +456,7 @@ const AppointmentModal = (props) => {
             </TextField>
           </Grid>
 
+          {/* Data/Hora / Duração */}
           <Grid item xs={12} sm={6}>
             <TextField
               type="datetime-local"
@@ -369,6 +484,7 @@ const AppointmentModal = (props) => {
             />
           </Grid>
 
+          {/* Status (edit mode only) */}
           {appointment && (
             <Grid item xs={12}>
               <TextField
@@ -388,61 +504,115 @@ const AppointmentModal = (props) => {
             </Grid>
           )}
 
-          {appointment && appointment.googleMeetLink && (
+          {/* Google Meet info section (kept exactly as-is) */}
+          {appointment && (appointment.googleMeetLink || appointment.organizerEmail || appointment.organizerName || (appointment.participants && appointment.participants.length > 0)) && (
             <>
               <Grid item xs={12}>
-                <Divider style={{ margin: "8px 0" }} />
-                <Typography variant="subtitle2" color="textSecondary" style={{ marginBottom: 8, fontWeight: 600 }}>
-                  Detalhes da Reunião
+                <Divider style={{ margin: "4px 0 12px" }} />
+                <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase", color: "#555", marginBottom: 12 }}>
+                  Informações do Agendamento
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  href={appointment.googleMeetLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ marginBottom: 8 }}
-                >
-                  Entrar na Reunião (Google Meet)
-                </Button>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="caption" color="textSecondary">Link da Reunião</Typography>
-                <Typography variant="body2" style={{ wordBreak: "break-all" }}>
-                  {appointment.googleMeetLink}
-                </Typography>
-              </Grid>
+              {appointment.googleMeetLink && (
+                <Grid item xs={12}>
+                  <Box
+                    style={{
+                      background: "linear-gradient(135deg, #1a73e8 0%, #0d5cbf 100%)",
+                      borderRadius: 10,
+                      padding: "14px 18px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                      marginBottom: 4,
+                      boxShadow: "0 2px 8px rgba(26,115,232,0.25)"
+                    }}
+                  >
+                    <VideoCallIcon style={{ color: "#fff", fontSize: 32, flexShrink: 0 }} />
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Typography style={{ color: "#fff", fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
+                        Google Meet
+                      </Typography>
+                      <Typography
+                        component="a"
+                        href={appointment.googleMeetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "rgba(255,255,255,0.85)",
+                          fontSize: 12,
+                          wordBreak: "break-all",
+                          display: "block",
+                          textDecoration: "none"
+                        }}
+                      >
+                        {appointment.googleMeetLink}
+                      </Typography>
+                    </Box>
+                    <Button
+                      component="a"
+                      href={appointment.googleMeetLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="contained"
+                      size="small"
+                      endIcon={<OpenInNewIcon style={{ fontSize: 14 }} />}
+                      style={{
+                        background: "#fff",
+                        color: "#1a73e8",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        boxShadow: "none",
+                        textTransform: "none",
+                        fontSize: 13
+                      }}
+                    >
+                      Entrar
+                    </Button>
+                  </Box>
+                </Grid>
+              )}
 
               {(appointment.organizerName || appointment.organizerEmail) && (
-                <Grid item xs={12}>
-                  <Typography variant="caption" color="textSecondary">Organizador</Typography>
-                  <Typography variant="body2">
-                    {appointment.organizerName
-                      ? `${appointment.organizerName} (${appointment.organizerEmail})`
-                      : appointment.organizerEmail}
-                  </Typography>
+                <Grid item xs={12} sm={appointment.participants && appointment.participants.length > 0 ? 6 : 12}>
+                  <Box style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 4px" }}>
+                    <PersonIcon style={{ color: "#888", fontSize: 18, marginTop: 2, flexShrink: 0 }} />
+                    <Box>
+                      <Typography variant="caption" style={{ color: "#999", fontWeight: 600, display: "block" }}>Organizador</Typography>
+                      <Typography variant="body2" style={{ fontWeight: 500 }}>
+                        {appointment.organizerName || ""}
+                      </Typography>
+                      {appointment.organizerEmail && (
+                        <Typography variant="caption" style={{ color: "#666" }}>
+                          {appointment.organizerEmail}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
                 </Grid>
               )}
 
               {appointment.participants && appointment.participants.length > 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="caption" color="textSecondary">Participantes</Typography>
-                  {appointment.participants.map((email, idx) => (
-                    <Typography key={idx} variant="body2">{email}</Typography>
-                  ))}
+                <Grid item xs={12} sm={appointment.organizerName || appointment.organizerEmail ? 6 : 12}>
+                  <Box style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 4px" }}>
+                    <GroupIcon style={{ color: "#888", fontSize: 18, marginTop: 2, flexShrink: 0 }} />
+                    <Box>
+                      <Typography variant="caption" style={{ color: "#999", fontWeight: 600, display: "block" }}>
+                        Participantes ({appointment.participants.length})
+                      </Typography>
+                      {appointment.participants.map((email, idx) => (
+                        <Typography key={idx} variant="body2" style={{ fontWeight: 500 }}>{email}</Typography>
+                      ))}
+                    </Box>
+                  </Box>
                 </Grid>
               )}
 
               {appointment.googleEventId && (
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="textSecondary">ID do Evento Google</Typography>
-                  <Typography variant="body2" style={{ wordBreak: "break-all", color: "#888", fontSize: 12 }}>
-                    {appointment.googleEventId}
+                  <Typography variant="caption" style={{ color: "#bbb", fontSize: 11, wordBreak: "break-all", display: "block", paddingLeft: 4 }}>
+                    ID Google: {appointment.googleEventId}
                   </Typography>
                 </Grid>
               )}

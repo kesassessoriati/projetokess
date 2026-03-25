@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, fn, col } from "sequelize";
 import Appointment from "../../models/Appointment";
 import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
@@ -17,10 +17,17 @@ interface ListAppointmentsQuery {
   pageNumber?: string;
 }
 
+interface UserMetric {
+  userId: number;
+  userName: string;
+  count: number;
+}
+
 interface ListAppointmentsResponse {
   appointments: Appointment[];
   count: number;
   hasMore: boolean;
+  metricsByUser: UserMetric[];
 }
 
 const ListAppointmentsService = async ({
@@ -115,10 +122,38 @@ const ListAppointmentsService = async ({
     order: [["startDatetime", "ASC"]]
   });
 
+  const metricsByUser = await Appointment.findAll({
+    where,
+    attributes: [
+      "createdByUserId",
+      [fn("COUNT", col("Appointment.id")), "count"]
+    ],
+    include: [
+      {
+        model: User,
+        as: "createdByUser",
+        attributes: ["id", "name"],
+        required: false
+      }
+    ],
+    group: ["createdByUserId", "createdByUser.id", "createdByUser.name"],
+    raw: false
+  }) as any[];
+
+  const metricsFormatted: UserMetric[] = metricsByUser
+    .filter(m => m.createdByUserId != null)
+    .map(m => ({
+      userId: m.createdByUserId,
+      userName: m.createdByUser?.name || "Desconhecido",
+      count: parseInt(m.getDataValue("count"), 10)
+    }))
+    .sort((a, b) => b.count - a.count);
+
   return {
     appointments: rows,
     count,
-    hasMore: count > offset + rows.length
+    hasMore: count > offset + rows.length,
+    metricsByUser: metricsFormatted
   };
 };
 

@@ -597,6 +597,7 @@ const Agenda = () => {
   const [appointmentData, setAppointmentData] = useState({ appointments: [] });
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [errorAppointments, setErrorAppointments] = useState(null);
+  const [metricsByUser, setMetricsByUser] = useState([]);
 
   const { data: schedulesData } = useSafeApi("/user-schedules", { manual: false });
 
@@ -653,6 +654,7 @@ const Agenda = () => {
 
       const data = await listAppointments(params);
       setAppointmentData(data);
+      setMetricsByUser(data.metricsByUser || []);
     } catch (err) {
       setErrorAppointments(err);
       toastError(err);
@@ -882,6 +884,47 @@ const Agenda = () => {
           </Paper>
         ))}
       </Box>
+
+      {metricsByUser.length > 1 && (
+        <Paper elevation={0} style={{ padding: 20, borderRadius: 22, background: "#fff", border: "1px solid rgba(148,163,184,0.18)", boxShadow: "0 16px 36px rgba(15, 23, 42, 0.08)" }}>
+          <Box style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <Box style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg, rgba(37,99,235,0.14), rgba(59,130,246,0.24))", display: "flex", alignItems: "center", justifyContent: "center", color: "#1d4ed8" }}>
+              <PersonIcon />
+            </Box>
+            <Box>
+              <Typography style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Compromissos por Usuário</Typography>
+              <Typography style={{ fontSize: 13, color: "#64748b" }}>Ranking de compromissos criados por cada membro da equipe.</Typography>
+            </Box>
+          </Box>
+          <Box style={{ display: "grid", gap: 8 }}>
+            {metricsByUser.map((item, idx) => (
+              <Box
+                key={item.userId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "10px 14px",
+                  borderRadius: 14,
+                  background: idx === 0 ? "linear-gradient(135deg, #eef2ff, #e0e7ff)" : "rgba(248,250,252,0.9)",
+                  border: idx === 0 ? "1px solid rgba(99,102,241,0.2)" : "1px solid rgba(226,232,240,0.8)"
+                }}
+              >
+                <Box style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Typography style={{ fontWeight: 800, fontSize: 13, color: idx === 0 ? "#4f46e5" : "#94a3b8", minWidth: 24 }}>
+                    #{idx + 1}
+                  </Typography>
+                  <Typography style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>{item.userName}</Typography>
+                </Box>
+                <Typography style={{ fontWeight: 800, fontSize: 16, color: idx === 0 ? "#4f46e5" : "#334155" }}>
+                  {item.count}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      )}
 
       <Box className={classes.controlsGrid}>
         <Paper elevation={0} className={classes.filterPanel}>

@@ -18,6 +18,11 @@ interface UpdateAppointmentData {
   clientId?: number | null;
   contactId?: number | null;
   companyId: number;
+  leadName?: string;
+  leadPhone?: string;
+  participantEmails?: string[];
+  meetingLink?: string;
+  operationalNote?: string;
 }
 
 const UpdateAppointmentService = async (
@@ -147,7 +152,12 @@ const UpdateAppointmentService = async (
     status: data.status ?? appointment.status,
     serviceId: data.serviceId !== undefined ? data.serviceId : appointment.serviceId,
     clientId: data.clientId !== undefined ? data.clientId : appointment.clientId,
-    contactId: data.contactId !== undefined ? data.contactId : appointment.contactId
+    contactId: data.contactId !== undefined ? data.contactId : appointment.contactId,
+    leadName: data.leadName !== undefined ? data.leadName : appointment.leadName,
+    leadPhone: data.leadPhone !== undefined ? data.leadPhone : appointment.leadPhone,
+    participantEmails: data.participantEmails !== undefined ? (data.participantEmails.length > 0 ? data.participantEmails : null) : appointment.participantEmails,
+    meetingLink: data.meetingLink !== undefined ? data.meetingLink : appointment.meetingLink,
+    operationalNote: data.operationalNote !== undefined ? data.operationalNote : appointment.operationalNote
   });
 
   // Sincronizar com Google Calendar se tiver evento vinculado
