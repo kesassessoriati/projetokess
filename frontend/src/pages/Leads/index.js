@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useReducer, useRef, useCallback } from "react";
 import {
   Avatar,
   Box,
@@ -94,11 +94,10 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    minHeight: "100vh",
     backgroundColor: theme.palette.background.default,
     padding: theme.spacing(3),
     gap: theme.spacing(3),
-    overflowY: "auto",
     overflowX: "hidden",
     ...theme.scrollbarStyles,
     [theme.breakpoints.down("sm")]: {
@@ -308,6 +307,28 @@ const Leads = () => {
   const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
   const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
   const [users, setUsers] = useState([]);
+  const sentinelRef = useRef(null);
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loading) {
+      setPageNumber((prev) => prev + 1);
+    }
+  }, [hasMore, loading]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -372,14 +393,6 @@ const Leads = () => {
       controller.abort();
     };
   }, [searchParam, statusFilter, pageNumber, refreshToken]);
-
-  const handleScroll = (event) => {
-    if (!hasMore || loading) return;
-    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    if (scrollHeight - scrollTop - clientHeight < 160) {
-      setPageNumber((prev) => prev + 1);
-    }
-  };
 
   const handleOpenModal = (leadId = null) => {
     setSelectedLeadId(leadId);
@@ -499,7 +512,7 @@ const Leads = () => {
   const statusColor = (status) => STATUS_COLORS[status] || STATUS_COLORS.novo;
 
   return (
-    <Box className={classes.root} onScroll={handleScroll}>
+    <Box className={classes.root}>
       <UniversalLeadModal
         open={leadModalOpen}
         onClose={handleCloseModal}
@@ -777,6 +790,8 @@ const Leads = () => {
             <Typography variant="body2">Carregando leads...</Typography>
           </Box>
         )}
+
+        <div ref={sentinelRef} style={{ height: 1 }} />
       </Box>
     </Box>
   );
