@@ -116,9 +116,14 @@ const ImportCrmClientsService = async ({
                     site: clientRow.website || clientRow.site ? String(clientRow.website || clientRow.site) : undefined,
                     instagram: clientRow.instagram ? String(clientRow.instagram) : undefined,
                     linkedin: clientRow.linkedin ? String(clientRow.linkedin) : undefined,
+                    acquiredProduct: clientRow.acquiredProduct ? String(clientRow.acquiredProduct) : undefined,
+                    paymentType: clientRow.paymentType ? String(clientRow.paymentType) : undefined,
+                    purchaseType: clientRow.purchaseType ? String(clientRow.purchaseType) : undefined,
+                    purchaseValue: clientRow.purchaseValue != null && clientRow.purchaseValue !== "" ? Number(clientRow.purchaseValue) : undefined,
                     tags: tagsStr,
                     birthDate: clientRow.birthDate || clientRow.dataNascimento ? new Date(clientRow.birthDate || clientRow.dataNascimento) : undefined,
                     clientSince: clientRow.clientSince || clientRow.clienteDesde ? new Date(clientRow.clientSince || clientRow.clienteDesde) : new Date(),
+                    acquisitionDate: clientRow.acquisitionDate ? new Date(clientRow.acquisitionDate) : undefined,
                     // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
                     expirationDate: (() => {
                         const raw = clientRow.expirationDate || clientRow.dataVencimento;

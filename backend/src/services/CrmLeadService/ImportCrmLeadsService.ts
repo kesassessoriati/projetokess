@@ -132,9 +132,14 @@ const ImportCrmLeadsService = async ({
                     website: leadRow.website ? String(leadRow.website) : undefined,
                     instagram: leadRow.instagram ? String(leadRow.instagram) : undefined,
                     linkedin: leadRow.linkedin ? String(leadRow.linkedin) : undefined,
+                    product: leadRow.product ? String(leadRow.product) : undefined,
+                    paymentType: leadRow.paymentType ? String(leadRow.paymentType) : undefined,
+                    purchaseType: leadRow.purchaseType ? String(leadRow.purchaseType) : undefined,
+                    purchaseValue: leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined,
                     tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
                     birthDate: leadRow.birthDate ? new Date(leadRow.birthDate) : undefined,
                     clientSince: leadRow.clientSince ? new Date(leadRow.clientSince) : undefined,
+                    acquisitionDate: leadRow.acquisitionDate ? new Date(leadRow.acquisitionDate) : undefined,
                     // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
                     expirationDate: (() => {
                         const raw = leadRow.expirationDate || leadRow.dataVencimento;
