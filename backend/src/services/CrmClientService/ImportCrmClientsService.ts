@@ -3,6 +3,31 @@ import fs from "fs";
 import CreateCrmClientService from "./CreateCrmClientService";
 import AppError from "../../errors/AppError";
 
+// Converte qualquer formato de data para Date:
+// - Objeto Date, ISO (yyyy-mm-dd), Brasileiro (dd/mm/yyyy)
+// - Número serial do Excel (ex: 45842.99 → data real)
+const parseDate = (raw: any): Date | undefined => {
+    if (!raw) return undefined;
+    if (raw instanceof Date) return isNaN(raw.getTime()) ? undefined : raw;
+    const str = String(raw).trim();
+    if (!str) return undefined;
+    // dd/mm/yyyy
+    const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (brMatch) {
+        const d = new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`);
+        return isNaN(d.getTime()) ? undefined : d;
+    }
+    // Serial numérico do Excel (25569 = 01/01/1970; 2958465 = 31/12/9999)
+    const num = Number(str);
+    if (!isNaN(num) && num > 25569 && num < 2958465) {
+        const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+        return isNaN(d.getTime()) ? undefined : d;
+    }
+    // ISO ou outros formatos parseáveis
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? undefined : d;
+};
+
 interface Request {
     companyId: number;
     filePath: string;
@@ -121,21 +146,10 @@ const ImportCrmClientsService = async ({
                     purchaseType: clientRow.purchaseType ? String(clientRow.purchaseType) : undefined,
                     purchaseValue: clientRow.purchaseValue != null && clientRow.purchaseValue !== "" ? Number(clientRow.purchaseValue) : undefined,
                     tags: tagsStr,
-                    birthDate: clientRow.birthDate || clientRow.dataNascimento ? new Date(clientRow.birthDate || clientRow.dataNascimento) : undefined,
-                    clientSince: clientRow.clientSince || clientRow.clienteDesde ? new Date(clientRow.clientSince || clientRow.clienteDesde) : new Date(),
-                    acquisitionDate: clientRow.acquisitionDate ? new Date(clientRow.acquisitionDate) : undefined,
-                    // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
-                    expirationDate: (() => {
-                        const raw = clientRow.expirationDate || clientRow.dataVencimento;
-                        if (!raw) return undefined;
-                        const str = String(raw).trim();
-                        // Convert dd/mm/yyyy → yyyy-mm-dd before parsing
-                        const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                        const parsed = brMatch
-                            ? new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`)
-                            : new Date(str);
-                        return isNaN(parsed.getTime()) ? undefined : parsed;
-                    })(),
+                    birthDate: parseDate(clientRow.birthDate || clientRow.dataNascimento),
+                    clientSince: parseDate(clientRow.clientSince || clientRow.clienteDesde) ?? new Date(),
+                    acquisitionDate: parseDate(clientRow.acquisitionDate),
+                    expirationDate: parseDate(clientRow.expirationDate || clientRow.dataVencimento),
                     status: (() => {
                         const raw = String(clientRow.status || "").toLowerCase().trim();
                         if (raw === "inactive" || raw === "inativo") return "inactive";

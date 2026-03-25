@@ -3,6 +3,31 @@ import fs from "fs";
 import CreateCrmLeadService from "./CreateCrmLeadService";
 import AppError from "../../errors/AppError";
 
+// Converte qualquer formato de data para Date:
+// - Objeto Date, ISO (yyyy-mm-dd), Brasileiro (dd/mm/yyyy)
+// - Número serial do Excel (ex: 45842.99 → data real)
+const parseDate = (raw: any): Date | undefined => {
+    if (!raw) return undefined;
+    if (raw instanceof Date) return isNaN(raw.getTime()) ? undefined : raw;
+    const str = String(raw).trim();
+    if (!str) return undefined;
+    // dd/mm/yyyy
+    const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (brMatch) {
+        const d = new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`);
+        return isNaN(d.getTime()) ? undefined : d;
+    }
+    // Serial numérico do Excel (25569 = 01/01/1970; 2958465 = 31/12/9999)
+    const num = Number(str);
+    if (!isNaN(num) && num > 25569 && num < 2958465) {
+        const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+        return isNaN(d.getTime()) ? undefined : d;
+    }
+    // ISO ou outros formatos parseáveis
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? undefined : d;
+};
+
 interface Request {
     companyId: number;
     filePath: string;
@@ -137,21 +162,10 @@ const ImportCrmLeadsService = async ({
                     purchaseType: leadRow.purchaseType ? String(leadRow.purchaseType) : undefined,
                     purchaseValue: leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined,
                     tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
-                    birthDate: leadRow.birthDate ? new Date(leadRow.birthDate) : undefined,
-                    clientSince: leadRow.clientSince ? new Date(leadRow.clientSince) : undefined,
-                    acquisitionDate: leadRow.acquisitionDate ? new Date(leadRow.acquisitionDate) : undefined,
-                    // expirationDate: supports ISO (yyyy-mm-dd) and Brazilian (dd/mm/yyyy) formats
-                    expirationDate: (() => {
-                        const raw = leadRow.expirationDate || leadRow.dataVencimento;
-                        if (!raw) return undefined;
-                        const str = String(raw).trim();
-                        // Convert dd/mm/yyyy → yyyy-mm-dd before parsing
-                        const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                        const parsed = brMatch
-                            ? new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`)
-                            : new Date(str);
-                        return isNaN(parsed.getTime()) ? undefined : parsed;
-                    })()
+                    birthDate: parseDate(leadRow.birthDate || leadRow.dataNascimento),
+                    clientSince: parseDate(leadRow.clientSince || leadRow.clienteDesde),
+                    acquisitionDate: parseDate(leadRow.acquisitionDate),
+                    expirationDate: parseDate(leadRow.expirationDate || leadRow.dataVencimento)
                 });
 
                 imported++;
