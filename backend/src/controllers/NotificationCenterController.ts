@@ -5,7 +5,8 @@ import MarkNotificationsReadService from "../services/NotificationServices/MarkN
 import { getIO } from "../libs/socket";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { userId, companyId } = req.user;
+  const userId = Number(req.user.id);
+  const { companyId } = req.user;
   const { status = "all", limit = "50", offset = "0" } = req.query as any;
 
   const result = await ListNotificationsService({
@@ -20,7 +21,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const markRead = async (req: Request, res: Response): Promise<Response> => {
-  const { userId, companyId } = req.user;
+  const userId = Number(req.user.id);
+  const { companyId } = req.user;
   const notificationId = req.params.id ? parseInt(req.params.id, 10) : undefined;
 
   await MarkNotificationsReadService(userId, companyId, notificationId);
@@ -39,7 +41,8 @@ export const markRead = async (req: Request, res: Response): Promise<Response> =
 };
 
 export const markAllRead = async (req: Request, res: Response): Promise<Response> => {
-  const { userId, companyId } = req.user;
+  const userId = Number(req.user.id);
+  const { companyId } = req.user;
 
   await MarkNotificationsReadService(userId, companyId);
 

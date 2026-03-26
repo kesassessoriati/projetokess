@@ -22,7 +22,7 @@ const runTaskReminderJob = async (): Promise<void> => {
     // Tasks approaching due date (due in the next 24 hours)
     const upcomingTasks = await Task.findAll({
       where: {
-        dueDate: { [Op.between]: [now, in24h] },
+        dueDate: { [Op.between]: [now, in24h] as any },
         responsibleId: { [Op.not]: null },
       },
       include: [
@@ -73,7 +73,7 @@ const runTaskReminderJob = async (): Promise<void> => {
     // Overdue tasks (dueDate in the last 24h and no overdue notification sent today)
     const overdueTasks = await Task.findAll({
       where: {
-        dueDate: { [Op.between]: [yesterday, now] },
+        dueDate: { [Op.between]: [yesterday, now] as any },
         responsibleId: { [Op.not]: null },
       },
       include: [
