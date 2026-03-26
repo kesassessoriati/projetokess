@@ -99,6 +99,7 @@ import AssignmentIcon from "@material-ui/icons/Assignment";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
 import NotificationsVolume from "../components/NotificationsVolume";
+import NotificationCenter from "../components/NotificationCenter";
 import UserModal from "../components/UserModal";
 import ProductivityTimer from "./ProductivityTimer";
 import SearchTicketModal from "../components/SearchTicketModal";
@@ -1734,6 +1735,13 @@ const LoggedInLayout = ({ children }) => {
               {!isMobile && (
                 <div className={classes.iconButton}>
                   <ChatPopover />
+                </div>
+              )}
+
+              {/* Central de Notificações */}
+              {!isMobile && (
+                <div className={classes.iconButton}>
+                  <NotificationCenter />
                 </div>
               )}
 

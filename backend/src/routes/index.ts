@@ -130,6 +130,7 @@ import mediaDriveRoutes from "./mediaDriveRoutes";
 import chipRoutes from "./chipRoutes";
 import companyAiConfigRoutes from "./companyAiConfigRoutes";
 import aiAgentTemplateRoutes from "./aiAgentTemplateRoutes";
+import notificationCenterRoutes from "./notificationCenterRoutes";
 
 const routes = Router();
 
@@ -288,5 +289,8 @@ routes.use(aiAgentTemplateRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);
+
+// Notification Center
+routes.use(notificationCenterRoutes);
 
 export default routes;

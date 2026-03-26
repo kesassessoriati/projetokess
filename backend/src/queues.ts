@@ -57,6 +57,7 @@ import { GetSmtpSettingByCompany } from "./helpers/GetSmtpSettingByCompany";
 import { createTransporter } from "./services/SmtpServices/smtpService";
 import nodemailer from "nodemailer";
 import { syncAllChips } from "./services/ChipServices/ChipMonitoringService";
+import runTaskReminderJob from "./services/NotificationServices/TaskReminderJobService";
 
 const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
@@ -2090,6 +2091,16 @@ export async function startQueueProcess() {
   });
   chipMonitoringJob.start();
   logger.info("[Chip Monitoring Job] Iniciado - a cada 15 minutos");
+
+  const taskReminderJob = new CronJob('0 * * * *', async () => {
+    try {
+      await runTaskReminderJob();
+    } catch (error) {
+      logger.error('[Task Reminder Job] Erro:', error);
+    }
+  });
+  taskReminderJob.start();
+  logger.info('[Task Reminder Job] Iniciado - a cada hora');
 
   startDispatchProcessor();
 }

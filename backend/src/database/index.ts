@@ -178,6 +178,7 @@ import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
 import Chip from "../models/Chip";
 import ChipActivityLog from "../models/ChipActivityLog";
 import AIUsageLog from "../models/AIUsageLog";
+import Notification from "../models/Notification";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -389,7 +390,8 @@ const models = [
   GfIaUpload,
   GfIaAnalysisResult,
   Chip,
-  ChipActivityLog
+  ChipActivityLog,
+  Notification
 ];
 
 sequelize.addModels(models);
