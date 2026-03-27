@@ -48,7 +48,17 @@ const ImportCrmClientsService = async ({
     selectedRows
 }: Request): Promise<{ total: number; imported: number; errors: any[] }> => {
     try {
-        const workbook = xlsx.readFile(filePath);
+        // Para CSV: ler como texto com raw:true para preservar strings de data (dd/mm/yyyy)
+        // sem que xlsx as converta usando formato americano (mm/dd/yyyy)
+        let workbook: xlsx.WorkBook;
+        if (filePath.endsWith(".csv")) {
+            const csvText = fs.readFileSync(filePath, "utf-8");
+            const sheet = xlsx.utils.csv_to_sheet(csvText, { raw: true });
+            workbook = xlsx.utils.book_new();
+            xlsx.utils.book_append_sheet(workbook, sheet, "Sheet1");
+        } else {
+            workbook = xlsx.readFile(filePath);
+        }
         const sheetNameList = workbook.SheetNames;
         const useMapping = mapping && Object.keys(mapping).length > 0;
 

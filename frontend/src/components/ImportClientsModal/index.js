@@ -209,61 +209,90 @@ const ImportClientsModal = ({ open, onClose, onSuccess }) => {
             const y = value.getUTCFullYear();
             return `${d}/${m}/${y}`;
         }
-        // Serial numérico do Excel em CSVs (ex: 45842.999...)
+        // Serial numérico do Excel como número (XLSX)
         if (typeof value === "number" && value > 25569 && value < 2958465) {
             return excelSerialToDate(value) ?? value;
+        }
+        // Serial numérico como string (CSV com célula numérica de data, ex: "45842.99")
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed && !/[/\-a-zA-Z]/.test(trimmed)) {
+                const num = Number(trimmed);
+                if (!isNaN(num) && num > 25569 && num < 2958465) {
+                    return excelSerialToDate(num) ?? value;
+                }
+            }
         }
         return value;
     };
 
+    const applyWorksheetData = (ws) => {
+        const { rows, columns } = WorksheetToDatagrid(ws);
+        setRows(rows);
+        setColumns(columns);
+
+        const newColumnValue = {};
+        const newSelectedFields = {};
+
+        if (rows.length > 0) {
+            const headers = rows[0];
+            columns.forEach((col, idx) => {
+                const headerStr = String(headers[idx] || "").toLowerCase().trim();
+                const fieldMatch = CLIENT_FIELDS.find(f =>
+                    headerStr === f.id.toLowerCase() ||
+                    headerStr === f.label.toLowerCase() ||
+                    (f.id === "name" && headerStr === "nome") ||
+                    (f.id === "phone" && (headerStr === "numero" || headerStr === "telefone" || headerStr === "número"))
+                );
+                if (fieldMatch && !newSelectedFields[fieldMatch.id]) {
+                    newColumnValue[col.key] = fieldMatch.id;
+                    newSelectedFields[fieldMatch.id] = col.key;
+                }
+            });
+        }
+
+        setColumnValue(newColumnValue);
+        setSelectedFields(newSelectedFields);
+
+        const newSelectedRows = {};
+        for (let i = 1; i < rows.length; i++) {
+            newSelectedRows[i] = true;
+        }
+        setSelectedRows(newSelectedRows);
+    };
+
     const processFile = (fileObj) => {
         setFile(fileObj);
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            try {
-                const data = e.target.result;
-                const isCSV = fileObj.name.toLowerCase().endsWith(".csv");
-                const wb = read(data, { cellDates: !isCSV });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const { rows, columns } = WorksheetToDatagrid(ws);
-                setRows(rows);
-                setColumns(columns);
+        const isCSV = fileObj.name.toLowerCase().endsWith(".csv");
 
-                const newColumnValue = {};
-                const newSelectedFields = {};
-
-                if (rows.length > 0) {
-                    const headers = rows[0];
-                    columns.forEach((col, idx) => {
-                        const headerStr = String(headers[idx] || "").toLowerCase().trim();
-                        const fieldMatch = CLIENT_FIELDS.find(f =>
-                            headerStr === f.id.toLowerCase() ||
-                            headerStr === f.label.toLowerCase() ||
-                            (f.id === "name" && headerStr === "nome") ||
-                            (f.id === "phone" && (headerStr === "numero" || headerStr === "telefone" || headerStr === "número"))
-                        );
-                        if (fieldMatch && !newSelectedFields[fieldMatch.id]) {
-                            newColumnValue[col.key] = fieldMatch.id;
-                            newSelectedFields[fieldMatch.id] = col.key;
-                        }
-                    });
+        if (isCSV) {
+            // CSV: ler como texto puro para evitar que xlsx converta datas
+            // automaticamente usando formato americano (mm/dd/yyyy)
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const ws = utils.csv_to_sheet(e.target.result, { raw: true });
+                    applyWorksheetData(ws);
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Erro ao ler o arquivo. Verifique se é um arquivo Excel/CSV válido.");
                 }
-
-                setColumnValue(newColumnValue);
-                setSelectedFields(newSelectedFields);
-
-                const newSelectedRows = {};
-                for (let i = 1; i < rows.length; i++) {
-                    newSelectedRows[i] = true;
+            };
+            reader.readAsText(fileObj, "UTF-8");
+        } else {
+            // XLSX: ler como ArrayBuffer com cellDates para converter seriais em Date
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const wb = read(e.target.result, { cellDates: true });
+                    applyWorksheetData(wb.Sheets[wb.SheetNames[0]]);
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Erro ao ler o arquivo. Verifique se é um arquivo Excel/CSV válido.");
                 }
-                setSelectedRows(newSelectedRows);
-
-            } catch (err) {
-                console.error(err);
-                toast.error("Erro ao ler o arquivo. Verifique se é um arquivo Excel/CSV válido.");
-            }
-        };
-        reader.readAsArrayBuffer(fileObj);
+            };
+            reader.readAsArrayBuffer(fileObj);
+        }
     };
 
     const { getRootProps, getInputProps } = useDropzone({
