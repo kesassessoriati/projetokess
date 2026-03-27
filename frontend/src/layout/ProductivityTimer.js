@@ -193,6 +193,30 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const tasksRef = useRef(tasks);
     tasksRef.current = tasks;
 
+    // Wall-clock based timing: store when current run started and timeLeft at that point.
+    // This makes the countdown immune to browser tab throttling.
+    const runStartedAtRef = useRef(null);      // Date.now() when timer last started/resumed
+    const timeLeftAtRunStartRef = useRef(null); // timeLeft value at that moment
+
+    // Refs to access latest state inside event listeners without stale closures
+    const isActiveRef = useRef(isActive);
+    const isPausedRef = useRef(isPaused);
+    const sessionIdRef = useRef(sessionId);
+    const timeLeftRef = useRef(timeLeft);
+    isActiveRef.current = isActive;
+    isPausedRef.current = isPaused;
+    sessionIdRef.current = sessionId;
+    timeLeftRef.current = timeLeft;
+
+    // Compute remaining seconds using wall clock (accurate even after tab throttling)
+    const computeRemaining = useCallback(() => {
+        if (!runStartedAtRef.current || timeLeftAtRunStartRef.current === null) {
+            return timeLeftRef.current;
+        }
+        const sinceStart = Math.floor((Date.now() - runStartedAtRef.current) / 1000);
+        return Math.max(0, timeLeftAtRunStartRef.current - sinceStart);
+    }, []);
+
     // ── Persist minimize state ─────────────────────────────────────
     useEffect(() => {
         localStorage.setItem(LS_MINI, minimized ? "true" : "false");
@@ -224,10 +248,12 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             setIsPaused(state.isPaused || false);
             setSessionId(state.sessionId || null);
 
-            if (state.isActive && !state.isPaused && state.lastTick) {
-                // Restore real elapsed time
-                const elapsed = Math.floor((Date.now() - state.lastTick) / 1000);
-                const restored = Math.max(0, (state.timeLeft || 0) - elapsed);
+            if (state.isActive && !state.isPaused && state.runStartedAt != null) {
+                // Restore using absolute run start timestamp — immune to throttling
+                const sinceStart = Math.floor((Date.now() - state.runStartedAt) / 1000);
+                const restored = Math.max(0, (state.timeLeftAtRunStart || 0) - sinceStart);
+                runStartedAtRef.current = state.runStartedAt;
+                timeLeftAtRunStartRef.current = state.timeLeftAtRunStart || 0;
                 setTimeLeft(restored);
                 if (restored === 0) {
                     handleComplete(state.sessionId);
@@ -247,7 +273,8 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             isActive,
             isPaused,
             sessionId,
-            lastTick: Date.now(),
+            runStartedAt: runStartedAtRef.current,
+            timeLeftAtRunStart: timeLeftAtRunStartRef.current,
         };
         localStorage.setItem(LS_STATE(userId), JSON.stringify(state));
     }, [selectedTaskId, timeLeft, isActive, isPaused, sessionId, userId]);
@@ -257,35 +284,50 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         saveState();
     }, [saveState]);
 
-    // Save every second while running (keeps lastTick fresh for accurate restore)
-    useEffect(() => {
-        if (isActive && !isPaused) {
-            const tickSaver = setInterval(saveState, 1000);
-            return () => clearInterval(tickSaver);
-        }
-    }, [isActive, isPaused, saveState]);
-
-    // ── Timer tick ─────────────────────────────────────────────────
+    // ── Timer tick (wall-clock based) ──────────────────────────────
     useEffect(() => {
         if (isActive && !isPaused && timeLeft > 0) {
             timerRef.current = setInterval(() => {
-                setTimeLeft((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timerRef.current);
-                        handleComplete(sessionId);
-                        return 0;
-                    }
-                    if (prev === 31) playBeep(200, 100, 50);
-                    if (prev <= 11 && prev > 1) playBeep(440, 150, 70);
-                    return prev - 1;
-                });
-            }, 1000);
+                const remaining = computeRemaining();
+                if (remaining <= 0) {
+                    clearInterval(timerRef.current);
+                    handleComplete(sessionIdRef.current);
+                    setTimeLeft(0);
+                    return;
+                }
+                if (remaining === 30) playBeep(200, 100, 50);
+                if (remaining <= 10 && remaining > 0) playBeep(440, 150, 70);
+                setTimeLeft(remaining);
+            }, 500); // poll at 500ms for smooth display even after wake-up
         } else {
             clearInterval(timerRef.current);
         }
         return () => clearInterval(timerRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isActive, isPaused, sessionId]);
+    }, [isActive, isPaused]);
+
+    // ── Correct time when tab regains focus ────────────────────────
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (
+                document.visibilityState === "visible" &&
+                isActiveRef.current &&
+                !isPausedRef.current
+            ) {
+                const remaining = computeRemaining();
+                if (remaining <= 0) {
+                    clearInterval(timerRef.current);
+                    handleComplete(sessionIdRef.current);
+                    setTimeLeft(0);
+                } else {
+                    setTimeLeft(remaining);
+                }
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [computeRemaining]);
 
     // ── Timer actions ──────────────────────────────────────────────
     const handleStart = async () => {
@@ -310,16 +352,24 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                 await api.put(`/timer-sessions/${sessionId}`, { status: "active" });
             } catch (e) { /* non-critical */ }
         }
+        // Record wall-clock start point for accurate background countdown
+        runStartedAtRef.current = Date.now();
+        timeLeftAtRunStartRef.current = timeLeftRef.current;
         setIsActive(true);
         setIsPaused(false);
     };
 
     const handlePause = async () => {
+        // Correct timeLeft to wall-clock value before pausing
+        const remaining = computeRemaining();
+        setTimeLeft(remaining);
+        runStartedAtRef.current = null;
+        timeLeftAtRunStartRef.current = null;
         setIsPaused(true);
         if (sessionId) {
             try {
                 const task = tasksRef.current.find((t) => t.id === selectedTaskId);
-                const timeSpent = (task?.defaultTime * 60 || defaultGlobalTime * 60) - timeLeft;
+                const timeSpent = (task?.defaultTime * 60 || defaultGlobalTime * 60) - remaining;
                 await api.put(`/timer-sessions/${sessionId}`, {
                     status: "paused",
                     timeSpent: Math.max(0, timeSpent),
@@ -329,6 +379,8 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     };
 
     const handleReset = async () => {
+        runStartedAtRef.current = null;
+        timeLeftAtRunStartRef.current = null;
         setIsActive(false);
         setIsPaused(false);
         if (sessionId) {
@@ -348,6 +400,8 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     };
 
     const handleComplete = async (sid) => {
+        runStartedAtRef.current = null;
+        timeLeftAtRunStartRef.current = null;
         setIsActive(false);
         setIsPaused(false);
         playBeep(880, 500, 100);
