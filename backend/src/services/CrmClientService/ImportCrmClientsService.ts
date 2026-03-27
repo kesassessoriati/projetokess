@@ -53,9 +53,7 @@ const ImportCrmClientsService = async ({
         let workbook: xlsx.WorkBook;
         if (filePath.endsWith(".csv")) {
             const csvText = fs.readFileSync(filePath, "utf-8");
-            const sheet = xlsx.utils.csv_to_sheet(csvText, { raw: true });
-            workbook = xlsx.utils.book_new();
-            xlsx.utils.book_append_sheet(workbook, sheet, "Sheet1");
+            workbook = xlsx.read(csvText, { type: "string", raw: true });
         } else {
             workbook = xlsx.readFile(filePath);
         }
