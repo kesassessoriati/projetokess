@@ -228,9 +228,9 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
     const formatCellValue = (value) => {
         if (value instanceof Date) {
-            const d = String(value.getDate()).padStart(2, "0");
-            const m = String(value.getMonth() + 1).padStart(2, "0");
-            const y = value.getFullYear();
+            const d = String(value.getUTCDate()).padStart(2, "0");
+            const m = String(value.getUTCMonth() + 1).padStart(2, "0");
+            const y = value.getUTCFullYear();
             return `${d}/${m}/${y}`;
         }
         return value;
@@ -242,7 +242,8 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         reader.onload = function (e) {
             try {
                 const data = e.target.result;
-                const wb = read(data, { cellDates: true });
+                const isCSV = fileObj.name.toLowerCase().endsWith(".csv");
+                const wb = read(data, { cellDates: !isCSV });
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 const { rows, columns } = WorksheetToDatagrid(ws);
                 setRows(rows);
