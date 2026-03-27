@@ -226,12 +226,25 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         setColumnValue((columnValue) => ({ ...columnValue, [columnKey]: newValue }));
     };
 
+    const excelSerialToDate = (serial) => {
+        const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+        if (isNaN(date.getTime())) return null;
+        const d = String(date.getUTCDate()).padStart(2, "0");
+        const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+        const y = date.getUTCFullYear();
+        return `${d}/${m}/${y}`;
+    };
+
     const formatCellValue = (value) => {
         if (value instanceof Date) {
             const d = String(value.getUTCDate()).padStart(2, "0");
             const m = String(value.getUTCMonth() + 1).padStart(2, "0");
             const y = value.getUTCFullYear();
             return `${d}/${m}/${y}`;
+        }
+        // Serial numérico do Excel em CSVs (ex: 45842.999...)
+        if (typeof value === "number" && value > 25569 && value < 2958465) {
+            return excelSerialToDate(value) ?? value;
         }
         return value;
     };
