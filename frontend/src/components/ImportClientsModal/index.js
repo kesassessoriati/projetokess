@@ -271,8 +271,8 @@ const ImportClientsModal = ({ open, onClose, onSuccess }) => {
             const reader = new FileReader();
             reader.onload = function (e) {
                 try {
-                    const ws = utils.csv_to_sheet(e.target.result, { raw: true });
-                    applyWorksheetData(ws);
+                    const wb = read(e.target.result, { type: "string", raw: true });
+                    applyWorksheetData(wb.Sheets[wb.SheetNames[0]]);
                 } catch (err) {
                     console.error(err);
                     toast.error("Erro ao ler o arquivo. Verifique se é um arquivo Excel/CSV válido.");
