@@ -23,9 +23,11 @@ import PauseIcon from "@material-ui/icons/Pause";
 import StopIcon from "@material-ui/icons/Stop";
 import SettingsIcon from "@material-ui/icons/Settings";
 import DeleteIcon from "@material-ui/icons/Delete";
+import EditIcon from "@material-ui/icons/Edit";
 import AddIcon from "@material-ui/icons/Add";
 import MinimizeIcon from "@material-ui/icons/Remove";
 import MaximizeIcon from "@material-ui/icons/OpenInBrowser";
+import CancelIcon from "@material-ui/icons/Cancel";
 import api from "../services/api";
 import { toast } from "react-toastify";
 
@@ -148,6 +150,18 @@ const useStyles = makeStyles(() => ({
     pauseBtn: { color: "#eab308" },
     stopBtn: { color: "#ef4444" },
     miniBtn: { color: "#6b7280", padding: 4 },
+    // ── Mode toggle buttons ────────────────────────────────────────
+    modeBtn: {
+        minWidth: 90,
+        fontSize: 12,
+        padding: "3px 10px",
+    },
+    modeBtnActive: {
+        minWidth: 90,
+        fontSize: 12,
+        padding: "3px 10px",
+        fontWeight: "bold",
+    },
 }));
 
 const playBeep = (freq = 440, duration = 200, vol = 100) => {
@@ -169,6 +183,7 @@ const playBeep = (freq = 440, duration = 200, vol = 100) => {
 
 const LS_STATE = (uid) => `timer_state_${uid}`;
 const LS_MINI = "timer_minimized";
+const LS_PROGRESSION = "timer_progression_mode";
 
 const ProductivityTimer = ({ userId, collapsed }) => {
     const classes = useStyles();
@@ -188,6 +203,13 @@ const ProductivityTimer = ({ userId, collapsed }) => {
 
     const [newTaskName, setNewTaskName] = useState("");
     const [newTaskTime, setNewTaskTime] = useState(10);
+    // null = creating new task; taskId = editing existing task
+    const [editingTaskId, setEditingTaskId] = useState(null);
+
+    // 'manual' = auto-select next task but don't start; 'automatic' = auto-select and auto-start
+    const [progressionMode, setProgressionMode] = useState(
+        () => localStorage.getItem(LS_PROGRESSION) || "manual"
+    );
 
     const timerRef = useRef(null);
     const tasksRef = useRef(tasks);
@@ -203,10 +225,14 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const isPausedRef = useRef(isPaused);
     const sessionIdRef = useRef(sessionId);
     const timeLeftRef = useRef(timeLeft);
+    const selectedTaskIdRef = useRef(selectedTaskId);
+    const progressionModeRef = useRef(progressionMode);
     isActiveRef.current = isActive;
     isPausedRef.current = isPaused;
     sessionIdRef.current = sessionId;
     timeLeftRef.current = timeLeft;
+    selectedTaskIdRef.current = selectedTaskId;
+    progressionModeRef.current = progressionMode;
 
     // Compute remaining seconds using wall clock (accurate even after tab throttling)
     const computeRemaining = useCallback(() => {
@@ -221,6 +247,11 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     useEffect(() => {
         localStorage.setItem(LS_MINI, minimized ? "true" : "false");
     }, [minimized]);
+
+    // ── Persist progression mode ───────────────────────────────────
+    useEffect(() => {
+        localStorage.setItem(LS_PROGRESSION, progressionMode);
+    }, [progressionMode]);
 
     // ── Load timer state on mount ──────────────────────────────────
     useEffect(() => {
@@ -330,26 +361,28 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     }, [computeRemaining]);
 
     // ── Timer actions ──────────────────────────────────────────────
-    const handleStart = async () => {
-        if (!selectedTaskId) {
+    const handleStart = async (overrideTaskId) => {
+        const taskId = overrideTaskId || selectedTaskIdRef.current;
+        if (!taskId) {
             toast.warning("Selecione uma tarefa para iniciar o cronômetro.");
             return;
         }
-        if (!isActive && !isPaused) {
+        if (!isActiveRef.current && !isPausedRef.current) {
             try {
                 const { data } = await api.post("/timer-sessions", {
-                    taskId: selectedTaskId,
+                    taskId,
                     status: "active",
                 });
                 setSessionId(data.id);
+                sessionIdRef.current = data.id;
             } catch (err) {
                 console.error(err);
                 toast.error("Erro ao iniciar sessão de tarefa.");
                 return;
             }
-        } else if (isPaused && sessionId) {
+        } else if (isPausedRef.current && sessionIdRef.current) {
             try {
-                await api.put(`/timer-sessions/${sessionId}`, { status: "active" });
+                await api.put(`/timer-sessions/${sessionIdRef.current}`, { status: "active" });
             } catch (e) { /* non-critical */ }
         }
         // Record wall-clock start point for accurate background countdown
@@ -399,7 +432,12 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
     };
 
+    // ── Task completion: auto-select next task + handle progression mode ──
     const handleComplete = async (sid) => {
+        const currentSelectedTaskId = selectedTaskIdRef.current;
+        const currentTasks = tasksRef.current;
+        const mode = progressionModeRef.current;
+
         runStartedAtRef.current = null;
         timeLeftAtRunStartRef.current = null;
         setIsActive(false);
@@ -407,9 +445,10 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         playBeep(880, 500, 100);
         setTimeout(() => playBeep(880, 500, 100), 600);
         toast.success("Tempo finalizado! 🎉");
+
         if (sid) {
             try {
-                const task = tasksRef.current.find((t) => t.id === selectedTaskId);
+                const task = currentTasks.find((t) => t.id === currentSelectedTaskId);
                 await api.put(`/timer-sessions/${sid}`, {
                     status: "completed",
                     timeSpent: task ? task.defaultTime * 60 : defaultGlobalTime * 60,
@@ -418,8 +457,46 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             } catch (err) { /* non-critical */ }
         }
         setSessionId(null);
-        const task = tasksRef.current.find((t) => t.id === selectedTaskId);
-        setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
+
+        // ── Auto-select next task in list ──────────────────────────
+        const currentIdx = currentTasks.findIndex((t) => t.id === currentSelectedTaskId);
+        const nextTask =
+            currentIdx >= 0 && currentIdx < currentTasks.length - 1
+                ? currentTasks[currentIdx + 1]
+                : null;
+
+        if (nextTask) {
+            setSelectedTaskId(nextTask.id);
+            setTimeLeft(nextTask.defaultTime * 60);
+
+            if (mode === "automatic") {
+                // Automatic mode: create session and start timer immediately
+                try {
+                    const { data } = await api.post("/timer-sessions", {
+                        taskId: nextTask.id,
+                        status: "active",
+                    });
+                    const newSid = data.id;
+                    setSessionId(newSid);
+                    sessionIdRef.current = newSid;
+                    runStartedAtRef.current = Date.now();
+                    timeLeftAtRunStartRef.current = nextTask.defaultTime * 60;
+                    timeLeftRef.current = nextTask.defaultTime * 60;
+                    setIsActive(true);
+                    setIsPaused(false);
+                    toast.info(`▶ Iniciando: ${nextTask.name}`);
+                } catch (err) {
+                    console.error("Erro ao iniciar próxima tarefa automaticamente", err);
+                }
+            } else {
+                // Manual mode: select task, user starts manually
+                toast.info(`Próxima tarefa: ${nextTask.name}`);
+            }
+        } else {
+            // No next task — reset time to current task's default
+            const task = currentTasks.find((t) => t.id === currentSelectedTaskId);
+            setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
+        }
     };
 
     const handleTaskChange = (e) => {
@@ -441,19 +518,46 @@ const ProductivityTimer = ({ userId, collapsed }) => {
 
     // ── Settings handlers ──────────────────────────────────────────
     const handleSaveTask = async () => {
-        if (!newTaskName) return;
+        if (!newTaskName.trim()) return;
         try {
-            await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime });
+            if (editingTaskId) {
+                await api.put(`/timer-tasks/${editingTaskId}`, {
+                    name: newTaskName,
+                    defaultTime: newTaskTime,
+                });
+                // If the edited task is currently selected, update its timeLeft
+                if (selectedTaskId === editingTaskId) {
+                    setTimeLeft(newTaskTime * 60);
+                }
+                toast.success("Tarefa atualizada");
+            } else {
+                await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime });
+                toast.success("Tarefa criada");
+            }
             setNewTaskName("");
             setNewTaskTime(10);
+            setEditingTaskId(null);
             fetchTasks();
-            toast.success("Tarefa criada");
         } catch (err) {
-            toast.error("Erro ao criar tarefa");
+            toast.error(editingTaskId ? "Erro ao atualizar tarefa" : "Erro ao criar tarefa");
         }
     };
 
+    const handleEditTask = (task) => {
+        setEditingTaskId(task.id);
+        setNewTaskName(task.name);
+        setNewTaskTime(task.defaultTime);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTaskId(null);
+        setNewTaskName("");
+        setNewTaskTime(10);
+    };
+
     const handleDeleteTask = async (id) => {
+        // If deleting the task being edited, cancel edit first
+        if (editingTaskId === id) handleCancelEdit();
         try {
             await api.delete(`/timer-tasks/${id}`);
             fetchTasks();
@@ -558,7 +662,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                                     <Tooltip title="Iniciar">
                                         <IconButton
                                             className={`${classes.iconBtn} ${classes.playBtn}`}
-                                            onClick={handleStart}
+                                            onClick={() => handleStart()}
                                             size="small"
                                         >
                                             <PlayArrowIcon fontSize="small" />
@@ -592,11 +696,15 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             )}
 
             {/* Settings dialog */}
-            <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={settingsOpen} onClose={() => { setSettingsOpen(false); handleCancelEdit(); }} maxWidth="sm" fullWidth>
                 <DialogTitle>Configurações de Produtividade ⏱️</DialogTitle>
                 <DialogContent dividers>
-                    <Typography variant="subtitle2" gutterBottom>Nova Tarefa Rápida</Typography>
-                    <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+
+                    {/* ── Task form: create or edit ──────────────────────────── */}
+                    <Typography variant="subtitle2" gutterBottom>
+                        {editingTaskId ? "Editar Tarefa" : "Nova Tarefa Rápida"}
+                    </Typography>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "flex-start" }}>
                         <TextField
                             label="Nome da Tarefa"
                             variant="outlined"
@@ -604,6 +712,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                             fullWidth
                             value={newTaskName}
                             onChange={(e) => setNewTaskName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveTask(); }}
                         />
                         <TextField
                             label="Minutos"
@@ -613,23 +722,64 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                             style={{ width: 110 }}
                             value={newTaskTime}
                             onChange={(e) => setNewTaskTime(Number(e.target.value))}
+                            inputProps={{ min: 1 }}
                         />
-                        <Button variant="contained" color="primary" onClick={handleSaveTask} startIcon={<AddIcon />}>
-                            Add
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleSaveTask}
+                            startIcon={editingTaskId ? null : <AddIcon />}
+                            style={{ whiteSpace: "nowrap", minWidth: editingTaskId ? 80 : undefined }}
+                        >
+                            {editingTaskId ? "Salvar" : "Add"}
                         </Button>
+                        {editingTaskId && (
+                            <Tooltip title="Cancelar edição">
+                                <IconButton size="small" onClick={handleCancelEdit} style={{ color: "#6b7280" }}>
+                                    <CancelIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </div>
 
+                    {/* ── Task list ──────────────────────────────────────────── */}
                     <Typography variant="subtitle2" gutterBottom>
                         Minhas Tarefas ({tasks.length})
                     </Typography>
-                    <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 200, overflow: "auto" }}>
+                    <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 220, overflow: "auto" }}>
                         {tasks.map((t) => (
-                            <ListItem key={t.id}>
-                                <ListItemText primary={t.name} secondary={`${t.defaultTime} min`} />
+                            <ListItem
+                                key={t.id}
+                                style={{
+                                    backgroundColor: editingTaskId === t.id ? "#e3f2fd" : undefined,
+                                    borderRadius: 4,
+                                }}
+                            >
+                                <ListItemText
+                                    primary={t.name}
+                                    secondary={`${t.defaultTime} min`}
+                                />
                                 <ListItemSecondaryAction>
-                                    <IconButton edge="end" size="small" style={{ color: "#ef4444" }} onClick={() => handleDeleteTask(t.id)}>
-                                        <DeleteIcon fontSize="small" />
-                                    </IconButton>
+                                    <Tooltip title="Editar">
+                                        <IconButton
+                                            edge="end"
+                                            size="small"
+                                            style={{ color: "#1976d2", marginRight: 2 }}
+                                            onClick={() => handleEditTask(t)}
+                                        >
+                                            <EditIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Excluir">
+                                        <IconButton
+                                            edge="end"
+                                            size="small"
+                                            style={{ color: "#ef4444" }}
+                                            onClick={() => handleDeleteTask(t.id)}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
                                 </ListItemSecondaryAction>
                             </ListItem>
                         ))}
@@ -638,6 +788,37 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                         )}
                     </List>
 
+                    {/* ── Progression mode ──────────────────────────────────── */}
+                    <div style={{ marginTop: 20 }}>
+                        <Typography variant="subtitle2" gutterBottom>Modo de Progressão</Typography>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                            <Button
+                                size="small"
+                                variant={progressionMode === "manual" ? "contained" : "outlined"}
+                                color="primary"
+                                className={progressionMode === "manual" ? classes.modeBtnActive : classes.modeBtn}
+                                onClick={() => setProgressionMode("manual")}
+                            >
+                                Manual
+                            </Button>
+                            <Button
+                                size="small"
+                                variant={progressionMode === "automatic" ? "contained" : "outlined"}
+                                color="primary"
+                                className={progressionMode === "automatic" ? classes.modeBtnActive : classes.modeBtn}
+                                onClick={() => setProgressionMode("automatic")}
+                            >
+                                Automático
+                            </Button>
+                        </div>
+                        <Typography variant="body2" color="textSecondary">
+                            {progressionMode === "manual"
+                                ? "Ao concluir uma tarefa, a próxima é selecionada automaticamente mas você inicia manualmente."
+                                : "Ao concluir uma tarefa, a próxima é selecionada e iniciada automaticamente."}
+                        </Typography>
+                    </div>
+
+                    {/* ── Audio alerts ───────────────────────────────────────── */}
                     <div style={{ marginTop: 20 }}>
                         <Typography variant="subtitle2" gutterBottom>Aviso Sonoro</Typography>
                         <Typography variant="body2" color="textSecondary">
@@ -646,7 +827,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                     </div>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setSettingsOpen(false)} color="primary">Fechar</Button>
+                    <Button onClick={() => { setSettingsOpen(false); handleCancelEdit(); }} color="primary">Fechar</Button>
                 </DialogActions>
             </Dialog>
         </>
