@@ -6,7 +6,6 @@ import List from "@material-ui/core/List";
 import { makeStyles } from "@material-ui/core/styles";
 import VolumeUpIcon from "@material-ui/icons/VolumeUp";
 import VolumeDownIcon from "@material-ui/icons/VolumeDown";
-import NotificationsActiveIcon from "@material-ui/icons/NotificationsActive";
 import VolumeOffIcon from "@material-ui/icons/VolumeOff";
 
 import { Grid, Slider } from "@material-ui/core";
@@ -65,7 +64,7 @@ const NotificationsVolume = ({ volume, setVolume }) => {
                 // color="inherit"
                 // color="secondary"
             >
-                <NotificationsActiveIcon color="inherit" />
+                <VolumeUpIcon color="inherit" />
             </IconButton>
             <Popover
                 disableScrollLock
