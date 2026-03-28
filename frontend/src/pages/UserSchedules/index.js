@@ -483,9 +483,17 @@ const UserSchedules = () => {
                 <CardContent>
                   <Box className={classes.cardHeader}>
                     <Box>
-                      <Typography className={classes.cardTitle}>
-                        {schedule.name}
-                      </Typography>
+                      <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Typography className={classes.cardTitle}>
+                          {schedule.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          style={{ color: "#9ca3af", fontWeight: 500, whiteSpace: "nowrap" }}
+                        >
+                          · ID: {schedule.id}
+                        </Typography>
+                      </Box>
                       {schedule.description && (
                         <Typography variant="body2" color="textSecondary">
                           {schedule.description}
