@@ -213,16 +213,13 @@ export async function sendButtonMessage(
     const nativeButtons = mapButtonsToNative(buttons);
 
     const msg: any = {
-      viewOnceMessage: {
-        message: {
-          interactiveMessage: {
-            body: { text: String(text || "") },
-            footer: { text: footer || "" },
-            nativeFlowMessage: {
-              buttons: nativeButtons,
-              messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
-            },
-          },
+      interactiveMessage: {
+        body: { text: String(text || "") },
+        footer: { text: footer || "" },
+        header: { hasMediaAttachment: false },
+        nativeFlowMessage: {
+          buttons: nativeButtons,
+          messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
         },
       },
     };
@@ -267,29 +264,42 @@ export async function sendListMessage(
   }
 
   try {
-    try {
-      await wbot.sendMessage(jid, {
-        nativeList: {
-          buttonText: buttonText || "Ver opções",
-          sections: toNativeListSections(normalizedSections)
-        },
-        text: String(text || ""),
-        footer: footer || undefined
-      });
-      logger.info(`[SendInteractiveMessage] Lista enviada com nativeList para ${jid}`);
-      return;
-    } catch {
-      logger.warn(`[SendInteractiveMessage] nativeList indisponível para ${jid}, usando listMessage padrão`);
-    }
+    // Monta a lista via interactiveMessage + nativeFlowMessage (single_select)
+    // compatível com Baileys 7.x e WhatsApp atual
+    const nativeSections = toNativeListSections(normalizedSections).map(sec => ({
+      title: sec.title,
+      highlight_label: "",
+      rows: sec.rows.map((row: any) => ({
+        header: "",
+        title: row.title,
+        description: row.description || "",
+        id: row.id
+      }))
+    }));
 
-    const listMsg: any = {
-      text,
-      buttonText: buttonText || "Ver opções",
-      sections: normalizedSections,
-      footer: footer || ""
+    const msg: any = {
+      interactiveMessage: {
+        body: { text: String(text || "") },
+        footer: { text: footer || "" },
+        header: { hasMediaAttachment: false },
+        nativeFlowMessage: {
+          buttons: [
+            {
+              name: "single_select",
+              buttonParamsJson: JSON.stringify({
+                title: buttonText || "Ver opções",
+                sections: nativeSections
+              })
+            }
+          ]
+        }
+      }
     };
 
-    await wbot.sendMessage(jid, listMsg);
+    const userJid = wbot.user?.id || jid;
+    const newMsg = generateWAMessageFromContent(jid, msg, { userJid });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+    await wbot.upsertMessage(newMsg, "notify");
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar lista para ${jid}:`, err);
