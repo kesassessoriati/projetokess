@@ -5149,6 +5149,35 @@ const handleMessage = async (
       ticket.webhookPausedUntil instanceof Date &&
       ticket.webhookPausedUntil > new Date();
     if (!msg.key.fromMe && !ticket.isGroup && !_webhookPaused) {
+      // Inclui base64 da mídia no payload quando houver arquivo de mídia
+      let _mediaBase64: string | undefined;
+      let _mediaMimeType: string | undefined;
+      let _mediaFilename: string | undefined;
+
+      if (hasMedia && mediaSent?.mediaUrl) {
+        try {
+          const _mediaFilePath = path.resolve(
+            __dirname,
+            "..",
+            "..",
+            "..",
+            "public",
+            `company${companyId}`,
+            mediaSent.mediaUrl
+          );
+          _mediaBase64 = fs.readFileSync(_mediaFilePath, "base64");
+          _mediaFilename = mediaSent.mediaUrl;
+          const _mediaMeta = getMessageMedia(getUnpackedMessage(msg));
+          _mediaMimeType =
+            _mediaMeta?.mimetype ||
+            `${mediaSent.mediaType}/octet-stream`;
+        } catch (_err: any) {
+          logger.warn(
+            `[WebhookDispatch] Erro ao ler mídia para webhook: ${_err.message}`
+          );
+        }
+      }
+
       webhookDispatch("MESSAGE_RECEIVED", companyId, {
         ticket: {
           id: ticket.id,
@@ -5167,7 +5196,12 @@ const handleMessage = async (
           body: bodyMessage,
           type: getTypeMessage(msg),
           timestamp: msg.messageTimestamp,
-          fromMe: false
+          fromMe: false,
+          ...(_mediaBase64 !== undefined && {
+            mediaBase64: _mediaBase64,
+            mimeType: _mediaMimeType,
+            filename: _mediaFilename
+          })
         },
         whatsapp: {
           id: whatsapp?.id,
