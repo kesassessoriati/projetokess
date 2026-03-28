@@ -256,6 +256,22 @@ const POLL_TEMPLATE = {
     selectableCount: 1,
 };
 
+const LIST_TEMPLATE = {
+    text: 'Selecione uma das opções abaixo para continuar o atendimento:',
+    buttonText: 'Ver opções',
+    footer: '',
+    sections: [
+        {
+            title: 'Serviços',
+            rows: [
+                { title: 'Suporte técnico', rowId: 'row_suporte', description: 'Dúvidas e problemas técnicos' },
+                { title: 'Financeiro', rowId: 'row_financeiro', description: 'Boletos, pagamentos e faturas' },
+                { title: 'Comercial', rowId: 'row_comercial', description: 'Orçamentos e propostas' },
+            ],
+        },
+    ],
+};
+
 function ConnectionStatusChip({ status }) {
     const map = {
         CONNECTED: { label: 'Conectado', color: '#25D366' },
@@ -289,7 +305,7 @@ export default function QuickSendModal({ open, onClose }) {
     const [numberValidation, setNumberValidation] = useState({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
     const validationTimerRef = useRef(null);
 
-    // Tipo de mensagem: text | buttons | carousel | poll
+    // Tipo de mensagem: text | buttons | list | carousel | poll
     const [messageType, setMessageType] = useState('text');
 
     // Texto (usado em text e buttons)
@@ -306,6 +322,12 @@ export default function QuickSendModal({ open, onClose }) {
     const [pollOptions, setPollOptions] = useState([...POLL_TEMPLATE.options]);
     const [pollSelectableCount, setPollSelectableCount] = useState(1);
 
+    // Lista selecionável
+    const [listText, setListText] = useState(LIST_TEMPLATE.text);
+    const [listButtonText, setListButtonText] = useState(LIST_TEMPLATE.buttonText);
+    const [listFooter, setListFooter] = useState(LIST_TEMPLATE.footer);
+    const [listSections, setListSections] = useState(LIST_TEMPLATE.sections.map(s => ({ ...s, rows: s.rows.map(r => ({ ...r })) })));
+
     const resetState = () => {
         setResult(null);
         setNumber('');
@@ -320,6 +342,10 @@ export default function QuickSendModal({ open, onClose }) {
         setPollName(POLL_TEMPLATE.name);
         setPollOptions([...POLL_TEMPLATE.options]);
         setPollSelectableCount(1);
+        setListText(LIST_TEMPLATE.text);
+        setListButtonText(LIST_TEMPLATE.buttonText);
+        setListFooter(LIST_TEMPLATE.footer);
+        setListSections(LIST_TEMPLATE.sections.map(s => ({ ...s, rows: s.rows.map(r => ({ ...r })) })));
         setLoading(false);
         setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
     };
@@ -434,9 +460,46 @@ export default function QuickSendModal({ open, onClose }) {
     const removePollOption = (i) => { if (pollOptions.length > 2) setPollOptions(pollOptions.filter((_, idx) => idx !== i)); };
     const updatePollOption = (i, val) => { const next = [...pollOptions]; next[i] = val; setPollOptions(next); };
 
+    // ── Helpers de lista ────────────────────────────────────────────────────────
+    const addListSection = () => {
+        const currentRows = listSections.reduce((acc, section) => acc + ((section.rows || []).length), 0);
+        if (listSections.length >= 10 || currentRows >= 10) return;
+        setListSections([...listSections, { title: 'Nova seção', rows: [{ title: '', rowId: `row_${Date.now()}`, description: '' }] }]);
+    };
+    const removeListSection = (si) => {
+        if (listSections.length <= 1) return;
+        setListSections(listSections.filter((_, i) => i !== si));
+    };
+    const updateListSection = (si, val) => {
+        const next = [...listSections];
+        next[si] = { ...next[si], title: val };
+        setListSections(next);
+    };
+    const addListRow = (si) => {
+        const next = [...listSections];
+        const currentRows = next.reduce((acc, section) => acc + ((section.rows || []).length), 0);
+        if ((next[si].rows || []).length >= 10 || currentRows >= 10) return;
+        next[si] = { ...next[si], rows: [...(next[si].rows || []), { title: '', rowId: `row_${Date.now()}`, description: '' }] };
+        setListSections(next);
+    };
+    const removeListRow = (si, ri) => {
+        const next = [...listSections];
+        if ((next[si].rows || []).length <= 1) return;
+        next[si] = { ...next[si], rows: next[si].rows.filter((_, i) => i !== ri) };
+        setListSections(next);
+    };
+    const updateListRow = (si, ri, field, val) => {
+        const next = [...listSections];
+        const rows = [...next[si].rows];
+        rows[ri] = { ...rows[ri], [field]: val };
+        next[si] = { ...next[si], rows };
+        setListSections(next);
+    };
+
     // ── Validação ─────────────────────────────────────────────────────────────
     const normalizedNumber = number.replace(/\D/g, '');
     const isNumberValid = numberValidation.status === 'valid';
+    const totalListRows = listSections.reduce((acc, section) => acc + ((section.rows || []).length), 0);
 
     const buttonsValid = buttons.every(b => {
         if (!b.displayText.trim()) return false;
@@ -448,10 +511,18 @@ export default function QuickSendModal({ open, onClose }) {
     const carouselValid = carouselCards.length >= 1 && carouselCards.every(c => c.body.trim());
 
     const pollValid = pollName.trim().length > 0 && pollOptions.length >= 2 && pollOptions.every(o => o.trim().length > 0);
+    const listValid =
+        listText.trim().length > 0 &&
+        listButtonText.trim().length > 0 &&
+        totalListRows >= 1 &&
+        totalListRows <= 10 &&
+        listSections.every(section => (section.rows || []).length >= 1) &&
+        listSections.every(section => (section.rows || []).every(row => row.title.trim().length > 0 && row.rowId.trim().length > 0));
 
     const canSend = isNumberValid && whatsappId && (() => {
         if (messageType === 'text') return message.trim().length > 0;
         if (messageType === 'buttons') return message.trim().length > 0 && buttonsValid;
+        if (messageType === 'list') return listValid;
         if (messageType === 'carousel') return carouselValid;
         if (messageType === 'poll') return pollValid;
         return false;
@@ -479,6 +550,11 @@ export default function QuickSendModal({ open, onClose }) {
             } else if (messageType === 'buttons') {
                 formData.append('message', message.trim());
                 formData.append('buttons', JSON.stringify(buttons));
+            } else if (messageType === 'list') {
+                formData.append('message', listText.trim());
+                formData.append('listButtonText', listButtonText.trim());
+                if (listFooter.trim()) formData.append('listFooter', listFooter.trim());
+                formData.append('listSections', JSON.stringify(listSections));
             } else if (messageType === 'carousel') {
                 formData.append('carouselCards', JSON.stringify(carouselCards));
             } else if (messageType === 'poll') {
@@ -523,6 +599,7 @@ export default function QuickSendModal({ open, onClose }) {
     const MSG_TYPES = [
         { value: 'text', icon: '💬', label: 'Texto' },
         { value: 'buttons', icon: '🔘', label: 'Botões' },
+        { value: 'list', icon: '📋', label: 'Lista' },
         { value: 'carousel', icon: '🎠', label: 'Carrossel' },
         { value: 'poll', icon: '📊', label: 'Enquete' },
     ];
@@ -765,6 +842,135 @@ export default function QuickSendModal({ open, onClose }) {
                     )}
 
                     {/* ── Carrossel de cards ──────────────────────────────────── */}
+                    {messageType === 'list' && (
+                        <Box className={classes.card}>
+                            <Typography className={classes.sectionLabel}>📋 Texto da mensagem da lista</Typography>
+                            <TextField
+                                fullWidth multiline minRows={2} maxRows={4} variant="outlined"
+                                placeholder="Ex: Selecione uma das opções abaixo para continuar:"
+                                value={listText}
+                                onChange={(e) => setListText(e.target.value)}
+                                InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
+                            />
+                            <Typography className={classes.charCount}>{listText.length} caracteres</Typography>
+
+                            <Box display="flex" style={{ gap: 8, marginTop: 12 }}>
+                                <TextField
+                                    fullWidth variant="outlined" size="small"
+                                    label="Texto do botão *"
+                                    placeholder="Ex: Ver opções"
+                                    value={listButtonText}
+                                    onChange={(e) => setListButtonText(e.target.value)}
+                                    inputProps={{ maxLength: 30 }}
+                                    InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                />
+                                <TextField
+                                    fullWidth variant="outlined" size="small"
+                                    label="Rodapé (opcional)"
+                                    placeholder="Ex: Atendimento de segunda a sexta"
+                                    value={listFooter}
+                                    onChange={(e) => setListFooter(e.target.value)}
+                                    inputProps={{ maxLength: 60 }}
+                                    InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                />
+                            </Box>
+
+                            <Box mt={2}>
+                                <Typography className={classes.sectionLabel}>🧾 Seções e itens ({totalListRows}/10)</Typography>
+                                {listSections.map((section, si) => (
+                                    <Box key={si} className={classes.cardRow}>
+                                        <Box className={classes.cardHeader}>
+                                            <Typography style={{ fontWeight: 700, fontSize: 13, color: '#075E54' }}>
+                                                Seção {si + 1}
+                                            </Typography>
+                                            {listSections.length > 1 && (
+                                                <IconButton size="small" onClick={() => removeListSection(si)} style={{ color: '#ef4444' }}>
+                                                    <DeleteOutlineIcon fontSize="small" />
+                                                </IconButton>
+                                            )}
+                                        </Box>
+
+                                        <TextField
+                                            fullWidth variant="outlined" size="small"
+                                            label="Título da seção (opcional)"
+                                            placeholder="Ex: Atendimento"
+                                            value={section.title}
+                                            onChange={(e) => updateListSection(si, e.target.value)}
+                                            InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                            style={{ marginBottom: 10 }}
+                                        />
+
+                                        {(section.rows || []).map((row, ri) => (
+                                            <Box key={`${si}-${ri}`} className={classes.buttonRow}>
+                                                <Box className={classes.buttonIndex}>{ri + 1}</Box>
+                                                <Box flex={1} display="flex" flexDirection="column" style={{ gap: 6 }}>
+                                                    <TextField
+                                                        fullWidth variant="outlined" size="small"
+                                                        label="Título do item *"
+                                                        placeholder="Ex: Suporte técnico"
+                                                        value={row.title}
+                                                        onChange={(e) => updateListRow(si, ri, 'title', e.target.value)}
+                                                        inputProps={{ maxLength: 24 }}
+                                                        InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                                    />
+                                                    <Box display="flex" style={{ gap: 6 }}>
+                                                        <TextField
+                                                            variant="outlined" size="small"
+                                                            label="ID do item *"
+                                                            placeholder="Ex: suporte"
+                                                            value={row.rowId}
+                                                            onChange={(e) => updateListRow(si, ri, 'rowId', e.target.value)}
+                                                            InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                        <TextField
+                                                            variant="outlined" size="small"
+                                                            label="Descrição (opcional)"
+                                                            placeholder="Ex: Dúvidas e problemas"
+                                                            value={row.description || ''}
+                                                            onChange={(e) => updateListRow(si, ri, 'description', e.target.value)}
+                                                            inputProps={{ maxLength: 72 }}
+                                                            InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => removeListRow(si, ri)}
+                                                    disabled={(section.rows || []).length <= 1}
+                                                    style={{ color: '#ef4444', marginTop: 4 }}
+                                                >
+                                                    <DeleteOutlineIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                        ))}
+
+                                        {totalListRows < 10 && (
+                                            <Button variant="outlined" size="small" className={classes.addBtn} startIcon={<AddIcon />} onClick={() => addListRow(si)}>
+                                                Adicionar item
+                                            </Button>
+                                        )}
+                                    </Box>
+                                ))}
+
+                                {totalListRows < 10 && (
+                                    <Box className={classes.addBtnRow}>
+                                        <Button variant="outlined" size="small" className={classes.addBtn} startIcon={<AddIcon />} onClick={addListSection}>
+                                            Adicionar seção
+                                        </Button>
+                                    </Box>
+                                )}
+                            </Box>
+
+                            <Box className={classes.infoBox}>
+                                <Typography style={{ fontSize: 11, color: '#15803d' }}>
+                                    💡 Exemplo válido já carregado. Você pode editar botão, rodapé, seções e itens antes de enviar.
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+
                     {messageType === 'carousel' && (
                         <Box className={classes.card}>
                             <Typography className={classes.sectionLabel}>🎠 Cards do carrossel ({carouselCards.length}/10)</Typography>
@@ -939,6 +1145,7 @@ export default function QuickSendModal({ open, onClose }) {
                     {loading ? 'Enviando...' : {
                         text: 'Enviar',
                         buttons: 'Enviar com Botões',
+                        list: 'Enviar Lista',
                         carousel: 'Enviar Carrossel',
                         poll: 'Enviar Enquete',
                     }[messageType] || 'Enviar'}

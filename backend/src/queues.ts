@@ -1171,8 +1171,15 @@ async function handleDispatchCampaign(job) {
             if (campaign.messageType === "buttons" && campaign.buttons?.length) {
               await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
               sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
-            } else if (campaign.messageType === "list" && campaign.buttons?.length) {
-              await sendListMessage(wbot, chatId, campaignShipping.message, "Ver opções", campaign.buttons);
+            } else if (campaign.messageType === "list" && ((campaign.listSections as any[])?.length || campaign.buttons?.length)) {
+              await sendListMessage(
+                wbot,
+                chatId,
+                campaignShipping.message,
+                campaign.listButtonText || "Ver opções",
+                (campaign.listSections as any[])?.length ? campaign.listSections : campaign.buttons,
+                campaign.listFooter || undefined
+              );
               sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
             } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
               await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
@@ -1246,8 +1253,15 @@ async function handleDispatchCampaign(job) {
         if (!campaign.mediaPath) {
           if (campaign.messageType === "buttons" && campaign.buttons?.length) {
             await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
-          } else if (campaign.messageType === "list" && campaign.buttons?.length) {
-            await sendListMessage(wbot, chatId, campaignShipping.message, "Ver opções", campaign.buttons);
+          } else if (campaign.messageType === "list" && ((campaign.listSections as any[])?.length || campaign.buttons?.length)) {
+            await sendListMessage(
+              wbot,
+              chatId,
+              campaignShipping.message,
+              campaign.listButtonText || "Ver opções",
+              (campaign.listSections as any[])?.length ? campaign.listSections : campaign.buttons,
+              campaign.listFooter || undefined
+            );
           } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
             await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
           } else if (campaign.messageType === "poll" && campaignShipping.message && campaign.buttons?.length) {

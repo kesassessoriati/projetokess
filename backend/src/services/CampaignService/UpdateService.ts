@@ -27,6 +27,12 @@ interface Data {
   queueId: number | string;
   statusTicket: string;
   openTicket: string;
+  messageType?: string;
+  buttons?: object[];
+  carouselCards?: object[];
+  listSections?: object[];
+  listButtonText?: string;
+  listFooter?: string;
   campaignType?: string;
   emailSubject?: string;
   emailBody?: string;

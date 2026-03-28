@@ -131,13 +131,22 @@ class Campaign extends Model<Campaign> {
 
   @Default("text")
   @Column(DataType.STRING(20))
-  messageType: string; // text | buttons | list | carousel
+  messageType: string; // text | buttons | list | carousel | poll
 
   @Column(DataType.JSON)
   buttons: object[];
 
   @Column(DataType.JSON)
   carouselCards: object[];
+
+  @Column(DataType.JSON)
+  listSections: object[];
+
+  @Column(DataType.STRING)
+  listButtonText: string;
+
+  @Column(DataType.TEXT)
+  listFooter: string;
 
   @Default("whatsapp")
   @Column(DataType.STRING(20))

@@ -356,6 +356,172 @@ const DraggablePaper = (props) => {
 
 const backendUrl = getBackendUrl();
 
+const MESSAGE_FIELDS = ["message1", "message2", "message3", "message4", "message5"];
+
+const BUTTONS_TEMPLATE = [
+  { displayText: "Sim, quero!", type: "reply", value: "btn_sim" },
+  { displayText: "Não, obrigado", type: "reply", value: "btn_nao" },
+  { displayText: "Ver site", type: "url", value: "https://seusite.com.br" },
+  { displayText: "Ligar agora", type: "call", value: "5511999998888" },
+];
+
+const LIST_TEMPLATE = {
+  message: "Selecione uma das opções abaixo para continuar o atendimento:",
+  buttonText: "Ver opções",
+  footer: "Atendimento de segunda a sexta, das 8h às 18h.",
+  sections: [
+    {
+      title: "Atendimento",
+      rows: [
+        { title: "Suporte técnico", rowId: "suporte", description: "Dúvidas e problemas técnicos" },
+        { title: "Financeiro", rowId: "financeiro", description: "Boletos, pagamentos e faturas" },
+      ],
+    },
+    {
+      title: "Comercial",
+      rows: [
+        { title: "Vendas e propostas", rowId: "comercial", description: "Orçamentos e novos contratos" },
+      ],
+    },
+  ],
+};
+
+const CAROUSEL_TEMPLATE = [
+  {
+    headerTitle: "Oferta Especial",
+    imageUrl: "https://www.w3schools.com/w3css/img_lights.jpg",
+    body: "Aproveite nossas melhores ofertas com desconto exclusivo!",
+    footer: "Válido até hoje",
+    buttons: [
+      { displayText: "Ver oferta", type: "url", value: "https://seusite.com.br/oferta" },
+      { displayText: "Quero!", type: "reply", value: "btn_quero" },
+    ],
+  },
+  {
+    headerTitle: "Novo Produto",
+    imageUrl: "https://www.w3schools.com/w3css/img_forest.jpg",
+    body: "Conheça nossa nova linha de produtos premium.",
+    footer: "Frete grátis",
+    buttons: [
+      { displayText: "Saber mais", type: "reply", value: "btn_info" },
+      { displayText: "Ligar", type: "call", value: "5511999998888" },
+    ],
+  },
+];
+
+const POLL_TEMPLATE = {
+  message: "Qual o seu horário preferido para atendimento?",
+  options: [
+    { displayText: "Manhã (8h-12h)", type: "reply", value: "" },
+    { displayText: "Tarde (13h-17h)", type: "reply", value: "" },
+    { displayText: "Noite (18h-22h)", type: "reply", value: "" },
+  ],
+};
+
+const cloneButtons = (items = []) => items.map(item => ({ ...item }));
+const cloneCarouselCards = (cards = []) => cards.map(card => ({ ...card, buttons: cloneButtons(card.buttons || []) }));
+const cloneListSections = (sections = []) => sections.map(section => ({ ...section, rows: (section.rows || []).map(row => ({ ...row })) }));
+
+const normalizeListSections = (input = []) => {
+  if (!Array.isArray(input) || input.length === 0) {
+    return cloneListSections(LIST_TEMPLATE.sections);
+  }
+
+  const alreadyGrouped = input.every(section => section && Array.isArray(section.rows));
+  if (alreadyGrouped) {
+    const sections = input
+      .map((section, sectionIndex) => ({
+        title: typeof section?.title === "string" ? section.title : `Seção ${sectionIndex + 1}`,
+        rows: (section.rows || [])
+          .map((row, rowIndex) => ({
+            title: row?.title || row?.displayText || `Item ${rowIndex + 1}`,
+            rowId: row?.rowId || row?.value || `item_${sectionIndex + 1}_${rowIndex + 1}`,
+            description: row?.description || "",
+          }))
+          .filter(row => row.title),
+      }))
+      .filter(section => section.rows.length > 0);
+
+    return sections.length > 0 ? cloneListSections(sections) : cloneListSections(LIST_TEMPLATE.sections);
+  }
+
+  const rows = input
+    .map((item, index) => ({
+      title: item?.title || item?.displayText || `Item ${index + 1}`,
+      rowId: item?.rowId || item?.value || `item_${index + 1}`,
+      description: item?.description || "",
+    }))
+    .filter(row => row.title);
+
+  return rows.length > 0
+    ? [{ title: "Opções", rows }]
+    : cloneListSections(LIST_TEMPLATE.sections);
+};
+
+const flattenListSections = (sections = []) =>
+  (sections || []).flatMap(section =>
+    (section.rows || []).map(row => ({
+      displayText: row.title || "",
+      type: "reply",
+      value: row.rowId || "",
+      description: row.description || "",
+    }))
+  );
+
+const getListRowCount = (sections = []) =>
+  (sections || []).reduce((acc, section) => acc + ((section.rows || []).length), 0);
+
+const hasAnyCampaignMessage = values =>
+  MESSAGE_FIELDS.some(field => String(values?.[field] || "").trim().length > 0);
+
+const validateInteractiveCampaign = values => {
+  if (values.messageType === "carousel") {
+    if (!(values.carouselCards || []).length) return "Adicione pelo menos um card ao carrossel.";
+    const invalidCard = (values.carouselCards || []).find(card =>
+      !String(card.body || "").trim() ||
+      (card.buttons || []).some(btn =>
+        !String(btn.displayText || "").trim() ||
+        ((btn.type === "url" || btn.type === "call" || btn.type === "copy") && !String(btn.value || "").trim())
+      )
+    );
+    if (invalidCard) return "Preencha o corpo do card e os botões obrigatórios do carrossel.";
+    return "";
+  }
+
+  if (!hasAnyCampaignMessage(values)) {
+    return "Preencha pelo menos uma mensagem da campanha antes de salvar.";
+  }
+
+  if (values.messageType === "buttons") {
+    const buttonList = values.buttons || [];
+    if (!buttonList.length) return "Adicione pelo menos um botão de ação.";
+    const invalidButton = buttonList.find(btn =>
+      !String(btn.displayText || "").trim() ||
+      ((btn.type === "url" || btn.type === "call" || btn.type === "copy") && !String(btn.value || "").trim())
+    );
+    if (invalidButton) return "Preencha o texto e os valores obrigatórios dos botões.";
+  }
+
+  if (values.messageType === "list") {
+    const sections = values.listSections || [];
+    const totalRows = getListRowCount(sections);
+    if (!String(values.listButtonText || "").trim()) return "Defina o texto do botão da lista.";
+    if (totalRows < 1 || totalRows > 10) return "A lista precisa ter entre 1 e 10 itens.";
+    const invalidRow = sections.find(section =>
+      !(section.rows || []).length ||
+      (section.rows || []).some(row => !String(row.title || "").trim() || !String(row.rowId || "").trim())
+    );
+    if (invalidRow) return "Preencha o título e o ID de cada item da lista.";
+  }
+
+  if (values.messageType === "poll") {
+    const options = (values.buttons || []).filter(btn => String(btn.displayText || "").trim());
+    if (options.length < 2) return "A enquete precisa ter pelo menos duas opções.";
+  }
+
+  return "";
+};
+
 const CampaignModal = ({
   open,
   onClose,
@@ -371,7 +537,11 @@ const CampaignModal = ({
 
   const initialState = {
     name: "",
-    message: "",
+    message1: "",
+    message2: "",
+    message3: "",
+    message4: "",
+    message5: "",
     status: "INATIVA",
     scheduledAt: "",
     contactListId: "",
@@ -380,6 +550,9 @@ const CampaignModal = ({
     messageType: "text",
     buttons: [],
     carouselCards: [],
+    listSections: cloneListSections(LIST_TEMPLATE.sections),
+    listButtonText: LIST_TEMPLATE.buttonText,
+    listFooter: LIST_TEMPLATE.footer,
   };
 
   const [campaign, setCampaign] = useState(initialState);
@@ -521,6 +694,23 @@ const CampaignModal = ({
               prevCampaignData[key] = value === null ? "" : value;
             }
           });
+          if ((data.messageType || "text") === "list") {
+            prevCampaignData.listSections = normalizeListSections(data.listSections || data.buttons || []);
+            prevCampaignData.listButtonText = data.listButtonText || LIST_TEMPLATE.buttonText;
+            prevCampaignData.listFooter = data.listFooter || "";
+          } else {
+            prevCampaignData.listSections = Array.isArray(data.listSections)
+              ? normalizeListSections(data.listSections)
+              : cloneListSections(LIST_TEMPLATE.sections);
+            prevCampaignData.listButtonText = data.listButtonText || LIST_TEMPLATE.buttonText;
+            prevCampaignData.listFooter = data.listFooter || "";
+          }
+          if (Array.isArray(data.carouselCards)) {
+            prevCampaignData.carouselCards = cloneCarouselCards(data.carouselCards);
+          }
+          if (Array.isArray(data.buttons)) {
+            prevCampaignData.buttons = cloneButtons(data.buttons);
+          }
           return prevCampaignData;
         });
       });
@@ -552,15 +742,37 @@ const CampaignModal = ({
   };
 
   const handleSaveCampaign = async (values) => {
+    const validationError = validateInteractiveCampaign(values);
+    if (validationError) {
+      toast.warn(validationError);
+      return;
+    }
+
     try {
-      const dataValues = {
+      const normalizedListSections = normalizeListSections(values.listSections || []);
+      const normalizedValues = {
         ...values,
+        buttons:
+          values.messageType === "list"
+            ? flattenListSections(normalizedListSections)
+            : cloneButtons(values.buttons || []),
+        carouselCards:
+          values.messageType === "carousel"
+            ? cloneCarouselCards(values.carouselCards || [])
+            : [],
+        listSections: values.messageType === "list" ? normalizedListSections : [],
+        listButtonText: values.messageType === "list" ? (values.listButtonText || LIST_TEMPLATE.buttonText) : "",
+        listFooter: values.messageType === "list" ? (values.listFooter || "") : "",
+      };
+
+      const dataValues = {
+        ...normalizedValues,
         whatsappId: whatsappId,
         mediaPath: attachment ? values.mediaPath : campaign.mediaPath || null,
         mediaName: attachment ? values.mediaName : campaign.mediaName || null
       };
 
-      Object.entries(values).forEach(([key, value]) => {
+      Object.entries(normalizedValues).forEach(([key, value]) => {
         if (key === "scheduledAt" && value !== "" && value !== null) {
           dataValues[key] = moment(value).format("YYYY-MM-DD HH:mm:ss");
         } else {
@@ -970,61 +1182,42 @@ const CampaignModal = ({
                             onChange={(e) => {
                               const newType = e.target.value;
                               setFieldValue("messageType", newType);
-                              if (newType !== "carousel") setFieldValue("carouselCards", []);
-                              if (newType === "text") setFieldValue("buttons", []);
+                              if (newType !== "carousel") {
+                                setFieldValue("carouselCards", []);
+                              }
+                              if (newType !== "list") {
+                                setFieldValue("listSections", []);
+                                setFieldValue("listButtonText", "");
+                                setFieldValue("listFooter", "");
+                              }
+                              if (newType === "text") {
+                                setFieldValue("buttons", []);
+                              }
 
                               if (newType === "buttons") {
-                                setFieldValue("buttons", [
-                                  { displayText: "Sim, quero!", type: "reply", value: "btn_sim" },
-                                  { displayText: "Não, obrigado", type: "reply", value: "btn_nao" },
-                                  { displayText: "Ver site", type: "url", value: "https://seusite.com.br" },
-                                  { displayText: "Ligar agora", type: "call", value: "5511999998888" },
-                                ]);
+                                setFieldValue("buttons", cloneButtons(BUTTONS_TEMPLATE));
                               }
 
                               if (newType === "list") {
-                                setFieldValue("buttons", [
-                                  { displayText: "Suporte técnico", type: "reply", value: "suporte" },
-                                  { displayText: "Financeiro / Pagamentos", type: "reply", value: "financeiro" },
-                                  { displayText: "Vendas e orçamentos", type: "reply", value: "vendas" },
-                                  { displayText: "Outros assuntos", type: "reply", value: "outros" },
-                                ]);
+                                if (!hasAnyCampaignMessage(values)) {
+                                  setFieldValue("message1", LIST_TEMPLATE.message);
+                                }
+                                setFieldValue("buttons", flattenListSections(LIST_TEMPLATE.sections));
+                                setFieldValue("listSections", cloneListSections(LIST_TEMPLATE.sections));
+                                setFieldValue("listButtonText", LIST_TEMPLATE.buttonText);
+                                setFieldValue("listFooter", LIST_TEMPLATE.footer);
                               }
 
                               if (newType === "carousel") {
-                                setFieldValue("carouselCards", [
-                                  {
-                                    headerTitle: "Oferta Especial",
-                                    imageUrl: "https://www.w3schools.com/w3css/img_lights.jpg",
-                                    body: "Aproveite nossas melhores ofertas com desconto exclusivo!",
-                                    footer: "Válido até hoje",
-                                    buttons: [
-                                      { displayText: "Ver oferta", type: "url", value: "https://seusite.com.br/oferta" },
-                                      { displayText: "Quero!", type: "reply", value: "btn_quero" },
-                                    ],
-                                  },
-                                  {
-                                    headerTitle: "Novo Produto",
-                                    imageUrl: "https://www.w3schools.com/w3css/img_forest.jpg",
-                                    body: "Conheça nossa nova linha de produtos premium.",
-                                    footer: "Frete grátis",
-                                    buttons: [
-                                      { displayText: "Saber mais", type: "reply", value: "btn_info" },
-                                      { displayText: "Ligar", type: "call", value: "5511999998888" },
-                                    ],
-                                  },
-                                ]);
+                                setFieldValue("buttons", []);
+                                setFieldValue("carouselCards", cloneCarouselCards(CAROUSEL_TEMPLATE));
                               }
 
                               if (newType === "poll") {
                                 if (!values.message1) {
-                                  setFieldValue("message1", "Qual o seu horário preferido para atendimento?");
+                                  setFieldValue("message1", POLL_TEMPLATE.message);
                                 }
-                                setFieldValue("buttons", [
-                                  { displayText: "Manhã (8h–12h)", type: "reply", value: "" },
-                                  { displayText: "Tarde (13h–17h)", type: "reply", value: "" },
-                                  { displayText: "Noite (18h–22h)", type: "reply", value: "" },
-                                ]);
+                                setFieldValue("buttons", cloneButtons(POLL_TEMPLATE.options));
                               }
                             }}
                             disabled={!campaignEditable}
@@ -1039,11 +1232,11 @@ const CampaignModal = ({
                       </Grid>
 
                       {/* Botões */}
-                      {(values.messageType === "buttons" || values.messageType === "list") && (
+                      {values.messageType === "buttons" && (
                         <Grid item xs={12}>
                           <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
                             <Box style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: "#555" }}>
-                              {values.messageType === "list" ? "Itens da lista (máx. 10)" : "Botões (máx. 4)"}
+                              Botões (máx. 4)
                             </Box>
                             <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 10 }}>
                               ✏️ Modelo pré-preenchido com exemplos. Edite os textos e valores com seus dados reais antes de salvar.
@@ -1114,7 +1307,7 @@ const CampaignModal = ({
                                 </Grid>
                               </Grid>
                             ))}
-                            {(values.buttons || []).length < (values.messageType === "list" ? 10 : 4) && (
+                            {(values.buttons || []).length < 4 && (
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -1127,6 +1320,180 @@ const CampaignModal = ({
                                 style={{ marginTop: 4 }}
                               >
                                 + Adicionar botão
+                              </Button>
+                            )}
+                          </Box>
+                        </Grid>
+                      )}
+
+                      {values.messageType === "list" && (
+                        <Grid item xs={12}>
+                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, backgroundColor: "#f8fafc" }}>
+                            <Box style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
+                              📋 Lista selecionável
+                            </Box>
+                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
+                              ✏️ O texto principal vem do campo <strong>Mensagem 1</strong> acima. Aqui você define botão, rodapé, seções e itens da lista.
+                            </Box>
+                            <Grid container spacing={1} style={{ marginBottom: 8 }}>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  label="Texto do botão *"
+                                  value={values.listButtonText || ""}
+                                  placeholder="Ex: Ver opções"
+                                  onChange={(e) => setFieldValue("listButtonText", e.target.value)}
+                                  variant="outlined"
+                                  size="small"
+                                  fullWidth
+                                  disabled={!campaignEditable}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  label="Rodapé (opcional)"
+                                  value={values.listFooter || ""}
+                                  placeholder="Ex: Atendimento de segunda a sexta"
+                                  onChange={(e) => setFieldValue("listFooter", e.target.value)}
+                                  variant="outlined"
+                                  size="small"
+                                  fullWidth
+                                  disabled={!campaignEditable}
+                                />
+                              </Grid>
+                            </Grid>
+                            <Box style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>
+                              Itens configurados: <strong>{getListRowCount(values.listSections || [])}/10</strong>
+                            </Box>
+                            {(values.listSections || []).map((section, sectionIndex) => (
+                              <Box key={sectionIndex} style={{ border: "1px dashed #cbd5e1", borderRadius: 6, padding: 10, marginBottom: 10, backgroundColor: "#fff" }}>
+                                <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                  <span style={{ fontWeight: 600, fontSize: 12 }}>Seção {sectionIndex + 1}</span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      const updated = (values.listSections || []).filter((_, index) => index !== sectionIndex);
+                                      if (updated.length > 0) setFieldValue("listSections", updated);
+                                    }}
+                                    disabled={!campaignEditable || (values.listSections || []).length <= 1}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                                <TextField
+                                  label="Título da seção (opcional)"
+                                  value={section.title || ""}
+                                  onChange={(e) => {
+                                    const updated = cloneListSections(values.listSections || []);
+                                    updated[sectionIndex] = { ...updated[sectionIndex], title: e.target.value };
+                                    setFieldValue("listSections", updated);
+                                  }}
+                                  variant="outlined"
+                                  size="small"
+                                  fullWidth
+                                  disabled={!campaignEditable}
+                                  style={{ marginBottom: 10 }}
+                                />
+                                {(section.rows || []).map((row, rowIndex) => (
+                                  <Grid container spacing={1} key={`${sectionIndex}-${rowIndex}`} style={{ marginBottom: 6 }}>
+                                    <Grid item xs={12} md={4}>
+                                      <TextField
+                                        label="Título do item *"
+                                        value={row.title || ""}
+                                        onChange={(e) => {
+                                          const updated = cloneListSections(values.listSections || []);
+                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], title: e.target.value };
+                                          setFieldValue("listSections", updated);
+                                        }}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                      />
+                                    </Grid>
+                                    <Grid item xs={12} md={3}>
+                                      <TextField
+                                        label="ID do item *"
+                                        value={row.rowId || ""}
+                                        onChange={(e) => {
+                                          const updated = cloneListSections(values.listSections || []);
+                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], rowId: e.target.value };
+                                          setFieldValue("listSections", updated);
+                                        }}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                      />
+                                    </Grid>
+                                    <Grid item xs={12} md={4}>
+                                      <TextField
+                                        label="Descrição (opcional)"
+                                        value={row.description || ""}
+                                        onChange={(e) => {
+                                          const updated = cloneListSections(values.listSections || []);
+                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], description: e.target.value };
+                                          setFieldValue("listSections", updated);
+                                        }}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                      />
+                                    </Grid>
+                                    <Grid item xs={12} md={1} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          const updated = cloneListSections(values.listSections || []);
+                                          const nextRows = updated[sectionIndex].rows.filter((_, index) => index !== rowIndex);
+                                          if (nextRows.length > 0) {
+                                            updated[sectionIndex] = { ...updated[sectionIndex], rows: nextRows };
+                                            setFieldValue("listSections", updated);
+                                          }
+                                        }}
+                                        disabled={!campaignEditable || (section.rows || []).length <= 1}
+                                      >
+                                        <DeleteOutlineIcon fontSize="small" />
+                                      </IconButton>
+                                    </Grid>
+                                  </Grid>
+                                ))}
+                                {getListRowCount(values.listSections || []) < 10 && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => {
+                                      const updated = cloneListSections(values.listSections || []);
+                                      updated[sectionIndex] = {
+                                        ...updated[sectionIndex],
+                                        rows: [
+                                          ...(updated[sectionIndex].rows || []),
+                                          { title: "", rowId: "", description: "" }
+                                        ]
+                                      };
+                                      setFieldValue("listSections", updated);
+                                    }}
+                                    disabled={!campaignEditable}
+                                    style={{ fontSize: 11 }}
+                                  >
+                                    + Item
+                                  </Button>
+                                )}
+                              </Box>
+                            ))}
+                            {getListRowCount(values.listSections || []) < 10 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => setFieldValue("listSections", [
+                                  ...(values.listSections || []),
+                                  { title: "", rows: [{ title: "", rowId: "", description: "" }] }
+                                ])}
+                                disabled={!campaignEditable}
+                                style={{ marginTop: 4 }}
+                              >
+                                + Adicionar seção
                               </Button>
                             )}
                           </Box>
@@ -1433,7 +1800,7 @@ const CampaignModal = ({
                             <WhatsAppIcon fontSize="small" />
                             <div className={classes.phoneHeaderTitle}>
                               <span>
-                                {campaign.name || "Campanha em massa"}
+                                {values.name || campaign.name || "Campanha em massa"}
                               </span>
                               <span className={classes.phoneHeaderSubtitle}>
                                 Pré-visualização da mensagem
@@ -1523,6 +1890,124 @@ const CampaignModal = ({
                               <div className={classes.phonePlaceholder}>
                                 Comece a digitar a mensagem para ver aqui como ela
                                 ficará no celular.
+                              </div>
+                            )}
+                            {values.messageType === "buttons" && (values.buttons || []).length > 0 && (
+                              <div style={{ alignSelf: "flex-end", width: "85%", display: "flex", flexDirection: "column", gap: 6 }}>
+                                {(values.buttons || []).slice(0, 4).map((btn, index) => (
+                                  <div
+                                    key={`preview-button-${index}`}
+                                    style={{
+                                      padding: "8px 10px",
+                                      borderRadius: 10,
+                                      backgroundColor: "#111827",
+                                      color: "#e5e7eb",
+                                      fontSize: 11,
+                                      border: "1px solid rgba(34,197,94,0.35)",
+                                      textAlign: "center",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {btn.displayText || `Botão ${index + 1}`}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {values.messageType === "list" && (
+                              <div
+                                style={{
+                                  alignSelf: "flex-end",
+                                  width: "85%",
+                                  borderRadius: 14,
+                                  overflow: "hidden",
+                                  backgroundColor: "#111827",
+                                  color: "#e5e7eb",
+                                  boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
+                                }}
+                              >
+                                <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                                  {values.listButtonText || LIST_TEMPLATE.buttonText}
+                                </div>
+                                <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {(values.listSections || []).slice(0, 2).map((section, sectionIndex) => (
+                                    <div key={`preview-section-${sectionIndex}`}>
+                                      <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.7, marginBottom: 4 }}>
+                                        {section.title || `Seção ${sectionIndex + 1}`}
+                                      </div>
+                                      {(section.rows || []).slice(0, 3).map((row, rowIndex) => (
+                                        <div key={`preview-row-${sectionIndex}-${rowIndex}`} style={{ marginBottom: 4 }}>
+                                          <div style={{ fontSize: 11, fontWeight: 600 }}>{row.title || `Item ${rowIndex + 1}`}</div>
+                                          {row.description ? (
+                                            <div style={{ fontSize: 10, opacity: 0.75 }}>{row.description}</div>
+                                          ) : null}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ))}
+                                  {values.listFooter ? (
+                                    <div style={{ fontSize: 10, opacity: 0.7, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 6 }}>
+                                      {values.listFooter}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
+                            {values.messageType === "carousel" && (values.carouselCards || []).length > 0 && (
+                              <div style={{ alignSelf: "flex-end", width: "100%", display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                                {(values.carouselCards || []).slice(0, 3).map((card, index) => (
+                                  <div
+                                    key={`preview-carousel-${index}`}
+                                    style={{
+                                      minWidth: 150,
+                                      borderRadius: 14,
+                                      backgroundColor: "#111827",
+                                      color: "#e5e7eb",
+                                      overflow: "hidden",
+                                      boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
+                                    }}
+                                  >
+                                    <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                                      <div style={{ fontSize: 11, fontWeight: 700 }}>{card.headerTitle || `Card ${index + 1}`}</div>
+                                    </div>
+                                    <div style={{ padding: "8px 10px" }}>
+                                      <div style={{ fontSize: 11, marginBottom: 8 }}>{card.body || "Descrição do card"}</div>
+                                      {(card.buttons || []).slice(0, 2).map((btn, buttonIndex) => (
+                                        <div key={`preview-carousel-btn-${index}-${buttonIndex}`} style={{ fontSize: 10, color: "#86efac", marginBottom: 4 }}>
+                                          • {btn.displayText || `Botão ${buttonIndex + 1}`}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {values.messageType === "poll" && (values.buttons || []).length > 0 && (
+                              <div
+                                style={{
+                                  alignSelf: "flex-end",
+                                  width: "85%",
+                                  borderRadius: 14,
+                                  backgroundColor: "#111827",
+                                  color: "#e5e7eb",
+                                  padding: "8px 10px",
+                                  boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
+                                }}
+                              >
+                                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Enquete</div>
+                                {(values.buttons || []).slice(0, 4).map((option, index) => (
+                                  <div
+                                    key={`preview-poll-${index}`}
+                                    style={{
+                                      fontSize: 10,
+                                      padding: "6px 8px",
+                                      borderRadius: 8,
+                                      backgroundColor: "rgba(255,255,255,0.05)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    {option.displayText || `Opção ${index + 1}`}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>

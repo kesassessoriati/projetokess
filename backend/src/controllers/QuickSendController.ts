@@ -18,7 +18,7 @@ import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import { getWbot } from "../libs/wbot";
-import { sendButtonMessage } from "../helpers/SendInteractiveMessage";
+import { sendButtonMessage, sendListMessage } from "../helpers/SendInteractiveMessage";
 import fs from "fs";
 import path from "path";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
@@ -40,8 +40,11 @@ interface QuickSendBody {
     queueId?: number;
     createIfNotExists?: boolean;
     buttons?: string | any[];        // JSON string ou array de InteractiveButton[]
-    messageType?: string;            // text | buttons | carousel | poll
+    messageType?: string;            // text | buttons | list | carousel | poll
     carouselCards?: string | any[];  // JSON string ou array de CarouselCard[]
+    listButtonText?: string;
+    listFooter?: string;
+    listSections?: string | any[];
     pollName?: string;
     pollOptions?: string | string[];
     pollSelectableCount?: string | number;
@@ -120,6 +123,9 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         buttons: buttonsRaw,
         messageType = 'text',
         carouselCards: carouselRaw,
+        listButtonText,
+        listFooter,
+        listSections: listSectionsRaw,
         pollName,
         pollOptions: pollOptionsRaw,
         pollSelectableCount: pollSelectableCountRaw
@@ -151,6 +157,18 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
     }
 
+    let parsedListSections: any[] | null = null;
+    if (listSectionsRaw) {
+        try {
+            parsedListSections = Array.isArray(listSectionsRaw)
+                ? listSectionsRaw
+                : JSON.parse(listSectionsRaw as string);
+            if (!Array.isArray(parsedListSections) || parsedListSections.length === 0) parsedListSections = null;
+        } catch {
+            return res.status(400).json({ error: "Campo 'listSections' inválido. Envie um JSON array." });
+        }
+    }
+
     // Parse enquete
     let parsedPollOptions: string[] | null = null;
     if (pollOptionsRaw) {
@@ -164,6 +182,13 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         }
     }
     const pollSelectableCount = parseInt(String(pollSelectableCountRaw || 1)) || 1;
+
+    if (messageType === "list") {
+        const hasListItems = (parsedListSections && parsedListSections.length > 0) || (parsedButtons && parsedButtons.length > 0);
+        if (!String(message || "").trim() || !String(listButtonText || "").trim() || !hasListItems) {
+            return res.status(400).json({ error: "Preencha o texto, o botão e ao menos um item da lista." });
+        }
+    }
 
     logger.info({ companyId, userId, number, whatsappId }, "QuickSend request started");
 
@@ -396,10 +421,21 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
         try {
             logger.info({ ticketId: ticket.id, hasButtons: !!parsedButtons }, "QuickSend: Sending message(s)");
 
-            if (parsedButtons && parsedButtons.length > 0) {
+            if (messageType === 'buttons' && parsedButtons && parsedButtons.length > 0) {
                 // Envio com botões interativos (formato legado: reply/url/call/copy)
                 const wbot = getWbot(Number(whatsappId));
                 await sendButtonMessage(wbot, remoteJid, message || "", "", parsedButtons);
+
+            } else if (messageType === 'list' && ((parsedListSections && parsedListSections.length > 0) || (parsedButtons && parsedButtons.length > 0))) {
+                const wbot = getWbot(Number(whatsappId));
+                await sendListMessage(
+                    wbot,
+                    remoteJid,
+                    message || "",
+                    listButtonText || "Ver opções",
+                    parsedListSections || parsedButtons || [],
+                    listFooter
+                );
 
             } else if (messageType === 'carousel' && parsedCarouselCards && parsedCarouselCards.length > 0) {
                 // Envio de carrossel

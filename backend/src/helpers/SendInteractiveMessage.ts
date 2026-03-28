@@ -102,7 +102,7 @@ function toNativeListSections(sections: ListSection[]): any[] {
   }));
 }
 
-function normalizeListSections(input: any): ListSection[] {
+export function normalizeListSections(input: any): ListSection[] {
   if (!Array.isArray(input) || input.length === 0) {
     return [];
   }
