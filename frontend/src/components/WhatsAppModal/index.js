@@ -124,37 +124,39 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
   },
   dialogTitle: {
-    backgroundColor: "#444394",
-    color: "white",
+    backgroundColor: "var(--color-primary)",
+    color: "var(--btn-primary-text, #fff)",
     padding: theme.spacing(2),
   },
   dialogContent: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "var(--modal-body-bg, #f5f5f5)",
     padding: theme.spacing(3),
   },
   dialogActions: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "var(--modal-body-bg, #f5f5f5)",
     padding: theme.spacing(2),
   },
   tab: {
-    backgroundColor: "#444394",
-    color: "white",
+    backgroundColor: "var(--color-primary)",
+    color: "var(--btn-primary-text, #fff)",
     "& .Mui-selected": {
-      backgroundColor: "#5c6bc0",
+      backgroundColor: "var(--color-primary)",
+      filter: "brightness(1.12)",
     },
   },
   buttonPrimary: {
-    backgroundColor: "#444394",
-    color: "white",
+    backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
+    color: "var(--btn-primary-text, #fff)",
     "&:hover": {
-      backgroundColor: "#5c6bc0",
+      backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
+      filter: "brightness(0.88)",
     },
   },
   buttonSecondary: {
-    backgroundColor: "#db6565",
-    color: "white",
+    backgroundColor: "var(--btn-destructive-bg, #ef4444)",
+    color: "var(--btn-destructive-text, #fff)",
     "&:hover": {
-      backgroundColor: "#e57373",
+      backgroundColor: "var(--btn-destructive-hover-bg, #dc2626)",
     },
   },
   fieldWithIcon: {
@@ -163,7 +165,7 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(1),
   },
   icon: {
-    color: "#444394",
+    color: "var(--color-primary)",
   },
 }));
 
@@ -671,8 +673,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                   value={tab}
                   indicatorColor="primary"
                   style={{
-                    color: "white",
-                    backgroundColor: "#444394",
+                    color: "var(--btn-primary-text, #fff)",
+                    backgroundColor: "var(--color-primary)",
                     boxShadow: "none",
                     borderRadius: 0,
                   }}
@@ -1729,8 +1731,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                 <Button
                   onClick={handleClose}
                   style={{
-                    color: "white",
-                    backgroundColor: "#db6565",
+                    color: "var(--btn-destructive-text, #fff)",
+                    backgroundColor: "var(--btn-destructive-bg, #ef4444)",
                     boxShadow: "none",
                     borderRadius: "5px",
                     fontSize: "12px",
@@ -1750,8 +1752,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                     handleSaveWhatsApp(formValues);
                   }}
                   style={{
-                    color: "white",
-                    backgroundColor: "#437db5",
+                    color: "var(--btn-primary-text, #fff)",
+                    backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
                     boxShadow: "none",
                     borderRadius: "5px",
                     fontSize: "12px",

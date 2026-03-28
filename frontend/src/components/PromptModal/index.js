@@ -93,9 +93,9 @@ const useStyles = makeStyles(theme => ({
         margin: "auto",
     },
     dialogHeader: {
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background: "var(--color-primary)",
         padding: theme.spacing(1.2),
-        color: "white",
+        color: "var(--btn-primary-text, #fff)",
         display: "flex",
         alignItems: "center",
         position: "relative",
@@ -127,7 +127,7 @@ const useStyles = makeStyles(theme => ({
     },
     dialogContent: {
         padding: theme.spacing(1.5),
-        backgroundColor: "#fafafa",
+        backgroundColor: "var(--modal-body-bg, #fafafa)",
         fontFamily: "'Inter', sans-serif",
     },
     sectionTitle: {
@@ -145,7 +145,7 @@ const useStyles = makeStyles(theme => ({
     },
     sectionIcon: {
         marginRight: theme.spacing(0.5),
-        color: "#6366f1",
+        color: "var(--color-primary)",
         fontSize: "1rem",
     },
     formControl: {
@@ -156,10 +156,10 @@ const useStyles = makeStyles(theme => ({
             fontFamily: "'Inter', sans-serif",
             fontSize: "0.875rem",
             "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#6366f1",
+                borderColor: "var(--color-primary)",
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#6366f1",
+                borderColor: "var(--color-primary)",
                 borderWidth: "2px",
             }
         },
@@ -218,43 +218,42 @@ const useStyles = makeStyles(theme => ({
         fontFamily: "'Inter', sans-serif",
     },
     saveButton: {
-        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-        color: "white",
+        background: "var(--btn-primary-bg, var(--color-primary))",
+        color: "var(--btn-primary-text, #fff)",
         fontWeight: 600,
         borderRadius: "8px",
         padding: "8px 20px",
         fontSize: "0.8rem",
         textTransform: "none",
-        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+        boxShadow: "none",
         fontFamily: "'Inter', sans-serif",
         '&:hover': {
-            background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
-            transform: "translateY(-1px)",
+            background: "var(--btn-primary-bg, var(--color-primary))",
+            filter: "brightness(0.88)",
+            boxShadow: "none",
         },
         transition: "all 0.2s ease-in-out",
     },
     cancelButton: {
-        background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-        color: "white",
+        background: "var(--btn-destructive-bg, #ef4444)",
+        color: "var(--btn-destructive-text, #fff)",
         fontWeight: 600,
         borderRadius: "8px",
         padding: "8px 20px",
         fontSize: "0.8rem",
         textTransform: "none",
         marginRight: theme.spacing(1.5),
-        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+        boxShadow: "none",
         fontFamily: "'Inter', sans-serif",
         '&:hover': {
-            background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
-            transform: "translateY(-1px)",
+            background: "var(--btn-destructive-hover-bg, #dc2626)",
+            boxShadow: "none",
         },
         transition: "all 0.2s ease-in-out",
     },
     dialogActions: {
         padding: theme.spacing(1.5, 3),
-        backgroundColor: "white",
+        backgroundColor: "var(--modal-body-bg, #fff)",
         borderTop: "1px solid #e5e7eb",
         justifyContent: "flex-end",
     },
@@ -286,13 +285,13 @@ const useStyles = makeStyles(theme => ({
         backgroundColor: "#fff",
         transition: "all 0.2s ease",
         "&:hover": {
-            borderColor: "#6366f1",
-            boxShadow: "0 10px 24px rgba(99, 102, 241, 0.12)",
+            borderColor: "var(--color-primary)",
+            boxShadow: "0 10px 24px rgba(0, 0, 0, 0.12)",
         },
         "&.active": {
-            borderColor: "#4f46e5",
-            backgroundColor: "#eef2ff",
-            boxShadow: "0 12px 26px rgba(79, 70, 229, 0.18)",
+            borderColor: "var(--color-primary)",
+            backgroundColor: "var(--bg-surface, #eef2ff)",
+            boxShadow: "0 12px 26px rgba(0, 0, 0, 0.12)",
         }
     },
     usageModeGrid: {
@@ -310,8 +309,8 @@ const useStyles = makeStyles(theme => ({
         backgroundColor: "#fff",
         transition: "all 0.2s ease",
         "&.active": {
-            borderColor: "#10b981",
-            backgroundColor: "#ecfdf5",
+            borderColor: "var(--color-primary)",
+            backgroundColor: "var(--bg-surface, #ecfdf5)",
         }
     },
     usageInfoBox: {

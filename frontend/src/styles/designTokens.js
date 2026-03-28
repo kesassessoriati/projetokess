@@ -394,8 +394,9 @@ export const getThemeTokens = (mode) => (mode === "dark" ? darkTheme : lightThem
  *
  * @param {"light"|"dark"} mode
  * @param {string} primaryColor — resolved primary hex color for current mode
+ * @param {string} [buttonColor] — optional independent button color; falls back to primaryColor
  */
-export const applyCSSVariables = (mode, primaryColor) => {
+export const applyCSSVariables = (mode, primaryColor, buttonColor) => {
   const root = document.documentElement;
   const tokens = getThemeTokens(mode);
 
@@ -407,6 +408,10 @@ export const applyCSSVariables = (mode, primaryColor) => {
   // Primary color (dynamic — set from admin settings)
   root.style.setProperty("--primaryColor", primaryColor);
   root.style.setProperty("--color-primary", primaryColor);
+
+  // Button primary color — independently configurable from system/brand color.
+  // Falls back to --color-primary when no dedicated button color is set.
+  root.style.setProperty("--btn-primary-bg", buttonColor || primaryColor);
 
   // Static design tokens (same across themes)
   root.style.setProperty("--font-family", typography.fontFamily);

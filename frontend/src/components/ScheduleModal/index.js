@@ -54,8 +54,8 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
-    color: "white",
+    backgroundColor: "var(--color-primary)",
+    color: "var(--btn-primary-text, #fff)",
     padding: "16px 24px",
     fontSize: "1.25rem",
     fontWeight: 500,
@@ -67,7 +67,7 @@ const useStyles = makeStyles((theme) => ({
     }
   },
   dialogContent: {
-    backgroundColor: "#fafafa",
+    backgroundColor: "var(--modal-body-bg, #fafafa)",
     padding: theme.spacing(3),
   },
   formControl: {
@@ -97,7 +97,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "white",
     borderRadius: theme.shape.borderRadius,
     boxShadow: theme.shadows[1],
-    borderLeft: `4px solid ${blue[500]}`,
+    borderLeft: `4px solid var(--color-primary)`,
   },
   emojiPickerContainer: {
     position: 'relative',
@@ -110,7 +110,7 @@ const useStyles = makeStyles((theme) => ({
     zIndex: 1000,
   },
   dialogActions: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "var(--modal-body-bg, #f5f5f5)",
     padding: theme.spacing(2),
     borderTop: `1px solid ${theme.palette.divider}`,
     display: 'flex',
@@ -947,8 +947,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                       disabled={isSubmitting}
                       variant="contained"
                       style={{
-                        color: "white",
-                        backgroundColor: "#FFA500",
+                        color: "var(--btn-primary-text, #fff)",
+                        backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
                         boxShadow: "none",
                         borderRadius: "5px",
                         fontSize: "12px",
@@ -966,8 +966,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                     disabled={isSubmitting}
                     variant="contained"
                     style={{
-                      color: "white",
-                      backgroundColor: "#db6565",
+                      color: "var(--btn-destructive-text, #fff)",
+                      backgroundColor: "var(--btn-destructive-bg, #ef4444)",
                       boxShadow: "none",
                       borderRadius: "5px",
                       fontSize: "12px",
@@ -983,8 +983,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                       disabled={isSubmitting}
                       variant="contained"
                       style={{
-                        color: "white",
-                        backgroundColor: "#437db5",
+                        color: "var(--btn-primary-text, #fff)",
+                        backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
                         boxShadow: "none",
                         borderRadius: "5px",
                         fontSize: "12px",

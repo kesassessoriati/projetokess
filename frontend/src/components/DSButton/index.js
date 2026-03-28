@@ -26,13 +26,16 @@ import { makeStyles } from "@material-ui/core/styles";
 
 const useStyles = makeStyles(() => ({
   // ── Primary ──────────────────────────────────────────────────────────────
+  // Uses --btn-primary-bg which is independently configurable from the general
+  // brand/system color (--color-primary). Falls back to --color-primary when
+  // no dedicated button color is set via White Label settings.
   primary: {
-    backgroundColor: "var(--color-primary)",
+    backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
     color: "var(--btn-primary-text)",
     boxShadow: "none",
     borderRadius: "var(--radius-sm)",
     "&:hover": {
-      backgroundColor: "var(--color-primary)",
+      backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
       filter: "brightness(0.88)",
       boxShadow: "none",
     },
@@ -41,7 +44,7 @@ const useStyles = makeStyles(() => ({
       boxShadow: "none",
     },
     "&.Mui-disabled": {
-      backgroundColor: "var(--color-primary)",
+      backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
       color: "var(--btn-primary-text)",
       opacity: 0.5,
     },

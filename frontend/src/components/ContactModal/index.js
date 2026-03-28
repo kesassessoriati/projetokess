@@ -250,8 +250,8 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
       {/* Header do Drawer */}
       <Box
         sx={{
-          backgroundColor: '#3f51b5',
-          color: 'white',
+          backgroundColor: 'var(--color-primary)',
+          color: 'var(--btn-primary-text, #fff)',
           padding: '20px 24px',
           display: 'flex',
           alignItems: 'center',
@@ -320,7 +320,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                   variant="subtitle1"
                   gutterBottom
                   sx={{
-                    color: indigo[700],
+                    color: "var(--color-primary)",
                     fontWeight: "bold",
                     display: "flex",
                     alignItems: "center",
@@ -423,8 +423,8 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                             disabled={uploadingFiles}
                             startIcon={<SaveIcon />}
                             style={{
-                              color: "white",
-                              backgroundColor: "#437db5",
+                              color: "var(--btn-primary-text, #fff)",
+                              backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
                               boxShadow: "none",
                               borderRadius: "5px",
                               fontSize: "12px",
@@ -790,7 +790,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                   >
                     <InfoIcon
                       sx={{
-                        color: blue[500],
+                        color: "var(--color-primary)",
                         mr: 1,
                       }}
                     />
@@ -819,7 +819,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                         gutterBottom
                         sx={{
                           mt: 3,
-                          color: indigo[700],
+                          color: "var(--color-primary)",
                           fontWeight: "bold",
                           display: "flex",
                           alignItems: "center",
@@ -937,17 +937,18 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                   variant="contained"
                   sx={{
                     flex: 1,
-                    color: "white",
-                    backgroundColor: "#437db5",
+                    color: "var(--btn-primary-text, #fff)",
+                    backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
                     boxShadow: "none",
                     borderRadius: "8px",
                     fontSize: "14px",
                     height: "44px",
                     '&:hover': {
-                      backgroundColor: "#366d9c",
+                      backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
+                      filter: "brightness(0.88)",
                     },
                     '&:disabled': {
-                      backgroundColor: "#a0a0a0",
+                      opacity: 0.5,
                     },
                   }}
                 >

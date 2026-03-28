@@ -155,6 +155,7 @@ export default function Whitelabel(props) {
   const { colorMode } = useContext(ColorModeContext);
   const [primaryColorLightModalOpen, setPrimaryColorLightModalOpen] = useState(false);
   const [primaryColorDarkModalOpen, setPrimaryColorDarkModalOpen] = useState(false);
+  const [buttonColorLightModalOpen, setButtonColorLightModalOpen] = useState(false);
 
   const logoLightInput = useRef(null);
   const logoDarkInput = useRef(null);
@@ -198,7 +199,8 @@ export default function Whitelabel(props) {
     console.log("|=========== updateSettingsLoaded ==========|")
     console.log(key, value)
     console.log("|===========================================|")
-    if (key === 'primaryColorLight' || key === 'primaryColorDark' || key === 'appName') {
+    if (key === 'primaryColorLight' || key === 'primaryColorDark' || key === 'appName' ||
+        key === 'buttonColorLight' || key === 'buttonColorDark') {
       localStorage.setItem(key, value);
     };
     const newSettings = { ...settingsLoaded };
@@ -241,6 +243,8 @@ export default function Whitelabel(props) {
       const googleClientId = settings.find((s) => s.key === "googleClientId")?.value;
       const googleClientSecret = settings.find((s) => s.key === "googleClientSecret")?.value;
       const googleRedirectUri = settings.find((s) => s.key === "googleRedirectUri")?.value;
+      const buttonColorLight = settings.find((s) => s.key === "buttonColorLight")?.value;
+      const buttonColorDark = settings.find((s) => s.key === "buttonColorDark")?.value;
 
       setAppName(appName || "");
       setTermsText(termsText || "");
@@ -262,7 +266,7 @@ export default function Whitelabel(props) {
       setGoogleClientId(googleClientId || "");
       setGoogleClientSecret(googleClientSecret || "");
       setGoogleRedirectUri(googleRedirectUri || "");
-      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
+      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -398,6 +402,49 @@ export default function Whitelabel(props) {
                 />
               </Grid>
               <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    id="button-color-light-field"
+                    label="Cor dos Botões"
+                    variant="standard"
+                    value={settingsLoaded.buttonColorLight || ""}
+                    onClick={() => setButtonColorLightModalOpen(true)}
+                    InputProps={{
+                      style: {
+                        backgroundColor: "#ffffff",
+                        borderRadius: "0px",
+                      },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <div
+                            style={{ backgroundColor: settingsLoaded.buttonColorLight || settingsLoaded.primaryColorLight }}
+                            className={classes.colorAdorment}
+                          ></div>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <IconButton
+                          size="small"
+                          color="default"
+                          onClick={() => setButtonColorLightModalOpen(true)}
+                        >
+                          <Colorize />
+                        </IconButton>
+                      ),
+                    }}
+                  />
+                </FormControl>
+                <ColorBoxModal
+                  open={buttonColorLightModalOpen}
+                  handleClose={() => setButtonColorLightModalOpen(false)}
+                  onChange={(color) => {
+                    handleSaveSetting("buttonColorLight", `#${color.hex}`);
+                    if (colorMode.setButtonColorLight) {
+                      colorMode.setButtonColorLight(`#${color.hex}`);
+                    }
+                  }}
+                  currentColor={settingsLoaded.buttonColorLight || settingsLoaded.primaryColorLight}
+                />
               </Grid>
 
               <Grid xs={12} sm={6} md={4} item>

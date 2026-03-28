@@ -30,6 +30,8 @@ const App = () => {
   const [mode, setMode] = useState(preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light");
   const [primaryColorLight, setPrimaryColorLight] = useState(appColorLocalStorage);
   const [primaryColorDark, setPrimaryColorDark] = useState(appColorLocalStorage);
+  const [buttonColorLight, setButtonColorLight] = useState(localStorage.getItem("buttonColorLight") || null);
+  const [buttonColorDark, setButtonColorDark] = useState(localStorage.getItem("buttonColorDark") || null);
   const [appLogoLight, setAppLogoLight] = useState(defaultLogoLight);
   const [appLogoDark, setAppLogoDark] = useState(defaultLogoDark);
   const [appLogoFavicon, setAppLogoFavicon] = useState(defaultLogoFavicon);
@@ -47,6 +49,8 @@ const App = () => {
       },
       setPrimaryColorLight,
       setPrimaryColorDark,
+      setButtonColorLight,
+      setButtonColorDark,
       setAppLogoLight,
       setAppLogoDark,
       setAppLogoFavicon,
@@ -55,9 +59,11 @@ const App = () => {
       appLogoDark,
       appLogoFavicon,
       appName,
+      buttonColorLight,
+      buttonColorDark,
       mode,
     }),
-    [appLogoLight, appLogoDark, appLogoFavicon, appName, mode]
+    [appLogoLight, appLogoDark, appLogoFavicon, appName, buttonColorLight, buttonColorDark, mode]
   );
 
   const theme = useMemo(
@@ -302,13 +308,30 @@ const App = () => {
         console.log("!==== Erro ao carregar temas: ====!", error);
         setAppName("CRM");
       });
+    getPublicSetting("buttonColorLight")
+      .then((color) => {
+        if (color) {
+          setButtonColorLight(color);
+          localStorage.setItem("buttonColorLight", color);
+        }
+      })
+      .catch(() => {});
+    getPublicSetting("buttonColorDark")
+      .then((color) => {
+        if (color) {
+          setButtonColorDark(color);
+          localStorage.setItem("buttonColorDark", color);
+        }
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const resolvedPrimary = mode === "light" ? primaryColorLight : primaryColorDark;
-    applyCSSVariables(mode, resolvedPrimary);
-  }, [primaryColorLight, primaryColorDark, mode]);
+    const resolvedButton = mode === "light" ? buttonColorLight : buttonColorDark;
+    applyCSSVariables(mode, resolvedPrimary, resolvedButton || undefined);
+  }, [primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, mode]);
 
   // Atualiza o título da página com o nome do sistema
   useEffect(() => {
