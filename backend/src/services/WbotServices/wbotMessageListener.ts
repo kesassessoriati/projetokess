@@ -267,13 +267,43 @@ const getBodyButton = (msg: any): string => {
           ?.nativeFlowMessage?.buttons;
 
       const bodyTextWithPix = buttons?.[0]?.name === "review_and_pay";
-      const bodyTextWithButtons =
-        msg?.message?.viewOnceMessage?.message?.interactiveMessage?.body?.text;
+      const interactiveMsg =
+        msg?.message?.viewOnceMessage?.message?.interactiveMessage;
+      const bodyTextWithButtons = interactiveMsg?.body?.text;
 
       if (bodyTextWithPix) {
         bodyMessage += `[PIX]`;
       } else if (bodyTextWithButtons) {
-        bodyMessage += `[BOTOES]`;
+        try {
+          const titulo = interactiveMsg?.body?.text || "";
+          const rodape = interactiveMsg?.footer?.text || "";
+          const botoes = (interactiveMsg?.nativeFlowMessage?.buttons || []).map(
+            (btn: any) => {
+              try {
+                const params =
+                  typeof btn.buttonParamsJson === "string"
+                    ? JSON.parse(btn.buttonParamsJson)
+                    : btn.buttonParamsJson || {};
+                return {
+                  tipo: btn.name,
+                  texto: params.display_text || "",
+                  conteudo:
+                    params.phone_number ||
+                    params.phoneNumber ||
+                    params.url ||
+                    params.copy_code ||
+                    params.id ||
+                    ""
+                };
+              } catch {
+                return { tipo: btn.name, texto: "", conteudo: "" };
+              }
+            }
+          );
+          bodyMessage += `[BOTOES]${JSON.stringify({ titulo, rodape, botoes })}`;
+        } catch {
+          bodyMessage += `[BOTOES]`;
+        }
       }
 
       return bodyMessage;
@@ -311,28 +341,7 @@ const getBodyButton = (msg: any): string => {
       return bodyMessage || null; // Verifique se este ponto é alcançado
     }
 
-    if (
-      msg?.messageType === "viewOnceMessage" ||
-      msg?.message?.viewOnceMessage?.message?.interactiveMessage
-    ) {
-      let bodyMessage = "";
-
-      // Verifica se é uma mensagem de PIX (PIX)
-      const bodyTextWithPix =
-        msg?.message?.viewOnceMessage?.message?.interactiveMessage?.header
-          ?.title;
-      // Verifica se é uma mensagem com botões (BOTOES)
-      const bodyTextWithButtons =
-        msg?.message?.viewOnceMessage?.message?.interactiveMessage?.body?.text;
-
-      if (bodyTextWithPix) {
-        bodyMessage += `[PIX]`;
-      } else if (bodyTextWithButtons) {
-        bodyMessage += `[BOTOES]`;
-      }
-
-      return bodyMessage;
-    }
+    // Note: viewOnceMessage with interactiveMessage is handled above (lines ~260-310)
 
     if (
       msg?.messageType === "listMessage" ||

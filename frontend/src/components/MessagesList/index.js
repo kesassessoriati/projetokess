@@ -726,36 +726,53 @@ const MessagesList = ({
         }
       }
       else
-        if (message.mediaType === "viewOnceMessage" && message.body.startsWith('[BOTOES]')) {
+        if (
+          (message.mediaType === "viewOnceMessage" || message.mediaType === "interactiveMessage") &&
+          message.body.startsWith('[BOTOES]')
+        ) {
           try {
-            const dataJsonString = message.dataJson;
-            if (!dataJsonString || typeof dataJsonString !== 'string') {
-              console.error("dataJson não está definido ou não é uma string válida.");
-              return;
-            }
-            const parsedData = JSON.parse(dataJsonString);
-            const viewOnceMessage = parsedData.message.viewOnceMessage.message.interactiveMessage; // Acessando a mensagem diretamente
-            if (!viewOnceMessage) {
-              console.error("viewOnceMessage não está definido.");
-              return; // Sai da função se viewOnceMessage não estiver definido
-            }
-            const titulo = viewOnceMessage.body?.text || "";  // Título
-            const rodape = viewOnceMessage.footer?.text || "";  // Rodapé
-            const botoes = viewOnceMessage.nativeFlowMessage?.buttons?.map(button => {
-              const { name, buttonParamsJson } = button;
-              const params = JSON.parse(buttonParamsJson);  // Parse JSON para obter o conteúdo
-              return {
-                tipo: name,
-                texto: params.display_text,
-                conteudo: params.phoneNumber || params.url || params.copy_code
-              };
-            }) || [];
+            // Extract button data embedded in the body: [BOTOES]{...json...}
+            const bodyPayload = message.body.substring('[BOTOES]'.length).trim();
+            let titulo = "";
+            let rodape = "";
+            let botoes = [];
             let imagem = null;
-            if (viewOnceMessage.header?.imageMessage?.jpegThumbnail) {
-              imagem = viewOnceMessage.header.imageMessage.jpegThumbnail;
+
+            if (bodyPayload) {
+              const data = JSON.parse(bodyPayload);
+              titulo = data.titulo || "";
+              rodape = data.rodape || "";
+              botoes = data.botoes || [];
             } else {
-              console.log("Nenhuma imagem encontrada no header.");
+              // Fallback: try to parse from dataJson (legacy messages)
+              const dataJsonString = message.dataJson;
+              if (dataJsonString && typeof dataJsonString === 'string') {
+                const parsedData = JSON.parse(dataJsonString);
+                const interactiveMsg =
+                  parsedData?.message?.viewOnceMessage?.message?.interactiveMessage ||
+                  parsedData?.message?.interactiveMessage;
+                if (interactiveMsg) {
+                  titulo = interactiveMsg.body?.text || "";
+                  rodape = interactiveMsg.footer?.text || "";
+                  botoes = (interactiveMsg.nativeFlowMessage?.buttons || []).map(btn => {
+                    try {
+                      const params = typeof btn.buttonParamsJson === 'string'
+                        ? JSON.parse(btn.buttonParamsJson)
+                        : (btn.buttonParamsJson || {});
+                      return {
+                        tipo: btn.name,
+                        texto: params.display_text || "",
+                        conteudo: params.phone_number || params.phoneNumber || params.url || params.copy_code || params.id || ""
+                      };
+                    } catch { return { tipo: btn.name, texto: "", conteudo: "" }; }
+                  });
+                  if (interactiveMsg.header?.imageMessage?.jpegThumbnail) {
+                    imagem = interactiveMsg.header.imageMessage.jpegThumbnail;
+                  }
+                }
+              }
             }
+
             return (
               <ButtonPreview
                 titulo={titulo}
@@ -766,7 +783,7 @@ const MessagesList = ({
               />
             );
           } catch (error) {
-            console.error("Erro ao processar a mensagem do tipo viewOnceMessage: ", error);
+            console.error("Erro ao processar mensagem [BOTOES]:", error);
           }
         } else
           if ((message.mediaType === "viewOnceMessage" || message.mediaType === "interactiveMessage") && message.body.startsWith('[PIX]')) {
