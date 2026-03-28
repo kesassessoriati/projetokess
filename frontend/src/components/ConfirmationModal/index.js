@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState } from "react";
-import Button from "@material-ui/core/Button";
 import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
@@ -12,17 +11,18 @@ import { makeStyles } from "@material-ui/styles";
 import { Facebook, WhatsApp } from "@material-ui/icons";
 import { Instagram } from "@mui/icons-material";
 import { i18n } from "../../translate/i18n";
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckIcon from '@mui/icons-material/Check';
+import CancelIcon from "@mui/icons-material/Cancel";
+import CheckIcon from "@mui/icons-material/Check";
+import DSButton from "../DSButton";
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(() => ({
   online: {
     fontSize: 11,
-    color: "#25d366",
+    color: "var(--color-success)",
   },
   offline: {
     fontSize: 11,
-    color: "#e1306c",
+    color: "var(--color-error)",
   },
 }));
 
@@ -45,7 +45,6 @@ const ConfirmationModal = ({
     const delayDebounceFn = setTimeout(() => {
       const fetchContacts = async () => {
         api
-          // .get(`/whatsapp/filter`, { params: { companyId, session: 0, channel: channelFilter } })
           .get(`/whatsapp`, { params: { companyId, session: 0 } })
           .then(({ data }) => setWhatsapps(data));
       };
@@ -72,10 +71,6 @@ const ConfirmationModal = ({
       default:
         return "error";
     }
-  };
-
-  const handleClose = () => {
-    onClose();
   };
 
   return (
@@ -159,22 +154,16 @@ const ConfirmationModal = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button
-          variant="contained"
+        <DSButton
+          variant="destructive"
           startIcon={<CancelIcon />}
           onClick={() => onClose(false)}
-          style={{
-          color: "white",
-          backgroundColor: "#db6565",
-          boxShadow: "none",
-          borderRadius: 0
-          }}
         >
           {i18n.t("confirmationModal.buttons.cancel")}
-        </Button>
-        <Button
+        </DSButton>
+        <DSButton
+          variant="primary"
           startIcon={<CheckIcon />}
-          variant="contained"
           onClick={() => {
             if (isCellPhone) {
               onSave(selectedWhatsapp);
@@ -182,15 +171,9 @@ const ConfirmationModal = ({
             onClose(false);
             onConfirm();
           }}
-          style={{
-          color: "white",
-          backgroundColor: "#ba8d1a",
-          boxShadow: "none",
-          borderRadius: 0
-          }}
         >
           {i18n.t("confirmationModal.buttons.confirm")}
-        </Button>
+        </DSButton>
       </DialogActions>
     </Dialog>
   );

@@ -245,6 +245,36 @@ export const lightTheme = {
   "mobile-nav-active-text": primitives.blue[500],
   "mobile-nav-active-bg":  "rgba(59, 130, 246, 0.12)",
   "mobile-nav-hover-bg":   "rgba(59, 130, 246, 0.08)",
+
+  // ── Button semantic tokens ────────────────────────────────────────────────
+  // Primary button (uses dynamic --color-primary at runtime)
+  "btn-primary-text":        primitives.white,
+  "btn-primary-hover-alpha": "rgba(0,0,0,0.08)",
+
+  // Secondary / outlined button
+  "btn-secondary-bg":        primitives.transparent,
+  "btn-secondary-border":    primitives.gray[300],
+  "btn-secondary-text":      primitives.gray[700],
+  "btn-secondary-hover-bg":  primitives.gray[100],
+
+  // Destructive button (cancel / delete)
+  "btn-destructive-bg":      primitives.red[500],
+  "btn-destructive-text":    primitives.white,
+  "btn-destructive-hover-bg": primitives.red[600],
+
+  // Neutral button (close / back)
+  "btn-neutral-bg":          primitives.gray[200],
+  "btn-neutral-text":        primitives.gray[700],
+  "btn-neutral-hover-bg":    primitives.gray[300],
+
+  // ── Modal semantic tokens ─────────────────────────────────────────────────
+  "modal-bg":              primitives.white,
+  "modal-header-bg":       primitives.white,
+  "modal-header-text":     primitives.gray[900],
+  "modal-header-border":   primitives.gray[200],
+  "modal-body-bg":         primitives.white,
+  "modal-section-title":   primitives.gray[500],
+  "modal-overlay":         "rgba(0, 0, 0, 0.4)",
 };
 
 // ─── Semantic Tokens — Dark Theme ─────────────────────────────────────────────
@@ -324,6 +354,32 @@ export const darkTheme = {
   "mobile-nav-active-text": primitives.blue[400],
   "mobile-nav-active-bg":   "rgba(96, 165, 250, 0.15)",
   "mobile-nav-hover-bg":    "rgba(96, 165, 250, 0.08)",
+
+  // ── Button semantic tokens ────────────────────────────────────────────────
+  "btn-primary-text":        primitives.white,
+  "btn-primary-hover-alpha": "rgba(255,255,255,0.12)",
+
+  "btn-secondary-bg":        primitives.transparent,
+  "btn-secondary-border":    primitives.gray[600],
+  "btn-secondary-text":      primitives.gray[300],
+  "btn-secondary-hover-bg":  "rgba(255,255,255,0.08)",
+
+  "btn-destructive-bg":      primitives.red[400],
+  "btn-destructive-text":    primitives.white,
+  "btn-destructive-hover-bg": primitives.red[500],
+
+  "btn-neutral-bg":          primitives.gray[700],
+  "btn-neutral-text":        primitives.gray[200],
+  "btn-neutral-hover-bg":    primitives.gray[600],
+
+  // ── Modal semantic tokens ─────────────────────────────────────────────────
+  "modal-bg":              "#252540",
+  "modal-header-bg":       "#252540",
+  "modal-header-text":     primitives.gray[50],
+  "modal-header-border":   primitives.gray[700],
+  "modal-body-bg":         "#252540",
+  "modal-section-title":   primitives.gray[400],
+  "modal-overlay":         "rgba(0, 0, 0, 0.6)",
 };
 
 /**
