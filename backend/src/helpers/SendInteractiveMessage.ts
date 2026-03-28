@@ -2,10 +2,7 @@
  * SendInteractiveMessage.ts
  *
  * Helper para envio de mensagens interativas via WhatsApp (botões, listas, carrossel).
- * Usa o padrão relayMessage + interactiveMessage habilitado pelo whaileys (canove/whaileys).
- *
- * Compatível com o WASocket existente — faz cast para `any` no relayMessage
- * para contornar diferenças de tipos entre @whiskeysockets/baileys e whaileys.
+ * Usa sendMessage() com wrapper viewOnceMessage + interactiveMessage (padrão papi-local).
  */
 
 import axios from "axios";
@@ -212,22 +209,25 @@ export async function sendButtonMessage(
   try {
     const nativeButtons = mapButtonsToNative(buttons);
 
-    const msg: any = {
-      interactiveMessage: {
-        body: { text: String(text || "") },
-        footer: { text: footer || "" },
-        header: { hasMediaAttachment: false },
-        nativeFlowMessage: {
-          buttons: nativeButtons,
-          messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
-        },
+    const interactiveMessage = {
+      body: { text: String(text || "") },
+      footer: { text: footer || "" },
+      header: { hasMediaAttachment: false },
+      nativeFlowMessage: {
+        buttons: nativeButtons,
+        messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
       },
     };
 
-    const userJid = wbot.user?.id || jid;
-    const newMsg = generateWAMessageFromContent(jid, msg, { userJid });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
-    await wbot.upsertMessage(newMsg, "notify");
+    // Padrão papi-local: sendMessage + viewOnceMessage wrapper
+    await wbot.sendMessage(jid, {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage
+        }
+      }
+    } as any);
+
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar botões para ${jid}:`, err);
@@ -264,8 +264,6 @@ export async function sendListMessage(
   }
 
   try {
-    // Monta a lista via interactiveMessage + nativeFlowMessage (single_select)
-    // compatível com Baileys 7.x e WhatsApp atual
     const nativeSections = toNativeListSections(normalizedSections).map(sec => ({
       title: sec.title,
       highlight_label: "",
@@ -277,29 +275,32 @@ export async function sendListMessage(
       }))
     }));
 
-    const msg: any = {
-      interactiveMessage: {
-        body: { text: String(text || "") },
-        footer: { text: footer || "" },
-        header: { hasMediaAttachment: false },
-        nativeFlowMessage: {
-          buttons: [
-            {
-              name: "single_select",
-              buttonParamsJson: JSON.stringify({
-                title: buttonText || "Ver opções",
-                sections: nativeSections
-              })
-            }
-          ]
-        }
+    const interactiveMessage = {
+      body: { text: String(text || "") },
+      footer: { text: footer || "" },
+      header: { hasMediaAttachment: false },
+      nativeFlowMessage: {
+        buttons: [
+          {
+            name: "single_select",
+            buttonParamsJson: JSON.stringify({
+              title: buttonText || "Ver opções",
+              sections: nativeSections
+            })
+          }
+        ]
       }
     };
 
-    const userJid = wbot.user?.id || jid;
-    const newMsg = generateWAMessageFromContent(jid, msg, { userJid });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
-    await wbot.upsertMessage(newMsg, "notify");
+    // Padrão papi-local: sendMessage + viewOnceMessage wrapper
+    await wbot.sendMessage(jid, {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage
+        }
+      }
+    } as any);
+
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar lista para ${jid}:`, err);
@@ -368,11 +369,8 @@ export async function sendCarouselMessage(
       preparedCards.push(cardEntry);
     }
 
-    const userJid = wbot.user?.id || jid;
-    const carouselContent = { interactiveMessage: { carouselMessage: { cards: preparedCards } } };
-    const newMsg = generateWAMessageFromContent(jid, carouselContent, { userJid });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
-    await wbot.upsertMessage(newMsg, "notify");
+    // Carrossel: relayMessage direto sem viewOnceMessage (padrão papi-local para iOS)
+    await wbot.relayMessage(jid, { interactiveMessage: { carouselMessage: { cards: preparedCards } } }, {});
     logger.info(`[SendInteractiveMessage] Carrossel enviado para ${jid} (${cards.length} cards)`);
   } catch (err) {
     logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`);
