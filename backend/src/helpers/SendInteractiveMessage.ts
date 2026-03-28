@@ -212,13 +212,18 @@ export async function sendButtonMessage(
     const msgContent = {
       viewOnceMessage: {
         message: {
+          messageContextInfo: {
+            deviceListMetadata: {},
+            deviceListMetadataVersion: 2
+          },
           interactiveMessage: {
             body: { text: String(text || "") },
             footer: { text: footer || "" },
             header: { hasMediaAttachment: false },
             nativeFlowMessage: {
               buttons: nativeButtons,
-              messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
+              messageParamsJson: JSON.stringify({}),
+              messageVersion: 2
             },
           },
         },
@@ -268,18 +273,20 @@ export async function sendListMessage(
   try {
     const nativeSections = toNativeListSections(normalizedSections).map(sec => ({
       title: sec.title,
-      highlight_label: "",
       rows: sec.rows.map((row: any) => ({
-        header: "",
+        id: row.id,
         title: row.title,
-        description: row.description || "",
-        id: row.id
+        description: row.description || ""
       }))
     }));
 
     const msgContent = {
       viewOnceMessage: {
         message: {
+          messageContextInfo: {
+            deviceListMetadata: {},
+            deviceListMetadataVersion: 2
+          },
           interactiveMessage: {
             body: { text: String(text || "") },
             footer: { text: footer || "" },
@@ -293,7 +300,9 @@ export async function sendListMessage(
                     sections: nativeSections
                   })
                 }
-              ]
+              ],
+              messageParamsJson: JSON.stringify({}),
+              messageVersion: 2
             },
           },
         },
