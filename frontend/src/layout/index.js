@@ -55,6 +55,8 @@ import NotificationsActiveIcon from "@material-ui/icons/NotificationsActive";
 import ExitToAppIcon from "@material-ui/icons/ExitToApp";
 import AccountCircleIcon from "@material-ui/icons/AccountCircle";
 import PersonIcon from "@material-ui/icons/Person";
+import Brightness4Icon from "@material-ui/icons/Brightness4";
+import Brightness7Icon from "@material-ui/icons/Brightness7";
 import PsychologyIcon from "@mui/icons-material/Psychology";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import BusinessCenterOutlinedIcon from "@mui/icons-material/BusinessCenterOutlined";
@@ -123,7 +125,7 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
     height: "100vh",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: theme.palette.bgDefault || theme.palette.background.default,
   },
   // Header Styles - Fundo transparente
   appBar: (props) => ({
@@ -153,10 +155,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     padding: "0 24px",
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    backgroundColor: theme.palette.secondaryBarBg || "rgba(255, 255, 255, 0.5)",
     backdropFilter: "blur(4px)",
-    borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
-    borderTop: "1px solid rgba(0, 0, 0, 0.04)",
+    borderBottom: `1px solid ${theme.palette.secondaryBarBorder || "rgba(0, 0, 0, 0.05)"}`,
+    borderTop: `1px solid ${theme.palette.secondaryBarBorder || "rgba(0, 0, 0, 0.04)"}`,
     overflowX: "auto",
     overflowY: "hidden",
     scrollbarWidth: "none",
@@ -217,22 +219,22 @@ const useStyles = makeStyles((theme) => ({
     width: "40px",
     height: "40px",
     borderRadius: "50%",
-    color: "#111111",
-    backgroundColor: "rgba(0,0,0,0.07)",
+    color: theme.palette.text.primary,
+    backgroundColor: theme.palette.bgHover,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     transition: "all 0.2s ease",
     "& .MuiSvgIcon-root": {
       fontSize: "20px",
-      color: "#111111",
+      color: theme.palette.text.primary,
     },
     "&:hover": {
-      backgroundColor: "rgba(0,0,0,0.13)",
+      backgroundColor: theme.palette.bgActive,
       transform: "scale(1.05)",
     },
     "&:focus-visible": {
-      outline: "2px solid #3b82f6",
+      outline: `2px solid ${theme.palette.primary.main}`,
       outlineOffset: "2px",
     },
     [theme.breakpoints.down("md")]: {
@@ -241,17 +243,17 @@ const useStyles = makeStyles((theme) => ({
   },
   searchContainer: {
     position: "relative",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: theme.palette.searchBg || theme.palette.bgSurface,
     borderRadius: "12px",
-    border: "1px solid #e5e7eb",
+    border: `1px solid ${theme.palette.searchBorder || theme.palette.borderDefault}`,
     width: "100%",
     maxWidth: "240px",
     transition: "all 0.2s ease",
     "&:hover": {
-      borderColor: "#3b82f6",
+      borderColor: theme.palette.borderFocus,
     },
     "&:focus-within": {
-      borderColor: "#3b82f6",
+      borderColor: theme.palette.borderFocus,
       boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
     },
     [theme.breakpoints.down("sm")]: {
@@ -274,8 +276,8 @@ const useStyles = makeStyles((theme) => ({
     minWidth: "max-content",
   },
   quickNavBtn: {
-    backgroundColor: "#111111",
-    color: "#ffffff",
+    backgroundColor: theme.palette.quickNavBg,
+    color: theme.palette.quickNavText,
     borderRadius: "10px",
     padding: "0 12px",
     minWidth: "auto",
@@ -288,24 +290,23 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     gap: "6px",
     transition: "all 0.2s ease",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: `1px solid ${theme.palette.type === "dark" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.08)"}`,
     cursor: "pointer",
     "&:hover": {
-      backgroundColor: "#1a1a1a",
+      backgroundColor: theme.palette.quickNavHover,
       transform: "translateY(-1px)",
       boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
     },
     "&.quickNavActive": {
-      backgroundColor: "#000000",
+      backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#000000",
       border: "1px solid rgba(255,255,255,0.18)",
       boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
     },
   },
   secondaryQuickNavBtn: {
-    backgroundColor: "#0f172a",
-    border: "1px solid rgba(15, 23, 42, 0.15)",
+    backgroundColor: theme.palette.quickNavBg,
     "&:hover": {
-      backgroundColor: "#111827",
+      backgroundColor: theme.palette.quickNavHover,
     },
   },
   mobileLogo: {
@@ -328,7 +329,7 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#000000",
+    color: theme.palette.text.secondary,
   },
   searchButton: (props) => ({
     position: "absolute",
@@ -347,7 +348,7 @@ const useStyles = makeStyles((theme) => ({
     },
   }),
   inputRoot: {
-    color: "#3b82f6",
+    color: theme.palette.searchText || theme.palette.text.primary,
     width: "100%",
   },
   inputInput: {
@@ -356,9 +357,9 @@ const useStyles = makeStyles((theme) => ({
     transition: theme.transitions.create("width"),
     width: "100%",
     fontSize: "14px",
-    color: "#3b82f6",
+    color: theme.palette.searchText || theme.palette.text.primary,
     "&::placeholder": {
-      color: "#000000",
+      color: theme.palette.text.secondary,
       opacity: 1,
     },
   },
@@ -651,7 +652,7 @@ const useStyles = makeStyles((theme) => ({
     flex: 1,
     overflow: "auto",
     marginTop: props.shouldHideLayout ? 0 : (props.topMenuVisible ? "112px" : "64px"),
-    backgroundColor: "#f8f9fa",
+    backgroundColor: theme.palette.bgDefault || theme.palette.background.default,
     height: props.shouldHideLayout ? "100vh" : (props.topMenuVisible ? "calc(100vh - 112px)" : "calc(100vh - 64px)"),
     transition: "margin-top 0.25s ease, height 0.25s ease",
     [theme.breakpoints.down("md")]: {
@@ -673,8 +674,8 @@ const useStyles = makeStyles((theme) => ({
       left: 0,
       right: 0,
       height: "70px",
-      backgroundColor: "#ffffff",
-      borderTop: "1px solid #e5e7eb",
+      backgroundColor: theme.palette.background.paper,
+      borderTop: `1px solid ${theme.palette.borderDefault}`,
       justifyContent: "space-around",
       alignItems: "center",
       zIndex: theme.zIndex.drawer + 2,
@@ -692,14 +693,14 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: "12px",
     cursor: "pointer",
     transition: "all 0.2s ease",
-    color: "#000000",
+    color: theme.palette.text.primary,
     minWidth: "56px",
     "&:hover": {
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
+      backgroundColor: theme.palette.bgHover,
     },
     "&.active": {
-      color: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.12)",
+      color: theme.palette.primary.main,
+      backgroundColor: theme.palette.bgActive,
       "& $mobileNavIcon": {
         color: "#3b82f6",
       },
@@ -728,14 +729,14 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: "12px",
     cursor: "pointer",
     transition: "all 0.2s ease",
-    color: "#000000",
+    color: theme.palette.text.primary,
     minWidth: "56px",
     "&:hover": {
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
+      backgroundColor: theme.palette.bgHover,
     },
     "&.active": {
-      color: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.12)",
+      color: theme.palette.primary.main,
+      backgroundColor: theme.palette.bgActive,
     },
   },
   mobileNavHamburgerIcon: {
@@ -755,12 +756,12 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
     padding: "16px 16px 8px",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: `1px solid ${theme.palette.borderDefault}`,
   },
   mobileNavDrawerTitle: {
     fontWeight: 600,
     fontSize: "15px",
-    color: "#1a1a1a",
+    color: theme.palette.text.primary,
   },
   mobileNavDrawerGrid: {
     display: "grid",
@@ -778,15 +779,15 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: "12px",
     cursor: "pointer",
     transition: "all 0.2s ease",
-    color: "#374151",
+    color: theme.palette.text.secondary,
     gap: "6px",
     "&:hover": {
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
-      color: "#3b82f6",
+      backgroundColor: theme.palette.bgHover,
+      color: theme.palette.primary.main,
     },
     "&.active": {
-      backgroundColor: "rgba(59, 130, 246, 0.12)",
-      color: "#3b82f6",
+      backgroundColor: theme.palette.bgActive,
+      color: theme.palette.primary.main,
     },
   },
   mobileNavDrawerItemLabel: {
@@ -832,23 +833,25 @@ const useStyles = makeStyles((theme) => ({
     "& .MuiPaper-root": {
       borderRadius: "12px",
       boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
-      border: "1px solid #e5e7eb",
+      border: `1px solid ${theme.palette.dropdownBorder || theme.palette.borderDefault}`,
+      backgroundColor: theme.palette.dropdownBg || theme.palette.background.paper,
     },
   },
   dropdownItem: {
     padding: "12px 16px",
     fontSize: "14px",
+    color: theme.palette.dropdownText || theme.palette.text.primary,
     "&:hover": {
-      backgroundColor: "#f3f4f6",
+      backgroundColor: theme.palette.dropdownHover || theme.palette.bgHover,
     },
   },
   dropdownIcon: {
     minWidth: "36px",
-    color: "#6b7280",
+    color: theme.palette.dropdownMuted || theme.palette.text.secondary,
   },
   divider: {
     margin: "8px 0",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: theme.palette.dropdownBorder || theme.palette.divider,
   },
   // Estilos do Banner IA SDR
   aiSdrBanner: {
@@ -940,6 +943,7 @@ const LoggedInLayout = ({ children }) => {
   const location = useLocation();
 
   const { user, handleLogout, loading, isMobileSession } = useContext(AuthContext);
+  const { toggleColorMode, mode: colorMode } = useContext(ColorModeContext);
   const {
     planActive,
     loading: planLoading,
@@ -1803,6 +1807,16 @@ const LoggedInLayout = ({ children }) => {
               <AccountCircleIcon />
             </ListItemIcon>
             <ListItemText primary="Meu Perfil" />
+          </MenuItem>
+
+          <MenuItem
+            onClick={() => { toggleColorMode(); handleUserMenuClose(); }}
+            className={classes.dropdownItem}
+          >
+            <ListItemIcon className={classes.dropdownIcon}>
+              {colorMode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
+            </ListItemIcon>
+            <ListItemText primary={colorMode === "dark" ? "Modo Claro" : "Modo Escuro"} />
           </MenuItem>
 
           <Divider className={classes.divider} />

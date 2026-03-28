@@ -16,6 +16,7 @@ import defaultLogoFavicon from "./assets/favicon.ico";
 import useSettings from "./hooks/useSettings";
 import { SystemAlertProvider } from "./components/SystemAlert";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { applyCSSVariables, primitives } from "./styles/designTokens";
 
 const queryClient = new QueryClient();
 
@@ -155,18 +156,75 @@ const App = () => {
           palette: {
             type: mode,
             primary: { main: mode === "light" ? primaryColorLight : primaryColorDark },
-            textPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
+
+            // Standard MUI background/text/divider — drives Paper, CssBaseline, etc.
+            background: {
+              default: mode === "light" ? "#f9fafb" : "#1a1a2e",
+              paper:   mode === "light" ? "#ffffff"  : "#252540",
+            },
+            text: {
+              primary:   mode === "light" ? "#111827" : "#f9fafb",
+              secondary: mode === "light" ? "#6b7280" : "#9ca3af",
+              disabled:  mode === "light" ? "#9ca3af" : "#6b7280",
+              hint:      mode === "light" ? "#9ca3af" : "#6b7280",
+            },
+            divider: mode === "light" ? "#e5e7eb" : "#374151",
+
+            // Status colors
+            success: { main: mode === "light" ? primitives.green[500]  : primitives.green[400],  contrastText: "#fff" },
+            warning: { main: mode === "light" ? primitives.yellow[500] : primitives.yellow[400], contrastText: "#fff" },
+            error:   { main: mode === "light" ? primitives.red[500]    : primitives.red[400],    contrastText: "#fff" },
+            info:    { main: primitives.blue[500], contrastText: "#fff" },
+
+            // ── Legacy custom keys (preserved for backward-compat) ──────────
+            textPrimary:  mode === "light" ? primaryColorLight : primaryColorDark,
             borderPrimary: mode === "light" ? primaryColorLight : primaryColorDark,
-            dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
+            dark:  { main: mode === "light" ? "#333333" : "#F3F3F3" },
             light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
-            fontColor: mode === "light" ? primaryColorLight : primaryColorDark,
-            tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
-            optionsBackground: mode === "light" ? "#fafafa" : "#333",
-            fancyBackground: mode === "light" ? "#fafafa" : "#333",
-            total: mode === "light" ? "#fff" : "#222",
-            messageIcons: mode === "light" ? "grey" : "#F3F3F3",
-            inputBackground: mode === "light" ? "#FFFFFF" : "#333",
-            barraSuperior: mode === "light" ? primaryColorLight : "#666",
+            fontColor:          mode === "light" ? primaryColorLight : primaryColorDark,
+            tabHeaderBackground: mode === "light" ? "#EEE" : "#555",
+            optionsBackground:   mode === "light" ? "#fafafa" : "#2d2d4a",
+            fancyBackground:     mode === "light" ? "#fafafa" : "#2d2d4a",
+            total:               mode === "light" ? "#fff"    : "#252540",
+            messageIcons:        mode === "light" ? "#6b7280" : "#d1d5db",
+            inputBackground:     mode === "light" ? "#ffffff" : "#2d2d4a",
+            barraSuperior:       mode === "light" ? primaryColorLight : "#2d2d4a",
+
+            // ── New semantic keys (design token references) ──────────────────
+            // Backgrounds
+            bgDefault:      mode === "light" ? "#f9fafb" : "#1a1a2e",
+            bgPaper:        mode === "light" ? "#ffffff"  : "#252540",
+            bgSurface:      mode === "light" ? "#f3f4f6" : "#2d2d4a",
+            bgSurfaceAlpha: mode === "light" ? "rgba(255,255,255,0.5)" : "rgba(37,37,64,0.6)",
+            bgInverse:      mode === "light" ? "#111827" : "#f3f4f6",
+            bgHover:        mode === "light" ? "#f3f4f6" : "rgba(255,255,255,0.05)",
+            bgActive:       mode === "light" ? "#e5e7eb" : "rgba(255,255,255,0.1)",
+
+            // Borders
+            borderDefault: mode === "light" ? "#e5e7eb" : "#374151",
+            borderStrong:  mode === "light" ? "#d1d5db" : "#4b5563",
+            borderFocus:   mode === "light" ? primitives.blue[500] : primitives.blue[400],
+
+            // Navigation
+            quickNavBg:    mode === "light" ? "#111827" : "#1f2937",
+            quickNavHover: mode === "light" ? "#1f2937" : "#374151",
+            quickNavText:  "#ffffff",
+
+            // Secondary bar
+            secondaryBarBg:     mode === "light" ? "rgba(255,255,255,0.5)"  : "rgba(37,37,64,0.7)",
+            secondaryBarBorder: mode === "light" ? "rgba(0,0,0,0.05)"       : "rgba(255,255,255,0.06)",
+
+            // Search
+            searchBg:     mode === "light" ? "#f3f4f6" : "#2d2d4a",
+            searchBorder: mode === "light" ? "#e5e7eb"  : "#374151",
+            searchText:   mode === "light" ? "#111827"  : "#f3f4f6",
+
+            // Dropdown
+            dropdownBg:     mode === "light" ? "#ffffff"  : "#252540",
+            dropdownBorder: mode === "light" ? "#e5e7eb"  : "#374151",
+            dropdownHover:  mode === "light" ? "#f3f4f6"  : "#2d2d4a",
+            dropdownText:   mode === "light" ? "#111827"  : "#f3f4f6",
+            dropdownMuted:  mode === "light" ? "#6b7280"  : "#9ca3af",
           },
           mode,
           appLogoLight,
@@ -248,8 +306,8 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--primaryColor", mode === "light" ? primaryColorLight : primaryColorDark);
+    const resolvedPrimary = mode === "light" ? primaryColorLight : primaryColorDark;
+    applyCSSVariables(mode, resolvedPrimary);
   }, [primaryColorLight, primaryColorDark, mode]);
 
   // Atualiza o título da página com o nome do sistema
