@@ -12,6 +12,8 @@ const ApiRoutes = express.Router();
 ApiRoutes.post("/send", tokenAuth, upload.array("medias"), ApiController.index);
 // ApiRoutes.post("/send/linkPdf", tokenAuth, ApiController.indexLink);
 ApiRoutes.post("/send/linkImage", tokenAuth, ApiController.indexImage);
+ApiRoutes.post("/send/buttons", tokenAuth, ApiController.sendButtons);
+ApiRoutes.post("/send/list", tokenAuth, ApiController.sendList);
 ApiRoutes.post("/checkNumber", tokenAuth, ApiController.checkNumber)
 
 // ApiRoutes.post("/send/linkVideo", tokenAuth, ApiController.indexVideo);

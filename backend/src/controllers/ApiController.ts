@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import * as Yup from "yup";
 import fs from "fs";
 import AppError from "../errors/AppError";
+import { sendButtonMessage, sendListMessage } from "../helpers/SendInteractiveMessage";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
 import Message from "../models/Message";
@@ -714,4 +715,34 @@ export const indexWhatsappsId = async (req: Request, res: Response): Promise<Res
   // }
 
   // return res.status(200).json(wpp);
+};
+
+export const sendButtons = async (req: Request, res: Response): Promise<Response> => {
+  const { number, text, footer = "", buttons } = req.body;
+
+  const authHeader = req.headers.authorization;
+  const [, token] = authHeader.split(" ");
+  const whatsapp = await resolveAuthorizedWhatsApp(token);
+
+  const wbot = await getWbot(whatsapp.id);
+  const jid = createJid(String(number).replace(/\s/g, ""));
+
+  await sendButtonMessage(wbot, jid, text, footer, buttons);
+
+  return res.send({ status: "SUCCESS" });
+};
+
+export const sendList = async (req: Request, res: Response): Promise<Response> => {
+  const { number, text, buttonText = "Ver opções", sections, footer } = req.body;
+
+  const authHeader = req.headers.authorization;
+  const [, token] = authHeader.split(" ");
+  const whatsapp = await resolveAuthorizedWhatsApp(token);
+
+  const wbot = await getWbot(whatsapp.id);
+  const jid = createJid(String(number).replace(/\s/g, ""));
+
+  await sendListMessage(wbot, jid, text, buttonText, sections, footer);
+
+  return res.send({ status: "SUCCESS" });
 };
