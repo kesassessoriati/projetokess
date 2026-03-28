@@ -4,7 +4,6 @@ import Appointment from "../../models/Appointment";
 import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
-import { Op } from "sequelize";
 import { createGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
 
 interface CreateAppointmentData {
@@ -117,28 +116,6 @@ const CreateAppointmentService = async (
         `O compromisso não pode ser agendado durante o horário de almoço do profissional (${userLunchStart} - ${userLunchEnd})`,
         400
       );
-    }
-  }
-
-  const existingAppointments = await Appointment.findAll({
-    where: {
-      scheduleId: data.scheduleId,
-      status: { [Op.notIn]: ["cancelled", "no_show"] }
-    }
-  });
-
-  for (const existing of existingAppointments) {
-    const existingStart = new Date(existing.startDatetime).getTime();
-    const existingEnd = existingStart + existing.durationMinutes * 60000;
-    const newStart = startDatetime.getTime();
-    const newEnd = endDatetime.getTime();
-
-    if (
-      (newStart >= existingStart && newStart < existingEnd) ||
-      (newEnd > existingStart && newEnd <= existingEnd) ||
-      (newStart <= existingStart && newEnd >= existingEnd)
-    ) {
-      throw new AppError("Já existe um compromisso neste horário", 400);
     }
   }
 
