@@ -2,11 +2,11 @@
  * SendInteractiveMessage.ts
  *
  * Helper para envio de mensagens interativas via WhatsApp (botões, listas, carrossel).
- * Usa sendMessage() com wrapper viewOnceMessage + interactiveMessage (padrão papi-local).
+ * Usa InfiniteAPI (rsalcara/InfiniteAPI) — sendMessage com nativeButtons/nativeList/nativeCarousel.
+ * O InfiniteAPI injeta os nós <biz><interactive> necessários para renderização no WhatsApp.
  */
 
 import axios from "axios";
-import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import logger from "../utils/logger";
 
 // ─── Tipos Públicos ────────────────────────────────────────────────────────
@@ -194,10 +194,7 @@ async function downloadMediaBuffer(url: string): Promise<Buffer | null> {
 
 /**
  * Envia mensagem com botões de ação (URL, Call, Reply, Copy).
- * Suporta até 4 botões por mensagem.
- *
- * Usa exatamente o mesmo padrão que foi confirmado em produção:
- * generateWAMessageFromContent + viewOnceMessage + nativeFlowMessage + messageParamsJson.
+ * Usa InfiniteAPI: sendMessage com nativeButtons — injeta nós <biz><interactive> automaticamente.
  */
 export async function sendButtonMessage(
   wbot: any,
@@ -207,33 +204,27 @@ export async function sendButtonMessage(
   buttons: InteractiveButton[]
 ): Promise<void> {
   try {
-    const nativeButtons = mapButtonsToNative(buttons);
-
-    const msgContent = {
-      viewOnceMessage: {
-        message: {
-          messageContextInfo: {
-            deviceListMetadata: {},
-            deviceListMetadataVersion: 2
-          },
-          interactiveMessage: {
-            body: { text: String(text || "") },
-            footer: { text: footer || "" },
-            header: { hasMediaAttachment: false },
-            nativeFlowMessage: {
-              buttons: nativeButtons,
-              messageParamsJson: JSON.stringify({}),
-              messageVersion: 2
-            },
-          },
-        },
-      },
-    };
-
-    const newMsg = generateWAMessageFromContent(jid, msgContent, {
-      userJid: wbot.user?.id || jid
+    // Converte para o formato nativeButtons do InfiniteAPI
+    const nativeButtons = buttons.slice(0, 3).map((btn, index) => {
+      const baseId = `btn_${Date.now()}_${index + 1}`;
+      switch (btn.type) {
+        case "url":
+          return { type: "url" as const, text: btn.displayText, url: btn.value };
+        case "call":
+          return { type: "call" as const, text: btn.displayText, phoneNumber: btn.value };
+        case "copy":
+          return { type: "copy" as const, text: btn.displayText, copyText: btn.value };
+        default: // reply
+          return { type: "reply" as const, text: btn.displayText, id: btn.value?.trim() || baseId };
+      }
     });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
+
+    // InfiniteAPI: sendMessage com nativeButtons injeta os nós <biz> necessários
+    await wbot.sendMessage(jid, {
+      nativeButtons,
+      text: String(text || ""),
+      footer: footer || undefined,
+    });
 
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {
@@ -253,6 +244,7 @@ export async function sendButtonMessage(
 
 /**
  * Envia mensagem de lista selecionável (menu de opções).
+ * Usa InfiniteAPI: sendMessage com nativeList — injeta nós <biz><list> automaticamente.
  */
 export async function sendListMessage(
   wbot: any,
@@ -271,48 +263,25 @@ export async function sendListMessage(
   }
 
   try {
-    const nativeSections = toNativeListSections(normalizedSections).map(sec => ({
+    // Converte para o formato nativeList do InfiniteAPI
+    const nativeSections = normalizedSections.map(sec => ({
       title: sec.title,
-      rows: sec.rows.map((row: any) => ({
-        id: row.id,
+      rows: sec.rows.map(row => ({
+        id: row.rowId,
         title: row.title,
         description: row.description || ""
       }))
     }));
 
-    const msgContent = {
-      viewOnceMessage: {
-        message: {
-          messageContextInfo: {
-            deviceListMetadata: {},
-            deviceListMetadataVersion: 2
-          },
-          interactiveMessage: {
-            body: { text: String(text || "") },
-            footer: { text: footer || "" },
-            header: { hasMediaAttachment: false },
-            nativeFlowMessage: {
-              buttons: [
-                {
-                  name: "single_select",
-                  buttonParamsJson: JSON.stringify({
-                    title: buttonText || "Ver opções",
-                    sections: nativeSections
-                  })
-                }
-              ],
-              messageParamsJson: JSON.stringify({}),
-              messageVersion: 2
-            },
-          },
-        },
+    // InfiniteAPI: sendMessage com nativeList injeta os nós <biz><list> necessários
+    await wbot.sendMessage(jid, {
+      nativeList: {
+        buttonText: buttonText || "Ver opções",
+        sections: nativeSections,
       },
-    };
-
-    const newMsg = generateWAMessageFromContent(jid, msgContent, {
-      userJid: wbot.user?.id || jid
+      text: String(text || ""),
+      footer: footer || undefined,
     });
-    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
 
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
   } catch (err) {

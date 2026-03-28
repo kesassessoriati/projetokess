@@ -196,6 +196,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
           markOnlineOnConnect: false,
           retryRequestDelayMs: 500,
           // maxMsgRetryCount: 5,
+          enableInteractiveMessages: true,
           emitOwnEvents: true,
           fireInitQueries: true,
           transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
