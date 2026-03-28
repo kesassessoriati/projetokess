@@ -209,24 +209,26 @@ export async function sendButtonMessage(
   try {
     const nativeButtons = mapButtonsToNative(buttons);
 
-    const interactiveMessage = {
-      body: { text: String(text || "") },
-      footer: { text: footer || "" },
-      header: { hasMediaAttachment: false },
-      nativeFlowMessage: {
-        buttons: nativeButtons,
-        messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
+    const msgContent = {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage: {
+            body: { text: String(text || "") },
+            footer: { text: footer || "" },
+            header: { hasMediaAttachment: false },
+            nativeFlowMessage: {
+              buttons: nativeButtons,
+              messageParamsJson: JSON.stringify({ from: "apiv2", templateId: "4194019344155670" }),
+            },
+          },
+        },
       },
     };
 
-    // Padrão papi-local: sendMessage + viewOnceMessage wrapper
-    await wbot.sendMessage(jid, {
-      viewOnceMessage: {
-        message: {
-          interactiveMessage
-        }
-      }
-    } as any);
+    const newMsg = generateWAMessageFromContent(jid, msgContent, {
+      userJid: wbot.user?.id || jid
+    });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
 
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
   } catch (err) {
@@ -275,31 +277,33 @@ export async function sendListMessage(
       }))
     }));
 
-    const interactiveMessage = {
-      body: { text: String(text || "") },
-      footer: { text: footer || "" },
-      header: { hasMediaAttachment: false },
-      nativeFlowMessage: {
-        buttons: [
-          {
-            name: "single_select",
-            buttonParamsJson: JSON.stringify({
-              title: buttonText || "Ver opções",
-              sections: nativeSections
-            })
-          }
-        ]
-      }
-    };
-
-    // Padrão papi-local: sendMessage + viewOnceMessage wrapper
-    await wbot.sendMessage(jid, {
+    const msgContent = {
       viewOnceMessage: {
         message: {
-          interactiveMessage
-        }
-      }
-    } as any);
+          interactiveMessage: {
+            body: { text: String(text || "") },
+            footer: { text: footer || "" },
+            header: { hasMediaAttachment: false },
+            nativeFlowMessage: {
+              buttons: [
+                {
+                  name: "single_select",
+                  buttonParamsJson: JSON.stringify({
+                    title: buttonText || "Ver opções",
+                    sections: nativeSections
+                  })
+                }
+              ]
+            },
+          },
+        },
+      },
+    };
+
+    const newMsg = generateWAMessageFromContent(jid, msgContent, {
+      userJid: wbot.user?.id || jid
+    });
+    await wbot.relayMessage(jid, newMsg.message!, { messageId: newMsg.key.id });
 
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
   } catch (err) {
