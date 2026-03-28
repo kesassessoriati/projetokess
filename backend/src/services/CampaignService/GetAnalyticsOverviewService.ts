@@ -86,7 +86,7 @@ const normalizeSummary = (row?: QueryRow): Summary => ({
 const GetAnalyticsOverviewService = async (
   companyId: number | string
 ): Promise<Response> => {
-  const replacements = { companyId };
+  const bind = { companyId };
 
   const shippingAggregateSql = `
     SELECT
@@ -119,7 +119,7 @@ const GetAnalyticsOverviewService = async (
         COALESCE((
           SELECT COUNT(*)
           FROM "ContactListItems" cli
-          WHERE cli."companyId" = :companyId
+          WHERE cli."companyId" = $companyId
         ), 0)::int AS "totalContacts",
         COUNT(c.id)::int AS "totalCampaigns",
         COALESCE(SUM(CASE WHEN COALESCE(c."campaignType", 'whatsapp') = 'whatsapp' THEN 1 ELSE 0 END), 0)::int AS "totalWhatsAppCampaigns",
@@ -127,7 +127,7 @@ const GetAnalyticsOverviewService = async (
         COALESCE((
           SELECT COUNT(*)
           FROM "ContactLists" cl
-          WHERE cl."companyId" = :companyId
+          WHERE cl."companyId" = $companyId
         ), 0)::int AS "totalContactLists",
         CASE
           WHEN COALESCE(SUM(COALESCE(ship."totalSends", 0)), 0) > 0
@@ -142,9 +142,9 @@ const GetAnalyticsOverviewService = async (
         END AS "averageDeliveryRate"
       FROM "Campaigns" c
       LEFT JOIN (${shippingAggregateSql}) ship ON ship."campaignId" = c.id
-      WHERE c."companyId" = :companyId
+      WHERE c."companyId" = $companyId
     `,
-    { replacements, type: QueryTypes.SELECT }
+    { bind, type: QueryTypes.SELECT }
   );
 
   const messagesOverTimeRows = await sequelize.query<QueryRow>(
@@ -156,11 +156,11 @@ const GetAnalyticsOverviewService = async (
         COALESCE(SUM(CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS total
       FROM generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, INTERVAL '1 day') AS day_series(day)
       LEFT JOIN "CampaignShipping" cs ON DATE(cs."createdAt") = DATE(day_series.day)
-      LEFT JOIN "Campaigns" c ON c.id = cs."campaignId" AND c."companyId" = :companyId
+      LEFT JOIN "Campaigns" c ON c.id = cs."campaignId" AND c."companyId" = $companyId
       GROUP BY day_series.day
       ORDER BY day_series.day ASC
     `,
-    { replacements, type: QueryTypes.SELECT }
+    { bind, type: QueryTypes.SELECT }
   );
 
   const channelComparisonRows = await sequelize.query<QueryRow>(
@@ -175,11 +175,11 @@ const GetAnalyticsOverviewService = async (
         COALESCE(SUM(COALESCE(ship.failed, 0)), 0)::int AS failed
       FROM "Campaigns" c
       LEFT JOIN (${shippingAggregateSql}) ship ON ship."campaignId" = c.id
-      WHERE c."companyId" = :companyId
+      WHERE c."companyId" = $companyId
       GROUP BY channel
       ORDER BY channel ASC
     `,
-    { replacements, type: QueryTypes.SELECT }
+    { bind, type: QueryTypes.SELECT }
   );
 
   const statusDistributionRows = await sequelize.query<QueryRow>(
@@ -188,11 +188,11 @@ const GetAnalyticsOverviewService = async (
         c.status,
         COUNT(*)::int AS count
       FROM "Campaigns" c
-      WHERE c."companyId" = :companyId
+      WHERE c."companyId" = $companyId
       GROUP BY c.status
       ORDER BY count DESC, c.status ASC
     `,
-    { replacements, type: QueryTypes.SELECT }
+    { bind, type: QueryTypes.SELECT }
   );
 
   const campaignPerformanceRows = await sequelize.query<QueryRow>(
@@ -222,11 +222,11 @@ const GetAnalyticsOverviewService = async (
         END AS "deliveryRate"
       FROM "Campaigns" c
       LEFT JOIN (${shippingAggregateSql}) ship ON ship."campaignId" = c.id
-      WHERE c."companyId" = :companyId
+      WHERE c."companyId" = $companyId
       ORDER BY "deliveryRate" DESC, "totalSends" DESC, c."createdAt" DESC
       LIMIT 10
     `,
-    { replacements, type: QueryTypes.SELECT }
+    { bind, type: QueryTypes.SELECT }
   );
 
   const summary = normalizeSummary(summaryRows[0]);
