@@ -5146,8 +5146,8 @@ const handleMessage = async (
     // Dispara evento MESSAGE_RECEIVED para webhooks configurados.
     // Suprimido se o agente ativou "Desabilitar chatbot" (pause por 1 hora, por ticket).
     const _webhookPaused =
-      ticket.webhookPausedUntil instanceof Date &&
-      ticket.webhookPausedUntil > new Date();
+      !!ticket.webhookPausedUntil &&
+      new Date(ticket.webhookPausedUntil) > new Date();
     if (!msg.key.fromMe && !ticket.isGroup && !_webhookPaused) {
       // Inclui base64 da mídia no payload quando houver arquivo de mídia
       let _mediaBase64: string | undefined;
