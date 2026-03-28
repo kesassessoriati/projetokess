@@ -16,7 +16,7 @@ const ensureExternalAuth = (req: Request) => {
 // GET /api/external/appointments
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = ensureExternalAuth(req);
-  const { scheduleId, status, startDate, endDate, pageNumber } = req.query as Record<string, string>;
+  const { scheduleId, status, startDate, endDate, pageNumber, leadPhone } = req.query as Record<string, string>;
 
   const result = await ListAppointmentsService({
     companyId,
@@ -26,7 +26,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     status,
     startDate,
     endDate,
-    pageNumber
+    pageNumber,
+    leadPhone
   });
 
   return res.json(result);

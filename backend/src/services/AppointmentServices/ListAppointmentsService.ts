@@ -15,6 +15,7 @@ interface ListAppointmentsQuery {
   startDate?: string;
   endDate?: string;
   pageNumber?: string;
+  leadPhone?: string;
 }
 
 interface UserMetric {
@@ -38,7 +39,8 @@ const ListAppointmentsService = async ({
   status,
   startDate,
   endDate,
-  pageNumber = "1"
+  pageNumber = "1",
+  leadPhone
 }: ListAppointmentsQuery): Promise<ListAppointmentsResponse> => {
   const where: any = { companyId };
 
@@ -68,6 +70,10 @@ const ListAppointmentsService = async ({
 
   if (status) {
     where.status = status;
+  }
+
+  if (leadPhone) {
+    where.leadPhone = { [Op.like]: `%${leadPhone}%` };
   }
 
   if (startDate && endDate) {
