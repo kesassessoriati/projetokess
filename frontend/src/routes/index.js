@@ -36,6 +36,8 @@ import ApiFaturasPage from "../pages/api-faturas";
 import ApiCrmLeadsPage from "../pages/api-crm-leads";
 import ApiPipelinePage from "../pages/api-pipeline";
 import ApiPresencePage from "../pages/api-presence";
+import ApiAgendaPage from "../pages/api-agenda";
+import ApiGrupoPage from "../pages/api-grupo";
 import PublicApiDocs from "../pages/PublicApiDocs";
 import Helps from "../pages/Helps";
 import ContactLists from "../pages/ContactLists";
@@ -206,6 +208,8 @@ const Routes = () => {
                         <Route exact path="/api-crm-leads" component={ApiCrmLeadsPage} isPrivate />
                         <Route exact path="/api-pipeline" component={ApiPipelinePage} isPrivate />
                         <Route exact path="/api-presence" component={ApiPresencePage} isPrivate />
+                        <Route exact path="/api-agenda" component={ApiAgendaPage} isPrivate />
+                        <Route exact path="/api-grupo" component={ApiGrupoPage} isPrivate />
                         <Route exact path="/settings" component={SettingsCustom} isPrivate />
                         <Route exact path="/queues" component={Departamentos} isPrivate />
                         <Route exact path="/departamentos" component={Departamentos} isPrivate />

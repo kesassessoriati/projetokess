@@ -173,6 +173,18 @@ const DocumentacaoPage = () => {
       description: "Simule o status 'digitando...' no WhatsApp para um contato via API.",
       route: "/api-presence",
       isNew: true
+    },
+    {
+      title: "API de Agenda — Compromissos",
+      description: "Crie e gerencie compromissos na agenda via token da empresa. Ideal para agentes de IA. Não requer Google Calendar.",
+      route: "/api-agenda",
+      isNew: true
+    },
+    {
+      title: "API de Mensagem em Grupo",
+      description: "Envie mensagens para grupos WhatsApp via token do canal. Use noRegister: true para envio direto sem criar ticket.",
+      route: "/api-grupo",
+      isNew: true
     }
   ];
 
