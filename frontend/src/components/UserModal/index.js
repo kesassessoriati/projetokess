@@ -3,7 +3,7 @@ import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 import { makeStyles } from "@material-ui/core/styles";
-import { green, purple, deepPurple, blue, grey } from "@material-ui/core/colors";
+import { green, grey } from "@material-ui/core/colors";
 import Button from "@material-ui/core/Button";
 import TextField from "@material-ui/core/TextField";
 import Dialog from "@material-ui/core/Dialog";
@@ -109,7 +109,7 @@ const useStyles = makeStyles(theme => ({
     margin: theme.spacing(2),
     cursor: 'pointer',
     borderRadius: '50%',
-    border: `2px solid ${deepPurple[300]}`,
+    border: '2px solid #e5e7eb',
     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
   },
   updateDiv: {
@@ -151,10 +151,10 @@ const useStyles = makeStyles(theme => ({
     maxHeight: '800px',
   },
   dialogTitle: {
-    backgroundColor: "#3f51b5",
+    backgroundColor: "#1a1a1a",
     color: 'white',
     padding: theme.spacing(1.5, 3),
-    borderBottom: `1px solid ${deepPurple[100]}`,
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
     display: 'flex',
     alignItems: 'center',
     minHeight: '60px',
@@ -169,7 +169,7 @@ const useStyles = makeStyles(theme => ({
   },
   dialogContent: {
     padding: theme.spacing(4),
-    backgroundColor: '#f9f9ff',
+    backgroundColor: '#f9fafb',
     overflowY: 'auto',
     height: 'calc(100% - 120px)',
   },
@@ -188,12 +188,12 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 600,
     minHeight: 48,
     '&.Mui-selected': {
-      color: deepPurple[500],
+      color: '#1a1a1a',
       fontWeight: 700,
     },
   },
   tabIndicator: {
-    backgroundColor: deepPurple[500],
+    backgroundColor: '#1a1a1a',
     height: 3,
   },
   tabPanel: {
@@ -202,7 +202,7 @@ const useStyles = makeStyles(theme => ({
     overflowY: 'auto',
   },
   sectionTitle: {
-    color: deepPurple[500],
+    color: '#1a1a1a',
     marginBottom: theme.spacing(2),
     fontWeight: 600,
     fontSize: '1.1rem',
@@ -229,13 +229,13 @@ const useStyles = makeStyles(theme => ({
     fontSize: "12px",
   },
   saveButton: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: '#1a1a1a',
     color: 'white',
     fontWeight: 600,
     padding: '8px 24px',
     borderRadius: '8px',
     '&:hover': {
-      background: 'linear-gradient(135deg, #5a6fd1 0%, #6a3d9a 100%)',
+      background: '#333333',
     },
   },
   cancelButton: {
@@ -255,10 +255,10 @@ const useStyles = makeStyles(theme => ({
         borderColor: grey[300],
       },
       '&:hover fieldset': {
-        borderColor: deepPurple[300],
+        borderColor: '#555555',
       },
       '&.Mui-focused fieldset': {
-        borderColor: deepPurple[500],
+        borderColor: '#1a1a1a',
       },
     },
   },
@@ -285,7 +285,7 @@ const useStyles = makeStyles(theme => ({
     height: '100%',
   },
   inputIcon: {
-    color: deepPurple[500],
+    color: '#555555',
   },
 }));
 
@@ -1472,7 +1472,7 @@ const UserModal = ({ open, onClose, userId }) => {
                   type="submit"
                   style={{
                   color: "white",
-                  backgroundColor: "#437db5",
+                  backgroundColor: "#1a1a1a",
                   boxShadow: "none",
                   borderRadius: "5px",
                   fontSize: "12px",
