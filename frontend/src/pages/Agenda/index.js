@@ -98,8 +98,8 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     flexDirection: "column",
     minHeight: "100vh",
-    padding: theme.spacing(3),
-    gap: theme.spacing(3),
+    padding: theme.spacing(2.5),
+    gap: theme.spacing(2.25),
     background:
       "radial-gradient(circle at top left, rgba(37,99,235,0.12), transparent 28%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
     overflowY: "auto",
@@ -111,8 +111,8 @@ const useStyles = makeStyles(theme => ({
   },
   overviewShell: {
     position: "relative",
-    padding: theme.spacing(3.25),
-    borderRadius: 32,
+    padding: theme.spacing(2.75),
+    borderRadius: 30,
     background:
       "linear-gradient(135deg, #172554 0%, #1e3a8a 46%, #1d4ed8 100%)",
     boxShadow: "0 28px 70px rgba(15, 23, 42, 0.2)",
@@ -144,7 +144,7 @@ const useStyles = makeStyles(theme => ({
     zIndex: 1,
     display: "grid",
     gridTemplateColumns: "minmax(0, 1.25fr) minmax(320px, 0.75fr)",
-    gap: theme.spacing(2.5),
+    gap: theme.spacing(2),
     alignItems: "stretch",
     [theme.breakpoints.down("md")]: {
       gridTemplateColumns: "1fr"
@@ -153,7 +153,7 @@ const useStyles = makeStyles(theme => ({
   heroPane: {
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(2.25)
+    gap: theme.spacing(1.75)
   },
   pageBadge: {
     alignSelf: "flex-start",
@@ -164,29 +164,29 @@ const useStyles = makeStyles(theme => ({
     letterSpacing: 0.3
   },
   heroTitle: {
-    fontSize: 44,
-    lineHeight: 1.02,
+    fontSize: 40,
+    lineHeight: 1,
     letterSpacing: "-0.04em",
     fontWeight: 800,
     color: "#ffffff",
     maxWidth: 760,
     [theme.breakpoints.down("md")]: {
-      fontSize: 36
+      fontSize: 34
     },
     [theme.breakpoints.down("sm")]: {
-      fontSize: 30
+      fontSize: 28
     }
   },
   heroSubtitle: {
     maxWidth: 720,
     color: "rgba(219, 234, 254, 0.92)",
-    fontSize: 15,
-    lineHeight: 1.55
+    fontSize: 14,
+    lineHeight: 1.5
   },
   heroActions: {
     display: "flex",
     flexWrap: "wrap",
-    gap: theme.spacing(1.5)
+    gap: theme.spacing(1.25)
   },
   primaryAction: {
     borderRadius: 16,
@@ -222,7 +222,7 @@ const useStyles = makeStyles(theme => ({
   heroSupportRow: {
     display: "flex",
     flexWrap: "wrap",
-    gap: theme.spacing(1)
+    gap: theme.spacing(0.75)
   },
   heroSupportChip: {
     borderRadius: 999,
@@ -233,28 +233,32 @@ const useStyles = makeStyles(theme => ({
   },
   summaryColumn: {
     display: "grid",
-    gap: theme.spacing(1.5)
+    gap: theme.spacing(1.1)
   },
   summaryCard: {
     position: "relative",
-    padding: theme.spacing(2.25),
-    borderRadius: 24,
-    background: "rgba(255,255,255,0.1)",
+    padding: theme.spacing(1.75),
+    borderRadius: 22,
+    background:
+      "linear-gradient(180deg, rgba(15,23,42,0.78) 0%, rgba(30,41,59,0.92) 100%)",
     color: "#fff",
-    border: "1px solid rgba(255,255,255,0.12)",
+    border: "1px solid rgba(148,163,184,0.18)",
     backdropFilter: "blur(14px)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)"
+    boxShadow:
+      "0 18px 30px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255,255,255,0.06)"
   },
   summaryCardPrimary: {
-    minHeight: 184,
+    minHeight: 166,
     display: "flex",
     flexDirection: "column",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    background:
+      "linear-gradient(135deg, rgba(23,37,84,0.96) 0%, rgba(30,58,138,0.98) 48%, rgba(29,78,216,0.94) 100%)"
   },
   summaryMiniGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: theme.spacing(1.5),
+    gap: theme.spacing(1.1),
     [theme.breakpoints.down("sm")]: {
       gridTemplateColumns: "1fr"
     }
@@ -278,7 +282,7 @@ const useStyles = makeStyles(theme => ({
     }
   },
   summaryDescription: {
-    marginTop: theme.spacing(1),
+    marginTop: theme.spacing(0.75),
     color: "rgba(226, 232, 240, 0.9)",
     lineHeight: 1.5
   },
@@ -310,11 +314,11 @@ const useStyles = makeStyles(theme => ({
     zIndex: 1,
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: theme.spacing(1.5),
-    marginTop: theme.spacing(2.5)
+    gap: theme.spacing(1.25),
+    marginTop: theme.spacing(2)
   },
   statCard: {
-    padding: theme.spacing(2),
+    padding: theme.spacing(1.75),
     borderRadius: 22,
     background: "rgba(255,255,255,0.96)",
     border: "1px solid rgba(226,232,240,0.64)",
@@ -356,15 +360,12 @@ const useStyles = makeStyles(theme => ({
     position: "relative",
     zIndex: 1,
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.25fr) minmax(320px, 0.75fr)",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: theme.spacing(1.5),
-    marginTop: theme.spacing(2.5),
-    [theme.breakpoints.down("md")]: {
-      gridTemplateColumns: "1fr"
-    }
+    marginTop: theme.spacing(2)
   },
   panel: {
-    padding: theme.spacing(2.25),
+    padding: theme.spacing(2),
     borderRadius: 24,
     border: "1px solid rgba(226,232,240,0.58)",
     boxShadow: "0 16px 30px rgba(15, 23, 42, 0.12)"
@@ -372,20 +373,13 @@ const useStyles = makeStyles(theme => ({
   filterPanel: {
     background: "rgba(255,255,255,0.97)"
   },
-  quickPanel: {
-    background:
-      "linear-gradient(180deg, rgba(15,23,42,0.72) 0%, rgba(15,23,42,0.88) 100%)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    color: "#fff",
-    boxShadow: "0 18px 34px rgba(15, 23, 42, 0.18)"
-  },
   panelHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: theme.spacing(2),
     flexWrap: "wrap",
-    marginBottom: theme.spacing(2)
+    marginBottom: theme.spacing(1.5)
   },
   panelTitleWrap: {
     display: "flex",
@@ -413,12 +407,6 @@ const useStyles = makeStyles(theme => ({
     color: "#64748b",
     lineHeight: 1.45
   },
-  quickPanelTitle: {
-    color: "#ffffff"
-  },
-  quickPanelSubtitle: {
-    color: "rgba(226,232,240,0.76)"
-  },
   filterActions: {
     display: "flex",
     alignItems: "center",
@@ -439,83 +427,11 @@ const useStyles = makeStyles(theme => ({
   },
   filterGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: theme.spacing(1.5)
-  },
-  quickFactsList: {
-    display: "grid",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1.5)
-  },
-  quickFactItem: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing(1.5),
-    padding: theme.spacing(1.25, 1.5),
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.08)"
-  },
-  quickFactLabel: {
-    color: "rgba(226, 232, 240, 0.86)",
-    fontSize: 13
-  },
-  quickFactValue: {
-    fontWeight: 800,
-    color: "#fff",
-    textAlign: "right"
-  },
-  rankingBlock: {
-    marginTop: theme.spacing(2)
-  },
-  rankingTitle: {
-    fontSize: 13,
-    fontWeight: 800,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    color: "rgba(191, 219, 254, 0.92)"
-  },
-  rankingList: {
-    display: "grid",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1)
-  },
-  rankingItem: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing(1.5),
-    padding: theme.spacing(1.2, 1.4),
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.08)"
-  },
-  rankingItemLead: {
-    background:
-      "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.12))"
-  },
-  rankingLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(1)
-  },
-  rankingIndex: {
-    minWidth: 24,
-    fontSize: 13,
-    fontWeight: 800,
-    color: "rgba(191, 219, 254, 0.92)"
-  },
-  rankingName: {
-    fontWeight: 700,
-    color: "#ffffff"
-  },
-  rankingValue: {
-    fontWeight: 800,
-    color: "#ffffff"
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: theme.spacing(1.25)
   },
   contentShell: {
-    padding: theme.spacing(2.5),
+    padding: theme.spacing(2.25),
     borderRadius: 30,
     background: "rgba(255,255,255,0.97)",
     border: "1px solid rgba(148,163,184,0.18)",
@@ -870,8 +786,6 @@ const Agenda = () => {
   const [appointmentData, setAppointmentData] = useState({ appointments: [] });
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [errorAppointments, setErrorAppointments] = useState(null);
-  const [metricsByUser, setMetricsByUser] = useState([]);
-
   const { data: schedulesData } = useSafeApi("/user-schedules", { manual: false });
 
   const appointments = appointmentData?.appointments || [];
@@ -950,7 +864,6 @@ const Agenda = () => {
 
       const data = await listAppointments(params);
       setAppointmentData(data);
-      setMetricsByUser(data.metricsByUser || []);
     } catch (err) {
       setErrorAppointments(err);
       toastError(err);
@@ -1087,24 +1000,14 @@ const Agenda = () => {
     filters.startDate || filters.endDate ? "Período personalizado" : "Sem recorte por data"
   ];
 
-  const quickFacts = [
-    { label: "Agenda em foco", value: selectedScheduleName },
-    {
-      label: "Filtros ativos",
-      value: activeFiltersCount ? `${activeFiltersCount} aplicado(s)` : "Nenhum"
-    },
-    { label: "Hoje", value: `${appointmentsToday} compromisso(s)` },
-    {
-      label: "Próximo compromisso",
-      value: nextAppointment ? formatDateTime(nextAppointment.startDatetime) : "Sem agenda"
-    }
-  ];
-
   const summaryChips = [
     `${appointments.length} item(ns)`,
     `${stats.scheduled} agendado(s)`,
     `${stats.confirmed} confirmado(s)`,
-    `${appointmentsToday} hoje`
+    `${appointmentsToday} hoje`,
+    activeFiltersCount
+      ? `${activeFiltersCount} filtro(s) ativo(s)`
+      : "Nenhum filtro ativo"
   ];
 
   const renderAppointmentActions = appointment => (
@@ -1600,59 +1503,6 @@ const Agenda = () => {
                 onChange={handleFilterChange("endDate")}
               />
             </Box>
-          </Paper>
-          <Paper elevation={0} className={`${classes.panel} ${classes.quickPanel}`}>
-            <Box className={classes.panelHeader}>
-              <Box>
-                <Typography className={`${classes.panelTitle} ${classes.quickPanelTitle}`}>
-                  Resumo rápido
-                </Typography>
-                <Typography
-                  className={`${classes.panelSubtitle} ${classes.quickPanelSubtitle}`}
-                >
-                  Leitura de operação e contexto sem sair da tela.
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box className={classes.quickFactsList}>
-              {quickFacts.map(item => (
-                <Box key={item.label} className={classes.quickFactItem}>
-                  <Typography className={classes.quickFactLabel}>{item.label}</Typography>
-                  <Typography className={classes.quickFactValue}>{item.value}</Typography>
-                </Box>
-              ))}
-            </Box>
-
-            {metricsByUser.length > 1 && (
-              <Box className={classes.rankingBlock}>
-                <Typography className={classes.rankingTitle}>
-                  Compromissos por usuário
-                </Typography>
-
-                <Box className={classes.rankingList}>
-                  {metricsByUser.slice(0, 4).map((item, index) => (
-                    <Box
-                      key={item.userId}
-                      className={`${classes.rankingItem} ${
-                        index === 0 ? classes.rankingItemLead : ""
-                      }`}
-                    >
-                      <Box className={classes.rankingLeft}>
-                        <Typography className={classes.rankingIndex}>
-                          #{index + 1}
-                        </Typography>
-                        <Typography className={classes.rankingName}>
-                          {item.userName}
-                        </Typography>
-                      </Box>
-
-                      <Typography className={classes.rankingValue}>{item.count}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            )}
           </Paper>
         </Box>
       </Box>
