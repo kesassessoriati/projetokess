@@ -5163,8 +5163,18 @@ const handleMessage = async (
       let _mediaMimeType: string | undefined;
       let _mediaFilename: string | undefined;
 
+      // mediaUrlPublic: URL pública completa vinda do getter do model (ex: https://domain/public/company1/file.ogg)
+      // _rawMediaFilename: apenas o nome do arquivo gravado no DB (ex: file.ogg) — necessário para ler do filesystem
+      let _mediaUrlPublic: string | undefined;
       if (hasMedia && mediaSent?.mediaUrl) {
-        try {
+        _mediaUrlPublic = mediaSent.mediaUrl; // getter retorna URL completa
+        const _rawMediaFilename = mediaSent.getDataValue("mediaUrl") as string | null;
+        const _mediaMeta = getMessageMedia(getUnpackedMessage(msg));
+        _mediaMimeType = _mediaMeta?.mimetype || `${mediaSent.mediaType}/octet-stream`;
+        _mediaFilename = _rawMediaFilename || undefined;
+
+        if (_rawMediaFilename) {
+          // Usa o nome cru do arquivo (não a URL pública) para montar o caminho no filesystem
           const _mediaFilePath = path.resolve(
             __dirname,
             "..",
@@ -5172,18 +5182,18 @@ const handleMessage = async (
             "..",
             "public",
             `company${companyId}`,
-            mediaSent.mediaUrl
+            _rawMediaFilename
           );
-          _mediaBase64 = fs.readFileSync(_mediaFilePath, "base64");
-          _mediaFilename = mediaSent.mediaUrl;
-          const _mediaMeta = getMessageMedia(getUnpackedMessage(msg));
-          _mediaMimeType =
-            _mediaMeta?.mimetype ||
-            `${mediaSent.mediaType}/octet-stream`;
-        } catch (_err: any) {
-          logger.warn(
-            `[WebhookDispatch] Erro ao ler mídia para webhook: ${_err.message}`
+          logger.info(
+            `[WebhookDispatch] Lendo mídia para webhook: arquivo=${_rawMediaFilename} path=${_mediaFilePath} mimeType=${_mediaMimeType}`
           );
+          try {
+            _mediaBase64 = fs.readFileSync(_mediaFilePath, "base64");
+          } catch (_fsErr: any) {
+            logger.warn(
+              `[WebhookDispatch] Não foi possível ler mídia do filesystem (${_mediaFilePath}): ${_fsErr.message}. Payload incluirá apenas mediaUrl.`
+            );
+          }
         }
       }
 
@@ -5206,10 +5216,11 @@ const handleMessage = async (
           type: getTypeMessage(msg),
           timestamp: msg.messageTimestamp,
           fromMe: false,
-          ...(_mediaBase64 !== undefined && {
-            mediaBase64: _mediaBase64,
+          ...(hasMedia && _mediaUrlPublic !== undefined && {
+            mediaUrl: _mediaUrlPublic,
             mimeType: _mediaMimeType,
-            filename: _mediaFilename
+            filename: _mediaFilename,
+            ...(_mediaBase64 !== undefined && { mediaBase64: _mediaBase64 })
           })
         },
         whatsapp: {
