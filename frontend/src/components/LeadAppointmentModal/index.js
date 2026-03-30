@@ -45,10 +45,21 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         }
     }, [open, op, user]);
 
+    const getCurrentLocalDatetime = () => {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, "0");
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    };
+
     const loadData = async () => {
         try {
             const { data: schedulesRes } = await api.get("/user-schedules");
-            setSchedules(schedulesRes.schedules || []);
+            const fetched = schedulesRes.schedules || [];
+            setSchedules(fetched);
+            const active = fetched.filter(s => s.active);
+            if (active.length === 1) {
+                setScheduleId(String(active[0].id));
+            }
         } catch (err) {
             console.error("Erro ao carregar agendas:", err);
         }
@@ -66,7 +77,7 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         setDescription("Reunião de negócios para consultoria e análise estratégica.");
         setClientEmail((op && op.contact && op.contact.email) || (op && op.lead && op.lead.email) || "");
         setOrganizerEmail((user && user.email) || "");
-        setStartDatetime("");
+        setStartDatetime(getCurrentLocalDatetime());
         setDurationMinutes("60");
         setScheduleId("");
         // Pré-preencher nome e telefone do lead
