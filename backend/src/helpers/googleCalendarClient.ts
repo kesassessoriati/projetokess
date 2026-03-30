@@ -131,7 +131,8 @@ export const updateGoogleCalendarEvent = async (
   refreshToken: string | null = null,
   eventId: string,
   eventData: any,
-  calendarId: string = "primary"
+  calendarId: string = "primary",
+  sendUpdates: "all" | "externalOnly" | "none" = "all"
 ) => {
   try {
     const oauth2Client = await createOAuth2Client();
@@ -146,11 +147,16 @@ export const updateGoogleCalendarEvent = async (
 
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-    const event = await calendar.events.update({
+    // Usar events.patch (PATCH semântico) em vez de events.update (PUT completo).
+    // events.update substitui o evento inteiro: campos ausentes no body (como attendees)
+    // são tratados como removidos, o que faz o Google enviar e-mail de cancelamento
+    // aos convidados. events.patch altera apenas os campos fornecidos, preservando
+    // attendees, conferenceData e qualquer outro campo não mencionado.
+    const event = await calendar.events.patch({
       calendarId,
       eventId,
       conferenceDataVersion: 1,
-      sendUpdates: "all",
+      sendUpdates,
       requestBody: eventData
     });
 
@@ -173,7 +179,8 @@ export const updateGoogleCalendarEvent = async (
           refreshToken,
           eventId,
           eventData,
-          calendarId
+          calendarId,
+          sendUpdates
         );
       } catch (refreshError) {
         console.error("ERROR - Falha no refresh do token para update:", refreshError);

@@ -165,8 +165,23 @@ const UpdateAppointmentService = async (
   // Sincronizar com Google Calendar se tiver evento vinculado
   if (appointment.googleEventId) {
     try {
-      console.log("DEBUG - Atualizando evento no Google Calendar:", appointment.googleEventId);
-      
+      // Determinar tipo de ação para log e comportamento correto
+      const newStatus = appointment.status;
+      const isCancellation = newStatus === 'cancelled';
+      // Mudança de conteúdo = título, horário ou duração foi alterado nesta chamada
+      const isContentChange = !!(data.title || data.startDatetime || data.durationMinutes || data.description);
+      // Mudanças internas (confirmar, concluir, não comparecer) não precisam notificar convidados
+      const sendUpdates: "all" | "none" = (isCancellation || isContentChange) ? "all" : "none";
+      const actionType = isCancellation ? "cancellation" : isContentChange ? "content_update" : "status_change";
+
+      console.log(`DEBUG - Atualizando evento no Google Calendar [${actionType}]:`, {
+        appointmentId: appointment.id,
+        googleEventId: appointment.googleEventId,
+        previousStatus: data.status ? "changed" : "unchanged",
+        newStatus,
+        sendUpdates
+      });
+
       const schedule = await UserSchedule.findOne({
         where: { id: appointment.scheduleId }
       });
@@ -182,19 +197,19 @@ const UpdateAppointmentService = async (
 
           // Buscar informações adicionais para descrição completa
           let fullDescription = appointment.description || "";
-          
+
           if (appointment.serviceId) {
             // TODO: Buscar informações do serviço
             fullDescription += fullDescription ? "\n\n" : "";
             fullDescription += `Serviço ID: ${appointment.serviceId}`;
           }
-          
+
           if (appointment.clientId) {
             // TODO: Buscar informações do cliente
             fullDescription += fullDescription ? "\n\n" : "";
             fullDescription += `Cliente ID: ${appointment.clientId}`;
           }
-          
+
           if (appointment.contactId) {
             // TODO: Buscar informações do contato
             fullDescription += fullDescription ? "\n\n" : "";
@@ -202,31 +217,43 @@ const UpdateAppointmentService = async (
           }
 
           fullDescription += fullDescription ? "\n\n" : "";
-          fullDescription += `Status: ${appointment.status}`;
+          fullDescription += `Status: ${newStatus}`;
           fullDescription += `\nAgendado via sistema em: ${appointment.createdAt.toLocaleDateString('pt-BR')}`;
+
+          // Nota: usamos events.patch (não events.update) para preservar attendees e
+          // conferenceData existentes. events.update (PUT completo) removeria todos os
+          // campos não fornecidos, incluindo os convidados, causando e-mails de cancelamento.
+          const calendarPayload: any = {
+            summary: appointment.title,
+            description: fullDescription,
+            start: {
+              dateTime: newStartDatetime.toISOString(),
+              timeZone: 'America/Sao_Paulo'
+            },
+            end: {
+              dateTime: newEndDatetime.toISOString(),
+              timeZone: 'America/Sao_Paulo'
+            },
+            status: isCancellation ? 'cancelled' : 'confirmed'
+          };
+
+          console.log(`DEBUG - Payload Google Calendar [${actionType}]:`, {
+            googleEventId: appointment.googleEventId,
+            status: calendarPayload.status,
+            sendUpdates
+          });
 
           const googleEvent = await updateGoogleCalendarEvent(
             integration.accessToken,
             integration.refreshToken,
             appointment.googleEventId,
-            {
-              summary: appointment.title,
-              description: fullDescription,
-              start: {
-                dateTime: newStartDatetime.toISOString(),
-                timeZone: 'America/Sao_Paulo'
-              },
-              end: {
-                dateTime: newEndDatetime.toISOString(),
-                timeZone: 'America/Sao_Paulo'
-              },
-              status: appointment.status === 'cancelled' ? 'cancelled' : 'confirmed'
-            },
-            integration.calendarId
+            calendarPayload,
+            integration.calendarId,
+            sendUpdates
           );
 
           if (googleEvent && googleEvent.id) {
-            console.log("DEBUG - Evento atualizado no Google Calendar:", googleEvent.id);
+            console.log(`DEBUG - Evento atualizado no Google Calendar [${actionType}]:`, googleEvent.id);
           }
         }
       }
