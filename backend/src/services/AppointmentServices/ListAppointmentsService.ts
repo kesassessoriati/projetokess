@@ -129,7 +129,7 @@ const ListAppointmentsService = async ({
     ],
     limit,
     offset,
-    order: [["startDatetime", "ASC"]]
+    order: [["startDatetime", "DESC"]]
   });
 
   const metricsByUser = await GetAppointmentMetricsByUserService({
