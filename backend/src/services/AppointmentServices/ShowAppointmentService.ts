@@ -38,6 +38,12 @@ const ShowAppointmentService = async (
         model: Contact,
         as: "contact",
         attributes: ["id", "name", "number"]
+      },
+      {
+        model: User,
+        as: "createdByUser",
+        attributes: ["id", "name"],
+        required: false
       }
     ]
   });

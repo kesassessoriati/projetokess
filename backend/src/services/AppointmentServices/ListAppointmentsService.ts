@@ -1,10 +1,13 @@
-import { Op, fn, col } from "sequelize";
+import { Op } from "sequelize";
 import Appointment from "../../models/Appointment";
 import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
 import Servico from "../../models/Servico";
 import CrmClient from "../../models/CrmClient";
 import Contact from "../../models/Contact";
+import GetAppointmentMetricsByUserService, {
+  AppointmentUserMetric
+} from "./GetAppointmentMetricsByUserService";
 
 interface ListAppointmentsQuery {
   companyId: number;
@@ -18,17 +21,11 @@ interface ListAppointmentsQuery {
   leadPhone?: string;
 }
 
-interface UserMetric {
-  userId: number;
-  userName: string;
-  count: number;
-}
-
 interface ListAppointmentsResponse {
   appointments: Appointment[];
   count: number;
   hasMore: boolean;
-  metricsByUser: UserMetric[];
+  metricsByUser: AppointmentUserMetric[];
 }
 
 const ListAppointmentsService = async ({
@@ -95,6 +92,7 @@ const ListAppointmentsService = async ({
 
   const { rows, count } = await Appointment.findAndCountAll({
     where,
+    distinct: true,
     include: [
       {
         model: UserSchedule,
@@ -121,20 +119,7 @@ const ListAppointmentsService = async ({
         model: Contact,
         as: "contact",
         attributes: ["id", "name", "number"]
-      }
-    ],
-    limit,
-    offset,
-    order: [["startDatetime", "ASC"]]
-  });
-
-  const metricsByUser = await Appointment.findAll({
-    where,
-    attributes: [
-      "createdByUserId",
-      [fn("COUNT", col("Appointment.id")), "count"]
-    ],
-    include: [
+      },
       {
         model: User,
         as: "createdByUser",
@@ -142,24 +127,21 @@ const ListAppointmentsService = async ({
         required: false
       }
     ],
-    group: ["createdByUserId", "createdByUser.id", "createdByUser.name"],
-    raw: false
-  }) as any[];
+    limit,
+    offset,
+    order: [["startDatetime", "ASC"]]
+  });
 
-  const metricsFormatted: UserMetric[] = metricsByUser
-    .filter(m => m.createdByUserId != null)
-    .map(m => ({
-      userId: m.createdByUserId,
-      userName: m.createdByUser?.name || "Desconhecido",
-      count: parseInt(m.getDataValue("count"), 10)
-    }))
-    .sort((a, b) => b.count - a.count);
+  const metricsByUser = await GetAppointmentMetricsByUserService({
+    companyId,
+    where
+  });
 
   return {
     appointments: rows,
     count,
     hasMore: count > offset + rows.length,
-    metricsByUser: metricsFormatted
+    metricsByUser
   };
 };
 

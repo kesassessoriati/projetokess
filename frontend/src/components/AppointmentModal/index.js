@@ -101,8 +101,8 @@ const AppointmentModal = (props) => {
     }
 
     try {
-      const { data: usersRes } = await api.get("/users?pageNumber=1");
-      setUsers(usersRes.users || []);
+      const { data: usersRes } = await api.get("/users/list");
+      setUsers(Array.isArray(usersRes) ? usersRes : []);
     } catch (err) {
       console.error("Erro ao carregar usuários:", err);
     }

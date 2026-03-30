@@ -117,7 +117,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     leadPhone,
     participantEmails,
     meetingLink,
-    operationalNote
+    operationalNote,
+    createdByUserId
   } = req.body;
 
   const appointment = await UpdateAppointmentService({
@@ -135,7 +136,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     leadPhone: leadPhone || undefined,
     participantEmails: Array.isArray(participantEmails) ? participantEmails : undefined,
     meetingLink: meetingLink || undefined,
-    operationalNote: operationalNote || undefined
+    operationalNote: operationalNote || undefined,
+    createdByUserId: createdByUserId ? Number(createdByUserId) : undefined
   });
 
   return res.json(appointment);

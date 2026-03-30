@@ -143,17 +143,32 @@ const useStyles = makeStyles(theme => ({
     position: "relative",
     zIndex: 1,
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.25fr) minmax(320px, 0.75fr)",
+    gridTemplateColumns:
+      "minmax(280px, 0.9fr) minmax(340px, 1.15fr) minmax(260px, 0.78fr)",
+    gridTemplateAreas: '"hero team summary"',
     gap: theme.spacing(2),
     alignItems: "stretch",
     [theme.breakpoints.down("md")]: {
-      gridTemplateColumns: "1fr"
+      gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 0.9fr)",
+      gridTemplateAreas: '"hero summary" "team team"'
+    },
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: '"hero" "team" "summary"'
     }
   },
   heroPane: {
+    gridArea: "hero",
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1.75)
+    gap: theme.spacing(1.5),
+    minWidth: 0,
+    padding: theme.spacing(2),
+    borderRadius: 26,
+    background:
+      "linear-gradient(180deg, rgba(59,130,246,0.12) 0%, rgba(30,64,175,0.18) 100%)",
+    border: "1px solid rgba(191,219,254,0.18)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)"
   },
   pageBadge: {
     alignSelf: "flex-start",
@@ -164,23 +179,23 @@ const useStyles = makeStyles(theme => ({
     letterSpacing: 0.3
   },
   heroTitle: {
-    fontSize: 40,
-    lineHeight: 1,
+    fontSize: 34,
+    lineHeight: 1.02,
     letterSpacing: "-0.04em",
     fontWeight: 800,
     color: "#ffffff",
-    maxWidth: 760,
+    maxWidth: 520,
     [theme.breakpoints.down("md")]: {
-      fontSize: 34
+      fontSize: 30
     },
     [theme.breakpoints.down("sm")]: {
-      fontSize: 28
+      fontSize: 26
     }
   },
   heroSubtitle: {
-    maxWidth: 720,
+    maxWidth: 460,
     color: "rgba(219, 234, 254, 0.92)",
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 1.5
   },
   heroActions: {
@@ -189,8 +204,8 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(1.25)
   },
   primaryAction: {
-    borderRadius: 16,
-    padding: theme.spacing(1.25, 2.4),
+    borderRadius: 14,
+    padding: theme.spacing(1.1, 2),
     color: "#fff",
     border: "1px solid rgba(255,255,255,0.1)",
     background: "#020617",
@@ -206,8 +221,8 @@ const useStyles = makeStyles(theme => ({
     }
   },
   secondaryAction: {
-    borderRadius: 16,
-    padding: theme.spacing(1.15, 2.1),
+    borderRadius: 14,
+    padding: theme.spacing(1, 1.8),
     color: "#fff",
     borderColor: "rgba(255,255,255,0.2)",
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -232,13 +247,15 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 700
   },
   summaryColumn: {
+    gridArea: "summary",
     display: "grid",
+    minWidth: 0,
     gap: theme.spacing(1.1)
   },
   summaryCard: {
     position: "relative",
-    padding: theme.spacing(1.75),
-    borderRadius: 22,
+    padding: theme.spacing(1.5),
+    borderRadius: 20,
     background:
       "linear-gradient(180deg, rgba(15,23,42,0.78) 0%, rgba(30,41,59,0.92) 100%)",
     color: "#fff",
@@ -248,7 +265,7 @@ const useStyles = makeStyles(theme => ({
       "0 18px 30px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255,255,255,0.06)"
   },
   summaryCardPrimary: {
-    minHeight: 166,
+    minHeight: 150,
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
@@ -264,7 +281,7 @@ const useStyles = makeStyles(theme => ({
     }
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 800,
     textTransform: "uppercase",
     letterSpacing: 0.7,
@@ -272,13 +289,13 @@ const useStyles = makeStyles(theme => ({
   },
   summaryValue: {
     marginTop: theme.spacing(1),
-    fontSize: 42,
+    fontSize: 36,
     lineHeight: 1,
     fontWeight: 800,
     letterSpacing: "-0.05em",
     overflowWrap: "anywhere",
     [theme.breakpoints.down("sm")]: {
-      fontSize: 34
+      fontSize: 30
     }
   },
   summaryDescription: {
@@ -288,7 +305,7 @@ const useStyles = makeStyles(theme => ({
   },
   summaryMiniValue: {
     marginTop: theme.spacing(1),
-    fontSize: 30,
+    fontSize: 26,
     lineHeight: 1,
     fontWeight: 800,
     letterSpacing: "-0.05em"
@@ -308,6 +325,121 @@ const useStyles = makeStyles(theme => ({
       borderRadius: 999,
       background: "linear-gradient(90deg, #ffffff 0%, #bfdbfe 100%)"
     }
+  },
+  teamPanel: {
+    gridArea: "team",
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+    padding: theme.spacing(1.75),
+    borderRadius: 28,
+    background:
+      "linear-gradient(180deg, rgba(37,99,235,0.26) 0%, rgba(15,23,42,0.34) 100%)",
+    border: "1px solid rgba(191,219,254,0.2)",
+    boxShadow:
+      "0 20px 34px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255,255,255,0.08)"
+  },
+  teamPanelHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1.4),
+    [theme.breakpoints.down("sm")]: {
+      flexDirection: "column"
+    }
+  },
+  teamPanelTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: "#ffffff"
+  },
+  teamPanelSubtitle: {
+    marginTop: theme.spacing(0.35),
+    fontSize: 12,
+    color: "rgba(219, 234, 254, 0.84)",
+    lineHeight: 1.45
+  },
+  teamPanelSummary: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: theme.spacing(0.75),
+    justifyContent: "flex-end",
+    [theme.breakpoints.down("sm")]: {
+      justifyContent: "flex-start"
+    }
+  },
+  teamPanelSummaryChip: {
+    borderRadius: 999,
+    background: "rgba(15,23,42,0.32)",
+    color: "#e0f2fe",
+    border: "1px solid rgba(255,255,255,0.16)",
+    fontWeight: 700
+  },
+  teamGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: theme.spacing(1),
+    alignContent: "start",
+    maxHeight: 304,
+    overflowY: "auto",
+    paddingRight: theme.spacing(0.5),
+    ...theme.scrollbarStyles,
+    [theme.breakpoints.down("sm")]: {
+      maxHeight: "none",
+      paddingRight: 0
+    }
+  },
+  teamCard: {
+    minWidth: 0,
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.1, 1.2),
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.42)",
+    background: "rgba(15,23,42,0.22)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)"
+  },
+  teamCardName: {
+    fontSize: 13,
+    fontWeight: 800,
+    color: "#ffffff",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  teamCardLabel: {
+    marginTop: theme.spacing(0.3),
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: "rgba(219, 234, 254, 0.74)"
+  },
+  teamCardCount: {
+    minWidth: 42,
+    textAlign: "right",
+    fontSize: 24,
+    lineHeight: 1,
+    fontWeight: 800,
+    color: "#22c55e"
+  },
+  teamCardCountZero: {
+    color: "#f87171"
+  },
+  teamEmptyState: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 150,
+    borderRadius: 18,
+    border: "1px dashed rgba(255,255,255,0.18)",
+    color: "rgba(219, 234, 254, 0.82)",
+    textAlign: "center",
+    padding: theme.spacing(2)
   },
   statsRow: {
     position: "relative",
@@ -579,6 +711,10 @@ const useStyles = makeStyles(theme => ({
     fontSize: 13,
     fontWeight: 600
   },
+  appointmentMetaWrap: {
+    display: "grid",
+    gap: 6
+  },
   statusChip: {
     borderRadius: 999,
     fontWeight: 800,
@@ -719,9 +855,35 @@ const useStyles = makeStyles(theme => ({
       border: "none",
       boxShadow: "0 8px 18px rgba(15, 23, 42, 0.18)"
     },
+    "& .rbc-agenda-view table tbody > tr > td": {
+      verticalAlign: "top"
+    },
     "& .rbc-off-range-bg": {
       background: "#f8fafc"
     }
+  },
+  calendarEventBody: {
+    display: "grid",
+    gap: 2,
+    minWidth: 0
+  },
+  calendarEventTitle: {
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1.25,
+    color: "inherit",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  calendarEventCreator: {
+    fontSize: 10,
+    lineHeight: 1.25,
+    color: "inherit",
+    opacity: 0.88,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
   }
 }));
 
@@ -789,7 +951,10 @@ const Agenda = () => {
   const { data: schedulesData } = useSafeApi("/user-schedules", { manual: false });
 
   const appointments = appointmentData?.appointments || [];
+  const metricsByUser = appointmentData?.metricsByUser || [];
   const schedules = schedulesData?.schedules || [];
+  const getCreatedByLabel = appointment => appointment?.createdByUser?.name || "-";
+  const formatMetricCount = count => String(Number(count) || 0).padStart(2, "0");
 
   const stats = {
     total: appointments.length,
@@ -830,6 +995,11 @@ const Agenda = () => {
   }).length;
 
   const activePipelineCount = stats.scheduled + stats.confirmed;
+  const teamScheduledTotal = metricsByUser.reduce(
+    (total, item) => total + (Number(item.count) || 0),
+    0
+  );
+  const activeCreatorsCount = metricsByUser.filter(item => Number(item.count) > 0).length;
 
   const calendarEvents = appointments.map(item => ({
     title: item.title,
@@ -837,6 +1007,7 @@ const Agenda = () => {
     end: new Date(
       new Date(item.startDatetime).getTime() + (item.durationMinutes || 60) * 60000
     ),
+    createdByLabel: getCreatedByLabel(item),
     resource: item
   }));
 
@@ -994,6 +1165,17 @@ const Agenda = () => {
     };
   };
 
+  const CalendarEventContent = ({ event }) => (
+    <Box className={classes.calendarEventBody}>
+      <Typography component="span" className={classes.calendarEventTitle}>
+        {event.title}
+      </Typography>
+      <Typography component="span" className={classes.calendarEventCreator}>
+        {`Agendado por: ${event.createdByLabel || "-"}`}
+      </Typography>
+    </Box>
+  );
+
   const contextChips = [
     selectedScheduleName,
     filters.status ? statusColors[filters.status]?.label || filters.status : "Todos os status",
@@ -1072,6 +1254,7 @@ const Agenda = () => {
               <TableCell className={classes.tableHeadCell}>Data e hora</TableCell>
               <TableCell className={classes.tableHeadCell}>Duração</TableCell>
               <TableCell className={classes.tableHeadCell}>Serviço</TableCell>
+              <TableCell className={classes.tableHeadCell}>Agendado por</TableCell>
               <TableCell className={classes.tableHeadCell}>Status</TableCell>
               <TableCell className={classes.tableHeadCell} align="center">
                 Ações
@@ -1166,6 +1349,13 @@ const Agenda = () => {
                   </TableCell>
 
                   <TableCell>
+                    <Box className={classes.appointmentMeta}>
+                      <PersonIcon fontSize="small" />
+                      {getCreatedByLabel(appointment)}
+                    </Box>
+                  </TableCell>
+
+                  <TableCell>
                     <Chip
                       label={status.label}
                       size="small"
@@ -1208,6 +1398,9 @@ const Agenda = () => {
                       {appointment.description.length > 80 ? "..." : ""}
                     </Typography>
                   )}
+                  <Typography variant="body2" className={classes.appointmentDescription}>
+                    {`Agendado por: ${getCreatedByLabel(appointment)}`}
+                  </Typography>
                 </Box>
 
                 <Chip
@@ -1328,6 +1521,63 @@ const Agenda = () => {
               />
             </Box>
           </Box>
+
+          <Paper elevation={0} className={classes.teamPanel}>
+            <Box className={classes.teamPanelHeader}>
+              <Box>
+                <Typography className={classes.teamPanelTitle}>
+                  Quantidade agendada por membros da equipe
+                </Typography>
+                <Typography className={classes.teamPanelSubtitle}>
+                  Todos os usuários da empresa aparecem aqui, inclusive quando o total está zerado.
+                </Typography>
+              </Box>
+
+              <Box className={classes.teamPanelSummary}>
+                <Chip
+                  className={classes.teamPanelSummaryChip}
+                  label={`${metricsByUser.length} membro(s)`}
+                />
+                <Chip
+                  className={classes.teamPanelSummaryChip}
+                  label={`${teamScheduledTotal} agendamento(s)`}
+                />
+                <Chip
+                  className={classes.teamPanelSummaryChip}
+                  label={`${activeCreatorsCount} com agenda`}
+                />
+              </Box>
+            </Box>
+
+            {metricsByUser.length > 0 ? (
+              <Box className={classes.teamGrid}>
+                {metricsByUser.map(metric => (
+                  <Box key={metric.userId} className={classes.teamCard}>
+                    <Box style={{ minWidth: 0 }}>
+                      <Typography className={classes.teamCardName}>
+                        {metric.userName}
+                      </Typography>
+                      <Typography className={classes.teamCardLabel}>
+                        compromissos visíveis
+                      </Typography>
+                    </Box>
+
+                    <Typography
+                      className={`${classes.teamCardCount} ${
+                        metric.count === 0 ? classes.teamCardCountZero : ""
+                      }`}
+                    >
+                      {formatMetricCount(metric.count)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box className={classes.teamEmptyState}>
+                Nenhum usuário da empresa foi encontrado para compor a grade.
+              </Box>
+            )}
+          </Paper>
 
           <Box className={classes.summaryColumn}>
             <Paper
@@ -1568,6 +1818,12 @@ const Agenda = () => {
               events={calendarEvents}
               culture="pt-BR"
               messages={calendarMessages}
+              components={{
+                event: CalendarEventContent,
+                agenda: {
+                  event: CalendarEventContent
+                }
+              }}
               startAccessor="start"
               endAccessor="end"
               style={{ height: "calc(100vh - 360px)", minHeight: 600 }}
@@ -1605,7 +1861,7 @@ const Agenda = () => {
                 const status = statusColors[appointment.status]?.label || appointment.status;
                 return `${event.title}\n${formatDateTime(
                   appointment.startDatetime
-                )}\nStatus: ${status}`;
+                )}\nAgendado por: ${getCreatedByLabel(appointment)}\nStatus: ${status}`;
               }}
             />
           </Box>
