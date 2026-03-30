@@ -320,14 +320,12 @@ const ImportClientsModal = ({ open, onClose, onSuccess }) => {
         }
 
         let hasName = false;
-        let hasPhone = false;
         Object.values(columnValue).forEach(val => {
             if (val === "name") hasName = true;
-            if (val === "phone" || val === "email") hasPhone = true;
         });
 
-        if (!hasName || !hasPhone) {
-            toast.error("Você deve mapear as colunas de 'Nome Contato' e ('Telefone' ou 'E-mail') para realizar a importação.");
+        if (!hasName) {
+            toast.error("Você deve mapear a coluna de 'Nome Contato' para realizar a importação.");
             return;
         }
 

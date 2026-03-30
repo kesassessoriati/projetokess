@@ -109,8 +109,8 @@ const ImportCrmClientsService = async ({
                 const email = clientRow.email || clientRow.Email || null;
 
                 if (!phone && !email) {
-                    errors.push({ row: index + 2, error: "Telefone ou email são obrigatórios" });
-                    continue;
+                    const { default: logger } = await import("../../utils/logger");
+                    logger.warn(`[ImportCrmClients] Linha ${index + 2}: cliente "${name}" importado sem telefone e sem e-mail.`);
                 }
 
                 let notes = clientRow.notes || clientRow.observacoes || "";
