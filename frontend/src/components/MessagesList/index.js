@@ -783,7 +783,7 @@ const MessagesList = ({
             console.error("Erro ao processar mensagem [BOTOES]:", error);
           }
         } else
-          if ((message.mediaType === "viewOnceMessage" || message.mediaType === "interactiveMessage") && message.body.startsWith('[PIX]')) {
+          if (message.body && message.body.startsWith('[PIX]')) {
             try {
               // Verifica se o dataJson existe e é uma string antes de tentar fazer o parse
               const dataJsonString = message.dataJson;
@@ -1289,6 +1289,7 @@ const MessagesList = ({
                 {(message.mediaUrl || message.mediaType === "locationMessage" || message.mediaType === "contactMessage" || message.mediaType === "pollCreationMessageV3" || message.mediaType === "eventMessage" || message.mediaType === "listMessage" || message.mediaType === "viewOnceMessage" || message.mediaType === "viewOnceMessageV2" || message.mediaType === "interactiveMessage" || message.mediaType === "adMetaPreview" // Adicionado para aceitar o componente de preview de anúncio
                   //|| message.mediaType === "multi_vcard"
                   || (message.body && message.body.startsWith('[BOTOES]'))
+                  || (message.body && message.body.startsWith('[PIX]'))
                 ) && checkMessageMedia(message)}
 
                 <div className={clsx(classes.textContentItem, {
@@ -1307,7 +1308,8 @@ const MessagesList = ({
                       message.mediaType != "viewOnceMessage" &&
                       message.mediaType != "viewOnceMessageV2" &&
                       message.mediaType != "interactiveMessage" && message.mediaType !== "adMetaPreview" &&
-                      !(message.body && message.body.startsWith('[BOTOES]'))) && (
+                      !(message.body && message.body.startsWith('[BOTOES]')) &&
+                      !(message.body && message.body.startsWith('[PIX]'))) && (
                       <>
                         {xmlRegex.test(message.body) && (
                           <span>{message.body}</span>
@@ -1392,6 +1394,7 @@ const MessagesList = ({
                 {(message.mediaUrl || message.mediaType === "locationMessage" || message.mediaType === "contactMessage" || message.mediaType === "pollCreationMessageV3" || message.mediaType === "eventMessage" || message.mediaType === "listMessage" || message.mediaType === "viewOnceMessage" || message.mediaType === "viewOnceMessageV2" || message.mediaType === "interactiveMessage" || message.mediaType === "adMetaPreview" // Adicionado para aceitar o componente de preview de anúncio
                   //|| message.mediaType === "multi_vcard"
                   || (message.body && message.body.startsWith('[BOTOES]'))
+                  || (message.body && message.body.startsWith('[PIX]'))
                 ) && checkMessageMedia(message)}
                 <div
                   className={clsx(classes.textContentItem, {
@@ -1412,7 +1415,8 @@ const MessagesList = ({
                       message.mediaType != "viewOnceMessage" &&
                       message.mediaType != "viewOnceMessageV2" &&
                       message.mediaType != "interactiveMessage" && message.mediaType !== "adMetaPreview" &&
-                      !(message.body && message.body.startsWith('[BOTOES]'))) && (
+                      !(message.body && message.body.startsWith('[BOTOES]')) &&
+                      !(message.body && message.body.startsWith('[PIX]'))) && (
                       <>
                         {xmlRegex.test(message.body) && (
                           <div>{formatXml(message.body)}</div>
