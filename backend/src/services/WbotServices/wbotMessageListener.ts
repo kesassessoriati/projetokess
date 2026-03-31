@@ -779,6 +779,11 @@ const downloadMedia = async (
     }
   }
 
+  if (!buffer) {
+    logger.warn(`[downloadMedia] buffer indefinido após tentativa de download (msgId=${msg.key?.id}, remoteJid=${msg.key?.remoteJid}). Retornando null.`);
+    return null;
+  }
+
   let filename = msg.message?.documentMessage?.fileName || "";
 
   const mineType =
@@ -1108,8 +1113,9 @@ export const verifyMediaMessage = async (
         quotedMsg
       });
       Sentry.captureException(err);
-      logger.error(err);
-      console.log(msg);
+      logger.error(`[verifyMediaMessage] Falha ao salvar arquivo de mídia no disco (msgId=${msg.key?.id}, arquivo=${media.filename}):`, err);
+      // Rethrow para evitar que um registro com mediaUrl inválido seja salvo no banco
+      throw err;
     }
 
     const body = getBodyMessage(msg);
