@@ -727,7 +727,13 @@ export const sendButtons = async (req: Request, res: Response): Promise<Response
   const wbot = await getWbot(whatsapp.id);
   const jid = createJid(String(number).replace(/\s/g, ""));
 
-  await sendButtonMessage(wbot, jid, text, footer, buttons);
+  const normalizedButtons = (buttons || []).map((btn: any, i: number) => ({
+    displayText: btn.displayText || btn.buttonText?.displayText || `Botão ${i + 1}`,
+    type: btn.type || "reply",
+    value: btn.value || btn.buttonId || String(i + 1),
+  }));
+
+  await sendButtonMessage(wbot, jid, text, footer, normalizedButtons);
 
   return res.send({ status: "SUCCESS" });
 };
