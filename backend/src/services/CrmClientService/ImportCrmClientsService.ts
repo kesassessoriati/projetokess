@@ -169,7 +169,15 @@ const ImportCrmClientsService = async ({
 
                 imported++;
             } catch (err: any) {
-                errors.push({ row: index + 2, error: err.message });
+                const isDbConnError = /Connection terminated|ECONNRESET|EPIPE|terminating connection/i.test(err.message || "");
+                const errorMsg = isDbConnError
+                    ? `Erro de conexão com o banco de dados (transiente) — linha pode ser reimportada`
+                    : err.message;
+                errors.push({ row: index + 2, error: errorMsg, transient: isDbConnError });
+                if (isDbConnError) {
+                    const { default: logger } = await import("../../utils/logger");
+                    logger.error(`[ImportCrmClients] Erro de conexão DB na linha ${index + 2}: ${err.message}`);
+                }
             }
         }
 

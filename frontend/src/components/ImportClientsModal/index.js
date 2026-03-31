@@ -356,7 +356,15 @@ const ImportClientsModal = ({ open, onClose, onSuccess }) => {
             toast.success(`${data.imported} clientes importados com sucesso!`);
 
             if (data.errors && data.errors.length > 0) {
-                toast.warn(`${data.errors.length} erros encontrados. Consulte o log.`);
+                const transientCount = data.errors.filter(e => e.transient).length;
+                const dataCount = data.errors.length - transientCount;
+                if (transientCount > 0 && dataCount === 0) {
+                    toast.error(`${transientCount} registros falharam por instabilidade no banco de dados. Reimporte o arquivo para tentar novamente.`);
+                } else if (transientCount > 0) {
+                    toast.error(`${transientCount} registros falharam por erro de conexão (reimporte para tentar novamente) e ${dataCount} por dados inválidos.`);
+                } else {
+                    toast.warn(`${data.errors.length} erros encontrados por dados inválidos. Verifique o log do navegador para detalhes.`);
+                }
                 console.warn("Erros na importação:", data.errors);
             }
 
