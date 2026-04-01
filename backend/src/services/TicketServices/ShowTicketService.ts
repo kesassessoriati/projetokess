@@ -58,6 +58,7 @@ const ShowTicketService = async (
       "isOutOfHour",
       "isActiveDemand",
       "typebotSessionTime",
+      "webhookPausedUntil",
       "crmLeadId",
       "crmClientId",
       "leadValue"

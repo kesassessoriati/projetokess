@@ -1267,6 +1267,44 @@ export const verifyMessage = async (
 
   await CreateMessageService({ messageData, companyId: companyId });
 
+  if (msg.key.fromMe && !isPrivate && !isMessageImported) {
+    webhookDispatch("MESSAGE_SENT", companyId, {
+      ticket: {
+        id: ticket.id,
+        status: ticket.status,
+        contactId: ticket.contactId,
+        queueId: ticket.queueId,
+        userId: ticket.userId,
+        whatsappId: ticket.whatsappId
+      },
+      contact: {
+        id: contact.id,
+        name: contact.name,
+        number: contact.number,
+        email: contact.email
+      },
+      message: {
+        id: msg.key.id,
+        body,
+        type: getTypeMessage(msg),
+        timestamp: new Date(
+          Math.floor(getTimestampMessage(msg.messageTimestamp) * 1000)
+        ).toISOString(),
+        fromMe: true,
+        fromAgent,
+        userId: messageUserId ?? null,
+        source: fromAgent ? "system" : "channel"
+      },
+      whatsapp: {
+        id: ticket.whatsappId,
+        name: (ticket as any)?.whatsapp?.name,
+        number: (ticket as any)?.whatsapp?.number,
+        token: (ticket as any)?.whatsapp?.token,
+        channel: ticket.channel
+      }
+    });
+  }
+
   trackProductEvent("MESSAGE_SENT", {
     companyId,
     userId: messageUserId,
@@ -5209,7 +5247,8 @@ const handleMessage = async (
           status: ticket.status,
           contactId: ticket.contactId,
           queueId: ticket.queueId,
-          userId: ticket.userId
+          userId: ticket.userId,
+          whatsappId: ticket.whatsappId
         },
         contact: {
           id: contact.id,

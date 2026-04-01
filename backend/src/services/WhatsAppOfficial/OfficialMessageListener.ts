@@ -208,7 +208,8 @@ export const OfficialMessageListener = async (body: OfficialWebhookMessage) => {
               status: ticket.status,
               contactId: ticket.contactId,
               queueId: ticket.queueId,
-              userId: ticket.userId
+              userId: ticket.userId,
+              whatsappId: ticket.whatsappId
             },
             contact: {
               id: contact.id,

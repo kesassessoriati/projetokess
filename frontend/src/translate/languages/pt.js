@@ -341,6 +341,9 @@ const messages = {
             "Encerrar chats abertos quando última mensagem for",
           expiresInactiveMessage: "Mensagem de encerramento por inatividade",
           prompt: "Prompt",
+          n8nMessageIntegrationId: "Webhook N8N para eventos de mensagem",
+          n8nMessageIntegrationHelp:
+            "Selecione qual integração N8N/Webhook deve receber apenas os eventos de mensagem deste canal.",
           collectiveVacationEnd: "Data final",
           collectiveVacationStart: "Data inicial",
           collectiveVacationMessage: "Mensagem de férias coletivas",

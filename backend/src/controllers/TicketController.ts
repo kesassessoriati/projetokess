@@ -64,6 +64,8 @@ interface TicketData {
   sendFarewellMessage?: boolean;
   whatsappId?: string;
   leadValue?: number;
+  pauseN8nForHours?: number;
+  clearN8nPause?: boolean;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {

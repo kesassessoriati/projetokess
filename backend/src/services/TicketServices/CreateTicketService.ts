@@ -83,6 +83,7 @@ const CreateTicketService = async ({
       status: isGroup ? "group" : "open",
       isBot: true,
       isActiveDemand: true,
+      webhookPausedUntil: null,
       crmLeadId: leadId ?? ticket.crmLeadId,
       crmClientId: clientId ?? ticket.crmClientId
     });

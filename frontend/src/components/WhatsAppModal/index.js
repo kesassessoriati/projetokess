@@ -200,6 +200,7 @@ const SessionSchema = Yup.object().shape({
   importOldMessages: Yup.string(),
   importOldMessagesGroups: Yup.string(),
   integrationId: Yup.number().nullable(),
+  messageIntegrationId: Yup.number().nullable(),
   promptId: Yup.number().nullable(),
   collectiveVacationEnd: Yup.string(),
   collectiveVacationStart: Yup.string(),
@@ -262,6 +263,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
     importOldMessages: "",
     importOldMessagesGroups: "",
     integrationId: null,
+    messageIntegrationId: null,
     promptId: null,
     collectiveVacationEnd: "",
     collectiveVacationStart: "",
@@ -311,6 +313,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
   const [flowIdWelcome, setFlowIdWelcome] = useState();
 
   const [selectedIntegration, setSelectedIntegration] = useState(null);
+  const [selectedMessageIntegration, setSelectedMessageIntegration] = useState(null);
   const [integrations, setIntegrations] = useState([]);
 
   useEffect(() => {
@@ -391,6 +394,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
         setAttachmentName(data.greetingMediaAttachment);
         setAutoToken(data.token);
         setSelectedIntegration(data?.integrationId)
+        setSelectedMessageIntegration(data?.messageIntegrationId || null);
         data.promptId ? setSelectedPrompt(data.promptId) : setSelectedPrompt(null);
         const whatsQueueIds = data.queues?.map((queue) => queue.id).filter(id => typeof id === 'number' && !isNaN(id)) || [];
         setSelectedQueueIds(whatsQueueIds);
@@ -457,6 +461,10 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
     setSelectedQueueIds([])
   }
 
+  const handleChangeMessageIntegration = (e) => {
+    setSelectedMessageIntegration(e.target.value || null);
+  }
+
   const handleChangeFlowIdNotPhrase = (e) => {
     console.log(e.target.value)
     setFlowIdNotPhrase(e.target.value)
@@ -516,6 +524,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
       flowIdWelcome: flowIdWelcome ? flowIdWelcome : null,
       flowIdNotPhrase: flowIdNotPhrase ? flowIdNotPhrase : null,
       integrationId: selectedIntegration ? selectedIntegration : null,
+      messageIntegrationId: selectedMessageIntegration ? selectedMessageIntegration : null,
       queueIds: selectedQueueIds,
       importOldMessages: enableImportMessage ? importOldMessages : null,
       importRecentMessages: enableImportMessage ? importRecentMessages : null,
@@ -620,6 +629,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
     setAttachment(null)
     setAttachmentName("")
     setCopied(false);
+    setSelectedMessageIntegration(null);
   };
 
   const handleTabChange = (event, newValue) => {
@@ -657,7 +667,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
           initialValues={{
             ...whatsApp,
             promptId: selectedPrompt,
-            integrationId: selectedIntegration
+            integrationId: selectedIntegration,
+            messageIntegrationId: selectedMessageIntegration
           }}
           enableReinitialize={true}
           validationSchema={SessionSchema}
@@ -1237,6 +1248,41 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                         </FormControl>
                       </div>
                     )}
+                    <div className={classes.fieldWithIcon}>
+                      <IntegrationIcon className={classes.icon} />
+                      <FormControl
+                        variant="outlined"
+                        margin="dense"
+                        className={classes.FormControl}
+                        fullWidth
+                      >
+                        <InputLabel id="messageIntegrationId-selection-label">
+                          {i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                        </InputLabel>
+                        <Select
+                          label={i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                          name="messageIntegrationId"
+                          value={selectedMessageIntegration || ""}
+                          onChange={handleChangeMessageIntegration}
+                          id="messageIntegrationId"
+                          variant="outlined"
+                          margin="dense"
+                          placeholder={i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                          labelId="messageIntegrationId-selection-label">
+                          <MenuItem value={null}>{i18n.t("whatsappModal.menuItem.disabled")}</MenuItem>
+                          {integrations
+                            .filter((integration) => ["n8n", "webhook"].includes(integration.type))
+                            .map((integration) => (
+                              <MenuItem key={integration.id} value={integration.id}>
+                                {integration.name}
+                              </MenuItem>
+                            ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+                    <Typography variant="caption" color="textSecondary">
+                      {i18n.t("whatsappModal.form.n8nMessageIntegrationHelp")}
+                    </Typography>
                     {showOpenAi && (
                       <div className={classes.fieldWithIcon}>
                         <AutoAwesomeIcon className={classes.icon} />

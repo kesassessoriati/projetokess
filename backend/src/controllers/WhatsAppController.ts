@@ -53,6 +53,8 @@ interface WhatsappData {
   closedTicketsPostImported?: boolean;
   groupAsTicket?: string;
   timeCreateNewTicket?: number;
+  integrationId?: number;
+  messageIntegrationId?: number;
   schedules?: any[];
   promptId?: number;
   collectiveVacationMessage?: string;
@@ -115,6 +117,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     importOldMessagesGroups,
     groupAsTicket,
     timeCreateNewTicket,
+    integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     collectiveVacationEnd,
@@ -169,6 +173,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     importOldMessagesGroups,
     groupAsTicket,
     timeCreateNewTicket,
+    integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     collectiveVacationEnd,

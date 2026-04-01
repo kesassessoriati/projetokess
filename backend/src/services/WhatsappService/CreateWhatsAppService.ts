@@ -43,6 +43,7 @@ interface Request {
   closedTicketsPostImported?: boolean;
   timeCreateNewTicket?: number;
   integrationId?: number;
+  messageIntegrationId?: number;
   schedules?: any[];
   promptId?: number;
   collectiveVacationMessage?: string;
@@ -95,6 +96,7 @@ const CreateWhatsAppService = async ({
   importOldMessagesGroups,
   timeCreateNewTicket,
   integrationId,
+  messageIntegrationId,
   schedules,
   promptId,
   collectiveVacationEnd,
@@ -232,6 +234,7 @@ const CreateWhatsAppService = async ({
       importOldMessagesGroups,
       timeCreateNewTicket,
       integrationId,
+      messageIntegrationId,
       schedules,
       promptId,
       collectiveVacationEnd,

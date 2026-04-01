@@ -325,6 +325,7 @@ const FindOrCreateTicketService = async (
         unreadMessages,
         companyId,
         isBot: false,
+        webhookPausedUntil: null,
         crmLeadId: leadId ?? ticket.crmLeadId,
         crmClientId: clientId ?? ticket.crmClientId
       };
@@ -358,7 +359,8 @@ const FindOrCreateTicketService = async (
       const reopenData: any = {
         ...ticketData,
         status: ticketData.status === "group" && !ticket.isGroup ? "pending" : ticketData.status,
-        isBot: groupContact ? false : false
+        isBot: groupContact ? false : false,
+        webhookPausedUntil: null
       };
 
       if (!isNil(queueId)) {

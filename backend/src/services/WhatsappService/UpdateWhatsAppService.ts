@@ -36,6 +36,7 @@ interface WhatsappData {
   closedTicketsPostImported?: boolean;
   timeCreateNewTicket?: number;
   integrationId?: number;
+  messageIntegrationId?: number;
   schedules?: any[];
   promptId?: number;
   requestQR?: boolean;
@@ -100,6 +101,7 @@ const UpdateWhatsAppService = async ({
     importOldMessagesGroups,
     timeCreateNewTicket = null,
     integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     requestQR = false,
@@ -170,6 +172,7 @@ const UpdateWhatsAppService = async ({
     importOldMessagesGroups,
     timeCreateNewTicket,
     integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     collectiveVacationEnd,

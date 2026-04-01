@@ -41,6 +41,8 @@ interface OfficialConnectionData {
   closedTicketsPostImported?: boolean;
   importOldMessagesGroups?: boolean;
   timeCreateNewTicket?: number;
+  integrationId?: number;
+  messageIntegrationId?: number;
   schedules?: any[];
   promptId?: number;
   collectiveVacationMessage?: string;
@@ -99,6 +101,8 @@ export const storeOfficial = async (req: Request, res: Response): Promise<Respon
     closedTicketsPostImported,
     importOldMessagesGroups,
     timeCreateNewTicket,
+    integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     collectiveVacationEnd,
@@ -147,6 +151,8 @@ export const storeOfficial = async (req: Request, res: Response): Promise<Respon
     closedTicketsPostImported,
     importOldMessagesGroups,
     timeCreateNewTicket,
+    integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     collectiveVacationEnd,

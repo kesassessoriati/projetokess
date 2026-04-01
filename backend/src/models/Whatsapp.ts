@@ -272,6 +272,16 @@ class Whatsapp extends Model<Whatsapp> {
   @BelongsTo(() => QueueIntegrations)
   queueIntegrations: QueueIntegrations;
 
+  @ForeignKey(() => QueueIntegrations)
+  @Column
+  messageIntegrationId: number;
+
+  @BelongsTo(() => QueueIntegrations, {
+    foreignKey: "messageIntegrationId",
+    as: "messageIntegration"
+  })
+  messageIntegration: QueueIntegrations;
+
   @Column({
     type: DataType.JSONB
   })

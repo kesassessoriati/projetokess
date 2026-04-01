@@ -1,6 +1,8 @@
 import axios from "axios";
 import { Op } from "sequelize";
 import QueueIntegrations from "../../models/QueueIntegrations";
+import Ticket from "../../models/Ticket";
+import Whatsapp from "../../models/Whatsapp";
 import logger from "../../utils/logger";
 
 // ─── Tipos de eventos disponíveis ───────────────────────────────────────────
@@ -8,6 +10,7 @@ import logger from "../../utils/logger";
 export type WebhookEventType =
   // Mensagens
   | "MESSAGE_RECEIVED"
+  | "MESSAGE_SENT"
   // Conversas / Tickets
   | "TICKET_CREATED"
   | "TICKET_ASSIGNED"
@@ -32,6 +35,7 @@ export type WebhookEventType =
 
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEventType, string> = {
   MESSAGE_RECEIVED: "Nova mensagem recebida",
+  MESSAGE_SENT: "Mensagem enviada",
   TICKET_CREATED: "Nova conversa criada",
   TICKET_ASSIGNED: "Conversa atribuída a agente",
   TICKET_QUEUE_CHANGED: "Conversa transferida de fila",
@@ -57,7 +61,7 @@ export const WEBHOOK_EVENT_GROUPS: Array<{
 }> = [
   {
     group: "Mensagens",
-    events: ["MESSAGE_RECEIVED"]
+    events: ["MESSAGE_RECEIVED", "MESSAGE_SENT"]
   },
   {
     group: "Conversas",
@@ -94,6 +98,72 @@ export const WEBHOOK_EVENT_GROUPS: Array<{
   }
 ];
 
+const MESSAGE_EVENTS = new Set<WebhookEventType>([
+  "MESSAGE_RECEIVED",
+  "MESSAGE_SENT"
+]);
+
+const resolveMessageIntegrations = async (
+  eventType: WebhookEventType,
+  companyId: number,
+  data: Record<string, unknown>
+): Promise<QueueIntegrations[]> => {
+  const ticketId = Number((data as any)?.ticket?.id);
+
+  if (ticketId) {
+    const ticket = await Ticket.findOne({
+      where: { id: ticketId, companyId },
+      attributes: ["id", "webhookPausedUntil"]
+    });
+
+    if (
+      ticket?.webhookPausedUntil &&
+      new Date(ticket.webhookPausedUntil) > new Date()
+    ) {
+      return [];
+    }
+  }
+
+  const whatsappId = Number(
+    (data as any)?.whatsapp?.id ?? (data as any)?.ticket?.whatsappId
+  );
+
+  if (!whatsappId) {
+    logger.warn(
+      `[WebhookDispatch] Evento ${eventType} sem whatsappId; roteamento por canal ignorado.`
+    );
+    return [];
+  }
+
+  const whatsapp = await Whatsapp.findOne({
+    where: { id: whatsappId, companyId },
+    attributes: ["id", "messageIntegrationId"]
+  });
+
+  if (!whatsapp?.messageIntegrationId) {
+    return [];
+  }
+
+  const integration = await QueueIntegrations.findOne({
+    where: {
+      id: whatsapp.messageIntegrationId,
+      companyId,
+      type: { [Op.in]: ["n8n", "webhook"] }
+    }
+  });
+
+  if (
+    !integration ||
+    !integration.urlN8N ||
+    !Array.isArray(integration.webhookEvents) ||
+    !integration.webhookEvents.includes(eventType)
+  ) {
+    return [];
+  }
+
+  return [integration];
+};
+
 // ─── Dispatch ────────────────────────────────────────────────────────────────
 
 /**
@@ -109,19 +179,21 @@ export const dispatch = async (
   data: Record<string, unknown>
 ): Promise<void> => {
   try {
-    const integrations = await QueueIntegrations.findAll({
-      where: {
-        companyId,
-        type: { [Op.in]: ["n8n", "webhook"] }
-      }
-    });
-
-    const subscribed = integrations.filter(
-      integration =>
-        Array.isArray(integration.webhookEvents) &&
-        integration.webhookEvents.includes(eventType) &&
-        integration.urlN8N
-    );
+    const subscribed = MESSAGE_EVENTS.has(eventType)
+      ? await resolveMessageIntegrations(eventType, companyId, data)
+      : (
+          await QueueIntegrations.findAll({
+            where: {
+              companyId,
+              type: { [Op.in]: ["n8n", "webhook"] }
+            }
+          })
+        ).filter(
+          integration =>
+            Array.isArray(integration.webhookEvents) &&
+            integration.webhookEvents.includes(eventType) &&
+            integration.urlN8N
+        );
 
     if (subscribed.length === 0) return;
 

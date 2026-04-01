@@ -37,6 +37,7 @@ interface WhatsappData {
   closedTicketsPostImported?: boolean;
   timeCreateNewTicket?: number;
   integrationId?: number;
+  messageIntegrationId?: number;
   schedules?: any[];
   promptId?: number;
   requestQR?: boolean;
@@ -94,6 +95,7 @@ const UpdateWhatsAppServiceAdmin = async ({
     importOldMessagesGroups,
     timeCreateNewTicket = null,
     integrationId,
+    messageIntegrationId,
     schedules,
     promptId,
     requestQR = false
@@ -155,6 +157,7 @@ const UpdateWhatsAppServiceAdmin = async ({
     importOldMessagesGroups,
     timeCreateNewTicket,
     integrationId,
+    messageIntegrationId,
     schedules,
     promptId
   });

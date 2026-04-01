@@ -308,7 +308,8 @@ const WEBHOOK_EVENT_GROUPS = [
   {
     group: "Mensagens",
     events: [
-      { key: "MESSAGE_RECEIVED", label: "Nova mensagem recebida" }
+      { key: "MESSAGE_RECEIVED", label: "Nova mensagem recebida" },
+      { key: "MESSAGE_SENT", label: "Mensagem enviada" }
     ]
   },
   {

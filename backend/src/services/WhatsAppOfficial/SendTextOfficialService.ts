@@ -1,7 +1,9 @@
 import Whatsapp from "../../models/Whatsapp";
 import Contact from "../../models/Contact";
+import Ticket from "../../models/Ticket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import { graphRequest, extractGraphError } from "../WhatsappCoexistence/graphApiHelper";
+import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 
 interface SendTextOfficialParams {
   body: string;
@@ -65,6 +67,47 @@ export const SendTextOfficialService = async ({
       },
       companyId: connection.companyId
     });
+
+    const ticket = await Ticket.findOne({
+      where: { id: ticketId, companyId: connection.companyId },
+      attributes: ["id", "status", "contactId", "queueId", "userId", "whatsappId", "channel"]
+    });
+
+    if (ticket) {
+      webhookDispatch("MESSAGE_SENT", connection.companyId, {
+        ticket: {
+          id: ticket.id,
+          status: ticket.status,
+          contactId: ticket.contactId,
+          queueId: ticket.queueId,
+          userId: ticket.userId,
+          whatsappId: ticket.whatsappId
+        },
+        contact: {
+          id: contact.id,
+          name: contact.name,
+          number: contact.number,
+          email: contact.email
+        },
+        message: {
+          id: messageId,
+          body,
+          type: "text",
+          timestamp: new Date().toISOString(),
+          fromMe: true,
+          fromAgent: true,
+          userId: ticket.userId ?? null,
+          source: "system"
+        },
+        whatsapp: {
+          id: connection.id,
+          name: connection.name,
+          number: connection.number,
+          token: connection.token,
+          channel: connection.channel
+        }
+      });
+    }
 
     return newMessage;
   } catch (error) {

@@ -41,6 +41,8 @@ interface TicketData {
   leadValue?: number;
   msgTransfer?: string;
   isTransfered?: boolean;
+  pauseN8nForHours?: number;
+  clearN8nPause?: boolean;
 }
 
 interface Request {
@@ -73,7 +75,9 @@ const UpdateTicketService = async ({
       leadValue,
       msgTransfer,
       isTransfered = false,
-      status
+      status,
+      pauseN8nForHours,
+      clearN8nPause = false
     } = ticketData;
     let isBot: boolean | null = ticketData.isBot || false;
     let queueOptionId: number | null = ticketData.queueOptionId || null;
@@ -854,6 +858,20 @@ const UpdateTicketService = async ({
       unreadMessages,
       leadValue: leadValue !== undefined ? leadValue : ticket.leadValue
     };
+
+    if (clearN8nPause) {
+      ticketUpdateData.webhookPausedUntil = null;
+    } else if (
+      typeof pauseN8nForHours === "number" &&
+      Number.isFinite(pauseN8nForHours) &&
+      pauseN8nForHours > 0
+    ) {
+      ticketUpdateData.webhookPausedUntil = new Date(
+        Date.now() + pauseN8nForHours * 60 * 60 * 1000
+      );
+    } else if (status && ["open", "pending", "group"].includes(status)) {
+      ticketUpdateData.webhookPausedUntil = null;
+    }
 
     if (nextUserId !== undefined) {
       ticketUpdateData.userId = nextUserId;

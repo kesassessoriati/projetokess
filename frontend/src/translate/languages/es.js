@@ -335,6 +335,9 @@ const messages = {
             "Cerrar chats abiertos cuando el último mensaje sea",
           expiresInactiveMessage: "Mensaje al cerrar por inactividade",
           prompt: "Prompt",
+          n8nMessageIntegrationId: "Webhook N8N para eventos de mensaje",
+          n8nMessageIntegrationHelp:
+            "Seleccione qué integración N8N/Webhook debe recibir solo los eventos de mensaje de este canal.",
         },
         buttons: {
           okAdd: "Agregar",

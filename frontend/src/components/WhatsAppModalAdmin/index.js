@@ -147,6 +147,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
     importOldMessages: "",
     importOldMessagesGroups: "",
     integrationId: "",
+    messageIntegrationId: "",
   };
   const [whatsApp, setWhatsApp] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -290,7 +291,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
       importOldMessagesGroups: importOldMessagesGroups ? importOldMessagesGroups : null,
       closedTicketsPostImported: closedTicketsPostImported ? closedTicketsPostImported : null,
       token: autoToken ? autoToken : null, schedules,
-      promptId: selectedPrompt ? selectedPrompt : null
+      promptId: selectedPrompt ? selectedPrompt : null,
+      messageIntegrationId: values.messageIntegrationId || null
     };
     delete whatsappData["queues"];
     delete whatsappData["session"];
@@ -805,6 +807,38 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
                         ))}
                       </Field>
                     </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="dense"
+                      className={classes.FormControl}
+                      fullWidth
+                    >
+                      <InputLabel id="messageIntegrationId-selection-label">
+                        {i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                      </InputLabel>
+                      <Field
+                        as={Select}
+                        label={i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                        name="messageIntegrationId"
+                        id="messageIntegrationId"
+                        variant="outlined"
+                        margin="dense"
+                        placeholder={i18n.t("whatsappModal.form.n8nMessageIntegrationId")}
+                        labelId="messageIntegrationId-selection-label"
+                      >
+                        <MenuItem value={null}>{i18n.t("whatsappModal.menuItem.disabled")}</MenuItem>
+                        {integrations
+                          .filter((integration) => ["n8n", "webhook"].includes(integration.type))
+                          .map((integration) => (
+                            <MenuItem key={integration.id} value={integration.id}>
+                              {integration.name}
+                            </MenuItem>
+                          ))}
+                      </Field>
+                    </FormControl>
+                    <Box mt={1} color="text.secondary" fontSize={12}>
+                      {i18n.t("whatsappModal.form.n8nMessageIntegrationHelp")}
+                    </Box>
                     <FormControl
                       margin="dense"
                       variant="outlined"

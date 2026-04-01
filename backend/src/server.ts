@@ -137,6 +137,7 @@ import SyncEmailChannelService from "./services/EmailChannelServices/SyncEmailCh
 import { processScheduledGroupCampaigns } from "./services/GroupManagementServices/GroupCampaignProcessorService";
 import SyncGoogleCalendarService from "./services/AppointmentServices/SyncGoogleCalendarService";
 import ProcessExpiredCrmClientsService from "./services/CrmClientService/ProcessExpiredCrmClientsService";
+import ClearExpiredWebhookPausesService from "./services/TicketServices/ClearExpiredWebhookPausesService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -163,6 +164,11 @@ cron.schedule("*/5 * * * *", () => {
 // Sync e-mail channels (IMAP inbox) every 2 minutes
 cron.schedule("*/2 * * * *", () => {
   SyncEmailChannelService();
+});
+
+// Reactivate expired per-conversation N8N pauses.
+cron.schedule("* * * * *", () => {
+  ClearExpiredWebhookPausesService().catch(() => {});
 });
 
 // Sync Google Calendar appointments every 5 minutes

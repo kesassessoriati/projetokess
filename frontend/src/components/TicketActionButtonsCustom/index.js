@@ -114,6 +114,7 @@ const TicketActionButtonsCustom = ({ ticket }) => {
     const [showTicketLogOpen, setShowTicketLogOpen] = useState(false);
     const [openTicketMessageDialog, setOpenTicketMessageDialog] = useState(false);
     const [disableBot, setDisableBot] = useState(ticket.contact.disableBot);
+    const [n8nPausedUntil, setN8nPausedUntil] = useState(ticket.webhookPausedUntil || null);
 
     const [showSchedules, setShowSchedules] = useState(false);
     const [enableIntegration, setEnableIntegration] = useState(ticket.useIntegration);
@@ -150,6 +151,7 @@ const TicketActionButtonsCustom = ({ ticket }) => {
         setShowSchedules(planConfigs.plan.useSchedules);
         setOpenTicketMessageDialog(false);
         setDisableBot(ticket.contact.disableBot);
+        setN8nPausedUntil(ticket.webhookPausedUntil || null);
 
         try {
             const evaluationSetting = await getSetting({ column: "userRating" });
@@ -167,6 +169,11 @@ const TicketActionButtonsCustom = ({ ticket }) => {
         const whatsappFarewell = ticket?.whatsapp?.complationMessage?.trim();
         return Boolean((userFarewell && userFarewell.length) || (whatsappFarewell && whatsappFarewell.length));
     }, [ticket]);
+
+    const isN8nPaused = useMemo(() => {
+        if (!n8nPausedUntil) return false;
+        return new Date(n8nPausedUntil) > new Date();
+    }, [n8nPausedUntil]);
 
     const shouldShowCloseModal = hasFarewellMessage && isEvaluationEnabled;
 
@@ -301,6 +308,19 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 
     const handleShowLogTicket = async () => {
         setShowTicketLogOpen(true);
+    };
+
+    const handlePauseN8n = async () => {
+        try {
+            const { data } = await api.put(`/tickets/${ticket.id}`, {
+                pauseN8nForHours: 2
+            });
+            setN8nPausedUntil(data?.webhookPausedUntil || null);
+            toast.success("IA N8N pausada por 2 horas nesta conversa.");
+            handleCloseMenu();
+        } catch (err) {
+            toastError(err);
+        }
     };
 
     const handleContactToggleDisableBot = async () => {
@@ -639,6 +659,9 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                     </MenuItem>
                     <MenuItem onClick={handleShowLogTicket}>
                         {i18n.t("messagesList.header.buttons.logTicket")}
+                    </MenuItem>
+                    <MenuItem onClick={handlePauseN8n} disabled={isN8nPaused}>
+                        Pausar IA N8N
                     </MenuItem>
                     <MenuItem onClick={handleExportPDF}>
                         {i18n.t("ticketsList.buttons.exportAsPDF")}
