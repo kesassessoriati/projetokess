@@ -23,10 +23,11 @@ import {
   FormControlLabel,
   FormGroup,
   Divider,
-  Box
+  Box,
+  IconButton
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import { green, blue, red, orange } from "@material-ui/core/colors";
+import { green } from "@material-ui/core/colors";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -43,6 +44,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import MessageIcon from '@mui/icons-material/Message';
 import CodeIcon from '@mui/icons-material/Code';
+import CloseIcon from "@material-ui/icons/Close";
 import Draggable from 'react-draggable';
 
 // Definindo a transição de Slide
@@ -81,47 +83,216 @@ const useStyles = makeStyles((theme) => ({
     height: 20,
   },
   dialogTitle: {
-    background: "#3f51b5",
-    color: "white",
-    padding: theme.spacing(2),
-    cursor: 'move',
-    borderTopLeftRadius: '8px',
-    borderTopRightRadius: '8px',
+    background: "linear-gradient(135deg, #181818 0%, #080808 100%)",
+    cursor: "move",
+    padding: 0,
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+  },
+  dialogTitleBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing(2),
+    padding: theme.spacing(2.25, 2.5),
+  },
+  dialogTitleText: {
+    color: "#f8fafc",
+    fontSize: "1.1rem",
+    fontWeight: 700,
+    letterSpacing: "0.01em",
+  },
+  dialogCloseButton: {
+    width: 34,
+    height: 34,
+    color: "rgba(255,255,255,0.88)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 10,
+    "&:hover": {
+      backgroundColor: "rgba(255,255,255,0.12)",
+      color: "#ffffff",
+    },
   },
   dialogContent: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#ffffff",
     padding: theme.spacing(3),
+    "& .MuiFormControl-root": {
+      marginTop: 0,
+    },
+    "& .MuiFormLabel-root": {
+      color: "#4b5563",
+      fontWeight: 600,
+    },
+    "& .MuiFormLabel-root.Mui-focused": {
+      color: "#111827",
+    },
+    "& .MuiInputAdornment-root .MuiSvgIcon-root": {
+      color: "#111827",
+      fontSize: 20,
+    },
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 12,
+      backgroundColor: "#ffffff",
+      transition: "box-shadow 0.2s ease, transform 0.2s ease",
+      "& .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#cfd6df",
+      },
+      "&:hover .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#111827",
+      },
+      "&.Mui-focused": {
+        boxShadow: "0 0 0 4px rgba(15, 23, 42, 0.08)",
+      },
+      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#111827",
+        borderWidth: 1,
+      },
+    },
   },
   dialogActions: {
-    backgroundColor: "#f5f5f5",
-    padding: theme.spacing(2),
-    borderBottomLeftRadius: '8px',
-    borderBottomRightRadius: '8px',
+    background: "linear-gradient(135deg, #181818 0%, #080808 100%)",
+    padding: theme.spacing(2, 2.5),
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.25),
+    flexWrap: "wrap",
+    "& > :not(:first-child)": {
+      marginLeft: 0,
+    },
+  },
+  actionSpacer: {
+    flex: 1,
+  },
+  buttonBase: {
+    borderRadius: 11,
+    textTransform: "none",
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    minWidth: 110,
+    padding: "8px 16px",
+    boxShadow: "none",
+    border: "1px solid transparent",
+    transition: "transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease",
+    "& .MuiButton-startIcon": {
+      marginRight: 6,
+    },
+    "&:hover": {
+      boxShadow: "none",
+      transform: "translateY(-1px)",
+    },
+    "&.Mui-disabled": {
+      opacity: 0.65,
+      color: "#ffffff",
+    },
   },
   buttonSave: {
-    backgroundColor: green[500],
-    color: "white",
+    backgroundColor: "#2f7cf6",
+    borderColor: "#5d9dff",
+    color: "#ffffff",
     "&:hover": {
-      backgroundColor: green[700],
+      backgroundColor: "#2468d8",
     },
   },
   buttonCancel: {
-    backgroundColor: red[500],
-    color: "white",
+    backgroundColor: "#d95d5d",
+    borderColor: "#ef9a9a",
+    color: "#ffffff",
     "&:hover": {
-      backgroundColor: red[700],
+      backgroundColor: "#c74b4b",
     },
   },
   buttonTest: {
-    backgroundColor: orange[500],
-    color: "white",
+    backgroundColor: "#1b7f5d",
+    borderColor: "#4fd1a1",
+    color: "#ffffff",
     "&:hover": {
-      backgroundColor: orange[700],
+      backgroundColor: "#16684c",
     },
   },
   paperComponent: {
-    borderRadius: '8px',
-    overflow: 'hidden',
+    borderRadius: 18,
+    overflow: "hidden",
+    border: "1px solid rgba(15, 23, 42, 0.08)",
+    boxShadow: "0 32px 90px rgba(2, 6, 23, 0.42)",
+    backgroundColor: "#ffffff",
+  },
+  mainPaper: {
+    backgroundColor: "transparent",
+    boxShadow: "none",
+  },
+  eventCard: {
+    marginTop: theme.spacing(1),
+    padding: theme.spacing(2.25),
+    border: "1px solid #e3e8ef",
+    borderRadius: 14,
+    background: "linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%)",
+    boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)",
+  },
+  eventHeader: {
+    fontWeight: 700,
+    marginBottom: 8,
+    color: "#3559c7",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  eventDescription: {
+    color: "#6b7280",
+    display: "block",
+    marginBottom: 14,
+    lineHeight: 1.45,
+  },
+  eventGroup: {
+    marginBottom: theme.spacing(1.5),
+  },
+  eventGroupLabel: {
+    fontWeight: 700,
+    color: "#4b5563",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontSize: 11,
+  },
+  checkboxRow: {
+    marginTop: 4,
+  },
+  checkboxControl: {
+    padding: "2px 6px",
+    color: "#9aa4b2",
+    "&.Mui-checked": {
+      color: "#2f7cf6",
+    },
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    color: "#1f2937",
+  },
+  checkboxItem: {
+    marginRight: 16,
+    marginBottom: 2,
+  },
+  eventDivider: {
+    marginTop: 8,
+    backgroundColor: "#e5e7eb",
+  },
+  "@media (max-width: 600px)": {
+    dialogTitleBar: {
+      padding: theme.spacing(2),
+    },
+    dialogContent: {
+      padding: theme.spacing(2),
+    },
+    dialogActions: {
+      padding: theme.spacing(1.5, 2),
+    },
+    actionSpacer: {
+      display: "none",
+    },
+    buttonBase: {
+      flex: "1 1 calc(50% - 8px)",
+      minWidth: 0,
+    },
   },
 }));
 
@@ -288,6 +459,11 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
         disableBackdropClick
         disableEscapeKeyDown
         TransitionComponent={Transition}
+        BackdropProps={{
+          style: {
+            backgroundColor: "rgba(2, 6, 23, 0.58)"
+          }
+        }}
         PaperProps={{
           className: classes.paperComponent
         }}
@@ -300,10 +476,22 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
           </Draggable>
         )}
       >
-        <DialogTitle className={`${classes.dialogTitle} dialog-title`}>
-          {integrationId
-            ? `${i18n.t("queueIntegrationModal.title.edit")}`
-            : `${i18n.t("queueIntegrationModal.title.add")}`}
+        <DialogTitle disableTypography className={`${classes.dialogTitle} dialog-title`}>
+          <Box className={classes.dialogTitleBar}>
+            <Typography component="h2" className={classes.dialogTitleText}>
+              {integrationId
+                ? `${i18n.t("queueIntegrationModal.title.edit")}`
+                : `${i18n.t("queueIntegrationModal.title.add")}`}
+            </Typography>
+            <IconButton
+              aria-label="fechar modal de integração"
+              className={classes.dialogCloseButton}
+              onClick={handleClose}
+              size="small"
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
         </DialogTitle>
         <Formik
           initialValues={integration}
@@ -505,50 +693,30 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
 
                         {/* Seleção de Eventos */}
                         <Grid item xs={12}>
-                          <Box
-                            mt={1}
-                            p={2}
-                            style={{
-                              border: "1px solid #e0e0e0",
-                              borderRadius: 8,
-                              backgroundColor: "#fff"
-                            }}
-                          >
+                          <Box className={classes.eventCard}>
                             <Typography
                               variant="subtitle2"
-                              style={{
-                                fontWeight: 700,
-                                marginBottom: 8,
-                                color: "#3f51b5",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6
-                              }}
+                              className={classes.eventHeader}
                             >
                               <WebhookIcon fontSize="small" />
                               Eventos para receber neste webhook
                             </Typography>
                             <Typography
                               variant="caption"
-                              style={{ color: "#757575", display: "block", marginBottom: 12 }}
+                              className={classes.eventDescription}
                             >
                               Selecione quais eventos serão enviados para a URL acima. Deixar sem seleção desativa os eventos (modo chatbot via fila).
                             </Typography>
 
                             {WEBHOOK_EVENT_GROUPS.map((group) => (
-                              <Box key={group.group} mb={1.5}>
+                              <Box key={group.group} className={classes.eventGroup}>
                                 <Typography
                                   variant="caption"
-                                  style={{
-                                    fontWeight: 600,
-                                    color: "#555",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.5px"
-                                  }}
+                                  className={classes.eventGroupLabel}
                                 >
                                   {group.group}
                                 </Typography>
-                                <FormGroup row style={{ marginTop: 2 }}>
+                                <FormGroup row className={classes.checkboxRow}>
                                   {group.events.map((evt) => (
                                     <FormControlLabel
                                       key={evt.key}
@@ -569,19 +737,19 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                                             setFieldValue("webhookEvents", next);
                                           }}
                                           color="primary"
-                                          style={{ padding: "2px 6px" }}
+                                          className={classes.checkboxControl}
                                         />
                                       }
                                       label={
-                                        <Typography variant="body2" style={{ fontSize: 13 }}>
+                                        <Typography variant="body2" className={classes.checkboxLabel}>
                                           {evt.label}
                                         </Typography>
                                       }
-                                      style={{ marginRight: 16, marginBottom: 2 }}
+                                      className={classes.checkboxItem}
                                     />
                                   ))}
                                 </FormGroup>
-                                <Divider style={{ marginTop: 6 }} />
+                                <Divider className={classes.eventDivider} />
                               </Box>
                             ))}
                           </Box>
@@ -866,13 +1034,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                   <Button
                     startIcon={<SettingsIcon />}
                     onClick={(e) => handleTestSession(e, values)}
-                    style={{
-                      color: "white",
-                      backgroundColor: "#4ec24e",
-                      boxShadow: "none",
-                      borderRadius: "5px",
-                      fontSize: "12px",
-                    }}
+                    className={`${classes.buttonBase} ${classes.buttonTest}`}
                     disabled={isSubmitting}
                     name="testSession"
                     variant="contained"
@@ -880,16 +1042,11 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                     {i18n.t("queueIntegrationModal.buttons.test")}
                   </Button>
                 )}
+                <Box className={classes.actionSpacer} />
                 <Button
                   startIcon={<CancelIcon />}
                   onClick={handleClose}
-                  style={{
-                    color: "white",
-                    backgroundColor: "#db6565",
-                    boxShadow: "none",
-                    borderRadius: "5px",
-                    fontSize: "12px",
-                  }}
+                  className={`${classes.buttonBase} ${classes.buttonCancel}`}
                   disabled={isSubmitting}
                   variant="contained"
                 >
@@ -898,13 +1055,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                 <Button
                   startIcon={<SaveIcon />}
                   type="submit"
-                  style={{
-                    color: "white",
-                    backgroundColor: "#437db5",
-                    boxShadow: "none",
-                    borderRadius: "5px",
-                    fontSize: "12px",
-                  }}
+                  className={`${classes.buttonBase} ${classes.buttonSave}`}
                   disabled={isSubmitting}
                   variant="contained"
                 >
