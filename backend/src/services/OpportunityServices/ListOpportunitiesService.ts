@@ -9,13 +9,15 @@ interface Request {
     pipelineId?: number;
     contactId?: number;
     ticketId?: number;
+    leadId?: number;
 }
 
 const ListOpportunitiesService = async ({
     companyId,
     pipelineId,
     contactId,
-    ticketId
+    ticketId,
+    leadId
 }: Request): Promise<Opportunity[]> => {
     const whereCondition: any = { companyId };
 
@@ -27,6 +29,9 @@ const ListOpportunitiesService = async ({
     }
     if (ticketId) {
         whereCondition.ticketId = ticketId;
+    }
+    if (leadId) {
+        whereCondition.leadId = leadId;
     }
 
     const opportunities = await Opportunity.findAll({
