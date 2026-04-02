@@ -5168,6 +5168,47 @@ const handleMessage = async (
           false,
           wbot
         );
+
+        // Dispara MESSAGE_SENT para mídia enviada por agente via dispositivo móvel
+        // (fromAgent=false). Mensagens do sistema UI já disparam em verifyMessage
+        // via MessageController antes que handleMessage seja chamado.
+        if (msg.key.fromMe && !isImported) {
+          webhookDispatch("MESSAGE_SENT", companyId, {
+            ticket: {
+              id: ticket.id,
+              status: ticket.status,
+              contactId: ticket.contactId,
+              queueId: ticket.queueId,
+              userId: ticket.userId,
+              whatsappId: ticket.whatsappId
+            },
+            contact: {
+              id: contact.id,
+              name: contact.name,
+              number: contact.number,
+              email: contact.email
+            },
+            message: {
+              id: msg.key.id,
+              body: mediaSent?.body ?? getBodyMessage(msg),
+              type: getTypeMessage(msg),
+              timestamp: new Date(
+                Math.floor(getTimestampMessage(msg.messageTimestamp) * 1000)
+              ).toISOString(),
+              fromMe: true,
+              fromAgent: false,
+              userId: ticket.userId ?? null,
+              source: "channel"
+            },
+            whatsapp: {
+              id: ticket.whatsappId,
+              name: (ticket as any)?.whatsapp?.name,
+              number: (ticket as any)?.whatsapp?.number,
+              token: (ticket as any)?.whatsapp?.token,
+              channel: ticket.channel
+            }
+          });
+        }
       } else {
         console.log("log... 3396");
         // console.log("antes do verifyMessage")
