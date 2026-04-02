@@ -312,11 +312,16 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 
     const handlePauseN8n = async () => {
         try {
-            const { data } = await api.put(`/tickets/${ticket.id}`, {
-                pauseN8nForHours: 2
-            });
+            const payload = isN8nPaused
+                ? { clearN8nPause: true }
+                : { pauseN8nForHours: 2 };
+            const { data } = await api.put(`/tickets/${ticket.id}`, payload);
             setN8nPausedUntil(data?.webhookPausedUntil || null);
-            toast.success("IA N8N pausada por 2 horas nesta conversa.");
+            if (isN8nPaused) {
+                toast.success("IA N8N reativada para esta conversa.");
+            } else {
+                toast.success("IA N8N pausada por 2 horas nesta conversa.");
+            }
             handleCloseMenu();
         } catch (err) {
             toastError(err);
@@ -660,8 +665,8 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                     <MenuItem onClick={handleShowLogTicket}>
                         {i18n.t("messagesList.header.buttons.logTicket")}
                     </MenuItem>
-                    <MenuItem onClick={handlePauseN8n} disabled={isN8nPaused}>
-                        Pausar IA N8N
+                    <MenuItem onClick={handlePauseN8n}>
+                        {isN8nPaused ? "Retomar IA N8N" : "Pausar IA N8N"}
                     </MenuItem>
                     <MenuItem onClick={handleExportPDF}>
                         {i18n.t("ticketsList.buttons.exportAsPDF")}

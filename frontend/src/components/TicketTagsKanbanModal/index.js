@@ -159,6 +159,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const [botToggleLoading, setBotToggleLoading] = useState(false);
   const [audioToggleLoading, setAudioToggleLoading] = useState(false);
   const [activeToggleLoading, setActiveToggleLoading] = useState(false);
+  const [n8nPauseLoading, setN8nPauseLoading] = useState(false);
   const [extraInfoFields, setExtraInfoFields] = useState([]);
   const [extraInfoSaving, setExtraInfoSaving] = useState(false);
   const [fileVisibleCount, setFileVisibleCount] = useState(ITEMS_PER_BATCH);
@@ -727,6 +728,36 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
 
   const linkedClient = resolvedTicket?.crmClient || resolvedContact?.crmClient;
 
+  const isN8nPaused = useMemo(() => {
+    const pausedUntil = resolvedTicket?.webhookPausedUntil;
+    if (!pausedUntil) return false;
+    return new Date(pausedUntil) > new Date();
+  }, [resolvedTicket?.webhookPausedUntil]);
+
+  const handleToggleN8nPause = async () => {
+    if (!resolvedTicket?.id) return;
+    setN8nPauseLoading(true);
+    try {
+      const payload = isN8nPaused
+        ? { clearN8nPause: true }
+        : { pauseN8nForHours: 2 };
+      const { data } = await api.put(`/tickets/${resolvedTicket.id}`, payload);
+      setTicketDetails((prev) =>
+        prev ? { ...prev, webhookPausedUntil: data?.webhookPausedUntil || null } : prev
+      );
+      if (isN8nPaused) {
+        toast.success("IA N8N reativada para esta conversa.");
+      } else {
+        toast.success("IA N8N pausada por 2 horas nesta conversa.");
+      }
+    } catch (err) {
+      console.error("Erro ao alterar pausa N8N:", err);
+      toast.error("Erro ao alterar estado da IA N8N.");
+    } finally {
+      setN8nPauseLoading(false);
+    }
+  };
+
   const summaryCards = [
     {
       label: "Valor potencial",
@@ -997,6 +1028,21 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
             </Select>
           </FormControl>
         </Box>
+
+        {resolvedTicket?.id && (
+          <Box className={classes.section}>
+            <Typography className={classes.sectionTitle}>IA N8N</Typography>
+            {renderSwitchRow(
+              "Pausar IA N8N",
+              isN8nPaused,
+              () => handleToggleN8nPause(),
+              n8nPauseLoading,
+              isN8nPaused
+                ? `Pausada até ${new Date(resolvedTicket.webhookPausedUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — clique para reativar`
+                : "Pausa a IA N8N por 2 horas apenas nesta conversa"
+            )}
+          </Box>
+        )}
 
         {resolvedContact && (
           <Box className={classes.section}>
