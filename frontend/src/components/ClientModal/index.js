@@ -311,7 +311,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Telefone"
+                  label="Telefone Celular"
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}

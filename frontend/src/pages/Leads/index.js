@@ -307,6 +307,11 @@ const Leads = () => {
   const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
   const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
   const [users, setUsers] = useState([]);
+  const [bulkMoveModalOpen, setBulkMoveModalOpen] = useState(false);
+  const [pipelines, setPipelines] = useState([]);
+  const [moveSelectedPipelineId, setMoveSelectedPipelineId] = useState("");
+  const [moveSelectedStageId, setMoveSelectedStageId] = useState("");
+  const [moveStages, setMoveStages] = useState([]);
   const sentinelRef = useRef(null);
 
   const loadMore = useCallback(() => {
@@ -478,6 +483,54 @@ const Leads = () => {
     }
   };
 
+  const handleOpenBulkMoveModal = async () => {
+    try {
+      const { data } = await api.get("/pipelines");
+      setPipelines(data || []);
+      setMoveSelectedPipelineId("");
+      setMoveSelectedStageId("");
+      setMoveStages([]);
+      setBulkMoveModalOpen(true);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleMoveSelectPipeline = async (pipelineId) => {
+    setMoveSelectedPipelineId(pipelineId);
+    setMoveSelectedStageId("");
+    setMoveStages([]);
+    if (!pipelineId) return;
+    try {
+      const { data } = await api.get(`/pipelines/${pipelineId}/board`);
+      setMoveStages(data.stages || []);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleBulkMoveToFunnel = async () => {
+    if (!moveSelectedPipelineId || !moveSelectedStageId) return;
+    try {
+      for (const leadId of selectedLeads) {
+        const lead = leads.find((l) => l.id === leadId);
+        await api.post("/opportunities", {
+          pipelineId: Number(moveSelectedPipelineId),
+          stageId: Number(moveSelectedStageId),
+          leadId,
+          title: lead ? lead.name : `Lead #${leadId}`
+        });
+      }
+      setBulkMoveModalOpen(false);
+      setMoveSelectedPipelineId("");
+      setMoveSelectedStageId("");
+      setMoveStages([]);
+      setSelectedLeads([]);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleExportLeads = async () => {
     try {
       const { data } = await api.get("/crm/leads/export", {
@@ -574,6 +627,49 @@ const Leads = () => {
           <Button onClick={() => setBulkAssignModalOpen(false)}>Cancelar</Button>
           <Button onClick={handleBulkAssign} color="primary" variant="contained">
             Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={bulkMoveModalOpen} onClose={() => setBulkMoveModalOpen(false)}>
+        <DialogTitle>Mover para Funil</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 340 }}>
+          <FormControl variant="outlined" fullWidth style={{ marginBottom: 16 }}>
+            <InputLabel>Selecione o funil</InputLabel>
+            <Select
+              value={moveSelectedPipelineId}
+              onChange={(e) => handleMoveSelectPipeline(e.target.value)}
+              label="Selecione o funil"
+            >
+              <MenuItem value="">Selecione...</MenuItem>
+              {pipelines.map((p) => (
+                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" fullWidth disabled={!moveSelectedPipelineId}>
+            <InputLabel>Selecione a etapa</InputLabel>
+            <Select
+              value={moveSelectedStageId}
+              onChange={(e) => setMoveSelectedStageId(e.target.value)}
+              label="Selecione a etapa"
+            >
+              <MenuItem value="">Selecione...</MenuItem>
+              {moveStages.map((s) => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkMoveModalOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={handleBulkMoveToFunnel}
+            color="primary"
+            variant="contained"
+            disabled={!moveSelectedPipelineId || !moveSelectedStageId}
+          >
+            Mover
           </Button>
         </DialogActions>
       </Dialog>
@@ -704,6 +800,13 @@ const Leads = () => {
                 onClick={() => setBulkAssignModalOpen(true)}
               >
                 Atribuir selecionados
+              </Button>
+              <Button
+                size="small"
+                color="primary"
+                onClick={handleOpenBulkMoveModal}
+              >
+                Mover para Funil
               </Button>
               <Button size="small" onClick={handleClearSelection}>
                 Limpar seleção
