@@ -54,7 +54,7 @@ const useStyles = makeStyles((theme) => ({
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#808080",
+        backgroundColor: "#F5F5F5",
         overflow: "hidden",
         marginTop: 0,
     },
@@ -978,82 +978,82 @@ const PipelineBoard = () => {
                         const isDark = true;
                         const textColor = "#fff";
                         return (
-                        <Droppable key={stage.id} droppableId={String(stage.id)}>
-                            {(provided) => (
-                                <Box
-                                    className={`${classes.lane} kanban-column`}
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                    style={{
-                                        backgroundColor: stageColor,
-                                        border: "none"
-                                    }}
-                                >
-                                    <div
-                                        className={`${classes.laneHeader} kanban-column-header`}
-                                        style={{ borderBottom: "1px solid rgba(255,255,255,0.25)" }}
+                            <Droppable key={stage.id} droppableId={String(stage.id)}>
+                                {(provided) => (
+                                    <Box
+                                        className={`${classes.lane} kanban-column`}
+                                        ref={provided.innerRef}
+                                        {...provided.droppableProps}
+                                        style={{
+                                            backgroundColor: stageColor,
+                                            border: "none"
+                                        }}
                                     >
-                                        <div className={classes.laneTitle}>
-                                            <div className={classes.laneTitleLeft}>
-                                                <span>{stage.name}</span>
-                                                <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)" }}>ID {stage.id}</span>
-                                                <span className={classes.laneCountBadge} style={{ backgroundColor: "rgba(255,255,255,0.2)", color: textColor, border: "1px solid rgba(255,255,255,0.35)" }}>
-                                                    {searchText ? stage.opportunities.length : stage.opportunitiesCount}
-                                                </span>
+                                        <div
+                                            className={`${classes.laneHeader} kanban-column-header`}
+                                            style={{ borderBottom: "1px solid rgba(255,255,255,0.25)" }}
+                                        >
+                                            <div className={classes.laneTitle}>
+                                                <div className={classes.laneTitleLeft}>
+                                                    <span>{stage.name}</span>
+                                                    <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)" }}>ID {stage.id}</span>
+                                                    <span className={classes.laneCountBadge} style={{ backgroundColor: "rgba(255,255,255,0.2)", color: textColor, border: "1px solid rgba(255,255,255,0.35)" }}>
+                                                        {searchText ? stage.opportunities.length : stage.opportunitiesCount}
+                                                    </span>
+                                                </div>
+                                                <Tooltip title="Importar Leads para este estágio">
+                                                    <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: textColor }}>
+                                                        <GetAppIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
                                             </div>
-                                            <Tooltip title="Importar Leads para este estágio">
-                                                <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: textColor }}>
-                                                    <GetAppIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
+                                            <div className={classes.laneStats} style={{ color: textColor }}>
+                                                <span>Real: {fCurrency(stage.totalValue)}</span>
+                                                <span style={{ color: "rgba(255,255,255,0.85)", fontWeight: 800 }}>Forecast: {fCurrency(stage.forecastValue)}</span>
+                                            </div>
+                                            {stage.highRiskCount > 0 && (
+                                                <Box className={classes.laneRiskNotice}>
+                                                    <WarningIcon style={{ fontSize: 12 }} /> {stage.highRiskCount} leads críticos
+                                                </Box>
+                                            )}
                                         </div>
-                                        <div className={classes.laneStats} style={{ color: textColor }}>
-                                            <span>Real: {fCurrency(stage.totalValue)}</span>
-                                            <span style={{ color: "rgba(255,255,255,0.85)", fontWeight: 800 }}>Forecast: {fCurrency(stage.forecastValue)}</span>
-                                        </div>
-                                        {stage.highRiskCount > 0 && (
-                                            <Box className={classes.laneRiskNotice}>
-                                                <WarningIcon style={{ fontSize: 12 }} /> {stage.highRiskCount} leads críticos
-                                            </Box>
-                                        )}
-                                    </div>
 
-                                    <div className={classes.cardList}>
-                                        {stage.opportunities.length === 0 && (
-                                            <Typography className={classes.noResults}>
-                                                {searchText ? "Nenhum resultado nesta etapa" : "Sem cards nesta etapa"}
-                                            </Typography>
-                                        )}
-                                        {stage.opportunities.map((op, index) => (
-                                            <Draggable key={op.id} draggableId={String(op.id)} index={index}>
-                                                {(provided, snapshot) => (
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.draggableProps}
-                                                        {...provided.dragHandleProps}
-                                                        style={{
-                                                            ...provided.draggableProps.style,
-                                                            marginBottom: 16,
-                                                            opacity: snapshot.isDragging ? 0.8 : 1
-                                                        }}
-                                                    >
-                                                        <IntelligentCard
-                                                            op={op}
-                                                            highlight={!!searchText.trim()}
-                                                            onClick={(o) => { setSelectedOp(o); setUniversalModalOpen(true); }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </Draggable>
-                                        ))}
-                                        {provided.placeholder}
-                                        {stage.hasMore && !searchText && (
-                                            <Typography className={classes.loadMore}>Carregar mais...</Typography>
-                                        )}
-                                    </div>
-                                </Box>
-                            )}
-                        </Droppable>
+                                        <div className={classes.cardList}>
+                                            {stage.opportunities.length === 0 && (
+                                                <Typography className={classes.noResults}>
+                                                    {searchText ? "Nenhum resultado nesta etapa" : "Sem cards nesta etapa"}
+                                                </Typography>
+                                            )}
+                                            {stage.opportunities.map((op, index) => (
+                                                <Draggable key={op.id} draggableId={String(op.id)} index={index}>
+                                                    {(provided, snapshot) => (
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            {...provided.dragHandleProps}
+                                                            style={{
+                                                                ...provided.draggableProps.style,
+                                                                marginBottom: 16,
+                                                                opacity: snapshot.isDragging ? 0.8 : 1
+                                                            }}
+                                                        >
+                                                            <IntelligentCard
+                                                                op={op}
+                                                                highlight={!!searchText.trim()}
+                                                                onClick={(o) => { setSelectedOp(o); setUniversalModalOpen(true); }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </Draggable>
+                                            ))}
+                                            {provided.placeholder}
+                                            {stage.hasMore && !searchText && (
+                                                <Typography className={classes.loadMore}>Carregar mais...</Typography>
+                                            )}
+                                        </div>
+                                    </Box>
+                                )}
+                            </Droppable>
                         );
                     })}
                 </Box>
