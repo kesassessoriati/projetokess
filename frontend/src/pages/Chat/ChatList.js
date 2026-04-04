@@ -315,32 +315,32 @@ export default function ChatList({
                       </Badge>
 
                       <div className={classes.textBlock}>
+                        <Typography
+                          className={classes.chatTitle}
+                          style={{ fontWeight: unreads > 0 ? 800 : 700 }}
+                        >
+                          {title}
+                        </Typography>
+
                         <div className={classes.titleRow}>
-                          <Typography
-                            className={classes.chatTitle}
-                            style={{ fontWeight: unreads > 0 ? 800 : 700 }}
-                          >
-                            {title}
-                          </Typography>
+                          {lastMsg ? (
+                            <Typography
+                              className={classes.lastMessage}
+                              style={{ fontWeight: unreads > 0 ? 700 : 500 }}
+                            >
+                              {lastMsg}
+                            </Typography>
+                          ) : (
+                            <Typography className={classes.lastMessage}>
+                              {Array.isArray(chat.users)
+                                ? `${chat.users.length} participantes`
+                                : "Sem mensagens"}
+                            </Typography>
+                          )}
                           <Typography className={classes.chatTime}>
                             {datetimeToClient(chat.updatedAt)}
                           </Typography>
                         </div>
-
-                        {lastMsg ? (
-                          <Typography
-                            className={classes.lastMessage}
-                            style={{ fontWeight: unreads > 0 ? 700 : 500 }}
-                          >
-                            {lastMsg}
-                          </Typography>
-                        ) : (
-                          <Typography className={classes.lastMessage}>
-                            {Array.isArray(chat.users)
-                              ? `${chat.users.length} participantes`
-                              : "Sem mensagens"}
-                          </Typography>
-                        )}
 
                         {Array.isArray(chat.tags) && chat.tags.length > 0 && (
                           <div className={classes.tagDotRow}>
