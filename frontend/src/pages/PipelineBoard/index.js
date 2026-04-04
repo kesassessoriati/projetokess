@@ -185,7 +185,7 @@ const useStyles = makeStyles((theme) => ({
     },
     metricCard: {
         borderRadius: 12,
-        border: "1px solid #cfe2d5",
+        border: "2px solid #000",
         background: "#ffffff",
         padding: "10px 12px",
         boxShadow: "0 6px 18px rgba(16,24,40,0.07)",
@@ -359,8 +359,8 @@ const useStyles = makeStyles((theme) => ({
         maxHeight: "100%",
         display: "flex",
         flexDirection: "column",
-        border: "1px solid #cfe1d5",
-        boxShadow: "0 10px 24px rgba(16,24,40,0.09)",
+        border: "none",
+        boxShadow: "0 10px 24px rgba(16,24,40,0.18)",
         overflow: "hidden",
         transition: "background-color 0.2s",
         [theme.breakpoints.down("sm")]: {
@@ -384,7 +384,7 @@ const useStyles = makeStyles((theme) => ({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        color: "#111111"
+        color: "#ffffff"
     },
     laneTitleLeft: {
         display: "flex",
@@ -420,7 +420,7 @@ const useStyles = makeStyles((theme) => ({
         gridTemplateColumns: "1fr 1fr",
         gap: 8,
         fontSize: "0.74rem",
-        color: "#4f6a5d",
+        color: "rgba(255,255,255,0.85)",
         fontWeight: 700
     },
     laneRiskNotice: {
@@ -502,7 +502,7 @@ const useStyles = makeStyles((theme) => ({
     loadMore: {
         textAlign: "center",
         padding: theme.spacing(1),
-        color: "#4f6f5d",
+        color: "rgba(255,255,255,0.8)",
         cursor: "pointer",
         fontSize: "0.76rem",
         fontWeight: 700,
@@ -515,7 +515,7 @@ const useStyles = makeStyles((theme) => ({
     noResults: {
         textAlign: "center",
         padding: theme.spacing(2),
-        color: "#6b8879",
+        color: "rgba(255,255,255,0.75)",
         fontSize: "0.76rem",
         border: "1px dashed #cfe1d5",
         borderRadius: 10,
@@ -973,7 +973,11 @@ const PipelineBoard = () => {
                 >
                     {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
 
-                    {!loading && (filteredBoard.stages || []).map((stage) => (
+                    {!loading && (filteredBoard.stages || []).map((stage) => {
+                        const stageColor = stage.color || "#1f9d55";
+                        const isDark = true;
+                        const textColor = "#fff";
+                        return (
                         <Droppable key={stage.id} droppableId={String(stage.id)}>
                             {(provided) => (
                                 <Box
@@ -981,29 +985,31 @@ const PipelineBoard = () => {
                                     ref={provided.innerRef}
                                     {...provided.droppableProps}
                                     style={{
-                                        backgroundColor: (stage.color || "#1f9d55") + "10",
-                                        borderTop: `4px solid ${stage.color || "#1f9d55"}`
+                                        backgroundColor: stageColor,
+                                        border: "none"
                                     }}
                                 >
-                                    <div className={`${classes.laneHeader} kanban-column-header`}>
+                                    <div
+                                        className={`${classes.laneHeader} kanban-column-header`}
+                                        style={{ borderBottom: "1px solid rgba(255,255,255,0.25)" }}
+                                    >
                                         <div className={classes.laneTitle}>
                                             <div className={classes.laneTitleLeft}>
-                                                <span className={classes.laneColorDot} style={{ backgroundColor: stage.color || "#1f9d55" }} />
                                                 <span>{stage.name}</span>
-                                                <span style={{ fontSize: "0.68rem", color: "#5f7b6d" }}>ID {stage.id}</span>
-                                                <span className={classes.laneCountBadge}>
+                                                <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)" }}>ID {stage.id}</span>
+                                                <span className={classes.laneCountBadge} style={{ backgroundColor: "rgba(255,255,255,0.2)", color: textColor, border: "1px solid rgba(255,255,255,0.35)" }}>
                                                     {searchText ? stage.opportunities.length : stage.opportunitiesCount}
                                                 </span>
                                             </div>
                                             <Tooltip title="Importar Leads para este estágio">
-                                                <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: "#2f6b49" }}>
+                                                <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: textColor }}>
                                                     <GetAppIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
                                         </div>
-                                        <div className={classes.laneStats}>
+                                        <div className={classes.laneStats} style={{ color: textColor }}>
                                             <span>Real: {fCurrency(stage.totalValue)}</span>
-                                            <span style={{ color: "#117a43", fontWeight: 800 }}>Forecast: {fCurrency(stage.forecastValue)}</span>
+                                            <span style={{ color: "rgba(255,255,255,0.85)", fontWeight: 800 }}>Forecast: {fCurrency(stage.forecastValue)}</span>
                                         </div>
                                         {stage.highRiskCount > 0 && (
                                             <Box className={classes.laneRiskNotice}>
@@ -1048,7 +1054,8 @@ const PipelineBoard = () => {
                                 </Box>
                             )}
                         </Droppable>
-                    ))}
+                        );
+                    })}
                 </Box>
             </DragDropContext>
 
