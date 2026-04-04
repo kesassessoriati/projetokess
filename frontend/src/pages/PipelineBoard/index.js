@@ -54,7 +54,7 @@ const useStyles = makeStyles((theme) => ({
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#808080",
         overflow: "hidden",
         marginTop: 0,
     },
@@ -976,9 +976,9 @@ const PipelineBoard = () => {
                     {!loading && (filteredBoard.stages || []).map((stage) => (
                         <Droppable key={stage.id} droppableId={String(stage.id)}>
                             {(provided) => (
-                                <Box 
-                                    className={`${classes.lane} kanban-column`} 
-                                    ref={provided.innerRef} 
+                                <Box
+                                    className={`${classes.lane} kanban-column`}
+                                    ref={provided.innerRef}
                                     {...provided.droppableProps}
                                     style={{
                                         backgroundColor: (stage.color || "#1f9d55") + "10",
