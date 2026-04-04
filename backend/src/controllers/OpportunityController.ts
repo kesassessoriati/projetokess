@@ -18,6 +18,26 @@ import { ExecuteKanbanAutomationService } from "../services/KanbanAutomationServ
 import { getIO } from "../libs/socket";
 import EventBus from "../libs/EventBus";
 
+export const remove = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const opportunity = await Opportunity.findOne({ where: { id, companyId } });
+    if (!opportunity) {
+        throw new AppError("Oportunidade não encontrada.", 404);
+    }
+
+    await opportunity.destroy();
+
+    const io = getIO();
+    io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "delete",
+        opportunityId: Number(id)
+    });
+
+    return res.status(200).json({ message: "Oportunidade removida do funil." });
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
     const { pipelineId, contactId, ticketId } = req.query;
     const { companyId } = req.user;

@@ -20,7 +20,12 @@ import {
     DialogContent,
     DialogActions,
     Switch,
-    FormControlLabel
+    FormControlLabel,
+    TextField,
+    Menu,
+    Tab,
+    Tabs,
+    Chip
 } from "@material-ui/core";
 import {
     Warning as WarningIcon,
@@ -35,7 +40,13 @@ import {
     Person as PersonIcon,
     Clear as ClearIcon,
     Dashboard as DashboardIcon,
-    Tune as TuneIcon
+    Tune as TuneIcon,
+    MoreVert as MoreVertIcon,
+    LayersClear as LayersClearIcon,
+    Message as MessageIcon,
+    Note as NoteIcon,
+    Assignment as AssignmentIcon,
+    GetApp as GetAppIcon2
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -607,6 +618,25 @@ const PipelineBoard = () => {
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [selectedOp, setSelectedOp] = useState(null);
 
+    // Ações em massa por etapa
+    const [stageMenuAnchor, setStageMenuAnchor] = useState(null);
+    const [stageMenuTarget, setStageMenuTarget] = useState(null); // stage object
+    const [massActionModalOpen, setMassActionModalOpen] = useState(false);
+    const [massActionTab, setMassActionTab] = useState(0);
+    const [massActionStage, setMassActionStage] = useState(null);
+    const [massDeleting, setMassDeleting] = useState(false);
+    const [massNote, setMassNote] = useState("");
+    const [massSaving, setMassSaving] = useState(false);
+    const [massTaskTitle, setMassTaskTitle] = useState("");
+    const [massTaskDueDate, setMassTaskDueDate] = useState("");
+    const [massTaskPriority, setMassTaskPriority] = useState("Média");
+    const [massMsg, setMassMsg] = useState("");
+    const [massWhatsapps, setMassWhatsapps] = useState([]);
+    const [massWhatsappId, setMassWhatsappId] = useState("");
+    const [massScheduleDate, setMassScheduleDate] = useState("");
+    const [massTaskBoards, setMassTaskBoards] = useState([]);
+    const [massTaskListId, setMassTaskListId] = useState("");
+
     const topScrollRef = useRef(null);
     const boardScrollRef = useRef(null);
 
@@ -713,6 +743,138 @@ const PipelineBoard = () => {
             }))
         };
     }, [board, searchText]);
+
+    const handleOpenStageMenu = (event, stage) => {
+        setStageMenuAnchor(event.currentTarget);
+        setStageMenuTarget(stage);
+    };
+
+    const handleCloseStageMenu = () => {
+        setStageMenuAnchor(null);
+        setStageMenuTarget(null);
+    };
+
+    const handleOpenMassAction = async (stage) => {
+        handleCloseStageMenu();
+        setMassActionStage(stage);
+        setMassActionTab(0);
+        setMassNote("");
+        setMassTaskTitle("");
+        setMassTaskDueDate("");
+        setMassTaskPriority("Média");
+        setMassMsg("");
+        setMassWhatsappId("");
+        setMassScheduleDate("");
+        setMassTaskListId("");
+        // carrega conexões WhatsApp e boards de tarefas
+        try {
+            const [wpRes, boardRes] = await Promise.all([
+                api.get("/whatsapp"),
+                api.get("/tasks")
+            ]);
+            setMassWhatsapps((wpRes.data || []).filter(w => w.status === "CONNECTED"));
+            setMassTaskBoards(boardRes.data || []);
+        } catch (_) {}
+        setMassActionModalOpen(true);
+    };
+
+    const handleMassDelete = async () => {
+        if (!massActionStage) return;
+        if (!window.confirm(`Excluir TODAS as ${massActionStage.opportunities.length} oportunidades desta etapa do funil? Esta ação não pode ser desfeita.`)) return;
+        setMassDeleting(true);
+        try {
+            const ids = massActionStage.opportunities.map(o => o.id);
+            for (const id of ids) {
+                await api.delete(`/opportunities/${id}`);
+            }
+            toast.success("Oportunidades removidas do funil.");
+            setMassActionModalOpen(false);
+            fetchBoard();
+        } catch (err) {
+            toast.error("Erro ao excluir oportunidades.");
+        } finally {
+            setMassDeleting(false);
+        }
+    };
+
+    const handleMassNote = async () => {
+        if (!massNote.trim() || !massActionStage) return;
+        setMassSaving(true);
+        try {
+            for (const op of massActionStage.opportunities) {
+                await api.post(`/opportunities/${op.id}/events`, {
+                    type: "ANOTACAO",
+                    metadata: { text: massNote }
+                });
+            }
+            toast.success("Anotações adicionadas em massa.");
+            setMassNote("");
+        } catch (_) {
+            toast.error("Erro ao adicionar anotações.");
+        } finally {
+            setMassSaving(false);
+        }
+    };
+
+    const handleMassTask = async () => {
+        if (!massTaskTitle.trim() || !massTaskListId || !massActionStage) return;
+        setMassSaving(true);
+        try {
+            for (const op of massActionStage.opportunities) {
+                await api.post("/tasks/item", {
+                    listId: Number(massTaskListId),
+                    title: massTaskTitle,
+                    priority: massTaskPriority,
+                    dueDate: massTaskDueDate || null,
+                    leadId: op.leadId || null
+                });
+            }
+            toast.success("Tarefas criadas em massa.");
+            setMassTaskTitle("");
+            setMassTaskDueDate("");
+            setMassTaskListId("");
+        } catch (_) {
+            toast.error("Erro ao criar tarefas.");
+        } finally {
+            setMassSaving(false);
+        }
+    };
+
+    const handleMassMessage = async () => {
+        if (!massMsg.trim() || !massWhatsappId || !massActionStage) return;
+        setMassSaving(true);
+        try {
+            const contactIds = massActionStage.opportunities
+                .filter(op => op.contactId)
+                .map(op => op.contactId)
+                .join(",");
+            if (!contactIds) {
+                toast.warn("Nenhuma oportunidade desta etapa possui contato vinculado.");
+                return;
+            }
+            await api.post("/schedules-message", {
+                nome: `Disparo Funil - ${massActionStage.name}`,
+                mensagem: massMsg,
+                id_conexao: Number(massWhatsappId),
+                data_mensagem_programada: massScheduleDate || new Date().toISOString(),
+                contatos: contactIds,
+                tags: "",
+                intervalo: "unico",
+                valor_intervalo: 1,
+                tipo_dias_envio: "todos",
+                mostrar_usuario_mensagem: false,
+                criar_ticket: false,
+                enviar_quantas_vezes: 1
+            });
+            toast.success("Agendamento de mensagens criado com sucesso.");
+            setMassMsg("");
+            setMassScheduleDate("");
+        } catch (_) {
+            toast.error("Erro ao agendar mensagens.");
+        } finally {
+            setMassSaving(false);
+        }
+    };
 
     const handleOpenImport = (stageId = "") => {
         setSelectedStageToImport(stageId);
@@ -1001,9 +1163,9 @@ const PipelineBoard = () => {
                                                         {searchText ? stage.opportunities.length : stage.opportunitiesCount}
                                                     </span>
                                                 </div>
-                                                <Tooltip title="Importar Leads para este estágio">
-                                                    <IconButton size="small" onClick={() => handleOpenImport(stage.id)} style={{ color: textColor }}>
-                                                        <GetAppIcon fontSize="small" />
+                                                <Tooltip title="Opções da etapa">
+                                                    <IconButton size="small" onClick={(e) => handleOpenStageMenu(e, stage)} style={{ color: textColor }}>
+                                                        <MoreVertIcon fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
                                             </div>
@@ -1058,6 +1220,193 @@ const PipelineBoard = () => {
                     })}
                 </Box>
             </DragDropContext>
+
+            {/* Menu de opções da etapa */}
+            <Menu
+                anchorEl={stageMenuAnchor}
+                open={Boolean(stageMenuAnchor)}
+                onClose={handleCloseStageMenu}
+                PaperProps={{ style: { borderRadius: 10, minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" } }}
+            >
+                <MenuItem onClick={() => handleOpenMassAction(stageMenuTarget)} style={{ gap: 8 }}>
+                    <LayersClearIcon fontSize="small" style={{ color: "#6366f1" }} />
+                    <Box>
+                        <Typography variant="body2" style={{ fontWeight: 700 }}>Ações em massa</Typography>
+                        <Chip label="BETA" size="small" style={{ fontSize: "0.6rem", height: 16, backgroundColor: "#e0e7ff", color: "#4338ca" }} />
+                    </Box>
+                </MenuItem>
+                <MenuItem onClick={() => { handleCloseStageMenu(); handleOpenImport(stageMenuTarget?.id); }} style={{ gap: 8 }}>
+                    <GetAppIcon2 fontSize="small" style={{ color: "#059669" }} />
+                    <Typography variant="body2" style={{ fontWeight: 600 }}>Importar negócios</Typography>
+                </MenuItem>
+            </Menu>
+
+            {/* Modal de Ações em Massa */}
+            <Dialog open={massActionModalOpen} onClose={() => setMassActionModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ style: { borderRadius: 16 } }}>
+                <DialogTitle style={{ fontWeight: 800, paddingBottom: 0 }}>
+                    Ações em massa — {massActionStage?.name}
+                    <Typography variant="caption" display="block" style={{ color: "#6b7280", fontWeight: 400 }}>
+                        {massActionStage?.opportunities?.length || 0} oportunidade(s) nesta etapa
+                    </Typography>
+                </DialogTitle>
+                <Tabs
+                    value={massActionTab}
+                    onChange={(_, v) => setMassActionTab(v)}
+                    indicatorColor="primary"
+                    textColor="primary"
+                    variant="scrollable"
+                    style={{ borderBottom: "1px solid #e5e7eb", paddingLeft: 16 }}
+                >
+                    <Tab label="Excluir" icon={<LayersClearIcon fontSize="small" />} style={{ minWidth: 80, fontSize: "0.75rem" }} />
+                    <Tab label="Mensagem" icon={<MessageIcon fontSize="small" />} style={{ minWidth: 80, fontSize: "0.75rem" }} />
+                    <Tab label="Anotações" icon={<NoteIcon fontSize="small" />} style={{ minWidth: 80, fontSize: "0.75rem" }} />
+                    <Tab label="Tarefas" icon={<AssignmentIcon fontSize="small" />} style={{ minWidth: 80, fontSize: "0.75rem" }} />
+                </Tabs>
+                <DialogContent style={{ minHeight: 220, paddingTop: 20 }}>
+                    {/* Aba 0: Excluir */}
+                    {massActionTab === 0 && (
+                        <Box>
+                            <Typography variant="body2" style={{ color: "#b91c1c", marginBottom: 12 }}>
+                                Esta ação remove todas as oportunidades desta etapa do funil. Os leads NÃO são excluídos, apenas saem do pipeline.
+                            </Typography>
+                            <Box p={2} style={{ backgroundColor: "#fef2f2", borderRadius: 10, border: "1px solid #fca5a5" }}>
+                                <Typography variant="body2" style={{ fontWeight: 700 }}>
+                                    {massActionStage?.opportunities?.length || 0} oportunidade(s) serão removidas
+                                </Typography>
+                            </Box>
+                            <Button
+                                variant="contained"
+                                fullWidth
+                                disabled={massDeleting || !massActionStage?.opportunities?.length}
+                                onClick={handleMassDelete}
+                                style={{ marginTop: 16, backgroundColor: "#dc2626", color: "#fff" }}
+                            >
+                                {massDeleting ? <CircularProgress size={20} style={{ color: "#fff" }} /> : "Excluir todas do funil"}
+                            </Button>
+                        </Box>
+                    )}
+                    {/* Aba 1: Mensagem em massa */}
+                    {massActionTab === 1 && (
+                        <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
+                            <FormControl variant="outlined" fullWidth size="small">
+                                <InputLabel>Conexão WhatsApp</InputLabel>
+                                <Select value={massWhatsappId} onChange={e => setMassWhatsappId(e.target.value)} label="Conexão WhatsApp">
+                                    <MenuItem value="">Selecione...</MenuItem>
+                                    {massWhatsapps.map(w => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                            <TextField
+                                label="Data/hora de envio (opcional)"
+                                type="datetime-local"
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                value={massScheduleDate}
+                                onChange={e => setMassScheduleDate(e.target.value)}
+                            />
+                            <TextField
+                                label="Mensagem"
+                                multiline
+                                rows={4}
+                                variant="outlined"
+                                fullWidth
+                                value={massMsg}
+                                onChange={e => setMassMsg(e.target.value)}
+                                placeholder="Digite a mensagem a enviar para todos os contatos desta etapa..."
+                            />
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                disabled={massSaving || !massMsg.trim() || !massWhatsappId}
+                                onClick={handleMassMessage}
+                            >
+                                {massSaving ? <CircularProgress size={20} /> : "Agendar envio em massa"}
+                            </Button>
+                        </Box>
+                    )}
+                    {/* Aba 2: Anotações em massa */}
+                    {massActionTab === 2 && (
+                        <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
+                            <Typography variant="body2" color="textSecondary">
+                                A anotação será adicionada em todos os cards desta etapa.
+                            </Typography>
+                            <TextField
+                                label="Anotação"
+                                multiline
+                                rows={5}
+                                variant="outlined"
+                                fullWidth
+                                value={massNote}
+                                onChange={e => setMassNote(e.target.value)}
+                                placeholder="Digite a anotação..."
+                                style={{ backgroundColor: "#fef3c7" }}
+                            />
+                            <Button
+                                variant="contained"
+                                disabled={massSaving || !massNote.trim()}
+                                onClick={handleMassNote}
+                                style={{ backgroundColor: "#f59e0b", color: "#fff" }}
+                            >
+                                {massSaving ? <CircularProgress size={20} /> : "Adicionar anotação em massa"}
+                            </Button>
+                        </Box>
+                    )}
+                    {/* Aba 3: Tarefas em massa */}
+                    {massActionTab === 3 && (
+                        <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
+                            <Typography variant="body2" color="textSecondary">
+                                Uma tarefa será criada para cada lead desta etapa.
+                            </Typography>
+                            <TextField
+                                label="Título da tarefa"
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                value={massTaskTitle}
+                                onChange={e => setMassTaskTitle(e.target.value)}
+                                placeholder="Ex: Ligar às 14h, Reunião online..."
+                            />
+                            <FormControl variant="outlined" size="small" fullWidth>
+                                <InputLabel>Quadro de tarefas (coluna)</InputLabel>
+                                <Select value={massTaskListId} onChange={e => setMassTaskListId(e.target.value)} label="Quadro de tarefas (coluna)">
+                                    <MenuItem value="">Selecione...</MenuItem>
+                                    {massTaskBoards.flatMap(b => (b.lists || []).map(l => (
+                                        <MenuItem key={l.id} value={l.id}>{b.name} → {l.name}</MenuItem>
+                                    )))}
+                                </Select>
+                            </FormControl>
+                            <FormControl variant="outlined" size="small" fullWidth>
+                                <InputLabel>Prioridade</InputLabel>
+                                <Select value={massTaskPriority} onChange={e => setMassTaskPriority(e.target.value)} label="Prioridade">
+                                    {["Baixa","Média","Alta","Urgente"].map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                            <TextField
+                                label="Prazo"
+                                type="datetime-local"
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                value={massTaskDueDate}
+                                onChange={e => setMassTaskDueDate(e.target.value)}
+                            />
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                disabled={massSaving || !massTaskTitle.trim() || !massTaskListId}
+                                onClick={handleMassTask}
+                            >
+                                {massSaving ? <CircularProgress size={20} /> : "Criar tarefas em massa"}
+                            </Button>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setMassActionModalOpen(false)}>Fechar</Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Universal Lead Modal */}
             <UniversalLeadModal
