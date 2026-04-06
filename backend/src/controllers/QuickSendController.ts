@@ -268,6 +268,11 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                 ...getBrazilianPhoneVariants(normalized)
             ])
         ];
+        const createContactName =
+            name ||
+            lead?.name ||
+            lead?.contact?.name ||
+            validatedNumber;
 
         // O contato do lead pode ter o número no formato antigo (sem nono dígito).
         // Verificamos se é equivalente ao número solicitado antes de aceitar.
@@ -294,7 +299,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             const acceptAudio = settings?.acceptAudioMessageContact === "enabled";
 
             contact = await CreateOrUpdateContactService({
-                name: name || validatedNumber,
+                name: createContactName,
                 number: validatedNumber,
                 remoteJid,
                 companyId,
@@ -345,7 +350,7 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
             );
 
             contact = await CreateOrUpdateContactService({
-                name: name || contact?.name || validatedNumber,
+                name: name || contact?.name || lead?.name || lead?.contact?.name || validatedNumber,
                 number: validatedNumber,
                 remoteJid,
                 companyId,
