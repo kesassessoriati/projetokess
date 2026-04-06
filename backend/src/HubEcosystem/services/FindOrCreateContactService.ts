@@ -23,16 +23,17 @@ const FindOrCreateContactService = async (
     }
   });
 
-  if (existingContact) {
-    return existingContact;
-  }
-
-  const normalizedName = name || firstName || lastName || from;
+  const normalizedName =
+    name ||
+    firstName ||
+    lastName ||
+    existingContact?.name ||
+    from;
 
   return CreateOrUpdateContactService({
     name: normalizedName,
     number: from,
-    profilePicUrl: picture,
+    profilePicUrl: picture || existingContact?.profilePicUrl || "",
     isGroup: false,
     channel: connection.channel,
     companyId: connection.companyId,

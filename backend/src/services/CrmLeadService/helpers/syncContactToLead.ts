@@ -1,6 +1,10 @@
-import CrmLead from "../../../models/CrmLead";
+import { Op } from "sequelize";
 import Contact from "../../../models/Contact";
+import CrmLead from "../../../models/CrmLead";
+import { getIO } from "../../../libs/socket";
+import { getBrazilianPhoneVariants } from "../../../helpers/normalizeContactNumber";
 import logger from "../../../utils/logger";
+import serializeCrmLead from "./serializeCrmLead";
 
 interface Params {
   contact: Contact;
@@ -13,6 +17,35 @@ const normalizeDocument = (value?: string | null): string | null => {
   return digits.length ? digits : null;
 };
 
+const sanitizeName = (value?: string | null): string => (value || "").trim();
+
+const isFallbackName = (value?: string | null): boolean =>
+  /^Contato sem nome(?:\s+\d+)?$/i.test(sanitizeName(value));
+
+const shouldSyncContactNameToLead = (
+  contactName?: string | null,
+  currentLeadName?: string | null,
+  contactNumber?: string | null
+): boolean => {
+  const incomingName = sanitizeName(contactName);
+  const currentName = sanitizeName(currentLeadName);
+  const normalizedNumber = sanitizeName(contactNumber);
+
+  if (!incomingName || incomingName === currentName) {
+    return false;
+  }
+
+  if (isFallbackName(incomingName)) {
+    return false;
+  }
+
+  if (normalizedNumber && incomingName === normalizedNumber) {
+    return !currentName || isFallbackName(currentName);
+  }
+
+  return true;
+};
+
 const syncContactToLead = async ({
   contact,
   companyId
@@ -21,6 +54,12 @@ const syncContactToLead = async ({
     return;
   }
 
+  const io = getIO();
+  const normalizedPhone = contact.number || null;
+  const phoneVariants = normalizedPhone
+    ? getBrazilianPhoneVariants(normalizedPhone)
+    : [];
+
   let lead = await CrmLead.findOne({
     where: {
       companyId,
@@ -28,10 +67,21 @@ const syncContactToLead = async ({
     }
   });
 
+  let action: "create" | "update" | null = null;
+
+  if (!lead && phoneVariants.length > 0) {
+    lead = await CrmLead.findOne({
+      where: {
+        companyId,
+        contactId: { [Op.is]: null },
+        phone: { [Op.in]: phoneVariants }
+      },
+      order: [["updatedAt", "DESC"]]
+    });
+  }
+
   if (!lead) {
-    // Se não existe Lead, cria um
     const normalizedDocument = normalizeDocument(contact.cpfCnpj);
-    const normalizedPhone = contact.number || null;
     const email = contact.email || null;
     const name = contact.name || normalizedPhone || "Lead";
 
@@ -46,11 +96,15 @@ const syncContactToLead = async ({
       lastActivityAt: new Date()
     });
 
+    action = "create";
     logger.info(`Created new Lead ${lead.id} for Contact ${contact.id}`);
   } else {
-    // Se existe, atualiza se necessário
     const updates: Partial<CrmLead> = {};
     const normalizedDocument = normalizeDocument(contact.cpfCnpj);
+
+    if (!lead.contactId || lead.contactId !== contact.id) {
+      updates.contactId = contact.id;
+    }
 
     if (contact.number && contact.number !== lead.phone) {
       updates.phone = contact.number;
@@ -60,7 +114,7 @@ const syncContactToLead = async ({
       updates.email = contact.email;
     }
 
-    if (contact.name && contact.name !== lead.name) {
+    if (shouldSyncContactNameToLead(contact.name, lead.name, contact.number)) {
       updates.name = contact.name;
     }
 
@@ -70,9 +124,16 @@ const syncContactToLead = async ({
 
     if (Object.keys(updates).length > 0) {
       logger.info(`Syncing Contact ${contact.id} changes to Lead ${lead.id}:`, updates);
-      // Usa hooks: false para evitar ciclo Contact→Lead→Contact
       await (lead as any).update(updates, { hooks: false });
+      action = "update";
     }
+  }
+
+  if (action) {
+    io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+      action,
+      lead: serializeCrmLead(lead)
+    });
   }
 };
 

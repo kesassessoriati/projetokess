@@ -9,6 +9,7 @@ import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
 import CheckContactNumber from "../WbotServices/CheckNumber";
 import logger from "../../utils/logger";
+import serializeCrmLead from "./helpers/serializeCrmLead";
 
 interface Request {
   companyId: number;
@@ -393,6 +394,13 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
     await Opportunity.create(oppData);
   }
+
+  const { getIO } = await import("../../libs/socket");
+  const io = getIO();
+  io.to(data.companyId.toString()).emit(`company-${data.companyId}-lead`, {
+    action: "create",
+    lead: serializeCrmLead(lead)
+  });
 
   webhookDispatch("LEAD_CREATED", data.companyId, {
     lead: {

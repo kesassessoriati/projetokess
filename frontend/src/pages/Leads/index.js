@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useRef, useCallback } from "react";
+import React, { useState, useEffect, useReducer, useRef, useCallback, useContext } from "react";
 import {
   Avatar,
   Box,
@@ -35,6 +35,8 @@ import ImportLeadsModal from "../../components/ImportLeadsModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { LEAD_STATUS } from "../../constants/leadStatus";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const STATUS_OPTIONS = [{ label: "Todos", value: "" }, ...LEAD_STATUS];
 
@@ -287,6 +289,8 @@ const useStyles = makeStyles((theme) => ({
 
 const Leads = () => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  const { isReady, on } = useSocket();
 
   const [leads, dispatch] = useReducer(reducer, []);
   const [pageNumber, setPageNumber] = useState(1);
@@ -346,6 +350,16 @@ const Leads = () => {
     };
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (!isReady || !user?.companyId) return;
+
+    const cleanup = on(`company-${user.companyId}-lead`, () => {
+      setRefreshToken((prev) => prev + 1);
+    });
+
+    return cleanup;
+  }, [isReady, on, user?.companyId]);
 
 
   useEffect(() => {
