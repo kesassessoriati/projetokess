@@ -44,6 +44,13 @@ export const StartWhatsAppSession = async (
     try {
       const wbot = await initWASocket(whatsapp);
 
+      if (!wbot?.id) {
+        logger.info(
+          `[Wbot] Sessão ${whatsapp.name} aguardando reinicialização do socket durante o pareamento.`
+        );
+        return;
+      }
+
       if (wbot.id) {
         wbotMessageListener(wbot, companyId);
         wbotMonitor(wbot, whatsapp, companyId);

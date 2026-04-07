@@ -66,8 +66,22 @@ export const removeWbotWhaileys = async (
 
 export const initWASocketWhaileys = async (
   whatsapp: Whatsapp
-): Promise<WhaileysSession> => {
+): Promise<WhaileysSession | null> => {
   return new Promise(async (resolve, reject) => {
+    let hasSettled = false;
+
+    const settleInitialization = (session: WhaileysSession | null) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      resolve(session);
+    };
+
+    const failInitialization = (error: any) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      reject(error);
+    };
+
     try {
       // Importação dinâmica da biblioteca whaileys
       let makeWASocket: any;
@@ -91,7 +105,8 @@ export const initWASocketWhaileys = async (
         isJidGroup = whaileys.isJidGroup;
       } catch (err) {
         logger.error(`[Whaileys] Falha ao importar biblioteca whaileys: ${err}`);
-        return reject(err);
+        failInitialization(err);
+        return;
       }
 
       const io = getIO();
@@ -99,7 +114,10 @@ export const initWASocketWhaileys = async (
       const whatsappUpdate = await Whatsapp.findOne({
         where: { id: whatsapp.id }
       });
-      if (!whatsappUpdate) return reject(new Error("Whatsapp not found"));
+      if (!whatsappUpdate) {
+        failInitialization(new Error("Whatsapp not found"));
+        return;
+      }
 
       const { id, name, allowGroup, companyId } = whatsappUpdate;
 
@@ -111,6 +129,7 @@ export const initWASocketWhaileys = async (
       const sessionDir = `whaileys_sessions/${whatsapp.companyId}/${whatsapp.id}`;
       const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
+      let connectionOpened = false;
       let wsocket: WhaileysSession = makeWASocket({
         logger: { level: "silent", trace: () => {}, debug: () => {}, info: () => {}, warn: logger.warn.bind(logger), error: logger.error.bind(logger), fatal: logger.error.bind(logger), child: () => ({}) },
         printQRInTerminal: false,
@@ -161,9 +180,17 @@ export const initWASocketWhaileys = async (
               removeWbotWhaileys(id, false);
               setTimeout(() => StartWhaileysSession(whatsapp, companyId), 2000);
             }
+
+            if (!connectionOpened) {
+              logger.info(
+                `[Whaileys] Sessão ${name} encerrada antes de abrir. Liberando inicialização para novo socket (status=${statusCode || "unknown"}).`
+              );
+              settleInitialization(null);
+            }
           }
 
           if (connection === "open") {
+            connectionOpened = true;
             const number = jidNormalizedUser
               ? jidNormalizedUser(wsocket?.user?.id || "").split("@")[0]
               : "";
@@ -186,7 +213,7 @@ export const initWASocketWhaileys = async (
               whaileySessions.push(wsocket);
             }
 
-            resolve(wsocket);
+            settleInitialization(wsocket);
           }
 
           if (qr !== undefined) {
@@ -203,6 +230,9 @@ export const initWASocketWhaileys = async (
               wsocket.ws.close();
               wsocket = null;
               retriesQrCodeMap.delete(id);
+              if (!connectionOpened) {
+                settleInitialization(null);
+              }
             } else {
               logger.info(`[Whaileys] QRCode gerado para ${name}`);
               retriesQrCodeMap.set(id, retriesQrCode + 1);
@@ -234,7 +264,7 @@ export const initWASocketWhaileys = async (
     } catch (error) {
       Sentry.captureException(error);
       logger.error(`[Whaileys] initWASocketWhaileys error: ${error}`);
-      reject(error);
+      failInitialization(error);
     }
   });
 };

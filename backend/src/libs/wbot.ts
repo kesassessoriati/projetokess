@@ -136,10 +136,24 @@ export var dataMessages: any = {};
 
 export const msgDB = msg();
 
-export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      (async () => {
+export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> => {
+  return new Promise((resolve, reject) => {
+    let hasSettled = false;
+
+    const settleInitialization = (session: Session | null) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      resolve(session);
+    };
+
+    const failInitialization = (error: any) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      reject(error);
+    };
+
+    (async () => {
+      try {
         const io = getIO();
 
         const baileys = await loadBaileys();
@@ -159,7 +173,10 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
           where: { id: whatsapp.id }
         });
 
-        if (!whatsappUpdate) return;
+        if (!whatsappUpdate) {
+          settleInitialization(null);
+          return;
+        }
 
         const { id, name, allowGroup, companyId } = whatsappUpdate;
 
@@ -169,6 +186,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
         let retriesQrCode = 0;
 
         let wsocket: Session = null;
+        let connectionOpened = false;
        
         const { state, saveCreds } = await useMultiFileAuthState(whatsapp);
 
@@ -368,6 +386,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 `Socket  ${name} Connection Update ${connection || ""} ${lastDisconnect ? lastDisconnect.error.message : ""
                 }`
               );
+              const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
               if ((lastDisconnect?.error as Boom)?.output?.statusCode === 403) {
                 await whatsapp.update({ status: "PENDING", session: "" });
                 await DeleteBaileysService(whatsapp.id);
@@ -380,7 +399,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 removeWbot(id, false);
               }
               if (
-                (lastDisconnect?.error as Boom)?.output?.statusCode !==
+                statusCode !==
                 DisconnectReason.loggedOut
               ) {
                 removeWbot(id, false);
@@ -403,9 +422,17 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   2000
                 );
               }
+
+              if (!connectionOpened) {
+                logger.info(
+                  `[Wbot] Sessão ${name} encerrada antes de abrir. Liberando inicialização para novo socket (status=${statusCode || "unknown"}).`
+                );
+                settleInitialization(null);
+              }
             }
 
             if (connection === "open") {
+              connectionOpened = true;
               await whatsapp.update({
                 status: "CONNECTED",
                 qrcode: "",
@@ -430,7 +457,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 sessions.push(wsocket);
               }
 
-              resolve(wsocket);
+              settleInitialization(wsocket);
             }
 
             if (qr !== undefined && whatsapp.notificameHub !== true) {
@@ -450,6 +477,9 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 wsocket.ws.close();
                 wsocket = null;
                 retriesQrCodeMap.delete(id);
+                if (!connectionOpened) {
+                  settleInitialization(null);
+                }
               } else {
                 logger.info(`Session QRCode Generate ${name}`);
                 retriesQrCodeMap.set(id, (retriesQrCode += 1));
@@ -481,11 +511,11 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
         wsocket.ev.on("creds.update", saveCreds);
         // wsocket.store = store;
         // store.bind(wsocket.ev);
-      })();
-    } catch (error) {
-      Sentry.captureException(error);
-      console.log(error);
-      reject(error);
-    }
+      } catch (error) {
+        Sentry.captureException(error);
+        console.log(error);
+        failInitialization(error);
+      }
+    })();
   });
 };

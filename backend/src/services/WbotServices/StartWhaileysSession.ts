@@ -35,6 +35,13 @@ export const StartWhaileysSession = async (
     try {
       const wbot = await initWASocketWhaileys(whatsapp);
 
+      if (!wbot?.id) {
+        logger.info(
+          `[Whaileys] Sessão ${whatsapp.name} aguardando reinicialização do socket durante o pareamento.`
+        );
+        return;
+      }
+
       if (wbot?.id) {
         // Reutiliza o mesmo listener de mensagens do canal Baileys
         wbotMessageListener(wbot as any, companyId);
