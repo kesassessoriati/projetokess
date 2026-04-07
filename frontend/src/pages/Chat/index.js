@@ -308,6 +308,15 @@ function Chat(props) {
 
   const { isReady, on } = useSocket();
 
+  const upsertChatRecord = (records = [], chat) => {
+    if (!chat?.id) return records;
+    const chatExists = records.some((record) => record.id === chat.id);
+    if (chatExists) {
+      return records.map((record) => (record.id === chat.id ? chat : record));
+    }
+    return [chat, ...records];
+  };
+
   useEffect(() => {
     if (chatsData?.records && id) {
       const chat = chatsData.records.find((r) => r.uuid === id);
@@ -347,6 +356,27 @@ function Chat(props) {
     );
 
     const cleanupChat = on(`company-${companyId}-chat`, (data) => {
+      if (data.action === "new-message") {
+        const chatRecord = data.chat || data.newMessage?.chat;
+        if (chatRecord) {
+          setChatsData((prev) => ({
+            ...prev,
+            records: upsertChatRecord(prev?.records || [], chatRecord),
+          }));
+          if (currentChat.id === chatRecord.id) {
+            setCurrentChat(chatRecord);
+          }
+        }
+      }
+      if (data.action === "update" && data.chat) {
+        setChatsData((prev) => ({
+          ...prev,
+          records: upsertChatRecord(prev?.records || [], data.chat),
+        }));
+        if (currentChat.id === data.chat.id) {
+          setCurrentChat(data.chat);
+        }
+      }
       if (data.action === "delete") {
         setChatsData((prev) => ({
           ...prev,
@@ -366,6 +396,20 @@ function Chat(props) {
           setMessages((prev) => [...prev, data.newMessage]);
           if (scrollToBottomRef.current) {
             scrollToBottomRef.current();
+          }
+        }
+        if (data.action === "update-message" && data.message) {
+          setMessages((prev) =>
+            prev.map((message) => (message.id === data.message.id ? data.message : message))
+          );
+          if (data.chat?.id === currentChat.id) {
+            setCurrentChat(data.chat);
+          }
+        }
+        if (data.action === "delete-message" && data.messageId) {
+          setMessages((prev) => prev.filter((message) => message.id !== data.messageId));
+          if (data.chat?.id === currentChat.id) {
+            setCurrentChat(data.chat);
           }
         }
       });
@@ -429,6 +473,26 @@ function Chat(props) {
       await api.delete(`/chats/${chat.id}`);
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const handleUpdateMessage = async (message, content) => {
+    try {
+      await api.put(`/chats/${currentChat.id}/messages/${message.id}`, {
+        message: content,
+      });
+    } catch (err) {
+      toastError(err);
+      throw err;
+    }
+  };
+
+  const handleDeleteMessage = async (message) => {
+    try {
+      await api.delete(`/chats/${currentChat.id}/messages/${message.id}`);
+    } catch (err) {
+      toastError(err);
+      throw err;
     }
   };
 
@@ -553,6 +617,8 @@ function Chat(props) {
                     chat={currentChat}
                     messages={messages}
                     handleSendMessage={handleSendMessage}
+                    handleUpdateMessage={handleUpdateMessage}
+                    handleDeleteMessage={handleDeleteMessage}
                     handleLoadMore={handleLoadMoreMessages}
                     scrollToBottomRef={scrollToBottomRef}
                     pageInfo={messagesPageInfo}

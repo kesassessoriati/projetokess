@@ -2,10 +2,17 @@ import React, { useContext, useEffect, useRef, useState, useCallback } from "rea
 import {
   Avatar,
   Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   CircularProgress,
   IconButton,
   makeStyles,
+  Menu,
+  MenuItem,
   Paper,
+  TextField,
   Tooltip,
   Typography,
   Modal,
@@ -21,6 +28,9 @@ import InsertDriveFileIcon from "@material-ui/icons/InsertDriveFile";
 import ImageIcon from "@material-ui/icons/Image";
 import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
+import MoreVertIcon from "@material-ui/icons/MoreVert";
+import EditIcon from "@material-ui/icons/Edit";
+import DeleteIcon from "@material-ui/icons/Delete";
 import EmojiPicker from "emoji-picker-react";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -255,6 +265,9 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid rgba(34,197,94,0.22)",
     boxShadow: "0 16px 34px rgba(34,197,94,0.12)",
   },
+  boxWithActions: {
+    paddingRight: 42,
+  },
   senderName: {
     fontWeight: 700,
     fontSize: "0.76rem",
@@ -276,11 +289,34 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   messageTime: {
-    textAlign: "right",
-    marginTop: 6,
     color: "rgba(15,23,42,0.52)",
     fontSize: "0.68rem",
     fontWeight: 600,
+  },
+  messageMetaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    marginTop: 6,
+  },
+  messageEdited: {
+    fontSize: "0.68rem",
+    color: "rgba(15,23,42,0.48)",
+    fontStyle: "italic",
+  },
+  messageOptionsButton: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    color: "rgba(15,23,42,0.58)",
+    backgroundColor: "rgba(255,255,255,0.68)",
+    border: "1px solid rgba(148,163,184,0.18)",
+    "&:hover": {
+      backgroundColor: "rgba(255,255,255,0.92)",
+    },
   },
   mediaImage: {
     maxWidth: "100%",
@@ -340,6 +376,34 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(2),
     borderRadius: 8,
   },
+  actionDialogPaper: {
+    borderRadius: 16,
+  },
+  actionDialogTitle: {
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+  actionDialogActions: {
+    padding: "0 20px 20px",
+    gap: 8,
+  },
+  actionTextField: {
+    marginTop: 8,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 12,
+      backgroundColor: "#f8fafc",
+    },
+  },
+  deletePreview: {
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    border: "1px solid rgba(148,163,184,0.18)",
+    color: "#475569",
+    fontStyle: "italic",
+    wordBreak: "break-word",
+  },
 }));
 
 const formatMessage = (text) => {
@@ -387,6 +451,8 @@ const stringToColor = (str = "") => {
 const isImageFile = (name = "") =>
   /\.(jpg|jpeg|png|gif|webp|bmp|svg|avif)$/i.test(name);
 const isPdfFile = (name = "") => /\.pdf$/i.test(name);
+const wasEdited = (item) =>
+  Boolean(item?.updatedAt && item?.createdAt && item.updatedAt !== item.createdAt);
 
 const MediaContent = React.memo(({ mediaPath, mediaName, onImageClick }) => {
   const classes = useStyles();
@@ -424,7 +490,8 @@ const MediaContent = React.memo(({ mediaPath, mediaName, onImageClick }) => {
   );
 });
 
-const MessageItem = React.memo(({ item, isMine, onImageClick }) => {
+const MessageItem = React.memo(
+  ({ item, isMine, onImageClick, onOpenOptions }) => {
   const classes = useStyles();
   const { datetimeToClient } = useDate();
 
@@ -435,13 +502,29 @@ const MessageItem = React.memo(({ item, isMine, onImageClick }) => {
   const isHtml = /<\/?[a-z][\s\S]*>/i.test(String(item.message || ""));
   const content = isHtml ? item.message : formatMessage(item.message);
   const hasText = content && content.trim() && content.trim() !== "&nbsp;" && content !== " ";
+  const isEdited = wasEdited(item);
 
   return (
     <div className={`${classes.messageRow} ${isMine ? classes.messageRowMine : ""}`}>
       <Avatar className={classes.msgAvatar} style={{ backgroundColor: avatarColor }}>
         {initials}
       </Avatar>
-      <div className={isMine ? classes.boxRight : classes.boxLeft}>
+      <div
+        className={`${isMine ? classes.boxRight : classes.boxLeft} ${
+          isMine ? classes.boxWithActions : ""
+        }`}
+      >
+        {isMine && (
+          <Tooltip title="Opcoes da mensagem">
+            <IconButton
+              size="small"
+              className={classes.messageOptionsButton}
+              onClick={(event) => onOpenOptions(event, item)}
+            >
+              <MoreVertIcon style={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
         {!isMine && (
           <Typography className={classes.senderName} style={{ color: avatarColor }}>
             {senderName}
@@ -460,11 +543,15 @@ const MessageItem = React.memo(({ item, isMine, onImageClick }) => {
             dangerouslySetInnerHTML={{ __html: content }}
           />
         )}
-        <div className={classes.messageTime}>{datetimeToClient(item.createdAt)}</div>
+        <div className={classes.messageMetaRow}>
+          {isEdited && <span className={classes.messageEdited}>(editada)</span>}
+          <div className={classes.messageTime}>{datetimeToClient(item.createdAt)}</div>
+        </div>
       </div>
     </div>
   );
-});
+  }
+);
 
 const ChatHeader = React.memo(({ chat }) => {
   const classes = useStyles();
@@ -512,6 +599,8 @@ export default function ChatMessages({
   chat,
   messages,
   handleSendMessage,
+  handleUpdateMessage,
+  handleDeleteMessage,
   handleLoadMore,
   scrollToBottomRef,
   pageInfo,
@@ -525,6 +614,12 @@ export default function ChatMessages({
   const [medias, setMedias] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [messageMenuAnchorEl, setMessageMenuAnchorEl] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingText, setEditingText] = useState("");
+  const [savingAction, setSavingAction] = useState(false);
   const textAreaRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -613,6 +708,61 @@ export default function ChatMessages({
     }
   };
 
+  const handleOpenMessageOptions = useCallback((event, item) => {
+    setSelectedMessage(item);
+    setMessageMenuAnchorEl(event.currentTarget);
+  }, []);
+
+  const handleCloseMessageOptions = useCallback(() => {
+    setMessageMenuAnchorEl(null);
+  }, []);
+
+  const handleOpenEditDialog = useCallback(() => {
+    setEditingText(selectedMessage?.message || "");
+    setEditDialogOpen(true);
+    handleCloseMessageOptions();
+  }, [selectedMessage, handleCloseMessageOptions]);
+
+  const handleCloseEditDialog = useCallback(() => {
+    setEditDialogOpen(false);
+    setEditingText("");
+  }, []);
+
+  const handleOpenDeleteDialog = useCallback(() => {
+    setDeleteDialogOpen(true);
+    handleCloseMessageOptions();
+  }, [handleCloseMessageOptions]);
+
+  const handleCloseDeleteDialog = useCallback(() => {
+    setDeleteDialogOpen(false);
+  }, []);
+
+  const selectedMessageHasText = Boolean(String(selectedMessage?.message || "").trim());
+
+  const handleConfirmEdit = useCallback(async () => {
+    if (!selectedMessage || !editingText.trim()) return;
+    setSavingAction(true);
+    try {
+      await handleUpdateMessage(selectedMessage, editingText);
+      handleCloseEditDialog();
+      setSelectedMessage(null);
+    } finally {
+      setSavingAction(false);
+    }
+  }, [selectedMessage, editingText, handleUpdateMessage, handleCloseEditDialog]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!selectedMessage) return;
+    setSavingAction(true);
+    try {
+      await handleDeleteMessage(selectedMessage);
+      handleCloseDeleteDialog();
+      setSelectedMessage(null);
+    } finally {
+      setSavingAction(false);
+    }
+  }, [selectedMessage, handleDeleteMessage, handleCloseDeleteDialog]);
+
   const canSend = contentMessage.trim() !== "" || medias.length > 0;
 
   return (
@@ -645,6 +795,7 @@ export default function ChatMessages({
               item={item}
               isMine={item.senderId === user.id}
               onImageClick={handleImageClick}
+              onOpenOptions={handleOpenMessageOptions}
             />
           ))}
         <div ref={baseRef} />
@@ -741,6 +892,114 @@ export default function ChatMessages({
           </span>
         </Tooltip>
       </div>
+
+      <Menu
+        anchorEl={messageMenuAnchorEl}
+        keepMounted
+        open={Boolean(messageMenuAnchorEl)}
+        onClose={handleCloseMessageOptions}
+        getContentAnchorEl={null}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+      >
+        {selectedMessageHasText && (
+          <MenuItem onClick={handleOpenEditDialog}>
+            <EditIcon style={{ fontSize: 18, marginRight: 8, color: "#0284c7" }} />
+            Editar mensagem
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleOpenDeleteDialog}>
+          <DeleteIcon style={{ fontSize: 18, marginRight: 8, color: "#dc2626" }} />
+          Excluir mensagem
+        </MenuItem>
+      </Menu>
+
+      <Dialog
+        open={editDialogOpen}
+        onClose={savingAction ? undefined : handleCloseEditDialog}
+        classes={{ paper: classes.actionDialogPaper }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle className={classes.actionDialogTitle}>Editar mensagem</DialogTitle>
+        <DialogContent>
+          <TextField
+            value={editingText}
+            onChange={(event) => setEditingText(event.target.value)}
+            variant="outlined"
+            multiline
+            rows={4}
+            fullWidth
+            autoFocus
+            className={classes.actionTextField}
+            placeholder="Atualize o texto da mensagem"
+          />
+        </DialogContent>
+        <DialogActions className={classes.actionDialogActions}>
+          <Button onClick={handleCloseEditDialog} disabled={savingAction}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmEdit}
+            disabled={savingAction || !editingText.trim()}
+            variant="contained"
+            style={{
+              backgroundColor: "#0284c7",
+              color: "#ffffff",
+              boxShadow: "none",
+              borderRadius: 10,
+            }}
+          >
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={savingAction ? undefined : handleCloseDeleteDialog}
+        classes={{ paper: classes.actionDialogPaper }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle className={classes.actionDialogTitle}>Excluir mensagem</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" style={{ color: "#475569", lineHeight: 1.6 }}>
+            Essa mensagem sera removida apenas do chat interno.
+          </Typography>
+          {selectedMessage?.message ? (
+            <div className={classes.deletePreview}>
+              {selectedMessage.message.length > 180
+                ? `${selectedMessage.message.substring(0, 180)}...`
+                : selectedMessage.message}
+            </div>
+          ) : null}
+        </DialogContent>
+        <DialogActions className={classes.actionDialogActions}>
+          <Button onClick={handleCloseDeleteDialog} disabled={savingAction}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            disabled={savingAction}
+            variant="contained"
+            style={{
+              backgroundColor: "#dc2626",
+              color: "#ffffff",
+              boxShadow: "none",
+              borderRadius: 10,
+            }}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Modal
         open={!!selectedImage}

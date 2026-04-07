@@ -13,6 +13,8 @@ import Chat from "../models/Chat";
 import CreateMessageService from "../services/ChatService/CreateMessageService";
 import User from "../models/User";
 import ChatUser from "../models/ChatUser";
+import UpdateMessageService from "../services/ChatService/UpdateMessageService";
+import DeleteMessageService from "../services/ChatService/DeleteMessageService";
 
 type IndexQuery = {
   pageNumber: string;
@@ -239,4 +241,68 @@ export const messages = async (
   });
 
   return res.json({ records, count, hasMore });
+};
+
+export const updateMessage = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const userId = +req.user.id;
+  const { id, messageId } = req.params;
+  const { message } = req.body;
+
+  const result = await UpdateMessageService({
+    chatId: +id,
+    messageId: +messageId,
+    companyId,
+    userId,
+    message
+  });
+
+  const io = getIO();
+
+  io.of(String(companyId)).emit(`company-${companyId}-chat-${id}`, {
+    action: "update-message",
+    chat: result.chat,
+    message: result.message
+  });
+
+  io.of(String(companyId)).emit(`company-${companyId}-chat`, {
+    action: "update",
+    chat: result.chat
+  });
+
+  return res.status(200).json(result.message);
+};
+
+export const deleteMessage = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const userId = +req.user.id;
+  const { id, messageId } = req.params;
+
+  const result = await DeleteMessageService({
+    chatId: +id,
+    messageId: +messageId,
+    companyId,
+    userId
+  });
+
+  const io = getIO();
+
+  io.of(String(companyId)).emit(`company-${companyId}-chat-${id}`, {
+    action: "delete-message",
+    chat: result.chat,
+    messageId: result.deletedMessageId
+  });
+
+  io.of(String(companyId)).emit(`company-${companyId}-chat`, {
+    action: "update",
+    chat: result.chat
+  });
+
+  return res.status(200).json({ deletedMessageId: result.deletedMessageId });
 };
