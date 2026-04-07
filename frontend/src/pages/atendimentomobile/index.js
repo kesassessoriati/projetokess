@@ -2482,6 +2482,50 @@ const Atendimentos = () => {
         );
     };
 
+    const getJidDisplayNumber = (jid) => {
+        if (!jid) return "";
+        const base = String(jid).split("@")[0];
+        const digits = base.replace(/\D/g, "");
+        return digits || base;
+    };
+
+    const getContactDisplayLabel = (contact, fallback = "") => {
+        const name = contact?.name?.trim?.();
+        if (name) return name;
+        const number = contact?.number?.trim?.();
+        if (number) return number;
+        return fallback;
+    };
+
+    const getMessageSenderLabel = (message, fallbackContact = selectedTicket?.contact) => {
+        if (!message) return "";
+        if (message.fromMe) {
+            return message.fromAgent ? "Automação" : (message.user?.name || user.name);
+        }
+
+        return getContactDisplayLabel(
+            message.contact,
+            getJidDisplayNumber(message.participant) || getContactDisplayLabel(fallbackContact, "Contato")
+        );
+    };
+
+    const getTicketLastMessageSenderLabel = (ticket) => {
+        if (!ticket || !isGroupConversation(ticket) || ticket.lastMessageFromMe !== false) {
+            return "";
+        }
+
+        return getContactDisplayLabel(
+            ticket.lastMessageContact,
+            getJidDisplayNumber(ticket.lastMessageParticipant)
+        );
+    };
+
+    const formatTicketLastMessage = (ticket) => {
+        const fallbackText = ticket?.lastMessage || "Sem mensagens";
+        const sender = getTicketLastMessageSenderLabel(ticket);
+        return sender ? `${sender}: ${fallbackText}` : fallbackText;
+    };
+
     const renderMessageMedia = (message) => {
         if (!message.mediaUrl && !message.mediaType && !message.body) return null;
 
@@ -2517,9 +2561,7 @@ const Atendimentos = () => {
             const avatarUrl = message.fromMe
                 ? user.profileImage
                 : selectedTicket?.contact?.profilePicUrl;
-            const userName = message.fromMe
-                ? user.name
-                : selectedTicket?.contact?.name;
+            const userName = getMessageSenderLabel(message);
 
             return (
                 <AudioModal
@@ -2655,7 +2697,7 @@ const Atendimentos = () => {
                 mediaUrl: msg.mediaUrl,
                 mediaType: msg.mediaType,
                 fromMe: msg.fromMe,
-                contactName: selectedTicket?.contact?.name,
+                contactName: getMessageSenderLabel(msg),
                 createdAt: msg.createdAt,
             }));
 
@@ -3423,7 +3465,7 @@ const Atendimentos = () => {
                                             {ticket.contact?.name || "Sem nome"}
                                         </Typography>
                                         <div className={classes.ticketLastMessage}>
-                                            {ticket.lastMessage || "Sem mensagens"}
+                                            {formatTicketLastMessage(ticket)}
                                         </div>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
@@ -3870,7 +3912,7 @@ const Atendimentos = () => {
                                                         <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
                                                             {!allDeleted && (
                                                                 <Typography style={{ fontSize: "11px", color: "#667781", fontWeight: 500 }}>
-                                                                    {firstMessage.fromMe ? (firstMessage.fromAgent ? "Automação" : (firstMessage.user?.name || user.name)) : selectedTicket?.contact?.name} •
+                                                                    {firstMessage.fromMe ? (firstMessage.fromAgent ? "Automação" : (firstMessage.user?.name || user.name)) : getMessageSenderLabel(firstMessage)} •
                                                                 </Typography>
                                                             )}
                                                             <Typography className={classes.messageTime}>
@@ -3960,7 +4002,7 @@ const Atendimentos = () => {
                                                                     cursor: 'pointer'
                                                                 }}>
                                                                     <Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500, marginBottom: 2 }}>
-                                                                        {item.quotedMsg.fromMe ? (item.quotedMsg.fromAgent ? "Automação" : (item.quotedMsg.user?.name || user.name)) : selectedTicket?.contact?.name}
+                                                                        {item.quotedMsg.fromMe ? (item.quotedMsg.fromAgent ? "Automação" : (item.quotedMsg.user?.name || user.name)) : getMessageSenderLabel(item.quotedMsg)}
                                                                     </Typography>
                                                                     <Typography style={{
                                                                         fontSize: 13,
@@ -3992,7 +4034,7 @@ const Atendimentos = () => {
                                                     <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
                                                         {!item.isDeleted && (
                                                             <Typography style={{ fontSize: "11px", color: "#667781", fontWeight: 500 }}>
-                                                                {item.fromMe ? (item.fromAgent ? "Automação" : (item.user?.name || user.name)) : selectedTicket?.contact?.name} •
+                                                                {item.fromMe ? (item.fromAgent ? "Automação" : (item.user?.name || user.name)) : getMessageSenderLabel(item)} •
                                                             </Typography>
                                                         )}
                                                         <Typography className={classes.messageTime}>
@@ -4044,7 +4086,7 @@ const Atendimentos = () => {
                                     }} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500 }}>
-                                            Respondendo a {replyingTo.fromMe ? (replyingTo.fromAgent ? "Automação" : (replyingTo.user?.name || user.name)) : selectedTicket?.contact?.name}
+                                            Respondendo a {replyingTo.fromMe ? (replyingTo.fromAgent ? "Automação" : (replyingTo.user?.name || user.name)) : getMessageSenderLabel(replyingTo)}
                                         </Typography>
                                         <Typography style={{
                                             fontSize: 13,

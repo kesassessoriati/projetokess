@@ -123,7 +123,21 @@ const ListTicketsService = async ({
     {
       model: Message,
       as: "messages",
-      attributes: ["fromMe"],
+      attributes: ["id", "fromMe", "body", "contactId", "participant", "userId"],
+      include: [
+        {
+          model: Contact,
+          as: "contact",
+          attributes: ["id", "name", "number"],
+          required: false
+        },
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name"],
+          required: false
+        }
+      ],
       limit: 1,
       order: [["createdAt", "DESC"]],
       separate: true
@@ -404,7 +418,21 @@ const ListTicketsService = async ({
             {
               model: Message,
               as: "messages",
-              attributes: ["id", "body"],
+              attributes: ["id", "fromMe", "body", "contactId", "participant", "userId"],
+              include: [
+                {
+                  model: Contact,
+                  as: "contact",
+                  attributes: ["id", "name", "number"],
+                  required: false
+                },
+                {
+                  model: User,
+                  as: "user",
+                  attributes: ["id", "name"],
+                  required: false
+                }
+              ],
               where: {
                 body: where(
                   fn("LOWER", fn('unaccent', col("body"))),
@@ -586,7 +614,21 @@ const ListTicketsService = async ({
         return {
           model: Message,
           as: "messages",
-          attributes: ["id", "body"],
+          attributes: ["id", "fromMe", "body", "contactId", "participant", "userId"],
+          include: [
+            {
+              model: Contact,
+              as: "contact",
+              attributes: ["id", "name", "number"],
+              required: false
+            },
+            {
+              model: User,
+              as: "user",
+              attributes: ["id", "name"],
+              required: false
+            }
+          ],
           where: {
             body: where(
               fn("LOWER", fn('unaccent', col("messages.body"))),
@@ -717,9 +759,15 @@ const ListTicketsService = async ({
     // Adicionar campo lastMessageFromMe baseado na última mensagem
     if (ticketJSON.messages && ticketJSON.messages.length > 0) {
       ticketJSON.lastMessageFromMe = ticketJSON.messages[0].fromMe;
+      ticketJSON.lastMessageContact = ticketJSON.messages[0].contact || null;
+      ticketJSON.lastMessageParticipant = ticketJSON.messages[0].participant || null;
+      ticketJSON.lastMessageUser = ticketJSON.messages[0].user || null;
       delete ticketJSON.messages; // Remove messages do retorno para não sobrecarregar
     } else {
       ticketJSON.lastMessageFromMe = null;
+      ticketJSON.lastMessageContact = null;
+      ticketJSON.lastMessageParticipant = null;
+      ticketJSON.lastMessageUser = null;
     }
 
     return ticketJSON;

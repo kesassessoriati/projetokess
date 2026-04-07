@@ -19,10 +19,48 @@ interface Request {
   body?: string;
   isPrivate?: boolean;
   isForwarded?: boolean;
+  fromAgent?: boolean;
+  userId?: number;
 }
 const os = require("os");
 
 const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+
+const sanitizeFileName = (value: string = "arquivo"): string =>
+  value
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "_")
+    .trim() || "arquivo";
+
+const ensureMediaPersistedForHistory = (
+  media: Express.Multer.File,
+  companyId: string
+): string => {
+  const companyFolder = path.join(publicFolder, `company${companyId}`);
+  const sourcePath = path.resolve(media.path);
+
+  if (!fs.existsSync(sourcePath)) {
+    throw new AppError(`Arquivo de mídia não encontrado: ${sourcePath}`);
+  }
+
+  if (!fs.existsSync(companyFolder)) {
+    fs.mkdirSync(companyFolder, { recursive: true });
+  }
+
+  const relativePath = path.relative(companyFolder, sourcePath).replace(/\\/g, "/");
+  if (relativePath && !relativePath.startsWith("..") && relativePath.startsWith("media-drive/")) {
+    return relativePath;
+  }
+
+  const parsedOriginal = path.parse(media.originalname || media.filename || path.basename(sourcePath));
+  const fallbackExt = mime.extension(media.mimetype || "") || path.extname(sourcePath).replace(".", "");
+  const targetName = `${Date.now()}_${sanitizeFileName(parsedOriginal.name)}${parsedOriginal.ext || (fallbackExt ? `.${fallbackExt}` : "")}`;
+  const targetPath = path.join(companyFolder, targetName);
+
+  fs.copyFileSync(sourcePath, targetPath);
+
+  return targetName;
+};
 
 const processAudio = async (audio: string, companyId: string): Promise<string> => {
   const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.ogg`;
@@ -136,7 +174,9 @@ const SendWhatsAppMedia = async ({
   ticket,
   body = "",
   isPrivate = false,
-  isForwarded = false
+  isForwarded = false,
+  fromAgent = false,
+  userId
 }: Request): Promise<WAMessage> => {
   try {
     console.log(`[SendWhatsAppMedia] Iniciando envio de mídia - Ticket: ${ticket.id}, Tipo: ${media.mimetype}, Arquivo: ${media.originalname}`);
@@ -301,7 +341,30 @@ const SendWhatsAppMedia = async ({
 
     console.log(`[SendWhatsAppMedia] Mensagem enviada com sucesso:`, sentMessage.key.id);
 
-    await ticket.update({ lastMessage: body !== media.filename ? body : bodyMedia, imported: null });
+    const persistedMediaUrl = ensureMediaPersistedForHistory(media, companyId);
+    const messageData = {
+      wid: sentMessage.key.id,
+      ticketId: ticket.id,
+      contactId: undefined,
+      body: bodyMedia || media.originalname.replace('/', '-'),
+      fromMe: true,
+      read: true,
+      mediaUrl: persistedMediaUrl,
+      mediaType: media.mimetype.split("/")[0],
+      quotedMsgId: null,
+      ack: 2,
+      remoteJid: number,
+      participant: null,
+      dataJson: JSON.stringify(sentMessage),
+      ticketTrakingId: null,
+      isForwarded,
+      fromAgent,
+      userId: userId || (fromAgent ? undefined : ticket.userId)
+    };
+
+    await CreateMessageService({ messageData, companyId: ticket.companyId });
+
+    await ticket.update({ lastMessage: bodyMedia || bodyTicket, imported: null });
 
     return sentMessage;
   } catch (err) {

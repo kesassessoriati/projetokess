@@ -5,6 +5,7 @@ import { getIO } from "../../libs/socket";
 import wbotMonitor from "./wbotMonitor";
 import logger from "../../utils/logger";
 import * as Sentry from "@sentry/node";
+import { getWbot } from "../../libs/wbot";
 
 let useVoiceCallsBaileys: any = null;
 try {
@@ -17,40 +18,63 @@ export const StartWhatsAppSession = async (
   whatsapp: Whatsapp,
   companyId: number
 ): Promise<void> => {
-  await whatsapp.update({ status: "OPENING" });
+  if (sessionStartMap.has(whatsapp.id)) {
+    await sessionStartMap.get(whatsapp.id);
+    return;
+  }
 
-  const io = getIO();
-  io.of(String(companyId))
-    .emit(`company-${companyId}-whatsappSession`, {
-      action: "update",
-      session: whatsapp
-    });
+  const startPromise = (async () => {
+    try {
+      getWbot(whatsapp.id);
+      logger.info(
+        `[Wbot] Sessão ${whatsapp.name} já está inicializada. Ignorando nova abertura.`
+      );
+      return;
+    } catch (_) {}
 
-  try {
-    const wbot = await initWASocket(whatsapp);
-   
-    if (wbot.id) {
-      wbotMessageListener(wbot, companyId);
-      wbotMonitor(wbot, whatsapp, companyId);
+    await whatsapp.update({ status: "OPENING" });
 
-      // Integrar WAVoIP Voice Calls se token configurado
-      if (useVoiceCallsBaileys && whatsapp.wavoip) {
-        try {
-          await useVoiceCallsBaileys(
-            whatsapp.wavoip,
-            wbot,
-            "atendzappy",
-            "open",
-            true
-          );
-          logger.info(`[WAVoIP] Voice calls ativado para WhatsApp ${whatsapp.name} (company ${companyId})`);
-        } catch (voipErr) {
-          logger.error(`[WAVoIP] Erro ao iniciar voice calls: ${voipErr.message}`);
+    const io = getIO();
+    io.of(String(companyId))
+      .emit(`company-${companyId}-whatsappSession`, {
+        action: "update",
+        session: whatsapp
+      });
+
+    try {
+      const wbot = await initWASocket(whatsapp);
+
+      if (wbot.id) {
+        wbotMessageListener(wbot, companyId);
+        wbotMonitor(wbot, whatsapp, companyId);
+
+        // Integrar WAVoIP Voice Calls se token configurado
+        if (useVoiceCallsBaileys && whatsapp.wavoip) {
+          try {
+            await useVoiceCallsBaileys(
+              whatsapp.wavoip,
+              wbot,
+              "atendzappy",
+              "open",
+              true
+            );
+            logger.info(`[WAVoIP] Voice calls ativado para WhatsApp ${whatsapp.name} (company ${companyId})`);
+          } catch (voipErr) {
+            logger.error(`[WAVoIP] Erro ao iniciar voice calls: ${voipErr.message}`);
+          }
         }
       }
+    } catch (err) {
+      Sentry.captureException(err);
+      logger.error(err);
     }
-  } catch (err) {
-    Sentry.captureException(err);
-    logger.error(err);
-  }
+  })()
+    .finally(() => {
+      sessionStartMap.delete(whatsapp.id);
+    });
+
+  sessionStartMap.set(whatsapp.id, startPromise);
+  await startPromise;
 };
+
+const sessionStartMap = new Map<number, Promise<void>>();

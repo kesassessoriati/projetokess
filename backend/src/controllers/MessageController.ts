@@ -765,7 +765,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       await Promise.all(
         medias.map(async (media: Express.Multer.File, index) => {
           if (ticket.channel === "whatsapp") {
-            await SendWhatsAppMedia({ media, ticket, body: Array.isArray(body) ? body[index] : body, isPrivate: isPrivate === "true", isForwarded: false });
+            await SendWhatsAppMedia({
+              media,
+              ticket,
+              body: Array.isArray(body) ? body[index] : body,
+              isPrivate: isPrivate === "true",
+              isForwarded: false,
+              userId: req.user.id
+            });
           }
 
           if (["facebook", "instagram"].includes(ticket.channel)) {
@@ -971,7 +978,13 @@ export const forwardMessage = async (
       path: filePath
     } as Express.Multer.File
 
-    await SendWhatsAppMedia({ media: mediaSrc, ticket: createTicket, body, isForwarded: message.fromMe ? false : true });
+    await SendWhatsAppMedia({
+      media: mediaSrc,
+      ticket: createTicket,
+      body,
+      isForwarded: message.fromMe ? false : true,
+      userId: req.user.id
+    });
   }
 
   return res.send();
