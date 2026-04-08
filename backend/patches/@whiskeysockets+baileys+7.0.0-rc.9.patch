@@ -1,0 +1,48 @@
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
+index 15dd0e8..c499299 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
+@@ -1866,7 +1866,11 @@ export const makeMessagesRecvSocket = (config) => {
+                 // may create mappings via storeLIDPNMappings() without calling migrateSession()
+                 // This leaves sessions under PN format while decrypt() expects LID format
+                 // Skipping migration based on mapping existence causes "No session record" errors
+-                await signalRepository.migrateSession(primaryJid, alt);
++                await signalRepository.migrateSession(primaryJid, alt).catch(error => logger.warn({
++                    error,
++                    primaryJid,
++                    alt
++                }, 'LID session migration failed, continuing with current message'));
+             }
+             else {
+                 // Check if reverse mapping exists
+@@ -1880,7 +1884,11 @@ export const makeMessagesRecvSocket = (config) => {
+                 }
+                 // CRITICAL: ALWAYS migrate session, even if mapping exists
+                 // Same reasoning as above - mapping existence doesn't guarantee session migration
+-                await signalRepository.migrateSession(alt, primaryJid);
++                await signalRepository.migrateSession(alt, primaryJid).catch(error => logger.warn({
++                    error,
++                    primaryJid,
++                    alt
++                }, 'PN session migration failed, continuing with current message'));
+             }
+         }
+         if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
+index d1c7d1a..40e4ce6 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
+@@ -185,9 +185,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+         throw new Boom('Unknown message type', { data: stanza });
+     }
+     const pushname = stanza?.attrs?.notify;
++    const directChatAltJid = !isJidGroup(chatId)
++        ? (fromMe ? (addressingContext.recipientAlt || addressingContext.senderAlt) : addressingContext.senderAlt)
++        : undefined;
+     const key = {
+         remoteJid: chatId,
+-        remoteJidAlt: !isJidGroup(chatId) ? addressingContext.senderAlt : undefined,
++        remoteJidAlt: directChatAltJid,
+         fromMe,
+         id: msgId,
+         participant,

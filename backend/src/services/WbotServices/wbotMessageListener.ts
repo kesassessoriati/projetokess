@@ -626,12 +626,21 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     return null;
   }
 
+  const resolvedRemoteJidAlt =
+    remoteJidAlt ||
+    senderPn ||
+    (msg?.key?.fromMe && !isGroup ? sanitizeRemoteJid(remoteJid, resolveContactNumber({
+      rawNumber: remoteJid,
+      remoteJid,
+      remoteJidAlt: remoteJidAlt || senderPn
+    }), false) : "");
+
   const baseNumber = resolveContactNumber({
-    rawNumber: remoteJidAlt || remoteJid,
+    rawNumber: resolvedRemoteJidAlt || remoteJid,
     remoteJid,
-    remoteJidAlt
+    remoteJidAlt: resolvedRemoteJidAlt
   });
-  const normalizedContactJid = sanitizeRemoteJid(remoteJidAlt || remoteJid, baseNumber, false);
+  const normalizedContactJid = sanitizeRemoteJid(resolvedRemoteJidAlt || remoteJid, baseNumber, false);
   const contactId = isGroup
     ? remoteJid
     : normalizedContactJid || remoteJid;
@@ -643,7 +652,7 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     rawNumber,
     contactId,
     addressingMode: msg?.key?.addressingMode,
-    hasRemoteJidAlt: !!remoteJidAlt
+    hasRemoteJidAlt: !!resolvedRemoteJidAlt
   });
 
   const participantBase = participantAlt || participant || remoteJid;
@@ -660,13 +669,13 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     ? {
       id: senderId,
       name: msg.pushName,
-      remoteJidAlt,
+      remoteJidAlt: resolvedRemoteJidAlt,
       addressingMode: msg?.key?.addressingMode
     }
     : {
       id: contactId,
       name: msg.key.fromMe ? rawNumber : msg.pushName,
-      remoteJidAlt: remoteJidAlt || (baseNumber ? contactId : ""),
+      remoteJidAlt: resolvedRemoteJidAlt || (baseNumber ? contactId : ""),
       addressingMode: msg?.key?.addressingMode
     };
 
@@ -6518,82 +6527,88 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     if (!messages) return;
 
     // console.log("CIAAAAAAA WBOT " , companyId)
-    messages.forEach(async (message: proto.IWebMessageInfo) => {
-      // Ignorar mensagens de newsletter
-      if (message.key.remoteJid.includes("newsletter")) {
-        logger.info(`[newsletter] Ignorando mensagem de newsletter no listener: ${message.key.remoteJid}`);
-        return;
-      }
-
-      if (
-        message?.messageStubParameters?.length &&
-        message.messageStubParameters[0].includes("absent")
-      ) {
-        const msg = {
-          companyId: companyId,
-          whatsappId: wbot.id,
-          message: message
-        };
-        logger.warn("MENSAGEM PERDIDA", JSON.stringify(msg));
-      }
-      const messageExists = await Message.count({
-        where: { wid: message.key.id!, companyId }
-      });
-
-      if (!messageExists) {
-        let isCampaign = false;
-        let body = await getBodyMessage(message);
-        const fromMe = message?.key?.fromMe;
-        if (fromMe) {
-          isCampaign = /\u200c/.test(body);
-        } else {
-          if (/\u200c/.test(body)) body = body.replace(/\u200c/, "");
-          logger.debug(
-            "Validação de mensagem de campanha enviada por terceiros: " + body
-          );
+    for (const message of messages) {
+      try {
+        // Ignorar mensagens de newsletter
+        if (message.key.remoteJid.includes("newsletter")) {
+          logger.info(`[newsletter] Ignorando mensagem de newsletter no listener: ${message.key.remoteJid}`);
+          continue;
         }
 
-        if (!isCampaign) {
-          if (REDIS_URI_MSG_CONN !== "") {
-            //} && (!message.key.fromMe || (message.key.fromMe && !message.key.id.startsWith('BAE')))) {
-            try {
-              await BullQueues.add(
-                `${process.env.DB_NAME}-handleMessage`,
-                { message, wbot: wbot.id, companyId },
-                {
-                  priority: 1,
-                  jobId: `${wbot.id}-handleMessage-${message.key.id}`
-                }
-              );
-            } catch (e) {
-              Sentry.captureException(e);
-            }
+        if (
+          message?.messageStubParameters?.length &&
+          message.messageStubParameters[0].includes("absent")
+        ) {
+          const msg = {
+            companyId: companyId,
+            whatsappId: wbot.id,
+            message: message
+          };
+          logger.warn("MENSAGEM PERDIDA", JSON.stringify(msg));
+        }
+        const messageExists = await Message.count({
+          where: { wid: message.key.id!, companyId }
+        });
+
+        if (!messageExists) {
+          let isCampaign = false;
+          let body = await getBodyMessage(message);
+          const fromMe = message?.key?.fromMe;
+          if (fromMe) {
+            isCampaign = /\u200c/.test(body);
           } else {
-            console.log("log... 3970");
-            await handleMessage(message, wbot, companyId);
+            if (/\u200c/.test(body)) body = body.replace(/\u200c/, "");
+            logger.debug(
+              "Validação de mensagem de campanha enviada por terceiros: " + body
+            );
+          }
+
+          if (!isCampaign) {
+            if (REDIS_URI_MSG_CONN !== "") {
+              try {
+                await BullQueues.add(
+                  `${process.env.DB_NAME}-handleMessage`,
+                  { message, wbot: wbot.id, companyId },
+                  {
+                    priority: 1,
+                    jobId: `${wbot.id}-handleMessage-${message.key.id}`
+                  }
+                );
+              } catch (e) {
+                Sentry.captureException(e);
+              }
+            } else {
+              console.log("log... 3970");
+              await handleMessage(message, wbot, companyId);
+            }
+          }
+
+          await verifyGroupCampaignAutoResponse(message, companyId, wbot);
+          await verifyRecentCampaign(message, companyId);
+          await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
+        }
+
+        if (message.key.remoteJid?.endsWith("@g.us")) {
+          if (REDIS_URI_MSG_CONN !== "") {
+            BullQueues.add(
+              `${process.env.DB_NAME}-handleMessageAck`,
+              { msg: message, chat: 2 },
+              {
+                priority: 1,
+                jobId: `${wbot.id}-handleMessageAck-${message.key.id}`
+              }
+            );
+          } else {
+            handleMsgAck(message, 2);
           }
         }
-
-        await verifyGroupCampaignAutoResponse(message, companyId, wbot);
-        await verifyRecentCampaign(message, companyId);
-        await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
+      } catch (err) {
+        Sentry.captureException(err);
+        logger.error(
+          `[messages.upsert] Falha ao processar mensagem ${message?.key?.id}: ${err?.message || err}`
+        );
       }
-
-      if (message.key.remoteJid?.endsWith("@g.us")) {
-        if (REDIS_URI_MSG_CONN !== "") {
-          BullQueues.add(
-            `${process.env.DB_NAME}-handleMessageAck`,
-            { msg: message, chat: 2 },
-            {
-              priority: 1,
-              jobId: `${wbot.id}-handleMessageAck-${message.key.id}`
-            }
-          );
-        } else {
-          handleMsgAck(message, 2);
-        }
-      }
-    });
+    }
 
     // messages.forEach(async (message: proto.IWebMessageInfo) => {
     //   const messageExists = await Message.count({
