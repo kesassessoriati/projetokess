@@ -1877,211 +1877,8 @@ export default function GroupManagement() {
 
   return (
     <Box className={classes.root}>
-      <Box className={classes.overviewShell}>
-        <Box className={classes.overviewTop}>
-          <Box className={classes.heroPane}>
-            <Chip className={classes.pageBadge} label="Gestao de Grupos" />
-
-            <Box>
-              <Typography className={classes.heroTitle}>
-                Grupos mais legiveis, acoes mais rapidas e operacao com mais
-                contexto.
-              </Typography>
-              <Typography className={classes.heroSubtitle}>
-                A experiencia agora segue a mesma linha visual de Compromissos:
-                contraste forte, leitura orientada por prioridades e navegacao
-                direta entre lista, detalhes e acoes da operacao.
-              </Typography>
-            </Box>
-
-            <Box className={classes.heroActions}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setDialogs(current => ({ ...current, batch: true }))}
-                className={classes.primaryAction}
-              >
-                Criar grupos em massa
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<GroupAddIcon />}
-                onClick={() =>
-                  setDialogs(current => ({ ...current, bulkMembers: true }))
-                }
-                className={classes.secondaryAction}
-              >
-                Adicionar membros
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                endIcon={<ArrowForwardIcon />}
-                onClick={syncGroups}
-                className={classes.secondaryAction}
-              >
-                Sincronizar
-              </Button>
-            </Box>
-
-            <Box className={classes.heroSupportRow}>
-              {heroChips.map(chip => (
-                <Chip
-                  key={chip}
-                  label={chip}
-                  className={classes.heroSupportChip}
-                />
-              ))}
-            </Box>
-          </Box>
-
-          <Paper elevation={0} className={classes.connectionPanel}>
-            <Box className={classes.connectionPanelHeader}>
-              <Box>
-                <Typography className={classes.connectionPanelTitle}>
-                  Distribuicao por conexao
-                </Typography>
-                <Typography className={classes.connectionPanelSubtitle}>
-                  Veja rapido quais canais concentram mais grupos, membros e
-                  favoritos ativos.
-                </Typography>
-              </Box>
-
-              <Box className={classes.connectionPanelSummary}>
-                <Chip
-                  className={classes.connectionPanelSummaryChip}
-                  label={`${connections.length} conexao(oes)`}
-                />
-                <Chip
-                  className={classes.connectionPanelSummaryChip}
-                  label={`${groups.length} grupo(s)`}
-                />
-                <Chip
-                  className={classes.connectionPanelSummaryChip}
-                  label={`${favoriteGroupsCount} favorito(s)`}
-                />
-              </Box>
-            </Box>
-
-            {connectionMetrics.length > 0 ? (
-              <Box className={classes.connectionGrid}>
-                {connectionMetrics.map(connection => (
-                  <Box key={connection.id} className={classes.connectionCard}>
-                    <Typography className={classes.connectionCardName}>
-                      {connection.name}
-                    </Typography>
-
-                    <Typography className={classes.connectionCardCount}>
-                      {connection.groups.toLocaleString("pt-BR")}
-                    </Typography>
-
-                    <Box className={classes.connectionCardMeta}>
-                      <span>{connection.members.toLocaleString("pt-BR")} membros</span>
-                      <span>{connection.favorites} favorito(s)</span>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Box className={classes.connectionEmptyState}>
-                Nenhuma conexao foi encontrada para compor o panorama.
-              </Box>
-            )}
-          </Paper>
-
-          <Box className={classes.summaryColumn}>
-            <Paper
-              elevation={0}
-              className={`${classes.summaryCard} ${classes.summaryCardPrimary}`}
-            >
-              <Box>
-                <Typography className={classes.summaryLabel}>
-                  Proxima campanha agendada
-                </Typography>
-                <Typography className={classes.summaryValue}>
-                  {nextScheduledCampaign
-                    ? formatDateTime(nextScheduledCampaign.scheduledAt)
-                    : "Sem agenda"}
-                </Typography>
-              </Box>
-
-              <Typography className={classes.summaryDescription}>
-                {nextScheduledCampaign
-                  ? `${nextScheduledCampaign.name || "Campanha sem nome"} • ${
-                      nextScheduledCampaign.status || "Status nao informado"
-                    }`
-                  : "Crie uma campanha com data programada para organizar a fila de envios."}
-              </Typography>
-            </Paper>
-
-            <Box className={classes.summaryMiniGrid}>
-              <Paper elevation={0} className={classes.summaryCard}>
-                <Typography className={classes.summaryLabel}>
-                  Saude da operacao
-                </Typography>
-                <Typography className={classes.summaryMiniValue}>
-                  {deliveryRate}%
-                </Typography>
-                <Typography className={classes.summaryMiniDescription}>
-                  Campanhas enviadas com sucesso em relacao ao total registrado.
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={deliveryRate}
-                  className={classes.highlightProgress}
-                />
-              </Paper>
-
-              <Paper elevation={0} className={classes.summaryCard}>
-                <Typography className={classes.summaryLabel}>
-                  Carga ativa
-                </Typography>
-                <Typography className={classes.summaryMiniValue}>
-                  {activeCampaignCount}
-                </Typography>
-                <Typography className={classes.summaryMiniDescription}>
-                  Campanhas em rascunho, agendadas ou aguardando retomada.
-                </Typography>
-              </Paper>
-            </Box>
-          </Box>
-        </Box>
-
-        <Box className={classes.statsRow}>
-          {statCards.map(card => (
-            <Paper key={card.key} elevation={0} className={classes.statCard}>
-              <Box className={classes.statCardTop}>
-                <Box>
-                  <Typography className={classes.statLabel}>{card.label}</Typography>
-                  <Typography
-                    className={classes.statValue}
-                    style={{ color: card.color }}
-                  >
-                    {safeNumber(card.value).toLocaleString("pt-BR")}
-                  </Typography>
-                </Box>
-
-                <Box
-                  className={classes.statIconBox}
-                  style={{
-                    color: card.color,
-                    backgroundColor: `${card.color}18`
-                  }}
-                >
-                  {card.icon}
-                </Box>
-              </Box>
-
-              <Divider />
-
-              <Typography className={classes.statFooter}>{card.footer}</Typography>
-            </Paper>
-          ))}
-        </Box>
-
-        <Box className={classes.tabsShell}>
+      <Box className={classes.contentShell}>
+        <Box className={classes.tabsShell} style={{ marginTop: 0 }}>
           <Tabs
             className={classes.tabs}
             value={tab}
@@ -2096,22 +1893,138 @@ export default function GroupManagement() {
         </Box>
 
         {tab === 1 ? (
-          <Box className={classes.filterPanel}>
-            <Box className={classes.panelHeader}>
-              <Box className={classes.panelTitleWrap}>
-                <Box className={classes.panelIconWrap}>
-                  <FilterListIcon />
+          <Paper
+            elevation={0}
+            className={classes.collectionPanel}
+            style={{ marginTop: 16 }}
+          >
+            <Box className={classes.collectionPanelHead}>
+              <Box className={classes.panelHeader} style={{ marginBottom: 0 }}>
+                <Box>
+                  <Typography className={classes.workspacePanelTitle}>
+                    Acoes e filtros de grupos
+                  </Typography>
+                  <Typography className={classes.workspacePanelMeta}>
+                    Mantenha so o que ajuda a operar: criar, sincronizar e filtrar.
+                  </Typography>
                 </Box>
 
-                <Box>
-                  <Typography className={classes.panelTitle}>
-                    Filtros e contexto
-                  </Typography>
-                  <Typography className={classes.panelSubtitle}>
-                    Refine a lista, concentre a analise no canal certo e encontre
-                    grupos mais rapido sem perder o contexto da operacao.
-                  </Typography>
+                <Box className={classes.filterActions}>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setDialogs(current => ({ ...current, batch: true }))}
+                    className={`${classes.controlButtonBase} ${classes.controlButtonPrimary}`}
+                  >
+                    Criar grupos em massa
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<GroupAddIcon />}
+                    onClick={() =>
+                      setDialogs(current => ({ ...current, bulkMembers: true }))
+                    }
+                    className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
+                  >
+                    Adicionar membros em massa
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DescriptionIcon />}
+                    disabled={!selectedGroup}
+                    onClick={() =>
+                      setDialogs(current => ({ ...current, description: true }))
+                    }
+                    className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
+                  >
+                    Editar descricao
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PhotoCameraIcon />}
+                    disabled={!selectedGroup}
+                    onClick={() =>
+                      setDialogs(current => ({ ...current, picture: true }))
+                    }
+                    className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
+                  >
+                    Alterar foto
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<GetAppIcon />}
+                    disabled={!selectedGroup}
+                    onClick={() => exportMembers("csv")}
+                    className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
+                  >
+                    Exportar contatos
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<RefreshIcon />}
+                    onClick={syncGroups}
+                    className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
+                  >
+                    Sincronizar
+                  </Button>
                 </Box>
+              </Box>
+            </Box>
+
+            <Box className={classes.formGrid}>
+              <Box className={classes.contextChips} style={{ marginBottom: 0 }}>
+                {filterContextChips.map(chip => (
+                  <Chip key={chip} label={chip} className={classes.contextChip} />
+                ))}
+              </Box>
+
+              <Box className={classes.filterGrid}>
+                <FormControl variant="outlined" size="small">
+                  <InputLabel>Conexao</InputLabel>
+                  <Select
+                    value={selectedConnection}
+                    onChange={event => setSelectedConnection(readValue(event))}
+                    label="Conexao"
+                  >
+                    <MenuItem value="">Todas</MenuItem>
+                    {connections.map(connection => (
+                      <MenuItem key={connection.id} value={connection.id}>
+                        {connection.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="Buscar grupo"
+                  value={search}
+                  onChange={event => setSearch(readValue(event))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="Min. membros"
+                  value={minMembers}
+                  onChange={event => setMinMembers(readValue(event))}
+                />
+
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="Max. membros"
+                  value={maxMembers}
+                  onChange={event => setMaxMembers(readValue(event))}
+                />
               </Box>
 
               <Box className={classes.filterActions}>
@@ -2127,7 +2040,6 @@ export default function GroupManagement() {
                 <Button
                   variant="outlined"
                   size="small"
-                  color="primary"
                   onClick={refreshAll}
                   className={`${classes.controlButtonBase} ${classes.controlButtonSecondary}`}
                 >
@@ -2135,76 +2047,34 @@ export default function GroupManagement() {
                 </Button>
               </Box>
             </Box>
+          </Paper>
+        ) : null}
 
-            <Box className={classes.contextChips}>
-              {filterContextChips.map(chip => (
-                <Chip key={chip} label={chip} className={classes.contextChip} />
-              ))}
-            </Box>
-
-            <Box className={classes.filterGrid}>
-              <FormControl variant="outlined" size="small">
-                <InputLabel>Conexao</InputLabel>
-                <Select
-                  value={selectedConnection}
-                  onChange={event => setSelectedConnection(readValue(event))}
-                  label="Conexao"
-                >
-                  <MenuItem value="">Todas</MenuItem>
-                  {connections.map(connection => (
-                    <MenuItem key={connection.id} value={connection.id}>
-                      {connection.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <TextField
-                variant="outlined"
-                size="small"
-                label="Buscar grupo"
-                value={search}
-                onChange={event => setSearch(readValue(event))}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  )
-                }}
-              />
-
-              <TextField
-                variant="outlined"
-                size="small"
-                label="Min. membros"
-                value={minMembers}
-                onChange={event => setMinMembers(readValue(event))}
-              />
-
-              <TextField
-                variant="outlined"
-                size="small"
-                label="Max. membros"
-                value={maxMembers}
-                onChange={event => setMaxMembers(readValue(event))}
-              />
+        {(tab === 0 || tab === 2 || tab === 3 || tab === 4 || tab === 5 || tab === 6) ? (
+          <Box className={classes.contentHeader} style={{ marginTop: 20 }}>
+            <Box>
+              <Typography className={classes.sectionTitle}>
+                {activeTabMeta.title}
+              </Typography>
+              <Typography className={classes.sectionDescription}>
+                {activeTabMeta.description}
+              </Typography>
             </Box>
           </Box>
         ) : null}
-      </Box>
 
-      <Box className={classes.contentShell}>
-        <Box className={classes.contentHeader}>
-          <Box>
-            <Typography className={classes.sectionTitle}>
-              {activeTabMeta.title}
-            </Typography>
-            <Typography className={classes.sectionDescription}>
-              {activeTabMeta.description}
-            </Typography>
+        {tab === 1 ? (
+          <Box className={classes.contentHeader}>
+            <Box>
+              <Typography className={classes.sectionTitle}>
+                Workspace de grupos
+              </Typography>
+              <Typography className={classes.sectionDescription}>
+                Lista a esquerda, detalhes a direita e o menu compacto logo acima.
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        ) : null}
 
         <Box className={classes.tabBody}>
           {loading ? (
