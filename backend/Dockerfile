@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ git
 
 COPY package.json package-lock.json* ./
+COPY patches ./patches
 
 # Instalar TODAS as dependências
 RUN npm install --legacy-peer-deps
