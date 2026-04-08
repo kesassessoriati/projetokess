@@ -7,7 +7,11 @@ import GroupCampaignLog from "../../models/GroupCampaignLog";
 import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
-import { sendButtonMessage, sendListMessage } from "../../helpers/SendInteractiveMessage";
+import {
+  sendButtonMessage,
+  sendCarouselMessage,
+  sendListMessage
+} from "../../helpers/SendInteractiveMessage";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 
 const runningCampaigns = new Set<number>();
@@ -94,11 +98,65 @@ const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget
 
   if (campaign.messageType === "list" && Array.isArray(campaign.listItems) && campaign.listItems.length) {
     if (connection.provider === "whatsmeow") {
-      await provider.sendGroupMessage(groupJid, { text, listItems: campaign.listItems });
+      await provider.sendGroupMessage(groupJid, {
+        text,
+        listItems: campaign.listItems,
+        listButtonText: campaign.listButtonText,
+        listFooter: campaign.listFooter
+      });
     } else {
       await sendListMessage(wbot, groupJid, text, "Ver opções", campaign.listItems as any);
     }
     return;
+  }
+
+  if (
+    campaign.messageType === "carousel" &&
+    Array.isArray(campaign.carouselCards) &&
+    campaign.carouselCards.length
+  ) {
+    if (connection.provider === "whatsmeow") {
+      await provider.sendGroupMessage(groupJid, {
+        text,
+        carouselCards: campaign.carouselCards
+      });
+    } else {
+      await sendCarouselMessage(wbot, groupJid, campaign.carouselCards as any);
+    }
+    return;
+  }
+
+  if (campaign.messageType === "poll") {
+    const question = String(campaign.pollName || text || "").trim();
+    const options = Array.isArray(campaign.pollOptions)
+      ? campaign.pollOptions.filter(Boolean)
+      : [];
+
+    if (question && options.length >= 2) {
+      const selectableCount = Math.max(
+        1,
+        Math.min(Number(campaign.pollSelectableCount) || 1, options.length)
+      );
+
+      if (connection.provider === "whatsmeow") {
+        await provider.sendGroupMessage(groupJid, {
+          poll: {
+            name: question,
+            values: options,
+            selectableCount
+          }
+        });
+      } else {
+        await wbot.sendMessage(groupJid, {
+          poll: {
+            name: question,
+            values: options,
+            selectableCount
+          }
+        });
+      }
+      return;
+    }
   }
 
   await provider.sendGroupMessage(groupJid, {
@@ -264,4 +322,3 @@ export const processScheduledGroupCampaigns = async (): Promise<void> => {
     processGroupCampaignById(campaign.id);
   }
 };
-

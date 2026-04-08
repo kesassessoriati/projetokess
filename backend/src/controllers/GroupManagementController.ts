@@ -205,26 +205,50 @@ export const dashboardMetrics = async (req: Request, res: Response): Promise<Res
 export const listGroups = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const source = String(req.query.source || "cached");
+  const connectionId = req.query.whatsappId ? Number(req.query.whatsappId) : null;
 
   if (source === "live") {
     await syncCompanyGroups({
       companyId,
-      whatsappIds: req.query.whatsappId ? [Number(req.query.whatsappId)] : undefined
+      whatsappIds: connectionId ? [connectionId] : undefined
     });
   }
 
-  const groups = await GroupDirectory.findAll({
-    where: buildGroupWhere(companyId, req.query),
-    order: [["subject", "ASC"]]
-  });
+  const [groups, availableConnections] = await Promise.all([
+    GroupDirectory.findAll({
+      where: buildGroupWhere(companyId, req.query),
+      order: [["subject", "ASC"]]
+    }),
+    Whatsapp.findAll({
+      where: {
+        companyId,
+        allowGroup: true,
+        ...(connectionId ? { id: connectionId } : {})
+      },
+      attributes: ["id", "name", "status", "allowGroup"],
+      order: [["name", "ASC"]]
+    })
+  ]);
 
   const groupedMap: Record<string, any> = {};
+  availableConnections.forEach((connection) => {
+    groupedMap[String(connection.id)] = {
+      whatsappId: connection.id,
+      whatsappName: connection.name,
+      whatsappStatus: connection.status,
+      allowGroup: !!connection.allowGroup,
+      groups: []
+    };
+  });
+
   groups.forEach((group) => {
     const key = String(group.whatsappId);
     if (!groupedMap[key]) {
       groupedMap[key] = {
         whatsappId: group.whatsappId,
         whatsappName: "",
+        whatsappStatus: "",
+        allowGroup: false,
         groups: []
       };
     }
@@ -241,15 +265,19 @@ export const listGroups = async (req: Request, res: Response): Promise<Response>
     });
   });
 
-  const connectionIds = Object.keys(groupedMap).map(Number);
+  const connectionIds = Object.keys(groupedMap).map(Number).filter(Boolean);
   if (connectionIds.length) {
     const connections = await Whatsapp.findAll({
       where: { companyId, id: { [Op.in]: connectionIds } },
-      attributes: ["id", "name"]
+      attributes: ["id", "name", "status", "allowGroup"]
     });
     connections.forEach((conn) => {
       const key = String(conn.id);
-      if (groupedMap[key]) groupedMap[key].whatsappName = conn.name;
+      if (groupedMap[key]) {
+        groupedMap[key].whatsappName = conn.name;
+        groupedMap[key].whatsappStatus = conn.status;
+        groupedMap[key].allowGroup = !!conn.allowGroup;
+      }
     });
   }
 
@@ -767,6 +795,15 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
     message = "",
     buttons = [],
     listItems = [],
+    listButtonText,
+    listFooter,
+    carouselCards = [],
+    pollName = "",
+    pollOptions = [],
+    pollSelectableCount = 1,
+    responseEnabled = false,
+    responseKeyword = "",
+    responseMessage = "",
     segmentedMentions = [],
     filters = {},
     groupIds = [],
@@ -782,9 +819,57 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
   const wa = await ensureConnectionAccess(companyId, Number(whatsappId));
   if (!wa) return res.status(404).json({ error: "Conexão não encontrada." });
 
+  const template = templateId
+    ? await GroupTemplate.findOne({
+        where: { id: Number(templateId), companyId }
+      })
+    : null;
+
   const normalizedFilters = { ...(filters || {}), whatsappId: Number(whatsappId) };
   const groups = await resolveGroupSelection(companyId, { groupIds, filters: normalizedFilters });
   if (!groups.length) return res.status(400).json({ error: "Nenhum grupo encontrado para os filtros selecionados." });
+
+  const normalizedButtons =
+    Array.isArray(buttons) && buttons.length
+      ? buttons
+      : Array.isArray(template?.buttons)
+        ? template.buttons
+        : [];
+  const normalizedListItems =
+    Array.isArray(listItems) && listItems.length
+      ? listItems
+      : Array.isArray(template?.listItems)
+        ? template.listItems
+        : [];
+  const normalizedCarouselCards =
+    Array.isArray(carouselCards) && carouselCards.length
+      ? carouselCards
+      : Array.isArray(template?.carouselCards)
+        ? template.carouselCards
+        : [];
+  const normalizedPollOptions =
+    Array.isArray(pollOptions) && pollOptions.length
+      ? pollOptions
+      : Array.isArray(template?.pollOptions)
+        ? template.pollOptions
+        : [];
+  const normalizedMessageType = messageType || template?.messageType || "text";
+  const normalizedMessage =
+    String(message || "").trim() || String(template?.message || "");
+  const normalizedListButtonText =
+    String(listButtonText || "").trim() ||
+    String(template?.listButtonText || "").trim() ||
+    "Ver opcoes";
+  const normalizedListFooter =
+    String(listFooter || "").trim() || String(template?.listFooter || "").trim();
+  const normalizedPollName =
+    String(pollName || "").trim() ||
+    String(template?.pollName || "").trim() ||
+    normalizedMessage;
+  const normalizedPollSelectableCount =
+    Number(pollSelectableCount || template?.pollSelectableCount) || 1;
+  const normalizedMediaPath = mediaPath || template?.mediaPath || null;
+  const normalizedMediaName = mediaName || template?.mediaName || null;
 
   const campaign = await GroupCampaign.create({
     companyId,
@@ -792,11 +877,20 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
     templateId: templateId || null,
     name: name || `Campanha de grupos ${new Date().toLocaleString("pt-BR")}`,
     status: scheduledAt ? "SCHEDULED" : "PROCESSING",
-    messageType,
+    messageType: normalizedMessageType,
     mentionsMode,
-    message,
-    buttons,
-    listItems,
+    message: normalizedMessage,
+    buttons: normalizedButtons,
+    listItems: normalizedListItems,
+    listButtonText: normalizedListButtonText,
+    listFooter: normalizedListFooter || null,
+    carouselCards: normalizedCarouselCards,
+    pollName: normalizedPollName || null,
+    pollOptions: normalizedPollOptions,
+    pollSelectableCount: normalizedPollSelectableCount,
+    responseEnabled: Boolean(responseEnabled),
+    responseKeyword: responseKeyword || null,
+    responseMessage: responseMessage || null,
     segmentedMentions,
     filters: normalizedFilters,
     groupIds: groups.map((g) => g.id),
@@ -805,8 +899,8 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
     intervalSeconds: Number(intervalSeconds) || 2,
     windowStart: windowStart || null,
     windowEnd: windowEnd || null,
-    mediaPath: mediaPath || null,
-    mediaName: mediaName || null
+    mediaPath: normalizedMediaPath,
+    mediaName: normalizedMediaName
   });
 
   await upsertCampaignTargets(campaign, groups);

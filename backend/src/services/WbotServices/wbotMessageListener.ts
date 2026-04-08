@@ -79,6 +79,9 @@ import QueueIntegrations from "../../models/QueueIntegrations";
 import ShowFileService from "../FileServices/ShowService";
 import { ShouldSaveToPhone, SaveContactToPhone } from "../ContactServices/ContactPhoneService";
 import { trackProductEvent } from "../SystemMetricService";
+import GroupCampaign from "../../models/GroupCampaign";
+import GroupCampaignLog from "../../models/GroupCampaignLog";
+import GroupCampaignTarget from "../../models/GroupCampaignTarget";
 
 import OpenAI from "openai";
 import ffmpeg from "fluent-ffmpeg";
@@ -6284,6 +6287,154 @@ const verifyRecentCampaign = async (
   }
 };
 
+const normalizeGroupCampaignKeyword = (value?: string | null): string =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const verifyGroupCampaignAutoResponse = async (
+  message: proto.IWebMessageInfo,
+  companyId: number,
+  wbot: Session
+) => {
+  try {
+    if (!isValidMsg(message) || message.key.fromMe) {
+      return;
+    }
+
+    const groupJid = message.key.remoteJid;
+    if (!groupJid?.endsWith("@g.us")) {
+      return;
+    }
+
+    const participantJid = jidNormalizedUser(
+      message.key.participantAlt || message.key.participant || ""
+    );
+    if (!participantJid || participantJid.endsWith("@g.us")) {
+      return;
+    }
+
+    const inboundBodyRaw = getBodyMessage(message);
+    const inboundBody = normalizeGroupCampaignKeyword(inboundBodyRaw);
+    if (!inboundBody) {
+      return;
+    }
+
+    const target = await GroupCampaignTarget.findOne({
+      where: {
+        companyId,
+        groupJid,
+        status: "SENT",
+        sentAt: { [Op.ne]: null }
+      },
+      include: [
+        {
+          model: GroupCampaign,
+          as: "campaign",
+          required: true,
+          where: {
+            companyId,
+            whatsappId: wbot.id,
+            responseEnabled: true,
+            responseKeyword: { [Op.ne]: null },
+            responseMessage: { [Op.ne]: null },
+            status: { [Op.in]: ["PROCESSING", "PAUSED", "SENT"] }
+          }
+        }
+      ],
+      order: [["sentAt", "DESC"], ["id", "DESC"]]
+    });
+
+    const campaign = target?.campaign as GroupCampaign | undefined;
+    if (!campaign) {
+      return;
+    }
+
+    const normalizedKeyword = normalizeGroupCampaignKeyword(
+      campaign.responseKeyword
+    );
+    if (!normalizedKeyword) {
+      return;
+    }
+
+    const hasKeywordMatch =
+      inboundBody === normalizedKeyword ||
+      inboundBody.includes(normalizedKeyword);
+    if (!hasKeywordMatch) {
+      return;
+    }
+
+    const msgContact = await getContactMessage(message, wbot);
+    if (!msgContact) {
+      return;
+    }
+
+    const contact = await verifyContact(msgContact, wbot, companyId, message);
+    if (!contact?.remoteJid) {
+      return;
+    }
+
+    const whatsapp = await ShowWhatsAppService(wbot.id!, companyId);
+    const settings =
+      (await CompaniesSettings.findOne({
+        where: {
+          companyId
+        }
+      })) || ({} as CompaniesSettings);
+
+    const ticket = await FindOrCreateTicketService(
+      contact,
+      whatsapp,
+      0,
+      companyId,
+      null,
+      null,
+      undefined,
+      "whatsapp",
+      false,
+      false,
+      settings,
+      false,
+      true
+    );
+    const ticketTraking = await FindOrCreateATicketTrakingService({
+      ticketId: ticket.id,
+      companyId
+    });
+
+    const replyBody = formatBody(String(campaign.responseMessage || ""), ticket);
+    if (!replyBody.trim()) {
+      return;
+    }
+
+    const sentMessage = await wbot.sendMessage(contact.remoteJid, {
+      text: replyBody
+    });
+    await verifyMessage(sentMessage, ticket, contact, ticketTraking);
+
+    await GroupCampaignLog.create({
+      companyId,
+      campaignId: campaign.id,
+      type: "AUTO_RESPONSE_SENT",
+      groupJid,
+      message: `Resposta privada enviada para ${contact.name || contact.number}`,
+      payload: {
+        participantJid,
+        keyword: campaign.responseKeyword,
+        inboundBody: inboundBodyRaw,
+        triggerMessageId: message.key.id
+      }
+    });
+  } catch (err) {
+    logger.error(
+      `[GroupCampaignAutoResponse] Falha ao responder campanha de grupos: ${err?.message || err}`
+    );
+  }
+};
+
 const verifyCampaignMessageAndCloseTicket = async (
   message: proto.IWebMessageInfo,
   companyId: number,
@@ -6417,6 +6568,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           }
         }
 
+        await verifyGroupCampaignAutoResponse(message, companyId, wbot);
         await verifyRecentCampaign(message, companyId);
         await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
       }

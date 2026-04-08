@@ -43,6 +43,25 @@ class GroupTemplate extends Model<GroupTemplate> {
   @Column(DataType.JSONB)
   listItems: any[];
 
+  @Column(DataType.STRING)
+  listButtonText: string;
+
+  @Column(DataType.TEXT)
+  listFooter: string;
+
+  @Column(DataType.JSONB)
+  carouselCards: any[];
+
+  @Column(DataType.TEXT)
+  pollName: string;
+
+  @Column(DataType.JSONB)
+  pollOptions: string[];
+
+  @Default(1)
+  @Column
+  pollSelectableCount: number;
+
   @Column(DataType.JSONB)
   segmentedMentions: string[];
 
