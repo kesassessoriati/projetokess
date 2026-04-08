@@ -78,11 +78,20 @@ import {
 	Receipt as ReceiptIcon,
 	Email as EmailIcon,
 	FlashOn as FlashOnIcon,
+	Folder as FolderIcon,
+	CameraAlt as CameraAltIcon,
+	Person as PersonIcon,
+	Duo as DuoIcon,
+	PermMedia as PermMediaIcon,
 } from "@material-ui/icons";
 import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AudioModal from "../../components/AudioModal";
+import ButtonModal from "../../components/ButtonModal";
+import CameraModal from "../../components/CameraModal";
+import ContactSendModal from "../../components/ContactSendModal";
 import ModalImageCors from "../../components/ModalImageCors";
+import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 import ScheduleModal from "../../components/ScheduleModal";
 import TransferTicketModalCustom from "../../components/TransferTicketModalCustom";
 import MediaPreviewModal from "../../components/MediaPreviewModal";
@@ -748,6 +757,12 @@ const Atendimentos = () => {
 	const [quickMessagesOpen, setQuickMessagesOpen] = useState(false);
 	const [inputMessage, setInputMessage] = useState("");
 	const [signMessage, setSignMessage] = useState(true);
+	const [privateMessage, setPrivateMessage] = useState(false);
+	const [chatToolsAnchorEl, setChatToolsAnchorEl] = useState(null);
+	const [buttonModalOpen, setButtonModalOpen] = useState(false);
+	const [sendContactModalOpen, setSendContactModalOpen] = useState(false);
+	const [cameraModalOpen, setCameraModalOpen] = useState(false);
+	const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
 	const [selectedFile, setSelectedFile] = useState(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
 	const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
@@ -772,6 +787,7 @@ const Atendimentos = () => {
 	const messagesContainerRef = useRef(null);
 	const audioContextRef = useRef(null);
 	const fileInputRef = useRef(null);
+	const documentInputRef = useRef(null);
 	const selectedTicketRef = useRef(null);
 	const { list: listQuickMessages } = useQuickMessages();
 
@@ -2041,12 +2057,17 @@ const Atendimentos = () => {
 		if (!inputMessage.trim() || !selectedTicket) return;
 
 		try {
-			const messageBody = signMessage
-				? `*${user.name}:*\n${inputMessage}`
+			const senderLabel = privateMessage
+				? `${user.name} - Mensagem Privada`
+				: user.name;
+			const shouldPrefixAuthor = signMessage || privateMessage;
+			const messageBody = shouldPrefixAuthor
+				? `*${senderLabel}:*\n${inputMessage}`
 				: inputMessage;
 
 			const payload = {
-				body: messageBody
+				body: messageBody,
+				isPrivate: privateMessage ? "true" : "false"
 			};
 
 			// Envia apenas o ID da mensagem citada se existir
@@ -2057,9 +2078,10 @@ const Atendimentos = () => {
 			await api.post(`/messages/${selectedTicket.id}`, payload);
 			setInputMessage("");
 			setReplyingTo(null);
+			setPrivateMessage(false);
 		} catch (err) {
 		}
-	}, [inputMessage, selectedTicket, signMessage, user.name, replyingTo]);
+	}, [inputMessage, selectedTicket, signMessage, user.name, replyingTo, privateMessage]);
 
 	const handleKeyPress = (e) => {
 		if (e.key === "Enter" && !e.shiftKey) {
@@ -2088,6 +2110,94 @@ const Atendimentos = () => {
 		const opened = openMediaPreview(files);
 		if (opened) {
 			e.target.value = "";
+		}
+	};
+
+	const handleTogglePrivateMessage = () => {
+		setPrivateMessage(prev => !prev);
+	};
+
+	const handleOpenChatToolsMenu = (event) => {
+		setChatToolsAnchorEl(event.currentTarget);
+	};
+
+	const handleCloseChatToolsMenu = () => {
+		setChatToolsAnchorEl(null);
+	};
+
+	const handleOpenImageVideoPicker = () => {
+		handleCloseChatToolsMenu();
+		fileInputRef.current?.click();
+	};
+
+	const handleOpenDocumentPicker = () => {
+		handleCloseChatToolsMenu();
+		documentInputRef.current?.click();
+	};
+
+	const handleOpenMediaDrive = () => {
+		handleCloseChatToolsMenu();
+		setMediaDriveOpen(true);
+	};
+
+	const handleOpenCameraModal = () => {
+		handleCloseChatToolsMenu();
+		setCameraModalOpen(true);
+	};
+
+	const handleOpenContactSendModal = () => {
+		handleCloseChatToolsMenu();
+		setSendContactModalOpen(true);
+	};
+
+	const handleOpenButtonModal = () => {
+		handleCloseChatToolsMenu();
+		setButtonModalOpen(true);
+	};
+
+	const handlePrepareMeetLink = () => {
+		if (!selectedTicket) return;
+		handleCloseChatToolsMenu();
+		setInputMessage(`https://meet.jit.si/${selectedTicket.id}`);
+	};
+
+	const handleCameraCapture = (blob) => {
+		if (!blob) return;
+		const file = new File([blob], `${Date.now()}.png`, {
+			type: blob.type || "image/png",
+		});
+		openMediaPreview([file]);
+	};
+
+	const handleSelectFromMediaDrive = (media) => {
+		if (!media?.file) return;
+		openMediaPreview([media.file]);
+	};
+
+	const handleSendContactMessage = async (contact) => {
+		if (!contact || !selectedTicket) return;
+
+		try {
+			await api.post(`/messages/${selectedTicket.id}`, {
+				read: 1,
+				fromMe: true,
+				mediaUrl: "",
+				body: null,
+				quotedMsg: replyingTo ? { id: replyingTo.id } : undefined,
+				isPrivate: privateMessage ? "true" : "false",
+				vCard: contact,
+			});
+			setReplyingTo(null);
+			setPrivateMessage(false);
+		} catch (err) {
+			toast.error("Erro ao enviar contato.");
+		}
+	};
+
+	const handleCloseContactSendModal = async (contact) => {
+		setSendContactModalOpen(false);
+		if (contact) {
+			await handleSendContactMessage(contact);
 		}
 	};
 
@@ -2123,7 +2233,7 @@ const Atendimentos = () => {
 			// **VERDADE: Backend espera formData simples**
 			const formData = new FormData();
 			formData.append("fromMe", true);
-			formData.append("isPrivate", "false");
+			formData.append("isPrivate", privateMessage ? "true" : "false");
 
 			// Para cada arquivo, adiciona mídia e legenda
 			filesToSend.forEach(file => {
@@ -2152,6 +2262,7 @@ const Atendimentos = () => {
 			setSelectedFiles([]);
 			setMediaPreviewCaption("");
 			setReplyingTo(null);
+			setPrivateMessage(false);
 		}
 	};
 
@@ -2197,6 +2308,7 @@ const Atendimentos = () => {
 			formData.append("medias", blob, filename);
 			formData.append("body", filename);
 			formData.append("fromMe", true);
+			formData.append("isPrivate", privateMessage ? "true" : "false");
 
 			const tempMessage = {
 				id: `temp-audio-${Date.now()}`,
@@ -2231,6 +2343,7 @@ const Atendimentos = () => {
 				setRecordingInterval(null);
 			}
 			setRecordingTime(0);
+			setPrivateMessage(false);
 		}
 	};
 
@@ -2280,6 +2393,11 @@ const Atendimentos = () => {
 			}
 		}
 	}, [selectedTicket, handleSendMedia, openMediaPreview]);
+
+	useEffect(() => {
+		setPrivateMessage(false);
+		setChatToolsAnchorEl(null);
+	}, [selectedTicket?.id]);
 
 	const handleBackToList = () => {
 		if (isMobile) {
@@ -4005,6 +4123,33 @@ const Atendimentos = () => {
 							)}
 
 							{/* Input */}
+							{cameraModalOpen && (
+								<CameraModal
+									isOpen={cameraModalOpen}
+									onRequestClose={() => setCameraModalOpen(false)}
+									onCapture={handleCameraCapture}
+								/>
+							)}
+							<MediaDrivePickerModal
+								open={mediaDriveOpen}
+								onClose={() => setMediaDriveOpen(false)}
+								onSelect={handleSelectFromMediaDrive}
+								allowedTypes={["image", "video", "audio", "document"]}
+								title="Selecionar do Mídia Drive"
+							/>
+							{sendContactModalOpen && (
+								<ContactSendModal
+									modalOpen={sendContactModalOpen}
+									onClose={handleCloseContactSendModal}
+								/>
+							)}
+							{buttonModalOpen && selectedTicket && (
+								<ButtonModal
+									modalOpen={buttonModalOpen}
+									onClose={() => setButtonModalOpen(false)}
+									ticketId={selectedTicket.id}
+								/>
+							)}
 							<div className={classes.chatInput}>
 								{!isMobile && showEmojiPicker && (
 									<div style={{
@@ -4041,6 +4186,22 @@ const Atendimentos = () => {
 										))}
 									</div>
 								)}
+								<input
+									type="file"
+									ref={fileInputRef}
+									style={{ display: 'none' }}
+									onChange={handleFileUpload}
+									multiple
+									accept="image/*,video/*,audio/*"
+								/>
+								<input
+									type="file"
+									ref={documentInputRef}
+									style={{ display: 'none' }}
+									onChange={handleFileUpload}
+									multiple
+									accept="application/*,text/*"
+								/>
 								{!isMobile && (
 									<>
 										<IconButton
@@ -4074,28 +4235,68 @@ const Atendimentos = () => {
 										>
 											<FlashOnIcon />
 										</IconButton>
+										<IconButton
+											size="small"
+											onClick={handleOpenChatToolsMenu}
+											style={{ color: chatToolsAnchorEl ? '#00a884' : '#54656f' }}
+											title="Ferramentas do chat"
+										>
+											<AddIcon />
+										</IconButton>
+										<IconButton
+											size="small"
+											onClick={handleTogglePrivateMessage}
+											style={{ color: privateMessage ? '#b7791f' : '#54656f' }}
+											title="Nota privada"
+										>
+											<QuickMessageIcon />
+										</IconButton>
 									</>
 								)}
-								<input
-									type="file"
-									ref={fileInputRef}
-									style={{ display: 'none' }}
-									onChange={handleFileUpload}
-									multiple
-									accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z"
-								/>
-								<IconButton
-									size="small"
-									onClick={() => fileInputRef.current?.click()}
-									style={{ color: '#54656f' }}
+								<Menu
+									anchorEl={chatToolsAnchorEl}
+									keepMounted
+									open={Boolean(chatToolsAnchorEl)}
+									onClose={handleCloseChatToolsMenu}
 								>
-									<AttachFileIcon />
-								</IconButton>
+									<MenuItem onClick={handleOpenImageVideoPicker}>
+										<PermMediaIcon fontSize="small" style={{ marginRight: 12, color: '#1976d2' }} />
+										Fotos e vídeos
+									</MenuItem>
+									<MenuItem onClick={handleOpenMediaDrive}>
+										<FolderIcon fontSize="small" style={{ marginRight: 12, color: '#1976d2' }} />
+										Selecionar do Mídia Drive
+									</MenuItem>
+									<MenuItem onClick={handleOpenCameraModal}>
+										<CameraAltIcon fontSize="small" style={{ marginRight: 12, color: '#e91e63' }} />
+										Câmera
+									</MenuItem>
+									<MenuItem onClick={handleOpenDocumentPicker}>
+										<DocumentIcon fontSize="small" style={{ marginRight: 12, color: '#7f66ff' }} />
+										Documento
+									</MenuItem>
+									<MenuItem onClick={handleOpenContactSendModal}>
+										<PersonIcon fontSize="small" style={{ marginRight: 12, color: '#2196f3' }} />
+										Contato
+									</MenuItem>
+									<MenuItem onClick={handlePrepareMeetLink}>
+										<DuoIcon fontSize="small" style={{ marginRight: 12, color: '#00a884' }} />
+										Vídeo chamada
+									</MenuItem>
+									<MenuItem onClick={handleOpenButtonModal}>
+										<MenuIcon fontSize="small" style={{ marginRight: 12, color: '#54656f' }} />
+										Botões
+									</MenuItem>
+								</Menu>
 								<InputBase
 									className={classes.inputField}
-									placeholder="Digite uma mensagem ou / para respostas rápidas"
+									placeholder={privateMessage ? "Escreva uma nota privada..." : "Digite uma mensagem ou / para respostas rápidas"}
 									value={inputMessage}
 									inputRef={inputMessageRef}
+									style={{
+										backgroundColor: privateMessage ? '#f0e68c' : '#ffffff',
+										color: privateMessage ? '#5f4b00' : '#111b21',
+									}}
 									onChange={(e) => {
 										const value = e.target.value;
 										setInputMessage(value);
