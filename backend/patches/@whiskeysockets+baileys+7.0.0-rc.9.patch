@@ -29,10 +29,23 @@ index 15dd0e8..c499299 100644
          }
          if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..40e4ce6 100644
+index d1c7d1a..8ab3697 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-@@ -185,9 +185,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -18,7 +18,11 @@ const storeMappingFromEnvelope = async (stanza, sender, repository, decryptionJi
+     if (senderAlt && isLidUser(senderAlt) && isPnUser(sender) && decryptionJid === sender) {
+         try {
+             await repository.lidMapping.storeLIDPNMappings([{ lid: senderAlt, pn: sender }]);
+-            await repository.migrateSession(sender, senderAlt);
++            await repository.migrateSession(sender, senderAlt).catch(error => logger.warn({
++                sender,
++                senderAlt,
++                error
++            }, 'Failed to migrate envelope session mapping'));
+             logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
+         }
+         catch (error) {
+@@ -185,9 +189,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
          throw new Boom('Unknown message type', { data: stanza });
      }
      const pushname = stanza?.attrs?.notify;
@@ -46,3 +59,15 @@ index d1c7d1a..40e4ce6 100644
          fromMe,
          id: msgId,
          participant,
+@@ -242,7 +249,10 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+                     }
+                     decryptables += 1;
+                     let msgBuffer;
+-                    const decryptionJid = await getDecryptionJid(author, repository);
++                    const directChatDecryptionTarget = fullMessage.key.fromMe && !isJidGroup(fullMessage.key.remoteJid)
++                        ? (fullMessage.key.remoteJidAlt || fullMessage.key.remoteJid || author)
++                        : author;
++                    const decryptionJid = await getDecryptionJid(directChatDecryptionTarget, repository);
+                     if (tag !== 'plaintext') {
+                         // TODO: Handle hosted devices
+                         await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
