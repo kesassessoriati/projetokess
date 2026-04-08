@@ -10,28 +10,54 @@ set -e
 
 ## ========================= CONFIGURAÇÕES ========================= ##
 
-DOCKER_USER="williamwilmer10"
+DOCKER_USER="${DOCKER_USERNAME:-williamwilmer10}"
 BACKEND_IMAGE="${DOCKER_USER}/atendzappy-backend"
 FRONTEND_IMAGE="${DOCKER_USER}/atendzappy-frontend"
+MIN_VERSION="1.9.200"
+
+version_max() {
+    printf "%s\n" "$@" | sed '/^$/d' | sed 's/^v//' | sort -V | tail -1
+}
+
+fetch_latest_remote_version() {
+    local repository="$1"
+    local api_url="https://hub.docker.com/v2/namespaces/${DOCKER_USER}/repositories/${repository}/tags?page_size=100"
+
+    if ! command -v curl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    curl -fsSL "$api_url" 2>/dev/null \
+        | tr -d '\r\n' \
+        | grep -oE '"name":"v[0-9]+\.[0-9]+\.[0-9]+"' \
+        | sed -E 's/.*"v([^"]+)"/\1/' \
+        | sort -V \
+        | tail -1
+}
 
 ## Gerenciamento de Versão
 VERSION_FILE=".docker_version"
 if [ -f "$VERSION_FILE" ]; then
-    CURRENT_VERSION=$(cat "$VERSION_FILE")
-    # Força a versão mínima 1.9.200 se o patch for menor que 200
-    IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
-    if [ "$major" -eq 1 ] && [ "$minor" -eq 9 ] && [ "$patch" -lt 200 ]; then
-        CURRENT_VERSION="1.9.200"
-    fi
+    LOCAL_VERSION=$(cat "$VERSION_FILE")
 else
-    CURRENT_VERSION="1.9.200"
+    LOCAL_VERSION=""
 fi
+
+REMOTE_BACKEND_VERSION=$(fetch_latest_remote_version "atendzappy-backend")
+REMOTE_FRONTEND_VERSION=$(fetch_latest_remote_version "atendzappy-frontend")
+
+CURRENT_VERSION=$(version_max "$MIN_VERSION" "$LOCAL_VERSION" "$REMOTE_BACKEND_VERSION" "$REMOTE_FRONTEND_VERSION")
 
 IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
 NEXT_PATCH=$((patch + 1))
 NEXT_VERSION="$major.$minor.$NEXT_PATCH"
 
-echo -e "\033[1;33m[!] Versão atual do Docker: v$CURRENT_VERSION\033[0m"
+echo -e "\033[1;33m[!] Última versão encontrada: v$CURRENT_VERSION\033[0m"
+if [ -n "$REMOTE_BACKEND_VERSION" ] || [ -n "$REMOTE_FRONTEND_VERSION" ]; then
+    echo -e "\033[1;33m[!] Docker Hub backend: ${REMOTE_BACKEND_VERSION:-não encontrada} | frontend: ${REMOTE_FRONTEND_VERSION:-não encontrada}\033[0m"
+else
+    echo -e "\033[1;33m[!] Docker Hub indisponível, usando fallback local em ${VERSION_FILE}\033[0m"
+fi
 TAG="v$NEXT_VERSION"
 
 # Salva a nova versão sem o 'v'
