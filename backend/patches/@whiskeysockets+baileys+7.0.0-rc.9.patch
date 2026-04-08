@@ -1,5 +1,5 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-index 15dd0e8..c499299 100644
+index 15dd0e8..42fc423 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 @@ -1866,7 +1866,11 @@ export const makeMessagesRecvSocket = (config) => {
@@ -28,8 +28,79 @@ index 15dd0e8..c499299 100644
              }
          }
          if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
+@@ -2012,6 +2020,70 @@ export const makeMessagesRecvSocket = (config) => {
+                         }
+                         return sendMessageAck(node);
+                     }
++                    const isDirectFromMePhoneSync = msg.key.fromMe &&
++                        !isJidGroup(msg.key.remoteJid) &&
++                        !msg.key.participant &&
++                        !!(node.attrs.recipient || node.attrs.peer_recipient_pn || node.attrs.peer_recipient_lid) &&
++                        (areJidsSameUser(node.attrs.from, authState.creds.me.id) ||
++                            areJidsSameUser(node.attrs.from, authState.creds.me.lid || ''));
++                    if (isDirectFromMePhoneSync && msg.key) {
++                        const startTime = Date.now();
++                        const msgId = msg.key.id;
++                        const msgKey = msg.key;
++                        const msgData = {
++                            key: { ...msgKey },
++                            pushName: msg.pushName,
++                            messageTimestamp: msg.messageTimestamp,
++                            participant: msg.key.participant,
++                            participantAlt: msg.key.participantAlt
++                        };
++                        logger.info({
++                            msgId,
++                            remoteJid: msgKey.remoteJid,
++                            recipient: node.attrs.recipient,
++                            peerRecipientPn: node.attrs.peer_recipient_pn
++                        }, 'Direct fromMe phone sync decryption failed, requesting placeholder resend from phone');
++                        if (messageRetryManager) {
++                            metrics.ctwaRecoveryRequests.inc({ status: 'scheduled' });
++                            messageRetryManager.schedulePhoneRequest(msgId, async () => {
++                                try {
++                                    const requestId = await requestPlaceholderResend(msgKey, msgData);
++                                    if (requestId && requestId !== 'RESOLVED') {
++                                        logger.debug({ msgId, requestId }, 'Direct fromMe phone sync: placeholder resend request sent successfully');
++                                        metrics.ctwaRecoveryRequests.inc({ status: 'sent' });
++                                    }
++                                    else if (requestId === 'RESOLVED') {
++                                        logger.debug({ msgId }, 'Direct fromMe phone sync: message recovered during resend delay');
++                                        metrics.ctwaMessagesRecovered.inc();
++                                        metrics.ctwaRecoveryLatency.observe(Date.now() - startTime);
++                                    }
++                                }
++                                catch (error) {
++                                    logger.warn({ error, msgId }, 'Direct fromMe phone sync: failed to request placeholder resend');
++                                    metrics.ctwaRecoveryFailures.inc({ reason: 'request_failed' });
++                                }
++                            });
++                        }
++                        else {
++                            metrics.ctwaRecoveryRequests.inc({ status: 'requested' });
++                            try {
++                                const requestId = await requestPlaceholderResend(msgKey, msgData);
++                                if (requestId && requestId !== 'RESOLVED') {
++                                    logger.debug({ msgId, requestId }, 'Direct fromMe phone sync: placeholder resend request sent successfully (direct)');
++                                }
++                                else if (requestId === 'RESOLVED') {
++                                    logger.debug({ msgId }, 'Direct fromMe phone sync: message recovered before direct resend request completed');
++                                    metrics.ctwaMessagesRecovered.inc();
++                                    metrics.ctwaRecoveryLatency.observe(Date.now() - startTime);
++                                }
++                            }
++                            catch (error) {
++                                logger.warn({ error, msgId }, 'Direct fromMe phone sync: failed to request placeholder resend');
++                                metrics.ctwaRecoveryFailures.inc({ reason: 'request_failed' });
++                            }
++                        }
++                        return sendMessageAck(node);
++                    }
+                     // Skip retry for expired status messages (>24h old)
+                     if (isJidStatusBroadcast(msg.key.remoteJid)) {
+                         const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..8ab3697 100644
+index d1c7d1a..a37ecbe 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -18,7 +18,11 @@ const storeMappingFromEnvelope = async (stanza, sender, repository, decryptionJi
@@ -71,3 +142,25 @@ index d1c7d1a..8ab3697 100644
                      if (tag !== 'plaintext') {
                          // TODO: Handle hosted devices
                          await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
+index 21782ed..781a906 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
+@@ -373,6 +373,17 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
+                             // This ensures we don't lose critical information like pushName and LID mappings
+                             // eslint-disable-next-line max-depth
+                             if (cachedData && typeof cachedData === 'object') {
++                                if (cachedData.key && webMessageInfo.key) {
++                                    const cachedKey = cachedData.key;
++                                    const recoveredKey = webMessageInfo.key;
++                                    if (!recoveredKey.remoteJidAlt && cachedKey.remoteJidAlt) {
++                                        recoveredKey.remoteJidAlt = cachedKey.remoteJidAlt;
++                                        logger?.debug({ msgId: webMessageInfo.key?.id, remoteJidAlt: cachedKey.remoteJidAlt }, 'CTWA: Restored remoteJidAlt from cached metadata');
++                                    }
++                                    if (!recoveredKey.addressingMode && cachedKey.addressingMode) {
++                                        recoveredKey.addressingMode = cachedKey.addressingMode;
++                                    }
++                                }
+                                 // Preserve pushName if not present in PDO response
+                                 // eslint-disable-next-line max-depth
+                                 if (cachedData.pushName && !webMessageInfo.pushName) {
