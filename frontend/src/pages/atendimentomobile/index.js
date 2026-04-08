@@ -1986,6 +1986,23 @@ const Atendimentos = () => {
         return true;
     }, [TAB_CONFIG]);
 
+    const currentBulkCloseConfig = React.useMemo(() => {
+        const currentTab = TAB_CONFIG[tabIndex] || TAB_CONFIG[0];
+        const labelsByKey = {
+            automation: "automação",
+            pending: "aguardando",
+            open: "atendimento"
+        };
+        const canBulkClose = ["automation", "pending", "open"].includes(currentTab?.key);
+
+        return {
+            tabKey: currentTab?.key || "open",
+            status: currentTab?.status || "open",
+            label: labelsByKey[currentTab?.key] || "atendimento",
+            canBulkClose: canBulkClose && tickets.length > 0
+        };
+    }, [TAB_CONFIG, tabIndex, tickets.length]);
+
     const loadTickets = useCallback(async () => {
         try {
             setLoading(true);
@@ -3194,6 +3211,9 @@ const Atendimentos = () => {
     const hasActiveFilters = selectedQueues.length > 0 || selectedUsers.length > 0 || selectedTags.length > 0 || selectedWhatsapps.length > 0 || messageDirectionFilter !== null;
 
     const handleOpenCloseAllDialog = () => {
+        if (!currentBulkCloseConfig.canBulkClose) {
+            return;
+        }
         setCloseAllDialogOpen(true);
     };
 
@@ -3207,14 +3227,16 @@ const Atendimentos = () => {
         setClosingAllTickets(true);
         try {
             await api.post("/tickets/closeAll", {
-                status: "open",
-                selectedQueueIds: selectedQueues
+                status: currentBulkCloseConfig.status,
+                tabKey: currentBulkCloseConfig.tabKey,
+                selectedQueueIds: selectedQueues,
+                ticketIds: tickets.map(ticket => ticket.id)
             });
-            toast.success("Todos os tickets em atendimento foram encerrados.");
+            toast.success(`Todas as conversas da aba ${currentBulkCloseConfig.label} foram resolvidas.`);
             await Promise.all([loadTickets(), loadUnreadCounts()]);
             setCloseAllDialogOpen(false);
         } catch (err) {
-            console.error("Erro ao encerrar todos os tickets:", err);
+            console.error("Erro ao resolver conversas em massa:", err);
             toast.error("Não foi possível encerrar os tickets. Tente novamente.");
         } finally {
             setClosingAllTickets(false);
@@ -3359,12 +3381,12 @@ const Atendimentos = () => {
                                 </IconButton>
                             </Tooltip>
                         )}
-                        <Tooltip title="Encerrar todos os atendimentos">
+                        <Tooltip title={currentBulkCloseConfig.canBulkClose ? `Resolver todas as conversas da aba ${currentBulkCloseConfig.label}` : "Esta aba nao possui resolucao em massa"}>
                             <span>
                                 <IconButton
                                     size="small"
                                     onClick={handleOpenCloseAllDialog}
-                                    disabled={closingAllTickets}
+                                    disabled={closingAllTickets || !currentBulkCloseConfig.canBulkClose}
                                     style={{ marginRight: 8 }}
                                 >
                                     <DoneAllIcon />
@@ -4641,10 +4663,10 @@ const Atendimentos = () => {
             )}
 
             <Dialog open={closeAllDialogOpen} onClose={handleCloseCloseAllDialog} maxWidth="xs" fullWidth>
-                <DialogTitle>Encerrar atendimentos</DialogTitle>
+                <DialogTitle>Resolver conversas em massa</DialogTitle>
                 <DialogContent dividers>
                     <Typography>
-                        Essa ação vai encerrar todos os tickets em atendimento. Deseja continuar?
+                        Essa ação vai resolver todas as conversas da aba {currentBulkCloseConfig.label}. Deseja continuar?
                     </Typography>
                 </DialogContent>
                 <DialogActions>
@@ -4658,7 +4680,7 @@ const Atendimentos = () => {
                         onClick={handleCloseAllTickets}
                         disabled={closingAllTickets}
                     >
-                        {closingAllTickets ? "Encerrando..." : "Encerrar todos"}
+                        {closingAllTickets ? "Resolvendo..." : "Resolver todos"}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import { getIO } from "../libs/socket";
 import Ticket from "../models/Ticket";
 
@@ -66,6 +67,9 @@ interface TicketData {
   leadValue?: number;
   pauseN8nForHours?: number;
   clearN8nPause?: boolean;
+  tabKey?: string;
+  selectedQueueIds?: number[];
+  ticketIds?: number[];
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -416,11 +420,44 @@ export const remove = async (
 
 export const closeAll = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { status }: TicketData = req.body;
+  const { status, tabKey, selectedQueueIds = [], ticketIds = [] }: TicketData = req.body;
   const io = getIO();
 
+  const where: any = {
+    companyId,
+    status
+  };
+
+  if (Array.isArray(selectedQueueIds) && selectedQueueIds.length > 0) {
+    where.queueId = { [Op.in]: selectedQueueIds };
+  }
+
+  if (tabKey === "automation") {
+    where.userId = null;
+    where.queueId = null;
+    where.isGroup = false;
+  } else if (tabKey === "pending") {
+    where.isGroup = false;
+    where[Op.or] = [
+      { userId: { [Op.not]: null } },
+      { queueId: { [Op.not]: null } }
+    ];
+    if (Array.isArray(selectedQueueIds) && selectedQueueIds.length > 0) {
+      where[Op.or] = [
+        { userId: { [Op.not]: null }, queueId: { [Op.in]: selectedQueueIds } },
+        { queueId: { [Op.in]: selectedQueueIds } }
+      ];
+    }
+  } else if (tabKey === "open") {
+    where.isGroup = false;
+  }
+
+  if (Array.isArray(ticketIds) && ticketIds.length > 0) {
+    where.id = { [Op.in]: ticketIds };
+  }
+
   const { rows: tickets } = await Ticket.findAndCountAll({
-    where: { companyId: companyId, status: status },
+    where,
     order: [["updatedAt", "DESC"]]
   });
 
