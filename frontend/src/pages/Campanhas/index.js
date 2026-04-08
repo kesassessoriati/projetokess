@@ -45,6 +45,7 @@ import CloseIcon from "@material-ui/icons/Close";
 import EmailIcon from "@material-ui/icons/Email";
 import PhoneIcon from "@material-ui/icons/Phone";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
+import VerifiedUserIcon from "@material-ui/icons/VerifiedUser";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -53,6 +54,7 @@ import EmailCampaignModal from "../../components/EmailCampaignModal";
 import ContactListDialog from "../../components/ContactListDialog";
 import ContactListItemModal from "../../components/ContactListItemModal";
 import ContactListImportModal from "../../components/ContactListImportModal";
+import OfficialBroadcastPanel from "../../components/OfficialBroadcastPanel";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import planilhaExemplo from "../../assets/planilha.xlsx";
@@ -132,6 +134,7 @@ const TAB_INDEX = {
   WHATSAPP: 1,
   EMAIL: 2,
   CONTACTS: 3,
+  OFFICIAL: 4,
 };
 
 const STATUS_META = {
@@ -850,6 +853,7 @@ const Campaigns = () => {
   const [selectedEmailCampaign, setSelectedEmailCampaign] = useState(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [metricsData, setMetricsData] = useState(null);
+  const [officialMetrics, setOfficialMetrics] = useState(null);
 
   // Contact lists state
   const [contactLists, listDispatch] = useReducer(listReducer, []);
@@ -881,8 +885,12 @@ const Campaigns = () => {
 
     try {
       setMetricsLoading(true);
-      const { data } = await api.get("/campaigns/analytics/overview");
-      setMetricsData(data);
+      const [analyticsRes, officialRes] = await Promise.all([
+        api.get("/campaigns/analytics/overview"),
+        api.get("/official-dispatch/overview").catch(() => ({ data: null }))
+      ]);
+      setMetricsData(analyticsRes.data);
+      setOfficialMetrics(officialRes.data);
     } catch (err) {
       toastError(err);
     } finally {
@@ -1326,6 +1334,7 @@ const Campaigns = () => {
     { label: "Disparos WhatsApp", helper: "Envios", count: whatsappCampaigns.length, Icon: CampaignIcon },
     { label: "Disparos E-mail", helper: "E-mail em massa", count: emailCampaigns.length, Icon: EmailIcon },
     { label: "Lista de contatos", helper: "Base", count: contactLists.length, Icon: ListAltIcon },
+    { label: "API Oficial", helper: "Templates Meta", count: officialMetrics?.campaigns?.total || 0, Icon: VerifiedUserIcon },
     { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: CheckCircleIcon },
   ];
 
@@ -1335,7 +1344,8 @@ const Campaigns = () => {
     { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: TrendingUpIcon },
     { label: "Disparos WhatsApp", helper: "Envios", count: metricsSummary.totalWhatsAppCampaigns || whatsappCampaigns.length, Icon: CampaignIcon },
     { label: "Disparos E-mail", helper: "E-mail em massa", count: metricsSummary.totalEmailCampaigns || emailCampaigns.length, Icon: EmailIcon },
-    { label: "Lista de contatos", helper: "Base", count: metricsSummary.totalContactLists || contactLists.length, Icon: ListAltIcon }
+    { label: "Lista de contatos", helper: "Base", count: metricsSummary.totalContactLists || contactLists.length, Icon: ListAltIcon },
+    { label: "API Oficial", helper: "Templates Meta", count: officialMetrics?.campaigns?.total || 0, Icon: VerifiedUserIcon }
   );
 
   if (user.profile === "user") return <ForbiddenPage />;
@@ -1935,6 +1945,12 @@ const Campaigns = () => {
       )}
 
       {/* ── Contacts Drawer ── */}
+      {activeTab === TAB_INDEX.OFFICIAL && (
+        <Box className={classes.tabContent}>
+          <OfficialBroadcastPanel />
+        </Box>
+      )}
+
       <ConfirmationModal
         title={deletingItem ? `Remover "${deletingItem.name || deletingItem.number}"?` : ""}
         open={confirmDeleteItemOpen}

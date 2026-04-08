@@ -58,6 +58,7 @@ import { createTransporter } from "./services/SmtpServices/smtpService";
 import nodemailer from "nodemailer";
 import { syncAllChips } from "./services/ChipServices/ChipMonitoringService";
 import runTaskReminderJob from "./services/NotificationServices/TaskReminderJobService";
+import { runScheduledOfficialCampaigns } from "./services/OfficialBroadcastService/OfficialBroadcastService";
 
 const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
@@ -2083,6 +2084,16 @@ export async function startQueueProcess() {
   });
   dispatchJob.start();
   logger.info("[Scheduled Dispatch Job] Iniciado - a cada 5 minutos");
+
+  const officialDispatchJob = new CronJob('*/1 * * * *', async () => {
+    try {
+      await runScheduledOfficialCampaigns();
+    } catch (error) {
+      logger.error(`[Official Dispatch Job] Erro: ${error}`);
+    }
+  });
+  officialDispatchJob.start();
+  logger.info("[Official Dispatch Job] Iniciado - a cada 1 minuto");
 
   const cleanContactsJob = new CronJob('0 7,19 * * *', async () => {
     try {
