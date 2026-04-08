@@ -603,32 +603,38 @@ const getSenderMessage = async (
 
 const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => {
   logger.info("=== GET CONTACT MESSAGE START ===");
+  const remoteJid = msg?.key?.remoteJid || "";
+  const remoteJidAlt = msg?.key?.remoteJidAlt || "";
+  const participant = msg?.key?.participant || "";
+  const participantAlt = msg?.key?.participantAlt || "";
+
   logger.info("Message key info:", {
-    remoteJid: msg.key.remoteJid,
-    remoteJidAlt: msg.key.remoteJidAlt,
-    fromMe: msg.key.fromMe,
-    participant: msg.key.participant,
-    participantAlt: msg.key.participantAlt,
-    addressingMode: msg.key.addressingMode
+    remoteJid,
+    remoteJidAlt,
+    fromMe: msg?.key?.fromMe,
+    participant,
+    participantAlt,
+    addressingMode: msg?.key?.addressingMode
   });
 
-  const isGroup = msg.key.remoteJid.includes("g.us");
-  const isNewsletter = msg.key.remoteJid.includes("newsletter");
+  const isGroup = remoteJid.includes("g.us");
+  const isNewsletter = remoteJid.includes("newsletter");
 
   // Ignorar mensagens de newsletter
   if (isNewsletter) {
-    logger.info(`[newsletter] Ignorando mensagem de newsletter: ${msg.key.remoteJid}`);
+    logger.info(`[newsletter] Ignorando mensagem de newsletter: ${remoteJid}`);
     return null;
   }
 
   const baseNumber = resolveContactNumber({
-    rawNumber: msg.key.remoteJidAlt || msg.key.remoteJid,
-    remoteJid: msg.key.remoteJid,
-    remoteJidAlt: msg.key.remoteJidAlt
+    rawNumber: remoteJidAlt || remoteJid,
+    remoteJid,
+    remoteJidAlt
   });
+  const normalizedContactJid = sanitizeRemoteJid(remoteJidAlt || remoteJid, baseNumber, false);
   const contactId = isGroup
-    ? msg.key.remoteJid
-    : sanitizeRemoteJid(msg.key.remoteJidAlt || msg.key.remoteJid, baseNumber, false);
+    ? remoteJid
+    : normalizedContactJid || remoteJid;
 
   const rawNumber = baseNumber || (contactId || "").replace(/\D/g, "");
 
@@ -636,32 +642,32 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     isGroup,
     rawNumber,
     contactId,
-    addressingMode: msg.key.addressingMode,
-    hasRemoteJidAlt: !!msg.key.remoteJidAlt
+    addressingMode: msg?.key?.addressingMode,
+    hasRemoteJidAlt: !!remoteJidAlt
   });
 
-  const participantBase = msg.key.participantAlt || msg.key.participant || msg.key.remoteJid;
+  const participantBase = participantAlt || participant || remoteJid;
   const senderDigits = resolveContactNumber({
     rawNumber: participantBase,
     remoteJid: participantBase,
-    remoteJidAlt: msg.key.participantAlt
+    remoteJidAlt: participantAlt
   });
   const senderId = isGroup
     ? participantBase
-    : sanitizeRemoteJid(msg.key.participantAlt || msg.key.participant || msg.key.remoteJid, senderDigits, false);
+    : sanitizeRemoteJid(participantAlt || participant || remoteJid, senderDigits, false) || participantBase;
 
   const result = isGroup
     ? {
       id: senderId,
       name: msg.pushName,
-      remoteJidAlt: msg.key.remoteJidAlt,
-      addressingMode: msg.key.addressingMode
+      remoteJidAlt,
+      addressingMode: msg?.key?.addressingMode
     }
     : {
       id: contactId,
       name: msg.key.fromMe ? rawNumber : msg.pushName,
-      remoteJidAlt: msg.key.remoteJidAlt || contactId,
-      addressingMode: msg.key.addressingMode
+      remoteJidAlt: remoteJidAlt || (baseNumber ? contactId : ""),
+      addressingMode: msg?.key?.addressingMode
     };
 
   logger.debug("Contact message result:", result);
@@ -4731,8 +4737,8 @@ const handleMessage = async (
   console.log("log... 2874");
 
   // Ignorar mensagens de newsletter
-  if (msg.key.remoteJid.includes("newsletter")) {
-    logger.info(`[newsletter] Ignorando mensagem de newsletter em handleMessage: ${msg.key.remoteJid}`);
+  if ((msg?.key?.remoteJid || "").includes("newsletter")) {
+    logger.info(`[newsletter] Ignorando mensagem de newsletter em handleMessage: ${msg?.key?.remoteJid || ""}`);
     return;
   }
 

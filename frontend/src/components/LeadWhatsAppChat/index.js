@@ -152,8 +152,13 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
             .catch(() => {})
             .finally(() => setLoadingConnections(false));
 
-        const contactNumber = op?.contact?.number || "";
-        if (contactNumber) setSelectedPhone(contactNumber);
+        const preferredPhone =
+            op?.lead?.phone ||
+            op?.contact?.number ||
+            "";
+        if (preferredPhone) {
+            setSelectedPhone(preferredPhone);
+        }
     }, [op]);
 
     // ── Validação de número com debounce de 800ms ─────────────────────────────
