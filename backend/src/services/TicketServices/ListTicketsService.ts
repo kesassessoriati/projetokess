@@ -148,7 +148,9 @@ const ListTicketsService = async ({
     whereCondition = {
       ...whereCondition,
       userId,
-      queueId: { [Op.in]: queueIds },
+      queueId: showTicketWithoutQueue
+        ? { [Op.or]: [effectiveQueueIds, null] }
+        : { [Op.in]: effectiveQueueIds },
       isGroup: false
     };
   } else if (status === "group") {

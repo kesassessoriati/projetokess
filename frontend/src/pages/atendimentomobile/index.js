@@ -1937,8 +1937,10 @@ const Atendimentos = () => {
             params.showAll = "true";
         }
 
+        const shouldRestrictToUserQueues = !canViewAllTickets || !showAllTickets;
+
         // Filtro de filas - se não pode ver todos, usa as filas do usuário
-        if (!showAllTickets && queueFilter.length > 0) {
+        if (shouldRestrictToUserQueues && queueFilter.length > 0) {
             params.queueIds = JSON.stringify(queueFilter);
         } else if (selectedQueues.length > 0) {
             params.queueIds = JSON.stringify(selectedQueues);
