@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -33,16 +35,34 @@ import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
-    minHeight: 520
+    minHeight: 560
   },
   sidebar: {
     borderRight: `1px solid ${theme.palette.divider}`,
     height: "100%",
     overflowY: "auto"
   },
+  toolbar: {
+    display: "flex",
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+    flexWrap: "wrap",
+    alignItems: "center"
+  },
+  folderItem: {
+    borderRadius: 12,
+    margin: theme.spacing(0.5, 1)
+  },
+  folderPath: {
+    display: "block",
+    maxWidth: 180,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
   fileCard: {
     border: `1px solid ${theme.palette.divider}`,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: theme.spacing(1.5),
     cursor: "pointer",
     height: "100%",
@@ -52,7 +72,7 @@ const useStyles = makeStyles((theme) => ({
     transition: "all 0.2s ease",
     "&:hover": {
       borderColor: theme.palette.primary.main,
-      boxShadow: "0 8px 20px rgba(15,23,42,0.08)"
+      boxShadow: "0 10px 24px rgba(15,23,42,0.08)"
     }
   },
   activeFileCard: {
@@ -60,8 +80,8 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "rgba(25,118,210,0.06)"
   },
   previewBox: {
-    height: 120,
-    borderRadius: 10,
+    height: 132,
+    borderRadius: 12,
     background: "linear-gradient(135deg, #f8fafc, #eef2ff)",
     display: "flex",
     alignItems: "center",
@@ -73,11 +93,12 @@ const useStyles = makeStyles((theme) => ({
     height: "100%",
     objectFit: "cover"
   },
-  toolbar: {
-    display: "flex",
-    gap: theme.spacing(1),
+  selectedSummary: {
+    padding: theme.spacing(1.5),
+    borderRadius: 14,
+    border: `1px solid ${theme.palette.divider}`,
     marginBottom: theme.spacing(2),
-    flexWrap: "wrap"
+    background: "rgba(248,250,252,0.8)"
   }
 }));
 
@@ -94,6 +115,13 @@ const getFileIcon = (mediaType) => {
   }
 };
 
+const formatBytes = (bytes = 0) => {
+  const size = Number(bytes || 0);
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(2)} MB`;
+};
+
 const MediaDrivePickerModal = ({
   open,
   onClose,
@@ -106,44 +134,74 @@ const MediaDrivePickerModal = ({
   const [selectedFolderId, setSelectedFolderId] = useState("");
   const [files, setFiles] = useState([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [mediaType, setMediaType] = useState("all");
+  const [includeDescendants, setIncludeDescendants] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [loadingSelect, setLoadingSelect] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedFolderId("");
+    setSearch("");
+    setDebouncedSearch("");
+    setMediaType("all");
+    setIncludeDescendants(true);
+    setSelectedFile(null);
+  }, [open]);
+
+  const loadFolders = useCallback(async () => {
+    const { data } = await getMediaFolders();
+    setFolders(data?.flatFolders || []);
+  }, []);
+
+  const loadFiles = useCallback(async () => {
+    const params = {
+      search: debouncedSearch || undefined,
+      mediaType,
+      folderId: selectedFolderId || undefined,
+      includeDescendants: selectedFolderId ? includeDescendants : undefined
+    };
+
+    const { data } = await getMediaFiles(params);
+    const normalizedFiles = Array.isArray(data) ? data : [];
+    setFiles(normalizedFiles.filter((file) => allowedTypes.includes(file.mediaType)));
+  }, [allowedTypes, debouncedSearch, includeDescendants, mediaType, selectedFolderId]);
 
   useEffect(() => {
     if (!open) return;
 
     const loadData = async () => {
       try {
-        const [{ data: folderData }, { data: fileData }] = await Promise.all([
-          getMediaFolders(),
-          getMediaFiles()
-        ]);
-        const flatFolders = folderData?.flatFolders || [];
-        setFolders(flatFolders);
-        setSelectedFolderId("");
-        setFiles(Array.isArray(fileData) ? fileData : []);
-        setSelectedFile(null);
-        setSearch("");
-        setMediaType("all");
+        setLoading(true);
+        await Promise.all([loadFolders(), loadFiles()]);
       } catch (err) {
         toastError(err);
+      } finally {
+        setLoading(false);
       }
     };
 
     loadData();
-  }, [open]);
+  }, [loadFiles, loadFolders, open]);
 
-  const visibleFiles = useMemo(
-    () =>
-      files.filter((file) => {
-        if (selectedFolderId && Number(file.folderId) !== Number(selectedFolderId)) return false;
-        if (mediaType !== "all" && file.mediaType !== mediaType) return false;
-        if (!allowedTypes.includes(file.mediaType)) return false;
-        if (search && !String(file.displayName || "").toLowerCase().includes(search.toLowerCase())) return false;
-        return true;
-      }),
-    [allowedTypes, files, mediaType, search, selectedFolderId]
+  useEffect(() => {
+    if (!open) return;
+    setSelectedFile(null);
+  }, [files, open]);
+
+  const selectedFolder = useMemo(
+    () => folders.find((folder) => Number(folder.id) === Number(selectedFolderId)) || null,
+    [folders, selectedFolderId]
   );
 
   const handleConfirm = async () => {
@@ -164,7 +222,8 @@ const MediaDrivePickerModal = ({
           mimeType: selectedFile.mimeType,
           name: selectedFile.displayName,
           storagePath: selectedFile.storagePath,
-          url: selectedFile.url
+          url: selectedFile.url,
+          folderPath: selectedFile.folderPath
         });
       }
       if (onClose) {
@@ -181,7 +240,12 @@ const MediaDrivePickerModal = ({
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth classes={{ paper: classes.paper }}>
       <DialogTitle disableTypography>
         <Box display="flex" alignItems="center">
-          <Typography variant="h6" style={{ fontWeight: 600 }}>{title}</Typography>
+          <Box>
+            <Typography variant="h6" style={{ fontWeight: 700 }}>{title}</Typography>
+            <Typography variant="body2" color="textSecondary">
+              Escolha uma mídia organizada por grupo, campanha ou pasta.
+            </Typography>
+          </Box>
           <IconButton onClick={onClose} style={{ marginLeft: "auto" }}>
             <CloseIcon />
           </IconButton>
@@ -204,32 +268,74 @@ const MediaDrivePickerModal = ({
             }}
           />
           <Select value={mediaType} onChange={(event) => setMediaType(event.target.value)} variant="outlined" size="small">
-            <MenuItem value="all">Todos</MenuItem>
+            <MenuItem value="all">Todos os tipos</MenuItem>
             {allowedTypes.map((type) => (
               <MenuItem key={type} value={type}>
                 {type === "document" ? "Documentos" : `${type.charAt(0).toUpperCase()}${type.slice(1)}s`}
               </MenuItem>
             ))}
           </Select>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={includeDescendants}
+                onChange={(event) => setIncludeDescendants(event.target.checked)}
+                color="primary"
+                disabled={!selectedFolderId}
+              />
+            }
+            label="Incluir subpastas"
+          />
+          <Chip
+            size="small"
+            color={selectedFolder ? "primary" : "default"}
+            label={selectedFolder ? selectedFolder.path : "Todas as pastas"}
+          />
         </Box>
+
+        {selectedFile && (
+          <Box className={classes.selectedSummary}>
+            <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+              Mídia selecionada
+            </Typography>
+            <Typography variant="body2">{selectedFile.displayName}</Typography>
+            <Typography variant="caption" color="textSecondary">
+              {selectedFile.folderPath || `Pasta ${selectedFile.folderId}`} · {formatBytes(selectedFile.size)}
+            </Typography>
+          </Box>
+        )}
 
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}>
             <Box className={classes.sidebar}>
               <List dense>
-                <ListItem button selected={!selectedFolderId} onClick={() => setSelectedFolderId("")}>
+                <ListItem
+                  button
+                  className={classes.folderItem}
+                  selected={!selectedFolderId}
+                  onClick={() => setSelectedFolderId("")}
+                >
                   <FolderIcon style={{ marginRight: 8 }} />
-                  <ListItemText primary="Todas as pastas" />
+                  <ListItemText primary="Todas as pastas" secondary="Buscar em toda a biblioteca" />
                 </ListItem>
                 {folders.map((folder) => (
                   <ListItem
                     key={folder.id}
                     button
+                    className={classes.folderItem}
                     selected={Number(selectedFolderId) === Number(folder.id)}
                     onClick={() => setSelectedFolderId(folder.id)}
                   >
                     <FolderIcon style={{ marginRight: 8 }} />
-                    <ListItemText primary={folder.name} secondary={folder.fileCount ? `${folder.fileCount} arquivo(s)` : ""} />
+                    <ListItemText
+                      primary={`${"— ".repeat(folder.level || 0)}${folder.name}`}
+                      secondary={
+                        <>
+                          <span className={classes.folderPath}>{folder.path}</span>
+                          {`${folder.fileCount || 0} arquivo(s)`}
+                        </>
+                      }
+                    />
                   </ListItem>
                 ))}
               </List>
@@ -237,40 +343,52 @@ const MediaDrivePickerModal = ({
           </Grid>
 
           <Grid item xs={12} md={9}>
-            <Grid container spacing={2}>
-              {visibleFiles.length === 0 && (
-                <Grid item xs={12}>
-                  <Box py={6} textAlign="center">
-                    <Typography color="textSecondary">Nenhuma mídia encontrada com os filtros atuais.</Typography>
-                  </Box>
-                </Grid>
-              )}
-              {visibleFiles.map((file) => (
-                <Grid item xs={12} sm={6} md={4} key={file.id}>
-                  <Box
-                    className={`${classes.fileCard} ${selectedFile?.id === file.id ? classes.activeFileCard : ""}`}
-                    onClick={() => setSelectedFile(file)}
-                  >
-                    <Box className={classes.previewBox}>
-                      {file.mediaType === "image" ? (
-                        <img src={file.url} alt={file.displayName} className={classes.previewImage} />
-                      ) : (
-                        getFileIcon(file.mediaType)
-                      )}
+            {loading ? (
+              <Box py={8} textAlign="center">
+                <Typography color="textSecondary">Carregando biblioteca...</Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={2}>
+                {files.length === 0 && (
+                  <Grid item xs={12}>
+                    <Box py={6} textAlign="center">
+                      <Typography color="textSecondary">
+                        Nenhuma mídia encontrada com os filtros atuais.
+                      </Typography>
                     </Box>
-                    <Typography variant="subtitle2" noWrap>{file.displayName}</Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Chip size="small" label={file.mediaType} />
-                      <Tooltip title={file.mimeType}>
-                        <Typography variant="caption" color="textSecondary">
-                          {(file.size / 1024 / 1024).toFixed(file.size > 1024 * 1024 ? 1 : 2)} MB
-                        </Typography>
-                      </Tooltip>
+                  </Grid>
+                )}
+
+                {files.map((file) => (
+                  <Grid item xs={12} sm={6} md={4} key={file.id}>
+                    <Box
+                      className={`${classes.fileCard} ${selectedFile?.id === file.id ? classes.activeFileCard : ""}`}
+                      onClick={() => setSelectedFile(file)}
+                    >
+                      <Box className={classes.previewBox}>
+                        {file.mediaType === "image" ? (
+                          <img src={file.url} alt={file.displayName} className={classes.previewImage} />
+                        ) : (
+                          getFileIcon(file.mediaType)
+                        )}
+                      </Box>
+                      <Typography variant="subtitle2" noWrap>{file.displayName}</Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {file.folderPath || `Pasta ${file.folderId}`}
+                      </Typography>
+                      <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Chip size="small" label={file.mediaType} />
+                        <Tooltip title={file.mimeType}>
+                          <Typography variant="caption" color="textSecondary">
+                            {formatBytes(file.size)}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
                     </Box>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
           </Grid>
         </Grid>
       </DialogContent>

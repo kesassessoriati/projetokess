@@ -45,6 +45,25 @@ const MediaFolderModal = ({ open, onClose, folder, folders = [], parentFolderId 
     setSelectedParentId(folder?.parentId || parentFolderId || "");
   }, [folder, open, parentFolderId]);
 
+  const invalidParentIds = React.useMemo(() => {
+    if (!folder?.id) return new Set();
+
+    const descendants = new Set([Number(folder.id)]);
+    const stack = [Number(folder.id)];
+
+    while (stack.length) {
+      const currentId = stack.pop();
+      folders.forEach((item) => {
+        if (Number(item.parentId) === Number(currentId) && !descendants.has(Number(item.id))) {
+          descendants.add(Number(item.id));
+          stack.push(Number(item.id));
+        }
+      });
+    }
+
+    return descendants;
+  }, [folder, folders]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!name.trim()) {
@@ -115,10 +134,10 @@ const MediaFolderModal = ({ open, onClose, folder, folders = [], parentFolderId 
             >
               <MenuItem value="">Raiz</MenuItem>
               {folders
-                .filter((item) => item.id !== folder?.id)
+                .filter((item) => !invalidParentIds.has(Number(item.id)))
                 .map((item) => (
                   <MenuItem key={item.id} value={item.id}>
-                    {item.name}
+                    {item.path || item.name}
                   </MenuItem>
                 ))}
             </Select>

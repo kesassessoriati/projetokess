@@ -44,18 +44,23 @@ export default {
       const { typeArch, mode } = req.body;
 
       let fileName;
+      const sanitizedOriginalName = file.originalname.replace(/[\\/]/g, "-").replace(/ /g, "_");
       
       // Dashboard images use fixed names
       if (typeArch === "dashboard" && mode) {
         fileName = `dashboard-image-${mode}.png`;
       }
+      // Media Drive keeps the original name for display, but stores a unique file on disk
+      else if (typeArch === "media-drive") {
+        fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${sanitizedOriginalName}`;
+      }
       // Announcements use timestamp
       else if (typeArch && typeArch === "announcements") {
-        fileName = new Date().getTime() + '_' + file.originalname.replace('/', '-').replace(/ /g, "_");
+        fileName = new Date().getTime() + '_' + sanitizedOriginalName;
       }
       // Others use original name
       else {
-        fileName = file.originalname.replace('/', '-').replace(/ /g, "_");
+        fileName = sanitizedOriginalName;
       }
       
       return cb(null, fileName);

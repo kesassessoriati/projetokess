@@ -1491,7 +1491,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           </ListItem>
         </Tooltip>
 
-        <Tooltip title={collapsed ? "Mídia Drive" : ""} placement="right">
+        <Tooltip title={collapsed ? "Biblioteca de Mídia" : ""} placement="right">
           <ListItem
             button
             component={RouterLink}
@@ -1507,7 +1507,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               <ListItemText
                 primary={
                   <Typography className={`${classes.listItemText} ${location.pathname.startsWith("/media-drive") ? "active" : ""}`}>
-                    Mídia Drive
+                    Biblioteca de Mídia
                   </Typography>
                 }
               />

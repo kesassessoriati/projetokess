@@ -3,9 +3,13 @@ import {
   Avatar,
   Box,
   Button,
+  Card,
+  CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Divider,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -33,13 +37,20 @@ import ImageIcon from "@material-ui/icons/Image";
 import VideoLibraryIcon from "@material-ui/icons/VideoLibrary";
 import AudiotrackIcon from "@material-ui/icons/Audiotrack";
 import DescriptionIcon from "@material-ui/icons/Description";
+import EditIcon from "@material-ui/icons/Edit";
+import GetAppIcon from "@material-ui/icons/GetApp";
+import CollectionsIcon from "@material-ui/icons/Collections";
+import FolderOpenIcon from "@material-ui/icons/FolderOpen";
+import CategoryIcon from "@material-ui/icons/Category";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import MediaFolderModal from "../../components/MediaFolderModal";
+import MediaFileModal from "../../components/MediaFileModal";
 import toastError from "../../errors/toastError";
 import {
   deleteMediaFile,
   deleteMediaFolder,
+  downloadMediaFile,
   getMediaFiles,
   getMediaFolders,
   uploadMediaFiles
@@ -55,10 +66,11 @@ const useStyles = makeStyles((theme) => ({
     minHeight: "100%"
   },
   hero: {
-    padding: theme.spacing(3),
     borderRadius: 24,
-    background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #ecfeff 100%)",
-    border: "1px solid rgba(148,163,184,0.2)"
+    padding: theme.spacing(3),
+    background: "linear-gradient(135deg, #f8fafc 0%, #ecfeff 40%, #eef2ff 100%)",
+    border: "1px solid rgba(148,163,184,0.22)",
+    boxShadow: "0 18px 36px rgba(15,23,42,0.06)"
   },
   heroTop: {
     display: "flex",
@@ -70,67 +82,112 @@ const useStyles = makeStyles((theme) => ({
   heroActions: {
     display: "flex",
     gap: theme.spacing(1),
-    flexWrap: "wrap"
+    flexWrap: "wrap",
+    justifyContent: "flex-end"
   },
-  primaryButton: {
-    borderRadius: 10,
-    textTransform: "none",
-    boxShadow: "none"
+  statGrid: {
+    marginTop: theme.spacing(2)
+  },
+  statCard: {
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.18)",
+    boxShadow: "none",
+    background: "rgba(255,255,255,0.82)"
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 700,
+    lineHeight: 1.1
   },
   layout: {
     display: "grid",
-    gridTemplateColumns: "280px minmax(0, 1fr)",
+    gridTemplateColumns: "320px minmax(0, 1fr)",
     gap: theme.spacing(2),
     [theme.breakpoints.down("sm")]: {
       gridTemplateColumns: "1fr"
     }
   },
   sidebar: {
-    borderRadius: 18,
-    border: `1px solid ${theme.palette.divider}`,
-    overflow: "hidden"
+    borderRadius: 20,
+    overflow: "hidden",
+    border: `1px solid ${theme.palette.divider}`
   },
   sidebarHeader: {
     padding: theme.spacing(2),
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center"
+    gap: theme.spacing(1)
+  },
+  sidebarSummary: {
+    padding: theme.spacing(0, 2, 2)
   },
   content: {
-    borderRadius: 18,
-    border: `1px solid ${theme.palette.divider}`,
-    overflow: "hidden"
+    borderRadius: 20,
+    overflow: "hidden",
+    border: `1px solid ${theme.palette.divider}`
   },
   toolbar: {
     padding: theme.spacing(2),
     display: "flex",
-    gap: theme.spacing(1),
+    gap: theme.spacing(1.5),
     flexWrap: "wrap",
     alignItems: "center"
   },
+  folderItem: {
+    borderRadius: 12,
+    margin: theme.spacing(0.5, 1)
+  },
+  folderAvatar: {
+    width: 36,
+    height: 36,
+    marginRight: theme.spacing(1.25),
+    backgroundColor: "rgba(15,23,42,0.08)",
+    color: theme.palette.primary.main
+  },
+  folderItemText: {
+    "& .MuiListItemText-primary": {
+      fontWeight: 600
+    }
+  },
+  folderPathText: {
+    display: "block",
+    maxWidth: 220,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  activeFolderBanner: {
+    margin: theme.spacing(0, 2, 2),
+    padding: theme.spacing(1.5, 2),
+    borderRadius: 16,
+    background: "linear-gradient(135deg, rgba(14,165,233,0.08), rgba(37,99,235,0.08))",
+    border: "1px solid rgba(59,130,246,0.12)"
+  },
   fileGrid: {
-    padding: theme.spacing(2)
+    padding: theme.spacing(0, 2, 2)
   },
   fileCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     border: `1px solid ${theme.palette.divider}`,
-    padding: theme.spacing(1.5),
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1.5),
-    boxShadow: "0 6px 16px rgba(15,23,42,0.05)"
+    gap: theme.spacing(1.25),
+    padding: theme.spacing(1.5),
+    boxShadow: "0 12px 24px rgba(15,23,42,0.05)"
   },
   fileListRow: {
     padding: theme.spacing(1.5, 2),
-    display: "flex",
-    alignItems: "center",
+    display: "grid",
+    gridTemplateColumns: "56px minmax(0, 1fr) auto",
     gap: theme.spacing(2),
+    alignItems: "center",
     borderTop: `1px solid ${theme.palette.divider}`
   },
   previewBox: {
-    height: 140,
-    borderRadius: 14,
+    height: 156,
+    borderRadius: 16,
     background: "linear-gradient(135deg, #f8fafc, #e0f2fe)",
     display: "flex",
     alignItems: "center",
@@ -142,43 +199,76 @@ const useStyles = makeStyles((theme) => ({
     height: "100%",
     objectFit: "cover"
   },
+  fileTitle: {
+    fontWeight: 700
+  },
+  fileMetaRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(1)
+  },
+  filePath: {
+    display: "block",
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  fileActions: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(1)
+  },
+  actionGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(0.5)
+  },
   emptyState: {
     padding: theme.spacing(8, 2),
     textAlign: "center"
   },
-  folderItemText: {
-    "& span": {
-      fontWeight: 500
-    }
+  helperText: {
+    color: theme.palette.text.secondary
   }
 }));
 
-const getMediaIcon = (mediaType) => {
+const getMediaIcon = (mediaType, size = "default") => {
   switch (mediaType) {
     case "image":
-      return <ImageIcon color="primary" />;
+      return <ImageIcon color="primary" fontSize={size} />;
     case "video":
-      return <VideoLibraryIcon color="primary" />;
+      return <VideoLibraryIcon color="primary" fontSize={size} />;
     case "audio":
-      return <AudiotrackIcon color="primary" />;
+      return <AudiotrackIcon color="primary" fontSize={size} />;
     default:
-      return <DescriptionIcon color="primary" />;
+      return <DescriptionIcon color="primary" fontSize={size} />;
   }
 };
 
-const flattenFolders = (folders = [], level = 0) =>
-  folders.reduce((acc, folder) => {
-    acc.push({ ...folder, level });
-    if (folder.children?.length) {
-      acc.push(...flattenFolders(folder.children, level + 1));
-    }
-    return acc;
-  }, []);
-
 const formatBytes = (bytes = 0) => {
   const size = Number(bytes || 0);
+  if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("pt-BR");
+};
+
+const downloadBlob = (blob, fileName) => {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
 };
 
 const MediaLibrary = () => {
@@ -189,55 +279,71 @@ const MediaLibrary = () => {
   const [selectedFolderId, setSelectedFolderId] = useState("");
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [includeDescendants, setIncludeDescendants] = useState(true);
   const [viewMode, setViewMode] = useState("grid");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [fileModalOpen, setFileModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
+  const [editingFile, setEditingFile] = useState(null);
   const [parentFolderId, setParentFolderId] = useState("");
   const [confirmState, setConfirmState] = useState({ open: false, type: "", item: null });
+  const [folderReloadKey, setFolderReloadKey] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  const loadFolders = useCallback(async () => {
+    const { data } = await getMediaFolders();
+    setFolders(data?.flatFolders || []);
+  }, []);
+
+  const loadFiles = useCallback(async () => {
+    const params = {
+      search: debouncedSearch || undefined,
+      mediaType: filterType,
+      folderId: selectedFolderId || undefined,
+      includeDescendants: selectedFolderId ? includeDescendants : undefined
+    };
+    const { data } = await getMediaFiles(params);
+    setFiles(Array.isArray(data) ? data : []);
+  }, [debouncedSearch, filterType, includeDescendants, selectedFolderId]);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [{ data: foldersData }, { data: filesData }] = await Promise.all([
-        getMediaFolders({ search }),
-        getMediaFiles()
-      ]);
-      setFolders(foldersData?.folders || []);
-      setFiles(Array.isArray(filesData) ? filesData : []);
-    } catch (err) {
-      toastError(err);
+      await Promise.all([loadFolders(), loadFiles()]);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [loadFiles, loadFolders]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadData();
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [loadData]);
+    loadData().catch(toastError);
+  }, [loadData, folderReloadKey]);
 
-  const folderOptions = useMemo(() => flattenFolders(folders), [folders]);
+  const totalFiles = useMemo(
+    () => folders.reduce((sum, folder) => sum + Number(folder.directFileCount || 0), 0),
+    [folders]
+  );
 
-  const visibleFiles = useMemo(
-    () =>
-      files.filter((file) => {
-        if (selectedFolderId && Number(file.folderId) !== Number(selectedFolderId)) return false;
-        if (filterType !== "all" && file.mediaType !== filterType) return false;
-        if (search && !String(file.displayName || "").toLowerCase().includes(search.toLowerCase())) return false;
-        return true;
-      }),
-    [files, filterType, search, selectedFolderId]
+  const selectedFolder = useMemo(
+    () => folders.find((folder) => Number(folder.id) === Number(selectedFolderId)) || null,
+    [folders, selectedFolderId]
   );
 
   const handleUpload = async (event) => {
     const selectedFiles = Array.from(event.target.files || []);
     if (!selectedFiles.length) return;
+
     if (!selectedFolderId) {
-      toast.warn("Selecione uma pasta antes de carregar arquivos.");
+      toast.warn("Selecione um grupo ou pasta antes de enviar a mídia.");
       return;
     }
 
@@ -249,8 +355,8 @@ const MediaLibrary = () => {
     try {
       setUploading(true);
       await uploadMediaFiles(selectedFolderId, formData);
-      toast.success("Arquivos enviados para o Mídia Drive.");
-      await loadData();
+      toast.success("Arquivos enviados para a biblioteca de mídia.");
+      await Promise.all([loadFolders(), loadFiles()]);
     } catch (err) {
       toastError(err);
     } finally {
@@ -263,24 +369,86 @@ const MediaLibrary = () => {
 
   const handleConfirmDelete = async () => {
     const { type, item } = confirmState;
+
     try {
       if (type === "folder") {
         await deleteMediaFolder(item.id);
         if (Number(selectedFolderId) === Number(item.id)) {
           setSelectedFolderId("");
         }
+        setFolderReloadKey((value) => value + 1);
       }
+
       if (type === "file") {
         await deleteMediaFile(item.id);
+        await loadFiles();
+        await loadFolders();
       }
+
       toast.success("Removido com sucesso.");
-      await loadData();
     } catch (err) {
       toastError(err);
     } finally {
       setConfirmState({ open: false, type: "", item: null });
     }
   };
+
+  const handleDownload = async (file) => {
+    try {
+      const { data } = await downloadMediaFile(file.id);
+      downloadBlob(data, file.displayName || file.originalName);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleCopyLink = async (file) => {
+    if (!navigator?.clipboard?.writeText) {
+      toast.info("Seu navegador não permite copiar automaticamente.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(file.url);
+      toast.success("Link da mídia copiado.");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleFileSaved = async () => {
+    setFileModalOpen(false);
+    setEditingFile(null);
+    await Promise.all([loadFolders(), loadFiles()]);
+  };
+
+  const handleFolderSaved = async () => {
+    setFolderModalOpen(false);
+    setEditingFolder(null);
+    setParentFolderId("");
+    await Promise.all([loadFolders(), loadFiles()]);
+  };
+
+  const statCards = [
+    {
+      label: "Midias cadastradas",
+      value: totalFiles,
+      helper: "Biblioteca pronta para chats, campanhas e follow-ups",
+      icon: <CollectionsIcon color="primary" />
+    },
+    {
+      label: "Grupos e pastas",
+      value: folders.length,
+      helper: "Organize por produto, campanha, time ou etapa",
+      icon: <FolderOpenIcon color="primary" />
+    },
+    {
+      label: "Filtro atual",
+      value: selectedFolder ? selectedFolder.fileCount || 0 : files.length,
+      helper: selectedFolder ? selectedFolder.path : "Toda a biblioteca",
+      icon: <CategoryIcon color="primary" />
+    }
+  ];
 
   return (
     <Box className={classes.root}>
@@ -292,20 +460,26 @@ const MediaLibrary = () => {
           setParentFolderId("");
         }}
         folder={editingFolder}
-        folders={folderOptions}
+        folders={folders}
         parentFolderId={parentFolderId}
-        onSuccess={() => {
-          setFolderModalOpen(false);
-          setEditingFolder(null);
-          setParentFolderId("");
-          loadData();
+        onSuccess={handleFolderSaved}
+      />
+
+      <MediaFileModal
+        open={fileModalOpen}
+        onClose={() => {
+          setFileModalOpen(false);
+          setEditingFile(null);
         }}
+        file={editingFile}
+        folders={folders}
+        onSuccess={handleFileSaved}
       />
 
       <ConfirmationModal
         open={confirmState.open}
         onClose={() => setConfirmState({ open: false, type: "", item: null })}
-        title={confirmState.type === "folder" ? "Excluir pasta" : "Excluir arquivo"}
+        title={confirmState.type === "folder" ? "Excluir pasta de mídia" : "Excluir arquivo de mídia"}
         onConfirm={handleConfirmDelete}
       >
         Tem certeza que deseja excluir <strong>{confirmState.item?.name || confirmState.item?.displayName}</strong>?
@@ -315,10 +489,10 @@ const MediaLibrary = () => {
         <Box className={classes.heroTop}>
           <Box>
             <Typography variant="h4" style={{ fontWeight: 700 }}>
-              Armazenamento de mídia
+              Biblioteca de midia
             </Typography>
             <Typography variant="body1" color="textSecondary">
-              Biblioteca central para imagens, vídeos, áudios e documentos reutilizáveis em chats, respostas rápidas, campanhas e follow-ups.
+              Centralize imagens, videos, audios e documentos em grupos reutilizaveis para atendimento, marketing e automacoes.
             </Typography>
           </Box>
 
@@ -333,32 +507,64 @@ const MediaLibrary = () => {
             />
             <Button
               variant="outlined"
-              startIcon={<LinkIcon />}
-              className={classes.primaryButton}
-              onClick={() => toast.info("Integração com Google Drive preparada na interface. A autenticação OAuth será a próxima etapa.")}
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setEditingFolder(null);
+                setParentFolderId("");
+                setFolderModalOpen(true);
+              }}
             >
-              Conectar Drive
+              Novo grupo
             </Button>
             <Button
               variant="contained"
               color="primary"
               startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <CloudUploadIcon />}
-              className={classes.primaryButton}
               onClick={() => uploadInputRef.current?.click()}
               disabled={uploading}
             >
-              Carregar
+              Enviar midia
             </Button>
           </Box>
         </Box>
+
+        <Grid container spacing={2} className={classes.statGrid}>
+          {statCards.map((card) => (
+            <Grid item xs={12} md={4} key={card.label}>
+              <Card className={classes.statCard}>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                    <Box>
+                      <Typography variant="subtitle2" color="textSecondary">
+                        {card.label}
+                      </Typography>
+                      <Typography className={classes.statValue}>{card.value}</Typography>
+                    </Box>
+                    {card.icon}
+                  </Box>
+                  <Typography variant="body2" className={classes.helperText}>
+                    {card.helper}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Paper>
 
       <Box className={classes.layout}>
         <Paper className={classes.sidebar}>
           <Box className={classes.sidebarHeader}>
-            <Typography variant="subtitle1" style={{ fontWeight: 700 }}>Pastas</Typography>
+            <Box>
+              <Typography variant="subtitle1" style={{ fontWeight: 700 }}>
+                Grupos de midia
+              </Typography>
+              <Typography variant="body2" className={classes.helperText}>
+                Selecione a pasta de trabalho
+              </Typography>
+            </Box>
             <Box display="flex">
-              <Tooltip title="Nova pasta">
+              <Tooltip title="Nova pasta raiz">
                 <IconButton
                   size="small"
                   onClick={() => {
@@ -387,28 +593,54 @@ const MediaLibrary = () => {
               </Tooltip>
             </Box>
           </Box>
+
+          <Box className={classes.sidebarSummary}>
+            <Chip
+              size="small"
+              color={selectedFolder ? "primary" : "default"}
+              label={selectedFolder ? `Filtro: ${selectedFolder.name}` : "Exibindo toda a biblioteca"}
+            />
+          </Box>
+
           <Divider />
+
           <List dense>
-            <ListItem button selected={!selectedFolderId} onClick={() => setSelectedFolderId("")}>
-              <Avatar style={{ width: 32, height: 32, marginRight: 10 }}>
+            <ListItem
+              button
+              className={classes.folderItem}
+              selected={!selectedFolderId}
+              onClick={() => setSelectedFolderId("")}
+            >
+              <Avatar className={classes.folderAvatar}>
                 <FolderIcon fontSize="small" />
               </Avatar>
-              <ListItemText primary="Todas as mídias" secondary={`${files.length} arquivo(s)`} />
+              <ListItemText
+                className={classes.folderItemText}
+                primary="Toda a biblioteca"
+                secondary={`${totalFiles} arquivo(s) em todos os grupos`}
+              />
             </ListItem>
-            {folderOptions.map((folder) => (
+
+            {folders.map((folder) => (
               <ListItem
                 key={folder.id}
                 button
+                className={classes.folderItem}
                 selected={Number(selectedFolderId) === Number(folder.id)}
                 onClick={() => setSelectedFolderId(folder.id)}
               >
-                <Avatar style={{ width: 32, height: 32, marginRight: 10 }}>
+                <Avatar className={classes.folderAvatar}>
                   <FolderIcon fontSize="small" />
                 </Avatar>
                 <ListItemText
                   className={classes.folderItemText}
                   primary={`${"— ".repeat(folder.level || 0)}${folder.name}`}
-                  secondary={`${folder.fileCount || 0} arquivo(s)`}
+                  secondary={
+                    <>
+                      <span className={classes.folderPathText}>{folder.path}</span>
+                      {`${folder.fileCount || 0} arquivo(s)`}
+                    </>
+                  }
                 />
                 <Tooltip title="Editar pasta">
                   <IconButton
@@ -419,7 +651,7 @@ const MediaLibrary = () => {
                       setFolderModalOpen(true);
                     }}
                   >
-                    <CreateNewFolderIcon fontSize="small" />
+                    <EditIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Excluir pasta">
@@ -443,7 +675,7 @@ const MediaLibrary = () => {
             <TextField
               size="small"
               variant="outlined"
-              placeholder="Buscar mídia"
+              placeholder="Buscar midia por nome"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               InputProps={{
@@ -456,12 +688,24 @@ const MediaLibrary = () => {
             />
 
             <Select value={filterType} onChange={(event) => setFilterType(event.target.value)} size="small" variant="outlined">
-              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="all">Todos os tipos</MenuItem>
               <MenuItem value="image">Imagens</MenuItem>
-              <MenuItem value="video">Vídeos</MenuItem>
-              <MenuItem value="audio">Áudios</MenuItem>
+              <MenuItem value="video">Videos</MenuItem>
+              <MenuItem value="audio">Audios</MenuItem>
               <MenuItem value="document">Documentos</MenuItem>
             </Select>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeDescendants}
+                  onChange={(event) => setIncludeDescendants(event.target.checked)}
+                  color="primary"
+                  disabled={!selectedFolderId}
+                />
+              }
+              label="Incluir subpastas"
+            />
 
             <Box display="flex" style={{ marginLeft: "auto" }}>
               <Tooltip title="Visualização em grade">
@@ -477,46 +721,95 @@ const MediaLibrary = () => {
             </Box>
           </Box>
 
+          {selectedFolder && (
+            <Box className={classes.activeFolderBanner}>
+              <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                Grupo selecionado
+              </Typography>
+              <Typography variant="body2">{selectedFolder.path}</Typography>
+              <Typography variant="caption" color="textSecondary">
+                {selectedFolder.description || "Sem descrição cadastrada."}
+              </Typography>
+            </Box>
+          )}
+
           {loading ? (
             <Box display="flex" justifyContent="center" alignItems="center" py={8}>
               <CircularProgress />
             </Box>
-          ) : visibleFiles.length === 0 ? (
+          ) : files.length === 0 ? (
             <Box className={classes.emptyState}>
               <FolderIcon style={{ fontSize: 52, opacity: 0.35 }} />
               <Typography variant="h6" style={{ marginTop: 12 }}>
-                Nenhum arquivo de mídia foi encontrado
+                Nenhuma mídia encontrada
               </Typography>
               <Typography color="textSecondary">
-                Selecione uma pasta e use o botão Carregar para começar sua biblioteca central de mídia.
+                Ajuste os filtros ou selecione uma pasta para começar a sua biblioteca.
               </Typography>
             </Box>
           ) : viewMode === "grid" ? (
             <Grid container spacing={2} className={classes.fileGrid}>
-              {visibleFiles.map((file) => (
+              {files.map((file) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={file.id}>
                   <Box className={classes.fileCard}>
                     <Box className={classes.previewBox}>
                       {file.mediaType === "image" ? (
                         <img src={file.url} alt={file.displayName} className={classes.previewImage} />
                       ) : (
-                        getMediaIcon(file.mediaType)
+                        getMediaIcon(file.mediaType, "large")
                       )}
                     </Box>
-                    <Typography variant="subtitle2" noWrap>{file.displayName}</Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
+
+                    <Box>
+                      <Typography variant="subtitle2" className={classes.fileTitle} noWrap>
+                        {file.displayName}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary" className={classes.filePath}>
+                        {file.folderPath || `Pasta ${file.folderId}`}
+                      </Typography>
+                    </Box>
+
+                    <Box className={classes.fileMetaRow}>
                       <Chip size="small" label={file.mediaType} />
                       <Typography variant="caption" color="textSecondary">
                         {formatBytes(file.size)}
                       </Typography>
                     </Box>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography variant="caption" color="textSecondary" noWrap>
-                        Pasta #{file.folderId}
-                      </Typography>
-                      <IconButton size="small" onClick={() => setConfirmState({ open: true, type: "file", item: file })}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
+
+                    <Typography variant="caption" color="textSecondary">
+                      Atualizado em {formatDate(file.updatedAt)}
+                    </Typography>
+
+                    <Box className={classes.fileActions}>
+                      <Box className={classes.actionGroup}>
+                        <Tooltip title="Editar mídia">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setEditingFile(file);
+                              setFileModalOpen(true);
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Baixar mídia">
+                          <IconButton size="small" onClick={() => handleDownload(file)}>
+                            <GetAppIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Copiar link">
+                          <IconButton size="small" onClick={() => handleCopyLink(file)}>
+                            <LinkIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+
+                      <Tooltip title="Excluir mídia">
+                        <IconButton size="small" onClick={() => setConfirmState({ open: true, type: "file", item: file })}>
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </Box>
                 </Grid>
@@ -524,19 +817,57 @@ const MediaLibrary = () => {
             </Grid>
           ) : (
             <Box>
-              {visibleFiles.map((file) => (
+              {files.map((file) => (
                 <Box key={file.id} className={classes.fileListRow}>
-                  {getMediaIcon(file.mediaType)}
-                  <Box flex={1} minWidth={0}>
-                    <Typography variant="subtitle2" noWrap>{file.displayName}</Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {file.mimeType} • {formatBytes(file.size)}
+                  <Box display="flex" justifyContent="center">
+                    {file.mediaType === "image" ? (
+                      <Avatar variant="rounded" src={file.url} alt={file.displayName} style={{ width: 48, height: 48 }} />
+                    ) : (
+                      getMediaIcon(file.mediaType, "large")
+                    )}
+                  </Box>
+
+                  <Box minWidth={0}>
+                    <Typography variant="subtitle2" noWrap className={classes.fileTitle}>
+                      {file.displayName}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" className={classes.filePath}>
+                      {file.folderPath || `Pasta ${file.folderId}`}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {file.mimeType} · {formatBytes(file.size)} · {formatDate(file.updatedAt)}
                     </Typography>
                   </Box>
-                  <Chip size="small" label={file.mediaType} />
-                  <IconButton size="small" onClick={() => setConfirmState({ open: true, type: "file", item: file })}>
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
+
+                  <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                    <Chip size="small" label={file.mediaType} />
+                    <Tooltip title="Editar mídia">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditingFile(file);
+                          setFileModalOpen(true);
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Baixar mídia">
+                      <IconButton size="small" onClick={() => handleDownload(file)}>
+                        <GetAppIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Copiar link">
+                      <IconButton size="small" onClick={() => handleCopyLink(file)}>
+                        <LinkIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir mídia">
+                      <IconButton size="small" onClick={() => setConfirmState({ open: true, type: "file", item: file })}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
               ))}
             </Box>
