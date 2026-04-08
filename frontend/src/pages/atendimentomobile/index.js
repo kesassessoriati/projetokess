@@ -2385,6 +2385,21 @@ const Atendimentos = () => {
         history.push("/atendimentomobile");
     };
 
+    const getBubbleBackgroundColor = (message) => {
+        if (message?.isPrivate) return "#F0E68C";
+        return message?.fromMe ? "#d9fdd3" : "#ffffff";
+    };
+
+    const getQuotedBackgroundColor = (message) => {
+        if (message?.isPrivate) return "rgba(181, 148, 16, 0.18)";
+        return "rgba(0,0,0,0.05)";
+    };
+
+    const getQuotedBorderColor = (message) => {
+        if (message?.isPrivate) return "#b7791f";
+        return "#00a884";
+    };
+
     // **NOVO: Componente para texto de anúncios com "ler mais"**
     const AdMessageText = ({ text, isBase64, hasMedia }) => {
         const [expanded, setExpanded] = useState(false);
@@ -3833,7 +3848,7 @@ const Atendimentos = () => {
                                                     <div
                                                         className={classes.messageBubble}
                                                         style={{
-                                                            backgroundColor: firstMessage.fromMe ? "#d9fdd3" : "#ffffff",
+                                                            backgroundColor: getBubbleBackgroundColor(firstMessage),
                                                             padding: "8px 12px",
                                                             position: "relative",
                                                             cursor: !allDeleted ? "pointer" : "default"
@@ -3938,7 +3953,7 @@ const Atendimentos = () => {
                                                 <div
                                                     className={classes.messageBubble}
                                                     style={{
-                                                        backgroundColor: item.fromMe ? "#d9fdd3" : "#ffffff",
+                                                        backgroundColor: getBubbleBackgroundColor(item),
                                                         padding: "8px 12px",
                                                         position: "relative",
                                                         cursor: item.isDeleted ? "default" : "pointer"
@@ -3996,14 +4011,14 @@ const Atendimentos = () => {
                                                             {/* Quoted Message */}
                                                             {item.quotedMsg && (
                                                                 <div style={{
-                                                                    backgroundColor: 'rgba(0,0,0,0.05)',
-                                                                    borderLeft: '4px solid #00a884',
+                                                                    backgroundColor: getQuotedBackgroundColor(item),
+                                                                    borderLeft: `4px solid ${getQuotedBorderColor(item)}`,
                                                                     padding: '6px 8px',
                                                                     borderRadius: '4px',
                                                                     marginBottom: '6px',
                                                                     cursor: 'pointer'
                                                                 }}>
-                                                                    <Typography style={{ fontSize: 12, color: '#00a884', fontWeight: 500, marginBottom: 2 }}>
+                                                                    <Typography style={{ fontSize: 12, color: getQuotedBorderColor(item), fontWeight: 500, marginBottom: 2 }}>
                                                                         {item.quotedMsg.fromMe ? (item.quotedMsg.fromAgent ? "Automação" : (item.quotedMsg.user?.name || user.name)) : getMessageSenderLabel(item.quotedMsg)}
                                                                     </Typography>
                                                                     <Typography style={{
