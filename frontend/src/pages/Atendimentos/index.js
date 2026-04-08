@@ -731,6 +731,7 @@ const Atendimentos = () => {
 	const [currentTime, setCurrentTime] = useState(Date.now());
 	const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
 	const [selectedMessage, setSelectedMessage] = useState(null);
+	const [selectedMessageGroup, setSelectedMessageGroup] = useState([]);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [forwardModalOpen, setForwardModalOpen] = useState(false);
@@ -2767,20 +2768,51 @@ const Atendimentos = () => {
 		setMediaGalleryOpen(true);
 	};
 
+	const isVisualMediaType = (mediaType) => mediaType === "image" || mediaType === "video";
+
+	const getMediaDownloadName = (message) => {
+		if (!message) return "arquivo";
+
+		if (message.body) {
+			return message.body;
+		}
+
+		if (message.mediaUrl) {
+			const fileName = message.mediaUrl.split("/").pop()?.split("?")[0];
+			if (fileName) {
+				return fileName;
+			}
+		}
+
+		return "arquivo";
+	};
+
+	const downloadMessageMedia = (message) => {
+		if (!message?.mediaUrl) return;
+
+		const link = document.createElement("a");
+		link.href = message.mediaUrl;
+		link.download = getMediaDownloadName(message);
+		link.target = "_blank";
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+	};
+
 	// Agrupa mensagens consecutivas com mídia do mesmo remetente
 	const groupConsecutiveMediaMessages = (messages) => {
 		const grouped = [];
 		let currentGroup = null;
 
 		messages.forEach((message, index) => {
-			const hasMedia = message.mediaUrl && message.mediaType !== "audio";
+			const hasMedia = Boolean(message.mediaUrl) && isVisualMediaType(message.mediaType);
 			const prevMessage = messages[index - 1];
 
 			// Verifica se deve agrupar com a mensagem anterior
 			const shouldGroup = hasMedia &&
 				prevMessage &&
 				prevMessage.mediaUrl &&
-				prevMessage.mediaType !== "audio" &&
+				isVisualMediaType(prevMessage.mediaType) &&
 				message.fromMe === prevMessage.fromMe &&
 				Math.abs(new Date(message.createdAt) - new Date(prevMessage.createdAt)) < 5000; // 5 segundos
 
@@ -3112,9 +3144,10 @@ const Atendimentos = () => {
 
 	};
 
-	const handleMessageMenuOpen = (event, message) => {
+	const handleMessageMenuOpen = (event, message, groupMessages = []) => {
 		setMessageMenuAnchor(event.currentTarget);
 		setSelectedMessage(message);
+		setSelectedMessageGroup(groupMessages.filter(groupMessage => groupMessage?.mediaUrl && !groupMessage?.isDeleted));
 	};
 
 	const handleTicketContextMenu = (event, ticket) => {
@@ -3125,6 +3158,7 @@ const Atendimentos = () => {
 
 	const handleMessageMenuClose = () => {
 		setMessageMenuAnchor(null);
+		setSelectedMessageGroup([]);
 	};
 
 	const handleDeleteMessage = async () => {
@@ -3135,6 +3169,7 @@ const Atendimentos = () => {
 			loadMessages(selectedTicket.id);
 			setDeleteModalOpen(false);
 			setSelectedMessage(null);
+			setSelectedMessageGroup([]);
 		} catch (err) {
 		}
 	};
@@ -3149,6 +3184,7 @@ const Atendimentos = () => {
 			loadMessages(selectedTicket.id);
 			setEditModalOpen(false);
 			setSelectedMessage(null);
+			setSelectedMessageGroup([]);
 		} catch (err) {
 		}
 	};
@@ -3173,6 +3209,7 @@ const Atendimentos = () => {
 			}
 			setForwardModalOpen(false);
 			setSelectedMessage(null);
+			setSelectedMessageGroup([]);
 		} catch (err) {
 		}
 	};
@@ -3887,11 +3924,11 @@ const Atendimentos = () => {
 															position: "relative",
 															cursor: !allDeleted ? "pointer" : "default"
 														}}
-														onDoubleClick={(e) => {
-															if (!allDeleted) {
-																handleMessageMenuOpen(e, firstMessage);
-															}
-														}}
+													onDoubleClick={(e) => {
+														if (!allDeleted) {
+															handleMessageMenuOpen(e, firstMessage, item.messages);
+														}
+													}}
 														onMouseEnter={(e) => {
 															const menuBtn = e.currentTarget.querySelector('.message-menu-btn');
 															if (menuBtn) menuBtn.style.opacity = '1';
@@ -3905,7 +3942,7 @@ const Atendimentos = () => {
 															<IconButton
 																size="small"
 																className="message-menu-btn"
-																onClick={(e) => handleMessageMenuOpen(e, firstMessage)}
+																onClick={(e) => handleMessageMenuOpen(e, firstMessage, item.messages)}
 																style={{
 																	position: "absolute",
 																	top: "4px",
@@ -4550,17 +4587,33 @@ const Atendimentos = () => {
 						Copiar Texto
 					</MenuItem>
 				)}
-				{/* Baixar Arquivo */}
-				{selectedMessage?.mediaUrl && (
+				{/* Baixar Arquivo(s) */}
+				{selectedMessageGroup.length > 1 && (
 					<MenuItem
 						onClick={() => {
-							const link = document.createElement('a');
-							link.href = selectedMessage.mediaUrl;
-							link.download = selectedMessage.body || 'arquivo';
-							link.target = '_blank';
-							document.body.appendChild(link);
-							link.click();
-							document.body.removeChild(link);
+							selectedMessageGroup.forEach(downloadMessageMedia);
+							handleMessageMenuClose();
+						}}
+					>
+						Baixar Todos os Arquivos
+					</MenuItem>
+				)}
+				{selectedMessageGroup.length > 1 ? (
+					selectedMessageGroup.map((message) => (
+						<MenuItem
+							key={`download-${message.id}`}
+							onClick={() => {
+								downloadMessageMedia(message);
+								handleMessageMenuClose();
+							}}
+						>
+							{`Baixar ${getMediaDownloadName(message)}`}
+						</MenuItem>
+					))
+				) : selectedMessage?.mediaUrl && (
+					<MenuItem
+						onClick={() => {
+							downloadMessageMedia(selectedMessage);
 							handleMessageMenuClose();
 						}}
 					>
