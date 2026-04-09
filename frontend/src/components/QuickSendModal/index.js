@@ -372,24 +372,30 @@ export default function QuickSendModal({ open, onClose }) {
         resetState();
         const load = async () => {
             try {
-                const [connRes, queueRes, tagRes, contactListRes] = await Promise.all([
+                const [connRes, queueRes, tagRes, contactListRes] = await Promise.allSettled([
                     api.get('/quick-send/connections'),
                     api.get('/queue'),
                     api.get('/tags/list', { params: { kanban: 0 } }),
-                    api.get('/contact-lists/list'),
+                    api.get('/contact-lists/list', { params: { companyId: user.companyId } }),
                 ]);
-                setConnections(connRes.data || []);
-                setQueues(queueRes.data || []);
-                setTags(tagRes.data || []);
-                setContactLists(contactListRes.data || []);
-                const firstConn = (connRes.data || []).find((c) => c.status === 'CONNECTED');
-                if (firstConn) setWhatsappId(firstConn.id);
+                const availableConnections = connRes.status === 'fulfilled' && Array.isArray(connRes.value.data) ? connRes.value.data : [];
+                const availableQueues = queueRes.status === 'fulfilled' && Array.isArray(queueRes.value.data) ? queueRes.value.data : [];
+                const availableTags = tagRes.status === 'fulfilled' && Array.isArray(tagRes.value.data) ? tagRes.value.data : [];
+                const availableContactLists = contactListRes.status === 'fulfilled' && Array.isArray(contactListRes.value.data) ? contactListRes.value.data : [];
+                setConnections(availableConnections);
+                setQueues(availableQueues);
+                setTags(availableTags);
+                setContactLists(availableContactLists);
+                const firstConnected = availableConnections.find((c) => c.status === 'CONNECTED');
+                const fallbackConnection = availableConnections[0];
+                if (firstConnected) setWhatsappId(firstConnected.id);
+                else if (fallbackConnection) setWhatsappId(fallbackConnection.id);
             } catch (err) {
                 console.error('Erro ao carregar conexões:', err);
             }
         };
         load();
-    }, [open]);
+    }, [open, user.companyId]);
 
     // Validação de número com debounce
     useEffect(() => {
