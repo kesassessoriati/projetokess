@@ -104,9 +104,17 @@ index 15dd0e8..117b696 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..abeb0a2 100644
+index d1c7d1a..eda2fdd 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
+@@ -1,6 +1,6 @@
+ import { Boom } from '@hapi/boom';
+ import { proto } from '../../WAProto/index.js';
+-import { areJidsSameUser, isHostedLidUser, isHostedPnUser, isJidBroadcast, isJidGroup, isJidMetaAI, isJidNewsletter, isJidStatusBroadcast, isLidUser, isPnUser,
++import { areJidsSameUser, isHostedLidUser, isHostedPnUser, isJidBroadcast, isJidGroup, isJidMetaAI, isJidNewsletter, isJidStatusBroadcast, isLidUser, isPnUser, jidNormalizedUser,
+ //	transferDevice
+  } from '../WABinary/index.js';
+ import { unpadRandomMax16 } from './generics.js';
 @@ -18,7 +18,11 @@ const storeMappingFromEnvelope = async (stanza, sender, repository, decryptionJi
      if (senderAlt && isLidUser(senderAlt) && isPnUser(sender) && decryptionJid === sender) {
          try {
@@ -156,24 +164,56 @@ index d1c7d1a..abeb0a2 100644
          fromMe,
          id: msgId,
          participant,
-@@ -242,7 +257,16 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -242,7 +257,29 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                      }
                      decryptables += 1;
                      let msgBuffer;
 -                    const decryptionJid = await getDecryptionJid(author, repository);
++                    const normalizedAuthor = author?.replace(/:\d+@/, '@');
++                    const recipientIsMe = !!stanza.attrs.recipient &&
++                        (areJidsSameUser(stanza.attrs.recipient, meId) ||
++                            areJidsSameUser(stanza.attrs.recipient, meLid || '') ||
++                            areJidsSameUser(stanza.attrs.recipient?.replace(/:\d+@/, '@'), meId) ||
++                            areJidsSameUser(stanza.attrs.recipient?.replace(/:\d+@/, '@'), meLid || ''));
++                    const isOwnCompanionDeviceSync = !isJidGroup(fullMessage.key.remoteJid) &&
++                        recipientIsMe &&
++                        /:\d+@/.test(author || '') &&
++                        (areJidsSameUser(normalizedAuthor, meId) ||
++                            areJidsSameUser(normalizedAuthor, meLid || ''));
 +                    const isOwnDirectCompanionMessage = !isJidGroup(fullMessage.key.remoteJid) &&
 +                        !!stanza.attrs.recipient &&
 +                        (areJidsSameUser(author, meId) ||
 +                            areJidsSameUser(author, meLid || '') ||
 +                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meId) ||
 +                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meLid || ''));
-+                    const directChatDecryptionTarget = (fullMessage.key.fromMe || isOwnDirectCompanionMessage) && !isJidGroup(fullMessage.key.remoteJid)
-+                        ? (fullMessage.key.remoteJidAlt || fullMessage.key.remoteJid || author)
++                    const directChatDecryptionTarget = isOwnCompanionDeviceSync
++                        ? normalizedAuthor
++                        : (fullMessage.key.fromMe || isOwnDirectCompanionMessage) && !isJidGroup(fullMessage.key.remoteJid)
++                            ? (fullMessage.key.remoteJidAlt || fullMessage.key.remoteJid || author)
 +                        : author;
 +                    const decryptionJid = await getDecryptionJid(directChatDecryptionTarget, repository);
                      if (tag !== 'plaintext') {
                          // TODO: Handle hosted devices
                          await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
+@@ -283,6 +320,18 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+                                 throw new Error(`Unknown e2e type: ${e2eType}`);
+                         }
+                         let msg = proto.Message.decode(e2eType !== 'plaintext' ? unpadRandomMax16(msgBuffer) : msgBuffer);
++                        const deviceSentDestinationJid = msg.deviceSentMessage?.destinationJid;
++                        if (deviceSentDestinationJid && fullMessage.key.fromMe && !fullMessage.key.participant) {
++                            fullMessage.key.remoteJid = jidNormalizedUser(deviceSentDestinationJid);
++                            if (!fullMessage.key.remoteJidAlt && deviceSentDestinationJid !== fullMessage.key.remoteJid) {
++                                fullMessage.key.remoteJidAlt = deviceSentDestinationJid;
++                            }
++                            logger?.debug({
++                                msgId: fullMessage.key.id,
++                                destinationJid: deviceSentDestinationJid,
++                                normalizedRemoteJid: fullMessage.key.remoteJid
++                            }, 'Recovered direct chat destination from deviceSentMessage');
++                        }
+                         msg = msg.deviceSentMessage?.message || msg;
+                         if (msg.senderKeyDistributionMessage) {
+                             //eslint-disable-next-line max-depth
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
 index 21782ed..fbfa8ac 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
