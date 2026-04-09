@@ -104,7 +104,7 @@ index 15dd0e8..117b696 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..eda2fdd 100644
+index d1c7d1a..fd085d7 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -1,6 +1,6 @@
@@ -164,7 +164,7 @@ index d1c7d1a..eda2fdd 100644
          fromMe,
          id: msgId,
          participant,
-@@ -242,7 +257,29 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -242,7 +257,33 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                      }
                      decryptables += 1;
                      let msgBuffer;
@@ -180,22 +180,26 @@ index d1c7d1a..eda2fdd 100644
 +                        /:\d+@/.test(author || '') &&
 +                        (areJidsSameUser(normalizedAuthor, meId) ||
 +                            areJidsSameUser(normalizedAuthor, meLid || ''));
++                    const isDirectFromMeCompanionSync = !isJidGroup(fullMessage.key.remoteJid) &&
++                        recipientIsMe &&
++                        /:\d+@/.test(author || '') &&
++                        fullMessage.key.fromMe;
 +                    const isOwnDirectCompanionMessage = !isJidGroup(fullMessage.key.remoteJid) &&
 +                        !!stanza.attrs.recipient &&
 +                        (areJidsSameUser(author, meId) ||
 +                            areJidsSameUser(author, meLid || '') ||
 +                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meId) ||
 +                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meLid || ''));
-+                    const directChatDecryptionTarget = isOwnCompanionDeviceSync
++                    const directChatDecryptionTarget = (isOwnCompanionDeviceSync || isDirectFromMeCompanionSync)
 +                        ? normalizedAuthor
 +                        : (fullMessage.key.fromMe || isOwnDirectCompanionMessage) && !isJidGroup(fullMessage.key.remoteJid)
 +                            ? (fullMessage.key.remoteJidAlt || fullMessage.key.remoteJid || author)
-+                        : author;
++                            : author;
 +                    const decryptionJid = await getDecryptionJid(directChatDecryptionTarget, repository);
                      if (tag !== 'plaintext') {
                          // TODO: Handle hosted devices
                          await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
-@@ -283,6 +320,18 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -283,6 +324,18 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                                  throw new Error(`Unknown e2e type: ${e2eType}`);
                          }
                          let msg = proto.Message.decode(e2eType !== 'plaintext' ? unpadRandomMax16(msgBuffer) : msgBuffer);
