@@ -71,6 +71,7 @@ const FindOrCreateTicketService = async (
   }
 
   const DirectTicketsToWallets = settings?.DirectTicketsToWallets;
+  const isGroupTicket = !!groupContact;
   const baseContactId = groupContact ? groupContact.id : contact.id;
 
   let leadId: number | undefined;
@@ -93,6 +94,7 @@ const FindOrCreateTicketService = async (
         [Op.or]: ["open", "pending", "group", "nps", "lgpd"]
       },
       contactId: baseContactId,
+      isGroup: isGroupTicket,
       companyId,
       whatsappId: whatsapp.id
     },
@@ -100,7 +102,7 @@ const FindOrCreateTicketService = async (
   });
 
   // 2️⃣ Se não encontrou E contato tem LID, busca por LID
-  if (!ticket && contact.lid) {
+  if (!ticket && !isGroupTicket && contact.lid) {
     logger.info(`🔍 Buscando ticket por LID: ${contact.lid}`);
     
     // Buscar outros contatos com mesmo LID
@@ -120,6 +122,7 @@ const FindOrCreateTicketService = async (
             [Op.or]: ["open", "pending", "group", "nps", "lgpd"]
           },
           contactId: lidContact.id,
+          isGroup: false,
           companyId,
           whatsappId: whatsapp.id
         },
@@ -141,7 +144,7 @@ const FindOrCreateTicketService = async (
   }
 
   // 3️⃣ Se ainda não encontrou, busca por remoteJid (contatos @lid)
-  if (!ticket && contact.remoteJid && contact.remoteJid.includes("@lid")) {
+  if (!ticket && !isGroupTicket && contact.remoteJid && contact.remoteJid.includes("@lid")) {
     logger.info(`🔍 Buscando ticket por remoteJid @lid: ${contact.remoteJid}`);
     
     const lidDigits = contact.remoteJid.split("@")[0];
@@ -160,6 +163,7 @@ const FindOrCreateTicketService = async (
             [Op.or]: ["open", "pending", "group", "nps", "lgpd"]
           },
           contactId: remoteJidContact.id,
+          isGroup: false,
           companyId,
           whatsappId: whatsapp.id
         },
@@ -181,7 +185,7 @@ const FindOrCreateTicketService = async (
   }
 
   // 4️⃣ Se ainda não encontrou, busca por contatos com número equivalente (nono dígito)
-  if (!ticket && contact.number && !contact.lid) {
+  if (!ticket && !isGroupTicket && contact.number && !contact.lid) {
     const numberVariants = getBrazilianPhoneVariants(contact.number);
     if (numberVariants.length > 1) {
       const equivalentContacts = await Contact.findAll({
@@ -197,6 +201,7 @@ const FindOrCreateTicketService = async (
           where: {
             status: { [Op.or]: ["open", "pending", "group", "nps", "lgpd"] },
             contactId: eqContact.id,
+            isGroup: false,
             companyId,
             whatsappId: whatsapp.id
           },
@@ -304,8 +309,9 @@ const FindOrCreateTicketService = async (
     // Reabertura de ticket quando não há nenhum aberto
     // Para Facebook/Instagram, não dependemos de whatsappId, usamos channel
     const baseWhere: any = {
-      contactId: contact.id,
-      companyId
+      contactId: baseContactId,
+      companyId,
+      isGroup: isGroupTicket
     };
 
     if (channel === "facebook" || channel === "instagram") {
@@ -350,7 +356,9 @@ const FindOrCreateTicketService = async (
     ticket = await Ticket.findOne({
       where: {
         contactId: baseContactId,
-        companyId
+        companyId,
+        whatsappId: whatsapp.id,
+        isGroup: isGroupTicket
       },
       order: [["updatedAt", "DESC"]]
     });
