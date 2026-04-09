@@ -53,7 +53,16 @@ const CreateService = async (data: Data): Promise<Campaign> => {
     throw new AppError(err.message);
   }
 
-  if (data.scheduledAt != null && data.scheduledAt != "") {
+  if (data.scheduledAt != null && data.scheduledAt !== "") {
+    const parsedScheduledAt = new Date(data.scheduledAt);
+    if (Number.isNaN(parsedScheduledAt.getTime())) {
+      data.scheduledAt = null as any;
+    } else {
+      data.scheduledAt = parsedScheduledAt.toISOString() as any;
+    }
+  }
+
+  if (data.scheduledAt != null && data.scheduledAt !== "") {
     data.status = "PROGRAMADA";
   }
 

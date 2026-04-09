@@ -338,6 +338,16 @@ export default function QuickSendModal({ open, onClose }) {
     const [listFooter, setListFooter] = useState(LIST_TEMPLATE.footer);
     const [listSections, setListSections] = useState(LIST_TEMPLATE.sections.map(s => ({ ...s, rows: s.rows.map(r => ({ ...r })) })));
 
+    const normalizeScheduledAtValue = (value) => {
+        const trimmed = String(value || '').trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? '' : trimmed;
+    };
+
     const resetState = () => {
         setResult(null);
         setNumber('');
@@ -573,11 +583,13 @@ export default function QuickSendModal({ open, onClose }) {
         return false;
     })();
 
+    const hasValidScheduledAt = Boolean(normalizeScheduledAtValue(scheduledAt));
+
     const canSend =
         Boolean(whatsappId) &&
         recipientsValid &&
         messagePayloadValid &&
-        (deliveryMode === 'instant' || Boolean(scheduledAt));
+        (deliveryMode === 'instant' || hasValidScheduledAt);
 
     // ── Envio ─────────────────────────────────────────────────────────────────
     const handleSend = async () => {
@@ -657,8 +669,12 @@ export default function QuickSendModal({ open, onClose }) {
             formData.append('createIfNotExists', 'true');
             formData.append('messageType', messageType);
 
-            if (deliveryMode === 'scheduled' && scheduledAt) {
-                formData.append('scheduledAt', scheduledAt);
+            const normalizedScheduledAt = normalizeScheduledAtValue(scheduledAt);
+            if (deliveryMode === 'scheduled') {
+                if (!normalizedScheduledAt) {
+                    throw new Error('Informe uma data valida para o agendamento.');
+                }
+                formData.append('scheduledAt', normalizedScheduledAt);
             }
 
             if (recipientMode === 'single') {
@@ -892,7 +908,7 @@ export default function QuickSendModal({ open, onClose }) {
                         </Typography>
 
                         <Box display="flex" style={{ gap: 8, marginBottom: 12 }}>
-                            {[
+                            {[ 
                                 { value: 'instant', label: 'Enviar agora' },
                                 { value: 'scheduled', label: 'Agendar' },
                             ].map((mode) => (
@@ -900,7 +916,12 @@ export default function QuickSendModal({ open, onClose }) {
                                     key={mode.value}
                                     className={`${classes.msgTypeBtn} ${deliveryMode === mode.value ? classes.msgTypeBtnActive : ''}`}
                                     style={{ flex: 1 }}
-                                    onClick={() => setDeliveryMode(mode.value)}
+                                    onClick={() => {
+                                        setDeliveryMode(mode.value);
+                                        if (mode.value === 'instant') {
+                                            setScheduledAt('');
+                                        }
+                                    }}
                                 >
                                     {mode.label}
                                 </Box>

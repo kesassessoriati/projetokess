@@ -99,6 +99,20 @@ const getQuickSendCampaignName = (baseName?: string | null, prefix = "Disparo RÃ
     return `${prefix} - ${date} ${time}`;
 };
 
+const normalizeScheduledAtValue = (value?: string | null): string | null => {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed.toISOString();
+};
+
 const createContactListFromContacts = async ({
     companyId,
     name,
@@ -652,7 +666,8 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
         pollOptions: pollOptionsRaw
     }: QuickSendCampaignBody = req.body;
 
-    const sendNow = parseBoolean(sendNowRaw) || !String(scheduledAt || "").trim();
+    const normalizedScheduledAt = normalizeScheduledAtValue(scheduledAt);
+    const sendNow = parseBoolean(sendNowRaw) || !normalizedScheduledAt;
     const parsedButtons = parseJsonArray(buttonsRaw) || [];
     const parsedCarouselCards = parseJsonArray(carouselRaw) || [];
     const parsedListSections = parseJsonArray(listSectionsRaw) || [];
@@ -798,6 +813,10 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
             throw new AppError("Configure ao menos um card do carrossel.", 400);
         }
 
+        if (!sendNow && !normalizedScheduledAt) {
+            throw new AppError("Informe uma data vÃ¡lida para o agendamento.", 400);
+        }
+
         let normalizedButtons = parsedButtons;
         if (messageType === "poll") {
             if (!String(pollName || "").trim()) {
@@ -818,7 +837,7 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
             name: getQuickSendCampaignName(campaignName),
             status: "INATIVA",
             confirmation: false,
-            scheduledAt: sendNow ? "" : String(scheduledAt || "").trim(),
+            scheduledAt: sendNow ? null : normalizedScheduledAt,
             companyId,
             contactListId: resolvedContactListId,
             whatsappId: Number(whatsappId),
