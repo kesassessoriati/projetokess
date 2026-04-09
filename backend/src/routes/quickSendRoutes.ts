@@ -29,4 +29,11 @@ quickSendRoutes.post(
     QuickSendController.quickSend
 );
 
+quickSendRoutes.post(
+    "/quick-send/campaign",
+    isAuth,
+    upload.any(),
+    QuickSendController.createCampaign
+);
+
 export default quickSendRoutes;

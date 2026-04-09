@@ -9,6 +9,10 @@ import Contact from "../models/Contact";
 import Ticket from "../models/Ticket";
 import CrmLead from "../models/CrmLead";
 import CompaniesSettings from "../models/CompaniesSettings";
+import Campaign from "../models/Campaign";
+import ContactList from "../models/ContactList";
+import ContactListItem from "../models/ContactListItem";
+import Tag from "../models/Tag";
 
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -27,6 +31,9 @@ import { normalizePhoneNumber } from "../helpers/normalizeContactNumber";
 import { Op } from "sequelize";
 import logger from "../utils/logger";
 import { Mutex } from "async-mutex";
+import CreateCampaignService from "../services/CampaignService/CreateService";
+import { RestartService as RestartCampaignService } from "../services/CampaignService/RestartService";
+import { ImportContacts } from "../services/ContactListService/ImportContacts";
 
 const quickSendMutex = new Mutex();
 
@@ -49,6 +56,100 @@ interface QuickSendBody {
     pollOptions?: string | string[];
     pollSelectableCount?: string | number;
 }
+
+interface QuickSendCampaignBody extends QuickSendBody {
+    campaignName?: string;
+    recipientMode?: "single" | "tags" | "contactList" | "upload";
+    contactListId?: string | number;
+    tagIds?: string | number[] | number[];
+    sendNow?: string | boolean;
+    scheduledAt?: string;
+}
+
+const parseBoolean = (value: unknown): boolean => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+        return ["true", "1", "yes", "sim", "on"].includes(value.trim().toLowerCase());
+    }
+    return false;
+};
+
+const parseJsonArray = <T = any>(value: unknown): T[] | null => {
+    if (!value) return null;
+    if (Array.isArray(value)) return value as T[];
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : null;
+        } catch {
+            return null;
+        }
+    }
+    return null;
+};
+
+const getQuickSendCampaignName = (baseName?: string | null, prefix = "Disparo Rápido"): string => {
+    const trimmed = String(baseName || "").trim();
+    if (trimmed) return trimmed;
+
+    const now = new Date();
+    const date = now.toLocaleDateString("pt-BR");
+    const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    return `${prefix} - ${date} ${time}`;
+};
+
+const createContactListFromContacts = async ({
+    companyId,
+    name,
+    contacts
+}: {
+    companyId: number;
+    name: string;
+    contacts: Array<{ name: string; number: string; email?: string; isGroup?: boolean }>;
+}) => {
+    const record = await ContactList.create({ companyId, name });
+
+    const uniqueContacts = Array.from(
+        new Map(
+            contacts
+                .filter(contact => String(contact.number || "").trim())
+                .map(contact => [
+                    String(contact.number || "").replace(/\D/g, ""),
+                    {
+                        name: String(contact.name || contact.number || "").trim(),
+                        number: String(contact.number || "").replace(/\D/g, ""),
+                        email: String(contact.email || "").trim(),
+                        companyId,
+                        contactListId: record.id,
+                        isWhatsappValid: true,
+                        isGroup: Boolean(contact.isGroup)
+                    }
+                ])
+        ).values()
+    );
+
+    if (!uniqueContacts.length) {
+        await record.destroy();
+        throw new AppError("Nenhum contato válido encontrado para criar a lista.", 400);
+    }
+
+    await ContactListItem.bulkCreate(uniqueContacts);
+
+    return {
+        record,
+        contactsCount: uniqueContacts.length
+    };
+};
+
+const reloadCampaignRecord = async (campaignId: number) => {
+    return Campaign.findByPk(campaignId, {
+        include: [
+            { model: ContactList },
+            { model: Whatsapp, attributes: ["id", "name"] }
+        ]
+    });
+};
 
 // ─── Função auxiliar: normaliza número ────────────────────────────────────────
 const getAreaCodeFromReference = (reference?: string | null): string => {
@@ -514,6 +615,264 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
 
 // ─── GET /quick-send/connections ─────────────────────────────────────────────
 // Lista conexões WhatsApp disponíveis (para o dropdown no modal)
+export const createCampaign = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId, id: userId } = req.user;
+    const {
+        campaignName,
+        recipientMode = "single",
+        number,
+        name,
+        contactListId,
+        tagIds: tagIdsRaw,
+        whatsappId,
+        queueId,
+        sendNow: sendNowRaw,
+        scheduledAt,
+        message,
+        messageType = "text",
+        buttons: buttonsRaw,
+        carouselCards: carouselRaw,
+        listSections: listSectionsRaw,
+        listButtonText,
+        listFooter,
+        pollName,
+        pollOptions: pollOptionsRaw
+    }: QuickSendCampaignBody = req.body;
+
+    const sendNow = parseBoolean(sendNowRaw) || !String(scheduledAt || "").trim();
+    const parsedButtons = parseJsonArray(buttonsRaw) || [];
+    const parsedCarouselCards = parseJsonArray(carouselRaw) || [];
+    const parsedListSections = parseJsonArray(listSectionsRaw) || [];
+    const parsedPollOptions = parseJsonArray<string>(pollOptionsRaw) || [];
+    const files = (req.files as Express.Multer.File[]) || [];
+    const mediaFiles = files.filter(file => file.fieldname === "medias");
+    const contactsFile = files.find(file => file.fieldname === "contactsFile");
+
+    try {
+        const whatsapp = await Whatsapp.findOne({
+            where: { id: Number(whatsappId), companyId }
+        });
+
+        if (!whatsapp) {
+            throw new AppError("Conexão WhatsApp não encontrada.", 404);
+        }
+
+        let resolvedContactListId = Number(contactListId) || 0;
+        let createdContactList: ContactList | null = null;
+        let resolvedContactsCount = 0;
+
+        if (recipientMode === "contactList") {
+            const existingList = await ContactList.findOne({
+                where: { id: Number(contactListId), companyId }
+            });
+
+            if (!existingList) {
+                throw new AppError("Lista de contatos não encontrada.", 404);
+            }
+
+            resolvedContactListId = existingList.id;
+            resolvedContactsCount = await ContactListItem.count({
+                where: { companyId, contactListId: existingList.id }
+            });
+        } else if (recipientMode === "tags") {
+            const tagIds = (parseJsonArray<number>(tagIdsRaw) || [])
+                .map(value => Number(value))
+                .filter(Boolean);
+
+            if (!tagIds.length) {
+                throw new AppError("Selecione ao menos uma etiqueta.", 400);
+            }
+
+            const contacts = await Contact.findAll({
+                where: {
+                    companyId,
+                    isGroup: false
+                },
+                include: [
+                    {
+                        model: Tag,
+                        as: "tags",
+                        where: {
+                            id: {
+                                [Op.in]: tagIds
+                            }
+                        },
+                        required: true,
+                        through: { attributes: [] }
+                    }
+                ]
+            });
+
+            const { record, contactsCount } = await createContactListFromContacts({
+                companyId,
+                name: getQuickSendCampaignName(campaignName, "Lista Quick Send por Etiquetas"),
+                contacts: contacts.map(contact => ({
+                    name: contact.name,
+                    number: contact.number,
+                    email: contact.email,
+                    isGroup: contact.isGroup
+                }))
+            });
+
+            createdContactList = record;
+            resolvedContactListId = record.id;
+            resolvedContactsCount = contactsCount;
+        } else if (recipientMode === "upload") {
+            if (!contactsFile) {
+                throw new AppError("Selecione um arquivo de contatos para importar.", 400);
+            }
+
+            const record = await ContactList.create({
+                companyId,
+                name: getQuickSendCampaignName(campaignName, "Lista Importada Quick Send")
+            });
+
+            await ImportContacts(record.id, companyId, contactsFile);
+
+            createdContactList = record;
+            resolvedContactListId = record.id;
+            resolvedContactsCount = await ContactListItem.count({
+                where: { companyId, contactListId: record.id }
+            });
+        } else {
+            const normalizedInput = normalizeNumber(String(number || ""), "");
+
+            if (!normalizedInput) {
+                throw new AppError("Informe um número válido para o disparo.", 400);
+            }
+
+            let validatedNumber = normalizedInput;
+            try {
+                const checkedNumber = await CheckContactNumber(normalizedInput, companyId, false, Number(whatsappId));
+                if (checkedNumber) {
+                    validatedNumber = checkedNumber;
+                }
+            } catch (error: any) {
+                throw new AppError(error?.message || "Número não encontrado no WhatsApp.", 400);
+            }
+
+            const { record, contactsCount } = await createContactListFromContacts({
+                companyId,
+                name: getQuickSendCampaignName(campaignName, "Lista Quick Send Individual"),
+                contacts: [
+                    {
+                        name: String(name || validatedNumber).trim(),
+                        number: validatedNumber,
+                        email: "",
+                        isGroup: false
+                    }
+                ]
+            });
+
+            createdContactList = record;
+            resolvedContactListId = record.id;
+            resolvedContactsCount = contactsCount;
+        }
+
+        if (!resolvedContactListId) {
+            throw new AppError("Não foi possível montar a lista de contatos do disparo.", 400);
+        }
+
+        if (messageType === "buttons" && !parsedButtons.length) {
+            throw new AppError("Adicione ao menos um botão para o disparo.", 400);
+        }
+
+        if (messageType === "list" && !parsedListSections.length) {
+            throw new AppError("Configure ao menos uma seção da lista.", 400);
+        }
+
+        if (messageType === "carousel" && !parsedCarouselCards.length) {
+            throw new AppError("Configure ao menos um card do carrossel.", 400);
+        }
+
+        let normalizedButtons = parsedButtons;
+        if (messageType === "poll") {
+            if (!String(pollName || "").trim()) {
+                throw new AppError("Informe a pergunta da enquete.", 400);
+            }
+
+            if (parsedPollOptions.length < 2) {
+                throw new AppError("A enquete precisa de pelo menos duas opções.", 400);
+            }
+
+            normalizedButtons = parsedPollOptions
+                .map(option => String(option || "").trim())
+                .filter(Boolean)
+                .map(option => ({ displayText: option, type: "reply", value: option }));
+        }
+
+        const payload: any = {
+            name: getQuickSendCampaignName(campaignName),
+            status: "INATIVA",
+            confirmation: false,
+            scheduledAt: sendNow ? "" : String(scheduledAt || "").trim(),
+            companyId,
+            contactListId: resolvedContactListId,
+            whatsappId: Number(whatsappId),
+            userId,
+            queueId: queueId ? Number(queueId) : null,
+            statusTicket: "open",
+            openTicket: "disabled",
+            campaignType: "whatsapp",
+            messageType,
+            message1: messageType === "poll" ? String(pollName || "").trim() : String(message || "").trim(),
+            buttons: messageType === "list"
+                ? parsedListSections.flatMap((section: any) => section?.rows || [])
+                : normalizedButtons,
+            carouselCards: messageType === "carousel" ? parsedCarouselCards : [],
+            listSections: messageType === "list" ? parsedListSections : [],
+            listButtonText: messageType === "list" ? String(listButtonText || "Ver opções").trim() : "",
+            listFooter: messageType === "list" ? String(listFooter || "").trim() : ""
+        };
+
+        const campaign = await CreateCampaignService(payload);
+
+        if (mediaFiles.length > 0) {
+            const [primaryMedia] = mediaFiles;
+            campaign.mediaPath = primaryMedia.filename;
+            campaign.mediaName = primaryMedia.originalname;
+            await campaign.save();
+        }
+
+        const io = getIO();
+
+        if (createdContactList) {
+            io.of(String(companyId)).emit(`company-${companyId}-ContactList`, {
+                action: "create",
+                record: createdContactList
+            });
+        }
+
+        io.of(String(companyId)).emit(`company-${companyId}-campaign`, {
+            action: "create",
+            record: campaign
+        });
+
+        let responseCampaign = campaign;
+        if (sendNow) {
+            await RestartCampaignService(campaign.id);
+            responseCampaign = await reloadCampaignRecord(campaign.id);
+
+            io.of(String(companyId)).emit(`company-${companyId}-campaign`, {
+                action: "update",
+                record: responseCampaign
+            });
+        }
+
+        return res.status(200).json({
+            message: sendNow ? "Disparo criado e iniciado com sucesso." : "Disparo agendado com sucesso.",
+            campaign: responseCampaign,
+            contactList: createdContactList,
+            contactsCount: resolvedContactsCount
+        });
+    } catch (err: any) {
+        logger.error({ err: err.message, stack: err.stack }, "QuickSendCampaign: Unexpected error");
+        return res.status(err?.statusCode || 500).json({
+            error: err?.message || "Erro interno no servidor ao criar disparo rápido."
+        });
+    }
+};
+
 export const listConnections = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
 

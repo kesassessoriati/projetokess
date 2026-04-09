@@ -31,6 +31,7 @@ import AddIcon from '@material-ui/icons/Add';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
 import { toast } from 'react-toastify';
 import { useHistory } from 'react-router-dom';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
 
@@ -297,6 +298,15 @@ export default function QuickSendModal({ open, onClose }) {
     const [name, setName] = useState('');
     const [whatsappId, setWhatsappId] = useState('');
     const [queueId, setQueueId] = useState('');
+    const [recipientMode, setRecipientMode] = useState('single');
+    const [deliveryMode, setDeliveryMode] = useState('instant');
+    const [scheduledAt, setScheduledAt] = useState('');
+    const [campaignName, setCampaignName] = useState('');
+    const [tags, setTags] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [contactLists, setContactLists] = useState([]);
+    const [selectedContactListId, setSelectedContactListId] = useState('');
+    const [contactsFile, setContactsFile] = useState(null);
     const [medias, setMedias] = useState([]);
     const [loading, setLoading] = useState(false);
     const [connections, setConnections] = useState([]);
@@ -335,6 +345,13 @@ export default function QuickSendModal({ open, onClose }) {
         setMessage('');
         setWhatsappId('');
         setQueueId('');
+        setRecipientMode('single');
+        setDeliveryMode('instant');
+        setScheduledAt('');
+        setCampaignName('');
+        setSelectedTags([]);
+        setSelectedContactListId('');
+        setContactsFile(null);
         setMedias([]);
         setMessageType('text');
         setButtons([...BUTTONS_TEMPLATE]);
@@ -355,12 +372,16 @@ export default function QuickSendModal({ open, onClose }) {
         resetState();
         const load = async () => {
             try {
-                const [connRes, queueRes] = await Promise.all([
+                const [connRes, queueRes, tagRes, contactListRes] = await Promise.all([
                     api.get('/quick-send/connections'),
                     api.get('/queue'),
+                    api.get('/tags/list', { params: { kanban: 0 } }),
+                    api.get('/contact-lists/list'),
                 ]);
                 setConnections(connRes.data || []);
                 setQueues(queueRes.data || []);
+                setTags(tagRes.data || []);
+                setContactLists(contactListRes.data || []);
                 const firstConn = (connRes.data || []).find((c) => c.status === 'CONNECTED');
                 if (firstConn) setWhatsappId(firstConn.id);
             } catch (err) {
@@ -373,6 +394,10 @@ export default function QuickSendModal({ open, onClose }) {
     // Validação de número com debounce
     useEffect(() => {
         if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+        if (recipientMode !== 'single') {
+            setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
+            return;
+        }
         const digits = number.replace(/\D/g, '');
         if (digits.length < 10 || !whatsappId) {
             setNumberValidation({ status: 'idle', normalizedNumber: '', existingContact: null, error: '' });
@@ -393,13 +418,18 @@ export default function QuickSendModal({ open, onClose }) {
             }
         }, 800);
         return () => clearTimeout(validationTimerRef.current);
-    }, [number, whatsappId]);
+    }, [number, whatsappId, recipientMode]);
 
     // ── Handlers de mídia ──────────────────────────────────────────────────────
     const handleChangeMedias = (e) => {
         if (!e.target.files) return;
         const files = Array.from(e.target.files).filter(f => f.size <= 10 * 1024 * 1024);
         setMedias([...medias, ...files]);
+    };
+
+    const handleContactsFileChange = (e) => {
+        const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+        setContactsFile(file);
     };
 
     // ── Helpers de botões ──────────────────────────────────────────────────────
@@ -500,6 +530,7 @@ export default function QuickSendModal({ open, onClose }) {
     const normalizedNumber = number.replace(/\D/g, '');
     const isNumberValid = numberValidation.status === 'valid';
     const totalListRows = listSections.reduce((acc, section) => acc + ((section.rows || []).length), 0);
+    const shouldUseCampaignFlow = recipientMode !== 'single' || deliveryMode === 'scheduled';
 
     const buttonsValid = buttons.every(b => {
         if (!b.displayText.trim()) return false;
@@ -519,14 +550,28 @@ export default function QuickSendModal({ open, onClose }) {
         listSections.every(section => (section.rows || []).length >= 1) &&
         listSections.every(section => (section.rows || []).every(row => row.title.trim().length > 0 && row.rowId.trim().length > 0));
 
-    const canSend = isNumberValid && whatsappId && (() => {
-        if (messageType === 'text') return message.trim().length > 0;
+    const messagePayloadValid = (() => {
+        if (messageType === 'text') return message.trim().length > 0 || medias.length > 0;
         if (messageType === 'buttons') return message.trim().length > 0 && buttonsValid;
         if (messageType === 'list') return listValid;
         if (messageType === 'carousel') return carouselValid;
         if (messageType === 'poll') return pollValid;
         return false;
     })();
+
+    const recipientsValid = (() => {
+        if (recipientMode === 'single') return isNumberValid;
+        if (recipientMode === 'tags') return selectedTags.length > 0;
+        if (recipientMode === 'contactList') return Boolean(selectedContactListId);
+        if (recipientMode === 'upload') return Boolean(contactsFile);
+        return false;
+    })();
+
+    const canSend =
+        Boolean(whatsappId) &&
+        recipientsValid &&
+        messagePayloadValid &&
+        (deliveryMode === 'instant' || Boolean(scheduledAt));
 
     // ── Envio ─────────────────────────────────────────────────────────────────
     const handleSend = async () => {
@@ -588,10 +633,109 @@ export default function QuickSendModal({ open, onClose }) {
         }
     };
 
+    const handleAdvancedSend = async () => {
+        if (!canSend || loading) return;
+        if (!shouldUseCampaignFlow) {
+            return handleSend();
+        }
+        setLoading(true);
+        setResult(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('campaignName', campaignName.trim());
+            formData.append('recipientMode', recipientMode);
+            formData.append('sendNow', deliveryMode === 'instant' ? 'true' : 'false');
+            formData.append('whatsappId', Number(whatsappId));
+            if (queueId) formData.append('queueId', Number(queueId));
+            formData.append('createIfNotExists', 'true');
+            formData.append('messageType', messageType);
+
+            if (deliveryMode === 'scheduled' && scheduledAt) {
+                formData.append('scheduledAt', scheduledAt);
+            }
+
+            if (recipientMode === 'single') {
+                const numberToSend = numberValidation.normalizedNumber || normalizedNumber;
+                formData.append('number', numberToSend);
+                if (name.trim()) formData.append('name', name.trim());
+            } else if (recipientMode === 'tags') {
+                formData.append('tagIds', JSON.stringify(selectedTags.map(tag => tag.id)));
+            } else if (recipientMode === 'contactList') {
+                formData.append('contactListId', String(selectedContactListId));
+            } else if (recipientMode === 'upload' && contactsFile) {
+                formData.append('contactsFile', contactsFile);
+            }
+
+            if (messageType === 'text') {
+                formData.append('message', message.trim());
+                if (medias[0]) {
+                    formData.append('medias', medias[0]);
+                    if (medias.length > 1) {
+                        toast.info('No disparo em massa, somente o primeiro anexo sera usado.');
+                    }
+                }
+            } else if (messageType === 'buttons') {
+                formData.append('message', message.trim());
+                formData.append('buttons', JSON.stringify(buttons));
+            } else if (messageType === 'list') {
+                formData.append('message', listText.trim());
+                formData.append('listButtonText', listButtonText.trim());
+                if (listFooter.trim()) formData.append('listFooter', listFooter.trim());
+                formData.append('listSections', JSON.stringify(listSections));
+            } else if (messageType === 'carousel') {
+                formData.append('carouselCards', JSON.stringify(carouselCards));
+            } else if (messageType === 'poll') {
+                formData.append('pollName', pollName.trim());
+                formData.append('pollOptions', JSON.stringify(pollOptions.map(o => o.trim()).filter(Boolean)));
+                formData.append('pollSelectableCount', String(pollSelectableCount));
+            }
+
+            const resp = await api.post('/quick-send/campaign', formData, {
+                timeout: 30000,
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            const { campaign, contactList, contactsCount } = resp.data;
+            const successMsg = deliveryMode === 'scheduled'
+                ? 'Disparo agendado com sucesso!'
+                : 'Disparo criado com sucesso!';
+
+            setResult({
+                type: 'success',
+                msg: successMsg,
+                campaign,
+                contactList,
+                contactsCount,
+            });
+            toast.success(successMsg);
+        } catch (err) {
+            if (err?.response?.status === 206) {
+                const { ticket, warning } = err.response.data;
+                setResult({ type: 'warning', msg: warning, ticket });
+            } else {
+                let msg = err?.response?.data?.error || 'Erro ao enviar mensagem.';
+                if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+                    msg = 'Tempo esgotado. Verifique se o WhatsApp esta conectado.';
+                }
+                setResult({ type: 'error', msg });
+                toast.error(msg);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleOpenTicket = () => {
         if (!result?.ticket) return;
         onClose();
         history.push(`/tickets/${result.ticket.id}`);
+    };
+
+    const handleOpenCampaigns = () => {
+        if (!result?.campaign) return;
+        onClose();
+        history.push('/campaigns');
     };
 
     if (!open) return null;
@@ -627,8 +771,172 @@ export default function QuickSendModal({ open, onClose }) {
             <DialogContent className={classes.content}>
                 <Box className={classes.inner}>
 
-                    {/* Número de destino */}
                     <Box className={classes.card}>
+                        <Typography className={classes.sectionLabel}>
+                            <PhoneIcon style={{ fontSize: 13 }} />
+                            Destinatarios do disparo
+                        </Typography>
+
+                        <Box display="flex" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                            {[
+                                { value: 'single', label: 'Numero unico' },
+                                { value: 'tags', label: 'Por etiquetas' },
+                                { value: 'contactList', label: 'Lista cadastrada' },
+                                { value: 'upload', label: 'Subir lista' },
+                            ].map((mode) => (
+                                <Box
+                                    key={mode.value}
+                                    className={`${classes.msgTypeBtn} ${recipientMode === mode.value ? classes.msgTypeBtnActive : ''}`}
+                                    style={{ minWidth: 110, flex: '1 1 110px' }}
+                                    onClick={() => setRecipientMode(mode.value)}
+                                >
+                                    {mode.label}
+                                </Box>
+                            ))}
+                        </Box>
+
+                        {recipientMode === 'tags' && (
+                            <>
+                                <Autocomplete
+                                    multiple
+                                    options={tags}
+                                    value={selectedTags}
+                                    onChange={(_, value) => setSelectedTags(value)}
+                                    getOptionLabel={(option) => option.name || ''}
+                                    renderTags={(value, getTagProps) =>
+                                        value.map((option, index) => (
+                                            <Chip
+                                                variant="default"
+                                                label={option.name}
+                                                size="small"
+                                                style={{ backgroundColor: option.color || '#e8f5e9', color: '#0f172a' }}
+                                                {...getTagProps({ index })}
+                                            />
+                                        ))
+                                    }
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Selecione uma ou mais etiquetas"
+                                        />
+                                    )}
+                                />
+                                <Box className={classes.infoBox}>
+                                    <Typography style={{ fontSize: 11, color: '#15803d' }}>
+                                        As etiquetas escolhidas serao transformadas em publico do disparo no backend.
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+
+                        {recipientMode === 'contactList' && (
+                            <>
+                                <FormControl fullWidth variant="outlined" size="small">
+                                    <Select
+                                        value={selectedContactListId}
+                                        onChange={(e) => setSelectedContactListId(e.target.value)}
+                                        displayEmpty
+                                        style={{ borderRadius: 8 }}
+                                    >
+                                        <MenuItem value="">
+                                            <em>Selecione uma lista cadastrada</em>
+                                        </MenuItem>
+                                        {contactLists.map((list) => (
+                                            <MenuItem key={list.id} value={list.id}>
+                                                {list.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <Box className={classes.infoBox}>
+                                    <Typography style={{ fontSize: 11, color: '#15803d' }}>
+                                        Essa lista sera usada diretamente no modulo de disparos.
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+
+                        {recipientMode === 'upload' && (
+                            <>
+                                <Button
+                                    variant="outlined"
+                                    component="label"
+                                    startIcon={<AttachFileIcon />}
+                                    className={classes.addBtn}
+                                    style={{ width: '100%', justifyContent: 'flex-start' }}
+                                >
+                                    {contactsFile ? contactsFile.name : 'Selecionar arquivo da lista'}
+                                    <input type="file" hidden accept=".csv,.txt,.xlsx,.xls" onChange={handleContactsFileChange} />
+                                </Button>
+                                <Box className={classes.warnBox}>
+                                    <Typography style={{ fontSize: 11, color: '#92400e' }}>
+                                        A lista enviada sera cadastrada na empresa e vinculada ao disparo.
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+                    </Box>
+
+                    <Box className={classes.card}>
+                        <Typography className={classes.sectionLabel}>
+                            <SendIcon style={{ fontSize: 13 }} />
+                            Execucao do disparo
+                        </Typography>
+
+                        <Box display="flex" style={{ gap: 8, marginBottom: 12 }}>
+                            {[
+                                { value: 'instant', label: 'Enviar agora' },
+                                { value: 'scheduled', label: 'Agendar' },
+                            ].map((mode) => (
+                                <Box
+                                    key={mode.value}
+                                    className={`${classes.msgTypeBtn} ${deliveryMode === mode.value ? classes.msgTypeBtnActive : ''}`}
+                                    style={{ flex: 1 }}
+                                    onClick={() => setDeliveryMode(mode.value)}
+                                >
+                                    {mode.label}
+                                </Box>
+                            ))}
+                        </Box>
+
+                        <TextField
+                            fullWidth
+                            variant="outlined"
+                            size="small"
+                            label="Nome do disparo"
+                            placeholder="Ex: Campanha clientes VIP"
+                            value={campaignName}
+                            onChange={(e) => setCampaignName(e.target.value)}
+                            helperText={shouldUseCampaignFlow ? 'Esse nome aparecera no modulo de disparos.' : 'Opcional para o disparo em massa.'}
+                            InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                        />
+
+                        {deliveryMode === 'scheduled' && (
+                            <TextField
+                                fullWidth
+                                variant="outlined"
+                                size="small"
+                                type="datetime-local"
+                                label="Data e hora do agendamento"
+                                value={scheduledAt}
+                                onChange={(e) => setScheduledAt(e.target.value)}
+                                style={{ marginTop: 10 }}
+                                InputLabelProps={{ shrink: true }}
+                                InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                            />
+                        )}
+
+                        <Box className={classes.infoBox}>
+                            <Typography style={{ fontSize: 11, color: '#15803d' }}>
+                                O disparador rapido passa a criar disparos sincronizados com o modulo de campanhas.
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Número de destino */}
+                    <Box className={classes.card} style={{ display: recipientMode === 'single' ? 'block' : 'none' }}>
                         <Typography className={classes.sectionLabel}>
                             <PhoneIcon style={{ fontSize: 13 }} />
                             Número de destino
@@ -1126,6 +1434,11 @@ export default function QuickSendModal({ open, onClose }) {
                                         Abrir conversa #{result.ticket.id}
                                     </Button>
                                 )}
+                                {result.campaign && (
+                                    <Button className={classes.openTicketBtn} startIcon={<OpenInNewIcon />} onClick={handleOpenCampaigns} size="small">
+                                        Abrir disparos
+                                    </Button>
+                                )}
                             </Box>
                         </Box>
                     )}
@@ -1139,10 +1452,10 @@ export default function QuickSendModal({ open, onClose }) {
                 <Button
                     className={classes.sendBtn}
                     startIcon={loading ? <CircularProgress size={16} style={{ color: '#fff' }} /> : <SendIcon />}
-                    onClick={handleSend}
+                    onClick={handleAdvancedSend}
                     disabled={!canSend || loading}
                 >
-                    {loading ? 'Enviando...' : {
+                    {loading ? 'Enviando...' : shouldUseCampaignFlow ? (deliveryMode === 'scheduled' ? 'Agendar disparo' : 'Criar disparo') : {
                         text: 'Enviar',
                         buttons: 'Enviar com Botões',
                         list: 'Enviar Lista',
