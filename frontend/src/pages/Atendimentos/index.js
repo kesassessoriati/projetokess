@@ -108,6 +108,7 @@ import ContactModal from "../../components/ContactModal";
 import FaturaModal from "../../components/FaturaModal";
 import QuickRepliesModal from "../../components/QuickRepliesModal";
 import MessageInput from "../../components/MessageInput";
+import VcardPreview from "../../components/VcardPreview";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { ForwardMessageProvider } from "../../context/ForwarMessage/ForwardMessageContext";
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
@@ -2755,6 +2756,29 @@ const Atendimentos = () => {
 				);
 			} catch (error) {
 				console.error("Erro ao renderizar PIX no chat principal:", error);
+			}
+		}
+
+		if (message.mediaType === "contactMessage" || (message.body && message.body.includes("BEGIN:VCARD"))) {
+			try {
+				const vcardBody = String(message.body || "");
+				const normalizedVcard = vcardBody.replace(/\r/g, "");
+				const contactMatch = normalizedVcard.match(/(?:^|\n)FN:(.+)/i);
+				const waidMatch = normalizedVcard.match(/waid=(\d+)/i);
+				const phoneMatch = normalizedVcard.match(/(?:^|\n)TEL[^:]*:(\+?\d+)/i);
+				const contact = contactMatch?.[1]?.trim() || message.contact?.name || "Contato compartilhado";
+				const contactNumber = phoneMatch?.[1]?.trim() || waidMatch?.[1]?.trim() || "";
+
+				return (
+					<VcardPreview
+						contact={contact}
+						numbers={contactNumber}
+						queueId={message?.ticket?.queueId}
+						whatsappId={message?.ticket?.whatsappId}
+					/>
+				);
+			} catch (error) {
+				console.error("Erro ao renderizar contato no chat principal:", error);
 			}
 		}
 
