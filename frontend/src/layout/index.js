@@ -1242,6 +1242,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Biblioteca de Mídia", path: "/media-drive", icon: <VideoLibraryIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Financeiro", path: "/financeiro", icon: <AttachMoneyIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gateways de Pagamento", path: "/payment-settings", icon: <TuneIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
