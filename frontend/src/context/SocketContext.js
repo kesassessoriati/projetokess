@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react";
 import { socketConnection } from "../services/socket";
 import { AuthContext } from "./Auth/AuthContext";
 
@@ -13,7 +21,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         if (isAuth && user && user.id) {
             if (!socketRef.current) {
-                console.log("[SocketProvider] Inicializando conexão segura para usuário:", user.id);
+                console.log("[SocketProvider] Inicializando conexao segura para usuario:", user.id);
                 const io = socketConnection({ user });
                 socketRef.current = io;
                 setSocket(io);
@@ -29,28 +37,31 @@ export const SocketProvider = ({ children }) => {
                 });
 
                 io.on("connect_error", (error) => {
-                    console.error("[SocketProvider] Erro de conexão socket:", error.message);
+                    console.error("[SocketProvider] Erro de conexao socket:", error.message);
                     setIsConnected(false);
                 });
             }
-        } else {
-            if (socketRef.current) {
-                console.log("[SocketProvider] Encerrando socket (logout ou sessão inválida)");
-                socketRef.current.disconnect();
-                socketRef.current = null;
-                setSocket(null);
-                setIsConnected(false);
-            }
+        } else if (socketRef.current) {
+            console.log("[SocketProvider] Encerrando socket (logout ou sessao invalida)");
+            socketRef.current.disconnect();
+            socketRef.current = null;
+            setSocket(null);
+            setIsConnected(false);
         }
 
         return () => {
-            // Cleanup ao desmontar o Provider (raro, pois é global)
+            // Provider global, sem cleanup adicional por render.
         };
-    }, [isAuth, user]);
+    }, [isAuth, user?.id, user?.companyId]);
 
-    // isReady é mantido por compatibilidade, mas isConnected é o estado real da conexão
+    const contextValue = useMemo(() => ({
+        socket,
+        isConnected,
+        isReady: isConnected
+    }), [socket, isConnected]);
+
     return (
-        <SocketContext.Provider value={{ socket, isConnected, isReady: isConnected }}>
+        <SocketContext.Provider value={contextValue}>
             {children}
         </SocketContext.Provider>
     );
@@ -62,45 +73,40 @@ export const useSocket = () => {
         throw new Error("useSocket deve ser usado dentro de um SocketProvider");
     }
 
-    const { socket, isConnected } = context;
+    const { socket } = context;
 
-    /**
-     * Helper para registro seguro de eventos.
-     * Só registra se o socket existir e estiver conectado.
-     * Retorna uma função de cleanup segura.
-     */
-    const on = (event, callback) => {
-        if (socket && isConnected && typeof socket.on === "function") {
+    const on = useCallback((event, callback) => {
+        if (socket && typeof socket.on === "function") {
             socket.on(event, callback);
+
             return () => {
                 if (socket && typeof socket.off === "function") {
                     socket.off(event, callback);
                 }
             };
         }
-        // Se não estiver pronto, retorna um cleanup vazio
-        return () => { };
-    };
 
-    /**
-     * Helper para desregistro manual de eventos.
-     */
-    const off = (event, callback) => {
+        return () => { };
+    }, [socket]);
+
+    const off = useCallback((event, callback) => {
         if (socket && typeof socket.off === "function") {
             socket.off(event, callback);
         }
-    };
+    }, [socket]);
 
-    /**
-     * Helper para emissão segura de eventos.
-     */
-    const emit = (event, ...args) => {
-        if (socket && isConnected && typeof socket.emit === "function") {
+    const emit = useCallback((event, ...args) => {
+        if (socket && typeof socket.emit === "function") {
             socket.emit(event, ...args);
         } else {
-            console.warn(`[useSocket] Tentativa de emitir "${event}" sem conexão ativa.`);
+            console.warn(`[useSocket] Tentativa de emitir "${event}" sem conexao ativa.`);
         }
-    };
+    }, [socket]);
 
-    return { ...context, on, off, emit };
+    return useMemo(() => ({
+        ...context,
+        on,
+        off,
+        emit
+    }), [context, on, off, emit]);
 };
