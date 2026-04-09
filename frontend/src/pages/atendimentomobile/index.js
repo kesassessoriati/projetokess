@@ -82,6 +82,7 @@ import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AudioModal from "../../components/AudioModal";
 import ButtonPreview from "../../components/ButtonPreview";
+import CarouselPreview from "../../components/CarouselPreview";
 import ListPreview from "../../components/ListPreview";
 import ModalImageCors from "../../components/ModalImageCors";
 import PixPreview from "../../components/PixPreview";
@@ -2462,6 +2463,7 @@ const Atendimentos = () => {
     // Backend salva legenda no campo 'body' junto com a mídia
     const renderMessageContent = (message) => {
         const hasMedia = Boolean(message.mediaUrl);
+        const hasStructuredPreview = hasStructuredMessagePreview(message);
         const isBase64 = message.body && message.body.startsWith("data:image/");
 
         // **VERDADE: Backend salva legenda no 'body' quando tem mídia**
@@ -2480,7 +2482,7 @@ const Atendimentos = () => {
         return (
             <>
                 {/* Renderiza a mídia se tiver */}
-                {hasMedia && renderMessageMedia(message)}
+                {(hasMedia || hasStructuredPreview) && renderMessageMedia(message)}
 
                 {/* **SOLUÇÃO: Se tem mídia, mostra o body como legenda** */}
                 {hasMedia && message.body && message.body.trim() && (
@@ -2494,7 +2496,7 @@ const Atendimentos = () => {
                 )}
 
                 {/* Renderiza o texto normal (apenas se não tiver mídia) */}
-                {!hasMedia && (
+                {!hasMedia && !hasStructuredPreview && (
                     <>
                         {(() => {
                             // Condição para exibir texto:
@@ -2574,6 +2576,36 @@ const Atendimentos = () => {
         return contactNumber ? `Contato: ${contactName} (${contactNumber})` : `Contato: ${contactName}`;
     };
 
+    const parseStructuredPreviewBody = (text, prefix) => {
+        if (!text || typeof text !== "string" || !text.startsWith(prefix)) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(text.substring(prefix.length).trim() || "{}");
+        } catch {
+            return null;
+        }
+    };
+
+    const hasStructuredMessagePreview = (message) => {
+        if (!message) {
+            return false;
+        }
+
+        return Boolean(
+            message.mediaType === "listMessage" ||
+            message.mediaType === "contactMessage" ||
+            (typeof message.body === "string" && (
+                message.body.startsWith("[BOTOES]") ||
+                message.body.startsWith("[PIX]") ||
+                message.body.startsWith("[LIST]") ||
+                message.body.startsWith("[CAROUSEL]") ||
+                message.body.includes("BEGIN:VCARD")
+            ))
+        );
+    };
+
     const formatInteractivePreviewText = (text) => {
         if (!text || typeof text !== "string") {
             return text;
@@ -2592,6 +2624,17 @@ const Atendimentos = () => {
             return "PIX";
         }
 
+        if (text.startsWith("[LIST]")) {
+            const payload = parseStructuredPreviewBody(text, "[LIST]");
+            return payload?.titulo ? `Lista: ${payload.titulo}` : "Lista interativa";
+        }
+
+        if (text.startsWith("[CAROUSEL]")) {
+            const payload = parseStructuredPreviewBody(text, "[CAROUSEL]");
+            const totalCards = Array.isArray(payload?.cards) ? payload.cards.length : 0;
+            return totalCards > 0 ? `Carrossel: ${totalCards} cards` : "Carrossel interativo";
+        }
+
         return text;
     };
 
@@ -2603,6 +2646,26 @@ const Atendimentos = () => {
 
     const renderMessageMedia = (message) => {
         if (!message.mediaUrl && !message.mediaType && !message.body) return null;
+
+        if (message.body && message.body.startsWith("[LIST]")) {
+            try {
+                const payload = parseStructuredPreviewBody(message.body, "[LIST]");
+                if (payload?.secoes?.length) {
+                    return (
+                        <ListPreview
+                            titulo={payload.titulo || ""}
+                            descricao={payload.descricao || ""}
+                            textoBotao={payload.textoBotao || "Ver opcoes"}
+                            secoes={payload.secoes}
+                            rodape={payload.rodape || ""}
+                            ticketId={message?.ticket?.id}
+                        />
+                    );
+                }
+            } catch (error) {
+                console.error("Erro ao renderizar lista estruturada no chat mobile:", error);
+            }
+        }
 
         if (message.mediaType === "listMessage") {
             try {
@@ -2632,6 +2695,17 @@ const Atendimentos = () => {
                 }
             } catch (error) {
                 console.error("Erro ao renderizar lista no chat mobile:", error);
+            }
+        }
+
+        if (message.body && message.body.startsWith("[CAROUSEL]")) {
+            try {
+                const payload = parseStructuredPreviewBody(message.body, "[CAROUSEL]");
+                if (Array.isArray(payload?.cards) && payload.cards.length > 0) {
+                    return <CarouselPreview cards={payload.cards} />;
+                }
+            } catch (error) {
+                console.error("Erro ao renderizar carrossel no chat mobile:", error);
             }
         }
 

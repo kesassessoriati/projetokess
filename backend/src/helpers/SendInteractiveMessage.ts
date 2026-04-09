@@ -7,6 +7,10 @@
  */
 
 import axios from "axios";
+import {
+  generateWAMessageFromContent,
+  prepareWAMessageMedia
+} from "@whiskeysockets/baileys";
 import logger from "../utils/logger";
 
 // ─── Tipos Públicos ────────────────────────────────────────────────────────
@@ -202,7 +206,7 @@ export async function sendButtonMessage(
   text: string,
   footer: string,
   buttons: InteractiveButton[]
-): Promise<void> {
+): Promise<any> {
   try {
     // Converte para o formato nativeButtons do InfiniteAPI
     const nativeButtons = buttons.slice(0, 3).map((btn, index) => {
@@ -220,13 +224,14 @@ export async function sendButtonMessage(
     });
 
     // InfiniteAPI: sendMessage com nativeButtons injeta os nós <biz> necessários
-    await wbot.sendMessage(jid, {
+    const sentMessage = await wbot.sendMessage(jid, {
       nativeButtons,
       text: String(text || ""),
       footer: footer || undefined,
     });
 
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
+    return sentMessage;
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar botões para ${jid}:`, err);
     // Fallback: envia como texto simples com botões listados
@@ -238,7 +243,7 @@ export async function sendButtonMessage(
       fallbackText += "\n";
     });
     if (footer) fallbackText += `\n_${footer}_`;
-    await wbot.sendMessage(jid, { text: fallbackText });
+    return await wbot.sendMessage(jid, { text: fallbackText });
   }
 }
 
@@ -253,7 +258,7 @@ export async function sendListMessage(
   buttonText: string,
   sections: any[],
   footer?: string
-): Promise<void> {
+): Promise<any> {
   const normalizedSections = normalizeListSections(sections);
 
   if (normalizedSections.length === 0) {
@@ -274,7 +279,7 @@ export async function sendListMessage(
     }));
 
     // InfiniteAPI: sendMessage com nativeList injeta os nós <biz><list> necessários
-    await wbot.sendMessage(jid, {
+    const sentMessage = await wbot.sendMessage(jid, {
       nativeList: {
         buttonText: buttonText || "Ver opções",
         sections: nativeSections,
@@ -284,6 +289,7 @@ export async function sendListMessage(
     });
 
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
+    return sentMessage;
   } catch (err) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar lista para ${jid}:`, err);
     // Fallback: envia opções como texto numerado
@@ -297,7 +303,7 @@ export async function sendListMessage(
       });
       fallbackText += "\n";
     });
-    await wbot.sendMessage(jid, { text: fallbackText });
+    return await wbot.sendMessage(jid, { text: fallbackText });
   }
 }
 
@@ -310,7 +316,7 @@ export async function sendCarouselMessage(
   wbot: any,
   jid: string,
   cards: CarouselCard[]
-): Promise<void> {
+): Promise<any> {
   try {
     // Pré-carrega imagens se houver URLs
     const preparedCards: any[] = [];
@@ -333,14 +339,13 @@ export async function sendCarouselMessage(
         const imgBuffer = await downloadMediaBuffer(card.imageUrl);
         if (imgBuffer) {
           try {
-            // Envia para si mesmo para obter imageMessage referenciável
-            const uploaded = await wbot.sendMessage(
-              wbot.user?.id || jid,
-              { image: imgBuffer, mimetype: "image/jpeg" }
+            const preparedMedia = await prepareWAMessageMedia(
+              { image: imgBuffer, mimetype: "image/jpeg" },
+              { upload: (wbot as any).waUploadToServer }
             );
-            if (uploaded?.message?.imageMessage) {
+            if (preparedMedia?.imageMessage) {
               cardEntry.header.hasMediaAttachment = true;
-              cardEntry.header.imageMessage = uploaded.message.imageMessage;
+              cardEntry.header.imageMessage = preparedMedia.imageMessage;
             }
           } catch (_) {
             // Ignora falha no upload de imagem, envia card sem imagem
@@ -351,12 +356,29 @@ export async function sendCarouselMessage(
       preparedCards.push(cardEntry);
     }
 
-    // Carrossel: relayMessage direto sem viewOnceMessage (padrão papi-local para iOS)
-    await wbot.relayMessage(jid, { interactiveMessage: { carouselMessage: { cards: preparedCards } } }, {});
+    const carouselContent = {
+      interactiveMessage: {
+        carouselMessage: {
+          cards: preparedCards
+        }
+      }
+    };
+
+    const newMsg = generateWAMessageFromContent(jid, carouselContent, {
+      userJid: wbot.user?.id || jid
+    });
+
+    await wbot.relayMessage(jid, newMsg.message, { messageId: newMsg.key.id });
+    if (typeof wbot.upsertMessage === "function") {
+      await wbot.upsertMessage(newMsg, "notify");
+    }
+
     logger.info(`[SendInteractiveMessage] Carrossel enviado para ${jid} (${cards.length} cards)`);
+    return newMsg;
   } catch (err) {
     logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`);
     // Fallback: envia cada card como mensagem de texto
+    let fallbackSentMessage = null;
     for (const [i, card] of cards.entries()) {
       let msg = card.headerTitle ? `*${card.headerTitle}*\n\n` : "";
       msg += card.body;
@@ -370,11 +392,12 @@ export async function sendCarouselMessage(
       }
       if (card.footer) msg += `\n_${card.footer}_`;
 
-      await wbot.sendMessage(jid, { text: msg });
+      fallbackSentMessage = await wbot.sendMessage(jid, { text: msg });
       // Pequeno delay entre cards para não parecer spam
       if (i < cards.length - 1) {
         await new Promise(r => setTimeout(r, 800));
       }
     }
+    return fallbackSentMessage;
   }
 }

@@ -33,6 +33,7 @@ import MessageOptionsMenu from "../MessageOptionsMenu";
 import whatsBackground from "../../assets/wa-background.png";
 import whatsBackgroundDark from "../../assets/wa-background-dark.png";
 import YouTubePreview from "../ModalYoutubeCors";
+import CarouselPreview from "../CarouselPreview";
 import ListPreview from "../ListPreview";
 import PixPreview from "../PixPreview";
 import ButtonPreview from "../ButtonPreview";
@@ -649,6 +650,18 @@ const MessagesList = ({
 
   const checkMessageMedia = (message) => {
     console.log(message)
+    const parseStructuredPreviewBody = (text, prefix) => {
+      if (!text || typeof text !== "string" || !text.startsWith(prefix)) {
+        return null;
+      }
+
+      try {
+        return JSON.parse(text.substring(prefix.length).trim() || "{}");
+      } catch {
+        return null;
+      }
+    };
+
     if (message.mediaType === "eventMessage") {
       try {
         // Parsear o dataJson diretamente da coluna do banco de dados
@@ -689,6 +702,25 @@ const MessagesList = ({
         console.error("Erro ao processar a mensagem de evento: ", error);
       }
     } else
+      if (message.body && message.body.startsWith('[LIST]')) {
+        try {
+          const payload = parseStructuredPreviewBody(message.body, '[LIST]');
+          if (payload?.secoes?.length) {
+            return (
+              <ListPreview
+                titulo={payload.titulo || ""}
+                descricao={payload.descricao || ""}
+                textoBotao={payload.textoBotao || "Ver opcoes"}
+                secoes={payload.secoes}
+                rodape={payload.rodape || ""}
+                ticketId={message?.ticket?.id}
+              />
+            );
+          }
+        } catch (error) {
+          console.error("Erro ao processar mensagem [LIST]:", error);
+        }
+      } else
       if (message.mediaType === "listMessage") {
         try {
           // Parsear o dataJson diretamente da coluna do banco de dados
@@ -726,6 +758,16 @@ const MessagesList = ({
         }
       }
       else
+        if (message.body && message.body.startsWith('[CAROUSEL]')) {
+          try {
+            const payload = parseStructuredPreviewBody(message.body, '[CAROUSEL]');
+            if (Array.isArray(payload?.cards) && payload.cards.length > 0) {
+              return <CarouselPreview cards={payload.cards} />;
+            }
+          } catch (error) {
+            console.error("Erro ao processar mensagem [CAROUSEL]:", error);
+          }
+        } else
         if (message.body && message.body.startsWith('[BOTOES]')) {
           try {
             // Extract button data embedded in the body: [BOTOES]{...json...}
@@ -1288,6 +1330,8 @@ const MessagesList = ({
                 {(message.mediaUrl || message.mediaType === "locationMessage" || message.mediaType === "contactMessage" || message.mediaType === "pollCreationMessageV3" || message.mediaType === "eventMessage" || message.mediaType === "listMessage" || message.mediaType === "viewOnceMessage" || message.mediaType === "viewOnceMessageV2" || message.mediaType === "interactiveMessage" || message.mediaType === "adMetaPreview" // Adicionado para aceitar o componente de preview de anúncio
                   //|| message.mediaType === "multi_vcard"
                   || (message.body && message.body.startsWith('[BOTOES]'))
+                  || (message.body && message.body.startsWith('[LIST]'))
+                  || (message.body && message.body.startsWith('[CAROUSEL]'))
                   || (message.body && message.body.startsWith('[PIX]'))
                 ) && checkMessageMedia(message)}
 
@@ -1308,6 +1352,8 @@ const MessagesList = ({
                       message.mediaType != "viewOnceMessageV2" &&
                       message.mediaType != "interactiveMessage" && message.mediaType !== "adMetaPreview" &&
                       !(message.body && message.body.startsWith('[BOTOES]')) &&
+                      !(message.body && message.body.startsWith('[LIST]')) &&
+                      !(message.body && message.body.startsWith('[CAROUSEL]')) &&
                       !(message.body && message.body.startsWith('[PIX]'))) && (
                       <>
                         {xmlRegex.test(message.body) && (
@@ -1393,6 +1439,8 @@ const MessagesList = ({
                 {(message.mediaUrl || message.mediaType === "locationMessage" || message.mediaType === "contactMessage" || message.mediaType === "pollCreationMessageV3" || message.mediaType === "eventMessage" || message.mediaType === "listMessage" || message.mediaType === "viewOnceMessage" || message.mediaType === "viewOnceMessageV2" || message.mediaType === "interactiveMessage" || message.mediaType === "adMetaPreview" // Adicionado para aceitar o componente de preview de anúncio
                   //|| message.mediaType === "multi_vcard"
                   || (message.body && message.body.startsWith('[BOTOES]'))
+                  || (message.body && message.body.startsWith('[LIST]'))
+                  || (message.body && message.body.startsWith('[CAROUSEL]'))
                   || (message.body && message.body.startsWith('[PIX]'))
                 ) && checkMessageMedia(message)}
                 <div
@@ -1415,6 +1463,8 @@ const MessagesList = ({
                       message.mediaType != "viewOnceMessageV2" &&
                       message.mediaType != "interactiveMessage" && message.mediaType !== "adMetaPreview" &&
                       !(message.body && message.body.startsWith('[BOTOES]')) &&
+                      !(message.body && message.body.startsWith('[LIST]')) &&
+                      !(message.body && message.body.startsWith('[CAROUSEL]')) &&
                       !(message.body && message.body.startsWith('[PIX]'))) && (
                       <>
                         {xmlRegex.test(message.body) && (

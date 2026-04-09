@@ -526,15 +526,19 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
 
         try {
             logger.info({ ticketId: ticket.id, hasButtons: !!parsedButtons }, "QuickSend: Sending message(s)");
+            const { verifyMessage } = require("../services/WbotServices/wbotMessageListener");
 
             if (messageType === 'buttons' && parsedButtons && parsedButtons.length > 0) {
                 // Envio com botões interativos (formato legado: reply/url/call/copy)
                 const wbot = getWbot(Number(whatsappId));
-                await sendButtonMessage(wbot, remoteJid, message || "", "", parsedButtons);
+                const sentMsg = await sendButtonMessage(wbot, remoteJid, message || "", "", parsedButtons);
+                if (sentMsg?.key) {
+                    await verifyMessage(sentMsg, ticket, contact, undefined, false, false, false, true, userId);
+                }
 
             } else if (messageType === 'list' && ((parsedListSections && parsedListSections.length > 0) || (parsedButtons && parsedButtons.length > 0))) {
                 const wbot = getWbot(Number(whatsappId));
-                await sendListMessage(
+                const sentMsg = await sendListMessage(
                     wbot,
                     remoteJid,
                     message || "",
@@ -542,23 +546,32 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                     parsedListSections || parsedButtons || [],
                     listFooter
                 );
+                if (sentMsg?.key) {
+                    await verifyMessage(sentMsg, ticket, contact, undefined, false, false, false, true, userId);
+                }
 
             } else if (messageType === 'carousel' && parsedCarouselCards && parsedCarouselCards.length > 0) {
                 // Envio de carrossel
                 const { sendCarouselMessage } = require("../helpers/SendInteractiveMessage");
                 const wbot = getWbot(Number(whatsappId));
-                await sendCarouselMessage(wbot, remoteJid, parsedCarouselCards);
+                const sentMsg = await sendCarouselMessage(wbot, remoteJid, parsedCarouselCards);
+                if (sentMsg?.key) {
+                    await verifyMessage(sentMsg, ticket, contact, undefined, false, false, false, true, userId);
+                }
 
             } else if (messageType === 'poll' && pollName && parsedPollOptions && parsedPollOptions.length >= 2) {
                 // Envio de enquete
                 const wbot = getWbot(Number(whatsappId));
-                await wbot.sendMessage(remoteJid, {
+                const sentMsg = await wbot.sendMessage(remoteJid, {
                     poll: {
                         name: pollName,
                         values: parsedPollOptions,
                         selectableCount: pollSelectableCount,
                     },
                 } as any);
+                if (sentMsg?.key) {
+                    await verifyMessage(sentMsg, ticket, contact, undefined, false, false, false, true, userId);
+                }
 
             } else if (medias && medias.length > 0) {
                 await Promise.all(

@@ -246,6 +246,100 @@ const getAd = (msg: any): string => {
   }
 };
 
+const serializeInteractiveButtons = (buttons: any[] = []) =>
+  (buttons || []).map((btn: any) => {
+    try {
+      const params =
+        typeof btn?.buttonParamsJson === "string"
+          ? JSON.parse(btn.buttonParamsJson)
+          : btn?.buttonParamsJson || {};
+
+      return {
+        tipo: btn?.name,
+        texto: params.display_text || "",
+        conteudo:
+          params.phone_number ||
+          params.phoneNumber ||
+          params.url ||
+          params.copy_code ||
+          params.id ||
+          params.title ||
+          ""
+      };
+    } catch {
+      return { tipo: btn?.name, texto: "", conteudo: "" };
+    }
+  });
+
+const serializeInteractiveMessageBody = (interactiveMsg: any): string => {
+  if (!interactiveMsg) return "";
+
+  const buttons = interactiveMsg?.nativeFlowMessage?.buttons || [];
+  const firstButtonName = buttons?.[0]?.name;
+
+  if (interactiveMsg?.carouselMessage?.cards?.length) {
+    const cards = interactiveMsg.carouselMessage.cards.map((card: any, index: number) => ({
+      titulo:
+        card?.header?.title ||
+        card?.body?.text?.split("\n")?.[0] ||
+        `Card ${index + 1}`,
+      descricao: card?.body?.text || "",
+      rodape: card?.footer?.text || "",
+      botoes: serializeInteractiveButtons(card?.nativeFlowMessage?.buttons || [])
+    }));
+
+    return `[CAROUSEL]${JSON.stringify({ cards })}`;
+  }
+
+  if (firstButtonName === "review_and_pay") {
+    return "[PIX]";
+  }
+
+  if (firstButtonName === "single_select") {
+    try {
+      const params =
+        typeof buttons?.[0]?.buttonParamsJson === "string"
+          ? JSON.parse(buttons[0].buttonParamsJson)
+          : buttons?.[0]?.buttonParamsJson || {};
+
+      const sections = Array.isArray(params?.sections)
+        ? params.sections.map((section: any, sectionIndex: number) => ({
+            titulo: section?.title || `Seção ${sectionIndex + 1}`,
+            linhas: (section?.rows || []).map((row: any, rowIndex: number) => ({
+              titulo: row?.title || `Opção ${rowIndex + 1}`,
+              descricao: row?.description || "",
+              idLinha: row?.id || row?.rowId || `row_${sectionIndex + 1}_${rowIndex + 1}`
+            }))
+          }))
+        : [];
+
+      return `[LIST]${JSON.stringify({
+        titulo: interactiveMsg?.body?.text || "",
+        descricao: interactiveMsg?.body?.text || "",
+        textoBotao: params?.title || "Ver opções",
+        rodape: interactiveMsg?.footer?.text || "",
+        secoes: sections
+      })}`;
+    } catch {
+      return "[LIST]";
+    }
+  }
+
+  if (interactiveMsg?.body?.text || buttons.length) {
+    try {
+      return `[BOTOES]${JSON.stringify({
+        titulo: interactiveMsg?.body?.text || "",
+        rodape: interactiveMsg?.footer?.text || "",
+        botoes: serializeInteractiveButtons(buttons)
+      })}`;
+    } catch {
+      return "[BOTOES]";
+    }
+  }
+
+  return "";
+};
+
 const getBodyButton = (msg: any): string => {
   try {
     if (
@@ -264,84 +358,16 @@ const getBodyButton = (msg: any): string => {
       msg?.messageType === "viewOnceMessage" ||
       msg?.message?.viewOnceMessage?.message?.interactiveMessage
     ) {
-      let bodyMessage = "";
-      const buttons =
+      return serializeInteractiveMessageBody(
         msg?.message?.viewOnceMessage?.message?.interactiveMessage
-          ?.nativeFlowMessage?.buttons;
-
-      const bodyTextWithPix = buttons?.[0]?.name === "review_and_pay";
-      const interactiveMsg =
-        msg?.message?.viewOnceMessage?.message?.interactiveMessage;
-      const bodyTextWithButtons = interactiveMsg?.body?.text;
-
-      if (bodyTextWithPix) {
-        bodyMessage += `[PIX]`;
-      } else if (bodyTextWithButtons) {
-        try {
-          const titulo = interactiveMsg?.body?.text || "";
-          const rodape = interactiveMsg?.footer?.text || "";
-          const botoes = (interactiveMsg?.nativeFlowMessage?.buttons || []).map(
-            (btn: any) => {
-              try {
-                const params =
-                  typeof btn.buttonParamsJson === "string"
-                    ? JSON.parse(btn.buttonParamsJson)
-                    : btn.buttonParamsJson || {};
-                return {
-                  tipo: btn.name,
-                  texto: params.display_text || "",
-                  conteudo:
-                    params.phone_number ||
-                    params.phoneNumber ||
-                    params.url ||
-                    params.copy_code ||
-                    params.id ||
-                    ""
-                };
-              } catch {
-                return { tipo: btn.name, texto: "", conteudo: "" };
-              }
-            }
-          );
-          bodyMessage += `[BOTOES]${JSON.stringify({ titulo, rodape, botoes })}`;
-        } catch {
-          bodyMessage += `[BOTOES]`;
-        }
-      }
-
-      return bodyMessage;
+      );
     }
 
     if (
       msg?.messageType === "interactiveMessage" ||
       msg?.message?.interactiveMessage
     ) {
-      let bodyMessage = "";
-      console.log("mensagem enviada pelo cel", msg);
-
-      // Verifica se há botões na mensagem
-      const buttons =
-        msg?.message?.interactiveMessage?.nativeFlowMessage?.buttons;
-      console.log("Buttons:", buttons);
-
-      // Verifica se buttons é um array e se contém o botão 'reviewand_pay'
-      const bodyTextWithPix =
-        Array.isArray(buttons) &&
-        buttons.some(button => (button.name = "review_and_pay"));
-
-      if (bodyTextWithPix) {
-        bodyMessage += `[PIX]`;
-        console.log(
-          "Mensagem de PIX detectada, adicionando [PIX] ao bodyMessage."
-        );
-      } else {
-        console.log("Nenhuma mensagem de PIX encontrada.");
-      }
-
-      // Log do bodyMessage final antes do retorno
-      console.log("bodyMessage final:", bodyMessage);
-      // Retornar bodyMessage se não estiver vazio
-      return bodyMessage || null; // Verifique se este ponto é alcançado
+      return serializeInteractiveMessageBody(msg?.message?.interactiveMessage) || null;
     }
 
     // Note: viewOnceMessage with interactiveMessage is handled above (lines ~260-310)
