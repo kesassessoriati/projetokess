@@ -37,10 +37,6 @@ const SendWhatsAppMessage = async ({
 
   let number: string;
 
-  if (body === "" || body === undefined || formatBody(body, ticket) === "") {
-    return {} as WAMessage;
-  }
-
   if (
     contactNumber.remoteJid &&
     contactNumber.remoteJid !== "" &&
@@ -86,15 +82,22 @@ const SendWhatsAppMessage = async ({
   }
 
   if (!isNil(vCard)) {
-    const numberContact = vCard.number;
-    const firstName = vCard.name.split(" ")[0];
-    const lastName = String(vCard.name).replace(vCard.name.split(" ")[0], "");
+    const formattedName = String(vCard?.name || "").trim();
+    const numberContact = String(vCard?.number || "").replace(/\D/g, "");
+
+    if (!formattedName || !numberContact) {
+      logger.error("[SendWhatsAppMessage] invalid vCard payload", { vCard });
+      throw new AppError("ERR_SENDING_WAPP_MSG");
+    }
+
+    const firstName = formattedName.split(" ")[0];
+    const lastName = String(formattedName).replace(firstName, "").trim();
 
     const vcard =
       `BEGIN:VCARD\n` +
       `VERSION:3.0\n` +
       `N:${lastName};${firstName};;;\n` +
-      `FN:${vCard.name}\n` +
+      `FN:${formattedName}\n` +
       `TEL;type=CELL;waid=${numberContact}:+${numberContact}\n` +
       `END:VCARD`;
 
@@ -102,12 +105,12 @@ const SendWhatsAppMessage = async ({
       await delay(msdelay);
       const sentMessage = await provider.sendMessage(number, {
         contacts: {
-          displayName: `${vCard.name}`,
+          displayName: formattedName,
           contacts: [{ vcard }]
         }
       });
       await ticket.update({
-        lastMessage: formatBody(vcard, ticket),
+        lastMessage: `Contato: ${formattedName}`,
         imported: null
       });
       return sentMessage;
@@ -117,6 +120,11 @@ const SendWhatsAppMessage = async ({
       throw new AppError("ERR_SENDING_WAPP_MSG");
     }
   }
+
+  if (body === "" || body === undefined || formatBody(body, ticket) === "") {
+    return {} as WAMessage;
+  }
+
   try {
     await delay(msdelay);
     const sentMessage = await provider.sendMessage(
