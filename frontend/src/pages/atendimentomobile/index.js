@@ -81,7 +81,10 @@ import {
 import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AudioModal from "../../components/AudioModal";
+import ButtonPreview from "../../components/ButtonPreview";
+import ListPreview from "../../components/ListPreview";
 import ModalImageCors from "../../components/ModalImageCors";
+import PixPreview from "../../components/PixPreview";
 import ScheduleModal from "../../components/ScheduleModal";
 import TransferTicketModalCustom from "../../components/TransferTicketModalCustom";
 import MediaPreviewModal from "../../components/MediaPreviewModal";
@@ -2570,14 +2573,164 @@ const Atendimentos = () => {
         return contactNumber ? `Contato: ${contactName} (${contactNumber})` : `Contato: ${contactName}`;
     };
 
+    const formatInteractivePreviewText = (text) => {
+        if (!text || typeof text !== "string") {
+            return text;
+        }
+
+        if (text.startsWith("[BOTOES]")) {
+            try {
+                const payload = JSON.parse(text.substring("[BOTOES]".length).trim() || "{}");
+                return payload?.titulo ? `Botões: ${payload.titulo}` : "Botões interativos";
+            } catch {
+                return "Botões interativos";
+            }
+        }
+
+        if (text.startsWith("[PIX]")) {
+            return "PIX";
+        }
+
+        return text;
+    };
+
     const formatTicketLastMessage = (ticket) => {
-        const fallbackText = formatVcardPreviewText(ticket?.lastMessage) || "Sem mensagens";
+        const fallbackText = formatInteractivePreviewText(formatVcardPreviewText(ticket?.lastMessage)) || "Sem mensagens";
         const sender = getTicketLastMessageSenderLabel(ticket);
         return sender ? `${sender}: ${fallbackText}` : fallbackText;
     };
 
     const renderMessageMedia = (message) => {
         if (!message.mediaUrl && !message.mediaType && !message.body) return null;
+
+        if (message.mediaType === "listMessage") {
+            try {
+                const parsedData = JSON.parse(message.dataJson || "{}");
+                const listMessage = parsedData?.message?.listMessage;
+
+                if (listMessage?.sections?.length) {
+                    const secoes = listMessage.sections.map((section) => ({
+                        titulo: section.title || "",
+                        linhas: (section.rows || []).map((row) => ({
+                            titulo: row.title,
+                            descricao: row.description,
+                            idLinha: row.rowId
+                        }))
+                    }));
+
+                    return (
+                        <ListPreview
+                            titulo={listMessage.title || ""}
+                            descricao={listMessage.description || ""}
+                            textoBotao={listMessage.buttonText || "Clique aqui"}
+                            secoes={secoes}
+                            rodape={listMessage.footerText || ""}
+                            ticketId={message?.ticket?.id}
+                        />
+                    );
+                }
+            } catch (error) {
+                console.error("Erro ao renderizar lista no chat mobile:", error);
+            }
+        }
+
+        if (message.body && message.body.startsWith("[BOTOES]")) {
+            try {
+                const bodyPayload = message.body.substring("[BOTOES]".length).trim();
+                let titulo = "";
+                let rodape = "";
+                let botoes = [];
+                let imagem = null;
+
+                if (bodyPayload) {
+                    const data = JSON.parse(bodyPayload);
+                    titulo = data.titulo || "";
+                    rodape = data.rodape || "";
+                    botoes = data.botoes || [];
+                } else if (message.dataJson && typeof message.dataJson === "string") {
+                    const parsedData = JSON.parse(message.dataJson);
+                    const interactiveMsg =
+                        parsedData?.message?.viewOnceMessage?.message?.interactiveMessage ||
+                        parsedData?.message?.interactiveMessage;
+
+                    if (interactiveMsg) {
+                        titulo = interactiveMsg.body?.text || "";
+                        rodape = interactiveMsg.footer?.text || "";
+                        botoes = (interactiveMsg.nativeFlowMessage?.buttons || []).map((btn) => {
+                            try {
+                                const params = typeof btn.buttonParamsJson === "string"
+                                    ? JSON.parse(btn.buttonParamsJson)
+                                    : (btn.buttonParamsJson || {});
+
+                                return {
+                                    tipo: btn.name,
+                                    texto: params.display_text || "",
+                                    conteudo: params.phone_number || params.phoneNumber || params.url || params.copy_code || params.id || ""
+                                };
+                            } catch {
+                                return { tipo: btn.name, texto: "", conteudo: "" };
+                            }
+                        });
+                        if (interactiveMsg.header?.imageMessage?.jpegThumbnail) {
+                            imagem = interactiveMsg.header.imageMessage.jpegThumbnail;
+                        }
+                    }
+                }
+
+                return (
+                    <ButtonPreview
+                        titulo={titulo}
+                        rodape={rodape}
+                        secoes={[{ titulo: "Botões", linhas: botoes }]}
+                        imagem={imagem}
+                        ticketId={message?.ticket?.id}
+                    />
+                );
+            } catch (error) {
+                console.error("Erro ao renderizar botões no chat mobile:", error);
+            }
+        }
+
+        if (message.body && message.body.startsWith("[PIX]")) {
+            try {
+                if (!message.dataJson || typeof message.dataJson !== "string") {
+                    return null;
+                }
+
+                const parsedData = JSON.parse(message.dataJson);
+                const nativeFlowMessage =
+                    parsedData?.message?.interactiveMessage?.nativeFlowMessage ||
+                    parsedData?.message?.viewOnceMessage?.message?.interactiveMessage?.nativeFlowMessage;
+
+                const button = nativeFlowMessage?.buttons?.[0];
+                if (!button?.buttonParamsJson) {
+                    return null;
+                }
+
+                const params = JSON.parse(button.buttonParamsJson);
+                const numeroCobranca = params.reference_id || "N/A";
+                const total = params.total_amount?.value || "N/A";
+                const produto = params.order?.items?.[0]?.name || "N/A";
+                const imagem = nativeFlowMessage?.header?.imageMessage?.jpegThumbnail || null;
+
+                return (
+                    <PixPreview
+                        companyId={message.companyId}
+                        avatarUser={message.ticket?.user?.profileImage}
+                        avatarName={message.ticket?.user?.name}
+                        avatarUrl={message.contact?.urlPicture}
+                        name={message.contact?.name}
+                        numeroCobranca={numeroCobranca}
+                        total={total}
+                        produto={produto}
+                        imagem={imagem}
+                        ticketId={message?.ticket?.id}
+                    />
+                );
+            } catch (error) {
+                console.error("Erro ao renderizar PIX no chat mobile:", error);
+            }
+        }
 
         const isBase64Image = message.body && message.body.startsWith("data:image/");
         let imageUrl = isBase64Image ? message.body : message.mediaUrl;
