@@ -125,6 +125,11 @@ index d1c7d1a..de96177 100644
          throw new Boom('Missing from attribute in message', { data: stanza });
      }
 +    const normalizeCompanionJid = (jid) => jid?.replace(/:\d+@/, '@');
++    const mePn = normalizeCompanionJid(meId);
++    const meLidNormalized = normalizeCompanionJid(meLid);
++    const pickNonSelfAlt = (...candidates) => candidates.find(jid => jid &&
++        !areJidsSameUser(normalizeCompanionJid(jid), mePn) &&
++        !areJidsSameUser(normalizeCompanionJid(jid), meLidNormalized));
      const participant = stanza.attrs.participant;
      const recipient = stanza.attrs.recipient;
      const addressingContext = extractAddressingContext(stanza);
@@ -140,7 +145,9 @@ index d1c7d1a..de96177 100644
      }
      const pushname = stanza?.attrs?.notify;
 +    const directChatAltJid = !isJidGroup(chatId)
-+        ? (fromMe ? (addressingContext.recipientAlt || addressingContext.senderAlt) : addressingContext.senderAlt)
++        ? (fromMe
++            ? pickNonSelfAlt(addressingContext.recipientAlt, addressingContext.senderAlt)
++            : addressingContext.senderAlt)
 +        : undefined;
      const key = {
          remoteJid: chatId,
@@ -178,6 +185,16 @@ index 21782ed..781a906 100644
 +                                if (cachedData.key && webMessageInfo.key) {
 +                                    const cachedKey = cachedData.key;
 +                                    const recoveredKey = webMessageInfo.key;
++                                    const normalizeCompanionJid = (jid) => jid?.replace(/:\d+@/, '@');
++                                    const isSelfJid = (jid) => !!jid && (areJidsSameUser(jid, meId) ||
++                                        areJidsSameUser(normalizeCompanionJid(jid), meId) ||
++                                        areJidsSameUser(jid, meUser.lid || '') ||
++                                        areJidsSameUser(normalizeCompanionJid(jid), meUser.lid || ''));
++                                    if ((!recoveredKey.remoteJid || (isSelfJid(recoveredKey.remoteJid) && cachedKey.remoteJid && !isSelfJid(cachedKey.remoteJid))) &&
++                                        cachedKey.remoteJid) {
++                                        recoveredKey.remoteJid = cachedKey.remoteJid;
++                                        logger?.debug({ msgId: webMessageInfo.key?.id, remoteJid: cachedKey.remoteJid }, 'CTWA: Restored remoteJid from cached metadata');
++                                    }
 +                                    if (!recoveredKey.remoteJidAlt && cachedKey.remoteJidAlt) {
 +                                        recoveredKey.remoteJidAlt = cachedKey.remoteJidAlt;
 +                                        logger?.debug({ msgId: webMessageInfo.key?.id, remoteJidAlt: cachedKey.remoteJidAlt }, 'CTWA: Restored remoteJidAlt from cached metadata');
