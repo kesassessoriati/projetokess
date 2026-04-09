@@ -1,5 +1,5 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-index 15dd0e8..42fc423 100644
+index 15dd0e8..117b696 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 @@ -1866,7 +1866,11 @@ export const makeMessagesRecvSocket = (config) => {
@@ -28,17 +28,20 @@ index 15dd0e8..42fc423 100644
              }
          }
          if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
-@@ -2012,6 +2020,70 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -2012,6 +2020,74 @@ export const makeMessagesRecvSocket = (config) => {
                          }
                          return sendMessageAck(node);
                      }
-+                    const isDirectFromMePhoneSync = msg.key.fromMe &&
-+                        !isJidGroup(msg.key.remoteJid) &&
++                    const normalizedFromJid = node.attrs.from?.replace(/:\d+@/, '@');
++                    const isDirectFromMeCompanionSync = !isJidGroup(msg.key.remoteJid) &&
 +                        !msg.key.participant &&
 +                        !!(node.attrs.recipient || node.attrs.peer_recipient_pn || node.attrs.peer_recipient_lid) &&
-+                        (areJidsSameUser(node.attrs.from, authState.creds.me.id) ||
-+                            areJidsSameUser(node.attrs.from, authState.creds.me.lid || ''));
-+                    if (isDirectFromMePhoneSync && msg.key) {
++                        (msg.key.fromMe ||
++                            areJidsSameUser(node.attrs.from, authState.creds.me.id) ||
++                            areJidsSameUser(node.attrs.from, authState.creds.me.lid || '') ||
++                            areJidsSameUser(normalizedFromJid, authState.creds.me.id) ||
++                            areJidsSameUser(normalizedFromJid, authState.creds.me.lid || ''));
++                    if (isDirectFromMeCompanionSync && msg.key) {
 +                        const startTime = Date.now();
 +                        const msgId = msg.key.id;
 +                        const msgKey = msg.key;
@@ -52,26 +55,27 @@ index 15dd0e8..42fc423 100644
 +                        logger.info({
 +                            msgId,
 +                            remoteJid: msgKey.remoteJid,
++                            author: node.attrs.from,
 +                            recipient: node.attrs.recipient,
 +                            peerRecipientPn: node.attrs.peer_recipient_pn
-+                        }, 'Direct fromMe phone sync decryption failed, requesting placeholder resend from phone');
++                        }, 'Direct fromMe companion sync decryption failed, requesting placeholder resend');
 +                        if (messageRetryManager) {
 +                            metrics.ctwaRecoveryRequests.inc({ status: 'scheduled' });
 +                            messageRetryManager.schedulePhoneRequest(msgId, async () => {
 +                                try {
 +                                    const requestId = await requestPlaceholderResend(msgKey, msgData);
 +                                    if (requestId && requestId !== 'RESOLVED') {
-+                                        logger.debug({ msgId, requestId }, 'Direct fromMe phone sync: placeholder resend request sent successfully');
++                                        logger.debug({ msgId, requestId }, 'Direct fromMe companion sync: placeholder resend request sent successfully');
 +                                        metrics.ctwaRecoveryRequests.inc({ status: 'sent' });
 +                                    }
 +                                    else if (requestId === 'RESOLVED') {
-+                                        logger.debug({ msgId }, 'Direct fromMe phone sync: message recovered during resend delay');
++                                        logger.debug({ msgId }, 'Direct fromMe companion sync: message recovered during resend delay');
 +                                        metrics.ctwaMessagesRecovered.inc();
 +                                        metrics.ctwaRecoveryLatency.observe(Date.now() - startTime);
 +                                    }
 +                                }
 +                                catch (error) {
-+                                    logger.warn({ error, msgId }, 'Direct fromMe phone sync: failed to request placeholder resend');
++                                    logger.warn({ error, msgId }, 'Direct fromMe companion sync: failed to request placeholder resend');
 +                                    metrics.ctwaRecoveryFailures.inc({ reason: 'request_failed' });
 +                                }
 +                            });
@@ -81,16 +85,16 @@ index 15dd0e8..42fc423 100644
 +                            try {
 +                                const requestId = await requestPlaceholderResend(msgKey, msgData);
 +                                if (requestId && requestId !== 'RESOLVED') {
-+                                    logger.debug({ msgId, requestId }, 'Direct fromMe phone sync: placeholder resend request sent successfully (direct)');
++                                    logger.debug({ msgId, requestId }, 'Direct fromMe companion sync: placeholder resend request sent successfully (direct)');
 +                                }
 +                                else if (requestId === 'RESOLVED') {
-+                                    logger.debug({ msgId }, 'Direct fromMe phone sync: message recovered before direct resend request completed');
++                                    logger.debug({ msgId }, 'Direct fromMe companion sync: message recovered before direct resend request completed');
 +                                    metrics.ctwaMessagesRecovered.inc();
 +                                    metrics.ctwaRecoveryLatency.observe(Date.now() - startTime);
 +                                }
 +                            }
 +                            catch (error) {
-+                                logger.warn({ error, msgId }, 'Direct fromMe phone sync: failed to request placeholder resend');
++                                logger.warn({ error, msgId }, 'Direct fromMe companion sync: failed to request placeholder resend');
 +                                metrics.ctwaRecoveryFailures.inc({ reason: 'request_failed' });
 +                            }
 +                        }
@@ -100,7 +104,7 @@ index 15dd0e8..42fc423 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..a37ecbe 100644
+index d1c7d1a..de96177 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -18,7 +18,11 @@ const storeMappingFromEnvelope = async (stanza, sender, repository, decryptionJi
@@ -116,7 +120,22 @@ index d1c7d1a..a37ecbe 100644
              logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
          }
          catch (error) {
-@@ -185,9 +189,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -126,11 +130,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+     if (!from) {
+         throw new Boom('Missing from attribute in message', { data: stanza });
+     }
++    const normalizeCompanionJid = (jid) => jid?.replace(/:\d+@/, '@');
+     const participant = stanza.attrs.participant;
+     const recipient = stanza.attrs.recipient;
+     const addressingContext = extractAddressingContext(stanza);
+-    const isMe = (jid) => areJidsSameUser(jid, meId);
+-    const isMeLid = (jid) => areJidsSameUser(jid, meLid);
++    const isMe = (jid) => areJidsSameUser(jid, meId) || areJidsSameUser(normalizeCompanionJid(jid), meId);
++    const isMeLid = (jid) => areJidsSameUser(jid, meLid) || areJidsSameUser(normalizeCompanionJid(jid), meLid);
+     if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
+         if (recipient && !isJidMetaAI(recipient)) {
+             if (!isMe(from) && !isMeLid(from)) {
+@@ -185,9 +190,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
          throw new Boom('Unknown message type', { data: stanza });
      }
      const pushname = stanza?.attrs?.notify;
@@ -130,12 +149,18 @@ index d1c7d1a..a37ecbe 100644
          fromMe,
          id: msgId,
          participant,
-@@ -242,7 +249,10 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -242,7 +250,16 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                      }
                      decryptables += 1;
                      let msgBuffer;
 -                    const decryptionJid = await getDecryptionJid(author, repository);
-+                    const directChatDecryptionTarget = fullMessage.key.fromMe && !isJidGroup(fullMessage.key.remoteJid)
++                    const isOwnDirectCompanionMessage = !isJidGroup(fullMessage.key.remoteJid) &&
++                        !!stanza.attrs.recipient &&
++                        (areJidsSameUser(author, meId) ||
++                            areJidsSameUser(author, meLid || '') ||
++                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meId) ||
++                            areJidsSameUser(author?.replace(/:\d+@/, '@'), meLid || ''));
++                    const directChatDecryptionTarget = (fullMessage.key.fromMe || isOwnDirectCompanionMessage) && !isJidGroup(fullMessage.key.remoteJid)
 +                        ? (fullMessage.key.remoteJidAlt || fullMessage.key.remoteJid || author)
 +                        : author;
 +                    const decryptionJid = await getDecryptionJid(directChatDecryptionTarget, repository);
