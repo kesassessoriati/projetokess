@@ -1732,6 +1732,8 @@ const Atendimentos = () => {
 							ticket.unreadMessages = 0;
 						}
 
+						updatedTickets[ticketIndex] = ticket;
+
 						const result = updatedTickets.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 						return [...result];
 					}
