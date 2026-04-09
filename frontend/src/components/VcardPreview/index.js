@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useHistory } from "react-router-dom";
-import toastError from "../../errors/toastError";
 import api from "../../services/api";
 
 import Avatar from "@material-ui/core/Avatar";
@@ -27,10 +26,19 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
 
     const [selectedContact, setContact] = useState({
         id: 0,
-        name: "",
-        number: 0,
-        profilePicUrl: ""
+        name: contact || "",
+        number: numbers || "",
+        profilePicUrl: "",
+        urlPicture: ""
     });
+
+    useEffect(() => {
+        setContact(prevState => ({
+            ...prevState,
+            name: prevState.name || contact || "",
+            number: prevState.number || numbers || ""
+        }));
+    }, [contact, numbers]);
 
     // useEffect(() => {
     //     const delayDebounceFn = setTimeout(() => {
@@ -66,35 +74,44 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                     if (isNil(numbers)) {
                         return
                     }
-                    const number = numbers.replace(/\D/g, "");
+                    const number = String(numbers || "").replace(/\D/g, "");
+
+                    if (!number) {
+                        return;
+                    }
                     
                     const getData = await api.get(`/contacts/profile/${number}`);
 
                     if (getData.data.contactId && getData.data.contactId !== 0) {
                         let obj = {
                             id: getData.data.contactId,
-                            name: contact,
-                            number: numbers,
-                            profilePicUrl: getData.data.urlPicture
+                            name: contact || getData.data.name || "",
+                            number: numbers || number,
+                            profilePicUrl: getData.data.urlPicture,
+                            urlPicture: getData.data.urlPicture
                         }
 
                         setContact(obj)
                   
                     } else {
                         let contactObj = {
-                            name: contact,
+                            name: contact || "Contato compartilhado",
                             number: number,
                             email: "",
                             companyId: companyId
                         }
 
                         const { data } = await api.post("/contacts", contactObj);
-                        setContact(data)
+                        setContact(prevState => ({
+                            ...prevState,
+                            ...data,
+                            name: data.name || contactObj.name,
+                            number: data.number || number
+                        }))
                     }
             
                 } catch (err) {
                     console.log(err)
-                    toastError(err);
                 }
             };
             fetchContacts();
@@ -108,6 +125,10 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
         setUserTicketOpen("");
         setQueueTicketOpen("");
     };
+
+    const previewName = selectedContact.name || contact || "Contato compartilhado";
+    const previewNumber = String(selectedContact.number || numbers || "").trim();
+    const previewAvatar = selectedContact.urlPicture || selectedContact.profilePicUrl || "";
 
     const handleNewChat = async () => {
         try {
@@ -151,7 +172,7 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                 />
                 <Grid container spacing={1}>
                     <Grid item xs={2}>
-                        <Avatar src={`${selectedContact?.urlPicture}`} />
+                        <Avatar src={previewAvatar}>{previewName?.charAt(0)?.toUpperCase() || "C"}</Avatar>
                     </Grid>
                     <Grid item xs={9}>
                         <Typography
@@ -160,8 +181,17 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                             variant="subtitle1"
                             gutterBottom
                         >
-                            {selectedContact.name}
+                            {previewName}
                         </Typography>
+                        {!!previewNumber && (
+                            <Typography
+                                style={{ marginTop: "-10px", marginLeft: "10px", color: grey[700] }}
+                                variant="body2"
+                                gutterBottom
+                            >
+                                {previewNumber}
+                            </Typography>
+                        )}
                     </Grid>
                     <Grid item xs={12}>
                         <Divider />
@@ -169,7 +199,7 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                             fullWidth
                             color="primary"
                             onClick={handleNewChat}
-                            disabled={!selectedContact.number}
+                            disabled={!previewNumber || !selectedContact.id}
                         >Conversar</Button>
                     </Grid>
                 </Grid>

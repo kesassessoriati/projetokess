@@ -848,23 +848,22 @@ const MessagesList = ({
             } else
 
               if (message.mediaType === "contactMessage") {
-                let array = message.body.split("\n");
-                let obj = [];
-                let contact = "";
-                for (let index = 0; index < array.length; index++) {
-                  const v = array[index];
-                  let values = v.split(":");
-                  for (let ind = 0; ind < values.length; ind++) {
-                    if (values[ind].indexOf("+") !== -1) {
-                      obj.push({ number: values[ind] });
-                    }
-                    if (values[ind].indexOf("FN") !== -1) {
-                      contact = values[ind + 1];
-                    }
-                  }
-                }
-                // console.log(message)
-                return <VcardPreview contact={contact} numbers={obj[0]?.number} queueId={message?.ticket?.queueId} whatsappId={message?.ticket?.whatsappId} />
+                const vcardBody = String(message.body || "");
+                const normalizedVcard = vcardBody.replace(/\r/g, "");
+                const contactMatch = normalizedVcard.match(/(?:^|\n)FN:(.+)/i);
+                const waidMatch = normalizedVcard.match(/waid=(\d+)/i);
+                const phoneMatch = normalizedVcard.match(/(?:^|\n)TEL[^:]*:(\+?\d+)/i);
+                const contact = contactMatch?.[1]?.trim() || "Contato compartilhado";
+                const contactNumber = phoneMatch?.[1]?.trim() || waidMatch?.[1]?.trim() || "";
+
+                return (
+                  <VcardPreview
+                    contact={contact}
+                    numbers={contactNumber}
+                    queueId={message?.ticket?.queueId}
+                    whatsappId={message?.ticket?.whatsappId}
+                  />
+                );
               }
               else if (message.mediaType === "adMetaPreview") { // Adicionado para renderizar o componente de preview de anúncio
                 console.log("Entrou no MetaPreview");

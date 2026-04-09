@@ -2555,8 +2555,23 @@ const Atendimentos = () => {
         );
     };
 
+    const formatVcardPreviewText = (text) => {
+        if (!text || typeof text !== "string" || !text.includes("BEGIN:VCARD")) {
+            return text;
+        }
+
+        const normalizedText = text.replace(/\r/g, "");
+        const contactMatch = normalizedText.match(/(?:^|\n)FN:(.+)/i);
+        const waidMatch = normalizedText.match(/waid=(\d+)/i);
+        const phoneMatch = normalizedText.match(/(?:^|\n)TEL[^:]*:(\+?\d+)/i);
+        const contactName = contactMatch?.[1]?.trim() || "Contato compartilhado";
+        const contactNumber = phoneMatch?.[1]?.trim() || waidMatch?.[1]?.trim() || "";
+
+        return contactNumber ? `Contato: ${contactName} (${contactNumber})` : `Contato: ${contactName}`;
+    };
+
     const formatTicketLastMessage = (ticket) => {
-        const fallbackText = ticket?.lastMessage || "Sem mensagens";
+        const fallbackText = formatVcardPreviewText(ticket?.lastMessage) || "Sem mensagens";
         const sender = getTicketLastMessageSenderLabel(ticket);
         return sender ? `${sender}: ${fallbackText}` : fallbackText;
     };
