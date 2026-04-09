@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useHistory } from "react-router-dom";
+import { useTheme } from "@material-ui/core/styles";
 import { makeStyles } from "@material-ui/core/styles";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
 import {
   Dialog,
   DialogContent,
@@ -161,6 +163,8 @@ const useStyles = makeStyles((theme) => ({
 
 const SearchTicketModal = ({ open, onClose }) => {
   const classes = useStyles();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const history = useHistory();
   const { user } = useContext(AuthContext);
   
@@ -230,8 +234,13 @@ const SearchTicketModal = ({ open, onClose }) => {
   };
 
   const handleSelectTicket = (ticket) => {
+    const targetTicketId = ticket?.id || ticket?.uuid;
+    if (!targetTicketId) {
+      return;
+    }
+
     onClose();
-    history.push(`/tickets/${ticket.uuid}`);
+    history.push(isMobile ? `/atendimentomobile/${targetTicketId}` : `/atendimentos/${targetTicketId}`);
   };
 
   const getChannelIcon = (channel) => {
