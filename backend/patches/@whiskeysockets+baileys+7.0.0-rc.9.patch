@@ -104,7 +104,7 @@ index 15dd0e8..117b696 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..de96177 100644
+index d1c7d1a..abeb0a2 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -18,7 +18,11 @@ const storeMappingFromEnvelope = async (stanza, sender, repository, decryptionJi
@@ -120,7 +120,7 @@ index d1c7d1a..de96177 100644
              logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
          }
          catch (error) {
-@@ -126,11 +130,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -126,11 +130,17 @@ export function decodeMessageNode(stanza, meId, meLid) {
      if (!from) {
          throw new Boom('Missing from attribute in message', { data: stanza });
      }
@@ -140,7 +140,7 @@ index d1c7d1a..de96177 100644
      if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
          if (recipient && !isJidMetaAI(recipient)) {
              if (!isMe(from) && !isMeLid(from)) {
-@@ -185,9 +190,12 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -185,9 +195,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
          throw new Boom('Unknown message type', { data: stanza });
      }
      const pushname = stanza?.attrs?.notify;
@@ -156,7 +156,7 @@ index d1c7d1a..de96177 100644
          fromMe,
          id: msgId,
          participant,
-@@ -242,7 +250,16 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -242,7 +257,16 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                      }
                      decryptables += 1;
                      let msgBuffer;
@@ -175,10 +175,10 @@ index d1c7d1a..de96177 100644
                          // TODO: Handle hosted devices
                          await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
-index 21782ed..781a906 100644
+index 21782ed..fbfa8ac 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
-@@ -373,6 +373,17 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
+@@ -373,6 +373,27 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
                              // This ensures we don't lose critical information like pushName and LID mappings
                              // eslint-disable-next-line max-depth
                              if (cachedData && typeof cachedData === 'object') {
