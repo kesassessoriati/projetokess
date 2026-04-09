@@ -388,8 +388,8 @@ export const quickSend = async (req: Request, res: Response): Promise<Response> 
                 whatsapp,
                 0, // unreadMessages
                 companyId,
-                queueId || null,
-                userId,
+                null,
+                null,
                 undefined, // groupContact
                 "whatsapp" // channel
             );
