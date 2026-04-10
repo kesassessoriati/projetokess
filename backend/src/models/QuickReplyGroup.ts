@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 import {
   Table,
   Column,
@@ -30,6 +31,9 @@ class QuickReplyGroup extends Model<QuickReplyGroup> {
 
   @Column
   description: string;
+
+  @Column
+  sortOrder: number;
 
   @BelongsTo(() => Company)
   company: Company;

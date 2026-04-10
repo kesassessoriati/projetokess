@@ -12,7 +12,7 @@ import api from "../../services/api";
 import { toast } from "react-toastify";
 import toastError from "../../errors/toastError";
 
-const GroupModal = ({ open, onClose, group }) => {
+const GroupModal = ({ open, onClose, group, onSaved }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
@@ -20,7 +20,10 @@ const GroupModal = ({ open, onClose, group }) => {
     if (group) {
       setName(group.name || "");
       setDescription(group.description || "");
+      return;
     }
+    setName("");
+    setDescription("");
   }, [group]);
 
   const handleSave = async () => {
@@ -33,6 +36,9 @@ const GroupModal = ({ open, onClose, group }) => {
         await api.post(`/quick-reply-groups`, payload);
         toast.success("Grupo criado com sucesso!");
       }
+      if (onSaved) {
+        onSaved();
+      }
       onClose();
     } catch (err) {
       toastError(err);
@@ -41,11 +47,11 @@ const GroupModal = ({ open, onClose, group }) => {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{group ? "Editar Grupo" : "Novo Grupo"}</DialogTitle>
+      <DialogTitle>{group ? "Editar Pipeline" : "Novo Pipeline"}</DialogTitle>
       <DialogContent dividers>
         <Box display="flex" flexDirection="column" gap={2}>
           <TextField
-            label="Nome do Grupo"
+            label="Nome do Pipeline"
             fullWidth
             variant="outlined"
             value={name}

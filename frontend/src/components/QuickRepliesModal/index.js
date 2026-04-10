@@ -1,197 +1,205 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  InputAdornment,
-  List,
-  ListItem,
-  Typography,
   Box,
-  IconButton,
-  Grid,
   Chip,
-  Tooltip,
   CircularProgress,
-  Badge
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
+  Typography
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import SearchIcon from "@material-ui/icons/Search";
 import CloseIcon from "@material-ui/icons/Close";
-import FolderIcon from "@material-ui/icons/Folder";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
 import SendIcon from "@material-ui/icons/Send";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
-import Create from "@material-ui/icons/Create";
+import CreateIcon from "@material-ui/icons/Create";
+import FolderOpenIcon from "@material-ui/icons/FolderOpen";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles((theme) => ({
   dialogPaper: {
-    height: "75vh",
-    maxHeight: 600,
+    width: "min(960px, 96vw)",
+    maxWidth: "96vw",
+    height: "78vh",
+    maxHeight: 760
   },
-  dialogContent: {
+  sidebar: {
+    position: "absolute",
+    right: 0,
+    top: 60,
+    bottom: 0,
+    width: 370,
+    maxWidth: "92vw",
+    backgroundColor: "#f8fafc",
+    borderLeft: "1px solid #dbe4ee",
+    boxShadow: "-12px 0 32px rgba(15, 23, 42, 0.12)",
+    zIndex: 30,
+    display: "flex",
+    flexDirection: "column"
+  },
+  header: {
+    padding: theme.spacing(1.5, 2),
+    borderBottom: "1px solid #dbe4ee",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(29,78,216,0.96))",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1)
+  },
+  content: {
     padding: theme.spacing(2),
     display: "flex",
     flexDirection: "column",
+    gap: theme.spacing(1.5),
     overflow: "hidden",
+    height: "100%"
   },
-  searchBox: {
-    marginBottom: theme.spacing(2),
-    flexShrink: 0,
+  searchField: {
+    backgroundColor: "#fff",
+    borderRadius: 14
   },
-  columnsWrapper: {
-    flex: 1,
-    overflow: "hidden",
+  filterRow: {
     display: "flex",
-    flexDirection: "column",
+    gap: theme.spacing(1),
+    flexWrap: "wrap"
   },
-  groupList: {
-    borderRight: `1px solid ${theme.palette.divider}`,
-    height: "100%",
+  filterChip: {
+    borderRadius: 999,
+    fontWeight: 600
+  },
+  sectionsWrap: {
+    flex: 1,
     overflowY: "auto",
-    paddingRight: theme.spacing(1),
+    paddingRight: theme.spacing(0.5)
   },
-  replyList: {
-    height: "100%",
-    overflowY: "auto",
-    paddingLeft: theme.spacing(1),
+  section: {
+    marginBottom: theme.spacing(1.5),
+    borderRadius: 18,
+    border: "1px solid #dbe4ee",
+    backgroundColor: "#fff",
+    overflow: "hidden"
   },
-  groupItem: {
-    borderRadius: 8,
-    marginBottom: 4,
-    cursor: "pointer",
-    padding: "8px 12px",
+  sectionHeader: {
+    padding: theme.spacing(1.25, 1.5),
+    background: "linear-gradient(135deg, #eff6ff, #f8fafc)",
+    borderBottom: "1px solid #e5e7eb",
     display: "flex",
     alignItems: "center",
-    transition: "background 0.15s",
-    "&:hover": {
-      backgroundColor: theme.palette.action.hover,
-    },
+    gap: theme.spacing(1)
   },
-  groupItemActive: {
-    backgroundColor: theme.palette.primary.main + "22",
-    borderLeft: `3px solid ${theme.palette.primary.main}`,
-    fontWeight: 600,
+  sectionTitle: {
+    fontWeight: 800,
+    color: "#0f172a",
+    flex: 1,
+    minWidth: 0
+  },
+  sectionCount: {
+    backgroundColor: "rgba(29,78,216,0.12)",
+    color: "#1d4ed8",
+    borderRadius: 999,
+    padding: "2px 8px",
+    fontSize: 12,
+    fontWeight: 700
+  },
+  replyList: {
+    padding: theme.spacing(1.25),
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1)
   },
   replyCard: {
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 16,
+    border: "1px solid #dbe4ee",
+    backgroundColor: "#fff",
+    padding: theme.spacing(1.25),
+    transition: "all 0.2s ease",
     cursor: "pointer",
-    border: `1px solid ${theme.palette.divider}`,
-    padding: "10px 14px",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    transition: "box-shadow 0.15s, border-color 0.15s",
     "&:hover": {
-      boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
       borderColor: theme.palette.primary.main,
-      backgroundColor: theme.palette.background.paper,
-    },
+      boxShadow: "0 8px 24px rgba(37, 99, 235, 0.12)"
+    }
   },
-  replyHeader: {
+  replyTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(0.75)
+  },
+  shortcutChip: {
+    borderRadius: 999,
+    backgroundColor: "rgba(16,185,129,0.12)",
+    color: "#047857",
+    fontWeight: 700
+  },
+  preview: {
+    color: "#475569",
+    fontSize: "0.84rem",
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word"
+  },
+  footer: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 4,
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1)
   },
-  shortcutChip: {
-    height: 22,
-    fontSize: "0.7rem",
-    backgroundColor: theme.palette.primary.main + "18",
-    color: theme.palette.primary.main,
-    fontWeight: 700,
-    marginLeft: 6,
-  },
-  messagePreview: {
-    color: theme.palette.text.secondary,
-    fontSize: "0.82rem",
-    lineHeight: 1.4,
-    display: "-webkit-box",
-    "-webkit-line-clamp": 3,
-    "-webkit-box-orient": "vertical",
-    overflow: "hidden",
-    wordBreak: "break-word",
-  },
-  sendHint: {
-    color: theme.palette.primary.main,
-    fontSize: "0.72rem",
-    marginTop: 6,
-    opacity: 0.7,
-  },
-  countBadge: {
-    backgroundColor: theme.palette.primary.main,
-    color: "#fff",
-    borderRadius: 10,
-    fontSize: "0.68rem",
-    padding: "1px 6px",
-    marginLeft: "auto",
-    flexShrink: 0,
-  },
-  emptyBox: {
+  emptyState: {
+    minHeight: 160,
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "100%",
-    color: theme.palette.text.disabled,
-    paddingTop: theme.spacing(4),
-  },
-  gridContainer: {
-    flex: 1,
-    overflow: "hidden",
-    minHeight: 0,
-  },
-  gridItem: {
-    height: "100%",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-  },
-  sectionTitle: {
-    fontWeight: 600,
-    marginBottom: 6,
-    flexShrink: 0,
-  },
+    textAlign: "center",
+    color: "#94a3b8",
+    padding: theme.spacing(3)
+  }
 }));
 
-const QuickRepliesModal = ({ open, onClose, onSelect }) => {
+const UNGROUPED_ID = "ungrouped";
+
+const buildFileName = (reply, blob) => {
+  if (reply?.mediaName) return reply.mediaName;
+
+  const mime = reply?.mediaType || blob?.type || "";
+  const extension = mime.includes("/") ? `.${mime.split("/")[1]}` : "";
+  return `quick-reply-${reply?.id || Date.now()}${extension}`;
+};
+
+const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
   const classes = useStyles();
   const [groups, setGroups] = useState([]);
   const [replies, setReplies] = useState([]);
-  const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sendingId, setSendingId] = useState(null);
 
-  useEffect(() => {
-    if (open) {
-      fetchGroups();
-      fetchReplies();
-      setSelectedGroupId(null);
-      setSearchQuery("");
-    }
-  }, [open]);
+  const isSidebar = variant === "sidebar";
 
-  const fetchGroups = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await api.get("/quick-reply-groups");
-      setGroups(Array.isArray(data) ? data : (data.records || []));
-    } catch (err) {
-      toastError(err);
-    }
-  };
+      setLoading(true);
+      const [groupsRes, repliesRes] = await Promise.all([
+        api.get("/quick-reply-groups"),
+        api.get("/quick-replies", {
+          params: {
+            pageNumber: 1,
+            pageSize: 500,
+            searchParam: ""
+          }
+        })
+      ]);
 
-  const fetchReplies = async (search = "") => {
-    setLoading(true);
-    try {
-      const { data } = await api.get("/quick-replies", {
-        params: { searchParam: search, pageNumber: 1, pageSize: 200 }
-      });
-      setReplies(data.records || []);
+      setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
+      setReplies(Array.isArray(repliesRes.data?.records) ? repliesRes.data.records : []);
     } catch (err) {
       toastError(err);
     } finally {
@@ -200,169 +208,250 @@ const QuickRepliesModal = ({ open, onClose, onSelect }) => {
   };
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchReplies(searchQuery);
-    }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
 
-  const handleSelectReply = (reply, autoSend = true) => {
-    setSendingId(reply.id);
-    // Media quick replies are temporarily disabled in the active flow.
-    // Legacy records may still expose media metadata, but selection must
-    // behave as text-only until the media flow is re-enabled.
-    onSelect(reply.message, null, autoSend);
-    setSendingId(null);
-    onClose();
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery("");
+      setSelectedGroupId(null);
+    }
+  }, [open]);
+
+  const filteredReplies = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return replies.filter((reply) => {
+      if (selectedGroupId !== null) {
+        const currentGroupId = reply.groupId || UNGROUPED_ID;
+        if (String(currentGroupId) !== String(selectedGroupId)) {
+          return false;
+        }
+      }
+
+      if (!normalizedQuery) return true;
+
+      return [reply.shortcut, reply.message, reply.group?.name, reply.mediaName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+  }, [replies, searchQuery, selectedGroupId]);
+
+  const sections = useMemo(() => {
+    const orderedGroups = [{ id: UNGROUPED_ID, name: "Sem pipeline", isVirtual: true }, ...groups];
+
+    return orderedGroups
+      .map((group) => {
+        const groupReplies = filteredReplies.filter((reply) => {
+          const currentGroupId = reply.groupId || UNGROUPED_ID;
+          return String(currentGroupId) === String(group.id);
+        });
+
+        return {
+          ...group,
+          replies: groupReplies
+        };
+      })
+      .filter((section) => section.replies.length > 0 || selectedGroupId === null || String(selectedGroupId) === String(section.id));
+  }, [filteredReplies, groups, selectedGroupId]);
+
+  const handleSelectReply = async (reply, autoSend = true) => {
+    try {
+      setSendingId(reply.id);
+
+      let file = null;
+      if (reply.mediaUrl) {
+        const { data } = await api.get(`/quick-replies/${reply.id}/media`, {
+          responseType: "blob"
+        });
+        file = new File([data], buildFileName(reply, data), {
+          type: reply.mediaType || data.type || "application/octet-stream"
+        });
+      }
+
+      onSelect(reply.message || "", file, autoSend, reply);
+
+      if (!isSidebar && onClose) {
+        onClose();
+      }
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setSendingId(null);
+    }
   };
 
-  const filteredReplies = replies.filter((r) => {
-    if (selectedGroupId && r.groupId !== selectedGroupId) return false;
-    return true;
-  });
+  const headerContent = (
+    <div className={classes.header}>
+      <FlashOnIcon />
+      <Box minWidth={0} flex={1}>
+        <Typography variant="subtitle1" style={{ fontWeight: 800 }}>
+          Respostas rápidas
+        </Typography>
+        <Typography variant="caption" style={{ opacity: 0.82 }}>
+          Texto e mídia prontos para envio em um clique.
+        </Typography>
+      </Box>
+      <IconButton onClick={onClose} style={{ color: "#fff" }} size="small">
+        <CloseIcon />
+      </IconButton>
+    </div>
+  );
 
-  const getGroupCount = (groupId) => {
-    if (groupId === null) return replies.length;
-    return replies.filter((r) => r.groupId === groupId).length;
-  };
+  const bodyContent = (
+    <div className={classes.content}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          size="small"
+          placeholder="Pesquisar resposta, mídia ou pipeline"
+          value={searchQuery}
+          autoFocus={!isSidebar}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={classes.searchField}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+            endAdornment: loading ? (
+              <InputAdornment position="end">
+                <CircularProgress size={16} />
+              </InputAdornment>
+            ) : null
+          }}
+        />
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      classes={{ paper: classes.dialogPaper }}
-    >
-      <DialogTitle disableTypography>
-        <Box display="flex" alignItems="center">
-          <FlashOnIcon color="primary" style={{ marginRight: 8 }} />
-          <Typography variant="h6" style={{ fontWeight: 600 }}>Respostas Rápidas</Typography>
-          <IconButton onClick={onClose} style={{ marginLeft: "auto" }} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-
-      <DialogContent className={classes.dialogContent} dividers>
-        <Box className={classes.searchBox}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            size="small"
-            placeholder="Buscar mensagem..."
-            value={searchQuery}
-            autoFocus
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: loading && (
-                <InputAdornment position="end">
-                  <CircularProgress size={16} />
-                </InputAdornment>
-              ),
-            }}
+        <div className={classes.filterRow}>
+          <Chip
+            label="Tudo"
+            clickable
+            color={selectedGroupId === null ? "primary" : "default"}
+            onClick={() => setSelectedGroupId(null)}
+            className={classes.filterChip}
           />
-        </Box>
+          <Chip
+            label="Sem pipeline"
+            clickable
+            color={String(selectedGroupId) === UNGROUPED_ID ? "primary" : "default"}
+            onClick={() => setSelectedGroupId(UNGROUPED_ID)}
+            className={classes.filterChip}
+          />
+          {groups.map((group) => (
+            <Chip
+              key={group.id}
+              label={group.name}
+              clickable
+              color={String(selectedGroupId) === String(group.id) ? "primary" : "default"}
+              onClick={() => setSelectedGroupId(group.id)}
+              className={classes.filterChip}
+            />
+          ))}
+        </div>
 
-        <Grid container spacing={1} className={classes.gridContainer} style={{ flex: 1, minHeight: 0 }}>
-          {/* Grupos */}
-          <Grid item xs={4} className={classes.gridItem}>
-            <Typography variant="caption" color="textSecondary" className={classes.sectionTitle}>
-              GRUPOS
-            </Typography>
-            <div className={classes.groupList}>
-              <div
-                className={`${classes.groupItem} ${!selectedGroupId ? classes.groupItemActive : ""}`}
-                onClick={() => setSelectedGroupId(null)}
-              >
-                <FolderIcon fontSize="small" color="action" style={{ marginRight: 8, flexShrink: 0 }} />
-                <Typography variant="body2" noWrap style={{ flex: 1 }}>Todos</Typography>
-                <span className={classes.countBadge}>{getGroupCount(null)}</span>
-              </div>
-              {groups.map((group) => (
-                <div
-                  key={group.id}
-                  className={`${classes.groupItem} ${selectedGroupId === group.id ? classes.groupItemActive : ""}`}
-                  onClick={() => setSelectedGroupId(group.id)}
-                >
-                  <FolderIcon fontSize="small" color={selectedGroupId === group.id ? "primary" : "action"} style={{ marginRight: 8, flexShrink: 0 }} />
-                  <Typography variant="body2" noWrap style={{ flex: 1, fontWeight: selectedGroupId === group.id ? 600 : 400 }}>
-                    {group.name}
-                  </Typography>
-                  <span className={classes.countBadge}>{getGroupCount(group.id)}</span>
-                </div>
-              ))}
+        <div className={classes.sectionsWrap}>
+          {loading ? (
+            <div className={classes.emptyState}>
+              <CircularProgress size={24} />
             </div>
-          </Grid>
-
-          {/* Respostas */}
-          <Grid item xs={8} className={classes.gridItem}>
-            <Typography variant="caption" color="textSecondary" className={classes.sectionTitle}>
-              MENSAGENS ({filteredReplies.length})
-            </Typography>
-            <div className={classes.replyList}>
-              {filteredReplies.length === 0 ? (
-                <div className={classes.emptyBox}>
-                  <FlashOnIcon style={{ fontSize: 40, marginBottom: 8, opacity: 0.3 }} />
-                  <Typography variant="body2">Nenhuma mensagem encontrada</Typography>
+          ) : sections.length === 0 ? (
+            <div className={classes.emptyState}>
+              <Typography variant="body2">Nenhuma resposta encontrada para este filtro.</Typography>
+            </div>
+          ) : (
+            sections.map((section) => (
+              <div key={section.id} className={classes.section}>
+                <div className={classes.sectionHeader}>
+                  <FolderOpenIcon fontSize="small" color="action" />
+                  <Typography variant="subtitle2" className={classes.sectionTitle} noWrap>
+                    {section.name}
+                  </Typography>
+                  <span className={classes.sectionCount}>{section.replies.length}</span>
                 </div>
-              ) : (
-                filteredReplies.map((reply) => (
-                  <Tooltip key={reply.id} title="Clique para enviar automático" placement="top" arrow>
-                    <ListItem
-                      button
-                      className={classes.replyCard}
-                      onClick={() => handleSelectReply(reply, true)}
-                      disabled={sendingId === reply.id}
-                    >
-                      <div className={classes.replyHeader}>
-                        <Box display="flex" alignItems="center" style={{ flex: 1, minWidth: 0 }}>
-                          {sendingId === reply.id ? (
-                            <CircularProgress size={14} style={{ marginRight: 6 }} />
-                          ) : (
-                            <SendIcon fontSize="small" color="primary" style={{ marginRight: 6, flexShrink: 0 }} />
-                          )}
-                          {reply.shortcut && (
-                            <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
-                          )}
-                        </Box>
-                        <Box display="flex" alignItems="center">
+
+                <div className={classes.replyList}>
+                  {section.replies.map((reply) => (
+                    <div key={reply.id} className={classes.replyCard} onClick={() => handleSelectReply(reply, true)}>
+                      <div className={classes.replyTop}>
+                        {sendingId === reply.id ? (
+                          <CircularProgress size={14} />
+                        ) : (
+                          <SendIcon fontSize="small" color="primary" />
+                        )}
+
+                        {reply.shortcut && (
+                          <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
+                        )}
+
+                        <Box marginLeft="auto" display="flex" alignItems="center">
                           {reply.mediaUrl && (
-                            <Tooltip title="Contém mídia">
+                            <Tooltip title={reply.mediaName || "Contém mídia"}>
                               <AttachFileIcon fontSize="small" color="action" style={{ marginRight: 8 }} />
                             </Tooltip>
                           )}
-                          <Tooltip title="Revisar no chat">
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => {
-                                e.stopPropagation();
+                          <Tooltip title="Revisar antes de enviar">
+                            <IconButton
+                              size="small"
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 handleSelectReply(reply, false);
                               }}
                             >
-                              <Create fontSize="small" />
+                              <CreateIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>
                       </div>
-                      <Typography className={classes.messagePreview}>
-                        {reply.message || <em style={{ opacity: 0.5 }}>Sem texto</em>}
+
+                      <Typography className={classes.preview}>
+                        {reply.message || "Resposta sem texto. Esta ação envia apenas a mídia vinculada."}
                       </Typography>
-                      <Typography className={classes.sendHint}>
-                        Clique para enviar agora ou use o ícone de editar para revisar →
-                      </Typography>
-                    </ListItem>
-                  </Tooltip>
-                ))
-              )}
-            </div>
-          </Grid>
-        </Grid>
+
+                      <div className={classes.footer}>
+                        <Typography variant="caption" color="textSecondary">
+                          {reply.mediaSource === "library"
+                            ? "Biblioteca integrada"
+                            : reply.mediaUrl
+                              ? "Upload vinculado"
+                              : "Texto puro"}
+                        </Typography>
+                        <Typography variant="caption" color="primary">
+                          Clique para enviar
+                        </Typography>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+  );
+
+  if (!open) {
+    return null;
+  }
+
+  if (isSidebar) {
+    return (
+      <div className={classes.sidebar}>
+        {headerContent}
+        {bodyContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" classes={{ paper: classes.dialogPaper }}>
+      <DialogTitle disableTypography style={{ padding: 0 }}>
+        {headerContent}
+      </DialogTitle>
+      <DialogContent dividers style={{ padding: 0 }}>
+        {bodyContent}
       </DialogContent>
     </Dialog>
   );

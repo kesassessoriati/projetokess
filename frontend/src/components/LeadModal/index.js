@@ -530,7 +530,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
 
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Valor da compra"
+                  label="Valor da venda/oportunidade"
                   name="purchaseValue"
                   type="number"
                   value={form.purchaseValue}

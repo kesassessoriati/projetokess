@@ -1,84 +1,254 @@
-import { Request, Response } from "express";
-import { Op } from "sequelize";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { Op } from "sequelize";
+import { Request, Response } from "express";
 import QuickReply from "../models/QuickReply";
 import QuickReplyGroup from "../models/QuickReplyGroup";
+import MediaFile from "../models/MediaFile";
 
-const QUICK_REPLY_MEDIA_DISABLED_MESSAGE =
-  "Os tipos de midia das respostas rapidas estao temporariamente desativados nesta versao.";
+const publicFolder = path.resolve(__dirname, "..", "..", "public");
 
-const validateTextOnlyPayload = (body: Request["body"]): string | null => {
-  const hasMediaTypeField = body?.mediaType !== undefined && body?.mediaType !== null;
-  const mediaType = typeof body?.mediaType === "string" ? body.mediaType.trim().toLowerCase() : "";
-  const hasExplicitMediaReference = Boolean(body?.mediaUrl || body?.mediaFileId);
+const normalizeStoredPath = (value?: string | null) =>
+  String(value || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "");
 
-  if ((hasMediaTypeField && mediaType !== "text") || hasExplicitMediaReference) {
-    return QUICK_REPLY_MEDIA_DISABLED_MESSAGE;
+const getQuickReplyAbsolutePath = (
+  companyId: number,
+  storedPath?: string | null
+) => {
+  const normalizedPath = normalizeStoredPath(storedPath);
+
+  if (!normalizedPath) {
+    return "";
   }
 
-  return null;
+  if (
+    normalizedPath.startsWith("media-drive/") ||
+    normalizedPath.startsWith("quickReply/")
+  ) {
+    return path.resolve(publicFolder, `company${companyId}`, normalizedPath);
+  }
+
+  return path.resolve(
+    publicFolder,
+    `company${companyId}`,
+    "quickReply",
+    normalizedPath
+  );
 };
 
-const buildTextOnlyQuickReplyPayload = (body: Request["body"]) => ({
-  shortcut: body?.shortcut,
-  message: body?.message,
-  groupId: body?.groupId || null
+const deleteUploadedMediaIfNeeded = async (
+  quickReply: QuickReply,
+  companyId: number
+) => {
+  const storedPath = quickReply.getDataValue("mediaUrl");
+  const normalizedPath = normalizeStoredPath(storedPath);
+
+  if (
+    !normalizedPath ||
+    quickReply.mediaSource === "library" ||
+    normalizedPath.startsWith("media-drive/")
+  ) {
+    return;
+  }
+
+  const absolutePath = getQuickReplyAbsolutePath(companyId, storedPath);
+
+  if (absolutePath && fs.existsSync(absolutePath)) {
+    fs.unlinkSync(absolutePath);
+  }
+};
+
+const buildQuickReplyPayload = (body: Request["body"]) => ({
+  shortcut: String(body?.shortcut || "").trim(),
+  message: String(body?.message || ""),
+  groupId: body?.groupId ? Number(body.groupId) : null
 });
+
+const getNextReplySortOrder = async (
+  companyId: number,
+  groupId: number | null
+) => {
+  const lastReply = await QuickReply.findOne({
+    where: {
+      companyId,
+      groupId
+    },
+    order: [
+      ["sortOrder", "DESC"],
+      ["id", "DESC"]
+    ]
+  });
+
+  return lastReply ? Number(lastReply.sortOrder || 0) + 1 : 0;
+};
+
+const loadReplyWithGroup = async (id: number) =>
+  QuickReply.findByPk(id, {
+    include: [
+      {
+        model: QuickReplyGroup,
+        as: "group",
+        attributes: ["id", "name", "sortOrder"]
+      }
+    ]
+  });
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { searchParam = "", pageNumber = "1" } = req.query as unknown as any;
-
-  const whereCondition = {
-    companyId,
-    shortcut: {
-      [Op.iLike]: `%${searchParam.toLowerCase()}%`
-    }
+  const {
+    searchParam = "",
+    pageNumber = "1",
+    pageSize = "200"
+  } = req.query as unknown as {
+    searchParam?: string;
+    pageNumber?: string;
+    pageSize?: string;
   };
 
-  const limit = 20;
-  const offset = limit * (+pageNumber - 1);
+  const normalizedSearch = String(searchParam || "")
+    .trim()
+    .toLowerCase();
+  const whereCondition: {
+    companyId: number;
+    [key: string]: unknown;
+    [key: symbol]: unknown;
+  } = { companyId };
+
+  if (normalizedSearch) {
+    whereCondition[Op.or] = [
+      { shortcut: { [Op.iLike]: `%${normalizedSearch}%` } },
+      { message: { [Op.iLike]: `%${normalizedSearch}%` } }
+    ];
+  }
+
+  const limit = Math.max(Number(pageSize) || 200, 1);
+  const offset = limit * (Math.max(Number(pageNumber) || 1, 1) - 1);
 
   const { count, rows: records } = await QuickReply.findAndCountAll({
     where: whereCondition,
     limit,
     offset,
-    order: [["shortcut", "ASC"]],
-    include: [{ model: QuickReplyGroup, as: "group", attributes: ["id", "name"] }]
+    order: [
+      ["sortOrder", "ASC"],
+      ["shortcut", "ASC"]
+    ],
+    include: [
+      {
+        model: QuickReplyGroup,
+        as: "group",
+        attributes: ["id", "name", "sortOrder"]
+      }
+    ]
   });
 
-  const hasMore = count > offset + records.length;
-
-  return res.json({ records, count, hasMore });
+  return res.json({
+    records,
+    count,
+    hasMore: count > offset + records.length
+  });
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const createdBy = req.user.id;
-  const validationError = validateTextOnlyPayload(req.body);
-
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
-  }
+  const payload = buildQuickReplyPayload(req.body);
 
   const quickReply = await QuickReply.create({
-    ...buildTextOnlyQuickReplyPayload(req.body),
+    ...payload,
     companyId,
     createdBy,
-    mediaType: null
+    mediaType: null,
+    mediaName: null,
+    mediaSource: null,
+    mediaFileId: null,
+    sortOrder: await getNextReplySortOrder(companyId, payload.groupId)
   });
 
-  return res.status(200).json(quickReply);
+  const record = await loadReplyWithGroup(quickReply.id);
+  return res.status(200).json(record);
 };
 
-export const update = async (req: Request, res: Response): Promise<Response> => {
+export const update = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-  const validationError = validateTextOnlyPayload(req.body);
+  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
 
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
+  if (!quickReply) {
+    return res.status(404).json({ error: "Quick reply not found" });
+  }
+
+  const payload = buildQuickReplyPayload(req.body);
+  const currentGroupId = quickReply.groupId ? Number(quickReply.groupId) : null;
+  const nextGroupId = payload.groupId ? Number(payload.groupId) : null;
+
+  await quickReply.update({
+    ...payload,
+    sortOrder:
+      currentGroupId !== nextGroupId
+        ? await getNextReplySortOrder(companyId, nextGroupId)
+        : quickReply.sortOrder
+  });
+
+  const record = await loadReplyWithGroup(quickReply.id);
+  return res.status(200).json(record);
+};
+
+export const sort = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { replies = [] } = req.body as {
+    replies?: Array<{ id: number; groupId?: number | null; sortOrder: number }>;
+  };
+
+  await Promise.all(
+    replies.map(item =>
+      QuickReply.update(
+        {
+          groupId: item.groupId ? Number(item.groupId) : null,
+          sortOrder: Number(item.sortOrder || 0)
+        },
+        {
+          where: {
+            id: Number(item.id),
+            companyId
+          }
+        }
+      )
+    )
+  );
+
+  const { rows: records } = await QuickReply.findAndCountAll({
+    where: { companyId },
+    order: [
+      ["sortOrder", "ASC"],
+      ["shortcut", "ASC"]
+    ],
+    include: [
+      {
+        model: QuickReplyGroup,
+        as: "group",
+        attributes: ["id", "name", "sortOrder"]
+      }
+    ]
+  });
+
+  return res.status(200).json(records);
+};
+
+export const mediaUpload = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const file = req.file as Express.Multer.File;
+
+  if (!file) {
+    return res.status(400).json({ error: "Media file not provided" });
   }
 
   const quickReply = await QuickReply.findOne({ where: { id, companyId } });
@@ -86,26 +256,92 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     return res.status(404).json({ error: "Quick reply not found" });
   }
 
-  // Preserve legacy media fields already stored on older records, but keep the
-  // active create/edit flow text-only until media support is re-enabled.
-  await quickReply.update(buildTextOnlyQuickReplyPayload(req.body));
+  await deleteUploadedMediaIfNeeded(quickReply, companyId);
 
-  return res.status(200).json(quickReply);
+  await quickReply.update({
+    mediaUrl: `quickReply/${file.filename}`,
+    mediaType: file.mimetype,
+    mediaName: file.originalname,
+    mediaSource: "upload",
+    mediaFileId: null
+  });
+
+  const record = await loadReplyWithGroup(quickReply.id);
+  return res.status(200).json(record);
 };
 
-export const mediaUpload = async (_req: Request, res: Response): Promise<Response> => {
-  // Keep the endpoint shape in place so the future media implementation remains
-  // easy to reactivate, but block it in the current text-only release.
-  return res.status(409).json({ error: QUICK_REPLY_MEDIA_DISABLED_MESSAGE });
+export const mediaFromLibrary = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { mediaFileId } = req.body as { mediaFileId?: number };
+
+  if (!mediaFileId) {
+    return res.status(400).json({ error: "Media file id is required" });
+  }
+
+  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
+  if (!quickReply) {
+    return res.status(404).json({ error: "Quick reply not found" });
+  }
+
+  const mediaFile = await MediaFile.findOne({
+    where: {
+      id: Number(mediaFileId),
+      companyId
+    }
+  });
+
+  if (!mediaFile) {
+    return res.status(404).json({ error: "Library media not found" });
+  }
+
+  await deleteUploadedMediaIfNeeded(quickReply, companyId);
+
+  await quickReply.update({
+    mediaUrl: mediaFile.storagePath,
+    mediaType: mediaFile.mimeType,
+    mediaName: mediaFile.customName || mediaFile.originalName,
+    mediaSource: "library",
+    mediaFileId: mediaFile.id
+  });
+
+  const record = await loadReplyWithGroup(quickReply.id);
+  return res.status(200).json(record);
 };
 
-export const mediaFromLibrary = async (_req: Request, res: Response): Promise<Response> => {
-  // Keep the endpoint shape in place so the future media implementation remains
-  // easy to reactivate, but block it in the current text-only release.
-  return res.status(409).json({ error: QUICK_REPLY_MEDIA_DISABLED_MESSAGE });
+export const deleteMedia = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const quickReply = await QuickReply.findOne({ where: { id, companyId } });
+
+  if (!quickReply) {
+    return res.status(404).json({ error: "Quick reply not found" });
+  }
+
+  await deleteUploadedMediaIfNeeded(quickReply, companyId);
+
+  await quickReply.update({
+    mediaUrl: null,
+    mediaType: null,
+    mediaName: null,
+    mediaSource: null,
+    mediaFileId: null
+  });
+
+  const record = await loadReplyWithGroup(quickReply.id);
+  return res.status(200).json(record);
 };
 
-export const mediaShow = async (req: Request, res: Response): Promise<Response> => {
+export const mediaShow = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
 
@@ -114,22 +350,13 @@ export const mediaShow = async (req: Request, res: Response): Promise<Response> 
     return res.status(404).json({ error: "Quick reply not found" });
   }
 
-  const mediaFileName = quickReply.getDataValue("mediaUrl");
-  if (!mediaFileName) {
+  const storedPath = quickReply.getDataValue("mediaUrl");
+  if (!storedPath) {
     return res.status(404).json({ error: "Quick reply media not found" });
   }
 
-  const mediaPath = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "public",
-    `company${companyId}`,
-    "quickReply",
-    mediaFileName
-  );
-
-  if (!fs.existsSync(mediaPath)) {
+  const mediaPath = getQuickReplyAbsolutePath(companyId, storedPath);
+  if (!mediaPath || !fs.existsSync(mediaPath)) {
     return res.status(404).json({ error: "Quick reply media not found" });
   }
 
@@ -141,7 +368,10 @@ export const mediaShow = async (req: Request, res: Response): Promise<Response> 
   return res;
 };
 
-export const remove = async (req: Request, res: Response): Promise<Response> => {
+export const remove = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
 
@@ -150,6 +380,8 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
     return res.status(404).json({ error: "Quick reply not found" });
   }
 
+  await deleteUploadedMediaIfNeeded(quickReply, companyId);
   await quickReply.destroy();
+
   return res.status(200).json({ message: "Quick reply deleted" });
 };

@@ -760,7 +760,10 @@ const Atendimentos = () => {
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 	const [showQuickReplies, setShowQuickReplies] = useState(false);
 	const [quickMessages, setQuickMessages] = useState([]);
-	const [quickMessagesOpen, setQuickMessagesOpen] = useState(false);
+	const [quickMessagesOpen, setQuickMessagesOpen] = useState(() => {
+		if (typeof window === "undefined") return false;
+		return window.localStorage.getItem("atendimentos.quickRepliesPanel") === "true";
+	});
 	const [inputMessage, setInputMessage] = useState("");
 	const [signMessage, setSignMessage] = useState(true);
 	const [privateMessage, setPrivateMessage] = useState(false);
@@ -1588,6 +1591,11 @@ const Atendimentos = () => {
 		};
 		loadQuickMessages();
 	}, [user.companyId, user.id]);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		window.localStorage.setItem("atendimentos.quickRepliesPanel", String(quickMessagesOpen));
+	}, [quickMessagesOpen]);
 
 	useEffect(() => {
 		loadFiltersData();
@@ -3391,8 +3399,6 @@ const Atendimentos = () => {
 	};
 
 	const handleSelectQuickMessage = async (message, file) => {
-		setQuickMessagesOpen(false);
-
 		if (!selectedTicket) {
 			setInputMessage(message || "");
 			return;
@@ -4571,9 +4577,9 @@ const Atendimentos = () => {
 										</IconButton>
 										<IconButton
 											size="small"
-											onClick={() => setQuickMessagesOpen(true)}
-											style={{ color: '#54656f' }}
-											title="Respostas Rápidas"
+											onClick={() => setQuickMessagesOpen((prev) => !prev)}
+											style={{ color: quickMessagesOpen ? '#00a884' : '#54656f' }}
+											title={quickMessagesOpen ? "Fechar painel de respostas rápidas" : "Abrir painel de respostas rápidas"}
 										>
 											<FlashOnIcon />
 										</IconButton>
@@ -4780,6 +4786,14 @@ const Atendimentos = () => {
 									</IconButton>
 								)}
 							</div>
+							{!isMobile && selectedTicket && (
+								<QuickRepliesModal
+									open={quickMessagesOpen}
+									onClose={() => setQuickMessagesOpen(false)}
+									onSelect={handleSelectQuickMessage}
+									variant="sidebar"
+								/>
+							)}
 						</>
 					) : (
 						<div className={classes.welcomeContainer}>
@@ -4808,11 +4822,13 @@ const Atendimentos = () => {
 			)}
 
 			{/* Modal de Respostas Rápidas */}
-			<QuickRepliesModal
-				open={quickMessagesOpen}
-				onClose={() => setQuickMessagesOpen(false)}
-				onSelect={handleSelectQuickMessage}
-			/>
+			{isMobile && (
+				<QuickRepliesModal
+					open={quickMessagesOpen}
+					onClose={() => setQuickMessagesOpen(false)}
+					onSelect={handleSelectQuickMessage}
+				/>
+			)}
 
 			{/* Modal de Preview de Mídia */}
 			<MediaPreviewModal

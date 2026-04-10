@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 import {
   Table,
   Column,
@@ -38,18 +39,44 @@ class QuickReply extends Model<QuickReply> {
 
   @Column
   get mediaUrl(): string | null {
-    if (this.getDataValue("mediaUrl")) {
+    const storedPath = this.getDataValue("mediaUrl");
+
+    if (storedPath) {
+      const normalizedPath = String(storedPath)
+        .replace(/\\/g, "/")
+        .replace(/^\/+/, "");
+
+      if (normalizedPath.startsWith("media-drive/")) {
+        return `${process.env.BACKEND_URL}${
+          process.env.PROXY_PORT ? `:${process.env.PROXY_PORT}` : ""
+        }/public/company${this.companyId}/${normalizedPath}`;
+      }
+
+      const quickReplyPath = normalizedPath.startsWith("quickReply/")
+        ? normalizedPath
+        : `quickReply/${normalizedPath}`;
+
       return `${process.env.BACKEND_URL}${
         process.env.PROXY_PORT ? `:${process.env.PROXY_PORT}` : ""
-      }/public/company${this.companyId}/quickReply/${this.getDataValue(
-        "mediaUrl"
-      )}`;
+      }/public/company${this.companyId}/${quickReplyPath}`;
     }
     return null;
   }
 
   @Column
   mediaType: string;
+
+  @Column
+  mediaName: string;
+
+  @Column
+  mediaSource: string;
+
+  @Column
+  mediaFileId: number;
+
+  @Column
+  sortOrder: number;
 
   @ForeignKey(() => User)
   @Column

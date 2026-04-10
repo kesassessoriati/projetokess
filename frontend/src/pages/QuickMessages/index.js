@@ -1,29 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import {
+  Avatar,
   Box,
-  Typography,
   Button,
-  Grid,
-  Paper,
-  Tabs,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
+  Chip,
   IconButton,
+  InputAdornment,
+  Paper,
   TextField,
-  Tooltip
+  Tooltip,
+  Typography
 } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
-import EditIcon from "@material-ui/icons/Edit";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import EditIcon from "@material-ui/icons/Edit";
+import FlashOnIcon from "@material-ui/icons/FlashOn";
+import FolderOpenIcon from "@material-ui/icons/FolderOpen";
+import SearchIcon from "@material-ui/icons/Search";
+import DragIndicatorIcon from "@material-ui/icons/DragIndicator";
+import AttachFileIcon from "@material-ui/icons/AttachFile";
+import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { toast } from "react-toastify";
-
 import GroupModal from "./GroupModal";
 import ReplyModal from "./ReplyModal";
 
@@ -34,269 +34,606 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     gap: theme.spacing(3),
     height: "100%",
-    backgroundColor: theme.palette.background.default,
+    background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
     [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(1.5),
-      gap: theme.spacing(2),
-    },
+      padding: theme.spacing(1.5)
+    }
   },
-  header: {
+  hero: {
+    padding: theme.spacing(2.5),
+    borderRadius: 22,
+    background: "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(29,78,216,0.92))",
+    color: "#fff",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
-    flexWrap: "wrap",
+    gap: theme.spacing(2),
+    flexWrap: "wrap"
+  },
+  heroStats: {
+    display: "flex",
     gap: theme.spacing(1),
+    flexWrap: "wrap",
+    alignItems: "center"
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: theme.palette.text.primary,
-    [theme.breakpoints.down("sm")]: {
-      fontSize: 20,
-    },
+  heroChip: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+    color: "#fff",
+    borderRadius: 999
   },
-  paper: {
-    padding: theme.spacing(2),
+  toolbar: {
+    display: "flex",
+    gap: theme.spacing(1.5),
+    flexWrap: "wrap",
+    alignItems: "center"
+  },
+  searchField: {
+    minWidth: 280,
+    backgroundColor: "#fff",
+    borderRadius: 14
+  },
+  boardWrapper: {
+    flex: 1,
+    overflowX: "auto",
+    overflowY: "hidden",
+    paddingBottom: theme.spacing(1)
+  },
+  board: {
+    display: "flex",
+    gap: theme.spacing(2),
+    minHeight: "100%"
+  },
+  columnShell: {
+    minWidth: 320,
+    maxWidth: 320
+  },
+  column: {
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    overflow: "hidden",
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(1),
-    },
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    border: "1px solid #dbe4ee",
+    boxShadow: "0 18px 36px rgba(15, 23, 42, 0.08)",
+    overflow: "hidden"
   },
-  actions: {
-    marginBottom: theme.spacing(2)
+  columnHeader: {
+    padding: theme.spacing(1.5, 2),
+    borderBottom: "1px solid #e5e7eb",
+    background: "linear-gradient(135deg, #f8fafc, #eff6ff)"
   },
-  tableWrapper: {
-    overflowX: "auto",
-    WebkitOverflowScrolling: "touch",
+  columnHeaderTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1)
+  },
+  columnTitleWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
     flex: 1,
-    "& table": {
-      minWidth: 480,
-    },
+    minWidth: 0
   },
+  columnTitle: {
+    fontWeight: 800,
+    color: "#0f172a",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  countChip: {
+    borderRadius: 999,
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+    color: "#1d4ed8",
+    fontWeight: 700
+  },
+  dragHandle: {
+    cursor: "grab",
+    color: "#64748b"
+  },
+  columnBody: {
+    padding: theme.spacing(1.5),
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1.25),
+    minHeight: 420,
+    overflowY: "auto",
+    background: "linear-gradient(180deg, rgba(248,250,252,0.35), rgba(255,255,255,0.92))"
+  },
+  card: {
+    borderRadius: 18,
+    padding: theme.spacing(1.5),
+    border: "1px solid #dbe4ee",
+    backgroundColor: "#fff",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.06)"
+  },
+  cardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1)
+  },
+  shortcutChip: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    color: "#047857",
+    fontWeight: 700,
+    borderRadius: 999
+  },
+  cardMessage: {
+    color: "#475569",
+    lineHeight: 1.5,
+    minHeight: 42,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word"
+  },
+  cardFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1)
+  },
+  emptyColumn: {
+    borderRadius: 18,
+    border: "1px dashed #cbd5e1",
+    padding: theme.spacing(2),
+    textAlign: "center",
+    color: "#94a3b8",
+    backgroundColor: "rgba(248,250,252,0.85)"
+  }
 }));
+
+const UNGROUPED_ID = "ungrouped";
 
 const QuickMessages = () => {
   const classes = useStyles();
-  const [tabValue, setTabValue] = useState(0);
-
   const [groups, setGroups] = useState([]);
   const [replies, setReplies] = useState([]);
-
+  const [search, setSearch] = useState("");
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
-
   const [replyModalOpen, setReplyModalOpen] = useState(false);
   const [selectedReply, setSelectedReply] = useState(null);
+  const [defaultGroupId, setDefaultGroupId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const fetchBoard = async () => {
+    try {
+      setLoading(true);
+      const [groupsRes, repliesRes] = await Promise.all([
+        api.get("/quick-reply-groups"),
+        api.get("/quick-replies", { params: { pageNumber: 1, pageSize: 500, searchParam: "" } })
+      ]);
+
+      setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
+      setReplies(Array.isArray(repliesRes.data?.records) ? repliesRes.data.records : []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchGroups();
-    fetchReplies();
+    fetchBoard();
   }, []);
 
-  const fetchGroups = async () => {
-    try {
-      const { data } = await api.get("/quick-reply-groups");
-      setGroups(data);
-    } catch (err) {
-      toastError(err);
-    }
-  };
+  const filteredReplies = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return replies;
 
-  const fetchReplies = async () => {
-    try {
-      const { data } = await api.get("/quick-replies", {
-        params: { pageNumber: 1, searchParam: "" }
+    return replies.filter((reply) =>
+      [reply.shortcut, reply.message, reply.group?.name]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term))
+    );
+  }, [replies, search]);
+
+  const orderedColumns = useMemo(
+    () => [
+      { id: UNGROUPED_ID, name: "Sem pipeline", description: "Mensagens soltas", isVirtual: true, sortOrder: -1 },
+      ...groups
+    ],
+    [groups]
+  );
+
+  const repliesByGroup = useMemo(() => {
+    const grouped = orderedColumns.reduce((acc, column) => {
+      acc[column.id] = [];
+      return acc;
+    }, {});
+
+    filteredReplies.forEach((reply) => {
+      const bucketId = reply.groupId || UNGROUPED_ID;
+      if (!grouped[bucketId]) {
+        grouped[bucketId] = [];
+      }
+      grouped[bucketId].push(reply);
+    });
+
+    Object.keys(grouped).forEach((key) => {
+      grouped[key] = grouped[key].sort((a, b) => {
+        const aOrder = Number(a.sortOrder || 0);
+        const bOrder = Number(b.sortOrder || 0);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return String(a.shortcut || "").localeCompare(String(b.shortcut || ""));
       });
-      setReplies(data.records);
+    });
+
+    return grouped;
+  }, [filteredReplies, orderedColumns]);
+
+  const totalMediaReplies = replies.filter((reply) => Boolean(reply.mediaUrl)).length;
+  const dragDisabled = Boolean(search.trim());
+
+  const handleDeleteGroup = async (group) => {
+    if (!window.confirm(`Deseja mesmo excluir o pipeline "${group.name}"?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/quick-reply-groups/${group.id}`);
+      toast.success("Pipeline removido.");
+      fetchBoard();
     } catch (err) {
       toastError(err);
     }
   };
 
-  const handleDeleteGroup = async (id) => {
-    if (window.confirm("Deseja mesmo excluir este grupo?")) {
-      try {
-        await api.delete(`/quick-reply-groups/${id}`);
-        toast.success("Grupo excluido.");
-        fetchGroups();
-      } catch (err) {
-        toastError(err);
-      }
+  const handleDeleteReply = async (reply) => {
+    if (!window.confirm(`Deseja mesmo excluir a resposta "/${reply.shortcut}"?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/quick-replies/${reply.id}`);
+      toast.success("Resposta removida.");
+      fetchBoard();
+    } catch (err) {
+      toastError(err);
     }
   };
 
-  const handleDeleteReply = async (id) => {
-    if (window.confirm("Deseja mesmo excluir esta resposta?")) {
-      try {
-        await api.delete(`/quick-replies/${id}`);
-        toast.success("Resposta excluida.");
-        fetchReplies();
-      } catch (err) {
-        toastError(err);
+  const handleOpenNewReply = (groupId = "") => {
+    setSelectedReply(null);
+    setDefaultGroupId(groupId);
+    setReplyModalOpen(true);
+  };
+
+  const persistGroupOrder = async (nextGroups) => {
+    await api.put("/quick-reply-groups/sort", {
+      groups: nextGroups.map((group, index) => ({
+        id: group.id,
+        sortOrder: index
+      }))
+    });
+  };
+
+  const buildReplyBuckets = (sourceReplies, sourceGroups) => {
+    const bucketIds = [UNGROUPED_ID, ...sourceGroups.map((group) => String(group.id))];
+    const buckets = bucketIds.reduce((acc, bucketId) => {
+      acc[bucketId] = [];
+      return acc;
+    }, {});
+
+    sourceReplies.forEach((reply) => {
+      const bucketId = reply.groupId ? String(reply.groupId) : UNGROUPED_ID;
+      if (!buckets[bucketId]) {
+        buckets[bucketId] = [];
       }
+      buckets[bucketId].push(reply);
+    });
+
+    bucketIds.forEach((bucketId) => {
+      buckets[bucketId] = buckets[bucketId].sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+    });
+
+    return { bucketIds, buckets };
+  };
+
+  const persistReplyOrder = async (bucketIds, buckets) => {
+    const payload = bucketIds.flatMap((bucketId) =>
+      (buckets[bucketId] || []).map((reply, index) => ({
+        id: reply.id,
+        groupId: bucketId === UNGROUPED_ID ? null : Number(bucketId),
+        sortOrder: index
+      }))
+    );
+
+    await api.put("/quick-replies/sort", { replies: payload });
+  };
+
+  const handleDragEnd = async (result) => {
+    const { source, destination, type } = result;
+
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    if (dragDisabled) return;
+
+    if (type === "GROUP") {
+      const nextGroups = Array.from(groups);
+      const [movedGroup] = nextGroups.splice(source.index, 1);
+      nextGroups.splice(destination.index, 0, movedGroup);
+
+      setGroups(nextGroups.map((group, index) => ({ ...group, sortOrder: index })));
+
+      try {
+        await persistGroupOrder(nextGroups);
+        toast.success("Pipelines reorganizados.");
+      } catch (err) {
+        toast.error("Erro ao reorganizar pipelines.");
+        fetchBoard();
+      }
+      return;
+    }
+
+    const { bucketIds, buckets } = buildReplyBuckets(replies, groups);
+    const sourceBucket = Array.from(buckets[source.droppableId] || []);
+    const destinationBucket =
+      source.droppableId === destination.droppableId
+        ? sourceBucket
+        : Array.from(buckets[destination.droppableId] || []);
+
+    const [movedReply] = sourceBucket.splice(source.index, 1);
+    destinationBucket.splice(destination.index, 0, {
+      ...movedReply,
+      groupId: destination.droppableId === UNGROUPED_ID ? null : Number(destination.droppableId)
+    });
+
+    const nextBuckets = {
+      ...buckets,
+      [source.droppableId]: sourceBucket,
+      [destination.droppableId]: destinationBucket
+    };
+
+    const nextReplies = bucketIds.flatMap((bucketId) =>
+      (nextBuckets[bucketId] || []).map((reply, index) => ({
+        ...reply,
+        groupId: bucketId === UNGROUPED_ID ? null : Number(bucketId),
+        sortOrder: index
+      }))
+    );
+
+    setReplies(nextReplies);
+
+    try {
+      await persistReplyOrder(bucketIds, nextBuckets);
+      toast.success("Resposta reposicionada.");
+    } catch (err) {
+      toast.error("Erro ao mover resposta rápida.");
+      fetchBoard();
     }
   };
 
   return (
     <Box className={classes.root}>
-      <Box className={classes.header}>
-        <Typography className={classes.title}>Respostas Rapidas</Typography>
-      </Box>
-
-      <Paper className={classes.paper}>
-        <Tabs
-          value={tabValue}
-          onChange={(e, val) => setTabValue(val)}
-          indicatorColor="primary"
-          textColor="primary"
-          style={{ marginBottom: 16 }}
-        >
-          <Tab label="Respostas Rapidas" />
-          <Tab label="Grupos de Respostas" />
-        </Tabs>
-
-        {tabValue === 0 && (
-          <>
-            <Box className={classes.actions}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSelectedReply(null);
-                  setReplyModalOpen(true);
-                }}
-              >
-                Nova Resposta
-              </Button>
-            </Box>
-            <div className={classes.tableWrapper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Atalho</TableCell>
-                    <TableCell>Mensagem</TableCell>
-                    <TableCell>Midia legada</TableCell>
-                    <TableCell>Grupo</TableCell>
-                    <TableCell>Acoes</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {replies.map((reply) => (
-                    <TableRow key={reply.id}>
-                      <TableCell>{reply.shortcut}</TableCell>
-                      <TableCell>
-                        {reply.message.length > 50
-                          ? `${reply.message.substring(0, 50)}...`
-                          : reply.message}
-                      </TableCell>
-                      <TableCell>{reply.mediaUrl ? "Preservada (desativada)" : "-"}</TableCell>
-                      <TableCell>{reply.group?.name || "Sem Grupo"}</TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedReply(reply);
-                            setReplyModalOpen(true);
-                          }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteReply(reply.id)}
-                        >
-                          <DeleteOutlineIcon color="secondary" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
-
-        {tabValue === 1 && (
-          <>
-            <Box className={classes.actions}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSelectedGroup(null);
-                  setGroupModalOpen(true);
-                }}
-              >
-                Novo Grupo
-              </Button>
-            </Box>
-            <div className={classes.tableWrapper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Nome</TableCell>
-                    <TableCell>Descricao</TableCell>
-                    <TableCell>Acoes</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {groups.map((group) => (
-                    <TableRow key={group.id}>
-                      <TableCell>{group.name}</TableCell>
-                      <TableCell>{group.description}</TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedGroup(group);
-                            setGroupModalOpen(true);
-                          }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteGroup(group.id)}
-                        >
-                          <DeleteOutlineIcon color="secondary" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
+      <Paper className={classes.hero} elevation={0}>
+        <Box>
+          <Typography variant="h4" style={{ fontWeight: 800, marginBottom: 8 }}>
+            Biblioteca de Respostas Rápidas
+          </Typography>
+          <Typography variant="body1" style={{ maxWidth: 760, opacity: 0.85 }}>
+            Organize campanhas, etapas e contextos de atendimento em pipelines visuais. Cada card pode combinar
+            texto com mídia da biblioteca para acelerar o envio no chat.
+          </Typography>
+        </Box>
+        <Box className={classes.heroStats}>
+          <Chip icon={<FolderOpenIcon style={{ color: "#fff" }} />} label={`${groups.length} pipelines`} className={classes.heroChip} />
+          <Chip icon={<FlashOnIcon style={{ color: "#fff" }} />} label={`${replies.length} respostas`} className={classes.heroChip} />
+          <Chip icon={<AttachFileIcon style={{ color: "#fff" }} />} label={`${totalMediaReplies} com mídia`} className={classes.heroChip} />
+        </Box>
       </Paper>
 
-      {groupModalOpen && (
-        <GroupModal
-          open={groupModalOpen}
-          onClose={() => {
-            setGroupModalOpen(false);
-            fetchGroups();
+      <Box className={classes.toolbar}>
+        <TextField
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar atalho, mensagem ou pipeline..."
+          variant="outlined"
+          size="small"
+          className={classes.searchField}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            )
           }}
-          group={selectedGroup}
         />
-      )}
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedGroup(null);
+            setGroupModalOpen(true);
+          }}
+        >
+          Novo Pipeline
+        </Button>
+        <Button variant="contained" color="secondary" startIcon={<FlashOnIcon />} onClick={() => handleOpenNewReply("")}>
+          Nova Resposta
+        </Button>
+        {dragDisabled && (
+          <Chip
+            label="A ordenação por arraste fica pausada enquanto houver busca ativa."
+            color="secondary"
+            variant="outlined"
+          />
+        )}
+      </Box>
 
-      {replyModalOpen && (
-        <ReplyModal
-          open={replyModalOpen}
-          groups={groups}
-          onClose={() => {
-            setReplyModalOpen(false);
-            fetchReplies();
-          }}
-          reply={selectedReply}
-        />
-      )}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className={classes.boardWrapper}>
+          <Droppable droppableId="quick-reply-board" direction="horizontal" type="GROUP">
+            {(boardProvided) => (
+              <div className={classes.board} ref={boardProvided.innerRef} {...boardProvided.droppableProps}>
+                {orderedColumns.map((column, columnIndex) => {
+                  const columnReplies = repliesByGroup[column.id] || [];
+                  const isVirtual = column.id === UNGROUPED_ID;
+
+                  return (
+                    <Draggable
+                      key={column.id}
+                      draggableId={`group-${column.id}`}
+                      index={columnIndex}
+                      isDragDisabled={dragDisabled || isVirtual}
+                    >
+                      {(groupProvided) => (
+                        <div
+                          className={classes.columnShell}
+                          ref={groupProvided.innerRef}
+                          {...groupProvided.draggableProps}
+                          style={groupProvided.draggableProps.style}
+                        >
+                          <Paper className={classes.column} elevation={0}>
+                            <div className={classes.columnHeader}>
+                              <div className={classes.columnHeaderTop}>
+                                {!isVirtual ? (
+                                  <div {...groupProvided.dragHandleProps} className={classes.dragHandle}>
+                                    <DragIndicatorIcon />
+                                  </div>
+                                ) : (
+                                  <Avatar style={{ width: 32, height: 32, background: "#e2e8f0", color: "#334155" }}>
+                                    <FolderOpenIcon fontSize="small" />
+                                  </Avatar>
+                                )}
+
+                                <div className={classes.columnTitleWrap}>
+                                  <Typography variant="subtitle1" className={classes.columnTitle}>
+                                    {column.name}
+                                  </Typography>
+                                  <Chip label={columnReplies.length} size="small" className={classes.countChip} />
+                                </div>
+
+                                {!isVirtual && (
+                                  <>
+                                    <Tooltip title="Editar pipeline">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          setSelectedGroup(column);
+                                          setGroupModalOpen(true);
+                                        }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Excluir pipeline">
+                                      <IconButton size="small" onClick={() => handleDeleteGroup(column)}>
+                                        <DeleteOutlineIcon fontSize="small" color="secondary" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </div>
+
+                              <Box mt={1} display="flex" alignItems="center" justifyContent="space-between">
+                                <Typography variant="caption" color="textSecondary">
+                                  {isVirtual ? "Respostas ainda não categorizadas." : column.description || "Use como campanha, etapa ou playbook."}
+                                </Typography>
+                                <Button size="small" color="primary" onClick={() => handleOpenNewReply(isVirtual ? "" : column.id)}>
+                                  + Resposta
+                                </Button>
+                              </Box>
+                            </div>
+
+                            <Droppable droppableId={String(column.id)} type="REPLY" isDropDisabled={dragDisabled}>
+                              {(replyProvided) => (
+                                <div className={classes.columnBody} ref={replyProvided.innerRef} {...replyProvided.droppableProps}>
+                                  {columnReplies.length === 0 && (
+                                    <div className={classes.emptyColumn}>
+                                      <Typography variant="body2">
+                                        {loading ? "Carregando..." : "Nenhuma resposta neste pipeline ainda."}
+                                      </Typography>
+                                    </div>
+                                  )}
+
+                                  {columnReplies.map((reply, replyIndex) => (
+                                    <Draggable
+                                      key={reply.id}
+                                      draggableId={`reply-${reply.id}`}
+                                      index={replyIndex}
+                                      isDragDisabled={dragDisabled}
+                                    >
+                                      {(replyDragProvided) => (
+                                        <div ref={replyDragProvided.innerRef} {...replyDragProvided.draggableProps} {...replyDragProvided.dragHandleProps}>
+                                          <Paper className={classes.card} elevation={0}>
+                                            <div className={classes.cardTop}>
+                                              <Avatar style={{ width: 36, height: 36, background: "#dbeafe", color: "#1d4ed8" }}>
+                                                <FlashOnIcon fontSize="small" />
+                                              </Avatar>
+                                              <Box flex={1} minWidth={0}>
+                                                <Box display="flex" alignItems="center" style={{ gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                                                  <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
+                                                  {reply.mediaUrl && <Chip size="small" icon={<AttachFileIcon />} label={reply.mediaName || "Mídia"} />}
+                                                </Box>
+                                                <Typography className={classes.cardMessage}>
+                                                  {reply.message || "Sem texto. Esta resposta envia apenas a mídia vinculada."}
+                                                </Typography>
+                                              </Box>
+                                            </div>
+
+                                            <div className={classes.cardFooter}>
+                                              <Typography variant="caption" color="textSecondary">
+                                                {reply.mediaSource === "library" ? "Biblioteca integrada" : reply.mediaUrl ? "Upload vinculado" : "Texto puro"}
+                                              </Typography>
+                                              <Box display="flex" alignItems="center">
+                                                <Tooltip title="Editar resposta">
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={() => {
+                                                      setSelectedReply(reply);
+                                                      setDefaultGroupId(reply.groupId || "");
+                                                      setReplyModalOpen(true);
+                                                    }}
+                                                  >
+                                                    <EditIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="Excluir resposta">
+                                                  <IconButton size="small" onClick={() => handleDeleteReply(reply)}>
+                                                    <DeleteOutlineIcon fontSize="small" color="secondary" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              </Box>
+                                            </div>
+                                          </Paper>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {replyProvided.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
+                          </Paper>
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
+                {boardProvided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </div>
+      </DragDropContext>
+
+      <GroupModal
+        open={groupModalOpen}
+        onClose={() => setGroupModalOpen(false)}
+        group={selectedGroup}
+        onSaved={fetchBoard}
+      />
+
+      <ReplyModal
+        open={replyModalOpen}
+        onClose={() => setReplyModalOpen(false)}
+        reply={selectedReply}
+        groups={groups}
+        defaultGroupId={defaultGroupId}
+        onSaved={fetchBoard}
+      />
     </Box>
   );
 };
