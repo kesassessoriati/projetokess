@@ -47,7 +47,7 @@ const useStyles = makeStyles((theme) => ({
  * 4. POST /opportunities → cria/vincula oportunidade ao estágio
  * 5. POST /opportunities/:id/move → move para outro estágio
  */
-export function TagsKanbanContainer({ ticket, onStageChange }) {
+export function TagsKanbanContainer({ ticket, onStageChange, currentLeadValue }) {
     const classes = useStyles();
     const { user: currentUser } = useContext(AuthContext);
 
@@ -58,6 +58,18 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
     const [existingOpportunity, setExistingOpportunity] = useState(null);
     const [users, setUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState("");
+
+    const resolveLeadValue = () => {
+        if (currentLeadValue !== null && currentLeadValue !== undefined && currentLeadValue !== "") {
+            const parsed = Number(currentLeadValue);
+            if (!Number.isNaN(parsed)) {
+                return parsed;
+            }
+        }
+
+        const ticketValue = Number(ticket?.leadValue);
+        return Number.isNaN(ticketValue) ? 0 : ticketValue;
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -158,7 +170,16 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
         if (!pipelineId || !stageId) return;
 
         try {
+            const resolvedLeadValue = resolveLeadValue();
+
             if (existingOpportunity?.id) {
+                if (Number(existingOpportunity.value || 0) !== resolvedLeadValue) {
+                    await api.put(`/opportunities/${existingOpportunity.id}`, {
+                        value: resolvedLeadValue
+                    });
+                    setExistingOpportunity(prev => prev ? { ...prev, value: resolvedLeadValue } : prev);
+                }
+
                 // Mover oportunidade existente para novo estágio
                 await api.post(`/opportunities/${existingOpportunity.id}/move`, {
                     stageId,
@@ -176,7 +197,7 @@ export function TagsKanbanContainer({ ticket, onStageChange }) {
                     pipelineId,
                     contactId,
                     ticketId: ticket?.id,
-                    value: ticket?.leadValue || 0,
+                    value: resolvedLeadValue,
                     assignedUserId: selectedUserId || currentUser?.id || undefined,
                 });
 

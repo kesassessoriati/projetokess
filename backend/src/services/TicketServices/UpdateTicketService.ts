@@ -25,6 +25,8 @@ import FindOrCreateTicketService from "./FindOrCreateTicketService";
 import formatBody from "../../helpers/Mustache";
 import { Mutex } from "async-mutex";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import CrmLead from "../../models/CrmLead";
+import Opportunity from "../../models/Opportunity";
 
 interface TicketData {
   status?: string;
@@ -56,6 +58,61 @@ interface Response {
   oldStatus: string;
   oldUserId: number | undefined;
 }
+
+const syncLeadValueAcrossCrm = async (ticket: Ticket, companyId: number, leadValue: number | null | undefined) => {
+  const normalizedLeadValue =
+    leadValue === null || leadValue === undefined || Number.isNaN(Number(leadValue))
+      ? null
+      : Number(leadValue);
+
+  let lead = null;
+
+  if (ticket.crmLeadId) {
+    lead = await CrmLead.findOne({
+      where: {
+        id: ticket.crmLeadId,
+        companyId
+      }
+    });
+  }
+
+  if (!lead && ticket.contactId) {
+    lead = await CrmLead.findOne({
+      where: {
+        contactId: ticket.contactId,
+        companyId
+      }
+    });
+  }
+
+  if (lead) {
+    await lead.update({
+      purchaseValue: normalizedLeadValue
+    });
+  }
+
+  const opportunityWhere: any = {
+    companyId
+  };
+
+  if (lead?.id) {
+    opportunityWhere.leadId = lead.id;
+  } else if (ticket.id) {
+    opportunityWhere.ticketId = ticket.id;
+  } else if (ticket.contactId) {
+    opportunityWhere.contactId = ticket.contactId;
+  }
+
+  const opportunity = await Opportunity.findOne({
+    where: opportunityWhere
+  });
+
+  if (opportunity) {
+    await opportunity.update({
+      value: normalizedLeadValue === null ? 0 : normalizedLeadValue
+    });
+  }
+};
 
 const UpdateTicketService = async ({
   ticketData,
@@ -886,6 +943,11 @@ const UpdateTicketService = async ({
     ticketTraking.queueId = queueId;
 
     await ticket.reload();
+
+    if (leadValue !== undefined) {
+      await syncLeadValueAcrossCrm(ticket, companyId, leadValue);
+      await ticket.reload();
+    }
 
     // ticket = await ShowTicketService(ticket.id, companyId)
 

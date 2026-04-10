@@ -494,7 +494,11 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 							</Button>
 							{(safeContact.id && openForm) && <ContactForm initialContact={safeContact} onCancel={() => setOpenForm(false)} />}
 						</Paper>
-						<TagsKanbanContainer ticket={ticket} className={classes.contactTags} />
+						<TagsKanbanContainer
+							ticket={ticket}
+							className={classes.contactTags}
+							currentLeadValue={leadValue === "" ? null : Number(leadValue)}
+						/>
 						<Paper square variant="outlined" className={classes.contactDetails}>
 							<Typography variant="subtitle1" style={{ marginBottom: 10 }}>
 								{i18n.t("ticketOptionsMenu.appointmentsModal.title")}
