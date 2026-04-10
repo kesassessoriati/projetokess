@@ -117,6 +117,10 @@ function TabPanel(props) {
 
 const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
+    const opportunityValue =
+        op && Number(op.value || 0) === 0 && op.lead?.purchaseValue != null
+            ? Number(op.lead.purchaseValue)
+            : Number((op && op.value) || 0);
     const [tabValue, setTabValue] = useState(0);
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
@@ -316,7 +320,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                     <Box mt={2} mb={2}>
                         <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600 }}>VALOR DA OPORTUNIDADE</Typography>
                         <Typography variant="h5" style={{ fontWeight: 800, color: "#1e293b" }}>
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((op && op.value) || 0)}
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(opportunityValue || 0)}
                         </Typography>
                     </Box>
 

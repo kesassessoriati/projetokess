@@ -87,7 +87,9 @@ const ListPipelineBoardService = async ({
     ownerUserId,
     viewMode
 }: Request): Promise<BoardResponse> => {
-    // 1. Buscar o Pipeline e seus Estágios
+    const effectiveValueSql =
+        'CASE WHEN COALESCE("Opportunity"."value", 0) = 0 THEN COALESCE("lead"."purchase_value", 0) ELSE COALESCE("Opportunity"."value", 0) END';
+
     const pipeline = await Pipeline.findOne({
         where: { id: pipelineId, companyId },
         include: [
@@ -104,17 +106,20 @@ const ListPipelineBoardService = async ({
         throw new AppError("ERR_NO_PIPELINE_FOUND", 404);
     }
 
-    // 2. Buscar Agregações Avançadas por Estágio
-    // Forecast = Sum(Value * PredictedProbability)
     const stats = await Opportunity.findAll({
         attributes: [
             "stageId",
             [fn("COUNT", col("Opportunity.id")), "count"],
-            [fn("SUM", col("value")), "totalValue"],
-            [literal('SUM(COALESCE("value" * "prediction"."predictedCloseProbability", 0))'), "forecastValue"],
+            [literal(`SUM(${effectiveValueSql})`), "totalValue"],
+            [literal(`SUM(COALESCE((${effectiveValueSql}) * "prediction"."predictedCloseProbability", 0))`), "forecastValue"],
             [literal('COUNT(CASE WHEN "prediction"."riskLevel" = \'HIGH\' THEN 1 END)'), "highRiskCount"]
         ],
         include: [
+            {
+                model: CrmLead,
+                as: "lead",
+                attributes: []
+            },
             {
                 model: OpportunityPrediction,
                 as: "prediction",
@@ -135,7 +140,6 @@ const ListPipelineBoardService = async ({
                 } else if (viewMode === "personal" && userId) {
                     w.assignedUserId = userId;
                 }
-                // viewMode === "team" (padrão admin): sem filtro — vê todos
             }
             return w;
         })(),
@@ -153,7 +157,6 @@ const ListPipelineBoardService = async ({
         return acc;
     }, {} as any);
 
-    // 3. Função para buscar oportunidades com filtros e IA
     const getOpportunitiesForStage = async (sId: number, sCursor?: string) => {
         const where: any = {
             stageId: sId,
@@ -169,14 +172,9 @@ const ListPipelineBoardService = async ({
             } else if (viewMode === "personal" && userId) {
                 where.assignedUserId = userId;
             }
-            // viewMode === "team" (padrão admin): sem filtro — vê todos
         }
 
-        // Filtros Inteligentes
         if (filter) {
-            if (filter.riskLevel) {
-                // Filtro via join com predictions (será feito no findAll)
-            }
             if (filter.onlyAI) {
                 where.lastMovedBy = "AI";
             }
@@ -202,7 +200,6 @@ const ListPipelineBoardService = async ({
             }
         ];
 
-        // Se houver filtro de riskLevel ou minProbability, aplicar no include/where
         if (filter?.riskLevel) {
             include[2].where = { riskLevel: filter.riskLevel };
         }
@@ -211,10 +208,8 @@ const ListPipelineBoardService = async ({
             include[2].where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
         }
 
-        // Ordenação
         let order: any[] = [["createdAt", "DESC"], ["id", "DESC"]];
         if (sort === "AI_PRIORITY") {
-            // HIGH RISK primeiro, depois maior probabilidade, depois mais antigo (urgente)
             order = [
                 [literal('"prediction"."riskLevel" = \'HIGH\''), "DESC"],
                 [literal('"prediction"."predictedCloseProbability"'), "DESC"],
@@ -224,7 +219,7 @@ const ListPipelineBoardService = async ({
         }
 
         if (sCursor) {
-            const [createdAt, id] = Buffer.from(sCursor, 'base64').toString('ascii').split('_');
+            const [createdAt, id] = Buffer.from(sCursor, "base64").toString("ascii").split("_");
             where[Op.or] = [
                 { createdAt: { [Op.lt]: new Date(createdAt) } },
                 {
@@ -248,13 +243,12 @@ const ListPipelineBoardService = async ({
         let nextCursor = null;
         if (hasMore) {
             const lastItem = results[results.length - 1];
-            nextCursor = Buffer.from(`${lastItem.createdAt.toISOString()}_${lastItem.id}`).toString('base64');
+            nextCursor = Buffer.from(`${lastItem.createdAt.toISOString()}_${lastItem.id}`).toString("base64");
         }
 
         return { results, hasMore, nextCursor };
     };
 
-    // 4. Montar o Board
     const boardStages: BoardStage[] = await Promise.all(
         pipeline.stages.map(async (stage) => {
             const shouldLoadOps = !stageId || stageId === stage.id;
@@ -278,6 +272,13 @@ const ListPipelineBoardService = async ({
                 opportunities: opsData.results.map(op => {
                     const now = new Date();
                     let slaStatus: "NORMAL" | "EXPIRED" | "CRITICAL" = "NORMAL";
+                    const fallbackLeadValue = op.lead?.purchaseValue != null ? Number(op.lead.purchaseValue) : 0;
+                    const opportunityValue = Number(op.value || 0);
+                    const effectiveValue =
+                        opportunityValue === 0 && fallbackLeadValue > 0
+                            ? fallbackLeadValue
+                            : opportunityValue;
+
                     if (op.slaDeadline) {
                         const deadline = new Date(op.slaDeadline);
                         if (deadline < now) {
@@ -290,7 +291,7 @@ const ListPipelineBoardService = async ({
                     return {
                         id: op.id,
                         title: op.title,
-                        value: Number(op.value),
+                        value: effectiveValue,
                         status: op.status,
                         contact: op.contact,
                         lead: op.lead,
@@ -316,8 +317,6 @@ const ListPipelineBoardService = async ({
         })
     );
 
-    // Conta apenas reuniões agendadas a partir de hoje (futuras + hoje),
-    // evitando acúmulo infinito de reuniões passadas no contador do board
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const scheduledMeetingsCount = await CrmLead.count({

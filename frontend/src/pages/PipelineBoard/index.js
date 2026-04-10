@@ -997,9 +997,9 @@ const PipelineBoard = () => {
                         </Typography>
                     </div>
                     <div className={classes.metricCard}>
-                        <Typography className={classes.metricLabel}>Valor Potencial do Funil</Typography>
+                        <Typography className={classes.metricLabel}>Valor Total do Funil</Typography>
                         <Typography className={classes.metricValue} style={{ color: "#0f8f4b" }}>
-                            {fCurrency(totals.forecastValue)}
+                            {fCurrency(totals.totalValue)}
                         </Typography>
                     </div>
                     <div className={classes.metricCard}>

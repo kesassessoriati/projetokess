@@ -186,9 +186,18 @@ const UpdateCrmLeadService = async ({
     const oppUpdates: any = {};
     if (data.pipelineId !== undefined) oppUpdates.pipelineId = data.pipelineId;
     if (data.stageId !== undefined) oppUpdates.stageId = data.stageId;
+    if (data.purchaseValue !== undefined) {
+      oppUpdates.value =
+        data.purchaseValue === null || data.purchaseValue === undefined
+          ? 0
+          : Number(data.purchaseValue);
+    }
     // Permitir enviar null para ownerUserId se remover
     if (data.ownerUserId !== undefined) oppUpdates.assignedUserId = data.ownerUserId === null ? null : data.ownerUserId;
     if (data.contactId !== undefined) oppUpdates.contactId = data.contactId;
+    if (data.name !== undefined && data.name !== null && String(data.name).trim() !== "") {
+      oppUpdates.title = String(data.name).trim();
+    }
 
     if (Object.keys(oppUpdates).length > 0) {
       await opp.update(oppUpdates);
@@ -205,7 +214,10 @@ const UpdateCrmLeadService = async ({
         pipelineId: data.pipelineId,
         stageId: data.stageId,
         title: data.name || lead.name,
-        value: 0,
+        value:
+          data.purchaseValue === null || data.purchaseValue === undefined
+            ? 0
+            : Number(data.purchaseValue),
         assignedUserId: data.ownerUserId || null,
         status: "OPEN",
         leadId: lead.id

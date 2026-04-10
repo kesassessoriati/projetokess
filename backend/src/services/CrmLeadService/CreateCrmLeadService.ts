@@ -383,7 +383,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       pipelineId,
       stageId,
       title: data.name,
-      value: 0,
+      value: data.purchaseValue != null ? Number(data.purchaseValue) : 0,
       assignedUserId: data.ownerUserId || null,
       status: "OPEN",
       leadId: lead.id
