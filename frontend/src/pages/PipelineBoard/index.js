@@ -31,6 +31,7 @@ import {
     Warning as WarningIcon,
     Timeline as TimelineIcon,
     FilterList as FilterListIcon,
+    DragIndicator as DragIndicatorIcon,
     Schedule as ClockIcon,
     TipsAndUpdates as LightbulbIcon,
     ThumbUp as ThumbUpIcon,
@@ -409,6 +410,29 @@ const useStyles = makeStyles((theme) => ({
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             wordBreak: "break-word"
+        }
+    },
+    laneTitleMain: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+        flex: 1
+    },
+    laneDragHandle: {
+        width: 28,
+        height: 28,
+        borderRadius: 10,
+        color: "#ffffff",
+        backgroundColor: "rgba(255,255,255,0.14)",
+        border: "1px solid rgba(255,255,255,0.18)",
+        cursor: "grab",
+        flexShrink: 0,
+        "&:hover": {
+            backgroundColor: "rgba(255,255,255,0.22)"
+        },
+        "&:active": {
+            cursor: "grabbing"
         }
     },
     laneColorDot: {
@@ -900,10 +924,40 @@ const PipelineBoard = () => {
     };
 
     const handleDragEnd = async (result) => {
-        const { destination, source, draggableId } = result;
+        const { destination, source, draggableId, type } = result;
 
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+        if (type === "STAGE") {
+            const reorderedStages = Array.from(board.stages || []);
+            const [movedStage] = reorderedStages.splice(source.index, 1);
+            reorderedStages.splice(destination.index, 0, movedStage);
+
+            const normalizedStages = reorderedStages.map((stage, index) => ({
+                ...stage,
+                order: index
+            }));
+
+            setBoard((prev) => ({
+                ...prev,
+                stages: normalizedStages
+            }));
+
+            try {
+                await api.put(`/pipelines/${selectedPipelineId}/stages/sort`, {
+                    stages: normalizedStages.map((stage) => ({
+                        id: stage.id,
+                        order: stage.order
+                    }))
+                });
+                toast.success("Ordem das etapas atualizada.");
+            } catch (err) {
+                toast.error("Erro ao reorganizar etapas.");
+                fetchBoard();
+            }
+            return;
+        }
 
         const sourceStageId = parseInt(source.droppableId);
         const destStageId = parseInt(destination.droppableId);
@@ -1128,40 +1182,66 @@ const PipelineBoard = () => {
             </div>
 
             <DragDropContext onDragEnd={handleDragEnd}>
-                <Box
-                    className={classes.boardArea}
-                    ref={boardScrollRef}
-                    onScroll={() => syncScroll(boardScrollRef, topScrollRef)}
-                >
+                <Droppable droppableId="pipeline-stages" direction="horizontal" type="STAGE">
+                    {(stageDropProvided) => (
+                        <Box
+                            className={classes.boardArea}
+                            ref={(node) => {
+                                boardScrollRef.current = node;
+                                stageDropProvided.innerRef(node);
+                            }}
+                            onScroll={() => syncScroll(boardScrollRef, topScrollRef)}
+                            {...stageDropProvided.droppableProps}
+                        >
                     {loading && <CircularProgress style={{ margin: "auto" }} color="primary" />}
 
-                    {!loading && (filteredBoard.stages || []).map((stage) => {
+                    {!loading && (filteredBoard.stages || []).map((stage, stageIndex) => {
                         const stageColor = stage.color || "#1f9d55";
-                        const isDark = true;
                         const textColor = "#fff";
                         return (
-                            <Droppable key={stage.id} droppableId={String(stage.id)}>
-                                {(provided) => (
-                                    <Box
-                                        className={`${classes.lane} kanban-column`}
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
+                            <Draggable key={stage.id} draggableId={`stage-${stage.id}`} index={stageIndex}>
+                                {(stageProvided, stageSnapshot) => (
+                                    <div
+                                        ref={stageProvided.innerRef}
+                                        {...stageProvided.draggableProps}
                                         style={{
-                                            backgroundColor: stageColor,
-                                            border: "none"
+                                            ...stageProvided.draggableProps.style,
+                                            opacity: stageSnapshot.isDragging ? 0.92 : 1
                                         }}
                                     >
+                                        <Droppable key={stage.id} droppableId={String(stage.id)} type="CARD">
+                                            {(provided) => (
+                                                <Box
+                                                    className={`${classes.lane} kanban-column`}
+                                                    ref={provided.innerRef}
+                                                    {...provided.droppableProps}
+                                                    style={{
+                                                        backgroundColor: stageColor,
+                                                        border: "none"
+                                                    }}
+                                                >
                                         <div
                                             className={`${classes.laneHeader} kanban-column-header`}
                                             style={{ borderBottom: "1px solid rgba(255,255,255,0.25)" }}
                                         >
                                             <div className={classes.laneTitle}>
-                                                <div className={classes.laneTitleLeft}>
+                                                <div className={classes.laneTitleMain}>
+                                                    <Tooltip title="Arrastar etapa">
+                                                        <IconButton
+                                                            size="small"
+                                                            className={classes.laneDragHandle}
+                                                            {...stageProvided.dragHandleProps}
+                                                        >
+                                                            <DragIndicatorIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <div className={classes.laneTitleLeft}>
                                                     <span>{stage.name}</span>
                                                     <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)" }}>ID {stage.id}</span>
                                                     <span className={classes.laneCountBadge} style={{ backgroundColor: "rgba(255,255,255,0.2)", color: textColor, border: "1px solid rgba(255,255,255,0.35)" }}>
                                                         {searchText ? stage.opportunities.length : stage.opportunitiesCount}
                                                     </span>
+                                                    </div>
                                                 </div>
                                                 <Tooltip title="Opções da etapa">
                                                     <IconButton size="small" onClick={(e) => handleOpenStageMenu(e, stage)} style={{ color: textColor }}>
@@ -1214,11 +1294,17 @@ const PipelineBoard = () => {
                                             )}
                                         </div>
                                     </Box>
-                                )}
-                            </Droppable>
-                        );
-                    })}
-                </Box>
+                                                    )}
+                                                </Droppable>
+                                            </div>
+                                        )}
+                                    </Draggable>
+                                );
+                            })}
+                            {stageDropProvided.placeholder}
+                        </Box>
+                    )}
+                </Droppable>
             </DragDropContext>
 
             {/* Menu de opções da etapa */}
