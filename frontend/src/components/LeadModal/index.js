@@ -297,6 +297,65 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
           <form onSubmit={handleSubmit} id="lead-form">
             <Grid container spacing={2}>
               {/* Row 1 */}
+              <Grid item xs={12} md={4}>
+                <TextField
+                  select
+                  label="Status"
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  {LEAD_STATUS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  select
+                  label="Funil de Vendas"
+                  name="pipelineId"
+                  value={form.pipelineId}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                >
+                  <MenuItem value="">Não vincular</MenuItem>
+                  {pipelines.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  select
+                  label="Estágio Funil"
+                  name="stageId"
+                  value={form.stageId}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  disabled={!form.pipelineId}
+                >
+                  <MenuItem value="">Selecione...</MenuItem>
+                  {stages.map((st) => (
+                    <MenuItem key={st.id} value={st.id}>
+                      {st.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              {/* Row 2 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Nome Contato"
@@ -321,7 +380,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                 />
               </Grid>
 
-              {/* Row 2 */}
+              {/* Row 3 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Nome decisor"
@@ -346,7 +405,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                 />
               </Grid>
 
-              {/* Row 3 */}
+              {/* Row 4 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Telefone Celular"
@@ -626,65 +685,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Status"
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                >
-                  {LEAD_STATUS.map((status) => (
-                    <MenuItem key={status.value} value={status.value}>
-                      {status.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
 
-              {/* Row 8 */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Funil de Vendas"
-                  name="pipelineId"
-                  value={form.pipelineId}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                >
-                  <MenuItem value="">Não vincular</MenuItem>
-                  {pipelines.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>
-                      {p.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Estágio Funil"
-                  name="stageId"
-                  value={form.stageId}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                  disabled={!form.pipelineId}
-                >
-                  <MenuItem value="">Selecione...</MenuItem>
-                  {stages.map((st) => (
-                    <MenuItem key={st.id} value={st.id}>
-                      {st.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
 
               {/* Row 9 */}
               <Grid item xs={12} sm={6}>
