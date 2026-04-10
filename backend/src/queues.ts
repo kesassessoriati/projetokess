@@ -592,7 +592,7 @@ async function handleVerifyCampaigns(job) {
 
 async function getCampaign(id, companyId) {
   return await Campaign.findOne({
-    where: { id, companyId },
+    where: companyId ? { id, companyId } : { id },
     include: [
       {
         model: ContactList,

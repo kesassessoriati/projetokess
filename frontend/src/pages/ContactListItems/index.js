@@ -171,9 +171,16 @@ const ContactListItems = () => {
   useEffect(() => {
     if (!isConnected || !user?.companyId) return;
     const companyId = user.companyId;
+    const currentContactListId = Number(contactListId);
 
     const onCompanyContactLists = (data) => {
+      const recordContactListId = Number(data?.record?.contactListId);
+      const records = Array.isArray(data?.records)
+        ? data.records.filter(item => Number(item?.contactListId) === currentContactListId)
+        : [];
+
       if (data.action === "update" || data.action === "create") {
+        if (recordContactListId !== currentContactListId) return;
         dispatch({ type: "UPDATE_CONTACTS", payload: data.record });
       }
 
@@ -182,7 +189,7 @@ const ContactListItems = () => {
       }
 
       if (data.action === "reload") {
-        dispatch({ type: "LOAD_CONTACTS", payload: data.records });
+        dispatch({ type: "LOAD_CONTACTS", payload: records });
       }
     }
     const cleanup = on(`company-${companyId}-ContactListItem`, onCompanyContactLists);
@@ -191,6 +198,11 @@ const ContactListItems = () => {
       cleanup();
     };
   }, [isConnected, on, user?.companyId, contactListId]);
+
+  const handleContactSaved = contactRecord => {
+    if (Number(contactRecord?.contactListId) !== Number(contactListId)) return;
+    dispatch({ type: "UPDATE_CONTACTS", payload: contactRecord });
+  };
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
@@ -260,6 +272,8 @@ const ContactListItems = () => {
         onClose={handleCloseContactListItemModal}
         aria-labelledby="form-dialog-title"
         contactId={selectedContactId}
+        contactListId={contactListId}
+        onSave={handleContactSaved}
       ></ContactListItemModal>
       <ConfirmationModal
         title={

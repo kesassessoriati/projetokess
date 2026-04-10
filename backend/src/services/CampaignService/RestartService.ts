@@ -7,6 +7,7 @@ export async function RestartService(id: number) {
 
   await campaignQueue.add("ProcessCampaign", {
     id: campaign.id,
+    companyId: campaign.companyId,
     delay: 3000
   });
 }
