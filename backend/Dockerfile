@@ -1,10 +1,15 @@
 # --- Estágio 1: Instalação de dependências ---
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
 
 # Instalar dependências de sistema
-RUN apk add --no-cache python3 make g++ git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
 COPY patches ./patches
@@ -13,7 +18,7 @@ COPY patches ./patches
 RUN npm install --legacy-peer-deps
 
 # --- Estágio 2: Build ---
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -24,22 +29,23 @@ COPY . .
 RUN npm run build
 
 # --- Estágio 3: Produção ---
-FROM node:20-alpine AS production
+FROM node:20-bookworm-slim AS production
 
 # Instalar dependências de runtime
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     chromium \
-    nss \
-    freetype \
-    harfbuzz \
+    libnss3 \
+    libfreetype6 \
+    libharfbuzz0b \
     ca-certificates \
-    ttf-freefont \
-    curl
+    fonts-freefont-ttf \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Configurar Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
