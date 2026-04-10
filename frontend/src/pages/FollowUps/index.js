@@ -242,6 +242,7 @@ const emptyStage = () => ({
   mediaUrl: "",
   mediaType: "",
   mediaCaption: "",
+  mediaId: null,
   buttons: [],
   isActive: true,
 });
@@ -252,7 +253,8 @@ const normalizeFollowUpStage = (stage = {}, order = 1) => ({
   order: stage.order ?? order,
   delayMinutes: Number(stage.delayMinutes) > 0 ? Number(stage.delayMinutes) : 60,
   // Media and interactive follow-up types are intentionally disabled for this release.
-  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
+  messageType: stage.messageType || "text",
+  mediaId: stage.mediaId || null,
   message: stage.message ?? stage.mediaCaption ?? "",
   mediaUrl: "",
   mediaType: "",
@@ -659,6 +661,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
   const handleSelectStageMedia = (media) => {
     if (mediaDriveStageIndex === null) return;
     updateStage(mediaDriveStageIndex, "mediaUrl", media.storagePath);
+    updateStage(mediaDriveStageIndex, "mediaId", media.id);
     updateStage(mediaDriveStageIndex, "mediaType", media.mediaType);
     toast.success("Mídia vinculada do Mídia Drive.");
     setMediaDriveStageIndex(null);
@@ -895,12 +898,16 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                 <FormControl variant="outlined" size="small" style={{ minWidth: 150 }}>
                   <InputLabel>Tipo</InputLabel>
                   <Select
-                    value={FOLLOW_UP_ALLOWED_MESSAGE_TYPE}
+                    value={stage.messageType || "text"}
                     onChange={(e) => updateStage(idx, "messageType", e.target.value)}
                     label="Tipo"
-                    disabled
                   >
                     <MenuItem value="text">Texto</MenuItem>
+                    <MenuItem value="media">Mídia/Mixed</MenuItem>
+                    <MenuItem value="image">Imagem</MenuItem>
+                    <MenuItem value="video">Vídeo</MenuItem>
+                    <MenuItem value="audio">Áudio</MenuItem>
+                    <MenuItem value="document">Documento</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -931,20 +938,10 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                 />
               )}
 
-              {["image", "video", "audio", "document"].includes(stage.messageType) && (
+              {["media", "mixed", "image", "video", "audio", "document"].includes(stage.messageType) && (
                 <Box mt={2} mb={2} p={2} border="1px dashed #ccc" borderRadius={4}>
                   <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Anexo de Mídia</Typography>
                   <Box display="flex" gap={2} alignItems="center">
-                    <input 
-                      type="file" 
-                      accept={
-                        stage.messageType === "image" ? "image/*" : 
-                        stage.messageType === "video" ? "video/*" : 
-                        stage.messageType === "audio" ? "audio/*" : 
-                        "*"
-                      }
-                      onChange={(e) => handleUpload(e, idx, stage.messageType)} 
-                    />
                     <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
                       Selecionar do Mídia Drive
                     </Button>

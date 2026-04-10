@@ -57,6 +57,10 @@ class FollowUpStage extends Model<FollowUpStage> {
   @Column(DataType.TEXT)
   mediaCaption: string;
 
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  mediaId: number;
+
   @Default(true)
   @Column
   isActive: boolean;
