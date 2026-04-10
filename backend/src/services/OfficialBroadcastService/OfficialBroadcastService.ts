@@ -637,8 +637,72 @@ export const createOfficialTemplate = async (
 
   try {
     const response = await client.post(`${connection.coexistenceWabaId}/message_templates`, payload);
-    await syncOfficialTemplates(companyId, whatsappId);
-    return response.data;
+    let syncedTemplates: OfficialTemplate[] = [];
+
+    try {
+      syncedTemplates = await syncOfficialTemplates(companyId, whatsappId);
+    } catch (_error) {
+      syncedTemplates = [];
+    }
+
+    const responseData = response.data || {};
+    const templateId = responseData?.id ? String(responseData.id) : null;
+    const templateName = String(payload?.name || "").trim();
+    const templateLanguage = String(payload?.language || "").trim();
+
+    let persistedTemplate =
+      syncedTemplates.find(item => templateId && String(item.externalTemplateId) === templateId) ||
+      syncedTemplates.find(
+        item =>
+          templateName &&
+          templateLanguage &&
+          String(item.name || "").trim() === templateName &&
+          String(item.language || "").trim() === templateLanguage
+      ) ||
+      null;
+
+    if (!persistedTemplate) {
+      const fallbackPayload = {
+        companyId,
+        whatsappId,
+        externalTemplateId: templateId || `${templateName}:${templateLanguage || "pending"}`,
+        name: templateName || `template_${Date.now()}`,
+        language: templateLanguage || "pt_BR",
+        category: payload?.category || responseData?.category || null,
+        status: String(responseData?.status || "PENDING"),
+        qualityScore:
+          responseData?.quality_score?.score ||
+          responseData?.quality_score ||
+          responseData?.quality_rating ||
+          null,
+        components: Array.isArray(payload?.components) ? payload.components : [],
+        raw: {
+          requestPayload: payload,
+          createResponse: responseData
+        },
+        lastSyncedAt: new Date()
+      };
+
+      persistedTemplate =
+        (await OfficialTemplate.findOne({
+          where: {
+            companyId,
+            whatsappId,
+            externalTemplateId: fallbackPayload.externalTemplateId
+          }
+        })) || null;
+
+      if (persistedTemplate) {
+        await persistedTemplate.update(fallbackPayload);
+      } else {
+        persistedTemplate = await OfficialTemplate.create(fallbackPayload);
+      }
+    }
+
+    return {
+      meta: responseData,
+      template: persistedTemplate
+    };
   } catch (error) {
     throw new AppError(`Falha ao criar template oficial: ${extractGraphError(error)}`, 400);
   }

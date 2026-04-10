@@ -255,6 +255,21 @@ const useStyles = makeStyles(() => ({
     minWidth: 260,
     backgroundColor: "#fff",
     borderRadius: 12
+  },
+  builderButtonCard: {
+    padding: 14,
+    borderRadius: 16,
+    border: "1px solid #e2ece4",
+    backgroundColor: "#f9fcfa",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10
+  },
+  statusRow: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center"
   }
 }));
 
@@ -267,8 +282,40 @@ const STATUS_COLOR = {
   FAILED: "secondary",
   CANCELLED: "default",
   APPROVED: "primary",
-  REJECTED: "secondary"
+  "ACTIVE - QUALITY_PENDING": "primary",
+  IN_APPEAL: "primary",
+  PENDING: "default",
+  PENDING_APPROVAL: "default",
+  IN_REVIEW: "default",
+  SUBMITTED: "default",
+  REJECTED: "secondary",
+  DISABLED: "secondary"
 };
+
+const APPROVED_TEMPLATE_STATUSES = new Set(["APPROVED", "ACTIVE - QUALITY_PENDING", "IN_APPEAL"]);
+const REJECTED_TEMPLATE_STATUSES = new Set(["REJECTED", "PAUSED", "DISABLED"]);
+const CATEGORY_OPTIONS = [
+  { value: "MARKETING", label: "Marketing" },
+  { value: "UTILITY", label: "Utility" },
+  { value: "AUTHENTICATION", label: "Authentication" }
+];
+const LANGUAGE_OPTIONS = [
+  { value: "pt_BR", label: "Portugues (Brasil)" },
+  { value: "en_US", label: "English (US)" },
+  { value: "es_ES", label: "Espanol (Espanha)" }
+];
+const HEADER_TYPE_OPTIONS = [
+  { value: "NONE", label: "Sem cabecalho" },
+  { value: "TEXT", label: "Texto" },
+  { value: "IMAGE", label: "Imagem" },
+  { value: "VIDEO", label: "Video" },
+  { value: "DOCUMENT", label: "Documento" }
+];
+const BUTTON_TYPE_OPTIONS = [
+  { value: "QUICK_REPLY", label: "Resposta rapida" },
+  { value: "URL", label: "Abrir site" },
+  { value: "PHONE_NUMBER", label: "Ligar" }
+];
 
 const defaultTemplatePayload = `{
   "name": "promo_abril_2026",
@@ -299,6 +346,29 @@ const createEmptyCampaignForm = () => ({
   advancedComponentsText: ""
 });
 
+const createEmptyTemplateBuilderForm = () => ({
+  name: "",
+  language: "pt_BR",
+  category: "MARKETING",
+  allowCategoryChange: true,
+  headerType: "NONE",
+  headerText: "",
+  headerExample: "",
+  headerMediaHandle: "",
+  bodyText: "",
+  bodyExamples: {},
+  footerText: "",
+  buttons: []
+});
+
+const createEmptyBuilderButton = type => ({
+  type: type || "QUICK_REPLY",
+  text: "",
+  url: "",
+  urlExample: "",
+  phoneNumber: ""
+});
+
 const formatDateTime = value => {
   if (!value) return "Sem data";
   const date = new Date(value);
@@ -312,14 +382,62 @@ const formatDateTime = value => {
   }).format(date);
 };
 
+const countIndexedPlaceholders = value => {
+  if (!value) return 0;
+  return (String(value).match(/\{\{\d+\}\}/g) || []).length;
+};
+
+const sanitizeTemplateName = value =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const isApprovedTemplateStatus = status => APPROVED_TEMPLATE_STATUSES.has(String(status || "").toUpperCase());
+const isRejectedTemplateStatus = status => REJECTED_TEMPLATE_STATUSES.has(String(status || "").toUpperCase());
+const isPendingTemplateStatus = status => {
+  if (!status) return true;
+  return !isApprovedTemplateStatus(status) && !isRejectedTemplateStatus(status);
+};
+
+const getTemplateStatusLabel = status => {
+  const normalized = String(status || "PENDING").toUpperCase();
+
+  switch (normalized) {
+    case "APPROVED":
+      return "Aprovado";
+    case "ACTIVE - QUALITY_PENDING":
+      return "Aprovado - qualidade pendente";
+    case "IN_APPEAL":
+      return "Em recurso";
+    case "PENDING":
+    case "PENDING_APPROVAL":
+    case "SUBMITTED":
+      return "Aguardando aprovacao";
+    case "IN_REVIEW":
+      return "Em analise pela Meta";
+    case "REJECTED":
+      return "Rejeitado";
+    case "DISABLED":
+      return "Desativado";
+    case "PAUSED":
+      return "Pausado";
+    default:
+      return normalized.replace(/_/g, " ");
+  }
+};
+
 const getTemplateSchema = template => {
   const components = Array.isArray(template?.components) ? template.components : [];
   const header = components.find(item => String(item?.type || "").toUpperCase() === "HEADER") || null;
   const body = components.find(item => String(item?.type || "").toUpperCase() === "BODY") || null;
   const buttonsContainer = components.find(item => String(item?.type || "").toUpperCase() === "BUTTONS") || null;
   const headerFormat = String(header?.format || "").toUpperCase();
-  const headerPlaceholders = headerFormat === "TEXT" ? (header?.text?.match(/\{\{\d+\}\}/g) || []).length : 0;
-  const bodyPlaceholders = body?.text ? (body.text.match(/\{\{\d+\}\}/g) || []).length : 0;
+  const headerPlaceholders = headerFormat === "TEXT" ? countIndexedPlaceholders(header?.text) : 0;
+  const bodyPlaceholders = countIndexedPlaceholders(body?.text);
   const buttonFields = Array.isArray(buttonsContainer?.buttons)
     ? buttonsContainer.buttons
         .map((button, index) => ({
@@ -339,6 +457,191 @@ const getTemplateSchema = template => {
   };
 };
 
+const describeTemplateComponents = template => {
+  const components = Array.isArray(template?.components) ? template.components : [];
+  const summary = [];
+
+  components.forEach(component => {
+    const type = String(component?.type || "").toUpperCase();
+
+    if (type === "HEADER") {
+      summary.push(`Cabecalho ${String(component?.format || "TEXT").toLowerCase()}`);
+    }
+
+    if (type === "BODY") {
+      summary.push(`Corpo ${countIndexedPlaceholders(component?.text)} vars`);
+    }
+
+    if (type === "FOOTER") {
+      summary.push("Rodape");
+    }
+
+    if (type === "BUTTONS") {
+      summary.push(`${Array.isArray(component?.buttons) ? component.buttons.length : 0} botoes`);
+    }
+  });
+
+  return summary.length ? summary.join(" • ") : "Sem componentes detalhados";
+};
+
+const replacePlaceholders = (value, resolver) =>
+  String(value || "").replace(/\{\{(\d+)\}\}/g, (_, token) => resolver(Number(token)));
+
+const buildTemplatePayloadFromBuilder = form => {
+  const payload = {
+    name: sanitizeTemplateName(form.name),
+    language: form.language,
+    category: form.category,
+    allow_category_change: Boolean(form.allowCategoryChange),
+    components: []
+  };
+
+  if (form.headerType === "TEXT" && form.headerText.trim()) {
+    const headerComponent = {
+      type: "HEADER",
+      format: "TEXT",
+      text: form.headerText.trim()
+    };
+
+    if (countIndexedPlaceholders(form.headerText) > 0 && form.headerExample.trim()) {
+      headerComponent.example = {
+        header_text: [form.headerExample.trim()]
+      };
+    }
+
+    payload.components.push(headerComponent);
+  }
+
+  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(form.headerType)) {
+    const headerComponent = {
+      type: "HEADER",
+      format: form.headerType
+    };
+
+    if (form.headerMediaHandle.trim()) {
+      headerComponent.example = {
+        header_handle: [form.headerMediaHandle.trim()]
+      };
+    }
+
+    payload.components.push(headerComponent);
+  }
+
+  const bodyComponent = {
+    type: "BODY",
+    text: String(form.bodyText || "").trim()
+  };
+
+  if (countIndexedPlaceholders(form.bodyText) > 0) {
+    bodyComponent.example = {
+      body_text: [
+        Array.from({ length: countIndexedPlaceholders(form.bodyText) }).map((_, index) =>
+          String(form.bodyExamples?.[String(index + 1)] || `exemplo_${index + 1}`).trim()
+        )
+      ]
+    };
+  }
+
+  payload.components.push(bodyComponent);
+
+  if (String(form.footerText || "").trim()) {
+    payload.components.push({
+      type: "FOOTER",
+      text: form.footerText.trim()
+    });
+  }
+
+  if (form.buttons.length > 0) {
+    payload.components.push({
+      type: "BUTTONS",
+      buttons: form.buttons.map(button => {
+        const type = String(button.type || "").toUpperCase();
+
+        if (type === "URL") {
+          const buttonPayload = {
+            type: "URL",
+            text: String(button.text || "").trim(),
+            url: String(button.url || "").trim()
+          };
+
+          if (countIndexedPlaceholders(button.url) > 0 && String(button.urlExample || "").trim()) {
+            buttonPayload.example = [String(button.urlExample || "").trim()];
+          }
+
+          return buttonPayload;
+        }
+
+        if (type === "PHONE_NUMBER") {
+          return {
+            type: "PHONE_NUMBER",
+            text: String(button.text || "").trim(),
+            phone_number: String(button.phoneNumber || "").trim()
+          };
+        }
+
+        return {
+          type: "QUICK_REPLY",
+          text: String(button.text || "").trim()
+        };
+      })
+    });
+  }
+
+  return payload;
+};
+
+const validateTemplateBuilderForm = form => {
+  const normalizedName = sanitizeTemplateName(form.name);
+  const headerPlaceholders = form.headerType === "TEXT" ? countIndexedPlaceholders(form.headerText) : 0;
+  const bodyPlaceholders = countIndexedPlaceholders(form.bodyText);
+  const quickReplyCount = form.buttons.filter(button => button.type === "QUICK_REPLY").length;
+  const ctaButtons = form.buttons.filter(button => button.type !== "QUICK_REPLY");
+  const urlButtons = form.buttons.filter(button => button.type === "URL").length;
+  const phoneButtons = form.buttons.filter(button => button.type === "PHONE_NUMBER").length;
+
+  if (!normalizedName) return "Informe o nome interno do template.";
+  if (!String(form.bodyText || "").trim()) return "Informe o corpo do template.";
+  if (headerPlaceholders > 1) return "O cabecalho de texto aceita no maximo 1 variavel.";
+  if (bodyPlaceholders > 13) return "O corpo aceita no maximo 13 variaveis.";
+  if (form.headerType === "TEXT" && !String(form.headerText || "").trim()) return "Preencha o texto do cabecalho.";
+  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(form.headerType) && !String(form.headerMediaHandle || "").trim()) {
+    return "Informe o media handle de exemplo para o cabecalho de midia.";
+  }
+  if (headerPlaceholders > 0 && !String(form.headerExample || "").trim()) {
+    return "Preencha o exemplo do cabecalho para ajudar na aprovacao.";
+  }
+
+  for (let index = 1; index <= bodyPlaceholders; index += 1) {
+    if (!String(form.bodyExamples?.[String(index)] || "").trim()) {
+      return `Preencha o exemplo do corpo {{${index}}}.`;
+    }
+  }
+
+  if (String(form.footerText || "").match(/\{\{\d+\}\}/)) return "O rodape nao pode ter variaveis.";
+  if (quickReplyCount > 0 && ctaButtons.length > 0) return "Nao misture respostas rapidas com botoes CTA.";
+  if (quickReplyCount > 3) return "Voce pode usar no maximo 3 respostas rapidas.";
+  if (ctaButtons.length > 2) return "Voce pode usar no maximo 2 botoes CTA.";
+  if (urlButtons > 2) return "Voce pode usar no maximo 2 botoes de URL.";
+  if (phoneButtons > 1) return "Voce pode usar no maximo 1 botao de telefone.";
+
+  for (const button of form.buttons) {
+    if (!String(button.text || "").trim()) return "Preencha o texto de todos os botoes.";
+    if (button.type === "URL") {
+      if (!String(button.url || "").trim()) return "Preencha a URL do botao.";
+      if (countIndexedPlaceholders(button.url) > 1) return "Cada botao de URL pode ter no maximo 1 variavel.";
+      if (countIndexedPlaceholders(button.url) === 1 && !String(button.urlExample || "").trim()) {
+        return "Preencha o exemplo da URL dinamica.";
+      }
+    }
+
+    if (button.type === "PHONE_NUMBER" && !String(button.phoneNumber || "").trim()) {
+      return "Preencha o telefone do botao CTA.";
+    }
+  }
+
+  return null;
+};
+
 const OfficialBroadcastPanel = () => {
   const classes = useStyles();
   const [loading, setLoading] = useState(true);
@@ -354,6 +657,8 @@ const OfficialBroadcastPanel = () => {
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
   const [campaignDetailsOpen, setCampaignDetailsOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templateBuilderModalOpen, setTemplateBuilderModalOpen] = useState(false);
+  const [templateBuilderSubmitting, setTemplateBuilderSubmitting] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [campaignDetails, setCampaignDetails] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -361,6 +666,7 @@ const OfficialBroadcastPanel = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [templatePayloadText, setTemplatePayloadText] = useState(defaultTemplatePayload);
   const [campaignForm, setCampaignForm] = useState(createEmptyCampaignForm());
+  const [templateBuilderForm, setTemplateBuilderForm] = useState(createEmptyTemplateBuilderForm());
 
   const selectedTemplate = useMemo(
     () => templates.find(item => Number(item.id) === Number(campaignForm.officialTemplateId)) || null,
@@ -372,9 +678,44 @@ const OfficialBroadcastPanel = () => {
     [selectedTemplate]
   );
 
+  const selectedConnection = useMemo(
+    () => connections.find(item => Number(item.id) === Number(selectedWhatsappId)) || null,
+    [connections, selectedWhatsappId]
+  );
+
   const activeCampaigns = useMemo(
     () => campaigns.filter(item => ["RUNNING", "PAUSED", "SCHEDULED"].includes(item.status)),
     [campaigns]
+  );
+
+  const pendingTemplates = useMemo(
+    () => templates.filter(item => isPendingTemplateStatus(item.status)),
+    [templates]
+  );
+
+  const approvedTemplates = useMemo(
+    () => templates.filter(item => isApprovedTemplateStatus(item.status)),
+    [templates]
+  );
+
+  const rejectedTemplates = useMemo(
+    () => templates.filter(item => isRejectedTemplateStatus(item.status)),
+    [templates]
+  );
+
+  const builderPayload = useMemo(
+    () => buildTemplatePayloadFromBuilder(templateBuilderForm),
+    [templateBuilderForm]
+  );
+
+  const builderHeaderPlaceholderCount = useMemo(
+    () => (templateBuilderForm.headerType === "TEXT" ? countIndexedPlaceholders(templateBuilderForm.headerText) : 0),
+    [templateBuilderForm.headerType, templateBuilderForm.headerText]
+  );
+
+  const builderBodyPlaceholderCount = useMemo(
+    () => countIndexedPlaceholders(templateBuilderForm.bodyText),
+    [templateBuilderForm.bodyText]
   );
 
   const loadConnections = async () => {
@@ -455,6 +796,12 @@ const OfficialBroadcastPanel = () => {
     setCampaignModalOpen(false);
   };
 
+  const resetTemplateBuilderDialog = () => {
+    setTemplateBuilderForm(createEmptyTemplateBuilderForm());
+    setTemplateBuilderModalOpen(false);
+    setTemplateBuilderSubmitting(false);
+  };
+
   const openCreateCampaign = () => {
     setEditingCampaign(null);
     setCampaignForm(createEmptyCampaignForm());
@@ -500,6 +847,51 @@ const OfficialBroadcastPanel = () => {
           [key]: value
         }
       }
+    }));
+  };
+
+  const handleTemplateBuilderField = (field, value) => {
+    setTemplateBuilderForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleTemplateBuilderBodyExample = (key, value) => {
+    setTemplateBuilderForm(prev => ({
+      ...prev,
+      bodyExamples: {
+        ...(prev.bodyExamples || {}),
+        [key]: value
+      }
+    }));
+  };
+
+  const handleTemplateButtonField = (index, field, value) => {
+    setTemplateBuilderForm(prev => ({
+      ...prev,
+      buttons: prev.buttons.map((button, buttonIndex) =>
+        buttonIndex === index
+          ? {
+              ...button,
+              [field]: value
+            }
+          : button
+      )
+    }));
+  };
+
+  const handleAddBuilderButton = type => {
+    setTemplateBuilderForm(prev => ({
+      ...prev,
+      buttons: [...prev.buttons, createEmptyBuilderButton(type)]
+    }));
+  };
+
+  const handleRemoveBuilderButton = index => {
+    setTemplateBuilderForm(prev => ({
+      ...prev,
+      buttons: prev.buttons.filter((_, buttonIndex) => buttonIndex !== index)
     }));
   };
 
@@ -599,6 +991,11 @@ const OfficialBroadcastPanel = () => {
     setTemplateModalOpen(true);
   };
 
+  const openTemplateBuilder = () => {
+    setTemplateBuilderForm(createEmptyTemplateBuilderForm());
+    setTemplateBuilderModalOpen(true);
+  };
+
   const openEditTemplate = template => {
     setEditingTemplate(template);
     setTemplatePayloadText(JSON.stringify(template.raw || {}, null, 2));
@@ -624,6 +1021,28 @@ const OfficialBroadcastPanel = () => {
       await loadPanelData(selectedWhatsappId);
     } catch (error) {
       toastError(error);
+    }
+  };
+
+  const handleSubmitBuilderTemplate = async () => {
+    try {
+      const validationError = validateTemplateBuilderForm(templateBuilderForm);
+
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
+      setTemplateBuilderSubmitting(true);
+      await api.post(`/official-dispatch/connections/${selectedWhatsappId}/templates`, builderPayload);
+      toast.success("Template oficial enviado para aprovacao da Meta.");
+      setSectionTab(1);
+      resetTemplateBuilderDialog();
+      await loadPanelData(selectedWhatsappId);
+    } catch (error) {
+      toastError(error);
+    } finally {
+      setTemplateBuilderSubmitting(false);
     }
   };
 
@@ -743,6 +1162,7 @@ const OfficialBroadcastPanel = () => {
           <Tab className={classes.sectionTab} label="Campanhas oficiais" />
           <Tab className={classes.sectionTab} label="Templates oficiais" />
           <Tab className={classes.sectionTab} label="Verificação e API" />
+          <Tab className={classes.sectionTab} label="Criar template" />
         </Tabs>
       </Box>
 
@@ -826,9 +1246,14 @@ const OfficialBroadcastPanel = () => {
               label="Buscar template"
               className={classes.searchField}
             />
-            <Button variant="outlined" startIcon={<DescriptionIcon />} className={classes.actionButton} onClick={openCreateTemplate}>
-              Novo template via JSON
-            </Button>
+            <Box className={classes.panelActions}>
+              <Button variant="outlined" startIcon={<AddIcon />} className={classes.actionButton} onClick={openTemplateBuilder}>
+                Criar no builder
+              </Button>
+              <Button variant="outlined" startIcon={<DescriptionIcon />} className={classes.actionButton} onClick={openCreateTemplate}>
+                Novo template via JSON
+              </Button>
+            </Box>
           </Box>
 
           {!templates.length ? (
@@ -851,16 +1276,23 @@ const OfficialBroadcastPanel = () => {
                         {template.language} • {template.category || "Sem categoria"}
                       </Typography>
                     </Box>
-                    <Chip size="small" label={template.status || "Sem status"} color={STATUS_COLOR[template.status] || "default"} />
+                    <Chip
+                      size="small"
+                      label={getTemplateStatusLabel(template.status)}
+                      color={STATUS_COLOR[template.status] || "default"}
+                    />
                   </Box>
 
-                  <Box className={classes.templateMeta}>
+                  <Box className={classes.statusRow}>
                     <Chip size="small" icon={<FlashOnIcon />} label={`Qualidade: ${template.qualityScore || "n/d"}`} />
                     <Chip size="small" icon={<SettingsEthernetIcon />} label={`ID: ${template.externalTemplateId}`} />
+                    {isPendingTemplateStatus(template.status) && (
+                      <Chip size="small" label="Fila da Meta" variant="outlined" />
+                    )}
                   </Box>
 
                   <Typography variant="body2" color="textSecondary">
-                    {Array.isArray(template.components) ? `${template.components.length} componentes sincronizados` : "Sem componentes"}
+                    {describeTemplateComponents(template)}
                   </Typography>
 
                   <Box style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -918,6 +1350,105 @@ const OfficialBroadcastPanel = () => {
             <Typography variant="h6" gutterBottom>Apps inscritas na WABA</Typography>
             <Box className={classes.codeBox}>{JSON.stringify(verification?.subscribedApps || {}, null, 2)}</Box>
           </Paper>
+        </Box>
+      )}
+
+      {sectionTab === 3 && (
+        <Box className={classes.sectionPanel}>
+          <Paper className={classes.panelCard} elevation={0}>
+            <Box className={classes.panelHeader}>
+              <Box style={{ maxWidth: 760 }}>
+                <Typography variant="h6" gutterBottom>
+                  Builder de templates para aprovacao da Meta
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Monte o template no proprio modulo da API oficial, envie direto para o endpoint oficial da Meta
+                  e acompanhe o status pendente ou em analise dentro da biblioteca sincronizada.
+                </Typography>
+              </Box>
+
+              <Button startIcon={<AddIcon />} className={`${classes.actionButton} ${classes.primaryButton}`} onClick={openTemplateBuilder}>
+                Novo template
+              </Button>
+            </Box>
+
+            <Box className={classes.cardGrid} style={{ marginTop: 18 }}>
+              <Paper className={classes.statCard} elevation={0}>
+                <Typography className={classes.statLabel}>Conexao ativa</Typography>
+                <Typography className={classes.statValue} style={{ fontSize: "1.2rem" }}>
+                  {selectedConnection?.name || "-"}
+                </Typography>
+                <Typography className={classes.statFootnote}>Canal usado para envio e sincronizacao dos templates.</Typography>
+              </Paper>
+              <Paper className={classes.statCard} elevation={0}>
+                <Typography className={classes.statLabel}>Aguardando Meta</Typography>
+                <Typography className={classes.statValue}>{pendingTemplates.length}</Typography>
+                <Typography className={classes.statFootnote}>Templates enviados e ainda em fila ou revisao.</Typography>
+              </Paper>
+              <Paper className={classes.statCard} elevation={0}>
+                <Typography className={classes.statLabel}>Aprovados</Typography>
+                <Typography className={classes.statValue}>{approvedTemplates.length}</Typography>
+                <Typography className={classes.statFootnote}>Prontos para uso em campanhas oficiais.</Typography>
+              </Paper>
+              <Paper className={classes.statCard} elevation={0}>
+                <Typography className={classes.statLabel}>Rejeitados / pausados</Typography>
+                <Typography className={classes.statValue}>{rejectedTemplates.length}</Typography>
+                <Typography className={classes.statFootnote}>Revise a copia antes de reenviar.</Typography>
+              </Paper>
+            </Box>
+          </Paper>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={7}>
+              <Paper className={classes.panelCard} elevation={0}>
+                <Typography variant="h6" gutterBottom>Como funciona</Typography>
+                <Box component="ul" style={{ margin: 0, paddingLeft: 18, color: "#4b5563", display: "grid", gap: 8 }}>
+                  <li>Defina nome interno, idioma e categoria.</li>
+                  <li>Monte cabecalho, corpo, rodape e botoes em um fluxo guiado.</li>
+                  <li>Preencha exemplos das variaveis para facilitar a revisao da Meta.</li>
+                  <li>Depois do envio, o template aparece na aba de templates com status de aprovacao.</li>
+                </Box>
+
+                <Divider style={{ margin: "18px 0" }} />
+                <Typography variant="h6" gutterBottom>Boas praticas</Typography>
+                <Box component="ul" style={{ margin: 0, paddingLeft: 18, color: "#4b5563", display: "grid", gap: 8 }}>
+                  <li>Use nome em minusculo com underscore, por exemplo: cobranca_vencimento.</li>
+                  <li>Cabecalho de texto aceita no maximo 1 variavel e o corpo aceita ate 13.</li>
+                  <li>O rodape nao deve ter variaveis.</li>
+                  <li>Nao misture respostas rapidas com botoes CTA.</li>
+                </Box>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper className={classes.panelCard} elevation={0}>
+                <Typography variant="h6" gutterBottom>Fila recente</Typography>
+                {!pendingTemplates.length ? (
+                  <Box className={classes.emptyState} style={{ padding: 20 }}>
+                    Nenhum template aguardando aprovacao nesta conexao.
+                  </Box>
+                ) : (
+                  pendingTemplates.slice(0, 5).map(template => (
+                    <Box key={template.id} className={classes.detailItem}>
+                      <Box style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                        <Box>
+                          <Typography style={{ fontWeight: 800 }}>{template.name}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {template.language} • {template.category || "Sem categoria"}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={getTemplateStatusLabel(template.status)}
+                          color={STATUS_COLOR[template.status] || "default"}
+                        />
+                      </Box>
+                    </Box>
+                  ))
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
         </Box>
       )}
 
@@ -993,6 +1524,183 @@ const OfficialBroadcastPanel = () => {
         <DialogActions>
           <Button onClick={() => setTemplateModalOpen(false)} className={classes.actionButton}>Fechar</Button>
           <Button onClick={handleSaveTemplate} className={`${classes.actionButton} ${classes.primaryButton}`}>Salvar template</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={templateBuilderModalOpen} onClose={resetTemplateBuilderDialog} maxWidth="lg" fullWidth classes={{ paper: classes.dialogPaper }}>
+        <DialogTitle>Criar template e enviar para aprovacao da Meta</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={7}>
+              <Box className={classes.sectionPanel}>
+                <Box>
+                  <Typography className={classes.dialogSectionTitle}>Identificacao</Typography>
+                  <Box className={classes.fieldGrid}>
+                    <TextField label="Nome interno" variant="outlined" size="small" value={templateBuilderForm.name} onChange={event => handleTemplateBuilderField("name", event.target.value)} onBlur={event => handleTemplateBuilderField("name", sanitizeTemplateName(event.target.value))} helperText="Use minusculo, numeros e underscore." />
+                    <TextField select label="Idioma" variant="outlined" size="small" value={templateBuilderForm.language} onChange={event => handleTemplateBuilderField("language", event.target.value)}>
+                      {LANGUAGE_OPTIONS.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Categoria" variant="outlined" size="small" value={templateBuilderForm.category} onChange={event => handleTemplateBuilderField("category", event.target.value)}>
+                      {CATEGORY_OPTIONS.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Permitir ajuste de categoria" variant="outlined" size="small" value={String(templateBuilderForm.allowCategoryChange)} onChange={event => handleTemplateBuilderField("allowCategoryChange", event.target.value === "true")}>
+                      <MenuItem value="true">Sim</MenuItem>
+                      <MenuItem value="false">Nao</MenuItem>
+                    </TextField>
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Typography className={classes.dialogSectionTitle}>Conteudo</Typography>
+                  <Box className={classes.fieldGrid}>
+                    <TextField select label="Tipo de cabecalho" variant="outlined" size="small" value={templateBuilderForm.headerType} onChange={event => handleTemplateBuilderField("headerType", event.target.value)}>
+                      {HEADER_TYPE_OPTIONS.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+                    </TextField>
+                    {templateBuilderForm.headerType === "TEXT" && (
+                      <TextField label="Texto do cabecalho" variant="outlined" size="small" value={templateBuilderForm.headerText} onChange={event => handleTemplateBuilderField("headerText", event.target.value)} helperText="No maximo 1 variavel." />
+                    )}
+                    {["IMAGE", "VIDEO", "DOCUMENT"].includes(templateBuilderForm.headerType) && (
+                      <TextField label="Media handle de exemplo" variant="outlined" size="small" value={templateBuilderForm.headerMediaHandle} onChange={event => handleTemplateBuilderField("headerMediaHandle", event.target.value)} helperText="Handle oficial usado pela Meta na revisao." />
+                    )}
+                  </Box>
+                  <Box style={{ marginTop: 12 }}>
+                    <TextField label="Corpo da mensagem" variant="outlined" fullWidth multiline minRows={5} value={templateBuilderForm.bodyText} onChange={event => handleTemplateBuilderField("bodyText", event.target.value)} helperText="Use variaveis como {{1}} e {{2}}." />
+                  </Box>
+                  <Box style={{ marginTop: 12 }}>
+                    <TextField label="Rodape" variant="outlined" fullWidth size="small" value={templateBuilderForm.footerText} onChange={event => handleTemplateBuilderField("footerText", event.target.value)} helperText="Opcional. Nao use variaveis no rodape." />
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Typography className={classes.dialogSectionTitle}>Exemplos para aprovacao</Typography>
+                  <Box className={classes.fieldGrid}>
+                    {builderHeaderPlaceholderCount > 0 && (
+                      <TextField label="Exemplo do cabecalho {{1}}" variant="outlined" size="small" value={templateBuilderForm.headerExample} onChange={event => handleTemplateBuilderField("headerExample", event.target.value)} />
+                    )}
+                    {Array.from({ length: builderBodyPlaceholderCount }).map((_, index) => (
+                      <TextField key={`body-example-${index + 1}`} label={`Exemplo do corpo {{${index + 1}}}`} variant="outlined" size="small" value={templateBuilderForm.bodyExamples?.[String(index + 1)] || ""} onChange={event => handleTemplateBuilderBodyExample(String(index + 1), event.target.value)} />
+                    ))}
+                    {!builderHeaderPlaceholderCount && !builderBodyPlaceholderCount && (
+                      <Box className={classes.emptyState} style={{ padding: 20, gridColumn: "1 / -1" }}>
+                        Adicione variaveis no cabecalho ou no corpo para liberar os exemplos.
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Box className={classes.panelHeader}>
+                    <Typography className={classes.dialogSectionTitle}>Botoes</Typography>
+                    <Box className={classes.panelActions}>
+                      <Button size="small" variant="outlined" className={classes.miniButton} onClick={() => handleAddBuilderButton("QUICK_REPLY")}>+ Resposta rapida</Button>
+                      <Button size="small" variant="outlined" className={classes.miniButton} onClick={() => handleAddBuilderButton("URL")}>+ URL</Button>
+                      <Button size="small" variant="outlined" className={classes.miniButton} onClick={() => handleAddBuilderButton("PHONE_NUMBER")}>+ Telefone</Button>
+                    </Box>
+                  </Box>
+
+                  {!templateBuilderForm.buttons.length ? (
+                    <Box className={classes.emptyState} style={{ padding: 20 }}>
+                      Nenhum botao configurado. Eles sao opcionais.
+                    </Box>
+                  ) : (
+                    <Box style={{ display: "grid", gap: 10 }}>
+                      {templateBuilderForm.buttons.map((button, index) => (
+                        <Box key={`builder-button-${index}`} className={classes.builderButtonCard}>
+                          <Box className={classes.fieldGrid}>
+                            <TextField select label={`Tipo do botao ${index + 1}`} variant="outlined" size="small" value={button.type} onChange={event => handleTemplateButtonField(index, "type", event.target.value)}>
+                              {BUTTON_TYPE_OPTIONS.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+                            </TextField>
+                            <TextField label="Texto do botao" variant="outlined" size="small" value={button.text} onChange={event => handleTemplateButtonField(index, "text", event.target.value)} />
+                            {button.type === "URL" && (
+                              <TextField label="URL" variant="outlined" size="small" value={button.url} onChange={event => handleTemplateButtonField(index, "url", event.target.value)} helperText="Pode usar no maximo 1 variavel." />
+                            )}
+                            {button.type === "URL" && countIndexedPlaceholders(button.url) > 0 && (
+                              <TextField label="Exemplo da URL dinamica" variant="outlined" size="small" value={button.urlExample} onChange={event => handleTemplateButtonField(index, "urlExample", event.target.value)} />
+                            )}
+                            {button.type === "PHONE_NUMBER" && (
+                              <TextField label="Numero do telefone" variant="outlined" size="small" value={button.phoneNumber} onChange={event => handleTemplateButtonField(index, "phoneNumber", event.target.value)} helperText="Ex.: +5511999999999" />
+                            )}
+                          </Box>
+                          <Box style={{ display: "flex", justifyContent: "flex-end" }}>
+                            <Button size="small" variant="outlined" className={classes.miniButton} onClick={() => handleRemoveBuilderButton(index)}>Remover botao</Button>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Box style={{ display: "grid", gap: 14 }}>
+                <Paper className={classes.panelCard} elevation={0}>
+                  <Typography className={classes.dialogSectionTitle}>Preview rapido</Typography>
+                  <Box style={{ borderRadius: 18, background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)", padding: 14 }}>
+                    <Box style={{ borderRadius: 16, backgroundColor: "#eef8f1", padding: 14 }}>
+                      <Box style={{ backgroundColor: "#fff", borderRadius: "16px 16px 16px 6px", padding: 14, boxShadow: "0 8px 18px rgba(15,23,42,0.08)" }}>
+                        {templateBuilderForm.headerType !== "NONE" && (
+                          <Typography style={{ fontWeight: 800, marginBottom: 8 }}>
+                            {templateBuilderForm.headerType === "TEXT"
+                              ? replacePlaceholders(templateBuilderForm.headerText, index => templateBuilderForm.headerExample || `valor ${index}`)
+                              : `${templateBuilderForm.headerType.toLowerCase()} de exemplo`}
+                          </Typography>
+                        )}
+                        <Typography style={{ whiteSpace: "pre-wrap", color: "#111827" }}>
+                          {replacePlaceholders(templateBuilderForm.bodyText, index => templateBuilderForm.bodyExamples?.[String(index)] || `valor ${index}`) || "Seu texto aparecera aqui..."}
+                        </Typography>
+                        {templateBuilderForm.footerText && (
+                          <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>
+                            {templateBuilderForm.footerText}
+                          </Typography>
+                        )}
+                        {!!templateBuilderForm.buttons.length && (
+                          <Box style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                            {templateBuilderForm.buttons.map((button, index) => (
+                              <Box key={`preview-${index}`} style={{ border: "1px solid #d8e7db", borderRadius: 12, padding: "10px 12px", backgroundColor: "#f7fbf8" }}>
+                                <Typography style={{ fontWeight: 700 }}>{button.text || `Botao ${index + 1}`}</Typography>
+                                {button.type === "URL" && button.url && (
+                                  <Typography variant="caption" color="textSecondary">
+                                    {replacePlaceholders(button.url, () => button.urlExample || "parametro")}
+                                  </Typography>
+                                )}
+                                {button.type === "PHONE_NUMBER" && button.phoneNumber && (
+                                  <Typography variant="caption" color="textSecondary">{button.phoneNumber}</Typography>
+                                )}
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
+                </Paper>
+
+                <Paper className={classes.panelCard} elevation={0}>
+                  <Typography className={classes.dialogSectionTitle}>Checklist</Typography>
+                  <Box className={classes.statusRow}>
+                    <Chip size="small" label={`${builderHeaderPlaceholderCount} vars no cabecalho`} />
+                    <Chip size="small" label={`${builderBodyPlaceholderCount} vars no corpo`} />
+                    <Chip size="small" label={`${templateBuilderForm.buttons.length} botoes`} />
+                  </Box>
+                  <Typography variant="body2" color="textSecondary" style={{ marginTop: 12 }}>
+                    Nome final: <strong>{sanitizeTemplateName(templateBuilderForm.name) || "sem_nome"}</strong>
+                  </Typography>
+                </Paper>
+
+                <Paper className={classes.panelCard} elevation={0}>
+                  <Typography className={classes.dialogSectionTitle}>Payload oficial</Typography>
+                  <Box className={classes.codeBox}>{JSON.stringify(builderPayload, null, 2)}</Box>
+                </Paper>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={resetTemplateBuilderDialog} className={classes.actionButton}>Fechar</Button>
+          <Button onClick={handleSubmitBuilderTemplate} disabled={templateBuilderSubmitting} className={`${classes.actionButton} ${classes.primaryButton}`}>
+            {templateBuilderSubmitting ? "Enviando..." : "Enviar para aprovacao"}
+          </Button>
         </DialogActions>
       </Dialog>
 
