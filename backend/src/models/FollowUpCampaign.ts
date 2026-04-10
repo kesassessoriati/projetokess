@@ -17,6 +17,8 @@ import Company from "./Company";
 import Whatsapp from "./Whatsapp";
 import FollowUpStage from "./FollowUpStage";
 import FollowUpBoard from "./FollowUpBoard";
+import Pipeline from "./Pipeline";
+import PipelineStage from "./PipelineStage";
 
 @Table({ tableName: "FollowUpCampaigns" })
 class FollowUpCampaign extends Model<FollowUpCampaign> {
@@ -57,6 +59,48 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
   @Column
   boardId: number;
 
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  description: string;
+
+  @Default("all")
+  @Column(DataType.STRING(30))
+  targetMode: string;
+
+  @Default([])
+  @Column(DataType.JSON)
+  tagIds: number[];
+
+  @AllowNull(true)
+  @ForeignKey(() => Pipeline)
+  @Column
+  pipelineId: number;
+
+  @AllowNull(true)
+  @ForeignKey(() => PipelineStage)
+  @Column
+  pipelineStageId: number;
+
+  @Default(false)
+  @Column
+  smartMode: boolean;
+
+  @Default(false)
+  @Column
+  aiEnabled: boolean;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  recoveryInstruction: string;
+
+  @Default([])
+  @Column(DataType.JSON)
+  successKeywords: string[];
+
+  @Default([])
+  @Column(DataType.JSON)
+  stopKeywords: string[];
+
   @CreatedAt
   createdAt: Date;
 
@@ -71,6 +115,12 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
 
   @BelongsTo(() => FollowUpBoard)
   board: FollowUpBoard;
+
+  @BelongsTo(() => Pipeline)
+  pipeline: Pipeline;
+
+  @BelongsTo(() => PipelineStage, { foreignKey: "pipelineStageId" })
+  pipelineStage: PipelineStage;
 
   @HasMany(() => FollowUpStage, { foreignKey: "followUpCampaignId" })
   stages: FollowUpStage[];

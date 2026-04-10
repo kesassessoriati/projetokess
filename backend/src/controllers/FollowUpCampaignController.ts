@@ -8,11 +8,16 @@ import FollowUpBoard from "../models/FollowUpBoard";
 import Whatsapp from "../models/Whatsapp";
 import { getWbot } from "../libs/wbot";
 import { sendFollowUpStageMessage } from "../services/FollowUpCampaignService/FollowUpStageSender";
+import {
+  DEFAULT_FOLLOW_UP_COLUMNS,
+  FOLLOW_UP_ALLOWED_TYPES,
+  FOLLOW_UP_STARTER_BOARDS,
+  FOLLOW_UP_TARGET_MODES
+} from "../services/FollowUpCampaignService/followUpDefaults";
 
-const DEFAULT_BOARD_NAME = "Quadro Principal";
-const DEFAULT_FUNNEL_NAME = "Geral";
-const DEFAULT_COLUMNS = ["Sem Categoria"];
-const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
+const DEFAULT_BOARD_NAME = FOLLOW_UP_STARTER_BOARDS[0].name;
+const DEFAULT_FUNNEL_NAME = FOLLOW_UP_STARTER_BOARDS[0].funnelName;
+const DEFAULT_COLUMNS = DEFAULT_FOLLOW_UP_COLUMNS;
 const FOLLOW_UP_TRIGGER_VALUE = "message_sent";
 
 const normalizeColumns = (columns: unknown): string[] => {
@@ -34,6 +39,20 @@ const serializeBoard = (board: FollowUpBoard) => ({
   columns: normalizeColumns(board.columns),
 });
 
+const serializeCampaign = (campaign: FollowUpCampaign) => {
+  const payload = campaign.toJSON() as Record<string, any>;
+  payload.tagIds = Array.isArray(payload.tagIds) ? payload.tagIds.map((value) => Number(value)).filter(Boolean) : [];
+  payload.successKeywords = Array.isArray(payload.successKeywords) ? payload.successKeywords : [];
+  payload.stopKeywords = Array.isArray(payload.stopKeywords) ? payload.stopKeywords : [];
+  payload.targetMode = payload.targetMode || FOLLOW_UP_TARGET_MODES.all;
+  payload.stages = Array.isArray(payload.stages)
+    ? payload.stages
+      .slice()
+      .sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+    : [];
+  return payload;
+};
+
 const buildStats = async (where: Record<string, unknown>) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -49,11 +68,86 @@ const buildStats = async (where: Record<string, unknown>) => {
   return { totalSent, sentToday, responded, responseRate };
 };
 
-const ensureDefaultBoard = async (companyId: number): Promise<FollowUpBoard> => {
-  let board = await FollowUpBoard.findOne({
+const normalizeIdArray = (values: any): number[] => {
+  const source = Array.isArray(values) ? values : [];
+  return source
+    .map((value) => Number(value))
+    .filter((value, index, array) => Number.isInteger(value) && value > 0 && array.indexOf(value) === index);
+};
+
+const normalizeKeywords = (values: any): string[] => {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, array) => array.indexOf(value) === index);
+};
+
+const normalizeFollowUpTargetMode = (value?: string | null) =>
+  Object.values(FOLLOW_UP_TARGET_MODES).includes(String(value || ""))
+    ? String(value)
+    : FOLLOW_UP_TARGET_MODES.all;
+
+const normalizeFollowUpMessageType = (value?: string | null) => {
+  const safeType = String(value || "text").trim().toLowerCase();
+  return FOLLOW_UP_ALLOWED_TYPES.includes(safeType) ? safeType : "text";
+};
+
+const seedStarterBoards = async (companyId: number) => {
+  const existingBoards = await FollowUpBoard.findAll({
     where: { companyId },
     order: [["createdAt", "ASC"]],
   });
+
+  if (!existingBoards.length) {
+    return Promise.all(
+      FOLLOW_UP_STARTER_BOARDS.map((board) =>
+        FollowUpBoard.create({
+          companyId,
+          name: board.name,
+          funnelName: board.funnelName,
+          columns: normalizeColumns(board.columns),
+        })
+      )
+    );
+  }
+
+  if (
+    existingBoards.length === 1 &&
+    existingBoards[0].name === "Quadro Principal" &&
+    existingBoards[0].funnelName === "Geral"
+  ) {
+    const campaignsCount = await FollowUpCampaign.count({ where: { companyId } });
+    if (!campaignsCount) {
+      await existingBoards[0].update({
+        name: FOLLOW_UP_STARTER_BOARDS[0].name,
+        funnelName: FOLLOW_UP_STARTER_BOARDS[0].funnelName,
+        columns: normalizeColumns(FOLLOW_UP_STARTER_BOARDS[0].columns),
+      });
+
+      const missingTemplates = FOLLOW_UP_STARTER_BOARDS.slice(1);
+      await Promise.all(
+        missingTemplates.map((board) =>
+          FollowUpBoard.create({
+            companyId,
+            name: board.name,
+            funnelName: board.funnelName,
+            columns: normalizeColumns(board.columns),
+          })
+        )
+      );
+    }
+  }
+
+  return FollowUpBoard.findAll({
+    where: { companyId },
+    order: [["createdAt", "ASC"]],
+  });
+};
+
+const ensureDefaultBoard = async (companyId: number): Promise<FollowUpBoard> => {
+  let boards = await seedStarterBoards(companyId);
+  let board = boards[0];
 
   const orphanCampaigns = await FollowUpCampaign.findAll({
     where: { companyId, boardId: null },
@@ -109,13 +203,15 @@ const normalizePhone = (value: string) => String(value || "").replace(/\D/g, "")
 const normalizeFollowUpStageInput = (stage: any, index: number) => ({
   order: Number(stage?.order) > 0 ? Number(stage.order) : index + 1,
   delayMinutes: Number(stage?.delayMinutes) > 0 ? Number(stage.delayMinutes) : 60,
-  // Media/buttons stay in the model for future reactivation, but the active flow is text-only for now.
-  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
+  title: String(stage?.title || "").trim() || `Etapa ${index + 1}`,
+  messageType: normalizeFollowUpMessageType(stage?.messageType),
   message: stage?.message ?? stage?.mediaCaption ?? "",
-  mediaUrl: null,
-  mediaType: null,
-  mediaCaption: null,
-  buttons: null,
+  mediaUrl: stage?.mediaUrl || null,
+  mediaType: stage?.mediaType || null,
+  mediaCaption: stage?.mediaCaption || null,
+  mediaId: stage?.mediaId ? Number(stage.mediaId) : null,
+  buttons: Array.isArray(stage?.buttons) ? stage.buttons : [],
+  useAiRewrite: Boolean(stage?.useAiRewrite),
   isActive: stage?.isActive !== undefined ? stage.isActive : true,
 });
 
@@ -168,7 +264,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     order: [["createdAt", "DESC"]],
   });
 
-  return res.json(campaigns);
+  return res.json(campaigns.map(serializeCampaign));
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -185,12 +281,30 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   });
 
   if (!campaign) return res.status(404).json({ error: "Not found" });
-  return res.json(campaign);
+  return res.json(serializeCampaign(campaign));
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { name, whatsappId, isActive, sourceType, stages, boardColumn, boardId } = req.body;
+  const {
+    name,
+    description,
+    whatsappId,
+    isActive,
+    sourceType,
+    stages,
+    boardColumn,
+    boardId,
+    targetMode,
+    tagIds,
+    pipelineId,
+    pipelineStageId,
+    smartMode,
+    aiEnabled,
+    recoveryInstruction,
+    successKeywords,
+    stopKeywords
+  } = req.body;
 
   try {
     const board = await getBoardById(companyId, boardId);
@@ -200,12 +314,22 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
     const campaign = await FollowUpCampaign.create({
       name,
+      description: String(description || "").trim() || null,
       companyId,
       whatsappId: whatsappId || null,
       isActive: isActive !== undefined ? isActive : true,
       sourceType: normalizeDeprecatedSourceType(sourceType),
       boardId: board.id,
       boardColumn: safeBoardColumn,
+      targetMode: normalizeFollowUpTargetMode(targetMode),
+      tagIds: normalizeIdArray(tagIds),
+      pipelineId: pipelineId ? Number(pipelineId) : null,
+      pipelineStageId: pipelineStageId ? Number(pipelineStageId) : null,
+      smartMode: Boolean(smartMode),
+      aiEnabled: Boolean(aiEnabled),
+      recoveryInstruction: String(recoveryInstruction || "").trim() || null,
+      successKeywords: normalizeKeywords(successKeywords),
+      stopKeywords: normalizeKeywords(stopKeywords),
     });
 
     if (normalizedStages.length) {
@@ -213,13 +337,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         normalizedStages.map((s) => ({
           followUpCampaignId: campaign.id,
           order: s.order,
+          title: s.title,
           delayMinutes: s.delayMinutes,
           messageType: s.messageType,
           message: s.message,
           mediaUrl: s.mediaUrl,
           mediaType: s.mediaType,
           mediaCaption: s.mediaCaption,
+          mediaId: s.mediaId,
           buttons: s.buttons,
+          useAiRewrite: s.useAiRewrite,
           isActive: s.isActive,
         }))
       );
@@ -233,7 +360,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       ],
     });
 
-    return res.status(201).json(created);
+    return res.status(201).json(serializeCampaign(created));
   } catch (error) {
     if (error.message === "BOARD_NOT_FOUND") {
       return res.status(404).json({ error: "Board not found" });
@@ -246,7 +373,25 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-  const { name, whatsappId, isActive, sourceType, stages, boardId, boardColumn } = req.body;
+  const {
+    name,
+    description,
+    whatsappId,
+    isActive,
+    sourceType,
+    stages,
+    boardId,
+    boardColumn,
+    targetMode,
+    tagIds,
+    pipelineId,
+    pipelineStageId,
+    smartMode,
+    aiEnabled,
+    recoveryInstruction,
+    successKeywords,
+    stopKeywords
+  } = req.body;
 
   const campaign = await FollowUpCampaign.findOne({ where: { id, companyId } });
   if (!campaign) return res.status(404).json({ error: "Not found" });
@@ -266,6 +411,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
     await campaign.update({
       name: name ?? campaign.name,
+      description: description !== undefined ? String(description || "").trim() || null : campaign.description,
       whatsappId: whatsappId !== undefined ? whatsappId : campaign.whatsappId,
       isActive: isActive !== undefined ? isActive : campaign.isActive,
       sourceType: sourceType !== undefined
@@ -273,6 +419,20 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         : campaign.sourceType,
       boardId: board.id,
       boardColumn: nextBoardColumn,
+      targetMode: targetMode !== undefined ? normalizeFollowUpTargetMode(targetMode) : campaign.targetMode,
+      tagIds: tagIds !== undefined ? normalizeIdArray(tagIds) : campaign.tagIds,
+      pipelineId: pipelineId !== undefined ? (pipelineId ? Number(pipelineId) : null) : campaign.pipelineId,
+      pipelineStageId: pipelineStageId !== undefined ? (pipelineStageId ? Number(pipelineStageId) : null) : campaign.pipelineStageId,
+      smartMode: smartMode !== undefined ? Boolean(smartMode) : campaign.smartMode,
+      aiEnabled: aiEnabled !== undefined ? Boolean(aiEnabled) : campaign.aiEnabled,
+      recoveryInstruction:
+        recoveryInstruction !== undefined
+          ? String(recoveryInstruction || "").trim() || null
+          : campaign.recoveryInstruction,
+      successKeywords:
+        successKeywords !== undefined ? normalizeKeywords(successKeywords) : campaign.successKeywords,
+      stopKeywords:
+        stopKeywords !== undefined ? normalizeKeywords(stopKeywords) : campaign.stopKeywords,
     });
 
     if (Array.isArray(stages)) {
@@ -282,13 +442,16 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
           normalizedStages.map((s) => ({
             followUpCampaignId: campaign.id,
             order: s.order,
+            title: s.title,
             delayMinutes: s.delayMinutes,
             messageType: s.messageType,
             message: s.message,
             mediaUrl: s.mediaUrl,
             mediaType: s.mediaType,
             mediaCaption: s.mediaCaption,
+            mediaId: s.mediaId,
             buttons: s.buttons,
+            useAiRewrite: s.useAiRewrite,
             isActive: s.isActive,
           }))
         );
@@ -303,7 +466,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       ],
     });
 
-    return res.json(updated);
+    return res.json(serializeCampaign(updated));
   } catch (error) {
     if (error.message === "BOARD_NOT_FOUND") {
       return res.status(404).json({ error: "Board not found" });

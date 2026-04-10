@@ -28,8 +28,14 @@ import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
+import Tag from "../../models/Tag";
+import CrmLead from "../../models/CrmLead";
+import Pipeline from "../../models/Pipeline";
+import PipelineStage from "../../models/PipelineStage";
 import { getWbot } from "../../libs/wbot";
 import { sendFollowUpStageMessage } from "./FollowUpStageSender";
+import evaluateFollowUpContextService from "./EvaluateFollowUpContextService";
+import { FOLLOW_UP_TARGET_MODES } from "./followUpDefaults";
 
 const SUCCESSFUL_LOG_STATUSES = new Set(["sent", "responded"]);
 const RESPONDABLE_LOG_STATUSES = new Set(["sent", "failed", "skipped"]);
@@ -86,24 +92,30 @@ async function processCampaign(campaign) {
     where: { companyId: campaign.companyId, status: { [Op.ne]: "closed" } },
     include: [
       {
-        model: Message,
-        as: "messages",
-        where: { fromMe: true },
-        required: true,
-        separate: true,
-        order: [["createdAt", "DESC"]],
-        limit: 1,
-      },
-      {
         model: Contact,
         as: "contact",
         required: true,
+        include: [{ model: Tag, as: "tags", through: { attributes: [] }, required: false }],
       },
+      { model: Tag, as: "tags", through: { attributes: [] }, required: false },
+      {
+        model: CrmLead,
+        as: "crmLead",
+        required: false,
+        include: [
+          { model: Pipeline, required: false },
+          { model: PipelineStage, as: "stage", required: false },
+        ],
+      }
     ],
   });
 
   for (const ticket of recentTickets) {
     try {
+      if (!matchesCampaignTarget(campaign, ticket)) {
+        continue;
+      }
+
       await processContact(campaign, stages, ticket);
     } catch (err) {
       console.error(`[FollowUpCampaign] Error on ticket ${ticket.id}:`, err?.message);
@@ -116,8 +128,13 @@ async function processContact(campaign, stages, ticket) {
   if (!contact) return;
 
   const contactNumber = contact.number;
-  const messages = ticket.messages || [];
-  const triggerMessage = messages[0];
+  const recentMessages = await Message.findAll({
+    where: { ticketId: ticket.id },
+    order: [["createdAt", "DESC"]],
+    limit: 12
+  });
+
+  const triggerMessage = recentMessages.find((message) => message.fromMe);
   if (!triggerMessage) return;
 
   const triggerAt = new Date(triggerMessage.createdAt);
@@ -140,20 +157,32 @@ async function processContact(campaign, stages, ticket) {
   const nextStage = resolveNextStage(stages, successfulCycleLogs, stageOrderMap);
   if (!nextStage) return;
 
-  const anchorAt = resolveAnchorAt(triggerAt, nextStage.order, successfulCycleLogs, stageOrderMap);
+  let anchorAt = resolveAnchorAt(triggerAt, nextStage.order, successfulCycleLogs, stageOrderMap);
 
-  const replied = await Message.findOne({
-    where: {
-      ticketId: ticket.id,
-      fromMe: false,
-      createdAt: { [Op.gt]: anchorAt },
-    },
-    order: [["createdAt", "DESC"]]
-  });
+  const latestInboundMessage = recentMessages.find(
+    (message) => !message.fromMe && new Date(message.createdAt).getTime() > anchorAt.getTime()
+  );
 
-  if (replied) {
-    await markCycleAsResponded(cycleLogs, replied.createdAt);
-    return;
+  if (latestInboundMessage) {
+    if (!campaign.smartMode) {
+      await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
+      return;
+    }
+
+    const decision = await evaluateFollowUpContextService({
+      campaign,
+      ticket,
+      latestInboundMessage
+    });
+
+    if (decision.shouldStop) {
+      await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
+      return;
+    }
+
+    anchorAt = new Date(
+      Math.max(anchorAt.getTime(), new Date(latestInboundMessage.createdAt).getTime())
+    );
   }
 
   const elapsedMinutes = Math.floor((Date.now() - anchorAt.getTime()) / 60000);
@@ -170,7 +199,11 @@ async function processContact(campaign, stages, ticket) {
         wbot,
         jid,
         stage: nextStage,
-        companyId: campaign.companyId
+        companyId: campaign.companyId,
+        campaign,
+        ticket,
+        latestInboundMessage,
+        triggerMessage
       });
       status = result.status || status;
     }
@@ -189,6 +222,47 @@ async function processContact(campaign, stages, ticket) {
     sentAt: status === "sent" ? new Date() : null,
     status,
   });
+}
+
+function matchesCampaignTarget(campaign, ticket) {
+  const targetMode = campaign?.targetMode || FOLLOW_UP_TARGET_MODES.all;
+  if (targetMode === FOLLOW_UP_TARGET_MODES.all) {
+    return true;
+  }
+
+  const campaignTagIds = Array.isArray(campaign?.tagIds)
+    ? campaign.tagIds.map((value) => Number(value)).filter(Boolean)
+    : [];
+  const ticketTagIds = Array.isArray(ticket?.tags)
+    ? ticket.tags.map((tag) => Number(tag.id)).filter(Boolean)
+    : [];
+  const contactTagIds = Array.isArray(ticket?.contact?.tags)
+    ? ticket.contact.tags.map((tag) => Number(tag.id)).filter(Boolean)
+    : [];
+  const allTagIds = [...new Set([...ticketTagIds, ...contactTagIds])];
+
+  const tagMatch =
+    campaignTagIds.length > 0 && allTagIds.some((tagId) => campaignTagIds.includes(tagId));
+
+  const stageMatch = Boolean(
+    ticket?.crmLead &&
+    (!campaign?.pipelineId || Number(ticket.crmLead.pipelineId) === Number(campaign.pipelineId)) &&
+    (!campaign?.pipelineStageId || Number(ticket.crmLead.stageId) === Number(campaign.pipelineStageId))
+  );
+
+  if (targetMode === FOLLOW_UP_TARGET_MODES.tags) {
+    return tagMatch;
+  }
+
+  if (targetMode === FOLLOW_UP_TARGET_MODES.pipeline_stage) {
+    return stageMatch;
+  }
+
+  if (targetMode === FOLLOW_UP_TARGET_MODES.hybrid) {
+    return tagMatch || stageMatch;
+  }
+
+  return true;
 }
 
 function isCurrentTriggerCycle(log, triggerMessageId, triggerAt) {

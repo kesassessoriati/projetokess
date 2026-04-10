@@ -4,20 +4,10 @@ import path from "path";
 import mime from "mime-types";
 import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
+import MediaFile from "../../models/MediaFile";
+import buildSmartFollowUpMessageService from "./BuildSmartFollowUpMessageService";
 
 const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
-const FOLLOW_UP_ALLOWED_MESSAGE_TYPE = "text";
-
-const normalizeStageForTextOnlyDispatch = (stage: any = {}) => ({
-  ...stage,
-  // Follow-up media/buttons are intentionally disabled for this release.
-  messageType: FOLLOW_UP_ALLOWED_MESSAGE_TYPE,
-  message: stage?.message ?? stage?.mediaCaption ?? "",
-  mediaUrl: null,
-  mediaType: null,
-  mediaCaption: null,
-  buttons: [],
-});
 
 export const resolveFollowUpMediaPath = (mediaUrl?: string | null): string | null => {
   if (!mediaUrl) return null;
@@ -69,33 +59,61 @@ const resolveExistingFollowUpMediaPath = (mediaUrl: string, companyId: string | 
   return { resolvedPath: directPath, attemptedPaths };
 };
 
+const resolveStageMedia = async (stage: any, companyId: string | number) => {
+  if (stage?.mediaId) {
+    const media = await MediaFile.findOne({
+      where: { id: stage.mediaId, companyId }
+    });
+
+    if (media?.storagePath) {
+      return resolveExistingFollowUpMediaPath(media.storagePath, companyId);
+    }
+  }
+
+  if (stage?.mediaUrl) {
+    return resolveExistingFollowUpMediaPath(stage.mediaUrl, companyId);
+  }
+
+  return { resolvedPath: null, attemptedPaths: [] };
+};
+
 export const sendFollowUpStageMessage = async ({
   wbot,
   jid,
   stage,
-  companyId
+  companyId,
+  campaign,
+  ticket,
+  latestInboundMessage,
+  triggerMessage
 }) => {
-  const activeStage = normalizeStageForTextOnlyDispatch(stage);
+  const resolvedMessage = await buildSmartFollowUpMessageService({
+    companyId: Number(companyId),
+    campaign,
+    stage,
+    ticket,
+    latestInboundMessage,
+    triggerMessage
+  });
 
-  if (activeStage.messageType === "text" || !activeStage.messageType) {
+  if (stage.messageType === "text" || !stage.messageType) {
     // Keep follow-up dispatch isolated from the Message persistence pipeline.
     // The campaign engine is triggered only by outbound messages already stored
     // in the Message table, so persisting follow-up stages here would recurse.
-    await wbot.sendMessage(jid, { text: activeStage.message || "" });
+    await wbot.sendMessage(jid, { text: resolvedMessage || stage.message || "" });
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
-  // Legacy non-text delivery paths stay below for future follow-up reactivation.
   if (stage.messageType === "buttons" && stage.buttons?.length) {
-    await sendButtonMessage(wbot, jid, stage.message || "", "", stage.buttons);
+    await sendButtonMessage(wbot, jid, resolvedMessage || stage.message || "", "", stage.buttons);
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 
-  if (stage.mediaUrl) {
-    const { resolvedPath: filePath, attemptedPaths } = resolveExistingFollowUpMediaPath(stage.mediaUrl, companyId);
+  if (stage.mediaUrl || stage.mediaId) {
+    const { resolvedPath: filePath, attemptedPaths } = await resolveStageMedia(stage, companyId);
 
     if (!filePath || (!filePath.startsWith("http") && !fs.existsSync(filePath))) {
-      const error: any = new Error(`Arquivo de midia nao encontrado: ${stage.mediaUrl}`);
+      const error: any = new Error(`Arquivo de midia nao encontrado: ${stage.mediaUrl || stage.mediaId}`);
       error.resolvedPath = filePath || null;
       error.attemptedPaths = attemptedPaths;
       throw error;
@@ -114,10 +132,10 @@ export const sendFollowUpStageMessage = async ({
     }
 
     const options = await getMessageOptions(
-      path.basename(stage.mediaUrl),
+      path.basename(stage.mediaUrl || filePath),
       filePath,
       String(companyId),
-      stage.mediaCaption || stage.message || ""
+      stage.mediaCaption || resolvedMessage || stage.message || ""
     );
 
     if (!options) {
@@ -128,8 +146,8 @@ export const sendFollowUpStageMessage = async ({
     return { status: "sent", resolvedPath: filePath, attemptedPaths };
   }
 
-  if (stage.message) {
-    await wbot.sendMessage(jid, { text: stage.message });
+  if (resolvedMessage || stage.message) {
+    await wbot.sendMessage(jid, { text: resolvedMessage || stage.message });
     return { status: "sent", resolvedPath: null, attemptedPaths: [] };
   }
 

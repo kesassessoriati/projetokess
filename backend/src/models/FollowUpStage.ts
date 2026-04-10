@@ -33,6 +33,10 @@ class FollowUpStage extends Model<FollowUpStage> {
   @Column
   delayMinutes: number;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  title: string;
+
   @Default("text")
   @Column(DataType.STRING(20))
   messageType: string; // text only in the active flow; media/button values are preserved for future reactivation
@@ -60,6 +64,10 @@ class FollowUpStage extends Model<FollowUpStage> {
   @AllowNull(true)
   @Column(DataType.INTEGER)
   mediaId: number;
+
+  @Default(false)
+  @Column
+  useAiRewrite: boolean;
 
   @Default(true)
   @Column
