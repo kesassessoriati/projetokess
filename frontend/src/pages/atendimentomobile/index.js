@@ -2861,7 +2861,7 @@ const Atendimentos = () => {
         if (message.mediaType === "audio") {
             const avatarUrl = message.fromMe
                 ? user.profileImage
-                : selectedTicket?.contact?.profilePicUrl;
+                : selectedTicket?.contact?.urlPicture || selectedTicket?.contact?.profilePicUrl;
             const userName = getMessageSenderLabel(message);
 
             return (
@@ -3797,7 +3797,7 @@ const Atendimentos = () => {
                                     onContextMenu={(e) => handleTicketContextMenu(e)}
                                 >
                                     <Avatar
-                                        src={ticket.contact?.profilePicUrl}
+                                        src={ticket.contact?.urlPicture || ticket.contact?.profilePicUrl}
                                         className={classes.ticketAvatar}
                                     >
                                         {ticket.contact?.name?.charAt(0)}
@@ -4080,7 +4080,7 @@ const Atendimentos = () => {
                                     <ArrowBackIcon />
                                 </IconButton>
                                 <Avatar
-                                    src={selectedTicket.contact?.profilePicUrl}
+                                    src={selectedTicket.contact?.urlPicture || selectedTicket.contact?.profilePicUrl}
                                     onClick={handleOpenContactModal}
                                     style={{ cursor: selectedTicket?.contact ? "pointer" : "default" }}
                                 >
