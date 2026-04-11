@@ -97,7 +97,11 @@ export const SendTextOfficialService = async ({
           fromMe: true,
           fromAgent: true,
           userId: ticket.userId ?? null,
-          source: "system"
+          source: "system",
+          fromExternalDevice: false,
+          fromCellphone: false,
+          fromCompanion: false,
+          deviceOrigin: "system"
         },
         whatsapp: {
           id: connection.id,

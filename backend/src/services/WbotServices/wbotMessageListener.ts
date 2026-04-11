@@ -233,6 +233,44 @@ const getTypeMessage = (msg: proto.IWebMessageInfo): string => {
   }
   return msgType;
 };
+
+const hasCompanionDeviceSuffix = (jid?: string | null): boolean =>
+  Boolean(jid && /:\d+@(?:s\.whatsapp\.net|lid)$/.test(jid));
+
+const getOutgoingWebhookOrigin = (
+  msg: proto.IWebMessageInfo,
+  fromAgent: boolean = false
+) => {
+  if (fromAgent) {
+    return {
+      source: "system",
+      fromExternalDevice: false,
+      fromCellphone: false,
+      fromCompanion: false,
+      deviceOrigin: "system"
+    };
+  }
+
+  const participantAlt = (msg.key as any)?.participantAlt as string | undefined;
+  const participant = msg.key?.participant as string | undefined;
+  const remoteJidAlt = (msg.key as any)?.remoteJidAlt as string | undefined;
+  const messageContent = msg.message as any;
+
+  const fromCompanion =
+    hasCompanionDeviceSuffix(participantAlt) ||
+    hasCompanionDeviceSuffix(participant) ||
+    hasCompanionDeviceSuffix(remoteJidAlt) ||
+    Boolean(messageContent?.deviceSentMessage);
+
+  return {
+    source: "channel",
+    fromExternalDevice: true,
+    fromCellphone: !fromCompanion,
+    fromCompanion,
+    deviceOrigin: fromCompanion ? "companion" : "cellphone"
+  };
+};
+
 const getAd = (msg: any): string => {
   if (
     msg.key.fromMe &&
@@ -1312,6 +1350,7 @@ export const verifyMessage = async (
   await CreateMessageService({ messageData, companyId: companyId });
 
   if (msg.key.fromMe && !isPrivate && !isMessageImported) {
+    const outgoingOrigin = getOutgoingWebhookOrigin(msg, fromAgent);
     webhookDispatch("MESSAGE_SENT", companyId, {
       ticket: {
         id: ticket.id,
@@ -1337,7 +1376,11 @@ export const verifyMessage = async (
         fromMe: true,
         fromAgent,
         userId: messageUserId ?? null,
-        source: fromAgent ? "system" : "channel"
+        source: outgoingOrigin.source,
+        fromExternalDevice: outgoingOrigin.fromExternalDevice,
+        fromCellphone: outgoingOrigin.fromCellphone,
+        fromCompanion: outgoingOrigin.fromCompanion,
+        deviceOrigin: outgoingOrigin.deviceOrigin
       },
       whatsapp: {
         id: ticket.whatsappId,
@@ -5217,6 +5260,7 @@ const handleMessage = async (
         // (fromAgent=false). Mensagens do sistema UI já disparam em verifyMessage
         // via MessageController antes que handleMessage seja chamado.
         if (msg.key.fromMe && !isImported) {
+          const outgoingOrigin = getOutgoingWebhookOrigin(msg, false);
           webhookDispatch("MESSAGE_SENT", companyId, {
             ticket: {
               id: ticket.id,
@@ -5242,7 +5286,11 @@ const handleMessage = async (
               fromMe: true,
               fromAgent: false,
               userId: ticket.userId ?? null,
-              source: "channel"
+              source: outgoingOrigin.source,
+              fromExternalDevice: outgoingOrigin.fromExternalDevice,
+              fromCellphone: outgoingOrigin.fromCellphone,
+              fromCompanion: outgoingOrigin.fromCompanion,
+              deviceOrigin: outgoingOrigin.deviceOrigin
             },
             whatsapp: {
               id: ticket.whatsappId,

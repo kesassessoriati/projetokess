@@ -164,6 +164,10 @@ export const SendMediaOfficialService = async ({
           fromAgent: true,
           userId: ticket.userId ?? null,
           source: "system",
+          fromExternalDevice: false,
+          fromCellphone: false,
+          fromCompanion: false,
+          deviceOrigin: "system",
           mediaUrl: mediaId,
           mimeType: media.mimetype,
           filename: media.originalname
