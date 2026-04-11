@@ -879,6 +879,7 @@ const Campaigns = () => {
   const [listImportOpen, setListImportOpen] = useState(false);
   const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState(null);
+  const [listItemsReloadKey, setListItemsReloadKey] = useState(0);
 
   const fetchMetrics = useCallback(async () => {
     if (!user?.companyId) return;
@@ -966,8 +967,38 @@ const Campaigns = () => {
         listDispatch({ type: "DELETE_CONTACTLIST", payload: +data.id });
       fetchMetrics();
     });
-    return () => { c1(); c2(); };
-  }, [fetchMetrics, isConnected, on, user?.companyId]);
+    const c3 = on(`company-${cid}-ContactListItem`, (data) => {
+      if (!viewingList?.id) return;
+
+      const recordListId = Number(data?.record?.contactListId);
+      if ((data.action === "create" || data.action === "update") && recordListId !== Number(viewingList.id)) {
+        return;
+      }
+
+      if (data.action === "create" || data.action === "update") {
+        setListItems(prev => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          const idx = next.findIndex(item => item.id === data.record.id);
+          if (idx !== -1) {
+            next[idx] = data.record;
+            return next;
+          }
+          return [data.record, ...next];
+        });
+      }
+
+      if (data.action === "delete") {
+        setListItems(prev => prev.filter(item => item.id !== Number(data.id)));
+      }
+    });
+    const c4 = viewingList?.id
+      ? on(`company-${cid}-ContactListItem-${Number(viewingList.id)}`, (data) => {
+        if (data.action !== "reload") return;
+        setListItems(Array.isArray(data.records) ? data.records : []);
+      })
+      : () => {};
+    return () => { c1(); c2(); c3(); c4(); };
+  }, [fetchMetrics, isConnected, on, user?.companyId, viewingList?.id]);
 
   // Reset list items page when search changes
   useEffect(() => {
@@ -988,11 +1019,14 @@ const Campaigns = () => {
           setListItemHasMore(data.hasMore);
           setListItemsLoading(false);
         })
-        .catch(toastError);
+        .catch((err) => {
+          setListItemsLoading(false);
+          toastError(err);
+        });
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingList, listItemSearch, listItemPage]);
+  }, [viewingList, listItemSearch, listItemPage, listItemsReloadKey]);
 
   const handleCampaignScroll = (e) => {
     if (!hasMore || loading) return;
@@ -1055,14 +1089,31 @@ const Campaigns = () => {
   };
 
   const refreshListItems = () => {
-    setListItems([]);
+    if (!viewingList) return;
+    setListItemHasMore(false);
     setListItemPage(1);
+    setListItemsReloadKey(prev => prev + 1);
     fetchMetrics();
-    // Re-fetch this list from server to get updated contactsCount
-    if (viewingList) {
-      api.get(`/contact-lists/${viewingList.id}`)
-        .then(({ data }) => listDispatch({ type: "UPDATE_CONTACTLIST", payload: data }))
-        .catch(() => {});
+    api.get(`/contact-lists/${viewingList.id}`)
+      .then(({ data }) => listDispatch({ type: "UPDATE_CONTACTLIST", payload: data }))
+      .catch(() => {});
+  };
+
+  const handleListItemSaved = (savedRecord) => {
+    if (!savedRecord || Number(savedRecord.contactListId) !== Number(viewingList?.id)) return;
+
+    setListItems(prev => {
+      const next = Array.isArray(prev) ? [...prev] : [];
+      const idx = next.findIndex(item => item.id === savedRecord.id);
+      if (idx !== -1) {
+        next[idx] = savedRecord;
+        return next;
+      }
+      return [savedRecord, ...next];
+    });
+
+    if (!editingContactId && viewingList) {
+      listDispatch({ type: "ADJUST_COUNT", payload: { id: viewingList.id, delta: +1 } });
     }
   };
 
@@ -1964,10 +2015,7 @@ const Campaigns = () => {
         <ContactListItemModal
           open={contactItemModalOpen}
           onClose={() => { setEditingContactId(null); setContactItemModalOpen(false); refreshListItems(); }}
-          onSave={() => {
-            if (!editingContactId && viewingList)
-              listDispatch({ type: "ADJUST_COUNT", payload: { id: viewingList.id, delta: +1 } });
-          }}
+          onSave={handleListItemSaved}
           contactId={editingContactId}
           contactListId={viewingList?.id}
         />

@@ -143,11 +143,14 @@ const ContactListItemModal = ({ open, onClose, contactId, contactListId: contact
   const handleSaveContact = async (values) => {
     try {
       if (contactId) {
-        await api.put(`/contact-list-items/${contactId}`, {
+        const { data } = await api.put(`/contact-list-items/${contactId}`, {
           ...values,
           companyId,
           contactListId,
         });
+        if (onSave) {
+          onSave(data);
+        }
         handleClose();
       } else {
         const { data } = await api.post("/contact-list-items", {
