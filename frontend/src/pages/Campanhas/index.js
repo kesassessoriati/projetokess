@@ -1071,6 +1071,14 @@ const Campaigns = () => {
     setContactsDrawerOpen(true);
   };
 
+  const handleListEditorSave = (savedList) => {
+    if (!savedList) return;
+    listDispatch({ type: "UPDATE_CONTACTLIST", payload: savedList });
+    if (Number(viewingList?.id) === Number(savedList.id)) {
+      setViewingList((prev) => ({ ...(prev || {}), ...savedList }));
+    }
+  };
+
   const handleDeleteListItem = async (id) => {
     try {
       await api.delete(`/contact-list-items/${id}`);
@@ -1444,6 +1452,7 @@ const Campaigns = () => {
         open={listModalOpen}
         onClose={() => { setSelectedList(null); setListModalOpen(false); }}
         contactListId={selectedList?.id}
+        onSave={handleListEditorSave}
       />
 
       {/* Tab bar */}
@@ -1964,17 +1973,9 @@ const Campaigns = () => {
                   <Box className={classes.itemActions}>
                     <Button
                       size="small"
-                      className={`${classes.actionTextButton} ${classes.viewAction}`}
-                      startIcon={<PeopleIcon style={{ fontSize: 15 }} />}
-                      onClick={() => handleViewContacts(list)}
-                    >
-                      Ver contatos
-                    </Button>
-                    <Button
-                      size="small"
                       className={`${classes.actionTextButton} ${classes.editAction}`}
                       startIcon={<EditIcon style={{ fontSize: 15 }} />}
-                      onClick={() => { setSelectedList(list); setListModalOpen(true); }}
+                      onClick={() => handleViewContacts(list)}
                     >
                       Editar
                     </Button>
@@ -2046,6 +2047,23 @@ const Campaigns = () => {
                 {listItems.length} contato{listItems.length !== 1 ? "s" : ""} carregado{listItems.length !== 1 ? "s" : ""}
               </Typography>
             </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<EditIcon style={{ fontSize: 14 }} />}
+              onClick={() => { setSelectedList(viewingList); setListModalOpen(true); }}
+              style={{
+                color: "#fff",
+                borderColor: "rgba(255,255,255,0.24)",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                textTransform: "none",
+                fontSize: "0.74rem",
+                fontWeight: 700,
+                minWidth: 110
+              }}
+            >
+              Editar lista
+            </Button>
             <Tooltip title="Fechar">
               <IconButton size="small" onClick={() => setContactsDrawerOpen(false)} style={{ color: "#fff" }}>
                 <CloseIcon />

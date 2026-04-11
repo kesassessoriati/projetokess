@@ -161,7 +161,7 @@ const DraggablePaper = (props) => {
   );
 };
 
-const ContactListModal = ({ open, onClose, contactListId }) => {
+const ContactListModal = ({ open, onClose, contactListId, onSave }) => {
   const classes = useStyles();
 
   const initialState = {
@@ -195,10 +195,12 @@ const ContactListModal = ({ open, onClose, contactListId }) => {
     const contactListData = { ...values };
     try {
       if (contactListId) {
-        await api.put(`/contact-lists/${contactListId}`, contactListData);
+        const { data } = await api.put(`/contact-lists/${contactListId}`, contactListData);
+        if (onSave) onSave(data);
         toast.success(i18n.t("contactLists.toasts.updated"));
       } else {
-        await api.post("/contact-lists", contactListData);
+        const { data } = await api.post("/contact-lists", contactListData);
+        if (onSave) onSave(data);
         toast.success(i18n.t("contactLists.toasts.created"));
       }
     } catch (err) {
