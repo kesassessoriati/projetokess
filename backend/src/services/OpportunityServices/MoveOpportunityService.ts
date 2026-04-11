@@ -6,6 +6,7 @@ import EventBus from "../../libs/EventBus";
 import PipelineStage from "../../models/PipelineStage";
 import Contact from "../../models/Contact";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
+import logger from "../../utils/logger";
 
 interface Request {
     opportunityId: number;
@@ -111,6 +112,17 @@ const MoveOpportunityService = async ({
     }, opportunity.companyId);
 
     await opportunity.reload();
+
+    try {
+        const { getIO } = await import("../../libs/socket");
+        const io = getIO();
+        io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+            action: "update",
+            opportunity
+        });
+    } catch (err) {
+        logger.warn(`[MoveOpportunityService] Socket emit skipped: ${err?.message || err}`);
+    }
 
     return opportunity;
 };

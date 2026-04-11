@@ -377,7 +377,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
   // Create Opportunity if pipeline info is given
   if (pipelineId && stageId) {
-    const Opportunity = (await import("../../models/Opportunity")).default;
+    const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
     const oppData: any = {
       companyId: data.companyId,
       pipelineId,
@@ -385,14 +385,13 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       title: data.name,
       value: data.purchaseValue != null ? Number(data.purchaseValue) : 0,
       assignedUserId: data.ownerUserId || null,
-      status: "OPEN",
       leadId: lead.id
     };
     // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
     if (contactId) {
       oppData.contactId = contactId;
     }
-    await Opportunity.create(oppData);
+    await CreateOpportunityService(oppData);
   }
 
   const { getIO } = await import("../../libs/socket");

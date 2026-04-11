@@ -3,6 +3,7 @@ import OpportunityEvent from "../../models/OpportunityEvent";
 import EventBus from "../../libs/EventBus";
 import Contact from "../../models/Contact";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
+import logger from "../../utils/logger";
 
 interface Request {
     companyId: number;
@@ -78,6 +79,17 @@ const CreateOpportunityService = async ({
         value: opportunity.value,
         createdAt: opportunity.createdAt
     }, opportunity.companyId);
+
+    try {
+        const { getIO } = await import("../../libs/socket");
+        const io = getIO();
+        io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+            action: "create",
+            opportunity
+        });
+    } catch (err) {
+        logger.warn(`[CreateOpportunityService] Socket emit skipped: ${err?.message || err}`);
+    }
 
     return opportunity;
 };
