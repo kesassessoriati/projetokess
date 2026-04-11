@@ -237,17 +237,40 @@ const getTypeMessage = (msg: proto.IWebMessageInfo): string => {
 const hasCompanionDeviceSuffix = (jid?: string | null): boolean =>
   Boolean(jid && /:\d+@(?:s\.whatsapp\.net|lid)$/.test(jid));
 
+type OutgoingWebhookOriginOverride = "system" | "cellphone" | "companion";
+
 const getOutgoingWebhookOrigin = (
   msg: proto.IWebMessageInfo,
-  fromAgent: boolean = false
+  fromAgent: boolean = false,
+  originOverride?: OutgoingWebhookOriginOverride
 ) => {
-  if (fromAgent) {
+  if (fromAgent || originOverride === "system") {
     return {
       source: "system",
       fromExternalDevice: false,
       fromCellphone: false,
       fromCompanion: false,
       deviceOrigin: "system"
+    };
+  }
+
+  if (originOverride === "companion") {
+    return {
+      source: "channel",
+      fromExternalDevice: true,
+      fromCellphone: false,
+      fromCompanion: true,
+      deviceOrigin: "companion"
+    };
+  }
+
+  if (originOverride === "cellphone") {
+    return {
+      source: "channel",
+      fromExternalDevice: true,
+      fromCellphone: true,
+      fromCompanion: false,
+      deviceOrigin: "cellphone"
     };
   }
 
@@ -1306,7 +1329,8 @@ export const verifyMessage = async (
   isForwarded: boolean = false,
   isMessageImported: boolean = false,
   fromAgent: boolean = false,
-  userId?: number
+  userId?: number,
+  outgoingOriginOverride?: OutgoingWebhookOriginOverride
 ) => {
   // console.log("Mensagem recebida:", JSON.stringify(msg, null, 2));
   const io = getIO();
@@ -1350,7 +1374,11 @@ export const verifyMessage = async (
   await CreateMessageService({ messageData, companyId: companyId });
 
   if (msg.key.fromMe && !isPrivate && !isMessageImported) {
-    const outgoingOrigin = getOutgoingWebhookOrigin(msg, fromAgent);
+    const outgoingOrigin = getOutgoingWebhookOrigin(
+      msg,
+      fromAgent,
+      outgoingOriginOverride
+    );
     webhookDispatch("MESSAGE_SENT", companyId, {
       ticket: {
         id: ticket.id,

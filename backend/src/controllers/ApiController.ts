@@ -417,7 +417,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     } else {
       sentMessage = await SendWhatsAppMessageAPI({ body: `\u200e ${bodyMessage}`, whatsappId: whatsapp.id, contact: contactAndTicket.contact, quotedMsg, msdelay });
 
-      await verifyMessage(sentMessage, contactAndTicket, contactAndTicket.contact)
+      await verifyMessage(
+        sentMessage,
+        contactAndTicket,
+        contactAndTicket.contact,
+        undefined,
+        undefined,
+        false,
+        false,
+        false,
+        userId,
+        "system"
+      )
     }
     // @ts-ignore: Unreachable code error
     if (closeTicket) {

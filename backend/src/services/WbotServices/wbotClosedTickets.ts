@@ -84,7 +84,18 @@ const handleOpenTickets = async (companyId: number, whatsapp: Whatsapp) => {
                 body: bodyMessageInactive,
                 ticket: ticket
               });
-              await verifyMessage(sentMessage, ticket, ticket.contact);
+              await verifyMessage(
+                sentMessage,
+                ticket,
+                ticket.contact,
+                undefined,
+                undefined,
+                false,
+                false,
+                false,
+                undefined,
+                "system"
+              );
               await ticket.update({ sendInactiveMessage: true, fromMe: true });
             }
           })
@@ -152,7 +163,18 @@ const handleOpenTickets = async (companyId: number, whatsapp: Whatsapp) => {
             body: bodyExpiresMessageInactive,
             ticket: ticket
           });
-          await verifyMessage(sentMessage, ticket, ticket.contact);
+          await verifyMessage(
+            sentMessage,
+            ticket,
+            ticket.contact,
+            undefined,
+            undefined,
+            false,
+            false,
+            false,
+            undefined,
+            "system"
+          );
         }
 
         // Como o campo sendInactiveMessage foi atualizado, podemos garantir que a mensagem foi enviada
@@ -216,7 +238,18 @@ const handleNPSTickets = async (companyId: number, whatsapp: any) => {
             body: bodyComplationMessage,
             ticket: ticket
           });
-          await verifyMessage(sentMessage, ticket, ticket.contact);
+          await verifyMessage(
+            sentMessage,
+            ticket,
+            ticket.contact,
+            undefined,
+            undefined,
+            false,
+            false,
+            false,
+            undefined,
+            "system"
+          );
         }
 
         await closeTicket(ticket, bodyComplationMessage);

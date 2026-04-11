@@ -67,7 +67,18 @@ const sendMessage = async (
       text: formatBody(body, ticket)
     }
   );
-  await verifyMessage(sentMessage, ticket, contact);
+  await verifyMessage(
+    sentMessage,
+    ticket,
+    contact,
+    undefined,
+    undefined,
+    false,
+    false,
+    false,
+    undefined,
+    "system"
+  );
 };
 
 const sendMessageLink = async (
@@ -96,7 +107,18 @@ const sendMessageLink = async (
       }
     );
   }
-  await verifyMessage(sentMessage, ticket, contact);
+  await verifyMessage(
+    sentMessage,
+    ticket,
+    contact,
+    undefined,
+    undefined,
+    false,
+    false,
+    false,
+    undefined,
+    "system"
+  );
 };
 
 const sendMessageImage = async (
@@ -126,7 +148,18 @@ const sendMessageImage = async (
       }
     );
   }
-  await verifyMessage(sentMessage, ticket, contact);
+  await verifyMessage(
+    sentMessage,
+    ticket,
+    contact,
+    undefined,
+    undefined,
+    false,
+    false,
+    false,
+    undefined,
+    "system"
+  );
 };
 
 // const sendDialog = async (
@@ -345,7 +378,18 @@ const sendDialog = async (
           buttonMessage
         );
 
-        await verifyMessage(send, ticket, contact);
+        await verifyMessage(
+          send,
+          ticket,
+          contact,
+          undefined,
+          undefined,
+          false,
+          false,
+          false,
+          undefined,
+          "system"
+        );
 
         return send;
       }
@@ -385,7 +429,18 @@ const sendDialog = async (
           listMessage
         );
 
-        await verifyMessage(sendMsg, ticket, contact);
+        await verifyMessage(
+          sendMsg,
+          ticket,
+          contact,
+          undefined,
+          undefined,
+          false,
+          false,
+          false,
+          undefined,
+          "system"
+        );
 
         return sendMsg;
       }
@@ -466,7 +521,18 @@ const backToMainMenu = async (
         }
       );
 
-      await verifyMessage(sentMessage, ticket, contact);
+      await verifyMessage(
+        sentMessage,
+        ticket,
+        contact,
+        undefined,
+        undefined,
+        false,
+        false,
+        false,
+        undefined,
+        "system"
+      );
     }
 
     const deleteDialog = await DeleteDialogChatBotsServices(contact.id);

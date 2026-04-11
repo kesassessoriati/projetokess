@@ -249,7 +249,18 @@ const UpdateTicketService = async ({
               ticket,
               isForwarded: false
             });
-            await verifyMessage(msg, ticket, ticket.contact);
+            await verifyMessage(
+              msg,
+              ticket,
+              ticket.contact,
+              undefined,
+              undefined,
+              false,
+              false,
+              false,
+              undefined,
+              "system"
+            );
           } else if (["facebook", "instagram"].includes(ticket.channel)) {
             const msg = await sendFaceMessage({
               body: bodyRatingMessage,
@@ -346,7 +357,18 @@ const UpdateTicketService = async ({
               isForwarded: false
             });
 
-            await verifyMessage(sentMessage, ticket, ticket.contact);
+            await verifyMessage(
+              sentMessage,
+              ticket,
+              ticket.contact,
+              undefined,
+              undefined,
+              false,
+              false,
+              false,
+              undefined,
+              "system"
+            );
           }
 
           if (
@@ -542,7 +564,13 @@ const UpdateTicketService = async ({
               queueChangedMessage,
               ticket,
               ticket.contact,
-              ticketTraking
+              ticketTraking,
+              undefined,
+              false,
+              false,
+              false,
+              undefined,
+              "system"
             );
           }
           // else
@@ -716,7 +744,13 @@ const UpdateTicketService = async ({
               queueChangedMessage,
               ticket,
               ticket.contact,
-              ticketTraking
+              ticketTraking,
+              undefined,
+              false,
+              false,
+              false,
+              undefined,
+              "system"
             );
           }
           // else

@@ -267,7 +267,18 @@ async function handleSendScheduledMessage(job) {
       if (schedule.mediaPath) {
         await verifyMediaMessage(sentMessage, ticket, ticket.contact, null, true, false, whatsapp);
       } else {
-        await verifyMessage(sentMessage, ticket, ticket.contact, null, true, false);
+        await verifyMessage(
+          sentMessage,
+          ticket,
+          ticket.contact,
+          null,
+          true,
+          false,
+          false,
+          false,
+          undefined,
+          "system"
+        );
       }
       // if (ticket) {
       //   await UpdateTicketService({
@@ -1162,7 +1173,18 @@ async function handleDispatchCampaign(job) {
             text: `\u200c ${campaignShipping.confirmationMessage}`
           });
 
-          await verifyMessage(confirmationMessage, ticket, contact, null, true, false);
+          await verifyMessage(
+            confirmationMessage,
+            ticket,
+            contact,
+            null,
+            true,
+            false,
+            false,
+            false,
+            undefined,
+            "system"
+          );
 
           await campaignShipping.update({ confirmationRequestedAt: moment() });
         } else {
@@ -1200,7 +1222,18 @@ async function handleDispatchCampaign(job) {
                 text: `\u200c ${campaignShipping.message}`
               });
             }
-            await verifyMessage(sentMessage, ticket, contact, null, true, false);
+            await verifyMessage(
+              sentMessage,
+              ticket,
+              contact,
+              null,
+              true,
+              false,
+              false,
+              false,
+              undefined,
+              "system"
+            );
           }
 
 
@@ -1216,7 +1249,18 @@ async function handleDispatchCampaign(job) {
                   text: `\u200c ${campaignShipping.message}`
                 });
 
-                await verifyMessage(audioMessage, ticket, contact, null, true, false);
+                await verifyMessage(
+                  audioMessage,
+                  ticket,
+                  contact,
+                  null,
+                  true,
+                  false,
+                  false,
+                  false,
+                  undefined,
+                  "system"
+                );
               }
               const sentMessage = await wbot.sendMessage(chatId, { ...options });
 
