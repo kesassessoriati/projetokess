@@ -113,13 +113,17 @@ const resolveMessageIntegrations = async (
   if (ticketId) {
     const ticket = await Ticket.findOne({
       where: { id: ticketId, companyId },
-      attributes: ["id", "webhookPausedUntil"]
+      attributes: ["id", "webhookPausedUntil", "webhookDisabled"]
     });
 
-    if (
-      ticket?.webhookPausedUntil &&
-      new Date(ticket.webhookPausedUntil) > new Date()
-    ) {
+    const isWebhookSuppressed =
+      Boolean(ticket?.webhookDisabled) ||
+      Boolean(
+        ticket?.webhookPausedUntil &&
+          new Date(ticket.webhookPausedUntil) > new Date()
+      );
+
+    if (isWebhookSuppressed) {
       return [];
     }
   }

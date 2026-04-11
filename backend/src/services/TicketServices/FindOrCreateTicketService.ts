@@ -332,6 +332,7 @@ const FindOrCreateTicketService = async (
         companyId,
         isBot: false,
         webhookPausedUntil: null,
+        webhookDisabled: false,
         crmLeadId: leadId ?? ticket.crmLeadId,
         crmClientId: clientId ?? ticket.crmClientId
       };
@@ -368,7 +369,8 @@ const FindOrCreateTicketService = async (
         ...ticketData,
         status: ticketData.status === "group" && !ticket.isGroup ? "pending" : ticketData.status,
         isBot: groupContact ? false : false,
-        webhookPausedUntil: null
+        webhookPausedUntil: null,
+        webhookDisabled: false
       };
 
       if (!isNil(queueId)) {

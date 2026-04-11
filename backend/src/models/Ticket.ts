@@ -247,6 +247,10 @@ class Ticket extends Model<Ticket> {
   @AllowNull
   @Column
   webhookPausedUntil: Date;
+
+  @Default(false)
+  @Column
+  webhookDisabled: boolean;
 }
 
 export default Ticket;

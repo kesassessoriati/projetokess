@@ -45,6 +45,7 @@ interface TicketData {
   isTransfered?: boolean;
   pauseN8nForHours?: number;
   clearN8nPause?: boolean;
+  setWebhookDisabled?: boolean;
 }
 
 interface Request {
@@ -134,7 +135,8 @@ const UpdateTicketService = async ({
       isTransfered = false,
       status,
       pauseN8nForHours,
-      clearN8nPause = false
+      clearN8nPause = false,
+      setWebhookDisabled
     } = ticketData;
     let isBot: boolean | null = ticketData.isBot || false;
     let queueOptionId: number | null = ticketData.queueOptionId || null;
@@ -401,7 +403,8 @@ const UpdateTicketService = async ({
         lastFlowId: ticket.flowWebhook ? ticket.lastFlowId : null,
         dataWebhook: null,
         hashFlowId: ticket.flowWebhook ? ticket.hashFlowId : null,
-        webhookPausedUntil: null // clear webhook pause on ticket close
+        webhookPausedUntil: null, // clear webhook pause on ticket close
+        webhookDisabled: false
       };
 
       if (shouldClearAssignments) {
@@ -913,10 +916,16 @@ const UpdateTicketService = async ({
       typebotSessionId: !useIntegration ? null : ticket.typebotSessionId,
       typebotStatus: useIntegration,
       unreadMessages,
-      leadValue: leadValue !== undefined ? leadValue : ticket.leadValue
+      leadValue: leadValue !== undefined ? leadValue : ticket.leadValue,
+      webhookDisabled:
+        typeof setWebhookDisabled === "boolean"
+          ? setWebhookDisabled
+          : ticket.webhookDisabled
     };
 
-    if (clearN8nPause) {
+    if (typeof setWebhookDisabled === "boolean" && setWebhookDisabled) {
+      ticketUpdateData.webhookPausedUntil = null;
+    } else if (clearN8nPause) {
       ticketUpdateData.webhookPausedUntil = null;
     } else if (
       typeof pauseN8nForHours === "number" &&

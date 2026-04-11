@@ -160,6 +160,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const [audioToggleLoading, setAudioToggleLoading] = useState(false);
   const [activeToggleLoading, setActiveToggleLoading] = useState(false);
   const [n8nPauseLoading, setN8nPauseLoading] = useState(false);
+  const [aiDisableLoading, setAiDisableLoading] = useState(false);
   const [extraInfoFields, setExtraInfoFields] = useState([]);
   const [extraInfoSaving, setExtraInfoSaving] = useState(false);
   const [fileVisibleCount, setFileVisibleCount] = useState(ITEMS_PER_BATCH);
@@ -734,6 +735,11 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     return new Date(pausedUntil) > new Date();
   }, [resolvedTicket?.webhookPausedUntil]);
 
+  const isAiDisabled = useMemo(
+    () => Boolean(resolvedTicket?.webhookDisabled),
+    [resolvedTicket?.webhookDisabled]
+  );
+
   const handleToggleN8nPause = async () => {
     if (!resolvedTicket?.id) return;
     setN8nPauseLoading(true);
@@ -743,18 +749,53 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
         : { pauseN8nForHours: 2 };
       const { data } = await api.put(`/tickets/${resolvedTicket.id}`, payload);
       setTicketDetails((prev) =>
-        prev ? { ...prev, webhookPausedUntil: data?.webhookPausedUntil || null } : prev
+        prev
+          ? {
+              ...prev,
+              webhookPausedUntil: data?.webhookPausedUntil || null,
+              webhookDisabled: Boolean(data?.webhookDisabled)
+            }
+          : prev
       );
       if (isN8nPaused) {
-        toast.success("IA N8N reativada para esta conversa.");
+        toast.success("IA reativada nesta conversa.");
       } else {
-        toast.success("IA N8N pausada por 2 horas nesta conversa.");
+        toast.success("IA pausada por 2 horas nesta conversa.");
       }
     } catch (err) {
       console.error("Erro ao alterar pausa N8N:", err);
-      toast.error("Erro ao alterar estado da IA N8N.");
+      toast.error("Erro ao alterar estado da IA.");
     } finally {
       setN8nPauseLoading(false);
+    }
+  };
+
+  const handleToggleAiDisabled = async () => {
+    if (!resolvedTicket?.id) return;
+    setAiDisableLoading(true);
+    try {
+      const { data } = await api.put(`/tickets/${resolvedTicket.id}`, {
+        setWebhookDisabled: !isAiDisabled,
+      });
+      setTicketDetails((prev) =>
+        prev
+          ? {
+              ...prev,
+              webhookDisabled: Boolean(data?.webhookDisabled),
+              webhookPausedUntil: data?.webhookPausedUntil || null,
+            }
+          : prev
+      );
+      if (isAiDisabled) {
+        toast.success("IA ligada novamente nesta conversa.");
+      } else {
+        toast.success("IA desligada nesta conversa.");
+      }
+    } catch (err) {
+      console.error("Erro ao alternar desligamento da IA:", err);
+      toast.error("Não foi possível alterar o desligamento da IA.");
+    } finally {
+      setAiDisableLoading(false);
     }
   };
 
@@ -866,7 +907,14 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     }
   };
 
-  const renderSwitchRow = (label, value, onChange, loadingState, helperText) => (
+  const renderSwitchRow = (
+    label,
+    value,
+    onChange,
+    loadingState,
+    helperText,
+    disabledState = false
+  ) => (
     <Box
       display="flex"
       alignItems="center"
@@ -888,7 +936,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
         checked={Boolean(value)}
         onChange={onChange}
         color="primary"
-        disabled={loadingState}
+        disabled={loadingState || disabledState}
       />
     </Box>
   );
@@ -1031,15 +1079,22 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
 
         {resolvedTicket?.id && (
           <Box className={classes.section}>
-            <Typography className={classes.sectionTitle}>IA N8N</Typography>
+            <Typography className={classes.sectionTitle}>IA</Typography>
             {renderSwitchRow(
-              "Pausar IA N8N",
+              "Pausar IA",
               isN8nPaused,
               () => handleToggleN8nPause(),
               n8nPauseLoading,
               isN8nPaused
                 ? `Pausada até ${new Date(resolvedTicket.webhookPausedUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — clique para reativar`
-                : "Pausa a IA N8N por 2 horas apenas nesta conversa"
+                : "Pausa a IA por 2 horas apenas nesta conversa"
+            )}
+            {renderSwitchRow(
+              "Desligar IA",
+              isAiDisabled,
+              () => handleToggleAiDisabled(),
+              aiDisableLoading,
+              "Desliga a IA nesta conversa até você reativar manualmente."
             )}
           </Box>
         )}

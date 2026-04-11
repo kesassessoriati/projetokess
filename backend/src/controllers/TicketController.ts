@@ -67,6 +67,7 @@ interface TicketData {
   leadValue?: number;
   pauseN8nForHours?: number;
   clearN8nPause?: boolean;
+  setWebhookDisabled?: boolean;
   tabKey?: string;
   selectedQueueIds?: number[];
   ticketIds?: number[];
