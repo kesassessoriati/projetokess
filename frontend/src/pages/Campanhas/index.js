@@ -46,6 +46,8 @@ import EmailIcon from "@material-ui/icons/Email";
 import PhoneIcon from "@material-ui/icons/Phone";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 import VerifiedUserIcon from "@material-ui/icons/VerifiedUser";
+import ViewModuleIcon from "@material-ui/icons/ViewModule";
+import ViewListIcon from "@material-ui/icons/ViewList";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -144,6 +146,14 @@ const STATUS_META = {
   CANCELADA: { label: "Canceladas", color: "#dc2626" },
   INATIVA: { label: "Inativas", color: "#6b7280" },
 };
+
+const CAMPAIGN_KANBAN_COLUMNS = [
+  { status: "INATIVA", title: "Inativas", emptyLabel: "Sem campanhas inativas" },
+  { status: "PROGRAMADA", title: "Programadas", emptyLabel: "Sem campanhas programadas" },
+  { status: "EM_ANDAMENTO", title: "Em andamento", emptyLabel: "Sem campanhas em andamento" },
+  { status: "CANCELADA", title: "Canceladas", emptyLabel: "Sem campanhas canceladas" },
+  { status: "FINALIZADA", title: "Finalizadas", emptyLabel: "Sem campanhas finalizadas" },
+];
 
 const formatCompactDate = (value) => {
   if (!value) return "Sem data";
@@ -354,6 +364,43 @@ const useStyles = makeStyles((theme) => ({
     "&:hover": { background: "linear-gradient(135deg, #19884a 0%, #11753f 100%)", boxShadow: "0 10px 20px rgba(31,157,85,.24)" },
     "&:focus": { boxShadow: "0 0 0 3px rgba(31,157,85,.25)" },
   },
+  viewToggle: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: "#f4f8f5",
+    border: "1px solid #d7e5dc",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+  },
+  viewToggleButton: {
+    minWidth: 0,
+    height: 34,
+    padding: "0 12px",
+    borderRadius: 9,
+    textTransform: "none",
+    fontWeight: 700,
+    color: "#567064",
+    border: "1px solid transparent",
+    transition: "all 0.2s ease",
+    "& .MuiButton-startIcon": {
+      marginRight: 6,
+      "& svg": { fontSize: 16 },
+    },
+    "&:hover": {
+      backgroundColor: "#edf5f0",
+    },
+  },
+  viewToggleButtonActive: {
+    backgroundColor: "#ffffff",
+    color: "#12351f",
+    borderColor: "#bed8c7",
+    boxShadow: "0 6px 14px rgba(16,24,40,0.08)",
+    "&:hover": {
+      backgroundColor: "#ffffff",
+    },
+  },
   downloadButton: {
     display: "flex",
     alignItems: "center",
@@ -371,6 +418,161 @@ const useStyles = makeStyles((theme) => ({
     "&:hover": { backgroundColor: "#c8e6c9" },
   },
   content: { flex: 1, padding: "14px 22px" },
+  kanbanBoard: {
+    display: "grid",
+    gridAutoFlow: "column",
+    gridAutoColumns: "minmax(240px, 280px)",
+    gap: 14,
+    alignItems: "start",
+    overflowX: "auto",
+    paddingBottom: 8,
+    ...theme.scrollbarStyles,
+    [theme.breakpoints.down("sm")]: {
+      gridAutoColumns: "minmax(220px, 82vw)",
+    },
+  },
+  kanbanColumn: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100%",
+    borderRadius: 16,
+    background: "linear-gradient(180deg, #f8fbf9 0%, #eef5f1 100%)",
+    border: "1px solid #dce8e1",
+    boxShadow: "0 10px 24px rgba(16,24,40,0.06)",
+  },
+  kanbanColumnHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "12px 14px",
+    borderBottom: "1px solid #dce8e1",
+  },
+  kanbanColumnTitleWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
+  kanbanColumnAccent: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+    boxShadow: "0 0 0 4px rgba(255,255,255,0.7)",
+  },
+  kanbanColumnTitle: {
+    fontSize: "0.84rem",
+    fontWeight: 800,
+    color: "#122118",
+    letterSpacing: "-0.02em",
+  },
+  kanbanColumnCount: {
+    minWidth: 26,
+    height: 26,
+    borderRadius: 999,
+    padding: "0 8px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    border: "1px solid #d5e3da",
+    color: "#4d6358",
+    fontSize: "0.74rem",
+    fontWeight: 800,
+  },
+  kanbanColumnBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 12,
+    minHeight: 220,
+  },
+  kanbanEmptyState: {
+    minHeight: 128,
+    borderRadius: 14,
+    border: "1px dashed #cddbd2",
+    backgroundColor: "rgba(255,255,255,0.68)",
+    color: "#7a8f84",
+    fontSize: "0.8rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    padding: "18px 14px",
+  },
+  kanbanCard: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: "12px 12px 10px",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    border: "1px solid #dbe6dd",
+    boxShadow: "0 8px 20px rgba(16,24,40,0.08)",
+  },
+  kanbanCardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  kanbanCardNameWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minWidth: 0,
+  },
+  kanbanCardName: {
+    fontSize: "0.86rem",
+    fontWeight: 800,
+    color: "#122118",
+    lineHeight: 1.2,
+    wordBreak: "break-word",
+  },
+  kanbanCardId: {
+    fontSize: "0.72rem",
+    color: "#698073",
+    fontWeight: 700,
+  },
+  kanbanCardMeta: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 6,
+  },
+  kanbanMetaRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: "0.74rem",
+    color: "#556b61",
+    minWidth: 0,
+    "& span": {
+      minWidth: 0,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    },
+    "& svg": {
+      fontSize: 14,
+      color: "#6d8478",
+      flexShrink: 0,
+    },
+  },
+  kanbanCardActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingTop: 2,
+  },
+  kanbanActionButton: {
+    flex: "1 1 calc(50% - 6px)",
+    minWidth: 96,
+    justifyContent: "center",
+    [theme.breakpoints.down("sm")]: {
+      flex: "1 1 100%",
+    },
+  },
   listItem: {
     display: "flex",
     alignItems: "center",
@@ -849,6 +1051,7 @@ const Campaigns = () => {
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
   const [confirmCampaignOpen, setConfirmCampaignOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
+  const [whatsappViewMode, setWhatsappViewMode] = useState("list");
   const [emailCampaignModalOpen, setEmailCampaignModalOpen] = useState(false);
   const [selectedEmailCampaign, setSelectedEmailCampaign] = useState(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -1152,6 +1355,14 @@ const Campaigns = () => {
   };
   const emailCampaigns = campaigns.filter((c) => c.campaignType === "email");
   const whatsappCampaigns = campaigns.filter((c) => !c.campaignType || c.campaignType === "whatsapp");
+  const whatsappCampaignColumns = useMemo(
+    () =>
+      CAMPAIGN_KANBAN_COLUMNS.map((column) => ({
+        ...column,
+        campaigns: whatsappCampaigns.filter((campaign) => campaign.status === column.status),
+      })),
+    [whatsappCampaigns]
+  );
   const statusDistribution = useMemo(
     () => metricsData?.series?.statusDistribution || [],
     [metricsData]
@@ -1693,6 +1904,22 @@ const Campaigns = () => {
               </Box>
             </Box>
             <Box className={classes.headerRight}>
+              <Box className={classes.viewToggle}>
+                <Button
+                  className={`${classes.viewToggleButton} ${whatsappViewMode === "list" ? classes.viewToggleButtonActive : ""}`}
+                  startIcon={<ViewListIcon />}
+                  onClick={() => setWhatsappViewMode("list")}
+                >
+                  Lista
+                </Button>
+                <Button
+                  className={`${classes.viewToggleButton} ${whatsappViewMode === "kanban" ? classes.viewToggleButtonActive : ""}`}
+                  startIcon={<ViewModuleIcon />}
+                  onClick={() => setWhatsappViewMode("kanban")}
+                >
+                  Kanban
+                </Button>
+              </Box>
               <TextField
                 placeholder={i18n.t("campaigns.searchPlaceholder")}
                 variant="outlined"
@@ -1723,6 +1950,85 @@ const Campaigns = () => {
               <Box className={classes.emptyState}>
                 <CampaignIcon />
                 <Typography>Nenhuma campanha WhatsApp encontrada</Typography>
+              </Box>
+            ) : whatsappViewMode === "kanban" ? (
+              <Box className={classes.kanbanBoard}>
+                {whatsappCampaignColumns.map((column) => (
+                  <Box key={column.status} className={classes.kanbanColumn}>
+                    <Box className={classes.kanbanColumnHeader}>
+                      <Box className={classes.kanbanColumnTitleWrap}>
+                        <span
+                          className={classes.kanbanColumnAccent}
+                          style={{ backgroundColor: STATUS_META[column.status]?.color || "#6b7280" }}
+                        />
+                        <Typography className={classes.kanbanColumnTitle}>{column.title}</Typography>
+                      </Box>
+                      <span className={classes.kanbanColumnCount}>{column.campaigns.length}</span>
+                    </Box>
+
+                    <Box className={classes.kanbanColumnBody}>
+                      {column.campaigns.length === 0 ? (
+                        <Box className={classes.kanbanEmptyState}>{column.emptyLabel}</Box>
+                      ) : (
+                        column.campaigns.map((campaign) => (
+                          <Box key={campaign.id} className={classes.kanbanCard}>
+                            <Box className={classes.kanbanCardTop}>
+                              <Box className={classes.kanbanCardNameWrap}>
+                                <Typography className={classes.kanbanCardName}>{campaign.name}</Typography>
+                                <Typography className={classes.kanbanCardId}>ID: {campaign.id}</Typography>
+                              </Box>
+                              {getStatusChip(campaign.status)}
+                            </Box>
+
+                            <Box className={classes.kanbanCardMeta}>
+                              <Box className={classes.kanbanMetaRow}>
+                                <PeopleIcon />
+                                <span>{campaign.contactListId ? campaign.contactList?.name : "Sem lista"}</span>
+                              </Box>
+                              <Box className={classes.kanbanMetaRow}>
+                                <WhatsAppIcon style={{ color: "#25D366" }} />
+                                <span>{campaign.whatsappId ? campaign.whatsapp?.name : "Não definido"}</span>
+                              </Box>
+                              {campaign.scheduledAt && (
+                                <Box className={classes.kanbanMetaRow}>
+                                  <ScheduleIcon />
+                                  <span>{datetimeToClient(campaign.scheduledAt)}</span>
+                                </Box>
+                              )}
+                            </Box>
+
+                            <Box className={classes.kanbanCardActions}>
+                              <Button
+                                size="small"
+                                className={`${classes.actionTextButton} ${classes.reportAction} ${classes.kanbanActionButton}`}
+                                startIcon={<DescriptionIcon style={{ fontSize: 15 }} />}
+                                onClick={() => history.push(`/campaign/${campaign.id}/report`)}
+                              >
+                                Relatório
+                              </Button>
+                              <Button
+                                size="small"
+                                className={`${classes.actionTextButton} ${classes.editAction} ${classes.kanbanActionButton}`}
+                                startIcon={<EditIcon style={{ fontSize: 15 }} />}
+                                onClick={() => { setSelectedCampaign(campaign); setCampaignModalOpen(true); }}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                size="small"
+                                className={`${classes.actionTextButton} ${classes.deleteAction} ${classes.kanbanActionButton}`}
+                                startIcon={<DeleteOutlineIcon style={{ fontSize: 15 }} />}
+                                onClick={() => { setConfirmCampaignOpen(true); setDeletingCampaign(campaign); }}
+                              >
+                                Excluir
+                              </Button>
+                            </Box>
+                          </Box>
+                        ))
+                      )}
+                    </Box>
+                  </Box>
+                ))}
               </Box>
             ) : (
               whatsappCampaigns.map((campaign) => (
