@@ -457,7 +457,16 @@ const Reports = () => {
   const [counters, setCounters] = useState({});
   const [attendants, setAttendants] = useState([]);
   const [tags, setTags] = useState([]);
+  const [pipelines, setPipelines] = useState([]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState("");
+  const [selectedPipelineInfo, setSelectedPipelineInfo] = useState(null);
   const [kanbanSummary, setKanbanSummary] = useState([]);
+  const [kanbanOverview, setKanbanOverview] = useState({
+    totalStages: 0,
+    totalCurrentCards: 0,
+    totalEnteredInPeriod: 0,
+    totalCurrentValue: 0,
+  });
   const [ticketsPerDay, setTicketsPerDay] = useState([]);
   const [previousCounters, setPreviousCounters] = useState({});
   const [whatsappConnections, setWhatsappConnections] = useState([]);
@@ -468,6 +477,23 @@ const Reports = () => {
   const [services, setServices] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedKanbanUserId, setSelectedKanbanUserId] = useState("all");
+
+  const loadPipelines = async () => {
+    try {
+      const { data } = await api.get("/pipelines");
+      const pipelineList = Array.isArray(data) ? data : [];
+      setPipelines(pipelineList);
+
+      if (!selectedPipelineId && pipelineList.length > 0) {
+        const defaultPipeline = pipelineList.find((pipeline) => pipeline.isDefault) || pipelineList[0];
+        setSelectedPipelineId(String(defaultPipeline.id));
+      }
+    } catch (err) {
+      console.log("Erro ao carregar funis:", err);
+      setPipelines([]);
+    }
+  };
 
   // Carregar dados
   const loadData = async () => {
@@ -477,6 +503,10 @@ const Reports = () => {
       const data = await find({
         date_from: dateFrom,
         date_to: dateTo,
+        pipelineId: activeTab === 4 ? (selectedPipelineId || undefined) : undefined,
+        reportUserId: activeTab === 4 && selectedKanbanUserId !== "all"
+          ? selectedKanbanUserId
+          : undefined,
       });
 
       if (data) {
@@ -484,6 +514,13 @@ const Reports = () => {
         setAttendants(data.attendants || []);
         setTags(data.tagsContactsSummary || []);
         setKanbanSummary(data.kanbanSummary || []);
+        setKanbanOverview(data.kanbanOverview || {
+          totalStages: 0,
+          totalCurrentCards: 0,
+          totalEnteredInPeriod: 0,
+          totalCurrentValue: 0,
+        });
+        setSelectedPipelineInfo(data.selectedPipeline || null);
       }
 
       // Dados do período anterior para comparação
@@ -569,8 +606,13 @@ const Reports = () => {
   };
 
   useEffect(() => {
+    loadPipelines();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 4 && !selectedPipelineId && pipelines.length > 0) return;
     loadData();
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, selectedPipelineId, selectedKanbanUserId, activeTab]);
 
   // Abrir modal de contatos da tag
   const handleTagClick = async (tag) => {
@@ -609,10 +651,13 @@ const Reports = () => {
       "Visão Geral", "Atendentes", "Tickets", "Tags", "Kanban",
       "Avaliações", "Canais", "Produtos", "Serviços", "Faturas"
     ][activeTab];
+    const pipelineExportSuffix = activeTab === 4 && selectedPipelineInfo?.name
+      ? `_${selectedPipelineInfo.name.replace(/[^\w\s-]/g, "").replace(/\s+/g, "_")}`
+      : "";
 
     const options = {
       margin: [10, 10, 10, 10],
-      filename: `Relatorio_${activeTabLabel}_${moment().format("DD_MM_YYYY")}.pdf`,
+      filename: `Relatorio_${activeTabLabel}${pipelineExportSuffix}_${moment().format("DD_MM_YYYY")}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, logging: false },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -1090,7 +1135,14 @@ const Reports = () => {
 
   // ==================== ABA 5: KANBAN ====================
   const renderKanban = () => {
-    const totalTickets = kanbanSummary.reduce((acc, k) => acc + (k.ticketsCount || 0), 0);
+    const currentPipeline = pipelines.find((pipeline) => Number(pipeline.id) === Number(selectedPipelineId)) || selectedPipelineInfo;
+    const currentKanbanAttendant = selectedKanbanUserId !== "all"
+      ? attendants.find((attendant) => String(attendant.id) === String(selectedKanbanUserId))
+      : null;
+    const totalTickets = kanbanOverview.totalCurrentCards || 0;
+    const totalStages = kanbanOverview.totalStages || kanbanSummary.length || 0;
+    const totalEnteredInPeriod = kanbanOverview.totalEnteredInPeriod || 0;
+    const totalCurrentValue = kanbanOverview.totalCurrentValue || 0;
 
     return (
       <>
@@ -1099,8 +1151,8 @@ const Reports = () => {
             <IndicatorCard
               icon={<BarChartIcon style={{ color: '#fff', fontSize: 28 }} />}
               iconBg="#178a4a"
-              label="Colunas Kanban"
-              value={kanbanSummary.length}
+              label="Etapas do Funil"
+              value={totalStages}
               classes={classes}
             />
           </Grid>
@@ -1108,24 +1160,59 @@ const Reports = () => {
             <IndicatorCard
               icon={<AssignmentIcon style={{ color: '#fff', fontSize: 28 }} />}
               iconBg="#10b981"
-              label="Tickets no Kanban"
+              label="Cards no Funil"
               value={totalTickets}
+              classes={classes}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <IndicatorCard
+              icon={<TimelineIcon style={{ color: '#fff', fontSize: 28 }} />}
+              iconBg="#1e9b54"
+              label="Entradas no Período"
+              value={totalEnteredInPeriod}
+              classes={classes}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <IndicatorCard
+              icon={<AttachMoneyIcon style={{ color: '#fff', fontSize: 28 }} />}
+              iconBg="#f59e0b"
+              label="Valor Atual do Funil"
+              value={formatCurrency(totalCurrentValue)}
               classes={classes}
             />
           </Grid>
         </Grid>
 
+        <div className={classes.chartCard} style={{ marginBottom: 24 }}>
+          <div className={classes.chartHeader}>
+            <Typography className={classes.chartTitle}>
+              {currentPipeline?.name ? `Pipeline ${currentPipeline.name}` : "Pipeline selecionado"}
+            </Typography>
+          </div>
+          <Typography style={{ color: '#5f7566', fontSize: 14, lineHeight: 1.7 }}>
+            Esse relatório mostra como o funil escolhido evoluiu no período filtrado, trazendo volume atual por etapa,
+            entradas registradas e valor acumulado das oportunidades e leads vinculados.
+          </Typography>
+          {currentKanbanAttendant && (
+            <Typography style={{ color: '#178a4a', fontSize: 13, fontWeight: 600, marginTop: 12 }}>
+              Filtro por agente: {currentKanbanAttendant.name}
+            </Typography>
+          )}
+        </div>
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <div className={classes.chartCard}>
-              <Typography className={classes.chartTitle}>Distribuição por Coluna</Typography>
+              <Typography className={classes.chartTitle}>Distribuição Atual por Etapa</Typography>
               <Chart
                 options={{
                   labels: kanbanSummary.map(k => k.name),
                   colors: kanbanSummary.map(k => k.color || '#178a4a'),
                   legend: { position: 'bottom' },
                 }}
-                series={kanbanSummary.map(k => k.ticketsCount || 0)}
+                series={kanbanSummary.map(k => k.currentCards || 0)}
                 type="donut"
                 height={320}
               />
@@ -1133,7 +1220,7 @@ const Reports = () => {
           </Grid>
           <Grid item xs={12} md={6}>
             <div className={classes.chartCard}>
-              <Typography className={classes.chartTitle}>Tickets por Coluna</Typography>
+              <Typography className={classes.chartTitle}>Entradas por Etapa no Período</Typography>
               <Chart
                 options={{
                   chart: { type: 'bar', toolbar: { show: false } },
@@ -1142,13 +1229,62 @@ const Reports = () => {
                   xaxis: { categories: kanbanSummary.map(k => k.name) },
                   dataLabels: { enabled: true },
                 }}
-                series={[{ name: 'Tickets', data: kanbanSummary.map(k => k.ticketsCount || 0) }]}
+                series={[{ name: 'Entradas', data: kanbanSummary.map(k => k.enteredInPeriod || 0) }]}
                 type="bar"
                 height={320}
               />
             </div>
           </Grid>
         </Grid>
+
+        <div className={classes.tableCard} style={{ marginTop: 24 }}>
+          <Typography className={classes.chartTitle} style={{ marginBottom: 16 }}>
+            Detalhamento por Etapa
+          </Typography>
+          <Table>
+            <TableHead className={classes.tableHeader}>
+              <TableRow>
+                <TableCell>Etapa</TableCell>
+                <TableCell align="right">Cards Atuais</TableCell>
+                <TableCell align="right">Entradas no Período</TableCell>
+                <TableCell align="right">Leads Criados</TableCell>
+                <TableCell align="right">Movimentações</TableCell>
+                <TableCell align="right">Valor Atual</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {kanbanSummary.length > 0 ? kanbanSummary.map((stage) => (
+                <TableRow key={stage.id} className={classes.tableRow}>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" style={{ gap: 12 }}>
+                      <div
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          background: stage.color || '#178a4a',
+                          flexShrink: 0
+                        }}
+                      />
+                      <Typography style={{ fontWeight: 600 }}>{stage.name}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right" style={{ fontWeight: 700 }}>{stage.currentCards || 0}</TableCell>
+                  <TableCell align="right">{stage.enteredInPeriod || 0}</TableCell>
+                  <TableCell align="right">{stage.leadEntriesCount || 0}</TableCell>
+                  <TableCell align="right">{stage.movedIntoStageCount || 0}</TableCell>
+                  <TableCell align="right">{formatCurrency(stage.currentValue || 0)}</TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" style={{ color: '#6b7280', padding: 24 }}>
+                    Nenhuma movimentação ou etapa encontrada para o funil selecionado.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </>
     );
   };
@@ -2386,6 +2522,41 @@ const Reports = () => {
           onChange={(e) => setDateTo(e.target.value)}
           style={{ minWidth: 160 }}
         />
+        {activeTab === 4 && (
+          <FormControl variant="outlined" size="small" style={{ minWidth: 220 }}>
+            <InputLabel id="pipeline-report-select-label">Funil</InputLabel>
+            <Select
+              labelId="pipeline-report-select-label"
+              value={selectedPipelineId}
+              onChange={(e) => setSelectedPipelineId(String(e.target.value))}
+              label="Funil"
+            >
+              {pipelines.map((pipeline) => (
+                <MenuItem key={pipeline.id} value={String(pipeline.id)}>
+                  {pipeline.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        {activeTab === 4 && (
+          <FormControl variant="outlined" size="small" style={{ minWidth: 220 }}>
+            <InputLabel id="kanban-user-report-select-label">Agente</InputLabel>
+            <Select
+              labelId="kanban-user-report-select-label"
+              value={selectedKanbanUserId}
+              onChange={(e) => setSelectedKanbanUserId(String(e.target.value))}
+              label="Agente"
+            >
+              <MenuItem value="all">Todos os agentes</MenuItem>
+              {attendants.map((attendant) => (
+                <MenuItem key={attendant.id} value={String(attendant.id)}>
+                  {attendant.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <Tooltip title="Sincronizar dados">
           <IconButton onClick={loadData} className={`${classes.filterActionButton} ${classes.refreshButton}`}>
             <RefreshIcon />

@@ -8,6 +8,10 @@ import Tag from "../models/Tag";
 import TicketTag from "../models/TicketTag";
 import ContactTag from "../models/ContactTag";
 import CrmLead from "../models/CrmLead";
+import Pipeline from "../models/Pipeline";
+import PipelineStage from "../models/PipelineStage";
+import Opportunity from "../models/Opportunity";
+import OpportunityMovement from "../models/OpportunityMovement";
 import moment from "moment";
 
 type IndexQuery = {
@@ -23,10 +27,210 @@ type IndexQueryPainel = {
   queuesIds: string[];
   showAll: string;
 };
+
+const buildStageWhereDateRange = (dateFrom?: string, dateTo?: string) => {
+  if (!dateFrom || !dateTo) return undefined;
+
+  return {
+    [Op.between]: [
+      moment(dateFrom).startOf("day").toDate(),
+      moment(dateTo).endOf("day").toDate()
+    ]
+  };
+};
+
+const toNumeric = (value: any): number => Number(value || 0);
+
+const getPipelineKanbanSummary = async ({
+  companyId,
+  pipelineId,
+  dateFrom,
+  dateTo,
+  reportUserId
+}: {
+  companyId: number;
+  pipelineId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  reportUserId?: number;
+}) => {
+  if (!pipelineId) {
+    return {
+      selectedPipeline: null,
+      kanbanSummary: [],
+      kanbanOverview: {
+        totalStages: 0,
+        totalCurrentCards: 0,
+        totalEnteredInPeriod: 0,
+        totalCurrentValue: 0
+      }
+    };
+  }
+
+  const pipeline = await Pipeline.findOne({
+    where: { id: pipelineId, companyId },
+    include: [{ model: PipelineStage, as: "stages" }],
+    order: [[{ model: PipelineStage, as: "stages" }, "order", "ASC"]]
+  });
+
+  if (!pipeline) {
+    return {
+      selectedPipeline: null,
+      kanbanSummary: [],
+      kanbanOverview: {
+        totalStages: 0,
+        totalCurrentCards: 0,
+        totalEnteredInPeriod: 0,
+        totalCurrentValue: 0
+      }
+    };
+  }
+
+  const stages = Array.isArray((pipeline as any).stages) ? (pipeline as any).stages : [];
+  const rangeFilter = buildStageWhereDateRange(dateFrom, dateTo);
+  const leadBaseWhere = reportUserId ? { ownerUserId: reportUserId } : {};
+  const opportunityBaseWhere = reportUserId ? { assignedUserId: reportUserId } : {};
+
+  const kanbanSummary = await Promise.all(
+    stages.map(async (stage: PipelineStage) => {
+      const currentLeadCount = await CrmLead.count({
+        where: {
+          companyId,
+          pipelineId,
+          stageId: stage.id,
+          ...leadBaseWhere
+        }
+      });
+
+      const currentLeadValueRaw = await CrmLead.findOne({
+        where: {
+          companyId,
+          pipelineId,
+          stageId: stage.id,
+          ...leadBaseWhere
+        },
+        attributes: [[fn("COALESCE", fn("SUM", col("purchaseValue")), 0), "total"]],
+        raw: true
+      }) as any;
+
+      const currentOpportunityCount = await Opportunity.count({
+        where: {
+          companyId,
+          pipelineId,
+          stageId: stage.id,
+          status: "OPEN",
+          ...opportunityBaseWhere
+        }
+      });
+
+      const currentOpportunityValueRaw = await Opportunity.findOne({
+        where: {
+          companyId,
+          pipelineId,
+          stageId: stage.id,
+          status: "OPEN",
+          ...opportunityBaseWhere
+        },
+        attributes: [[fn("COALESCE", fn("SUM", col("value")), 0), "total"]],
+        raw: true
+      }) as any;
+
+      const leadEntriesCount = rangeFilter
+        ? await CrmLead.count({
+            where: {
+              companyId,
+              pipelineId,
+              stageId: stage.id,
+              createdAt: rangeFilter,
+              ...leadBaseWhere
+            }
+          })
+        : 0;
+
+      const opportunityCreatedCount = rangeFilter
+        ? await Opportunity.count({
+            where: {
+              companyId,
+              pipelineId,
+              stageId: stage.id,
+              createdAt: rangeFilter,
+              ...opportunityBaseWhere
+            }
+          })
+        : 0;
+
+      const movedIntoStageCount = rangeFilter
+        ? await OpportunityMovement.count({
+            where: {
+              companyId,
+              toStageId: stage.id,
+              createdAt: rangeFilter
+            },
+            include: [
+              {
+                model: Opportunity,
+                required: true,
+                attributes: [],
+                where: {
+                  companyId,
+                  pipelineId,
+                  ...opportunityBaseWhere
+                }
+              }
+            ]
+          })
+        : 0;
+
+      const currentLeadValue = toNumeric(currentLeadValueRaw?.total);
+      const currentOpportunityValue = toNumeric(currentOpportunityValueRaw?.total);
+      const currentCards = currentLeadCount + currentOpportunityCount;
+      const enteredInPeriod = leadEntriesCount + opportunityCreatedCount + movedIntoStageCount;
+      const currentValue = currentLeadValue + currentOpportunityValue;
+
+      return {
+        id: stage.id,
+        name: stage.name,
+        color: stage.color || "#178a4a",
+        order: stage.order || 0,
+        currentLeadCount,
+        currentOpportunityCount,
+        currentCards,
+        enteredInPeriod,
+        leadEntriesCount,
+        opportunityCreatedCount,
+        movedIntoStageCount,
+        currentLeadValue,
+        currentOpportunityValue,
+        currentValue,
+        probability: stage.probability || 0
+      };
+    })
+  );
+
+  const sortedSummary = kanbanSummary.sort((a, b) => a.order - b.order);
+
+  return {
+    selectedPipeline: {
+      id: pipeline.id,
+      name: pipeline.name,
+      isDefault: pipeline.isDefault
+    },
+    kanbanSummary: sortedSummary,
+    kanbanOverview: {
+      totalStages: sortedSummary.length,
+      totalCurrentCards: sortedSummary.reduce((acc, item) => acc + item.currentCards, 0),
+      totalEnteredInPeriod: sortedSummary.reduce((acc, item) => acc + item.enteredInPeriod, 0),
+      totalCurrentValue: sortedSummary.reduce((acc, item) => acc + item.currentValue, 0)
+    }
+  };
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const params: Params = req.query;
   const { companyId } = req.user;
   let daysInterval = 3;
+  const pipelineId = req.query.pipelineId ? Number(req.query.pipelineId) : undefined;
+  const reportUserId = req.query.reportUserId ? Number(req.query.reportUserId) : undefined;
 
   const dashboardData: DashboardData = await DashboardDataService(
     companyId,
@@ -109,7 +313,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
       order: [["id", "ASC"]]
     });
 
-    const kanbanSummary = kanbanTags.map(tag => ({
+    const fallbackKanbanSummary = kanbanTags.map(tag => ({
       id: tag.id,
       name: tag.name,
       color: (tag as any).color,
@@ -118,7 +322,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
     const tagsSummary = {
       totalTags,
-      totalKanbanTags: kanbanSummary.length
+      totalKanbanTags: fallbackKanbanSummary.length
     };
 
     // Contatos por Tag (todas as tags, incluindo Kanban)
@@ -231,10 +435,20 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
       contacts30d: trendMap[tag.id]?.contacts30d || 0
     }));
 
+    const pipelineKanban = await getPipelineKanbanSummary({
+    companyId,
+    pipelineId,
+    dateFrom: params.date_from,
+    dateTo: params.date_to,
+    reportUserId
+  });
+
     return res.status(200).json({
       ...dashboardData,
       tagsSummary,
-      kanbanSummary,
+      kanbanSummary: pipelineKanban.kanbanSummary.length ? pipelineKanban.kanbanSummary : fallbackKanbanSummary,
+      kanbanOverview: pipelineKanban.kanbanOverview,
+      selectedPipeline: pipelineKanban.selectedPipeline,
       tagsContactsSummary,
       tagsContactsTrend
     });
