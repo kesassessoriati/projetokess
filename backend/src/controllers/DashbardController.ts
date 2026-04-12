@@ -68,9 +68,7 @@ const getPipelineKanbanSummary = async ({
   }
 
   const pipeline = await Pipeline.findOne({
-    where: { id: pipelineId, companyId },
-    include: [{ model: PipelineStage, as: "stages" }],
-    order: [[{ model: PipelineStage, as: "stages" }, "order", "ASC"]]
+    where: { id: pipelineId, companyId }
   });
 
   if (!pipeline) {
@@ -86,13 +84,41 @@ const getPipelineKanbanSummary = async ({
     };
   }
 
-  const stages = Array.isArray((pipeline as any).stages) ? (pipeline as any).stages : [];
+  const stages = await PipelineStage.findAll({
+    where: { pipelineId, companyId },
+    order: [["order", "ASC"], ["id", "ASC"]]
+  });
   const rangeFilter = buildStageWhereDateRange(dateFrom, dateTo);
   const leadBaseWhere = reportUserId ? { ownerUserId: reportUserId } : {};
   const opportunityBaseWhere = reportUserId ? { assignedUserId: reportUserId } : {};
 
   const kanbanSummary = await Promise.all(
     stages.map(async (stage: PipelineStage) => {
+      const openOpportunities = await Opportunity.findAll({
+        where: {
+          companyId,
+          pipelineId,
+          stageId: stage.id,
+          status: "OPEN",
+          ...opportunityBaseWhere
+        },
+        include: [
+          {
+            model: CrmLead,
+            as: "lead",
+            attributes: ["id", "purchaseValue"]
+          }
+        ],
+        attributes: ["id", "value", "leadId"]
+      });
+
+      const currentOpportunityCount = openOpportunities.length;
+      const currentOpportunityValue = openOpportunities.reduce((acc, opportunity: any) => {
+        const opportunityValue = toNumeric(opportunity.value);
+        const leadFallbackValue = toNumeric(opportunity?.lead?.purchaseValue);
+        return acc + (opportunityValue === 0 && leadFallbackValue > 0 ? leadFallbackValue : opportunityValue);
+      }, 0);
+
       const currentLeadCount = await CrmLead.count({
         where: {
           companyId,
@@ -110,28 +136,6 @@ const getPipelineKanbanSummary = async ({
           ...leadBaseWhere
         },
         attributes: [[fn("COALESCE", fn("SUM", col("purchaseValue")), 0), "total"]],
-        raw: true
-      }) as any;
-
-      const currentOpportunityCount = await Opportunity.count({
-        where: {
-          companyId,
-          pipelineId,
-          stageId: stage.id,
-          status: "OPEN",
-          ...opportunityBaseWhere
-        }
-      });
-
-      const currentOpportunityValueRaw = await Opportunity.findOne({
-        where: {
-          companyId,
-          pipelineId,
-          stageId: stage.id,
-          status: "OPEN",
-          ...opportunityBaseWhere
-        },
-        attributes: [[fn("COALESCE", fn("SUM", col("value")), 0), "total"]],
         raw: true
       }) as any;
 
@@ -161,6 +165,8 @@ const getPipelineKanbanSummary = async ({
 
       const movedIntoStageCount = rangeFilter
         ? await OpportunityMovement.count({
+            distinct: true,
+            col: "opportunityId",
             where: {
               companyId,
               toStageId: stage.id,
@@ -182,10 +188,9 @@ const getPipelineKanbanSummary = async ({
         : 0;
 
       const currentLeadValue = toNumeric(currentLeadValueRaw?.total);
-      const currentOpportunityValue = toNumeric(currentOpportunityValueRaw?.total);
-      const currentCards = currentLeadCount + currentOpportunityCount;
-      const enteredInPeriod = leadEntriesCount + opportunityCreatedCount + movedIntoStageCount;
-      const currentValue = currentLeadValue + currentOpportunityValue;
+      const currentCards = currentOpportunityCount;
+      const enteredInPeriod = opportunityCreatedCount + movedIntoStageCount;
+      const currentValue = currentOpportunityValue;
 
       return {
         id: stage.id,
