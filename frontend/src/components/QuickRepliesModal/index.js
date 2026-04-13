@@ -31,18 +31,17 @@ const useStyles = makeStyles((theme) => ({
     maxHeight: 760
   },
   sidebar: {
-    position: "absolute",
-    right: 0,
-    top: 60,
-    bottom: 0,
     width: 370,
-    maxWidth: "92vw",
+    minWidth: 340,
+    maxWidth: 400,
+    height: "100%",
     backgroundColor: "#f8fafc",
     borderLeft: "1px solid #dbe4ee",
-    boxShadow: "-12px 0 32px rgba(15, 23, 42, 0.12)",
-    zIndex: 30,
+    boxShadow: "-10px 0 24px rgba(15, 23, 42, 0.08)",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    flexShrink: 0,
+    overflow: "hidden"
   },
   header: {
     padding: theme.spacing(1.5, 2),

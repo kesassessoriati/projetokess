@@ -359,6 +359,21 @@ const useStyles = makeStyles(theme => ({
 			height: "calc(100vh - 64px)",
 		},
 	},
+	chatWorkspace: {
+		flex: 1,
+		minHeight: 0,
+		minWidth: 0,
+		display: "flex",
+		overflow: "hidden",
+	},
+	chatConversationPane: {
+		flex: 1,
+		minHeight: 0,
+		minWidth: 0,
+		display: "flex",
+		flexDirection: "column",
+		overflow: "hidden",
+	},
 	chatAreaMobile: {
 		width: "100%",
 		minWidth: "100%",
@@ -4130,8 +4145,10 @@ const Atendimentos = () => {
 								)}
 							</div>
 
-							{/* Messages */}
-							<div className={classes.chatMessages} ref={messagesContainerRef}>
+							<div className={classes.chatWorkspace}>
+								<div className={classes.chatConversationPane}>
+									{/* Messages */}
+									<div className={classes.chatMessages} ref={messagesContainerRef}>
 								{/* Status de digitação */}
 								{isTyping && (
 									<div style={{
@@ -4786,6 +4803,7 @@ const Atendimentos = () => {
 									</IconButton>
 								)}
 							</div>
+								</div>
 							{!isMobile && selectedTicket && (
 								<QuickRepliesModal
 									open={quickMessagesOpen}
@@ -4794,6 +4812,7 @@ const Atendimentos = () => {
 									variant="sidebar"
 								/>
 							)}
+							</div>
 						</>
 					) : (
 						<div className={classes.welcomeContainer}>
