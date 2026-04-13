@@ -8,6 +8,7 @@ import CreateContactService from "../ContactServices/CreateContactService";
 import { isString, isArray } from "lodash";
 import path from "path";
 import fs from 'fs';
+import resolveWhatsAppContactName from "../../helpers/resolveWhatsAppContactName";
 
 const ImportContactsService = async (companyId?: number, whatsappId?: number): Promise<void> => {
   const defaultWhatsapp = await GetDefaultWhatsApp(whatsappId, companyId);
@@ -49,24 +50,26 @@ const ImportContactsService = async (companyId?: number, whatsappId?: number): P
     : phoneContacts;
 
   if (isArray(phoneContactsList)) {
-    phoneContactsList.forEach(async ({ id, name, notify }) => {
-      if (id === "status@broadcast" || id.includes("g.us")) return;
+    for (const contactData of phoneContactsList) {
+      const { id } = contactData;
+      if (id === "status@broadcast" || id.includes("g.us")) continue;
       const number = id.replace(/\D/g, "");
+      const resolvedName = resolveWhatsAppContactName(contactData, id);
 
       const existingContact = await Contact.findOne({
         where: { number, companyId }
       });
 
       if (existingContact) {
-        // Atualiza o nome do contato existente
-        existingContact.name = name || notify;
-        await existingContact.save();
+        if (resolvedName && existingContact.name !== resolvedName) {
+          existingContact.name = resolvedName;
+          await existingContact.save();
+        }
       } else {
-        // Criar um novo contato
         try {
           await CreateContactService({
             number,
-            name: name || notify,
+            name: resolvedName || "",
             companyId
           });
         } catch (error) {
@@ -76,7 +79,7 @@ const ImportContactsService = async (companyId?: number, whatsappId?: number): P
           );
         }
       }
-    });
+    }
   }
 };
 

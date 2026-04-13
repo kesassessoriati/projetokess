@@ -22,6 +22,7 @@ import { getIO } from "../../libs/socket";
 import path from "path";
 import { verifyMessage } from "./wbotMessageListener";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
+import resolveWhatsAppContactName from "../../helpers/resolveWhatsAppContactName";
 
 let i = 0;
 
@@ -218,18 +219,26 @@ const wbotMonitor = async (
       const filteredContacts: any[] = [];
 
       try {
-        Promise.all(
+        await Promise.all(
           contacts.map(async contact => {
             if (
               !isJidBroadcast(contact.id) &&
               !isJidStatusBroadcast(contact.id) &&
               !!isLidUser(contact.id)
             ) {
+              const resolvedName = resolveWhatsAppContactName(contact, contact.id);
 
               const contactArray = {
                 'id': contact.id,
-                'name': contact.name ? cleanStringForJSON(contact.name) : contact.id.split('@')[0].split(':')[0]
-              }
+                'name': resolvedName ? cleanStringForJSON(resolvedName) : "",
+                'notify': contact.notify ? cleanStringForJSON(contact.notify) : "",
+                'fullName': contact.fullName ? cleanStringForJSON(contact.fullName) : "",
+                'pushName': contact.pushName ? cleanStringForJSON(contact.pushName) : "",
+                'verifiedName':
+                  typeof contact.verifiedName === "string"
+                    ? cleanStringForJSON(contact.verifiedName)
+                    : ""
+              };
 
               filteredContacts.push(contactArray);
 

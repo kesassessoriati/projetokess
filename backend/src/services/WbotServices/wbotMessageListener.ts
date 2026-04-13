@@ -68,6 +68,7 @@ import {
   resolveContactNumber,
   sanitizeRemoteJid
 } from "../../helpers/normalizeContactNumber";
+import resolveWhatsAppContactName from "../../helpers/resolveWhatsAppContactName";
 
 import ShowQueueIntegrationService from "../QueueIntegrationServices/ShowQueueIntegrationService";
 import { createDialogflowSessionWithModel } from "../QueueIntegrationServices/CreateSessionDialogflow";
@@ -6833,8 +6834,10 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         contactNumber = normalizedNumber;
         contactRemoteJid = `${contactNumber}@s.whatsapp.net`;
 
+        const resolvedName = resolveWhatsAppContactName(contact, contact.id);
+
         const contactData = {
-          name: contact.name || contact.notify || contactNumber,
+          name: resolvedName || contactNumber,
           number: contactNumber,
           isGroup: contactRemoteJid.includes("@g.us") ? true : false,
           companyId: companyId,
