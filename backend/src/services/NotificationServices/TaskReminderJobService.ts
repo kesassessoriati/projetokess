@@ -1,5 +1,5 @@
 import { Op } from "sequelize";
-import { addHours, startOfDay, endOfDay, addDays } from "date-fns";
+import { startOfDay, endOfDay, addDays } from "date-fns";
 import Task from "../../models/Task";
 import TaskList from "../../models/TaskList";
 import TaskBoard from "../../models/TaskBoard";
@@ -9,21 +9,22 @@ import CreateNotificationService from "./CreateNotificationService";
 import logger from "../../utils/logger";
 
 /**
- * Runs every hour. Sends reminders for tasks due within 24 hours
+ * Runs every hour. Sends reminders for tasks due on the next day
  * and overdue notifications for tasks past their dueDate.
  * Avoids duplicate notifications by checking metadata.taskId + type.
  */
 const runTaskReminderJob = async (): Promise<void> => {
   try {
     const now = new Date();
-    const in24h = addHours(now, 24);
-    const yesterday = addHours(now, -24);
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const tomorrowEnd = endOfDay(addDays(now, 1));
 
-    // Tasks approaching due date (due in the next 24 hours)
+    // Tasks approaching due date (due tomorrow)
     const upcomingTasks = await Task.findAll({
       where: {
-        dueDate: { [Op.between]: [now, in24h] as any },
+        dueDate: { [Op.between]: [tomorrowStart, tomorrowEnd] as any },
         responsibleId: { [Op.not]: null },
+        [Op.or]: [{ status: null }, { status: "active" }],
       },
       include: [
         { model: User, as: "responsible" },
@@ -55,26 +56,24 @@ const runTaskReminderJob = async (): Promise<void> => {
 
       if (alreadySent) continue;
 
-      const hoursLeft = Math.round((task.dueDate.getTime() - now.getTime()) / 3600000);
-      const timeLabel = hoursLeft <= 1 ? "em menos de 1 hora" : `em ${hoursLeft} horas`;
-
       await CreateNotificationService({
         userId: task.responsibleId,
         companyId,
         type: "task_due",
-        title: `Tarefa vence ${timeLabel}: ${task.title}`,
-        body: task.description || undefined,
+        title: `Tarefa vence amanha: ${task.title}`,
+        body: task.description || "Sua tarefa vence amanha. Vale revisar antes do prazo.",
         channel: "in_app",
-        metadata: { taskId: task.id, dueDate: task.dueDate },
+        metadata: { taskId: task.id, leadId: task.leadId || null, dueDate: task.dueDate },
         sendEmail: true,
       });
     }
 
-    // Overdue tasks (dueDate in the last 24h and no overdue notification sent today)
+    // Overdue tasks (any active task already past due and not notified today)
     const overdueTasks = await Task.findAll({
       where: {
-        dueDate: { [Op.between]: [yesterday, now] as any },
+        dueDate: { [Op.lt]: now } as any,
         responsibleId: { [Op.not]: null },
+        [Op.or]: [{ status: null }, { status: "active" }],
       },
       include: [
         { model: User, as: "responsible" },
@@ -112,7 +111,7 @@ const runTaskReminderJob = async (): Promise<void> => {
         title: `Tarefa atrasada: ${task.title}`,
         body: `Prazo encerrado. Por favor, atualize o status da tarefa.`,
         channel: "in_app",
-        metadata: { taskId: task.id, dueDate: task.dueDate },
+        metadata: { taskId: task.id, leadId: task.leadId || null, dueDate: task.dueDate },
         sendEmail: true,
       });
     }

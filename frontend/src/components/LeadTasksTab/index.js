@@ -45,6 +45,9 @@ const EMPTY_FORM = {
     url: "",
     dueDate: "",
     color: "#ffffff",
+    status: "active",
+    completedAt: "",
+    completedByUser: null,
 };
 
 const LeadTasksTab = ({ leadId, op }) => {
@@ -127,6 +130,9 @@ const LeadTasksTab = ({ leadId, op }) => {
             url: task.url || "",
             dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
             color: task.color || "#ffffff",
+            status: task.status || "active",
+            completedAt: task.completedAt || "",
+            completedByUser: task.completedByUser || null,
         });
         if (boards.length === 0) fetchBoards();
         if (users.length === 0) fetchUsers();
@@ -168,6 +174,28 @@ const LeadTasksTab = ({ leadId, op }) => {
             toast.error("Erro ao salvar tarefa");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleComplete = async (taskId) => {
+        try {
+            await api.put(`/tasks/item/${taskId}/complete`);
+            toast.success("Tarefa concluida");
+            setOpenModal(false);
+            fetchTasks();
+        } catch (err) {
+            toast.error("Erro ao concluir tarefa");
+        }
+    };
+
+    const handleReopen = async (taskId) => {
+        try {
+            await api.put(`/tasks/item/${taskId}/reopen`);
+            toast.success("Tarefa reaberta");
+            setOpenModal(false);
+            fetchTasks();
+        } catch (err) {
+            toast.error("Erro ao reabrir tarefa");
         }
     };
 
@@ -244,11 +272,13 @@ const LeadTasksTab = ({ leadId, op }) => {
                             <Box
                                 key={task.id}
                                 p={2}
+                                onClick={() => openEditModal(task)}
                                 style={{
                                     borderRadius: 8,
                                     border: "1px solid #e0e0e0",
                                     backgroundColor: task.color && task.color !== "#ffffff" ? task.color + "22" : "#fff",
                                     borderLeft: task.color && task.color !== "#ffffff" ? `4px solid ${task.color}` : "4px solid #e0e0e0",
+                                    cursor: "pointer",
                                 }}
                             >
                                 <Box display="flex" alignItems="flex-start" justifyContent="space-between">
@@ -269,6 +299,16 @@ const LeadTasksTab = ({ leadId, op }) => {
                                                     style={{ backgroundColor: pConf.bg, color: pConf.color, fontSize: 11, height: 20 }}
                                                 />
                                             )}
+                                            <Chip
+                                                label={task.status === "completed" ? "Finalizada" : "Ativa"}
+                                                size="small"
+                                                style={{
+                                                    backgroundColor: task.status === "completed" ? "#dcfce7" : "#dbeafe",
+                                                    color: task.status === "completed" ? "#166534" : "#1d4ed8",
+                                                    fontSize: 11,
+                                                    height: 20
+                                                }}
+                                            />
                                             {due && (
                                                 <Chip
                                                     label={due.label}
@@ -302,12 +342,12 @@ const LeadTasksTab = ({ leadId, op }) => {
                                     </Box>
                                     <Box display="flex" ml={1}>
                                         <Tooltip title="Editar">
-                                            <IconButton size="small" onClick={() => openEditModal(task)}>
+                                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEditModal(task); }}>
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Excluir">
-                                            <IconButton size="small" onClick={() => handleDelete(task.id)}>
+                                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}>
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
@@ -342,6 +382,33 @@ const LeadTasksTab = ({ leadId, op }) => {
                         value={form.description}
                         onChange={e => setForm({ ...form, description: e.target.value })}
                     />
+
+                    {form.id && (
+                        <Box display="flex" flexWrap="wrap" style={{ gap: 8, marginTop: 12 }}>
+                            <Chip
+                                label={form.status === "completed" ? "Finalizada" : "Ativa"}
+                                size="small"
+                                style={{
+                                    backgroundColor: form.status === "completed" ? "#dcfce7" : "#dbeafe",
+                                    color: form.status === "completed" ? "#166534" : "#1d4ed8",
+                                }}
+                            />
+                            {form.completedAt && (
+                                <Chip
+                                    label={`Finalizada em ${format(parseISO(form.completedAt), "dd/MM/yyyy HH:mm")}`}
+                                    size="small"
+                                    style={{ backgroundColor: "#f3f4f6", color: "#374151" }}
+                                />
+                            )}
+                            {form.completedByUser?.name && (
+                                <Chip
+                                    label={`Por ${form.completedByUser.name}`}
+                                    size="small"
+                                    style={{ backgroundColor: "#f3f4f6", color: "#374151" }}
+                                />
+                            )}
+                        </Box>
+                    )}
 
                     {/* Board / List selectors */}
                     <Box display="flex" style={{ gap: 12, marginTop: 4 }}>
@@ -448,6 +515,16 @@ const LeadTasksTab = ({ leadId, op }) => {
                         </Button>
                     )}
                     <Box flexGrow={1} />
+                    {form.id && form.status !== "completed" && (
+                        <Button onClick={() => handleComplete(form.id)} style={{ color: "#166534" }}>
+                            Concluir
+                        </Button>
+                    )}
+                    {form.id && form.status === "completed" && (
+                        <Button onClick={() => handleReopen(form.id)} style={{ color: "#1d4ed8" }}>
+                            Reabrir
+                        </Button>
+                    )}
                     <Button onClick={() => setOpenModal(false)}>Cancelar</Button>
                     <Button
                         onClick={handleSave}

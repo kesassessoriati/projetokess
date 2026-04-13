@@ -18,10 +18,13 @@ taskRoutes.delete("/tasks/list/:id", isAuth, TaskController.deleteList);
 
 // Tasks by Lead
 taskRoutes.get("/tasks/lead/:leadId", isAuth, TaskController.indexTasksByLead);
+taskRoutes.get("/tasks/completed", isAuth, TaskController.indexCompletedTasks);
 
 // Task Items
 taskRoutes.post("/tasks/item", isAuth, TaskController.storeTask);
 taskRoutes.put("/tasks/item/:id", isAuth, TaskController.updateTask);
+taskRoutes.put("/tasks/item/:id/complete", isAuth, TaskController.completeTask);
+taskRoutes.put("/tasks/item/:id/reopen", isAuth, TaskController.reopenTask);
 taskRoutes.delete("/tasks/item/:id", isAuth, TaskController.deleteTask);
 
 // Task Checklists

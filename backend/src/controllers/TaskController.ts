@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import TaskBoard from "../models/TaskBoard";
 import TaskList from "../models/TaskList";
 import Task from "../models/Task";
@@ -96,6 +97,25 @@ const resolveBoardByCommentId = async (commentId: number, companyId: number): Pr
     return (comment as any)?.task?.list?.board ?? null;
 };
 
+const ACTIVE_TASK_WHERE = {
+    [Op.or]: [
+        { status: null },
+        { status: "active" }
+    ]
+};
+
+const buildTaskInclude = (includeBoard = false) => ([
+    ...(includeBoard ? [{
+        model: TaskList,
+        as: "list",
+        include: [{ model: TaskBoard, as: "board" }],
+    }] : []),
+    { model: TaskChecklist, as: "checklists" },
+    { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
+    { model: User, as: "responsible", attributes: ["id", "name"] },
+    { model: User, as: "completedByUser", attributes: ["id", "name"] },
+]);
+
 // ======================= BOARDS =======================
 
 export const indexBoards = async (req: Request, res: Response): Promise<Response> => {
@@ -118,11 +138,9 @@ export const indexBoards = async (req: Request, res: Response): Promise<Response
                     {
                         model: Task,
                         as: "tasks",
-                        include: [
-                            { model: TaskChecklist, as: "checklists" },
-                            { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
-                            { model: User, as: "responsible", attributes: ["id", "name"] },
-                        ]
+                        where: ACTIVE_TASK_WHERE,
+                        required: false,
+                        include: buildTaskInclude(),
                     }
                 ]
             }
@@ -259,8 +277,41 @@ export const indexTasksByLead = async (req: Request, res: Response): Promise<Res
             { model: TaskChecklist, as: "checklists" },
             { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
             { model: User, as: "responsible", attributes: ["id", "name"] },
+            { model: User, as: "completedByUser", attributes: ["id", "name"] },
         ],
-        order: [["createdAt", "DESC"]],
+        order: [["status", "ASC"], ["completedAt", "DESC"], ["createdAt", "DESC"]],
+    });
+
+    return res.status(200).json(tasks);
+};
+
+export const indexCompletedTasks = async (req: Request, res: Response): Promise<Response> => {
+    const { id: userId, profile, companyId } = req.user;
+    const boardId = req.query.boardId ? parseInt(String(req.query.boardId), 10) : null;
+
+    const boardWhere: Record<string, any> = { companyId };
+    if (boardId) {
+        boardWhere.id = boardId;
+    }
+    if (!isPrivileged(profile)) {
+        boardWhere.createdBy = parseInt(userId, 10);
+    }
+
+    const tasks = await Task.findAll({
+        where: { status: "completed" },
+        include: [
+            {
+                model: TaskList,
+                as: "list",
+                include: [{ model: TaskBoard, as: "board", where: boardWhere, required: true }],
+                required: true,
+            },
+            { model: TaskChecklist, as: "checklists" },
+            { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
+            { model: User, as: "responsible", attributes: ["id", "name"] },
+            { model: User, as: "completedByUser", attributes: ["id", "name"] },
+        ],
+        order: [["completedAt", "DESC"], ["updatedAt", "DESC"]],
     });
 
     return res.status(200).json(tasks);
@@ -277,14 +328,25 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
         return res.status(403).json({ error: "Access denied" });
     }
 
-    const task = await Task.create({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId: leadId || null });
+    const task = await Task.create({
+        listId,
+        title,
+        description,
+        priority,
+        dueDate,
+        responsibleId,
+        color,
+        url,
+        tags,
+        order,
+        leadId: leadId || null,
+        status: "active",
+        completedAt: null,
+        completedBy: null
+    });
 
     const createdTask = await Task.findByPk(task.id, {
-        include: [
-            { model: TaskChecklist, as: "checklists" },
-            { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
-            { model: User, as: "responsible", attributes: ["id", "name"] },
-        ]
+        include: buildTaskInclude(true)
     });
 
     return res.status(200).json(createdTask);
@@ -293,7 +355,7 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
 export const updateTask = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
     const { id: userId, profile, companyId } = req.user;
-    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId } = req.body;
+    const { listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, leadId, status } = req.body;
 
     const task = await Task.findByPk(id);
     if (!task) return res.status(404).json({ error: "Task not found" });
@@ -305,17 +367,91 @@ export const updateTask = async (req: Request, res: Response): Promise<Response>
         return res.status(403).json({ error: "Access denied" });
     }
 
-    await task.update({ listId, title, description, priority, dueDate, responsibleId, color, url, tags, order, ...(leadId !== undefined && { leadId: leadId || null }) });
+    const payload: Record<string, any> = {};
+
+    if (listId !== undefined) payload.listId = listId;
+    if (title !== undefined) payload.title = title;
+    if (description !== undefined) payload.description = description;
+    if (priority !== undefined) payload.priority = priority;
+    if (dueDate !== undefined) payload.dueDate = dueDate;
+    if (responsibleId !== undefined) payload.responsibleId = responsibleId;
+    if (color !== undefined) payload.color = color;
+    if (url !== undefined) payload.url = url;
+    if (tags !== undefined) payload.tags = tags;
+    if (order !== undefined) payload.order = order;
+    if (leadId !== undefined) payload.leadId = leadId || null;
+
+    if (status === "completed") {
+        payload.status = "completed";
+        payload.completedAt = task.completedAt || new Date();
+        payload.completedBy = parseInt(userId, 10);
+    } else if (status === "active") {
+        payload.status = "active";
+        payload.completedAt = null;
+        payload.completedBy = null;
+    }
+
+    await task.update(payload);
 
     const updatedTask = await Task.findByPk(task.id, {
-        include: [
-            { model: TaskChecklist, as: "checklists" },
-            { model: TaskComment, as: "comments", include: [{ model: User, as: "user", attributes: ["id", "name"] }] },
-            { model: User, as: "responsible", attributes: ["id", "name"] },
-        ]
+        include: buildTaskInclude(true)
     });
 
     return res.status(200).json(updatedTask);
+};
+
+export const completeTask = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { id: userId, profile, companyId } = req.user;
+
+    const task = await Task.findByPk(id);
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const board = await resolveBoardByTaskId(task.id, companyId);
+    if (!board) return res.status(404).json({ error: "Board not found" });
+
+    if (!canAccessBoard(board, userId, profile)) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+
+    await task.update({
+        status: "completed",
+        completedAt: new Date(),
+        completedBy: parseInt(userId, 10),
+    });
+
+    const completedTask = await Task.findByPk(task.id, {
+        include: buildTaskInclude(true)
+    });
+
+    return res.status(200).json(completedTask);
+};
+
+export const reopenTask = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { id: userId, profile, companyId } = req.user;
+
+    const task = await Task.findByPk(id);
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const board = await resolveBoardByTaskId(task.id, companyId);
+    if (!board) return res.status(404).json({ error: "Board not found" });
+
+    if (!canAccessBoard(board, userId, profile)) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+
+    await task.update({
+        status: "active",
+        completedAt: null,
+        completedBy: null,
+    });
+
+    const reopenedTask = await Task.findByPk(task.id, {
+        include: buildTaskInclude(true)
+    });
+
+    return res.status(200).json(reopenedTask);
 };
 
 export const deleteTask = async (req: Request, res: Response): Promise<Response> => {

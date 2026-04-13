@@ -82,6 +82,22 @@ class Task extends Model<Task> {
     @Column({ defaultValue: 0 })
     order: number;
 
+    @AllowNull(false)
+    @Column({ defaultValue: "active" })
+    status: string;
+
+    @AllowNull(true)
+    @Column
+    completedAt: Date;
+
+    @ForeignKey(() => User)
+    @AllowNull(true)
+    @Column
+    completedBy: number;
+
+    @BelongsTo(() => User, "completedBy")
+    completedByUser: User;
+
     @HasMany(() => TaskChecklist)
     checklists: TaskChecklist[];
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useHistory, useLocation } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { makeStyles } from "@material-ui/core/styles";
 import {
@@ -17,6 +18,7 @@ import {
     CircularProgress,
     Avatar,
     Tooltip,
+    Chip,
 } from "@material-ui/core";
 import {
     Add,
@@ -269,12 +271,18 @@ const formatDueDate = (isoDate) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 const Tasks = () => {
     const classes = useStyles();
+    const history = useHistory();
+    const location = useLocation();
 
     const [boards, setBoards]                   = useState([]);
     const [selectedBoardId, setSelectedBoardId] = useState("");
     const [boardData, setBoardData]             = useState(null);
     const [loading, setLoading]                 = useState(false);
     const [users, setUsers]                     = useState([]);
+    const [completedTasks, setCompletedTasks]   = useState([]);
+    const [completedLoading, setCompletedLoading] = useState(false);
+    const [showCompleted, setShowCompleted]     = useState(false);
+    const [completedViewMode, setCompletedViewMode] = useState("kanban");
 
     // Board modal
     const [openModalBoard, setOpenModalBoard] = useState(false);
@@ -289,7 +297,8 @@ const Tasks = () => {
     const [taskForm, setTaskForm]           = useState({
         id: null, listId: "", title: "", description: "",
         priority: "Média", dueDate: "", tags: [], url: "",
-        color: "#ffffff", responsibleId: "",
+        color: "#ffffff", responsibleId: "", status: "active",
+        completedAt: "", completedByUser: null,
     });
 
     // ── Mount ─────────────────────────────────────────────────────────────
@@ -307,6 +316,8 @@ const Tasks = () => {
     useEffect(() => {
         if (selectedBoardId) {
             setBoardData(boards.find((b) => b.id === selectedBoardId) || null);
+        } else {
+            setBoardData(null);
         }
     }, [selectedBoardId, boards]);
 
@@ -329,6 +340,60 @@ const Tasks = () => {
             setUsers(data.users || data || []);
         } catch { /* non-critical */ }
     };
+
+    const fetchCompletedTasks = async () => {
+        setCompletedLoading(true);
+        try {
+            const { data } = await api.get("/tasks/completed");
+            setCompletedTasks(data || []);
+        } catch {
+            toast.error("Erro ao carregar tarefas concluidas");
+        } finally {
+            setCompletedLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCompletedTasks();
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const taskId = params.get("taskId");
+        if (!taskId || boards.length === 0) return;
+
+        const numericTaskId = Number(taskId);
+        let targetTask = null;
+        let targetBoardId = null;
+
+        for (const board of boards) {
+            for (const list of board.lists || []) {
+                const foundTask = (list.tasks || []).find((task) => task.id === numericTaskId);
+                if (foundTask) {
+                    targetTask = foundTask;
+                    targetBoardId = board.id;
+                    break;
+                }
+            }
+            if (targetTask) break;
+        }
+
+        if (targetTask && targetBoardId) {
+            setShowCompleted(false);
+            setSelectedBoardId(targetBoardId);
+            handleOpenTask(targetTask.listId, targetTask);
+            history.replace("/tasks");
+            return;
+        }
+
+        const completedTask = completedTasks.find((task) => task.id === numericTaskId);
+        if (completedTask) {
+            setShowCompleted(true);
+            setCompletedViewMode("list");
+            handleOpenTask(completedTask.listId, completedTask);
+            history.replace("/tasks");
+        }
+    }, [location.search, boards, completedTasks, history]);
 
     // ── Board handlers ────────────────────────────────────────────────────
     const handleSaveBoard = async () => {
@@ -402,12 +467,16 @@ const Tasks = () => {
                 url:           task.url || "",
                 color:         task.color || "#ffffff",
                 responsibleId: task.responsible?.id || task.responsibleId || "",
+                status:        task.status || "active",
+                completedAt:   task.completedAt || "",
+                completedByUser: task.completedByUser || null,
             });
         } else {
             setTaskForm({
                 id: null, listId, title: "", description: "",
                 priority: "Média", dueDate: "", tags: [], url: "",
-                color: "#ffffff", responsibleId: "",
+                color: "#ffffff", responsibleId: "", status: "active",
+                completedAt: "", completedByUser: null,
             });
         }
         setOpenTaskModal(true);
@@ -426,6 +495,7 @@ const Tasks = () => {
             }
             setOpenTaskModal(false);
             fetchBoards();
+            fetchCompletedTasks();
         } catch {
             toast.error("Erro ao salvar tarefa");
         }
@@ -438,8 +508,35 @@ const Tasks = () => {
             toast.success("Tarefa removida");
             setOpenTaskModal(false);
             fetchBoards();
+            fetchCompletedTasks();
         } catch {
             toast.error("Erro ao remover tarefa");
+        }
+    };
+
+    const handleCompleteTask = async (taskId) => {
+        try {
+            await api.put(`/tasks/item/${taskId}/complete`);
+            toast.success("Tarefa concluida");
+            setOpenTaskModal(false);
+            setShowCompleted(true);
+            fetchBoards();
+            fetchCompletedTasks();
+        } catch {
+            toast.error("Erro ao concluir tarefa");
+        }
+    };
+
+    const handleReopenTask = async (taskId) => {
+        try {
+            await api.put(`/tasks/item/${taskId}/reopen`);
+            toast.success("Tarefa reaberta");
+            setOpenTaskModal(false);
+            setShowCompleted(false);
+            fetchBoards();
+            fetchCompletedTasks();
+        } catch {
+            toast.error("Erro ao reabrir tarefa");
         }
     };
 
@@ -709,6 +806,124 @@ const Tasks = () => {
         );
     };
 
+    const completedByBoard = completedTasks.reduce((acc, task) => {
+        const board = task.list?.board;
+        const boardKey = board?.id || "without-board";
+        if (!acc[boardKey]) {
+            acc[boardKey] = {
+                id: boardKey,
+                name: board?.name || "Sem quadro",
+                color: board?.color || "#ebecf0",
+                tasks: [],
+            };
+        }
+        acc[boardKey].tasks.push(task);
+        return acc;
+    }, {});
+
+    const renderCompletedCard = (task) => {
+        const due = formatDueDate(task.dueDate);
+        const pConf = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG["MÃ©dia"];
+        const completedAtLabel = task.completedAt ? format(parseISO(task.completedAt), "dd/MM/yyyy HH:mm") : null;
+
+        return (
+            <div
+                key={`completed-${task.id}`}
+                className={classes.taskCard}
+                onClick={() => handleOpenTask(task.listId, task)}
+                style={{
+                    backgroundColor: task.color && task.color !== "#ffffff" ? task.color : "#fff",
+                    borderLeft: "4px solid #10b981",
+                }}
+            >
+                <Typography className={classes.cardTitle}>
+                    {task.title}
+                </Typography>
+
+                <div className={classes.cardMeta}>
+                    <span
+                        className={classes.priorityBadge}
+                        style={{ backgroundColor: pConf.bg, color: pConf.color }}
+                    >
+                        {task.priority || "MÃ©dia"}
+                    </span>
+                    <Chip
+                        label="Concluida"
+                        size="small"
+                        style={{ backgroundColor: "#dcfce7", color: "#166534", fontSize: 11, height: 20 }}
+                    />
+                    {task.list && (
+                        <Chip
+                            label={`${task.list.board?.name || "Sem quadro"} › ${task.list.name}`}
+                            size="small"
+                            style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontSize: 11, height: 20 }}
+                        />
+                    )}
+                    {due && (
+                        <span
+                            className={classes.dueDateChip}
+                            style={{ backgroundColor: "#f5f5f5", color: due.color }}
+                        >
+                            {due.label}
+                        </span>
+                    )}
+                </div>
+
+                {completedAtLabel && (
+                    <Typography variant="caption" style={{ display: "block", marginTop: 8, color: "#4b5563" }}>
+                        Concluida em {completedAtLabel}
+                    </Typography>
+                )}
+            </div>
+        );
+    };
+
+    const renderCompletedKanban = () => (
+        <div className={classes.boardCanvas}>
+            {Object.values(completedByBoard).length === 0 ? (
+                <div className={classes.emptyBoard}>
+                    <Typography variant="body1" style={{ opacity: 0.45 }}>
+                        Nenhuma tarefa concluida encontrada
+                    </Typography>
+                </div>
+            ) : (
+                Object.values(completedByBoard).map((group) => (
+                    <div
+                        key={`completed-board-${group.id}`}
+                        className={classes.column}
+                        style={{ backgroundColor: group.color || undefined }}
+                    >
+                        <div className={classes.columnHeader}>
+                            <Typography className={classes.columnTitle}>
+                                {group.name}
+                            </Typography>
+                            <span className={classes.countBadge} style={{ backgroundColor: "rgba(0,0,0,0.1)" }}>
+                                {group.tasks.length}
+                            </span>
+                        </div>
+                        <div className={classes.taskList}>
+                            {group.tasks.map((task) => renderCompletedCard(task))}
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+
+    const renderCompletedList = () => (
+        <div className={classes.boardCanvas} style={{ display: "block", overflowY: "auto" }}>
+            {completedTasks.length === 0 ? (
+                <div className={classes.emptyBoard}>
+                    <Typography variant="body1" style={{ opacity: 0.45 }}>
+                        Nenhuma tarefa concluida encontrada
+                    </Typography>
+                </div>
+            ) : (
+                completedTasks.map((task) => renderCompletedCard(task))
+            )}
+        </div>
+    );
+
     // ── Main render ───────────────────────────────────────────────────────
     return (
         <MainContainer>
@@ -724,26 +939,28 @@ const Tasks = () => {
 
                 {/* Toolbar */}
                 <div className={classes.boardBar}>
-                    <FormControl
-                        variant="outlined"
-                        size="small"
-                        className={classes.boardSelect}
-                    >
-                        <InputLabel>Selecionar Quadro</InputLabel>
-                        <Select
-                            value={selectedBoardId}
-                            onChange={(e) => setSelectedBoardId(e.target.value)}
-                            label="Selecionar Quadro"
+                    {!showCompleted && (
+                        <FormControl
+                            variant="outlined"
+                            size="small"
+                            className={classes.boardSelect}
                         >
-                            {boards.map((b) => (
-                                <MenuItem key={b.id} value={b.id}>
-                                    {b.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                            <InputLabel>Selecionar Quadro</InputLabel>
+                            <Select
+                                value={selectedBoardId}
+                                onChange={(e) => setSelectedBoardId(e.target.value)}
+                                label="Selecionar Quadro"
+                            >
+                                {boards.map((b) => (
+                                    <MenuItem key={b.id} value={b.id}>
+                                        {b.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
 
-                    {selectedBoardId && (
+                    {!showCompleted && selectedBoardId && (
                         <>
                             <Button
                                 size="small"
@@ -763,6 +980,34 @@ const Tasks = () => {
 
                     <Button
                         size="small"
+                        variant={showCompleted ? "contained" : "outlined"}
+                        color="secondary"
+                        onClick={() => setShowCompleted((prev) => !prev)}
+                    >
+                        {showCompleted ? "Voltar para Ativas" : "Tarefas Concluidas"}
+                    </Button>
+
+                    {showCompleted && (
+                        <>
+                            <Button
+                                size="small"
+                                variant={completedViewMode === "kanban" ? "contained" : "outlined"}
+                                onClick={() => setCompletedViewMode("kanban")}
+                            >
+                                Kanban
+                            </Button>
+                            <Button
+                                size="small"
+                                variant={completedViewMode === "list" ? "contained" : "outlined"}
+                                onClick={() => setCompletedViewMode("list")}
+                            >
+                                Lista
+                            </Button>
+                        </>
+                    )}
+
+                    <Button
+                        size="small"
                         variant="contained"
                         color="primary"
                         onClick={() => setOpenModalBoard(true)}
@@ -772,7 +1017,13 @@ const Tasks = () => {
                 </div>
 
                 {/* Canvas */}
-                {loading ? (
+                {showCompleted ? (
+                    completedLoading ? (
+                        <div className={classes.loadingOverlay}>
+                            <CircularProgress />
+                        </div>
+                    ) : completedViewMode === "kanban" ? renderCompletedKanban() : renderCompletedList()
+                ) : loading ? (
                     <div className={classes.loadingOverlay}>
                         <CircularProgress />
                     </div>
@@ -960,6 +1211,33 @@ const Tasks = () => {
                         }
                     />
 
+                    {taskForm.id && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                            <Chip
+                                label={taskForm.status === "completed" ? "Concluida" : "Ativa"}
+                                size="small"
+                                style={{
+                                    backgroundColor: taskForm.status === "completed" ? "#dcfce7" : "#dbeafe",
+                                    color: taskForm.status === "completed" ? "#166534" : "#1d4ed8",
+                                }}
+                            />
+                            {taskForm.completedAt && (
+                                <Chip
+                                    label={`Finalizada em ${format(parseISO(taskForm.completedAt), "dd/MM/yyyy HH:mm")}`}
+                                    size="small"
+                                    style={{ backgroundColor: "#f3f4f6", color: "#374151" }}
+                                />
+                            )}
+                            {taskForm.completedByUser?.name && (
+                                <Chip
+                                    label={`Por ${taskForm.completedByUser.name}`}
+                                    size="small"
+                                    style={{ backgroundColor: "#f3f4f6", color: "#374151" }}
+                                />
+                            )}
+                        </div>
+                    )}
+
                     <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
                         <FormControl variant="outlined" margin="dense" style={{ flex: 1 }}>
                             <InputLabel>Prioridade</InputLabel>
@@ -1049,6 +1327,22 @@ const Tasks = () => {
                         </Button>
                     )}
                     <div style={{ flex: 1 }} />
+                    {taskForm.id && taskForm.status !== "completed" && (
+                        <Button
+                            onClick={() => handleCompleteTask(taskForm.id)}
+                            style={{ color: "#166534" }}
+                        >
+                            Concluir
+                        </Button>
+                    )}
+                    {taskForm.id && taskForm.status === "completed" && (
+                        <Button
+                            onClick={() => handleReopenTask(taskForm.id)}
+                            style={{ color: "#1d4ed8" }}
+                        >
+                            Reabrir
+                        </Button>
+                    )}
                     <Button onClick={() => setOpenTaskModal(false)}>Cancelar</Button>
                     <Button
                         onClick={handleSaveTask}

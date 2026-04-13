@@ -28,6 +28,7 @@ import EventIcon from "@material-ui/icons/Event";
 import MessageIcon from "@material-ui/icons/Message";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useHistory } from "react-router-dom";
 
 import useNotifications from "../../hooks/useNotifications";
 
@@ -223,6 +224,7 @@ const getTypeConfig = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.system;
 // ── Component ────────────────────────────────────────────────────────────────
 const NotificationCenter = () => {
   const classes = useStyles();
+  const history = useHistory();
   const anchorEl = useRef();
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -246,6 +248,12 @@ const NotificationCenter = () => {
 
   const handleItemClick = (notification) => {
     if (notification.status === "unread") markRead(notification.id);
+    const taskId = notification?.metadata?.taskId;
+    if (taskId) {
+      handleClose();
+      history.push(`/tasks?taskId=${taskId}`);
+      return;
+    }
   };
 
   const handlePrefChange = useCallback((key) => (e) => {
