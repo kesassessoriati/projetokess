@@ -9,6 +9,10 @@ import Whatsapp from "../../models/Whatsapp";
 import { isNil } from "lodash";
 
 import formatBody from "../../helpers/Mustache";
+import {
+  sanitizeRemoteJid,
+  stripCompanionDeviceSuffix
+} from "../../helpers/normalizeContactNumber";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 import logger from "../../utils/logger";
 
@@ -42,7 +46,12 @@ const SendWhatsAppMessage = async ({
     contactNumber.remoteJid !== "" &&
     contactNumber.remoteJid.includes("@")
   ) {
-    number = contactNumber.remoteJid;
+    number =
+      sanitizeRemoteJid(
+        stripCompanionDeviceSuffix(contactNumber.remoteJid),
+        contactNumber.number,
+        ticket.isGroup
+      ) || stripCompanionDeviceSuffix(contactNumber.remoteJid);
   } else {
     number = `${contactNumber.number}@${
       ticket.isGroup ? "g.us" : "s.whatsapp.net"

@@ -1,8 +1,14 @@
 const DIGIT_REGEX = /\D/g;
+const COMPANION_SUFFIX_REGEX = /:\d+@/;
+
+export const stripCompanionDeviceSuffix = (value?: string | null): string => {
+	if (!value) return "";
+	return value.replace(COMPANION_SUFFIX_REGEX, "@");
+};
 
 const stripDigits = (value?: string | null): string => {
 	if (!value) return "";
-	return value.replace(DIGIT_REGEX, "");
+	return stripCompanionDeviceSuffix(value).replace(DIGIT_REGEX, "");
 };
 
 // Detecta se um JID é de grupo WhatsApp (@g.us)

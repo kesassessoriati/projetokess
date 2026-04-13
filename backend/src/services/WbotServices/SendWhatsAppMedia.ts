@@ -12,6 +12,10 @@ import Contact from "../../models/Contact";
 import { getWbot } from "../../libs/wbot";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import formatBody from "../../helpers/Mustache";
+import {
+  sanitizeRemoteJid,
+  stripCompanionDeviceSuffix
+} from "../../helpers/normalizeContactNumber";
 interface Request {
   media: Express.Multer.File;
   ticket: Ticket;
@@ -323,7 +327,12 @@ const SendWhatsAppMedia = async ({
     let number: string;
 
     if (contactNumber.remoteJid && contactNumber.remoteJid !== "" && contactNumber.remoteJid.includes("@")) {
-      number = contactNumber.remoteJid;
+      number =
+        sanitizeRemoteJid(
+          stripCompanionDeviceSuffix(contactNumber.remoteJid),
+          contactNumber.number,
+          ticket.isGroup
+        ) || stripCompanionDeviceSuffix(contactNumber.remoteJid);
     } else {
       number = `${contactNumber.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"
         }`;
