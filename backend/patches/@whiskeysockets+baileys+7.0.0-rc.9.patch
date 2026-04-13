@@ -1,8 +1,8 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-index 15dd0e8..117b696 100644
+index c4d324d..a139eb2 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-@@ -1866,7 +1866,11 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -1907,7 +1907,11 @@ export const makeMessagesRecvSocket = (config) => {
                  // may create mappings via storeLIDPNMappings() without calling migrateSession()
                  // This leaves sessions under PN format while decrypt() expects LID format
                  // Skipping migration based on mapping existence causes "No session record" errors
@@ -15,7 +15,7 @@ index 15dd0e8..117b696 100644
              }
              else {
                  // Check if reverse mapping exists
-@@ -1880,7 +1884,11 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -1921,7 +1925,11 @@ export const makeMessagesRecvSocket = (config) => {
                  }
                  // CRITICAL: ALWAYS migrate session, even if mapping exists
                  // Same reasoning as above - mapping existence doesn't guarantee session migration
@@ -28,7 +28,7 @@ index 15dd0e8..117b696 100644
              }
          }
          if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
-@@ -2012,6 +2020,74 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -2070,6 +2078,74 @@ export const makeMessagesRecvSocket = (config) => {
                          }
                          return sendMessageAck(node);
                      }
@@ -104,7 +104,7 @@ index 15dd0e8..117b696 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..fd085d7 100644
+index d1c7d1a..5df25ef 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -1,6 +1,6 @@
@@ -128,21 +128,18 @@ index d1c7d1a..fd085d7 100644
              logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
          }
          catch (error) {
-@@ -126,11 +130,17 @@ export function decodeMessageNode(stanza, meId, meLid) {
-     if (!from) {
-         throw new Boom('Missing from attribute in message', { data: stanza });
-     }
+@@ -129,8 +133,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
+     const participant = stanza.attrs.participant;
+     const recipient = stanza.attrs.recipient;
+     const addressingContext = extractAddressingContext(stanza);
+-    const isMe = (jid) => areJidsSameUser(jid, meId);
+-    const isMeLid = (jid) => areJidsSameUser(jid, meLid);
 +    const normalizeCompanionJid = (jid) => jid?.replace(/:\d+@/, '@');
 +    const mePn = normalizeCompanionJid(meId);
 +    const meLidNormalized = normalizeCompanionJid(meLid);
 +    const pickNonSelfAlt = (...candidates) => candidates.find(jid => jid &&
 +        !areJidsSameUser(normalizeCompanionJid(jid), mePn) &&
 +        !areJidsSameUser(normalizeCompanionJid(jid), meLidNormalized));
-     const participant = stanza.attrs.participant;
-     const recipient = stanza.attrs.recipient;
-     const addressingContext = extractAddressingContext(stanza);
--    const isMe = (jid) => areJidsSameUser(jid, meId);
--    const isMeLid = (jid) => areJidsSameUser(jid, meLid);
 +    const isMe = (jid) => areJidsSameUser(jid, meId) || areJidsSameUser(normalizeCompanionJid(jid), meId);
 +    const isMeLid = (jid) => areJidsSameUser(jid, meLid) || areJidsSameUser(normalizeCompanionJid(jid), meLid);
      if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
