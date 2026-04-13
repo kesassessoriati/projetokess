@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import {
   Avatar,
@@ -34,6 +34,8 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     gap: theme.spacing(3),
     height: "100%",
+    minHeight: 0,
+    overflow: "hidden",
     background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1.5)
@@ -66,6 +68,24 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
     alignItems: "center"
   },
+  boardArea: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1)
+  },
+  boardTopScrollbar: {
+    overflowX: "auto",
+    overflowY: "hidden",
+    height: 16,
+    backgroundColor: "rgba(255,255,255,0.72)",
+    borderRadius: 999,
+    border: "1px solid rgba(148, 163, 184, 0.18)"
+  },
+  boardTopScrollbarInner: {
+    height: 1
+  },
   searchField: {
     minWidth: 280,
     backgroundColor: "#fff",
@@ -73,20 +93,33 @@ const useStyles = makeStyles((theme) => ({
   },
   boardWrapper: {
     flex: 1,
+    minHeight: 0,
     overflowX: "auto",
     overflowY: "hidden",
-    paddingBottom: theme.spacing(1)
+    paddingBottom: theme.spacing(1),
+    scrollbarGutter: "stable both-edges"
   },
   board: {
     display: "flex",
     gap: theme.spacing(2),
-    minHeight: "100%"
+    minHeight: "100%",
+    height: "100%",
+    minWidth: "max-content",
+    alignItems: "stretch",
+    paddingBottom: theme.spacing(0.5)
   },
   columnShell: {
     minWidth: 320,
-    maxWidth: 320
+    maxWidth: 320,
+    display: "flex",
+    alignSelf: "stretch",
+    [theme.breakpoints.down("sm")]: {
+      minWidth: 286,
+      maxWidth: 286
+    }
   },
   column: {
+    width: "100%",
     height: "100%",
     display: "flex",
     flexDirection: "column",
@@ -131,13 +164,15 @@ const useStyles = makeStyles((theme) => ({
     color: "#64748b"
   },
   columnBody: {
+    flex: 1,
+    minHeight: 0,
     padding: theme.spacing(1.5),
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing(1.25),
-    minHeight: 420,
     overflowY: "auto",
-    background: "linear-gradient(180deg, rgba(248,250,252,0.35), rgba(255,255,255,0.92))"
+    background: "linear-gradient(180deg, rgba(248,250,252,0.35), rgba(255,255,255,0.92))",
+    scrollbarGutter: "stable"
   },
   card: {
     borderRadius: 18,
@@ -186,6 +221,10 @@ const UNGROUPED_ID = "ungrouped";
 
 const QuickMessages = () => {
   const classes = useStyles();
+  const topScrollbarRef = useRef(null);
+  const topScrollbarInnerRef = useRef(null);
+  const boardWrapperRef = useRef(null);
+  const scrollSyncSourceRef = useRef(null);
   const [groups, setGroups] = useState([]);
   const [replies, setReplies] = useState([]);
   const [search, setSearch] = useState("");
@@ -264,6 +303,60 @@ const QuickMessages = () => {
 
   const totalMediaReplies = replies.filter((reply) => Boolean(reply.mediaUrl)).length;
   const dragDisabled = Boolean(search.trim());
+
+  useEffect(() => {
+    const syncScrollbarWidth = () => {
+      if (!boardWrapperRef.current || !topScrollbarInnerRef.current) return;
+      topScrollbarInnerRef.current.style.width = `${boardWrapperRef.current.scrollWidth}px`;
+    };
+
+    syncScrollbarWidth();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && boardWrapperRef.current
+        ? new ResizeObserver(() => syncScrollbarWidth())
+        : null;
+
+    if (resizeObserver && boardWrapperRef.current) {
+      resizeObserver.observe(boardWrapperRef.current);
+      const boardNode = boardWrapperRef.current.firstElementChild;
+      if (boardNode) {
+        resizeObserver.observe(boardNode);
+      }
+    }
+
+    window.addEventListener("resize", syncScrollbarWidth);
+
+    return () => {
+      window.removeEventListener("resize", syncScrollbarWidth);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [groups, replies, filteredReplies.length, loading, search]);
+
+  const syncHorizontalScroll = (source) => {
+    const topNode = topScrollbarRef.current;
+    const bottomNode = boardWrapperRef.current;
+
+    if (!topNode || !bottomNode) return;
+
+    if (scrollSyncSourceRef.current && scrollSyncSourceRef.current !== source) {
+      return;
+    }
+
+    scrollSyncSourceRef.current = source;
+
+    if (source === "top") {
+      bottomNode.scrollLeft = topNode.scrollLeft;
+    } else {
+      topNode.scrollLeft = bottomNode.scrollLeft;
+    }
+
+    window.requestAnimationFrame(() => {
+      scrollSyncSourceRef.current = null;
+    });
+  };
 
   const handleDeleteGroup = async (group) => {
     if (!window.confirm(`Deseja mesmo excluir o pipeline "${group.name}"?`)) {
@@ -463,7 +556,20 @@ const QuickMessages = () => {
       </Box>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className={classes.boardWrapper}>
+        <div className={classes.boardArea}>
+          <div
+            className={classes.boardTopScrollbar}
+            ref={topScrollbarRef}
+            onScroll={() => syncHorizontalScroll("top")}
+          >
+            <div className={classes.boardTopScrollbarInner} ref={topScrollbarInnerRef} />
+          </div>
+
+          <div
+            className={classes.boardWrapper}
+            ref={boardWrapperRef}
+            onScroll={() => syncHorizontalScroll("bottom")}
+          >
           <Droppable droppableId="quick-reply-board" direction="horizontal" type="GROUP">
             {(boardProvided) => (
               <div className={classes.board} ref={boardProvided.innerRef} {...boardProvided.droppableProps}>
@@ -616,6 +722,7 @@ const QuickMessages = () => {
               </div>
             )}
           </Droppable>
+          </div>
         </div>
       </DragDropContext>
 
