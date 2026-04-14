@@ -21,6 +21,7 @@ pipelineRoutes.put("/pipelines/stages/:stageId", isAuth, PipelineController.upda
 pipelineRoutes.delete("/pipelines/stages/:stageId", isAuth, PipelineController.deleteStage);
 
 pipelineRoutes.get("/executive/dashboard", isAuth, ExecutiveController.index);
+pipelineRoutes.put("/executive/dashboard/goals", isAuth, ExecutiveController.updateGoals);
 
 // Opportunities
 pipelineRoutes.get("/opportunities", isAuth, OpportunityController.index);
