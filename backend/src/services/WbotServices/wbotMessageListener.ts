@@ -6670,16 +6670,20 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           if (!isCampaign) {
             if (REDIS_URI_MSG_CONN !== "") {
               try {
+                const queueJobId = `${wbot.id}-handleMessage-${message.key.id}-${Date.now()}`;
                 await BullQueues.add(
                   `${process.env.DB_NAME}-handleMessage`,
                   { message, wbot: wbot.id, companyId },
                   {
                     priority: 1,
-                    jobId: `${wbot.id}-handleMessage-${message.key.id}`
+                    jobId: queueJobId
                   }
                 );
               } catch (e) {
                 Sentry.captureException(e);
+                logger.error(
+                  `[messages.upsert] Falha ao enfileirar mensagem ${message?.key?.id}: ${e?.message || e}`
+                );
               }
             } else {
               console.log("log... 3970");
