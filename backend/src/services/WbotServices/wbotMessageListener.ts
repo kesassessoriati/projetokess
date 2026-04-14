@@ -6406,6 +6406,75 @@ const verifyRecentCampaign = async (
   }
 };
 
+const processRecoveredMessageUpdate = async (
+  messageUpdate: WAMessageUpdate,
+  wbot: Session,
+  companyId: number
+): Promise<boolean> => {
+  const recoveredContent = messageUpdate?.update?.message;
+
+  if (!recoveredContent || !messageUpdate?.key?.id) {
+    return false;
+  }
+
+  const recoveredMessage = {
+    key: { ...messageUpdate.key },
+    message: recoveredContent,
+    messageTimestamp:
+      (messageUpdate.update as any)?.messageTimestamp ||
+      (messageUpdate as any)?.messageTimestamp ||
+      Math.floor(Date.now() / 1000)
+  } as proto.IWebMessageInfo;
+
+  if (!isValidMsg(recoveredMessage)) {
+    return false;
+  }
+
+  const messageExists = await Message.count({
+    where: { wid: recoveredMessage.key.id, companyId }
+  });
+
+  if (messageExists) {
+    return false;
+  }
+
+  let body = await getBodyMessage(recoveredMessage);
+  let isCampaign = false;
+
+  if (recoveredMessage.key.fromMe) {
+    isCampaign = /\u200c/.test(body);
+  } else {
+    if (/\u200c/.test(body)) body = body.replace(/\u200c/, "");
+    logger.debug(
+      "[messages.update] Validacao de mensagem recuperada: " + body
+    );
+  }
+
+  if (isCampaign) {
+    return false;
+  }
+
+  logger.info(
+    `[messages.update] Processando mensagem recuperada ${recoveredMessage.key.id}`
+  );
+
+  if (REDIS_URI_MSG_CONN !== "") {
+    const queueJobId = `${wbot.id}-handleMessageUpdate-${recoveredMessage.key.id}-${Date.now()}`;
+    await BullQueues.add(
+      `${process.env.DB_NAME}-handleMessage`,
+      { message: recoveredMessage, wbot: wbot.id, companyId },
+      {
+        priority: 1,
+        jobId: queueJobId
+      }
+    );
+  } else {
+    await handleMessage(recoveredMessage, wbot, companyId);
+  }
+
+  return true;
+};
+
 const normalizeGroupCampaignKeyword = (value?: string | null): string =>
   String(value || "")
     .normalize("NFD")
@@ -6735,6 +6804,15 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     if (messageUpdate.length === 0) return;
     messageUpdate.forEach(async (message: WAMessageUpdate) => {
       (wbot as WASocket)!.readMessages([message.key]);
+
+      try {
+        await processRecoveredMessageUpdate(message, wbot, companyId);
+      } catch (error) {
+        Sentry.captureException(error);
+        logger.error(
+          `[messages.update] Falha ao processar mensagem recuperada ${message?.key?.id}: ${error?.message || error}`
+        );
+      }
 
       const msgUp = { ...messageUpdate };
 
