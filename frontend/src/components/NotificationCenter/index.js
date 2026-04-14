@@ -251,7 +251,7 @@ const NotificationCenter = () => {
     const taskId = notification?.metadata?.taskId;
     if (taskId) {
       handleClose();
-      history.push(`/tasks?taskId=${taskId}`);
+      history.push(`/crm/tasks?taskId=${taskId}`);
       return;
     }
   };

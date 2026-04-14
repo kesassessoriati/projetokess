@@ -382,7 +382,7 @@ const Tasks = () => {
             setShowCompleted(false);
             setSelectedBoardId(targetBoardId);
             handleOpenTask(targetTask.listId, targetTask);
-            history.replace("/tasks");
+            history.replace("/crm/tasks");
             return;
         }
 
@@ -391,7 +391,7 @@ const Tasks = () => {
             setShowCompleted(true);
             setCompletedViewMode("list");
             handleOpenTask(completedTask.listId, completedTask);
-            history.replace("/tasks");
+            history.replace("/crm/tasks");
         }
     }, [location.search, boards, completedTasks, history]);
 
