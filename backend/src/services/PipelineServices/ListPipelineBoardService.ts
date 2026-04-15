@@ -74,6 +74,66 @@ interface BoardResponse {
     stages: BoardStage[];
 }
 
+const normalizeStageKey = (value?: string | null): string =>
+    (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+
+const buildOpportunityScope = ({
+    pipelineId,
+    companyId,
+    profile,
+    userId,
+    ownerUserId,
+    viewMode
+}: Pick<Request, "pipelineId" | "companyId" | "profile" | "userId" | "ownerUserId" | "viewMode">) => {
+    const where: any = {
+        pipelineId,
+        companyId,
+        status: "OPEN"
+    };
+
+    if (profile !== "admin" && userId) {
+        where.assignedUserId = userId;
+    } else if (profile === "admin") {
+        if (ownerUserId) {
+            where.assignedUserId = ownerUserId;
+        } else if (viewMode === "personal" && userId) {
+            where.assignedUserId = userId;
+        }
+    }
+
+    return where;
+};
+
+const buildLeadScope = ({
+    pipelineId,
+    companyId,
+    profile,
+    userId,
+    ownerUserId,
+    viewMode
+}: Pick<Request, "pipelineId" | "companyId" | "profile" | "userId" | "ownerUserId" | "viewMode">) => {
+    const where: any = {
+        pipelineId,
+        companyId
+    };
+
+    if (profile !== "admin" && userId) {
+        where.ownerUserId = userId;
+    } else if (profile === "admin") {
+        if (ownerUserId) {
+            where.ownerUserId = ownerUserId;
+        } else if (viewMode === "personal" && userId) {
+            where.ownerUserId = userId;
+        }
+    }
+
+    return where;
+};
+
 const ListPipelineBoardService = async ({
     pipelineId,
     companyId,
@@ -106,6 +166,15 @@ const ListPipelineBoardService = async ({
         throw new AppError("ERR_NO_PIPELINE_FOUND", 404);
     }
 
+    const scopedOpportunityWhere = buildOpportunityScope({
+        pipelineId,
+        companyId,
+        profile,
+        userId,
+        ownerUserId,
+        viewMode
+    });
+
     const stats = await Opportunity.findAll({
         attributes: [
             "stageId",
@@ -126,23 +195,7 @@ const ListPipelineBoardService = async ({
                 attributes: []
             }
         ],
-        where: (() => {
-            const w: any = {
-                pipelineId,
-                companyId,
-                status: "OPEN"
-            };
-            if (profile !== "admin" && userId) {
-                w.assignedUserId = userId;
-            } else if (profile === "admin") {
-                if (ownerUserId) {
-                    w.assignedUserId = ownerUserId;
-                } else if (viewMode === "personal" && userId) {
-                    w.assignedUserId = userId;
-                }
-            }
-            return w;
-        })(),
+        where: scopedOpportunityWhere,
         group: ["stageId"],
         raw: true
     }) as any[];
@@ -159,20 +212,9 @@ const ListPipelineBoardService = async ({
 
     const getOpportunitiesForStage = async (sId: number, sCursor?: string) => {
         const where: any = {
-            stageId: sId,
-            companyId,
-            status: "OPEN"
+            ...scopedOpportunityWhere,
+            stageId: sId
         };
-
-        if (profile !== "admin" && userId) {
-            where.assignedUserId = userId;
-        } else if (profile === "admin") {
-            if (ownerUserId) {
-                where.assignedUserId = ownerUserId;
-            } else if (viewMode === "personal" && userId) {
-                where.assignedUserId = userId;
-            }
-        }
 
         if (filter) {
             if (filter.onlyAI) {
@@ -317,13 +359,27 @@ const ListPipelineBoardService = async ({
         })
     );
 
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
+    const scheduledMeetingStageIds = pipeline.stages
+        .filter(stage => normalizeStageKey(stage.name).includes("reuniao agendada"))
+        .map(stage => stage.id);
+
+    const scopedLeadWhere = buildLeadScope({
+        pipelineId,
+        companyId,
+        profile,
+        userId,
+        ownerUserId,
+        viewMode
+    });
+
     const scheduledMeetingsCount = await CrmLead.count({
         where: {
-            pipelineId,
-            companyId,
-            meetingScheduledAt: { [Op.gte]: todayMidnight }
+            ...scopedLeadWhere,
+            [Op.or]: [
+                { status: "reuniao_agendada" },
+                { leadStatus: "reuniao_agendada" },
+                ...(scheduledMeetingStageIds.length > 0 ? [{ stageId: { [Op.in]: scheduledMeetingStageIds } }] : [])
+            ]
         }
     });
 

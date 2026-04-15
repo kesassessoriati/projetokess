@@ -95,7 +95,10 @@ export const resolveContactNumber = ({
 		if (groupId) return groupId;
 	}
 
-	const rawCandidates = getCandidateNumbers([remoteJidAlt, remoteJid, rawNumber]);
+	// Preferimos o JID principal e o rawNumber antes do remoteJidAlt.
+	// Em alguns fluxos o remoteJidAlt pode carregar identificadores auxiliares/LID,
+	// enquanto o remoteJid já contém o telefone canônico do contato.
+	const rawCandidates = getCandidateNumbers([remoteJid, rawNumber, remoteJidAlt]);
 	for (const digits of rawCandidates) {
 		const normalized = normalizePhoneNumber(digits);
 		if (normalized) {

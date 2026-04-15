@@ -973,7 +973,7 @@ const verifyContact = async (
   const isGroup = (msgContact.id || "").includes("g.us");
 
   const number = resolveContactNumber({
-    rawNumber: msgContact.remoteJidAlt || msgContact.id,
+    rawNumber: msgContact.id,
     remoteJid: msgContact.id,
     remoteJidAlt: msgContact.remoteJidAlt,
     forGroup: isGroup
@@ -6874,12 +6874,18 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         let contactRemoteJid = contact.id;
         let contactNumber = "";
 
-        if (contact.remoteJidAlt) {
-          contactRemoteJid = contact.remoteJidAlt;
-          contactNumber = contact.remoteJidAlt.replace(/\D/g, "");
-          logger.info(`✅ Usando remoteJidAlt: ${contactRemoteJid}`);
+        const normalizedRemoteJidAlt = normalizePhoneNumber(contact.remoteJidAlt);
+
+        if (normalizedRemoteJidAlt) {
+          contactRemoteJid = `${normalizedRemoteJidAlt}@s.whatsapp.net`;
+          contactNumber = normalizedRemoteJidAlt;
+          logger.info(`[contacts.update] Using validated remoteJidAlt: ${contactRemoteJid}`);
         }
-        else if (contact.id.includes("@lid")) {
+        else if (contact.remoteJidAlt) {
+          logger.warn(`[contacts.update] Ignoring invalid remoteJidAlt: ${contact.remoteJidAlt}`);
+        }
+
+        if (!contactNumber && contact.id.includes("@lid")) {
           logger.warn(`⚠️ Contato com LID detectado: ${contact.id}`);
 
           // Buscar contato existente no banco pelo LID
@@ -6902,7 +6908,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           }
         }
         // ✅ Se for @s.whatsapp.net, extrair número
-        else {
+        else if (!contactNumber) {
           contactNumber = contact.id.replace(/\D/g, "");
         }
 
