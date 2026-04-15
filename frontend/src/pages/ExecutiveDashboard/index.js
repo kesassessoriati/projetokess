@@ -35,7 +35,6 @@ import {
   Timeline,
   EmojiEvents,
   Timer,
-  Psychology,
   Group,
   ViewKanban,
   ArrowForward,
@@ -50,38 +49,49 @@ import ContextPageHeader from "../../components/ContextPageHeader";
 const PERIODS = [
   { value: "today", label: "Hoje" },
   { value: "week", label: "Semana" },
-  { value: "month", label: "Mês" },
+  { value: "month", label: "Mes" },
   { value: "quarter", label: "Trimestre" },
 ];
 
 const money = (value) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    Number(value || 0),
-  );
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0));
 
 const number = (value) =>
   new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+
+const percent = (value) => `${Number(value || 0).toFixed(1)}%`;
+const toInputValue = (value) => String(Number(value || 0));
 
 const useStyles = makeStyles((theme) => ({
   root: {
     padding: theme.spacing(4),
     minHeight: "100vh",
-    background: "linear-gradient(180deg, #f7fbfa 0%, #eef5f3 100%)",
+    background: "linear-gradient(180deg, #f6fbfa 0%, #edf5f3 100%)",
   },
   hero: {
     padding: theme.spacing(3),
-    borderRadius: 20,
+    borderRadius: 24,
     color: "#fff",
     background:
-      "linear-gradient(135deg, #112c44 0%, #1d4d72 45%, #178a4a 100%)",
-    boxShadow: "0 20px 40px rgba(17,44,68,0.18)",
+      "linear-gradient(135deg, #10283f 0%, #18486a 46%, #18844f 100%)",
+    boxShadow: "0 22px 44px rgba(16,40,63,0.18)",
+  },
+  heroPanel: {
+    borderRadius: 18,
+    padding: theme.spacing(2.5),
+    background: "rgba(255,255,255,0.09)",
+    border: "1px solid rgba(255,255,255,0.12)",
   },
   filterBar: {
     marginTop: theme.spacing(3),
     padding: theme.spacing(2.5),
     borderRadius: 18,
     border: "1px solid #dceae5",
-    background: "rgba(255,255,255,0.95)",
+    background: "rgba(255,255,255,0.97)",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
   },
   card: {
     padding: theme.spacing(3),
@@ -99,6 +109,11 @@ const useStyles = makeStyles((theme) => ({
       "linear-gradient(135deg, #17314b 0%, #14324a 45%, #0f2132 100%)",
     height: "100%",
   },
+  sectionTitle: {
+    fontWeight: 900,
+    color: "#14324a",
+    letterSpacing: "-0.02em",
+  },
   label: {
     fontSize: "0.78rem",
     fontWeight: 800,
@@ -109,19 +124,20 @@ const useStyles = makeStyles((theme) => ({
   value: {
     fontSize: "2rem",
     fontWeight: 900,
-    lineHeight: 1.12,
+    lineHeight: 1.1,
     color: "#153047",
   },
   hint: {
     color: "#6b8192",
     fontSize: "0.88rem",
+    lineHeight: 1.5,
   },
   title: {
     fontWeight: 900,
     color: "#153047",
   },
   empty: {
-    minHeight: 230,
+    minHeight: 220,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -136,6 +152,42 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(2),
     borderRadius: 14,
     border: "1px solid #e3efeb",
+    background: "#fbfefd",
+  },
+  progressMeta: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1),
+    color: "#63798b",
+    fontSize: "0.82rem",
+    fontWeight: 700,
+  },
+  actionRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(2),
+  },
+  metricBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: "0.78rem",
+    fontWeight: 800,
+    background: "#edf7f2",
+    color: "#12754f",
+  },
+  tableCellHead: {
+    fontWeight: 900,
+    color: "#14324a",
+    whiteSpace: "nowrap",
+  },
+  dialogBlock: {
+    padding: theme.spacing(2),
+    border: "1px solid #e3efeb",
+    borderRadius: 14,
     background: "#fbfefd",
   },
 }));
@@ -168,6 +220,65 @@ const EmptyState = ({ title, description, buttonLabel, onClick, icon }) => {
   );
 };
 
+const GoalMetricCard = ({
+  classes,
+  title,
+  value,
+  target,
+  progress,
+  gap,
+  helper,
+  accent,
+  icon,
+  actionLabel,
+  onAction,
+}) => {
+  const isEmpty = Number(value || 0) === 0;
+
+  return (
+    <Paper className={classes.card}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="flex-start"
+      >
+        <Box>
+          <Typography className={classes.label}>{title}</Typography>
+          <Typography className={classes.value}>{number(value)}</Typography>
+        </Box>
+        <Box style={{ color: accent }}>{icon}</Box>
+      </Box>
+      <Box mt={2}>
+        <Typography className={classes.hint}>{helper}</Typography>
+      </Box>
+      <Box mt={2}>
+        <LinearProgress
+          variant="determinate"
+          value={Math.min(100, Number(progress || 0))}
+          style={{ height: 9, borderRadius: 999, background: "#edf4f1" }}
+        />
+        <Box className={classes.progressMeta}>
+          <span>{percent(progress)}</span>
+          <span>Meta: {number(target)}</span>
+          <span>Gap: {number(gap)}</span>
+        </Box>
+      </Box>
+      {isEmpty && actionLabel && onAction ? (
+        <Box className={classes.actionRow}>
+          <Button
+            size="small"
+            color="primary"
+            variant="outlined"
+            onClick={onAction}
+          >
+            {actionLabel}
+          </Button>
+        </Box>
+      ) : null}
+    </Paper>
+  );
+};
+
 const ExecutiveDashboard = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -182,8 +293,10 @@ const ExecutiveDashboard = () => {
     pipelineId: "",
   });
   const [goalForm, setGoalForm] = useState({
-    globalTarget: "",
-    teamTarget: "",
+    value: { global: "", team: "" },
+    meetingsScheduled: { global: "", team: "" },
+    meetingsCompleted: { global: "", team: "" },
+    conversions: { global: "", team: "" },
     sellerTargets: [],
   });
 
@@ -241,13 +354,47 @@ const ExecutiveDashboard = () => {
     fetchDashboard(next, false);
   };
 
+  const handleTeamGoalChange = (group, field, value) => {
+    setGoalForm((current) => ({
+      ...current,
+      [group]: { ...current[group], [field]: value },
+    }));
+  };
+
+  const handleSellerGoalChange = (index, field, value) => {
+    setGoalForm((current) => ({
+      ...current,
+      sellerTargets: current.sellerTargets.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    }));
+  };
+
   const openGoals = () => {
     setGoalForm({
-      globalTarget: String(data.targets.global || 0),
-      teamTarget: String(data.targets.team || 0),
+      value: {
+        global: toInputValue(data.targets.value.global),
+        team: toInputValue(data.targets.value.team),
+      },
+      meetingsScheduled: {
+        global: toInputValue(data.targets.meetingsScheduled.global),
+        team: toInputValue(data.targets.meetingsScheduled.team),
+      },
+      meetingsCompleted: {
+        global: toInputValue(data.targets.meetingsCompleted.global),
+        team: toInputValue(data.targets.meetingsCompleted.team),
+      },
+      conversions: {
+        global: toInputValue(data.targets.conversions.global),
+        team: toInputValue(data.targets.conversions.team),
+      },
       sellerTargets: (data.targets.sellers || []).map((item) => ({
-        ...item,
-        target: String(item.target || 0),
+        userId: item.userId,
+        name: item.name,
+        valueTarget: toInputValue(item.valueTarget),
+        meetingsScheduledTarget: toInputValue(item.meetingsScheduledTarget),
+        meetingsCompletedTarget: toInputValue(item.meetingsCompletedTarget),
+        conversionsTarget: toInputValue(item.conversionsTarget),
       })),
     });
     setGoalOpen(true);
@@ -260,7 +407,7 @@ const ExecutiveDashboard = () => {
       setGoalOpen(false);
       fetchDashboard(filters, false);
     } catch (error) {
-      toast.error("Não foi possível salvar as metas.");
+      toast.error("Nao foi possivel salvar as metas.");
     }
   };
 
@@ -301,6 +448,48 @@ const ExecutiveDashboard = () => {
     };
   }, [data]);
 
+  const operationalSummary = useMemo(() => {
+    if (!data) return [];
+    return [
+      {
+        key: "scheduled",
+        title: "Reunioes agendadas",
+        value: data.meetings.scheduledInPeriod,
+        target: data.targets.meetingsScheduled.current,
+        progress: data.meetings.scheduledProgress,
+        gap: data.meetings.scheduledGap,
+        helper: `Futuras registradas: ${number(data.meetings.upcoming)}`,
+        accent: "#8b5cf6",
+        icon: <EventAvailable style={{ fontSize: 32 }} />,
+        actionLabel: "Criar reunioes",
+      },
+      {
+        key: "completed",
+        title: "Reunioes realizadas",
+        value: data.meetings.completedInPeriod,
+        target: data.targets.meetingsCompleted.current,
+        progress: data.meetings.completedProgress,
+        gap: data.meetings.completedGap,
+        helper: "Conta compromissos concluidos no periodo filtrado.",
+        accent: "#14b8a6",
+        icon: <Timer style={{ fontSize: 32 }} />,
+        actionLabel: "Revisar agenda",
+      },
+      {
+        key: "conversions",
+        title: "Contratos fechados",
+        value: data.leads.converted,
+        target: data.targets.conversions.current,
+        progress: data.leads.convertedProgress,
+        gap: data.leads.convertedGap,
+        helper: `Conversao atual: ${percent(data.leads.conversionRate)}`,
+        accent: "#f59e0b",
+        icon: <EmojiEvents style={{ fontSize: 32 }} />,
+        actionLabel: "Abrir funil",
+      },
+    ];
+  }, [data]);
+
   if (loading) {
     return (
       <Box
@@ -322,18 +511,20 @@ const ExecutiveDashboard = () => {
         alignItems="center"
         height="100vh"
       >
-        <Typography>Não foi possível carregar o dashboard.</Typography>
+        <Typography>Nao foi possivel carregar o dashboard.</Typography>
       </Box>
     );
   }
 
-  const progressText = `Estamos no dia ${data.periodProgress.elapsedDays} de ${data.periodProgress.totalDays} — esperado ${money(data.periodProgress.expectedRevenue)} até aqui.`;
+  const progressText = `Estamos no dia ${data.periodProgress.elapsedDays} de ${data.periodProgress.totalDays} - esperado ${money(data.periodProgress.expectedRevenue)} ate aqui.`;
+  const openKanban = () => history.push("/kanban");
+  const openAgenda = () => history.push("/appointments");
 
   return (
     <Box className={classes.root}>
       <ContextPageHeader
         title="Dashboard CRM"
-        subtitle="Visão executiva do funil, das metas e da performance comercial."
+        subtitle="Visao executiva do funil, das metas e da performance comercial."
         fallbackTo="/kanban"
         actions={
           <Box display="flex" gridGap={8}>
@@ -357,53 +548,89 @@ const ExecutiveDashboard = () => {
       />
 
       <Paper className={classes.hero}>
-        <Grid container spacing={3} alignItems="center">
+        <Grid container spacing={3} alignItems="stretch">
           <Grid item xs={12} md={7}>
             <Typography
               variant="h4"
               style={{ fontWeight: 900, letterSpacing: "-0.03em" }}
             >
-              Dashboard comercial com metas reais e leitura por escopo
+              Dashboard comercial com metas operacionais e visao por escopo
             </Typography>
-            <Box mt={1}>
-              <Typography style={{ opacity: 0.84 }}>
+            <Box mt={1.5}>
+              <Typography style={{ opacity: 0.88, lineHeight: 1.6 }}>
                 {data.filters.scope === "company"
-                  ? "Você está vendo a operação consolidada da empresa. Todos os cards seguem o mesmo filtro de período e o mesmo contexto de pipeline."
-                  : `Você está vendo apenas a operação de ${data.filters.scopeLabel}, com métricas e metas filtradas automaticamente.`}
+                  ? "O admin acompanha a operacao completa da equipe. Todos os cards reagem ao mesmo periodo, usuario e funil para leitura consistente."
+                  : `Voce esta vendo apenas os seus numeros em ${data.filters.scopeLabel}. As metas e metricas foram filtradas para a sua carteira.`}
               </Typography>
             </Box>
             <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
               <Chip label={data.periodProgress.label} />
               <Chip label={data.filters.scopeLabel} />
-              <Chip label={`Meta atual ${money(data.targets.current)}`} />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <Typography style={{ fontWeight: 800 }}>Ritmo da meta</Typography>
-            <Box mt={1}>
-              <LinearProgress
-                variant="determinate"
-                value={data.periodProgress.elapsedPercentage}
-                style={{ height: 10, borderRadius: 999 }}
+              <Chip
+                label={`Meta de valor ${money(data.targets.value.current)}`}
+              />
+              <Chip
+                label={`Meta de conversao ${number(data.targets.conversions.current)}`}
               />
             </Box>
-            <Box mt={1}>
-              <Typography variant="body2" style={{ opacity: 0.88 }}>
-                {progressText}
-              </Typography>
-            </Box>
-            {data.filters.canEditGoals && (
-              <Box mt={2} display="flex" justifyContent="flex-end">
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  startIcon={<Edit />}
-                  onClick={openGoals}
-                >
-                  Ajustar metas
-                </Button>
+          </Grid>
+
+          <Grid item xs={12} md={5}>
+            <Box className={classes.heroPanel}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <Typography style={{ fontWeight: 900 }}>
+                  Ritmo da meta de valor
+                </Typography>
+                <Chip
+                  label={`${data.periodProgress.elapsedPercentage.toFixed(1)}% do periodo`}
+                  style={{
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#fff",
+                  }}
+                />
               </Box>
-            )}
+              <Box mt={1.5}>
+                <LinearProgress
+                  variant="determinate"
+                  value={data.periodProgress.elapsedPercentage}
+                  style={{
+                    height: 10,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.22)",
+                  }}
+                />
+              </Box>
+              <Box mt={1.5}>
+                <Typography variant="body2" style={{ opacity: 0.92 }}>
+                  {progressText}
+                </Typography>
+              </Box>
+              <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
+                <span className={classes.metricBadge}>
+                  Reunioes meta:{" "}
+                  {number(data.targets.meetingsScheduled.current)}
+                </span>
+                <span className={classes.metricBadge}>
+                  Fechamentos meta: {number(data.targets.conversions.current)}
+                </span>
+              </Box>
+              {data.filters.canEditGoals ? (
+                <Box mt={2.5} display="flex" justifyContent="flex-end">
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<Edit />}
+                    onClick={openGoals}
+                  >
+                    Ajustar metas
+                  </Button>
+                </Box>
+              ) : null}
+            </Box>
           </Grid>
         </Grid>
       </Paper>
@@ -447,16 +674,16 @@ const ExecutiveDashboard = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          {data.filters.canSelectUsers && (
+          {data.filters.canSelectUsers ? (
             <Grid item xs={12} md={2}>
               <FormControl variant="outlined" size="small" fullWidth>
-                <InputLabel>Usuário</InputLabel>
+                <InputLabel>Usuario</InputLabel>
                 <Select
                   value={filters.reportUserId}
                   onChange={handleSelect("reportUserId")}
-                  label="Usuário"
+                  label="Usuario"
                 >
-                  <MenuItem value="">Visão geral</MenuItem>
+                  <MenuItem value="">Visao geral</MenuItem>
                   {data.selectors.users.map((item) => (
                     <MenuItem key={item.id} value={item.id}>
                       {item.name}
@@ -465,7 +692,7 @@ const ExecutiveDashboard = () => {
                 </Select>
               </FormControl>
             </Grid>
-          )}
+          ) : null}
           <Grid item xs={12} md={data.filters.canSelectUsers ? 2 : 4}>
             <FormControl variant="outlined" size="small" fullWidth>
               <InputLabel>Funil</InputLabel>
@@ -507,12 +734,13 @@ const ExecutiveDashboard = () => {
               </Box>
             </Paper>
           </Grid>
+
           <Grid item xs={12} md={3}>
             <Paper className={classes.card}>
               <Box display="flex" justifyContent="space-between">
                 <Box>
                   <Typography className={classes.label}>
-                    Forecast do período
+                    Forecast do periodo
                   </Typography>
                   <Typography
                     className={classes.value}
@@ -531,6 +759,7 @@ const ExecutiveDashboard = () => {
               </Box>
             </Paper>
           </Grid>
+
           <Grid item xs={12} md={3}>
             <Paper className={classes.card}>
               <Box display="flex" justifyContent="space-between">
@@ -549,23 +778,24 @@ const ExecutiveDashboard = () => {
               </Box>
               <Box mt={2}>
                 <Typography className={classes.hint}>
-                  Esperado até agora:{" "}
+                  Esperado ate agora:{" "}
                   <strong>{money(data.periodProgress.expectedRevenue)}</strong>
                 </Typography>
                 <Typography className={classes.hint}>
-                  Gap real até hoje:{" "}
+                  Gap real ate hoje:{" "}
                   <strong>{money(data.revenue.expectedToDateGap)}</strong>
                 </Typography>
               </Box>
             </Paper>
           </Grid>
+
           <Grid item xs={12} md={3}>
             <Paper className={classes.darkCard}>
               <Typography
                 className={classes.label}
-                style={{ color: "rgba(255,255,255,0.70)" }}
+                style={{ color: "rgba(255,255,255,0.72)" }}
               >
-                ROI da inteligência
+                ROI da inteligencia
               </Typography>
               <Typography
                 variant="h4"
@@ -575,35 +805,53 @@ const ExecutiveDashboard = () => {
               </Typography>
               <Box mt={2}>
                 <Typography variant="body2" style={{ opacity: 0.84 }}>
-                  Movimentações pela IA: {data.aiRoi.movementRate.toFixed(1)}%
+                  Movimentacoes por IA: {percent(data.aiRoi.movementRate)}
                 </Typography>
                 <Typography variant="body2" style={{ opacity: 0.84 }}>
-                  Precisão: {data.aiRoi.accuracyRate.toFixed(1)}%
+                  Precisao da IA: {percent(data.aiRoi.accuracyRate)}
                 </Typography>
               </Box>
+              {data.aiRoi.estimatedEfficiencyGain === 0 ? (
+                <Box className={classes.actionRow}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    style={{
+                      color: "#fff",
+                      borderColor: "rgba(255,255,255,0.3)",
+                    }}
+                    onClick={openKanban}
+                  >
+                    Revisar automacoes
+                  </Button>
+                </Box>
+              ) : null}
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.card}>
-              <EventAvailable style={{ color: "#8b5cf6", fontSize: 32 }} />
-              <Box mt={1}>
-                <Typography className={classes.label}>
-                  Reuniões no período
-                </Typography>
-                <Typography className={classes.value}>
-                  {number(data.meetings.scheduledInPeriod)}
-                </Typography>
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>
-                  Futuras já cadastradas:{" "}
-                  <strong>{number(data.meetings.upcoming)}</strong>
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={3}>
+          {operationalSummary.map((item) => (
+            <Grid item xs={12} md={4} key={item.key}>
+              <GoalMetricCard
+                classes={classes}
+                title={item.title}
+                value={item.value}
+                target={item.target}
+                progress={item.progress}
+                gap={item.gap}
+                helper={item.helper}
+                accent={item.accent}
+                icon={item.icon}
+                actionLabel={item.actionLabel}
+                onAction={
+                  item.key === "scheduled" || item.key === "completed"
+                    ? openAgenda
+                    : openKanban
+                }
+              />
+            </Grid>
+          ))}
+
+          <Grid item xs={12} md={4}>
             <Paper className={classes.card}>
               <Timeline style={{ color: "#0ea5e9", fontSize: 32 }} />
               <Box mt={1}>
@@ -612,40 +860,39 @@ const ExecutiveDashboard = () => {
                   {number(data.leads.generated)}
                 </Typography>
               </Box>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.card}>
-              <EmojiEvents style={{ color: "#f59e0b", fontSize: 32 }} />
-              <Box mt={1}>
-                <Typography className={classes.label}>
-                  Leads convertidos
-                </Typography>
-                <Typography className={classes.value}>
-                  {number(data.leads.converted)}
-                </Typography>
-              </Box>
               <Box mt={2}>
                 <Typography className={classes.hint}>
-                  Conversão:{" "}
-                  <strong>{data.leads.conversionRate.toFixed(1)}%</strong>
+                  Oportunidades convertidas:{" "}
+                  <strong>{number(data.leads.converted)}</strong>
                 </Typography>
+                {Number(data.leads.generated || 0) === 0 ? (
+                  <Box className={classes.actionRow}>
+                    <Button
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      onClick={openKanban}
+                    >
+                      Alimentar funil
+                    </Button>
+                  </Box>
+                ) : null}
               </Box>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={3}>
+
+          <Grid item xs={12} md={4}>
             <Paper className={classes.card}>
               <Timer style={{ color: "#14b8a6", fontSize: 32 }} />
               <Box mt={1}>
-                <Typography className={classes.label}>Ciclo médio</Typography>
+                <Typography className={classes.label}>Ciclo medio</Typography>
                 <Typography className={classes.value}>
                   {data.performance.avgSalesCycle.toFixed(1)} dias
                 </Typography>
               </Box>
               <Box mt={2}>
                 <Typography className={classes.hint}>
-                  Win rate:{" "}
-                  <strong>{data.performance.winRate.toFixed(1)}%</strong>
+                  Win rate: <strong>{percent(data.performance.winRate)}</strong>
                 </Typography>
               </Box>
             </Paper>
@@ -660,11 +907,12 @@ const ExecutiveDashboard = () => {
                 mb={2}
               >
                 <Box>
-                  <Typography variant="h6" className={classes.title}>
+                  <Typography variant="h6" className={classes.sectionTitle}>
                     Forecast por vendedor
                   </Typography>
                   <Typography className={classes.hint}>
-                    Ordenado por percentual da meta, com valor absoluto ao lado.
+                    Ordenado por percentual da meta. Valor, conversoes e
+                    reunioes ficam lado a lado para leitura rapida.
                   </Typography>
                 </Box>
                 <Chip
@@ -672,13 +920,14 @@ const ExecutiveDashboard = () => {
                   label={`${data.performance.sellerRanking.length} vendedores`}
                 />
               </Box>
+
               {data.emptyStates.forecast ? (
                 <EmptyState
                   icon={<Group style={{ fontSize: 42, color: "#178a4a" }} />}
                   title="Sem forecast para mostrar"
-                  description="Ainda não há carteira suficiente neste filtro para projetar receita. Vale abrir o Kanban e revisar as oportunidades ativas."
+                  description="Ainda nao ha carteira suficiente neste filtro para projetar receita. Vale abrir o CRM Kanban e revisar as oportunidades ativas."
                   buttonLabel="Abrir CRM Kanban"
-                  onClick={() => history.push("/kanban")}
+                  onClick={openKanban}
                 />
               ) : (
                 <>
@@ -689,7 +938,7 @@ const ExecutiveDashboard = () => {
                     height={320}
                   />
                   <Grid container spacing={2}>
-                    {data.performance.sellerRanking.slice(0, 4).map((item) => (
+                    {data.performance.sellerRanking.slice(0, 6).map((item) => (
                       <Grid item xs={12} md={6} key={item.sellerId}>
                         <Box className={classes.stage}>
                           <Box
@@ -723,10 +972,18 @@ const ExecutiveDashboard = () => {
                               variant="body2"
                               className={classes.hint}
                             >
-                              Receita real:{" "}
-                              <strong>{money(item.realRevenue)}</strong> |
-                              Convertidos:{" "}
-                              <strong>{item.convertedLeads}</strong>
+                              Real: <strong>{money(item.realRevenue)}</strong> |
+                              Fechamentos:{" "}
+                              <strong>{number(item.conversions)}</strong>
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              className={classes.hint}
+                            >
+                              Reunioes agendadas:{" "}
+                              <strong>{number(item.meetingsScheduled)}</strong>{" "}
+                              | Realizadas:{" "}
+                              <strong>{number(item.meetingsCompleted)}</strong>
                             </Typography>
                           </Box>
                         </Box>
@@ -747,8 +1004,8 @@ const ExecutiveDashboard = () => {
                 mb={2}
               >
                 <Box>
-                  <Typography variant="h6" className={classes.title}>
-                    Saúde do pipeline
+                  <Typography variant="h6" className={classes.sectionTitle}>
+                    Saude do pipeline
                   </Typography>
                   <Typography className={classes.hint}>
                     {data.pipelineHealth.selectedPipeline
@@ -761,15 +1018,16 @@ const ExecutiveDashboard = () => {
                   label={`${data.pipelineHealth.overview.totalStages} etapas`}
                 />
               </Box>
+
               {data.emptyStates.pipeline ? (
                 <EmptyState
                   icon={
                     <ViewKanban style={{ fontSize: 42, color: "#178a4a" }} />
                   }
-                  title="Pipeline sem dados no período"
-                  description="Não encontramos cards ativos para o filtro atual. Vale ampliar o período ou revisar o funil."
+                  title="Pipeline sem dados no periodo"
+                  description="Nao encontramos cards ativos para o filtro atual. Vale ampliar o periodo ou revisar o funil."
                   buttonLabel="Ir para o Kanban"
-                  onClick={() => history.push("/kanban")}
+                  onClick={openKanban}
                 />
               ) : (
                 <Box display="flex" flexDirection="column" gridGap={12}>
@@ -785,7 +1043,7 @@ const ExecutiveDashboard = () => {
                         </strong>
                       </Typography>
                       <Typography variant="body2" className={classes.hint}>
-                        Entradas no período:{" "}
+                        Entradas no periodo:{" "}
                         <strong>
                           {number(
                             data.pipelineHealth.overview.totalEnteredInPeriod,
@@ -800,8 +1058,17 @@ const ExecutiveDashboard = () => {
                           )}
                         </strong>
                       </Typography>
+                      <Typography variant="body2" className={classes.hint}>
+                        Score medio:{" "}
+                        <strong>
+                          {percent(
+                            data.pipelineHealth.overview.averageStageScore,
+                          )}
+                        </strong>
+                      </Typography>
                     </Box>
                   </Box>
+
                   {data.pipelineHealth.stages.map((stage) => (
                     <Box key={stage.id} className={classes.stage}>
                       <Box
@@ -845,8 +1112,14 @@ const ExecutiveDashboard = () => {
                           <strong>{money(stage.currentValue)}</strong>
                         </Typography>
                         <Typography variant="body2" className={classes.hint}>
-                          Entradas no período:{" "}
+                          Entradas no periodo:{" "}
                           <strong>{stage.enteredInPeriod}</strong>
+                        </Typography>
+                        <Typography variant="body2" className={classes.hint}>
+                          Leads no estagio:{" "}
+                          <strong>{stage.currentLeadCount}</strong> |
+                          Oportunidades:{" "}
+                          <strong>{stage.currentOpportunityCount}</strong>
                         </Typography>
                       </Box>
                     </Box>
@@ -861,87 +1134,246 @@ const ExecutiveDashboard = () => {
       <Dialog
         open={goalOpen}
         onClose={() => setGoalOpen(false)}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
       >
         <DialogTitle>Ajustar metas do dashboard CRM</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="textSecondary">
-            Aqui o admin consegue definir a meta geral, a meta da equipe e a
-            meta individual de cada vendedor.
+            O admin pode definir meta de valor, reunioes agendadas, reunioes
+            realizadas e contratos fechados. Cada vendedor herda a leitura do
+            seu proprio dashboard, sem permissao para editar estes dados.
           </Typography>
-          <Box mt={3}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Meta geral"
-                  variant="outlined"
-                  type="number"
-                  fullWidth
-                  value={goalForm.globalTarget}
-                  onChange={(e) =>
-                    setGoalForm((current) => ({
-                      ...current,
-                      globalTarget: e.target.value,
-                    }))
-                  }
-                />
+
+          <Box mt={3} className={classes.dialogBlock}>
+            <Typography variant="subtitle1" className={classes.sectionTitle}>
+              Metas gerais da operacao
+            </Typography>
+            <Box mt={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta geral de valor"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.value.global}
+                    onChange={(e) =>
+                      handleTeamGoalChange("value", "global", e.target.value)
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta da equipe de valor"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.value.team}
+                    onChange={(e) =>
+                      handleTeamGoalChange("value", "team", e.target.value)
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta geral de reunioes"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.meetingsScheduled.global}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "meetingsScheduled",
+                        "global",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta da equipe de reunioes"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.meetingsScheduled.team}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "meetingsScheduled",
+                        "team",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta geral de reunioes realizadas"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.meetingsCompleted.global}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "meetingsCompleted",
+                        "global",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta da equipe de reunioes realizadas"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.meetingsCompleted.team}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "meetingsCompleted",
+                        "team",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta geral de contratos fechados"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.conversions.global}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "conversions",
+                        "global",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Meta da equipe de contratos fechados"
+                    variant="outlined"
+                    type="number"
+                    fullWidth
+                    value={goalForm.conversions.team}
+                    onChange={(e) =>
+                      handleTeamGoalChange(
+                        "conversions",
+                        "team",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Meta da equipe"
-                  variant="outlined"
-                  type="number"
-                  fullWidth
-                  value={goalForm.teamTarget}
-                  onChange={(e) =>
-                    setGoalForm((current) => ({
-                      ...current,
-                      teamTarget: e.target.value,
-                    }))
-                  }
-                />
-              </Grid>
-            </Grid>
+            </Box>
           </Box>
+
           <Box mt={3}>
-            <Typography variant="subtitle1" className={classes.title}>
+            <Typography variant="subtitle1" className={classes.sectionTitle}>
               Metas por vendedor
             </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Vendedor</TableCell>
-                  <TableCell align="right">Meta</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {goalForm.sellerTargets.map((seller, index) => (
-                  <TableRow key={seller.userId}>
-                    <TableCell>{seller.name}</TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        variant="outlined"
-                        size="small"
-                        type="number"
-                        value={seller.target}
-                        onChange={(e) =>
-                          setGoalForm((current) => ({
-                            ...current,
-                            sellerTargets: current.sellerTargets.map(
-                              (item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, target: e.target.value }
-                                  : item,
-                            ),
-                          }))
-                        }
-                      />
+            <Typography className={classes.hint} style={{ marginTop: 6 }}>
+              Cada linha abaixo define a meta individual do vendedor para o
+              mesmo periodo filtrado no dashboard.
+            </Typography>
+
+            <Box mt={2}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell className={classes.tableCellHead}>
+                      Vendedor
+                    </TableCell>
+                    <TableCell className={classes.tableCellHead} align="right">
+                      Valor
+                    </TableCell>
+                    <TableCell className={classes.tableCellHead} align="right">
+                      Reunioes agendadas
+                    </TableCell>
+                    <TableCell className={classes.tableCellHead} align="right">
+                      Reunioes realizadas
+                    </TableCell>
+                    <TableCell className={classes.tableCellHead} align="right">
+                      Contratos fechados
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {goalForm.sellerTargets.map((seller, index) => (
+                    <TableRow key={seller.userId}>
+                      <TableCell>{seller.name}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          variant="outlined"
+                          size="small"
+                          type="number"
+                          value={seller.valueTarget}
+                          onChange={(e) =>
+                            handleSellerGoalChange(
+                              index,
+                              "valueTarget",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          variant="outlined"
+                          size="small"
+                          type="number"
+                          value={seller.meetingsScheduledTarget}
+                          onChange={(e) =>
+                            handleSellerGoalChange(
+                              index,
+                              "meetingsScheduledTarget",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          variant="outlined"
+                          size="small"
+                          type="number"
+                          value={seller.meetingsCompletedTarget}
+                          onChange={(e) =>
+                            handleSellerGoalChange(
+                              index,
+                              "meetingsCompletedTarget",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          variant="outlined"
+                          size="small"
+                          type="number"
+                          value={seller.conversionsTarget}
+                          onChange={(e) =>
+                            handleSellerGoalChange(
+                              index,
+                              "conversionsTarget",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>

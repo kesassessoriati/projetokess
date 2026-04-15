@@ -29,35 +29,63 @@ export const updateGoals = async (req: Request, res: Response): Promise<Response
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
-  const { globalTarget, teamTarget, sellerTargets = [] } = req.body as {
-    globalTarget?: number | string;
-    teamTarget?: number | string;
-    sellerTargets?: Array<{ userId: number; target: number | string }>;
+  const { value = {}, meetingsScheduled = {}, meetingsCompleted = {}, conversions = {}, sellerTargets = [] } = req.body as {
+    value?: { global?: number | string; team?: number | string };
+    meetingsScheduled?: { global?: number | string; team?: number | string };
+    meetingsCompleted?: { global?: number | string; team?: number | string };
+    conversions?: { global?: number | string; team?: number | string };
+    sellerTargets?: Array<{
+      userId: number;
+      valueTarget?: number | string;
+      meetingsScheduledTarget?: number | string;
+      meetingsCompletedTarget?: number | string;
+      conversionsTarget?: number | string;
+    }>;
   };
 
-  if (globalTarget !== undefined) {
-    const normalizedGlobal = String(Number(globalTarget || 0));
-    await UpdateSettingService({ key: "executive_goal_global", value: normalizedGlobal, companyId });
-    await UpdateSettingService({ key: "executive_goal", value: normalizedGlobal, companyId });
-  }
+  const upserts: Array<Promise<any>> = [];
 
-  if (teamTarget !== undefined) {
-    await UpdateSettingService({
-      key: "executive_goal_team",
-      value: String(Number(teamTarget || 0)),
-      companyId
-    });
-  }
+  const registerGoal = (key: string, rawValue?: number | string) => {
+    if (rawValue === undefined) return;
+    upserts.push(
+      UpdateSettingService({
+        key,
+        value: String(Number(rawValue || 0)),
+        companyId
+      })
+    );
+  };
+
+  registerGoal("executive_goal_global", value.global);
+  registerGoal("executive_goal", value.global);
+  registerGoal("executive_goal_team", value.team);
+  registerGoal("executive_goal_meetings_scheduled_global", meetingsScheduled.global);
+  registerGoal("executive_goal_meetings_scheduled_team", meetingsScheduled.team);
+  registerGoal("executive_goal_meetings_completed_global", meetingsCompleted.global);
+  registerGoal("executive_goal_meetings_completed_team", meetingsCompleted.team);
+  registerGoal("executive_goal_conversions_global", conversions.global);
+  registerGoal("executive_goal_conversions_team", conversions.team);
 
   for (const sellerTarget of sellerTargets) {
     if (!sellerTarget?.userId) continue;
 
-    await UpdateSettingService({
-      key: `executive_goal_user_${Number(sellerTarget.userId)}`,
-      value: String(Number(sellerTarget.target || 0)),
-      companyId
-    });
+    registerGoal(`executive_goal_user_${Number(sellerTarget.userId)}`, sellerTarget.valueTarget);
+    registerGoal(`executive_goal_value_user_${Number(sellerTarget.userId)}`, sellerTarget.valueTarget);
+    registerGoal(
+      `executive_goal_meetings_scheduled_user_${Number(sellerTarget.userId)}`,
+      sellerTarget.meetingsScheduledTarget
+    );
+    registerGoal(
+      `executive_goal_meetings_completed_user_${Number(sellerTarget.userId)}`,
+      sellerTarget.meetingsCompletedTarget
+    );
+    registerGoal(
+      `executive_goal_conversions_user_${Number(sellerTarget.userId)}`,
+      sellerTarget.conversionsTarget
+    );
   }
+
+  await Promise.all(upserts);
 
   return res.status(200).json({ success: true });
 };

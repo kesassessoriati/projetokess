@@ -3,6 +3,7 @@ import moment from "moment";
 
 import AISuggestionFeedback from "../../models/AISuggestionFeedback";
 import CrmLead from "../../models/CrmLead";
+import Appointment from "../../models/Appointment";
 import Opportunity from "../../models/Opportunity";
 import OpportunityMovement from "../../models/OpportunityMovement";
 import OpportunityPrediction from "../../models/OpportunityPrediction";
@@ -25,13 +26,33 @@ interface DashboardFilters {
 }
 
 interface GoalTarget {
-  global: number;
-  team: number;
-  current: number;
+  value: {
+    global: number;
+    team: number;
+    current: number;
+  };
+  meetingsScheduled: {
+    global: number;
+    team: number;
+    current: number;
+  };
+  meetingsCompleted: {
+    global: number;
+    team: number;
+    current: number;
+  };
+  conversions: {
+    global: number;
+    team: number;
+    current: number;
+  };
   sellers: Array<{
     userId: number;
     name: string;
-    target: number;
+    valueTarget: number;
+    meetingsScheduledTarget: number;
+    meetingsCompletedTarget: number;
+    conversionsTarget: number;
   }>;
 }
 
@@ -66,12 +87,19 @@ interface DashboardData {
   };
   meetings: {
     scheduledInPeriod: number;
+    scheduledProgress: number;
+    scheduledGap: number;
+    completedInPeriod: number;
+    completedProgress: number;
+    completedGap: number;
     upcoming: number;
   };
   leads: {
     generated: number;
     converted: number;
     conversionRate: number;
+    convertedProgress: number;
+    convertedGap: number;
   };
   aiRoi: {
     movementRate: number;
@@ -87,6 +115,13 @@ interface DashboardData {
       forecast: number;
       realRevenue: number;
       target: number;
+      meetingsScheduled: number;
+      meetingsCompleted: number;
+      conversions: number;
+      valueTarget: number;
+      meetingsScheduledTarget: number;
+      meetingsCompletedTarget: number;
+      conversionsTarget: number;
       projectedTotal: number;
       progressPercentage: number;
       achievedPercentage: number;
@@ -136,6 +171,12 @@ interface DashboardData {
 
 const CONVERTED_LEAD_STATUSES = ["convertido", "won", "converted"];
 const DEFAULT_TARGET = 0;
+const GOAL_CATEGORIES = [
+  { key: "value", suffix: "value", legacy: ["executive_goal_global", "executive_goal"] },
+  { key: "meetingsScheduled", suffix: "meetings_scheduled", legacy: [] },
+  { key: "meetingsCompleted", suffix: "meetings_completed", legacy: [] },
+  { key: "conversions", suffix: "conversions", legacy: [] }
+] as const;
 
 const toNumber = (value: any): number => Number(value || 0);
 
@@ -211,6 +252,31 @@ const getGoalValue = (settingsMap: Map<string, string>, keys: string[]) => {
   return DEFAULT_TARGET;
 };
 
+const getCategoryGoalValue = (
+  settingsMap: Map<string, string>,
+  categorySuffix: string,
+  scope: "global" | "team" | "user",
+  userId?: number,
+  legacyKeys: string[] = []
+) => {
+  const keys: string[] = [];
+
+  if (scope === "global") {
+    keys.push(`executive_goal_${categorySuffix}_global`, ...legacyKeys);
+  } else if (scope === "team") {
+    keys.push(`executive_goal_${categorySuffix}_team`);
+  } else if (scope === "user" && userId) {
+    keys.push(`executive_goal_${categorySuffix}_user_${userId}`);
+  }
+
+  if (scope !== "global") {
+    keys.push(`executive_goal_${categorySuffix}_global`);
+    keys.push(...legacyKeys);
+  }
+
+  return getGoalValue(settingsMap, keys);
+};
+
 class GetExecutiveDashboardService {
   public static async execute({
     companyId,
@@ -249,13 +315,9 @@ class GetExecutiveDashboardService {
       Setting.findAll({
         where: {
           companyId,
-          [Op.or]: [
-            { key: "executive_goal" },
-            { key: "executive_goal_global" },
-            { key: "executive_goal_team" },
-            { key: { [Op.like]: "executive_goal_%" } },
-            { key: { [Op.like]: "executive_goal_user_%" } }
-          ]
+          key: {
+            [Op.like]: "executive_goal%"
+          }
         }
       })
     ]);
@@ -274,19 +336,54 @@ class GetExecutiveDashboardService {
         name: item.name
       }));
 
+    const globalTargets = GOAL_CATEGORIES.reduce((acc, category) => {
+      acc[category.key] = getCategoryGoalValue(settingsMap, category.suffix, "global", undefined, [...category.legacy]);
+      return acc;
+    }, {} as Record<string, number>);
+
     const sellerTargets = availableSellers.map(seller => ({
       userId: seller.id,
       name: seller.name,
-      target: getGoalValue(settingsMap, [`executive_goal_user_${seller.id}`, `executive_goal_${seller.id}`])
+      valueTarget: getCategoryGoalValue(settingsMap, "value", "user", seller.id, ["executive_goal_user_" + seller.id, "executive_goal_" + seller.id, "executive_goal_global", "executive_goal"]),
+      meetingsScheduledTarget: getCategoryGoalValue(settingsMap, "meetings_scheduled", "user", seller.id),
+      meetingsCompletedTarget: getCategoryGoalValue(settingsMap, "meetings_completed", "user", seller.id),
+      conversionsTarget: getCategoryGoalValue(settingsMap, "conversions", "user", seller.id)
     }));
 
-    const globalTarget = getGoalValue(settingsMap, ["executive_goal_global", "executive_goal"]);
-    const explicitTeamTarget = getGoalValue(settingsMap, ["executive_goal_team"]);
-    const aggregatedSellerTarget = sellerTargets.reduce((acc, item) => acc + item.target, 0);
-    const teamTarget = explicitTeamTarget || aggregatedSellerTarget || globalTarget;
-    const currentTarget = activeUserId
-      ? getGoalValue(settingsMap, [`executive_goal_user_${activeUserId}`, `executive_goal_${activeUserId}`, "executive_goal_global", "executive_goal"])
-      : globalTarget;
+    const teamTargets = {
+      value:
+        getCategoryGoalValue(settingsMap, "value", "team", undefined, []) ||
+        sellerTargets.reduce((acc, item) => acc + item.valueTarget, 0) ||
+        globalTargets.value,
+      meetingsScheduled:
+        getCategoryGoalValue(settingsMap, "meetings_scheduled", "team") ||
+        sellerTargets.reduce((acc, item) => acc + item.meetingsScheduledTarget, 0),
+      meetingsCompleted:
+        getCategoryGoalValue(settingsMap, "meetings_completed", "team") ||
+        sellerTargets.reduce((acc, item) => acc + item.meetingsCompletedTarget, 0),
+      conversions:
+        getCategoryGoalValue(settingsMap, "conversions", "team") ||
+        sellerTargets.reduce((acc, item) => acc + item.conversionsTarget, 0)
+    };
+
+    const currentTargets = activeUserId
+      ? {
+          value:
+            sellerTargets.find(item => Number(item.userId) === Number(activeUserId))?.valueTarget ||
+            globalTargets.value,
+          meetingsScheduled:
+            sellerTargets.find(item => Number(item.userId) === Number(activeUserId))?.meetingsScheduledTarget || 0,
+          meetingsCompleted:
+            sellerTargets.find(item => Number(item.userId) === Number(activeUserId))?.meetingsCompletedTarget || 0,
+          conversions:
+            sellerTargets.find(item => Number(item.userId) === Number(activeUserId))?.conversionsTarget || 0
+        }
+      : {
+          value: globalTargets.value,
+          meetingsScheduled: teamTargets.meetingsScheduled || globalTargets.meetingsScheduled,
+          meetingsCompleted: teamTargets.meetingsCompleted || globalTargets.meetingsCompleted,
+          conversions: teamTargets.conversions || globalTargets.conversions
+        };
 
     const opportunityScopeWhere: any = {
       companyId,
@@ -297,6 +394,10 @@ class GetExecutiveDashboardService {
       companyId,
       ...(selectedPipelineId ? { pipelineId: selectedPipelineId } : {}),
       ...(activeUserId ? { ownerUserId: activeUserId } : {})
+    };
+    const appointmentScopeWhere: any = {
+      companyId,
+      ...(activeUserId ? { createdByUserId: activeUserId } : {})
     };
     const scopedOpportunityInclude =
       activeUserId || selectedPipelineId
@@ -318,6 +419,7 @@ class GetExecutiveDashboardService {
       generatedLeads,
       convertedLeads,
       scheduledInPeriod,
+      completedMeetingsInPeriod,
       upcomingMeetings,
       aiMovementCount,
       totalMovements,
@@ -389,6 +491,13 @@ class GetExecutiveDashboardService {
           meetingScheduledAt: createdRange
         }
       }),
+      Appointment.count({
+        where: {
+          ...appointmentScopeWhere,
+          status: "completed",
+          startDatetime: createdRange
+        }
+      }),
       CrmLead.count({
         where: {
           ...leadScopeWhere,
@@ -458,11 +567,23 @@ class GetExecutiveDashboardService {
 
     const realRevenue = toNumber(wonRevenue);
     const projectedTotal = realRevenue + forecastRevenue;
-    const target = currentTarget;
+    const target = currentTargets.value;
     const gap = Math.max(0, target - projectedTotal);
     const expectedRevenue = Number(((target || 0) * (elapsedDays / totalDays)).toFixed(2));
     const expectedToDateGap = Math.max(0, expectedRevenue - realRevenue);
     const achievedPercentage = target > 0 ? Number(((projectedTotal / target) * 100).toFixed(1)) : 0;
+    const scheduledMeetingsProgress =
+      currentTargets.meetingsScheduled > 0
+        ? Number(((scheduledInPeriod / currentTargets.meetingsScheduled) * 100).toFixed(1))
+        : 0;
+    const completedMeetingsProgress =
+      currentTargets.meetingsCompleted > 0
+        ? Number(((completedMeetingsInPeriod / currentTargets.meetingsCompleted) * 100).toFixed(1))
+        : 0;
+    const conversionsProgress =
+      currentTargets.conversions > 0
+        ? Number(((convertedLeads / currentTargets.conversions) * 100).toFixed(1))
+        : 0;
 
     const totalClosed = wonCount + lostCount;
     const winRate = totalClosed > 0 ? Number(((wonCount / totalClosed) * 100).toFixed(1)) : 0;
@@ -521,8 +642,27 @@ class GetExecutiveDashboardService {
           })
         ]);
 
-        const sellerTarget =
-          sellerTargets.find(item => Number(item.userId) === Number(seller.id))?.target || globalTarget;
+        const sellerGoal = sellerTargets.find(item => Number(item.userId) === Number(seller.id));
+        const [sellerMeetingsScheduled, sellerMeetingsCompleted] = await Promise.all([
+          CrmLead.count({
+            where: {
+              companyId,
+              ...(selectedPipelineId ? { pipelineId: selectedPipelineId } : {}),
+              ownerUserId: seller.id,
+              meetingScheduledAt: createdRange
+            }
+          }),
+          Appointment.count({
+            where: {
+              companyId,
+              createdByUserId: seller.id,
+              status: "completed",
+              startDatetime: createdRange
+            }
+          })
+        ]);
+
+        const sellerTarget = sellerGoal?.valueTarget || globalTargets.value;
         const sellerReal = toNumber(sellerRealRevenue);
         const sellerProjected = sellerReal + sellerForecast;
 
@@ -532,6 +672,13 @@ class GetExecutiveDashboardService {
           forecast: Number(sellerForecast.toFixed(2)),
           realRevenue: Number(sellerReal.toFixed(2)),
           target: sellerTarget,
+          valueTarget: sellerGoal?.valueTarget || 0,
+          meetingsScheduledTarget: sellerGoal?.meetingsScheduledTarget || 0,
+          meetingsCompletedTarget: sellerGoal?.meetingsCompletedTarget || 0,
+          conversionsTarget: sellerGoal?.conversionsTarget || 0,
+          meetingsScheduled: sellerMeetingsScheduled,
+          meetingsCompleted: sellerMeetingsCompleted,
+          conversions: sellerConvertedLeads,
           projectedTotal: Number(sellerProjected.toFixed(2)),
           progressPercentage: sellerTarget > 0 ? Number(((sellerProjected / sellerTarget) * 100).toFixed(1)) : 0,
           achievedPercentage: sellerTarget > 0 ? Number(((sellerReal / sellerTarget) * 100).toFixed(1)) : 0,
@@ -687,9 +834,26 @@ class GetExecutiveDashboardService {
         expectedRevenue
       },
       targets: {
-        global: globalTarget,
-        team: teamTarget,
-        current: currentTarget,
+        value: {
+          global: globalTargets.value,
+          team: teamTargets.value,
+          current: currentTargets.value
+        },
+        meetingsScheduled: {
+          global: globalTargets.meetingsScheduled,
+          team: teamTargets.meetingsScheduled,
+          current: currentTargets.meetingsScheduled
+        },
+        meetingsCompleted: {
+          global: globalTargets.meetingsCompleted,
+          team: teamTargets.meetingsCompleted,
+          current: currentTargets.meetingsCompleted
+        },
+        conversions: {
+          global: globalTargets.conversions,
+          team: teamTargets.conversions,
+          current: currentTargets.conversions
+        },
         sellers: sellerTargets
       },
       revenue: {
@@ -703,12 +867,19 @@ class GetExecutiveDashboardService {
       },
       meetings: {
         scheduledInPeriod,
+        scheduledProgress: scheduledMeetingsProgress,
+        scheduledGap: Math.max(0, currentTargets.meetingsScheduled - scheduledInPeriod),
+        completedInPeriod: completedMeetingsInPeriod,
+        completedProgress: completedMeetingsProgress,
+        completedGap: Math.max(0, currentTargets.meetingsCompleted - completedMeetingsInPeriod),
         upcoming: upcomingMeetings
       },
       leads: {
         generated: generatedLeads,
         converted: convertedLeads,
-        conversionRate
+        conversionRate,
+        convertedProgress: conversionsProgress,
+        convertedGap: Math.max(0, currentTargets.conversions - convertedLeads)
       },
       aiRoi: {
         movementRate,
