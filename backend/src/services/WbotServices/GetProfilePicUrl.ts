@@ -1,6 +1,10 @@
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import { getWbot } from "../../libs/wbot";
 import Contact from "../../models/Contact";
+import {
+  sanitizeRemoteJid,
+  stripCompanionDeviceSuffix
+} from "../../helpers/normalizeContactNumber";
 
 const GetProfilePicUrl = async (
   number: string,
@@ -13,7 +17,15 @@ const GetProfilePicUrl = async (
 
   let profilePicUrl: string;
   try {
-    profilePicUrl = await wbot.profilePictureUrl(contact && contact.isGroup ? contact.remoteJid:`${number}@s.whatsapp.net`, "image");
+    const targetJid = contact?.isGroup
+      ? contact.remoteJid
+      : sanitizeRemoteJid(
+        stripCompanionDeviceSuffix(contact?.remoteJid || ""),
+        contact?.number || number,
+        false
+      ) || `${number}@s.whatsapp.net`;
+
+    profilePicUrl = await wbot.profilePictureUrl(targetJid, "image");
   } catch (error) {
     profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
   }

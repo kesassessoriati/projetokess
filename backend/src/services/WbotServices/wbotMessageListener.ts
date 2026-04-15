@@ -6865,9 +6865,10 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     contacts.forEach(async (contact: any) => {
       if (!contact?.id) return;
 
-      if (typeof contact.imgUrl !== "undefined") {
-        const newUrl =
-          contact.imgUrl === ""
+      const newUrl =
+        typeof contact.imgUrl === "undefined"
+          ? undefined
+          : contact.imgUrl === ""
             ? ""
             : await wbot!.profilePictureUrl(contact.id!).catch(() => null);
 
@@ -6966,7 +6967,6 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
             logger.warn(`Erro ao verificar salvamento no celular: ${saveError.message}`);
           }
         }
-      }
     });
   });
 
