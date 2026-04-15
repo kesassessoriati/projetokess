@@ -645,18 +645,18 @@ const ExecutiveDashboard = () => {
             <Box mt={1.5}>
               <Typography style={{ opacity: 0.88, lineHeight: 1.6 }}>
                 {data.filters.scope === "company"
-                  ? "O admin acompanha a operacao completa da equipe. Todos os cards reagem ao mesmo periodo, usuario e funil para leitura consistente."
-                  : `Voce esta vendo apenas os seus numeros em ${data.filters.scopeLabel}. As metas e metricas foram filtradas para a sua carteira.`}
+                  ? "O admin acompanha a operacao completa da equipe. Os dados abaixo mostram o que a empresa precisa atingir neste periodo para bater as metas comerciais."
+                  : `Voce esta vendo apenas os seus numeros em ${data.filters.scopeLabel}. Os dados abaixo mostram as metas que voce precisa alcancar neste periodo.`}
               </Typography>
             </Box>
             <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
-              <Chip label={data.periodProgress.label} />
-              <Chip label={data.filters.scopeLabel} />
+              <Chip label={`Periodo: ${data.periodProgress.label}`} />
+              <Chip label={`Escopo: ${data.filters.scopeLabel}`} />
               <Chip
-                label={`Meta de valor ${money(data.targets.value.current)}`}
+                label={`Meta de faturamento: ${money(data.targets.value.current)}`}
               />
               <Chip
-                label={`Meta de conversao ${number(data.targets.conversions.current)}`}
+                label={`Meta de fechamentos: ${number(data.targets.conversions.current)}`}
               />
             </Box>
           </Grid>
@@ -695,10 +695,31 @@ const ExecutiveDashboard = () => {
                   {progressText}
                 </Typography>
               </Box>
+              <Box mt={2}>
+                <Typography
+                  style={{
+                    fontSize: "0.86rem",
+                    fontWeight: 900,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    opacity: 0.8,
+                  }}
+                >
+                  Metas que precisam ser alcancadas neste periodo
+                </Typography>
+                <Typography
+                  variant="body2"
+                  style={{ opacity: 0.92, marginTop: 4, lineHeight: 1.5 }}
+                >
+                  Estes quatro indicadores abaixo nao sao estatisticas soltas.
+                  Eles representam as metas de desempenho que precisam ser
+                  atingidas dentro do filtro atual.
+                </Typography>
+              </Box>
               <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
                 <Box className={classes.metricBadge}>
                   <span className={classes.metricBadgeLabel}>
-                    Meta de valor
+                    Meta a bater em valor
                   </span>
                   <span className={classes.metricBadgeValue}>
                     {money(data.targets.value.current)}
@@ -706,7 +727,7 @@ const ExecutiveDashboard = () => {
                 </Box>
                 <Box className={classes.metricBadge}>
                   <span className={classes.metricBadgeLabel}>
-                    Reunioes agendadas
+                    Meta de reunioes agendadas
                   </span>
                   <span className={classes.metricBadgeValue}>
                     {number(data.targets.meetingsScheduled.current)}
@@ -714,14 +735,16 @@ const ExecutiveDashboard = () => {
                 </Box>
                 <Box className={classes.metricBadge}>
                   <span className={classes.metricBadgeLabel}>
-                    Reunioes realizadas
+                    Meta de reunioes realizadas
                   </span>
                   <span className={classes.metricBadgeValue}>
                     {number(data.targets.meetingsCompleted.current)}
                   </span>
                 </Box>
                 <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>Fechamentos</span>
+                  <span className={classes.metricBadgeLabel}>
+                    Meta de fechamentos
+                  </span>
                   <span className={classes.metricBadgeValue}>
                     {number(data.targets.conversions.current)}
                   </span>
