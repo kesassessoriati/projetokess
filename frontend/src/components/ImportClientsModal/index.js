@@ -302,6 +302,12 @@ const ImportClientsModal = ({ open, onClose, onSuccess }) => {
             }
         },
         maxFiles: 1,
+        accept: {
+            'application/vnd.ms-excel': ['.xls'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'text/csv': ['.csv'],
+            'text/plain': ['.txt']
+        },
     });
 
     const downloadTemplate = () => {

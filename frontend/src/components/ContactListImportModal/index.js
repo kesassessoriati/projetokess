@@ -86,7 +86,12 @@ const ContactListImportModal = ({ open, onClose, contactListId, onImportComplete
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxFiles: 1,
-    accept: ".xls,.xlsx,.csv,.txt",
+    accept: {
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/csv': ['.csv'],
+      'text/plain': ['.txt']
+    },
   });
 
   const handleSelectChange = (e) => {
