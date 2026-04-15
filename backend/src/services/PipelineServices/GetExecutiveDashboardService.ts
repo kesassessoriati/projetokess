@@ -156,6 +156,25 @@ interface DashboardData {
       leadEntriesCount: number;
       opportunityCreatedCount: number;
     }>;
+    highlightedStages: Array<{
+      id: number;
+      name: string;
+      color: string;
+      order: number;
+      score: number;
+      currentCards: number;
+      enteredInPeriod: number;
+      currentValue: number;
+      currentLeadCount: number;
+      currentOpportunityCount: number;
+      movedIntoStageCount: number;
+      leadEntriesCount: number;
+      opportunityCreatedCount: number;
+    }>;
+  };
+  preferences: {
+    highlightedStageIds: number[];
+    highlightedStageLimit: number;
   };
   selectors: {
     users: Array<{ id: number; name: string }>;
@@ -171,6 +190,7 @@ interface DashboardData {
 
 const CONVERTED_LEAD_STATUSES = ["convertido", "won", "converted"];
 const DEFAULT_TARGET = 0;
+const HIGHLIGHT_STAGE_LIMIT = 4;
 const GOAL_CATEGORIES = [
   { key: "value", suffix: "value", legacy: ["executive_goal_global", "executive_goal"] },
   { key: "meetingsScheduled", suffix: "meetings_scheduled", legacy: [] },
@@ -315,9 +335,18 @@ class GetExecutiveDashboardService {
       Setting.findAll({
         where: {
           companyId,
-          key: {
-            [Op.like]: "executive_goal%"
-          }
+          [Op.or]: [
+            {
+              key: {
+                [Op.like]: "executive_goal%"
+              }
+            },
+            {
+              key: {
+                [Op.like]: "executive_stage_highlights%"
+              }
+            }
+          ]
         }
       })
     ]);
@@ -696,6 +725,7 @@ class GetExecutiveDashboardService {
     });
 
     let pipelineHealthStages: DashboardData["pipelineHealth"]["stages"] = [];
+    let highlightedStages: DashboardData["pipelineHealth"]["highlightedStages"] = [];
     let pipelineHealthOverview: DashboardData["pipelineHealth"]["overview"] = {
       totalStages: 0,
       totalCurrentCards: 0,
@@ -812,6 +842,32 @@ class GetExecutiveDashboardService {
             )
           : 0
       };
+
+      const storedHighlightStageIds = (() => {
+        try {
+          const rawValue =
+            settingsMap.get(
+              `executive_stage_highlights_user_${userId}_pipeline_${selectedPipelineId}`
+            ) || settingsMap.get(`executive_stage_highlights_user_${userId}`);
+          if (!rawValue) return [];
+          const parsed = JSON.parse(rawValue);
+          return Array.isArray(parsed)
+            ? parsed.map(item => Number(item)).filter(item => Number.isFinite(item))
+            : [];
+        } catch (error) {
+          return [];
+        }
+      })();
+
+      const validStageIdSet = new Set(pipelineHealthStages.map(stage => Number(stage.id)));
+      const preferredStageIds = storedHighlightStageIds.filter(stageId => validStageIdSet.has(Number(stageId)));
+      const fallbackStageIds = pipelineHealthStages
+        .map(stage => Number(stage.id))
+        .filter(stageId => !preferredStageIds.includes(stageId));
+      const resolvedHighlightStageIds = [...preferredStageIds, ...fallbackStageIds].slice(0, HIGHLIGHT_STAGE_LIMIT);
+      highlightedStages = resolvedHighlightStageIds
+        .map(stageId => pipelineHealthStages.find(stage => Number(stage.id) === Number(stageId)))
+        .filter((stage): stage is DashboardData["pipelineHealth"]["stages"][number] => Boolean(stage));
     }
 
     return {
@@ -900,7 +956,12 @@ class GetExecutiveDashboardService {
             }
           : null,
         overview: pipelineHealthOverview,
-        stages: pipelineHealthStages
+        stages: pipelineHealthStages,
+        highlightedStages
+      },
+      preferences: {
+        highlightedStageIds: highlightedStages.map(stage => Number(stage.id)),
+        highlightedStageLimit: HIGHLIGHT_STAGE_LIMIT
       },
       selectors: {
         users: availableSellers,

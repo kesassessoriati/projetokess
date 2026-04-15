@@ -89,3 +89,28 @@ export const updateGoals = async (req: Request, res: Response): Promise<Response
 
   return res.status(200).json({ success: true });
 };
+
+export const updatePreferences = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId, id } = req.user;
+  const { highlightedStageIds = [], pipelineId } = req.body as {
+    highlightedStageIds?: Array<number | string>;
+    pipelineId?: number | string;
+  };
+
+  const normalizedIds = Array.isArray(highlightedStageIds)
+    ? highlightedStageIds
+        .map(item => Number(item))
+        .filter(item => Number.isFinite(item))
+        .slice(0, 4)
+    : [];
+
+  await UpdateSettingService({
+    key: pipelineId
+      ? `executive_stage_highlights_user_${Number(id)}_pipeline_${Number(pipelineId)}`
+      : `executive_stage_highlights_user_${Number(id)}`,
+    value: JSON.stringify(normalizedIds),
+    companyId
+  });
+
+  return res.status(200).json({ success: true });
+};

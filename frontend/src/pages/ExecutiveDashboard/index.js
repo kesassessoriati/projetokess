@@ -23,6 +23,9 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
 } from "@material-ui/core";
 import {
   GetApp,
@@ -170,14 +173,57 @@ const useStyles = makeStyles((theme) => ({
     marginTop: theme.spacing(2),
   },
   metricBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 10px",
-    borderRadius: 999,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minWidth: 138,
+    padding: "12px 14px",
+    borderRadius: 16,
     fontSize: "0.78rem",
     fontWeight: 800,
-    background: "#edf7f2",
-    color: "#12754f",
+    background:
+      "linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.08))",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.14)",
+    boxShadow: "0 14px 28px rgba(6,22,34,0.12)",
+  },
+  metricBadgeLabel: {
+    opacity: 0.78,
+    fontSize: "0.74rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  metricBadgeValue: {
+    marginTop: 4,
+    fontSize: "1.08rem",
+    fontWeight: 900,
+    lineHeight: 1.1,
+  },
+  highlightedStageCard: {
+    padding: theme.spacing(2.25),
+    borderRadius: 18,
+    color: "#fff",
+    minHeight: 220,
+    boxShadow: "0 18px 32px rgba(15,23,42,0.12)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+  },
+  highlightedStageValue: {
+    fontSize: "1.45rem",
+    fontWeight: 900,
+    lineHeight: 1.1,
+  },
+  highlightedStageMeta: {
+    fontSize: "0.82rem",
+    opacity: 0.88,
+    lineHeight: 1.55,
+  },
+  highlightSelectorBlock: {
+    padding: theme.spacing(2),
+    borderRadius: 16,
+    border: "1px solid #e3efeb",
+    background: "#f9fcfb",
   },
   tableCellHead: {
     fontWeight: 900,
@@ -285,6 +331,7 @@ const ExecutiveDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [highlightOpen, setHighlightOpen] = useState(false);
   const [filters, setFilters] = useState({
     period: "month",
     dateFrom: "",
@@ -299,6 +346,7 @@ const ExecutiveDashboard = () => {
     conversions: { global: "", team: "" },
     sellerTargets: [],
   });
+  const [highlightedStageIds, setHighlightedStageIds] = useState([]);
 
   const fetchDashboard = async (nextFilters = filters, showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -320,6 +368,7 @@ const ExecutiveDashboard = () => {
         reportUserId: response.filters.reportUserId || "",
         pipelineId: response.filters.pipelineId || "",
       });
+      setHighlightedStageIds(response.preferences?.highlightedStageIds || []);
     } catch (error) {
       toast.error("Erro ao carregar o dashboard CRM.");
     } finally {
@@ -411,6 +460,38 @@ const ExecutiveDashboard = () => {
     }
   };
 
+  const toggleHighlightedStage = (stageId) => {
+    setHighlightedStageIds((current) => {
+      const numericStageId = Number(stageId);
+      if (current.includes(numericStageId)) {
+        return current.filter((item) => Number(item) !== numericStageId);
+      }
+
+      const stageLimit = Number(data?.preferences?.highlightedStageLimit || 4);
+      if (current.length >= stageLimit) {
+        toast.info(`Voce pode destacar ate ${stageLimit} etapas.`);
+        return current;
+      }
+
+      return [...current, numericStageId];
+    });
+  };
+
+  const saveHighlightedStages = async () => {
+    try {
+      await api.put("/executive/dashboard/preferences", {
+        highlightedStageIds,
+        pipelineId:
+          filters.pipelineId || data?.pipelineHealth?.selectedPipeline?.id,
+      });
+      toast.success("Etapas em destaque atualizadas.");
+      setHighlightOpen(false);
+      fetchDashboard(filters, false);
+    } catch (error) {
+      toast.error("Nao foi possivel salvar as etapas em destaque.");
+    }
+  };
+
   const chart = useMemo(() => {
     if (!data?.performance?.sellerRanking?.length) return null;
     const rows = [...data.performance.sellerRanking];
@@ -489,6 +570,11 @@ const ExecutiveDashboard = () => {
       },
     ];
   }, [data]);
+
+  const highlightedStages = useMemo(
+    () => data?.pipelineHealth?.highlightedStages || [],
+    [data],
+  );
 
   if (loading) {
     return (
@@ -610,13 +696,36 @@ const ExecutiveDashboard = () => {
                 </Typography>
               </Box>
               <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
-                <span className={classes.metricBadge}>
-                  Reunioes meta:{" "}
-                  {number(data.targets.meetingsScheduled.current)}
-                </span>
-                <span className={classes.metricBadge}>
-                  Fechamentos meta: {number(data.targets.conversions.current)}
-                </span>
+                <Box className={classes.metricBadge}>
+                  <span className={classes.metricBadgeLabel}>
+                    Meta de valor
+                  </span>
+                  <span className={classes.metricBadgeValue}>
+                    {money(data.targets.value.current)}
+                  </span>
+                </Box>
+                <Box className={classes.metricBadge}>
+                  <span className={classes.metricBadgeLabel}>
+                    Reunioes agendadas
+                  </span>
+                  <span className={classes.metricBadgeValue}>
+                    {number(data.targets.meetingsScheduled.current)}
+                  </span>
+                </Box>
+                <Box className={classes.metricBadge}>
+                  <span className={classes.metricBadgeLabel}>
+                    Reunioes realizadas
+                  </span>
+                  <span className={classes.metricBadgeValue}>
+                    {number(data.targets.meetingsCompleted.current)}
+                  </span>
+                </Box>
+                <Box className={classes.metricBadge}>
+                  <span className={classes.metricBadgeLabel}>Fechamentos</span>
+                  <span className={classes.metricBadgeValue}>
+                    {number(data.targets.conversions.current)}
+                  </span>
+                </Box>
               </Box>
               {data.filters.canEditGoals ? (
                 <Box mt={2.5} display="flex" justifyContent="flex-end">
@@ -898,6 +1007,132 @@ const ExecutiveDashboard = () => {
             </Paper>
           </Grid>
 
+          <Grid item xs={12}>
+            <Paper className={classes.card}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
+                <Box>
+                  <Typography variant="h6" className={classes.sectionTitle}>
+                    Etapas em destaque
+                  </Typography>
+                  <Typography className={classes.hint}>
+                    Essas quatro etapas ficam sempre em evidencia para leitura
+                    rapida. Voce pode trocar quais quer acompanhar.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<Edit />}
+                  onClick={() => setHighlightOpen(true)}
+                  disabled={!data.pipelineHealth.stages.length}
+                >
+                  Editar destaques
+                </Button>
+              </Box>
+
+              {highlightedStages.length === 0 ? (
+                <EmptyState
+                  icon={
+                    <ViewKanban style={{ fontSize: 42, color: "#178a4a" }} />
+                  }
+                  title="Nenhuma etapa em destaque"
+                  description="Selecione ate quatro etapas do funil para mante-las em evidencia no topo do dashboard."
+                  buttonLabel="Escolher etapas"
+                  onClick={() => setHighlightOpen(true)}
+                />
+              ) : (
+                <Grid container spacing={2}>
+                  {highlightedStages.map((stage) => (
+                    <Grid item xs={12} md={3} key={stage.id}>
+                      <Box
+                        className={classes.highlightedStageCard}
+                        style={{
+                          background: `linear-gradient(135deg, ${stage.color || "#178a4a"} 0%, #10283f 120%)`,
+                        }}
+                      >
+                        <Box>
+                          <Box
+                            display="flex"
+                            justifyContent="space-between"
+                            alignItems="flex-start"
+                          >
+                            <Typography
+                              style={{
+                                fontSize: "1.15rem",
+                                fontWeight: 900,
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {stage.name}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={`${stage.currentCards} cards`}
+                              style={{
+                                fontWeight: 900,
+                                background: "rgba(255,255,255,0.16)",
+                                color: "#fff",
+                              }}
+                            />
+                          </Box>
+                          <Box mt={2}>
+                            <Typography
+                              className={classes.highlightedStageValue}
+                            >
+                              {money(stage.currentValue)}
+                            </Typography>
+                            <Typography
+                              className={classes.highlightedStageMeta}
+                            >
+                              Valor em aberto
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(100, Number(stage.score || 0))}
+                            style={{
+                              height: 8,
+                              borderRadius: 999,
+                              background: "rgba(255,255,255,0.22)",
+                            }}
+                          />
+                          <Box mt={1.5}>
+                            <Typography
+                              className={classes.highlightedStageMeta}
+                            >
+                              Score da etapa: <strong>{stage.score}/100</strong>
+                            </Typography>
+                            <Typography
+                              className={classes.highlightedStageMeta}
+                            >
+                              Entradas no periodo:{" "}
+                              <strong>{stage.enteredInPeriod}</strong>
+                            </Typography>
+                            <Typography
+                              className={classes.highlightedStageMeta}
+                            >
+                              Leads: <strong>{stage.currentLeadCount}</strong> |
+                              Oportunidades:{" "}
+                              <strong>{stage.currentOpportunityCount}</strong>
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Paper>
+          </Grid>
+
           <Grid item xs={12} md={8}>
             <Paper className={classes.card}>
               <Box
@@ -1130,6 +1365,48 @@ const ExecutiveDashboard = () => {
           </Grid>
         </Grid>
       </Box>
+
+      <Dialog
+        open={highlightOpen}
+        onClose={() => setHighlightOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Escolher etapas em destaque</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="textSecondary">
+            Selecione ate {data.preferences?.highlightedStageLimit || 4} etapas
+            do funil atual para deixa-las em evidencia no dashboard.
+          </Typography>
+          <Box mt={3} className={classes.highlightSelectorBlock}>
+            <FormGroup>
+              {data.pipelineHealth.stages.map((stage) => (
+                <FormControlLabel
+                  key={stage.id}
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={highlightedStageIds.includes(Number(stage.id))}
+                      onChange={() => toggleHighlightedStage(stage.id)}
+                    />
+                  }
+                  label={`${stage.name} - ${stage.currentCards} cards - ${money(stage.currentValue)}`}
+                />
+              ))}
+            </FormGroup>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHighlightOpen(false)}>Cancelar</Button>
+          <Button
+            color="primary"
+            variant="contained"
+            onClick={saveHighlightedStages}
+          >
+            Salvar destaques
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={goalOpen}
