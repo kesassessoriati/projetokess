@@ -183,7 +183,7 @@ class CrmClient extends Model<CrmClient> {
   contacts: Contact[];
 
   @BelongsToMany(() => Tag, () => CrmClientTag)
-  tags: Tag[];
+  assignedTags: Tag[];
 
   @HasMany(() => CrmClientTag)
   clientTags: CrmClientTag[];
