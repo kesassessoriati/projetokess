@@ -1,5 +1,6 @@
 import { Op, WhereOptions } from "sequelize";
 import CrmClient from "../../models/CrmClient";
+import Tag from "../../models/Tag";
 
 interface Request {
   companyId: number;
@@ -62,6 +63,15 @@ const ListCrmClientsService = async ({
   const queryOptions: any = {
     where,
     order: [["updatedAt", "DESC"]],
+    include: [
+      {
+        model: Tag,
+        as: "assignedTags",
+        attributes: ["id", "name", "color"],
+        through: { attributes: [] },
+        required: false,
+      },
+    ],
   };
 
   // Skip pagination if limit is -1
@@ -70,7 +80,7 @@ const ListCrmClientsService = async ({
     queryOptions.offset = offset;
   }
 
-  const { rows, count } = await CrmClient.findAndCountAll(queryOptions);
+  const { rows, count } = await CrmClient.findAndCountAll({ ...queryOptions, distinct: true });
 
   return {
     clients: rows,

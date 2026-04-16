@@ -1,4 +1,10 @@
-import React, { useReducer, useEffect, useState, useContext, Component } from "react";
+import React, {
+  useReducer,
+  useEffect,
+  useState,
+  useContext,
+  Component,
+} from "react";
 import { useHistory } from "react-router-dom";
 import {
   Avatar,
@@ -20,7 +26,7 @@ import {
   DialogActions,
   FormControl,
   InputLabel,
-  Select
+  Select,
 } from "@material-ui/core";
 import SearchIcon from "@material-ui/icons/Search";
 import AddIcon from "@material-ui/icons/Add";
@@ -59,7 +65,9 @@ class ClientListErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <Box style={{ padding: 24, textAlign: "center", color: "#dc2626" }}>
-          <Typography variant="h6">Erro ao renderizar a lista de clientes</Typography>
+          <Typography variant="h6">
+            Erro ao renderizar a lista de clientes
+          </Typography>
           <Typography variant="body2" style={{ marginTop: 8 }}>
             {String(this.state.error?.message || "Erro desconhecido")}
           </Typography>
@@ -81,30 +89,30 @@ const STATUS_OPTIONS = [
   { label: "Todos", value: "" },
   { label: "Ativo", value: "active" },
   { label: "Inativo", value: "inactive" },
-  { label: "Bloqueado", value: "blocked" }
+  { label: "Bloqueado", value: "blocked" },
 ];
 
 const STATUS_LABEL = {
   active: "Ativo",
   inactive: "Inativo",
-  blocked: "Bloqueado"
+  blocked: "Bloqueado",
 };
 
 const STATUS_COLORS = {
   active: "#059669",
   inactive: "#6b7280",
-  blocked: "#dc2626"
+  blocked: "#dc2626",
 };
 
 const TYPE_OPTIONS = [
   { label: "Todos", value: "" },
   { label: "Pessoa Física", value: "pf" },
-  { label: "Pessoa Jurídica", value: "pj" }
+  { label: "Pessoa Jurídica", value: "pj" },
 ];
 
 const TYPE_LABEL = {
   pf: "Pessoa Física",
-  pj: "Pessoa Jurídica"
+  pj: "Pessoa Jurídica",
 };
 
 const reducer = (state, action) => {
@@ -144,8 +152,8 @@ const useStyles = makeStyles((theme) => ({
     ...theme.scrollbarStyles,
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(1),
-      gap: theme.spacing(1)
-    }
+      gap: theme.spacing(1),
+    },
   },
   header: {
     display: "flex",
@@ -155,37 +163,37 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(2),
     [theme.breakpoints.down("sm")]: {
       flexDirection: "column",
-      alignItems: "stretch"
-    }
+      alignItems: "stretch",
+    },
   },
   titleContainer: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(1.5),
     [theme.breakpoints.down("sm")]: {
-      width: "100%"
-    }
+      width: "100%",
+    },
   },
   titleIcon: {
     fontSize: 36,
-    color: theme.palette.primary.main
+    color: theme.palette.primary.main,
   },
   title: {
     fontSize: 24,
     fontWeight: 600,
-    color: theme.palette.text.primary
+    color: theme.palette.text.primary,
   },
   subtitle: {
     fontSize: 14,
-    color: theme.palette.text.secondary
+    color: theme.palette.text.secondary,
   },
   actions: {
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing(1),
     [theme.breakpoints.down("sm")]: {
-      width: "100%"
-    }
+      width: "100%",
+    },
   },
   filtersGroup: {
     display: "flex",
@@ -194,8 +202,8 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
     [theme.breakpoints.down("sm")]: {
       width: "100%",
-      "& > *": { flex: 1, minWidth: "calc(50% - 4px)" }
-    }
+      "& > *": { flex: 1, minWidth: "calc(50% - 4px)" },
+    },
   },
   buttonsGroup: {
     display: "flex",
@@ -204,34 +212,34 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
     [theme.breakpoints.down("sm")]: {
       width: "100%",
-      "& > *": { flex: 1 }
-    }
+      "& > *": { flex: 1 },
+    },
   },
   searchField: {
     minWidth: 220,
     backgroundColor: theme.palette.background.paper,
     borderRadius: 8,
     "& .MuiOutlinedInput-root": {
-      borderRadius: 8
+      borderRadius: 8,
     },
     [theme.breakpoints.down("sm")]: {
       flex: 1,
-      minWidth: "unset"
-    }
+      minWidth: "unset",
+    },
   },
   selectField: {
     minWidth: 160,
     [theme.breakpoints.down("sm")]: {
       flex: 1,
-      minWidth: "unset"
-    }
+      minWidth: "unset",
+    },
   },
   addButton: {
     backgroundColor: theme.palette.primary.main,
     color: "#fff",
     "&:hover": {
-      backgroundColor: theme.palette.primary.dark
-    }
+      backgroundColor: theme.palette.primary.dark,
+    },
   },
   content: {
     display: "flex",
@@ -239,11 +247,11 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.paper,
     borderRadius: 16,
     boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-    overflow: "hidden"
+    overflow: "hidden",
   },
   list: {
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
   },
   listItem: {
     display: "flex",
@@ -252,15 +260,15 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(2.5, 3),
     borderBottom: `1px solid ${theme.palette.divider}`,
     "&:last-child": {
-      borderBottom: "none"
+      borderBottom: "none",
     },
     "&:hover": {
-      backgroundColor: theme.palette.action.hover
+      backgroundColor: theme.palette.action.hover,
     },
     [theme.breakpoints.down("sm")]: {
       flexDirection: "column",
-      alignItems: "flex-start"
-    }
+      alignItems: "flex-start",
+    },
   },
   itemAvatar: {
     width: 56,
@@ -268,22 +276,22 @@ const useStyles = makeStyles((theme) => ({
     fontSize: 20,
     fontWeight: 600,
     backgroundColor: theme.palette.secondary.light,
-    color: theme.palette.secondary.contrastText
+    color: theme.palette.secondary.contrastText,
   },
   itemInfo: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
   },
   itemNameRow: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(1),
-    flexWrap: "wrap"
+    flexWrap: "wrap",
   },
   itemName: {
     fontSize: 16,
     fontWeight: 600,
-    color: theme.palette.text.primary
+    color: theme.palette.text.primary,
   },
   itemDetails: {
     fontSize: 13,
@@ -291,7 +299,7 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexWrap: "wrap",
     gap: theme.spacing(1),
-    marginTop: theme.spacing(0.5)
+    marginTop: theme.spacing(0.5),
   },
   itemMeta: {
     display: "flex",
@@ -299,21 +307,21 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(2),
     marginTop: theme.spacing(1),
     color: theme.palette.text.secondary,
-    fontSize: 13
+    fontSize: 13,
   },
   statusChip: {
     textTransform: "capitalize",
     fontWeight: 600,
-    color: "#fff"
+    color: "#fff",
   },
   actionsColumn: {
     display: "flex",
-    gap: theme.spacing(1)
+    gap: theme.spacing(1),
   },
   emptyState: {
     padding: theme.spacing(6),
     textAlign: "center",
-    color: theme.palette.text.secondary
+    color: theme.palette.text.secondary,
   },
   bulkActions: {
     display: "flex",
@@ -323,12 +331,12 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.action.selected,
     borderRadius: 8,
     marginBottom: theme.spacing(2),
-    flexWrap: "wrap"
+    flexWrap: "wrap",
   },
   hideOnMobile: {
     [theme.breakpoints.down("sm")]: {
-      display: "none"
-    }
+      display: "none",
+    },
   },
   loadingBox: {
     display: "flex",
@@ -336,8 +344,8 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     gap: theme.spacing(1),
     padding: theme.spacing(2),
-    borderTop: `1px solid ${theme.palette.divider}`
-  }
+    borderTop: `1px solid ${theme.palette.divider}`,
+  },
 }));
 
 const Clients = () => {
@@ -363,7 +371,7 @@ const Clients = () => {
   const [faturaModalOpen, setFaturaModalOpen] = useState(false);
   const [faturaClient, setFaturaClient] = useState(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  
+
   const [selectedClients, setSelectedClients] = useState([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
@@ -410,7 +418,7 @@ const Clients = () => {
         statusFilter,
         typeFilter,
         clientSinceYearFilter,
-        pageNumber
+        pageNumber,
       });
       try {
         const { data } = await api.get("/crm/clients", {
@@ -419,10 +427,12 @@ const Clients = () => {
             status: statusFilter,
             type: typeFilter,
             clientSinceYear:
-              clientSinceYearFilter.length === 4 ? clientSinceYearFilter : undefined,
-            pageNumber
+              clientSinceYearFilter.length === 4
+                ? clientSinceYearFilter
+                : undefined,
+            pageNumber,
           },
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         if (isMounted) {
@@ -432,7 +442,7 @@ const Clients = () => {
           console.info("[Clients] Clients fetched", {
             received: data.clients?.length ?? 0,
             total: data.count,
-            hasMore: data.hasMore
+            hasMore: data.hasMore,
           });
         }
       } catch (err) {
@@ -453,7 +463,14 @@ const Clients = () => {
       isMounted = false;
       controller.abort();
     };
-  }, [searchParam, statusFilter, typeFilter, clientSinceYearFilter, pageNumber, refreshToken]);
+  }, [
+    searchParam,
+    statusFilter,
+    typeFilter,
+    clientSinceYearFilter,
+    pageNumber,
+    refreshToken,
+  ]);
 
   const handleScroll = (event) => {
     if (!hasMore || loading) return;
@@ -484,7 +501,7 @@ const Clients = () => {
     setSelectedClients((prev) =>
       prev.includes(clientId)
         ? prev.filter((id) => id !== clientId)
-        : [...prev, clientId]
+        : [...prev, clientId],
     );
   };
 
@@ -512,7 +529,8 @@ const Clients = () => {
 
   const handleBulkAssign = async () => {
     try {
-      const assignValue = selectedUserToAssign === "" ? null : Number(selectedUserToAssign);
+      const assignValue =
+        selectedUserToAssign === "" ? null : Number(selectedUserToAssign);
       for (const id of selectedClients) {
         await api.put(`/crm/clients/${id}`, { ownerUserId: assignValue });
       }
@@ -544,11 +562,16 @@ const Clients = () => {
     try {
       await api.post("/crm/clients/bulk-tags", {
         clientIds: selectedClients,
-        tagIds: selectedTagsToAssign.map((t) => t.id)
+        tagIds: selectedTagsToAssign.map((t) => t.id),
       });
-      toast.success(`Etiquetas adicionadas a ${selectedClients.length} cliente(s).`);
+      toast.success(
+        `Etiquetas adicionadas a ${selectedClients.length} cliente(s).`,
+      );
       setBulkTagsModalOpen(false);
       setSelectedTagsToAssign([]);
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setRefreshToken((prev) => prev + 1);
     } catch (err) {
       toastError(err);
     } finally {
@@ -574,18 +597,33 @@ const Clients = () => {
           status: statusFilter,
           type: typeFilter,
           clientSinceYear:
-            clientSinceYearFilter.length === 4 ? clientSinceYearFilter : undefined,
-          limit: -1
-        }
+            clientSinceYearFilter.length === 4
+              ? clientSinceYearFilter
+              : undefined,
+          limit: -1,
+        },
       });
       const clientsToExport = data.clients;
       if (!clientsToExport || clientsToExport.length === 0) {
         return toastError(new Error("Nenhum cliente para exportar."));
       }
       const csvRows = [
-        ["ID", "Nome", "Email", "Telefone", "Tipo", "Documento", "Cidade", "Responsável", "Produto", "Desde", "Vencimento", "Status"]
+        [
+          "ID",
+          "Nome",
+          "Email",
+          "Telefone",
+          "Tipo",
+          "Documento",
+          "Cidade",
+          "Responsável",
+          "Produto",
+          "Desde",
+          "Vencimento",
+          "Status",
+        ],
       ];
-      clientsToExport.forEach(client => {
+      clientsToExport.forEach((client) => {
         csvRows.push([
           client.id,
           `"${client.name || ""}"`,
@@ -598,10 +636,10 @@ const Clients = () => {
           `"${client.acquiredProduct || ""}"`,
           `"${client.clientSince || ""}"`,
           `"${client.expirationDate || ""}"`,
-          `"${client.status || ""}"`
+          `"${client.status || ""}"`,
         ]);
       });
-      const csvString = csvRows.map(e => e.join(",")).join("\n");
+      const csvString = csvRows.map((e) => e.join(",")).join("\n");
       const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
@@ -672,7 +710,7 @@ const Clients = () => {
                 clientId: faturaClient.id,
                 client: faturaClient,
                 descricao: "",
-                valor: ""
+                valor: "",
               }
             : null
         }
@@ -705,7 +743,8 @@ const Clients = () => {
         title="Excluir cliente"
         onConfirm={handleDeleteClient}
       >
-        Tem certeza que deseja excluir este cliente? Ele retornará ao estado de Lead Novo e deixará de aparecer nesta lista.
+        Tem certeza que deseja excluir este cliente? Ele retornará ao estado de
+        Lead Novo e deixará de aparecer nesta lista.
       </ConfirmationModal>
 
       <ConfirmationModal
@@ -723,10 +762,14 @@ const Clients = () => {
         title="Exportar clientes"
         onConfirm={handleExportClients}
       >
-        Isso exportarÃ¡ todos os clientes retornados pelos filtros atuais. Deseja continuar com a exportaÃ§Ã£o?
+        Isso exportarÃ¡ todos os clientes retornados pelos filtros atuais.
+        Deseja continuar com a exportaÃ§Ã£o?
       </ConfirmationModal>
 
-      <Dialog open={bulkAssignModalOpen} onClose={() => setBulkAssignModalOpen(false)}>
+      <Dialog
+        open={bulkAssignModalOpen}
+        onClose={() => setBulkAssignModalOpen(false)}
+      >
         <DialogTitle>Atribuir a Usuário</DialogTitle>
         <DialogContent dividers style={{ minWidth: 300 }}>
           <FormControl variant="outlined" fullWidth>
@@ -738,24 +781,39 @@ const Clients = () => {
             >
               <MenuItem value="">Nenhum (Remover responsável)</MenuItem>
               {users.map((user) => (
-                <MenuItem key={user.id} value={user.id}>{user.name}</MenuItem>
+                <MenuItem key={user.id} value={user.id}>
+                  {user.name}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBulkAssignModalOpen(false)}>Cancelar</Button>
-          <Button onClick={handleBulkAssign} color="primary" variant="contained">
+          <Button onClick={() => setBulkAssignModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleBulkAssign}
+            color="primary"
+            variant="contained"
+          >
             Atribuir
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={bulkTagsModalOpen} onClose={() => setBulkTagsModalOpen(false)}>
+      <Dialog
+        open={bulkTagsModalOpen}
+        onClose={() => setBulkTagsModalOpen(false)}
+      >
         <DialogTitle>Adicionar Etiquetas</DialogTitle>
         <DialogContent dividers style={{ minWidth: 340 }}>
-          <Typography variant="body2" style={{ marginBottom: 12, color: "#6b7280" }}>
-            Selecione as etiquetas que serão adicionadas aos {selectedClients.length} cliente(s) selecionado(s).
+          <Typography
+            variant="body2"
+            style={{ marginBottom: 12, color: "#6b7280" }}
+          >
+            Selecione as etiquetas que serão adicionadas aos{" "}
+            {selectedClients.length} cliente(s) selecionado(s).
           </Typography>
           <Autocomplete
             multiple
@@ -775,7 +833,7 @@ const Clients = () => {
                     backgroundColor: option.color || "#e5e7eb",
                     color: "#fff",
                     fontWeight: 600,
-                    marginRight: 2
+                    marginRight: 2,
                   }}
                   {...getTagProps({ index })}
                 />
@@ -792,7 +850,10 @@ const Clients = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBulkTagsModalOpen(false)} disabled={bulkTagsLoading}>
+          <Button
+            onClick={() => setBulkTagsModalOpen(false)}
+            disabled={bulkTagsLoading}
+          >
             Cancelar
           </Button>
           <Button
@@ -834,7 +895,7 @@ const Clients = () => {
                   <InputAdornment position="start">
                     <SearchIcon color="disabled" />
                   </InputAdornment>
-                )
+                ),
               }}
             />
 
@@ -917,14 +978,23 @@ const Clients = () => {
           <Checkbox
             className={classes.hideOnMobile}
             color="primary"
-            indeterminate={selectedClients.length > 0 && selectedClients.length < clients.length}
-            checked={clients.length > 0 && selectedClients.length === clients.length}
+            indeterminate={
+              selectedClients.length > 0 &&
+              selectedClients.length < clients.length
+            }
+            checked={
+              clients.length > 0 && selectedClients.length === clients.length
+            }
             onChange={() =>
               selectedClients.length === clients.length
                 ? handleClearSelection()
                 : handleSelectAll()
             }
-            title={selectedClients.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+            title={
+              selectedClients.length === clients.length
+                ? "Desmarcar todos"
+                : "Selecionar todos"
+            }
           />
           <Typography variant="body2">
             {selectedClients.length > 0
@@ -933,16 +1003,23 @@ const Clients = () => {
                 ? `${clients.length} carregado(s) de ${totalCount.toLocaleString("pt-BR")} total`
                 : `${clients.length} cliente(s)`}
           </Typography>
-          {selectedClients.length > 0 && selectedClients.length < clients.length && (
-            <Button size="small" onClick={handleSelectAll} style={{ textTransform: "none" }}>
-              Selecionar todos os {clients.length}
-            </Button>
-          )}
-          {hasMore && selectedClients.length === clients.length && selectedClients.length > 0 && (
-            <Typography variant="caption" style={{ color: "#f57c00" }}>
-              (apenas os carregados — role para baixo para carregar mais)
-            </Typography>
-          )}
+          {selectedClients.length > 0 &&
+            selectedClients.length < clients.length && (
+              <Button
+                size="small"
+                onClick={handleSelectAll}
+                style={{ textTransform: "none" }}
+              >
+                Selecionar todos os {clients.length}
+              </Button>
+            )}
+          {hasMore &&
+            selectedClients.length === clients.length &&
+            selectedClients.length > 0 && (
+              <Typography variant="caption" style={{ color: "#f57c00" }}>
+                (apenas os carregados — role para baixo para carregar mais)
+              </Typography>
+            )}
           {selectedClients.length > 0 && (
             <>
               {user.profile === "admin" && (
@@ -980,7 +1057,10 @@ const Clients = () => {
       <Box className={classes.content}>
         {clients.length === 0 && !loading ? (
           <Box className={classes.emptyState}>
-            <BusinessCenterIcon style={{ fontSize: 48, marginBottom: 12 }} color="disabled" />
+            <BusinessCenterIcon
+              style={{ fontSize: 48, marginBottom: 12 }}
+              color="disabled"
+            />
             <Typography variant="h6">Nenhum cliente encontrado</Typography>
             <Typography variant="body2">
               Ajuste os filtros ou cadastre um novo cliente para começar.
@@ -988,92 +1068,132 @@ const Clients = () => {
           </Box>
         ) : (
           <ClientListErrorBoundary>
-          <Box className={classes.list}>
-            {clients.filter(c => c && c.id != null).map((client) => (
-              <Box key={client.id} className={classes.listItem}>
-                <Checkbox
-                  className={classes.hideOnMobile}
-                  color="primary"
-                  checked={selectedClients.includes(client.id)}
-                  onChange={() => handleToggleSelectClient(client.id)}
-                />
-                <Avatar className={classes.itemAvatar}>{getInitials(client.name)}</Avatar>
-
-                <Box className={classes.itemInfo}>
-                  <Box className={classes.itemNameRow}>
-                    <Typography className={classes.itemName}>
-                      {client.name || "Cliente sem nome"}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={formatStatus(client.status)}
-                      className={classes.statusChip}
-                      style={{ backgroundColor: statusColor(client.status) }}
+            <Box className={classes.list}>
+              {clients
+                .filter((c) => c && c.id != null)
+                .map((client) => (
+                  <Box key={client.id} className={classes.listItem}>
+                    <Checkbox
+                      className={classes.hideOnMobile}
+                      color="primary"
+                      checked={selectedClients.includes(client.id)}
+                      onChange={() => handleToggleSelectClient(client.id)}
                     />
-                  </Box>
-                  <Box className={classes.itemDetails}>
-                    <span>ID: {client.id}</span>
-                    <span>•</span>
-                    <span>{client.email || "Sem email"}</span>
-                    <span>•</span>
-                    <span>{client.phone || "Sem telefone"}</span>
-                  </Box>
-                  <Box className={classes.itemMeta}>
-                    <span>Tipo: {formatType(client.type)}</span>
-                    <span>Documento: {client.document || "N/A"}</span>
-                    <span>Cidade: {client.city || "N/A"}</span>
-                    <span>Responsável: {typeof client.ownerUserId === "object" ? "N/A" : (client.ownerUserId || "N/A")}</span>
-                    <span>Produto: {client.acquiredProduct || "N/A"}</span>
-                    <span>Cliente desde: {client.clientSince || "N/A"}</span>
-                    <span>Vencimento: {client.expirationDate || "N/A"}</span>
-                  </Box>
-                </Box>
+                    <Avatar className={classes.itemAvatar}>
+                      {getInitials(client.name)}
+                    </Avatar>
 
-                <Box className={classes.actionsColumn}>
-                  <Tooltip title="Enviar mensagem WhatsApp">
-                    <IconButton
-                      size="small"
-                      style={{ color: "#25D366" }}
-                      onClick={() => handleOpenQuickSend(client)}
-                    >
-                      <WhatsAppIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Editar">
-                    <IconButton size="small" onClick={() => handleOpenModal(client.id)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Nova fatura">
-                    <IconButton size="small" onClick={() => handleOpenFaturaModal(client)}>
-                      <ReceiptIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Ver detalhes">
-                    <IconButton
-                      size="small"
-                      onClick={() => history.push(`/clientes/${client.id}`)}
-                    >
-                      <LaunchIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {user.profile === "admin" && (
-                    <Tooltip title="Excluir">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setDeletingClient(client);
-                          setConfirmModalOpen(true);
-                        }}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Box>
-            ))}
-          </Box>
+                    <Box className={classes.itemInfo}>
+                      <Box className={classes.itemNameRow}>
+                        <Typography className={classes.itemName}>
+                          {client.name || "Cliente sem nome"}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label={formatStatus(client.status)}
+                          className={classes.statusChip}
+                          style={{
+                            backgroundColor: statusColor(client.status),
+                          }}
+                        />
+                      </Box>
+                      <Box className={classes.itemDetails}>
+                        <span>ID: {client.id}</span>
+                        <span>•</span>
+                        <span>{client.email || "Sem email"}</span>
+                        <span>•</span>
+                        <span>{client.phone || "Sem telefone"}</span>
+                      </Box>
+                      <Box className={classes.itemMeta}>
+                        <span>Tipo: {formatType(client.type)}</span>
+                        <span>Documento: {client.document || "N/A"}</span>
+                        <span>Cidade: {client.city || "N/A"}</span>
+                        <span>Endereço: {client.address || "N/A"}</span>
+                        <span>
+                          Responsável:{" "}
+                          {typeof client.ownerUserId === "object"
+                            ? "N/A"
+                            : client.ownerUserId || "N/A"}
+                        </span>
+                        <span>Produto: {client.acquiredProduct || "N/A"}</span>
+                        <Box style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                          <span style={{ whiteSpace: "nowrap" }}>Etiquetas:</span>
+                          {Array.isArray(client.assignedTags) && client.assignedTags.length > 0
+                            ? client.assignedTags.map((tag) => (
+                                <MuiChip
+                                  key={tag.id}
+                                  label={tag.name}
+                                  size="small"
+                                  style={{
+                                    backgroundColor: tag.color || "#6b7280",
+                                    color: "#fff",
+                                    fontSize: 11,
+                                    height: 18,
+                                  }}
+                                />
+                              ))
+                            : <span>N/A</span>}
+                        </Box>
+                        <span>
+                          Cliente desde: {client.clientSince || "N/A"}
+                        </span>
+                        <span>
+                          Vencimento: {client.expirationDate || "N/A"}
+                        </span>
+                      </Box>
+                    </Box>
+
+                    <Box className={classes.actionsColumn}>
+                      <Tooltip title="Enviar mensagem WhatsApp">
+                        <IconButton
+                          size="small"
+                          style={{ color: "#25D366" }}
+                          onClick={() => handleOpenQuickSend(client)}
+                        >
+                          <WhatsAppIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenModal(client.id)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Nova fatura">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenFaturaModal(client)}
+                        >
+                          <ReceiptIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Ver detalhes">
+                        <IconButton
+                          size="small"
+                          onClick={() => history.push(`/clientes/${client.id}`)}
+                        >
+                          <LaunchIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {user.profile === "admin" && (
+                        <Tooltip title="Excluir">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setDeletingClient(client);
+                              setConfirmModalOpen(true);
+                            }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+            </Box>
           </ClientListErrorBoundary>
         )}
 
@@ -1085,7 +1205,10 @@ const Clients = () => {
         )}
         {!loading && hasMore && (
           <Box className={classes.loadingBox}>
-            <Button size="small" onClick={() => setPageNumber((prev) => prev + 1)}>
+            <Button
+              size="small"
+              onClick={() => setPageNumber((prev) => prev + 1)}
+            >
               Carregar mais
             </Button>
           </Box>
