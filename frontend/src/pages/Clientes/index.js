@@ -29,14 +29,20 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import BusinessCenterIcon from "@material-ui/icons/BusinessCenter";
 import ReceiptIcon from "@material-ui/icons/Receipt";
 import LaunchIcon from "@material-ui/icons/Launch";
+import WhatsAppIcon from "@material-ui/icons/WhatsApp";
+import LabelIcon from "@material-ui/icons/Label";
+import Autocomplete from "@material-ui/lab/Autocomplete";
+import { Chip as MuiChip } from "@material-ui/core";
 
 import api from "../../services/api";
 import ClientModal from "../../components/ClientModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import FaturaModal from "../../components/FaturaModal";
 import ImportClientsModal from "../../components/ImportClientsModal";
+import QuickSendModal from "../../components/QuickSendModal";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { toast } from "react-toastify";
 
 class ClientListErrorBoundary extends Component {
   constructor(props) {
@@ -364,6 +370,16 @@ const Clients = () => {
   const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
   const [users, setUsers] = useState([]);
 
+  // Bulk tags state
+  const [bulkTagsModalOpen, setBulkTagsModalOpen] = useState(false);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [selectedTagsToAssign, setSelectedTagsToAssign] = useState([]);
+  const [bulkTagsLoading, setBulkTagsLoading] = useState(false);
+
+  // Quick send state
+  const [quickSendModalOpen, setQuickSendModalOpen] = useState(false);
+  const [quickSendClient, setQuickSendClient] = useState(null);
+
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
@@ -511,6 +527,45 @@ const Clients = () => {
     }
   };
 
+  const handleOpenBulkTagsModal = async () => {
+    try {
+      const { data } = await api.get("/tags/list", { params: { kanban: 0 } });
+      setAvailableTags(data || []);
+      setSelectedTagsToAssign([]);
+      setBulkTagsModalOpen(true);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleBulkAssignTags = async () => {
+    if (selectedTagsToAssign.length === 0) return;
+    setBulkTagsLoading(true);
+    try {
+      await api.post("/crm/clients/bulk-tags", {
+        clientIds: selectedClients,
+        tagIds: selectedTagsToAssign.map((t) => t.id)
+      });
+      toast.success(`Etiquetas adicionadas a ${selectedClients.length} cliente(s).`);
+      setBulkTagsModalOpen(false);
+      setSelectedTagsToAssign([]);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBulkTagsLoading(false);
+    }
+  };
+
+  const handleOpenQuickSend = (client) => {
+    setQuickSendClient(client);
+    setQuickSendModalOpen(true);
+  };
+
+  const handleCloseQuickSend = () => {
+    setQuickSendClient(null);
+    setQuickSendModalOpen(false);
+  };
+
   const handleExportClients = async () => {
     try {
       const { data } = await api.get("/crm/clients", {
@@ -637,6 +692,13 @@ const Clients = () => {
         onSuccess={handleModalSuccess}
       />
 
+      <QuickSendModal
+        open={quickSendModalOpen}
+        onClose={handleCloseQuickSend}
+        initialNumber={quickSendClient?.phone || ""}
+        initialName={quickSendClient?.name || ""}
+      />
+
       <ConfirmationModal
         open={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
@@ -685,6 +747,61 @@ const Clients = () => {
           <Button onClick={() => setBulkAssignModalOpen(false)}>Cancelar</Button>
           <Button onClick={handleBulkAssign} color="primary" variant="contained">
             Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={bulkTagsModalOpen} onClose={() => setBulkTagsModalOpen(false)}>
+        <DialogTitle>Adicionar Etiquetas</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 340 }}>
+          <Typography variant="body2" style={{ marginBottom: 12, color: "#6b7280" }}>
+            Selecione as etiquetas que serão adicionadas aos {selectedClients.length} cliente(s) selecionado(s).
+          </Typography>
+          <Autocomplete
+            multiple
+            size="small"
+            options={availableTags}
+            value={selectedTagsToAssign}
+            onChange={(_, newValue) => setSelectedTagsToAssign(newValue)}
+            getOptionLabel={(option) => option.name || ""}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <MuiChip
+                  key={option.id}
+                  variant="default"
+                  label={option.name}
+                  size="small"
+                  style={{
+                    backgroundColor: option.color || "#e5e7eb",
+                    color: "#fff",
+                    fontWeight: 600,
+                    marginRight: 2
+                  }}
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                placeholder="Buscar etiquetas..."
+                size="small"
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkTagsModalOpen(false)} disabled={bulkTagsLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleBulkAssignTags}
+            color="primary"
+            variant="contained"
+            disabled={selectedTagsToAssign.length === 0 || bulkTagsLoading}
+          >
+            {bulkTagsLoading ? "Salvando..." : "Adicionar"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -844,6 +961,14 @@ const Clients = () => {
               >
                 Atribuir selecionados
               </Button>
+              <Button
+                size="small"
+                style={{ color: "#059669" }}
+                startIcon={<LabelIcon style={{ fontSize: 16 }} />}
+                onClick={handleOpenBulkTagsModal}
+              >
+                Adicionar etiquetas
+              </Button>
               <Button size="small" onClick={handleClearSelection}>
                 Limpar seleção
               </Button>
@@ -905,6 +1030,15 @@ const Clients = () => {
                 </Box>
 
                 <Box className={classes.actionsColumn}>
+                  <Tooltip title="Enviar mensagem WhatsApp">
+                    <IconButton
+                      size="small"
+                      style={{ color: "#25D366" }}
+                      onClick={() => handleOpenQuickSend(client)}
+                    >
+                      <WhatsAppIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title="Editar">
                     <IconButton size="small" onClick={() => handleOpenModal(client.id)}>
                       <EditIcon fontSize="small" />

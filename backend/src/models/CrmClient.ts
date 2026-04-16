@@ -22,6 +22,8 @@ import Contact from "./Contact";
 import Ticket from "./Ticket";
 import CrmClientContact from "./CrmClientContact";
 import CrmLead from "./CrmLead";
+import Tag from "./Tag";
+import CrmClientTag from "./CrmClientTag";
 
 @Table({
   tableName: "crm_clients"
@@ -179,6 +181,12 @@ class CrmClient extends Model<CrmClient> {
 
   @BelongsToMany(() => Contact, () => CrmClientContact, "clientId", "contactId")
   contacts: Contact[];
+
+  @BelongsToMany(() => Tag, () => CrmClientTag)
+  tags: Tag[];
+
+  @HasMany(() => CrmClientTag)
+  clientTags: CrmClientTag[];
 
   @CreatedAt
   @Column({ field: "created_at" })

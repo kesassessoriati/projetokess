@@ -6,6 +6,9 @@ import UpdateCrmClientService from "../services/CrmClientService/UpdateCrmClient
 import DeleteCrmClientService from "../services/CrmClientService/DeleteCrmClientService";
 import ImportCrmClientsService from "../services/CrmClientService/ImportCrmClientsService";
 import AppError from "../errors/AppError";
+import CrmClient from "../models/CrmClient";
+import CrmClientTag from "../models/CrmClientTag";
+import Tag from "../models/Tag";
 
 export const index = async (
   req: Request,
@@ -107,6 +110,51 @@ export const remove = async (
   });
 
   return res.status(204).send();
+};
+
+export const bulkAssignTags = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { clientIds, tagIds } = req.body as { clientIds: number[]; tagIds: number[] };
+
+  if (!Array.isArray(clientIds) || clientIds.length === 0) {
+    throw new AppError("clientIds deve ser um array não vazio.");
+  }
+  if (!Array.isArray(tagIds)) {
+    throw new AppError("tagIds deve ser um array.");
+  }
+
+  // Validate that all clients belong to this company
+  const clients = await CrmClient.findAll({
+    where: { id: clientIds, companyId },
+    attributes: ["id"]
+  });
+
+  if (clients.length === 0) {
+    throw new AppError("Nenhum cliente encontrado.");
+  }
+
+  // Validate that all tags belong to this company
+  if (tagIds.length > 0) {
+    const tags = await Tag.findAll({
+      where: { id: tagIds, companyId },
+      attributes: ["id"]
+    });
+    const validTagIds = tags.map(t => t.id);
+
+    // Build bulk create records, ignoring duplicates
+    const records = clients.flatMap(c =>
+      validTagIds.map(tagId => ({ clientId: c.id, tagId }))
+    );
+
+    if (records.length > 0) {
+      await CrmClientTag.bulkCreate(records, { ignoreDuplicates: true });
+    }
+  }
+
+  return res.status(200).json({ success: true, updated: clients.length });
 };
 
 export const importClients = async (req: Request, res: Response): Promise<Response> => {

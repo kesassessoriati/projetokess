@@ -289,7 +289,7 @@ function ConnectionStatusChip({ status }) {
     );
 }
 
-export default function QuickSendModal({ open, onClose }) {
+export default function QuickSendModal({ open, onClose, initialNumber = '', initialName = '' }) {
     const classes = useStyles();
     const history = useHistory();
     const { user } = useContext(AuthContext);
@@ -380,6 +380,8 @@ export default function QuickSendModal({ open, onClose }) {
     useEffect(() => {
         if (!open) return;
         resetState();
+        if (initialNumber) setNumber(initialNumber);
+        if (initialName) setName(initialName);
         const load = async () => {
             try {
                 const [connRes, queueRes, tagRes, contactListRes] = await Promise.allSettled([
@@ -405,7 +407,7 @@ export default function QuickSendModal({ open, onClose }) {
             }
         };
         load();
-    }, [open, user.companyId]);
+    }, [open, user.companyId, initialNumber, initialName]);
 
     // Validação de número com debounce
     useEffect(() => {

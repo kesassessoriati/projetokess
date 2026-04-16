@@ -8,6 +8,7 @@ const crmClientRoutes = Router();
 const upload = multer(uploadConfig);
 
 crmClientRoutes.post("/crm/clients/import", isAuth, upload.single("file"), CrmClientController.importClients);
+crmClientRoutes.post("/crm/clients/bulk-tags", isAuth, CrmClientController.bulkAssignTags);
 crmClientRoutes.get("/crm/clients", isAuth, CrmClientController.index);
 crmClientRoutes.get("/crm/clients/:clientId", isAuth, CrmClientController.show);
 crmClientRoutes.post("/crm/clients", isAuth, CrmClientController.store);
