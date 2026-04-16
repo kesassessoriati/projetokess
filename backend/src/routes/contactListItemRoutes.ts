@@ -1,9 +1,12 @@
 import express from "express";
+import multer from "multer";
 import isAuth from "../middleware/isAuth";
+import uploadConfig from "../config/upload";
 
 import * as ContactListItemController from "../controllers/ContactListItemController";
 
 const routes = express.Router();
+const upload = multer(uploadConfig);
 
 routes.get(
   "/contact-list-items/list",
@@ -14,6 +17,13 @@ routes.get(
 routes.get("/contact-list-items", isAuth, ContactListItemController.index);
 
 routes.get("/contact-list-items/:id", isAuth, ContactListItemController.show);
+
+routes.post(
+  "/contact-list-items/import",
+  isAuth,
+  upload.single("file"),
+  ContactListItemController.importItems
+);
 
 routes.post("/contact-list-items", isAuth, ContactListItemController.store);
 

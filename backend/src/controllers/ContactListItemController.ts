@@ -8,6 +8,7 @@ import ShowService from "../services/ContactListItemService/ShowService";
 import UpdateService from "../services/ContactListItemService/UpdateService";
 import DeleteService from "../services/ContactListItemService/DeleteService";
 import FindService from "../services/ContactListItemService/FindService";
+import ImportContactListItemsService from "../services/ContactListItemService/ImportContactListItemsService";
 
 import ContactListItem from "../models/ContactListItem";
 
@@ -145,4 +146,48 @@ export const findList = async (
   const records: ContactListItem[] = await FindService(params);
 
   return res.status(200).json(records);
+};
+
+export const importItems = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const file = req.file as Express.Multer.File;
+
+  if (!file) {
+    throw new AppError("O arquivo é obrigatório");
+  }
+
+  const { contactListId, mapping, selectedRows } = req.body;
+
+  if (!contactListId) {
+    throw new AppError("contactListId é obrigatório");
+  }
+
+  let parsedMapping: Record<string, string> | undefined;
+  if (mapping) {
+    try {
+      parsedMapping = JSON.parse(mapping);
+    } catch {
+      throw new AppError("Mapeamento inválido");
+    }
+  }
+
+  let parsedSelectedRows: string[] | undefined;
+  if (selectedRows) {
+    try {
+      parsedSelectedRows = JSON.parse(selectedRows);
+    } catch { }
+  }
+
+  const result = await ImportContactListItemsService({
+    companyId,
+    contactListId: Number(contactListId),
+    filePath: file.path,
+    mapping: parsedMapping,
+    selectedRows: parsedSelectedRows,
+  });
+
+  return res.status(200).json(result);
 };
