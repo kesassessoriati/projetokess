@@ -6650,24 +6650,25 @@ const verifyCampaignMessageAndCloseTicket = async (
 
     if (!isNil(messageRecord)) {
       const ticket = await Ticket.findByPk(messageRecord.ticketId);
-      await ticket.update({ status: "closed", amountUsedBotQueues: 0 });
+      // Não fechar o ticket automaticamente aqui.
+      // O status do ticket é gerenciado por handleDispatchCampaign em queues.ts
+      // com base em campaign.statusTicket e campaign.openTicket.
+      // Só emitir evento de exclusão se o ticket JÁ foi fechado intencionalmente.
+      if (ticket && ticket.status === "closed") {
+        io.of(String(companyId))
+          .emit(`company-${companyId}-ticket`, {
+            action: "delete",
+            ticket,
+            ticketId: ticket.id
+          });
 
-      io.of(String(companyId))
-        // .to("open")
-        .emit(`company-${companyId}-ticket`, {
-          action: "delete",
-          ticket,
-          ticketId: ticket.id
-        });
-
-      io.of(String(companyId))
-        // .to(ticket.status)
-        // .to(ticket.id.toString())
-        .emit(`company-${companyId}-ticket`, {
-          action: "update",
-          ticket,
-          ticketId: ticket.id
-        });
+        io.of(String(companyId))
+          .emit(`company-${companyId}-ticket`, {
+            action: "update",
+            ticket,
+            ticketId: ticket.id
+          });
+      }
     }
   }
 };
