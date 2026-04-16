@@ -9,13 +9,16 @@ import {
   Grid,
   MenuItem,
   makeStyles,
-  CircularProgress
+  CircularProgress,
+  Typography,
 } from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { LEAD_STATUS } from "../../constants/leadStatus";
-import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
+import Autocomplete, {
+  createFilterOptions,
+} from "@material-ui/lab/Autocomplete";
 
 const filter = createFilterOptions();
 
@@ -45,46 +48,71 @@ const normalizeLeadForm = (lead = {}) => {
     ...defaultForm,
     ...lead,
     document: formatDocument(rawDocument),
+    address: lead.address || "",
     product: lead.product || "",
     paymentType: lead.paymentType || "",
     purchaseType: lead.purchaseType || "",
     purchaseValue: lead.purchaseValue != null ? lead.purchaseValue : "",
     birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
     clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
-    acquisitionDate: lead.acquisitionDate ? lead.acquisitionDate.substring(0, 10) : "",
-    expirationDate: lead.expirationDate ? lead.expirationDate.substring(0, 10) : "",
+    acquisitionDate: lead.acquisitionDate
+      ? lead.acquisitionDate.substring(0, 10)
+      : "",
+    expirationDate: lead.expirationDate
+      ? lead.expirationDate.substring(0, 10)
+      : "",
     score: lead.score || 0,
     status: lead.status || lead.leadStatus || "novo",
     tags: Array.isArray(lead.tags) ? lead.tags : [],
-    cardColor: lead.cardColor || lead.card_color || "#FFFFFF"
+    cardColor: lead.cardColor || lead.card_color || "#FFFFFF",
   };
 };
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
-    fontWeight: 600
+    fontWeight: 600,
   },
   formField: {
-    marginBottom: theme.spacing(2)
+    marginBottom: theme.spacing(2),
   },
   dialogActions: {
     justifyContent: "space-between",
-    padding: theme.spacing(2, 3)
-  }
+    padding: theme.spacing(2, 3),
+  },
+  highlightedField: {
+    padding: theme.spacing(2),
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`,
+    background:
+      theme.palette.type === "light"
+        ? "linear-gradient(135deg, rgba(59,130,246,0.06), rgba(16,185,129,0.05))"
+        : theme.palette.background.default,
+  },
+  highlightedLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    color: theme.palette.primary.main,
+    marginBottom: theme.spacing(1),
+  },
+  helperNote: {
+    marginTop: -theme.spacing(1),
+    color: theme.palette.text.secondary,
+    fontSize: 12,
+  },
 }));
-
-
 
 const TEMPERATURE_OPTIONS = ["frio", "morno", "quente"];
 
 // Função para extrair parâmetros UTM da URL
 const getUTMParameters = () => {
   const params = new URLSearchParams(window.location.search);
-  const utmSource = params.get('utm_source');
-  const utmMedium = params.get('utm_medium');
-  const utmCampaign = params.get('utm_campaign');
-  const utmTerm = params.get('utm_term');
-  const utmContent = params.get('utm_content');
+  const utmSource = params.get("utm_source");
+  const utmMedium = params.get("utm_medium");
+  const utmCampaign = params.get("utm_campaign");
+  const utmTerm = params.get("utm_term");
+  const utmContent = params.get("utm_content");
 
   if (utmSource || utmMedium || utmCampaign) {
     const utmParams = [];
@@ -95,19 +123,19 @@ const getUTMParameters = () => {
     if (utmContent) utmParams.push(`content: ${utmContent}`);
 
     return {
-      source: `UTM: ${utmParams.join(' | ')}`,
-      campaign: utmCampaign || ''
+      source: `UTM: ${utmParams.join(" | ")}`,
+      campaign: utmCampaign || "",
     };
   }
 
-  return { source: '', campaign: '' };
+  return { source: "", campaign: "" };
 };
 
 const PURCHASE_TYPE_OPTIONS = [
   { value: "novo", label: "Novo" },
   { value: "migracao", label: "Migração" },
   { value: "renovacao", label: "Renovação" },
-  { value: "recuperacao_novo", label: "Recuperação Novo" }
+  { value: "recuperacao_novo", label: "Recuperação Novo" },
 ];
 
 const defaultForm = {
@@ -118,6 +146,7 @@ const defaultForm = {
   phone: "",
   decisionMakerPhone: "",
   document: "",
+  address: "",
   product: "",
   paymentType: "",
   purchaseType: "",
@@ -141,10 +170,18 @@ const defaultForm = {
   ownerUserId: "",
   notes: "",
   tags: [],
-  cardColor: "#FFFFFF"
+  cardColor: "#FFFFFF",
 };
 
-const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadData = null, cardColor }) => {
+const LeadModal = ({
+  open,
+  onClose,
+  leadId,
+  onSuccess,
+  isEmbedded = false,
+  leadData = null,
+  cardColor,
+}) => {
   const classes = useStyles();
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -160,16 +197,27 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
 
     const fetchData = async () => {
       try {
-        const [{ data: usersData }, { data: pipelinesData }, { data: tagsData }, { data: productsData }] = await Promise.all([
+        const [
+          { data: usersData },
+          { data: pipelinesData },
+          { data: tagsData },
+          { data: productsData },
+        ] = await Promise.all([
           api.get("/users/"),
           api.get("/pipelines"),
           api.get("/tags/list"),
-          api.get("/produtos", { params: { limit: 100 } })
+          api.get("/produtos", { params: { limit: 100 } }),
         ]);
         setUsers(usersData.users || []);
         setPipelines(pipelinesData || []);
         setTags(tagsData || []);
-        setProducts(Array.isArray(productsData?.produtos) ? productsData.produtos : (Array.isArray(productsData) ? productsData : []));
+        setProducts(
+          Array.isArray(productsData?.produtos)
+            ? productsData.produtos
+            : Array.isArray(productsData)
+              ? productsData
+              : [],
+        );
       } catch (err) {
         toastError(err);
       }
@@ -188,7 +236,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
       setForm({
         ...defaultForm,
         source: utmData.source || defaultForm.source,
-        campaign: utmData.campaign || defaultForm.campaign
+        campaign: utmData.campaign || defaultForm.campaign,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,7 +272,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -232,7 +280,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
     const rawValue = event.target.value || "";
     setForm((prev) => ({
       ...prev,
-      document: formatDocument(rawValue)
+      document: formatDocument(rawValue),
     }));
   };
 
@@ -249,11 +297,18 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
       const payload = {
         ...form,
         document: normalizeDigits(form.document),
-        cnpj: normalizeDigits(form.document).length === 14 ? normalizeDigits(form.document) : "",
+        cnpj:
+          normalizeDigits(form.document).length === 14
+            ? normalizeDigits(form.document)
+            : "",
+        address: (form.address || "").trim(),
         product: (form.product || "").trim(),
         paymentType: form.paymentType || null,
         purchaseType: form.purchaseType || null,
-        purchaseValue: form.purchaseValue !== "" && form.purchaseValue != null ? Number(form.purchaseValue) : null,
+        purchaseValue:
+          form.purchaseValue !== "" && form.purchaseValue != null
+            ? Number(form.purchaseValue)
+            : null,
         pipelineId: form.pipelineId || null,
         stageId: form.stageId || null,
         score: Number(form.score) || 0,
@@ -264,7 +319,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
         acquisitionDate: form.acquisitionDate || undefined,
         expirationDate: form.expirationDate || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
-        cardColor: cardColor || form.cardColor
+        cardColor: cardColor || form.cardColor,
       };
 
       if (leadId) {
@@ -444,63 +499,84 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  freeSolo
-                  options={products}
-                  value={form.product || ""}
-                  onChange={(event, newValue) => {
-                    const productName =
-                      typeof newValue === "string"
-                        ? newValue
-                        : newValue?.inputValue || newValue?.nome || "";
-
-                    setForm((prev) => ({
-                      ...prev,
-                      product: productName
-                    }));
-                  }}
-                  onInputChange={(event, newInputValue, reason) => {
-                    if (reason === "input") {
-                      setForm((prev) => ({
-                        ...prev,
-                        product: newInputValue
-                      }));
-                    }
-                  }}
-                  getOptionLabel={(option) => {
-                    if (typeof option === "string") return option;
-                    return option?.inputValue || option?.nome || "";
-                  }}
-                  filterOptions={(options, params) => {
-                    const filtered = filter(options, params);
-                    const inputValue = params.inputValue.trim();
-
-                    if (
-                      inputValue &&
-                      !options.some((option) => (option?.nome || "").toLowerCase() === inputValue.toLowerCase())
-                    ) {
-                      filtered.push({
-                        inputValue,
-                        nome: `Usar "${inputValue}"`
-                      });
-                    }
-
-                    return filtered;
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Produto"
-                      variant="outlined"
-                      fullWidth
-                      className={classes.formField}
-                      placeholder="Selecione ou digite um produto"
-                    />
-                  )}
+                <TextField
+                  label="Endereço"
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  placeholder="Rua, avenida, bairro, complemento..."
                 />
               </Grid>
+              <Grid item xs={12}>
+                <div className={classes.highlightedField}>
+                  <Typography className={classes.highlightedLabel}>
+                    Produto vinculado ao lead
+                  </Typography>
+                  <Autocomplete
+                    freeSolo
+                    options={products}
+                    value={form.product || ""}
+                    onChange={(event, newValue) => {
+                      const productName =
+                        typeof newValue === "string"
+                          ? newValue
+                          : newValue?.inputValue || newValue?.nome || "";
 
-              {/* Row 4 */}
+                      setForm((prev) => ({
+                        ...prev,
+                        product: productName,
+                      }));
+                    }}
+                    onInputChange={(event, newInputValue, reason) => {
+                      if (reason === "input") {
+                        setForm((prev) => ({
+                          ...prev,
+                          product: newInputValue,
+                        }));
+                      }
+                    }}
+                    getOptionLabel={(option) => {
+                      if (typeof option === "string") return option;
+                      return option?.inputValue || option?.nome || "";
+                    }}
+                    filterOptions={(options, params) => {
+                      const filtered = filter(options, params);
+                      const inputValue = params.inputValue.trim();
+
+                      if (
+                        inputValue &&
+                        !options.some(
+                          (option) =>
+                            (option?.nome || "").toLowerCase() ===
+                            inputValue.toLowerCase(),
+                        )
+                      ) {
+                        filtered.push({
+                          inputValue,
+                          nome: `Usar "${inputValue}"`,
+                        });
+                      }
+
+                      return filtered;
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Produto"
+                        variant="outlined"
+                        fullWidth
+                        className={classes.formField}
+                        placeholder="Selecione ou digite um produto"
+                      />
+                    )}
+                  />
+                </div>
+              </Grid>
+
+              {/* Row 5 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Data de nascimento"
@@ -686,7 +762,6 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                 />
               </Grid>
 
-
               {/* Row 9 */}
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -733,9 +808,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   fullWidth
                   className={classes.formField}
                 >
-                  <MenuItem value="">
-                    Sem responsável
-                  </MenuItem>
+                  <MenuItem value="">Sem responsável</MenuItem>
                   {users.map((user) => (
                     <MenuItem key={user.id} value={user.id}>
                       {user.name} ({user.email})
@@ -766,7 +839,9 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                   multiple
                   freeSolo
                   options={tags}
-                  getOptionLabel={(option) => option.name || option.inputValue || option}
+                  getOptionLabel={(option) =>
+                    option.name || option.inputValue || option
+                  }
                   value={form.tags || []}
                   onChange={(event, newValue) => {
                     const newTags = newValue.map((item) => {
@@ -800,13 +875,22 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
                     />
                   )}
                 />
+                <Typography className={classes.helperNote}>
+                  Tags vinculadas ao módulo de etiquetas.
+                </Typography>
               </Grid>
-
             </Grid>
           </form>
         )}
       </div>
-      <div className={classes.dialogActions} style={{ padding: isEmbedded ? '16px 0 0 0' : undefined, display: 'flex', justifyContent: 'space-between' }}>
+      <div
+        className={classes.dialogActions}
+        style={{
+          padding: isEmbedded ? "16px 0 0 0" : undefined,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
         <Button onClick={onClose} disabled={submitting}>
           Cancelar
         </Button>
@@ -817,7 +901,11 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
           form="lead-form"
           disabled={submitting || loading}
         >
-          {submitting ? <CircularProgress size={20} color="inherit" /> : "Salvar"}
+          {submitting ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            "Salvar"
+          )}
         </Button>
       </div>
     </>
@@ -832,9 +920,7 @@ const LeadModal = ({ open, onClose, leadId, onSuccess, isEmbedded = false, leadD
       <DialogTitle className={classes.dialogTitle}>
         {leadId ? "Editar Lead" : "Novo Lead"}
       </DialogTitle>
-      <DialogContent dividers>
-        {content}
-      </DialogContent>
+      <DialogContent dividers>{content}</DialogContent>
     </Dialog>
   );
 };

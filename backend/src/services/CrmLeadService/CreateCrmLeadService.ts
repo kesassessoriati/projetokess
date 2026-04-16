@@ -23,6 +23,7 @@ interface Request {
   decisionMakerName?: string;
   decisionMakerPhone?: string;
   cnpj?: string;
+  address?: string;
   product?: string;
   paymentType?: string;
   purchaseType?: string;
@@ -189,6 +190,9 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     birthDate: Yup.date().nullable(),
     clientSince: Yup.date().nullable(),
     expirationDate: Yup.date().nullable(),
+    address: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .nullable(),
     product: Yup.string()
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
@@ -213,6 +217,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   if (data.leadStatus === "lost") data.leadStatus = "perdido";
 
   data.document = sanitizeDigits(data.document || data.cnpj);
+  data.address = data.address?.trim();
   data.product = data.product?.trim();
   data.cnpj = data.document && data.document.length === 14 ? data.document : "";
 

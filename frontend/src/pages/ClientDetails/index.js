@@ -16,7 +16,7 @@ import {
   Tabs,
   TextField,
   Tooltip,
-  Typography
+  Typography,
 } from "@material-ui/core";
 import { makeStyles, useTheme } from "@material-ui/core/styles";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
@@ -45,32 +45,33 @@ const useStyles = makeStyles((theme) => ({
   root: {
     minHeight: "100vh",
     padding: theme.spacing(4),
-    background: theme.palette.type === "light"
-      ? "linear-gradient(135deg, #f5f7ff 0%, #ffffff 60%)"
-      : theme.palette.background.default,
+    background:
+      theme.palette.type === "light"
+        ? "linear-gradient(135deg, #f5f7ff 0%, #ffffff 60%)"
+        : theme.palette.background.default,
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing(3),
     ...theme.scrollbarStyles,
     [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(2)
-    }
+      padding: theme.spacing(2),
+    },
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: theme.spacing(2),
-    flexWrap: "wrap"
+    flexWrap: "wrap",
   },
   headerLeft: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(2)
+    gap: theme.spacing(2),
   },
   backButton: {
     backgroundColor: theme.palette.background.paper,
-    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)"
+    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
   },
   avatarWrapper: {
     width: 72,
@@ -82,16 +83,16 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     color: theme.palette.primary.contrastText,
     fontSize: 28,
-    fontWeight: 600
+    fontWeight: 600,
   },
   headerInfo: {
     display: "flex",
     flexDirection: "column",
-    gap: 4
+    gap: 4,
   },
   statusChip: {
     alignSelf: "flex-start",
-    marginTop: theme.spacing(1)
+    marginTop: theme.spacing(1),
   },
   actions: {
     display: "flex",
@@ -100,25 +101,25 @@ const useStyles = makeStyles((theme) => ({
     [theme.breakpoints.down("sm")]: {
       width: "100%",
       "& > *": {
-        flex: 1
-      }
-    }
+        flex: 1,
+      },
+    },
   },
   card: {
     backgroundColor: theme.palette.background.paper,
     borderRadius: 24,
     padding: theme.spacing(3),
-    boxShadow: "0 20px 60px rgba(15,23,42,0.12)"
+    boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
   },
   sectionTitle: {
     fontWeight: 600,
     marginBottom: theme.spacing(2),
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1)
+    gap: theme.spacing(1),
   },
   infoGrid: {
-    marginTop: theme.spacing(2)
+    marginTop: theme.spacing(2),
   },
   infoItem: {
     display: "flex",
@@ -126,34 +127,34 @@ const useStyles = makeStyles((theme) => ({
     gap: 4,
     padding: theme.spacing(1.5),
     backgroundColor: theme.palette.type === "light" ? "#f8fafc" : "#1f2937",
-    borderRadius: 12
+    borderRadius: 12,
   },
   infoLabel: {
     fontSize: 12,
     textTransform: "uppercase",
     color: theme.palette.text.secondary,
-    letterSpacing: 1
+    letterSpacing: 1,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: 600,
-    color: theme.palette.text.primary
+    color: theme.palette.text.primary,
   },
   tabsContainer: {
     backgroundColor: theme.palette.background.paper,
     borderRadius: 24,
     boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
-    overflow: "hidden"
+    overflow: "hidden",
   },
   tabs: {
     padding: theme.spacing(0, 2),
-    borderBottom: `1px solid ${theme.palette.divider}`
+    borderBottom: `1px solid ${theme.palette.divider}`,
   },
   tabPanel: {
     padding: theme.spacing(3),
     [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(2)
-    }
+      padding: theme.spacing(2),
+    },
   },
   faturaCard: {
     padding: theme.spacing(2),
@@ -162,21 +163,21 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(2),
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1.5)
+    gap: theme.spacing(1.5),
   },
   faturaHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: theme.spacing(1)
+    gap: theme.spacing(1),
   },
   faturaActions: {
     display: "flex",
-    gap: theme.spacing(1)
+    gap: theme.spacing(1),
   },
   metricsGrid: {
-    marginTop: theme.spacing(2)
+    marginTop: theme.spacing(2),
   },
   metricCard: {
     padding: theme.spacing(2),
@@ -189,70 +190,70 @@ const useStyles = makeStyles((theme) => ({
     color: "#1e1b4b",
     "&.success": {
       background: "linear-gradient(135deg, #ecfdf5, #f0fdf4)",
-      color: "#064e3b"
+      color: "#064e3b",
     },
     "&.warning": {
       background: "linear-gradient(135deg, #fff7ed, #fffbeb)",
-      color: "#78350f"
-    }
+      color: "#78350f",
+    },
   },
   metricLabel: {
     fontSize: 13,
     textTransform: "uppercase",
     letterSpacing: 1,
-    opacity: 0.7
+    opacity: 0.7,
   },
   metricValue: {
     fontSize: 28,
-    fontWeight: 700
+    fontWeight: 700,
   },
   timeline: {
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing(2),
-    marginTop: theme.spacing(2)
+    marginTop: theme.spacing(2),
   },
   timelineItem: {
     display: "flex",
     gap: theme.spacing(2),
-    alignItems: "flex-start"
+    alignItems: "flex-start",
   },
   timelineBar: {
     width: 16,
     height: 16,
     borderRadius: "50%",
     backgroundColor: theme.palette.primary.main,
-    marginTop: 6
+    marginTop: 6,
   },
   emptyState: {
     padding: theme.spacing(4),
     textAlign: "center",
-    color: theme.palette.text.secondary
+    color: theme.palette.text.secondary,
   },
   filtersRow: {
     display: "flex",
     gap: theme.spacing(2),
     flexWrap: "wrap",
-    marginBottom: theme.spacing(2)
+    marginBottom: theme.spacing(2),
   },
   filterField: {
     minWidth: 220,
     [theme.breakpoints.down("sm")]: {
       flex: 1,
-      minWidth: "unset"
-    }
+      minWidth: "unset",
+    },
   },
   loadMoreBox: {
     display: "flex",
     justifyContent: "center",
-    padding: theme.spacing(2)
-  }
+    padding: theme.spacing(2),
+  },
 }));
 
 const STATUS_COLORS = {
   active: "#059669",
   inactive: "#6b7280",
-  blocked: "#dc2626"
+  blocked: "#dc2626",
 };
 
 const ClientDetails = () => {
@@ -279,7 +280,7 @@ const ClientDetails = () => {
   const [faturasHasMore, setFaturasHasMore] = useState(false);
   const [faturasFilters, setFaturasFilters] = useState({
     search: "",
-    status: ""
+    status: "",
   });
   const [faturasSearchInput, setFaturasSearchInput] = useState("");
 
@@ -297,7 +298,7 @@ const ClientDetails = () => {
     const debounce = setTimeout(() => {
       setFaturasFilters((prev) => ({
         ...prev,
-        search: faturasSearchInput
+        search: faturasSearchInput,
       }));
       setFaturasPage(1);
     }, 350);
@@ -317,7 +318,7 @@ const ClientDetails = () => {
           clientId,
           pageNumber: faturasPage,
           searchParam: faturasFilters.search || undefined,
-          status: faturasFilters.status || undefined
+          status: faturasFilters.status || undefined,
         });
         if (!isMounted) return;
         const fetched = data.faturamentos || [];
@@ -362,11 +363,11 @@ const ClientDetails = () => {
     if (!isConnected || !user?.companyId) return;
     const eventName = `company-${user.companyId}-financeiro`;
 
-    const upsertFatura = newFatura => {
+    const upsertFatura = (newFatura) => {
       if (!newFatura || String(newFatura.clientId) !== String(clientId)) return;
-      setFaturas(prev => {
+      setFaturas((prev) => {
         const next = [...prev];
-        const index = next.findIndex(item => item.id === newFatura.id);
+        const index = next.findIndex((item) => item.id === newFatura.id);
         if (index > -1) {
           next[index] = newFatura;
         } else {
@@ -385,7 +386,7 @@ const ClientDetails = () => {
           break;
         case "fatura:deleted":
           if (payload.id) {
-            setFaturas(prev => prev.filter(item => item.id !== payload.id));
+            setFaturas((prev) => prev.filter((item) => item.id !== payload.id));
           }
           break;
         case "pagamento:created":
@@ -432,7 +433,7 @@ const ClientDetails = () => {
         clientId: client.id,
         client,
         descricao: "",
-        valor: ""
+        valor: "",
       });
     }
     setFaturaModalOpen(true);
@@ -466,7 +467,11 @@ const ClientDetails = () => {
         const isoPart = value.split("T")[0];
         const [year, month, day] = isoPart.split("-");
         if (year && month && day) {
-          return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("pt-BR");
+          return new Date(
+            Number(year),
+            Number(month) - 1,
+            Number(day),
+          ).toLocaleDateString("pt-BR");
         }
       }
       return new Date(value).toLocaleDateString("pt-BR");
@@ -478,7 +483,7 @@ const ClientDetails = () => {
   const formatCurrency = (value) =>
     Number(value || 0).toLocaleString("pt-BR", {
       style: "currency",
-      currency: "BRL"
+      currency: "BRL",
     });
 
   const clientInitials = useMemo(() => {
@@ -498,34 +503,44 @@ const ClientDetails = () => {
         totalValor: 0,
         totalPago: 0,
         aberto: 0,
-        porStatus: {}
+        porStatus: {},
       };
     }
     const porStatus = faturas.reduce((acc, item) => {
       acc[item.status] = (acc[item.status] || 0) + 1;
       return acc;
     }, {});
-    const totalValor = faturas.reduce((sum, item) => sum + Number(item.valor || 0), 0);
-    const totalPago = faturas.reduce((sum, item) => sum + Number(item.valorPago || 0), 0);
+    const totalValor = faturas.reduce(
+      (sum, item) => sum + Number(item.valor || 0),
+      0,
+    );
+    const totalPago = faturas.reduce(
+      (sum, item) => sum + Number(item.valorPago || 0),
+      0,
+    );
     return {
       total: faturas.length,
       totalValor,
       totalPago,
       aberto: Math.max(totalValor - totalPago, 0),
-      porStatus
+      porStatus,
     };
   }, [faturas]);
 
   const recentTimeline = useMemo(() => {
     if (!faturas?.length) return [];
     return [...faturas]
-      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt || 0) -
+          new Date(a.updatedAt || a.createdAt || 0),
+      )
       .slice(0, 5)
       .map((fatura) => ({
         id: fatura.id,
         title: `Fatura ${fatura.status}`,
         date: formatDate(fatura.updatedAt || fatura.createdAt),
-        description: `${formatCurrency(fatura.valor)} • venc. ${formatDate(fatura.dataVencimento)}`
+        description: `${formatCurrency(fatura.valor)} • venc. ${formatDate(fatura.dataVencimento)}`,
       }));
   }, [faturas]);
 
@@ -538,25 +553,33 @@ const ClientDetails = () => {
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Nome</span>
-            <span className={classes.infoValue}>{client?.name || client?.companyName || "Não informado"}</span>
+            <span className={classes.infoValue}>
+              {client?.name || client?.companyName || "Não informado"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Documento</span>
-            <span className={classes.infoValue}>{client?.document || "Não informado"}</span>
+            <span className={classes.infoValue}>
+              {client?.document || "Não informado"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Email</span>
-            <span className={classes.infoValue}>{client?.email || "Não informado"}</span>
+            <span className={classes.infoValue}>
+              {client?.email || "Não informado"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Telefone</span>
-            <span className={classes.infoValue}>{client?.phone || "Não informado"}</span>
+            <span className={classes.infoValue}>
+              {client?.phone || "Não informado"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
@@ -570,25 +593,41 @@ const ClientDetails = () => {
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Cliente desde</span>
-            <span className={classes.infoValue}>{formatDate(client?.clientSince) || "—"}</span>
+            <span className={classes.infoValue}>
+              {formatDate(client?.clientSince) || "—"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Produto adquirido</span>
-            <span className={classes.infoValue}>{client?.acquiredProduct || "Não informado"}</span>
+            <span className={classes.infoValue}>
+              {client?.acquiredProduct || "Não informado"}
+            </span>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Box className={classes.infoItem}>
+            <span className={classes.infoLabel}>Tags / etiquetas</span>
+            <span className={classes.infoValue}>
+              {client?.tags || "Nenhuma etiqueta vinculada"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Data de vencimento</span>
-            <span className={classes.infoValue}>{formatDate(client?.expirationDate) || "—"}</span>
+            <span className={classes.infoValue}>
+              {formatDate(client?.expirationDate) || "—"}
+            </span>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
           <Box className={classes.infoItem}>
             <span className={classes.infoLabel}>Data de nascimento</span>
-            <span className={classes.infoValue}>{formatDate(client?.birthDate) || "—"}</span>
+            <span className={classes.infoValue}>
+              {formatDate(client?.birthDate) || "—"}
+            </span>
           </Box>
         </Grid>
       </Grid>
@@ -606,31 +645,41 @@ const ClientDetails = () => {
             <Grid item xs={12} sm={6}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Nome completo</span>
-                <span className={classes.infoValue}>{client?.name || "Não informado"}</span>
+                <span className={classes.infoValue}>
+                  {client?.name || "Não informado"}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Documento</span>
-                <span className={classes.infoValue}>{client?.document || "Não informado"}</span>
+                <span className={classes.infoValue}>
+                  {client?.document || "Não informado"}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Email</span>
-                <span className={classes.infoValue}>{client?.email || "Não informado"}</span>
+                <span className={classes.infoValue}>
+                  {client?.email || "Não informado"}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Telefone</span>
-                <span className={classes.infoValue}>{client?.phone || "Não informado"}</span>
+                <span className={classes.infoValue}>
+                  {client?.phone || "Não informado"}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Produto adquirido</span>
-                <span className={classes.infoValue}>{client?.acquiredProduct || "Não informado"}</span>
+                <span className={classes.infoValue}>
+                  {client?.acquiredProduct || "Não informado"}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12}>
@@ -645,15 +694,26 @@ const ClientDetails = () => {
             </Grid>
             <Grid item xs={12}>
               <Box className={classes.infoItem}>
+                <span className={classes.infoLabel}>Tags do cliente</span>
+                <span className={classes.infoValue}>
+                  {client?.tags || "Nenhuma etiqueta vinculada"}
+                </span>
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Notas</span>
-                <span className={classes.infoValue}>{client?.notes || "Sem observações adicionais."}</span>
+                <span className={classes.infoValue}>
+                  {client?.notes || "Sem observações adicionais."}
+                </span>
               </Box>
             </Grid>
             <Grid item xs={12}>
               <Box className={classes.infoItem}>
                 <span className={classes.infoLabel}>Datas importantes</span>
                 <span className={classes.infoValue}>
-                  Nascimento: {formatDate(client?.birthDate) || "—"} | Vencimento: {formatDate(client?.expirationDate) || "—"}
+                  Nascimento: {formatDate(client?.birthDate) || "—"} |
+                  Vencimento: {formatDate(client?.expirationDate) || "—"}
                 </span>
               </Box>
             </Grid>
@@ -692,7 +752,14 @@ const ClientDetails = () => {
 
   const renderFaturas = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gridGap={16}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+        flexWrap="wrap"
+        gridGap={16}
+      >
         <Typography variant="h6">Faturas deste cliente</Typography>
         <Box display="flex" gap={8}>
           <Button startIcon={<RefreshIcon />} onClick={refreshData}>
@@ -722,7 +789,7 @@ const ClientDetails = () => {
               <InputAdornment position="start">
                 <SearchIcon fontSize="small" />
               </InputAdornment>
-            )
+            ),
           }}
         />
         <TextField
@@ -734,7 +801,7 @@ const ClientDetails = () => {
           onChange={(event) => {
             setFaturasFilters((prev) => ({
               ...prev,
-              status: event.target.value
+              status: event.target.value,
             }));
             setFaturasPage(1);
           }}
@@ -765,16 +832,25 @@ const ClientDetails = () => {
                     #{fatura.id} • {fatura.descricao}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Vencimento: {formatDate(fatura.dataVencimento)} • Valor: {formatCurrency(fatura.valor)}
+                    Vencimento: {formatDate(fatura.dataVencimento)} • Valor:{" "}
+                    {formatCurrency(fatura.valor)}
                   </Typography>
                 </Box>
                 <Chip
                   label={fatura.status || "aberta"}
-                  style={{ backgroundColor: "#eef2ff", textTransform: "capitalize" }}
+                  style={{
+                    backgroundColor: "#eef2ff",
+                    textTransform: "capitalize",
+                  }}
                 />
               </Box>
               <Divider />
-              <Box display="flex" justifyContent="space-between" flexWrap="wrap" gridGap={16}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                flexWrap="wrap"
+                gridGap={16}
+              >
                 <Box>
                   <Typography variant="body2" color="textSecondary">
                     Pago
@@ -808,7 +884,10 @@ const ClientDetails = () => {
           ))}
           {faturasHasMore && (
             <Box className={classes.loadMoreBox}>
-              <Button onClick={() => setFaturasPage((prev) => prev + 1)} disabled={faturasLoading}>
+              <Button
+                onClick={() => setFaturasPage((prev) => prev + 1)}
+                disabled={faturasLoading}
+              >
                 Carregar mais
               </Button>
             </Box>
@@ -827,22 +906,34 @@ const ClientDetails = () => {
         <Grid item xs={12} md={4}>
           <Box className={`${classes.metricCard} success`}>
             <span className={classes.metricLabel}>Receita total</span>
-            <span className={classes.metricValue}>{formatCurrency(relatorioStats.totalValor)}</span>
-            <Typography variant="body2">Somatório de todas as faturas emitidas.</Typography>
+            <span className={classes.metricValue}>
+              {formatCurrency(relatorioStats.totalValor)}
+            </span>
+            <Typography variant="body2">
+              Somatório de todas as faturas emitidas.
+            </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} md={4}>
           <Box className={`${classes.metricCard}`}>
             <span className={classes.metricLabel}>Valor recebido</span>
-            <span className={classes.metricValue}>{formatCurrency(relatorioStats.totalPago)}</span>
-            <Typography variant="body2">Pagamentos registrados até o momento.</Typography>
+            <span className={classes.metricValue}>
+              {formatCurrency(relatorioStats.totalPago)}
+            </span>
+            <Typography variant="body2">
+              Pagamentos registrados até o momento.
+            </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} md={4}>
           <Box className={`${classes.metricCard} warning`}>
             <span className={classes.metricLabel}>Em aberto</span>
-            <span className={classes.metricValue}>{formatCurrency(relatorioStats.aberto)}</span>
-            <Typography variant="body2">Diferença entre o emitido e o recebido.</Typography>
+            <span className={classes.metricValue}>
+              {formatCurrency(relatorioStats.aberto)}
+            </span>
+            <Typography variant="body2">
+              Diferença entre o emitido e o recebido.
+            </Typography>
           </Box>
         </Grid>
       </Grid>
@@ -854,14 +945,25 @@ const ClientDetails = () => {
               Distribuição por status
             </Typography>
             {Object.keys(relatorioStats.porStatus).length === 0 ? (
-              <Typography color="textSecondary">Nenhuma fatura para exibir.</Typography>
+              <Typography color="textSecondary">
+                Nenhuma fatura para exibir.
+              </Typography>
             ) : (
-              Object.entries(relatorioStats.porStatus).map(([status, quantity]) => (
-                <Box key={status} display="flex" justifyContent="space-between" py={1}>
-                  <Typography style={{ textTransform: "capitalize" }}>{status}</Typography>
-                  <Typography>{quantity} fatura(s)</Typography>
-                </Box>
-              ))
+              Object.entries(relatorioStats.porStatus).map(
+                ([status, quantity]) => (
+                  <Box
+                    key={status}
+                    display="flex"
+                    justifyContent="space-between"
+                    py={1}
+                  >
+                    <Typography style={{ textTransform: "capitalize" }}>
+                      {status}
+                    </Typography>
+                    <Typography>{quantity} fatura(s)</Typography>
+                  </Box>
+                ),
+              )
             )}
           </Paper>
         </Grid>
@@ -902,7 +1004,10 @@ const ClientDetails = () => {
       <Box className={classes.root} justifyContent="center" alignItems="center">
         <Paper className={classes.card}>
           <Typography variant="h6">Cliente não encontrado</Typography>
-          <Button onClick={() => history.push("/clientes")} style={{ marginTop: 16 }}>
+          <Button
+            onClick={() => history.push("/clientes")}
+            style={{ marginTop: 16 }}
+          >
             Voltar para clientes
           </Button>
         </Paper>
@@ -914,7 +1019,10 @@ const ClientDetails = () => {
     <Box className={classes.root}>
       <Box className={classes.header}>
         <Box className={classes.headerLeft}>
-          <IconButton className={classes.backButton} onClick={() => history.push("/clientes")}>
+          <IconButton
+            className={classes.backButton}
+            onClick={() => history.push("/clientes")}
+          >
             <ArrowBackIcon />
           </IconButton>
           <Box className={classes.avatarWrapper}>
@@ -931,9 +1039,10 @@ const ClientDetails = () => {
               label={client.status || "active"}
               className={classes.statusChip}
               style={{
-                backgroundColor: STATUS_COLORS[client.status] || STATUS_COLORS.active,
+                backgroundColor:
+                  STATUS_COLORS[client.status] || STATUS_COLORS.active,
                 color: "#fff",
-                textTransform: "capitalize"
+                textTransform: "capitalize",
               }}
             />
           </Box>
@@ -971,15 +1080,21 @@ const ClientDetails = () => {
             </Typography>
             <Box className={classes.infoItem}>
               <span className={classes.infoLabel}>Faturas</span>
-              <span className={classes.infoValue}>{relatorioStats.total} registradas</span>
+              <span className={classes.infoValue}>
+                {relatorioStats.total} registradas
+              </span>
             </Box>
             <Box className={classes.infoItem}>
               <span className={classes.infoLabel}>Valor emitido</span>
-              <span className={classes.infoValue}>{formatCurrency(relatorioStats.totalValor)}</span>
+              <span className={classes.infoValue}>
+                {formatCurrency(relatorioStats.totalValor)}
+              </span>
             </Box>
             <Box className={classes.infoItem}>
               <span className={classes.infoLabel}>Recebido</span>
-              <span className={classes.infoValue}>{formatCurrency(relatorioStats.totalPago)}</span>
+              <span className={classes.infoValue}>
+                {formatCurrency(relatorioStats.totalPago)}
+              </span>
             </Box>
           </Paper>
         </Grid>

@@ -58,6 +58,14 @@ const syncLeadToClient = async ({
     updates.document = normalizedDocument;
   }
 
+  if (lead.address && lead.address !== client.address) {
+    updates.address = lead.address;
+  }
+
+  if (lead.product && lead.product !== client.acquiredProduct) {
+    updates.acquiredProduct = lead.product;
+  }
+
   // Se há atualizações, aplica ao cliente
   if (Object.keys(updates).length > 0) {
     logger.info(`Syncing Lead ${lead.id} changes to Client ${client.id}:`, updates);

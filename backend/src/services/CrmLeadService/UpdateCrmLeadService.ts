@@ -23,6 +23,7 @@ interface Request {
   decisionMakerName?: string;
   decisionMakerPhone?: string;
   cnpj?: string;
+  address?: string;
   product?: string;
   paymentType?: string;
   purchaseType?: string;
@@ -81,6 +82,9 @@ const UpdateCrmLeadService = async ({
     birthDate: Yup.date().nullable(),
     clientSince: Yup.date().nullable(),
     expirationDate: Yup.date().nullable(),
+    address: Yup.string()
+      .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
+      .nullable(),
     product: Yup.string()
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
@@ -111,6 +115,10 @@ const UpdateCrmLeadService = async ({
 
   if (data.product !== undefined) {
     data.product = data.product?.trim() || "";
+  }
+
+  if (data.address !== undefined) {
+    data.address = data.address?.trim() || "";
   }
 
   await schema.validate(data);

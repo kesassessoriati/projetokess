@@ -11,9 +11,11 @@ import {
   makeStyles,
   CircularProgress,
   Typography,
-  Divider
+  Divider,
 } from "@material-ui/core";
-import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
+import Autocomplete, {
+  createFilterOptions,
+} from "@material-ui/lab/Autocomplete";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -22,40 +24,62 @@ const filter = createFilterOptions();
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
-    fontWeight: 600
+    fontWeight: 600,
   },
   formField: {
-    marginBottom: theme.spacing(2)
+    marginBottom: theme.spacing(2),
   },
   dialogActions: {
     justifyContent: "space-between",
-    padding: theme.spacing(2, 3)
+    padding: theme.spacing(2, 3),
   },
   sectionTitle: {
     fontWeight: 600,
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(1),
     width: "100%",
-    color: theme.palette.primary.main
-  }
+    color: theme.palette.primary.main,
+  },
+  highlightedField: {
+    padding: theme.spacing(2),
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`,
+    background:
+      theme.palette.type === "light"
+        ? "linear-gradient(135deg, rgba(59,130,246,0.06), rgba(16,185,129,0.05))"
+        : theme.palette.background.default,
+  },
+  highlightedLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    color: theme.palette.primary.main,
+    marginBottom: theme.spacing(1),
+  },
+  helperNote: {
+    marginTop: -theme.spacing(1),
+    color: theme.palette.text.secondary,
+    fontSize: 12,
+  },
 }));
 
 const PURCHASE_TYPE_OPTIONS = [
   { value: "novo", label: "Novo" },
   { value: "migracao", label: "Migração" },
   { value: "renovacao", label: "Renovação" },
-  { value: "recuperacao_novo", label: "Recuperação Novo" }
+  { value: "recuperacao_novo", label: "Recuperação Novo" },
 ];
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Ativo" },
   { value: "inactive", label: "Inativo" },
-  { value: "blocked", label: "Bloqueado" }
+  { value: "blocked", label: "Bloqueado" },
 ];
 
 const TYPE_OPTIONS = [
   { value: "pf", label: "Pessoa Física" },
-  { value: "pj", label: "Pessoa Jurídica" }
+  { value: "pj", label: "Pessoa Jurídica" },
 ];
 
 const defaultForm = {
@@ -93,7 +117,7 @@ const defaultForm = {
   clientSince: "",
   expirationDate: "",
   ownerUserId: "",
-  notes: ""
+  notes: "",
 };
 
 const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
@@ -109,12 +133,20 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
 
     const fetchData = async () => {
       try {
-        const [{ data: usersData }, { data: productsData }] = await Promise.all([
-          api.get("/users/"),
-          api.get("/produtos", { params: { limit: 100 } })
-        ]);
+        const [{ data: usersData }, { data: productsData }] = await Promise.all(
+          [
+            api.get("/users/"),
+            api.get("/produtos", { params: { limit: 100 } }),
+          ],
+        );
         setUsers(usersData.users || []);
-        setProducts(Array.isArray(productsData?.produtos) ? productsData.produtos : (Array.isArray(productsData) ? productsData : []));
+        setProducts(
+          Array.isArray(productsData?.produtos)
+            ? productsData.produtos
+            : Array.isArray(productsData)
+              ? productsData
+              : [],
+        );
       } catch (err) {
         toastError(err);
       }
@@ -157,7 +189,9 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         paymentType: data.paymentType || "",
         purchaseType: data.purchaseType || "",
         purchaseValue: data.purchaseValue != null ? data.purchaseValue : "",
-        acquisitionDate: data.acquisitionDate ? data.acquisitionDate.substring(0, 10) : "",
+        acquisitionDate: data.acquisitionDate
+          ? data.acquisitionDate.substring(0, 10)
+          : "",
         zipCode: data.zipCode || "",
         address: data.address || "",
         number: data.number || "",
@@ -167,9 +201,11 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         state: data.state || "",
         status: data.status || "active",
         clientSince: data.clientSince ? data.clientSince.substring(0, 10) : "",
-        expirationDate: data.expirationDate ? data.expirationDate.substring(0, 10) : "",
+        expirationDate: data.expirationDate
+          ? data.expirationDate.substring(0, 10)
+          : "",
         ownerUserId: data.ownerUserId || "",
-        notes: data.notes || ""
+        notes: data.notes || "",
       });
     } catch (err) {
       toastError(err);
@@ -183,7 +219,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
     const { name, value } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -204,7 +240,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         clientSince: form.clientSince || undefined,
         acquisitionDate: form.acquisitionDate || null,
         expirationDate: form.expirationDate || null,
-        purchaseValue: form.purchaseValue !== "" && form.purchaseValue != null ? Number(form.purchaseValue) : null
+        purchaseValue:
+          form.purchaseValue !== "" && form.purchaseValue != null
+            ? Number(form.purchaseValue)
+            : null,
       };
 
       if (clientId) {
@@ -240,7 +279,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
           <form onSubmit={handleSubmit} id="client-form">
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.sectionTitle}
+                >
                   Dados básicos
                 </Typography>
                 <Divider />
@@ -297,6 +339,68 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <div className={classes.highlightedField}>
+                  <Typography className={classes.highlightedLabel}>
+                    Produto vinculado ao cliente
+                  </Typography>
+                  <Autocomplete
+                    freeSolo
+                    options={products}
+                    value={form.acquiredProduct || ""}
+                    onChange={(event, newValue) => {
+                      const productName =
+                        typeof newValue === "string"
+                          ? newValue
+                          : newValue?.inputValue || newValue?.nome || "";
+                      setForm((prev) => ({
+                        ...prev,
+                        acquiredProduct: productName,
+                      }));
+                    }}
+                    onInputChange={(event, newInputValue, reason) => {
+                      if (reason === "input") {
+                        setForm((prev) => ({
+                          ...prev,
+                          acquiredProduct: newInputValue,
+                        }));
+                      }
+                    }}
+                    getOptionLabel={(option) => {
+                      if (typeof option === "string") return option;
+                      return option?.inputValue || option?.nome || "";
+                    }}
+                    filterOptions={(options, params) => {
+                      const filtered = filter(options, params);
+                      const inputValue = params.inputValue.trim();
+                      if (
+                        inputValue &&
+                        !options.some(
+                          (o) =>
+                            (o?.nome || "").toLowerCase() ===
+                            inputValue.toLowerCase(),
+                        )
+                      ) {
+                        filtered.push({
+                          inputValue,
+                          nome: `Usar "${inputValue}"`,
+                        });
+                      }
+                      return filtered;
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Produto adquirido"
+                        variant="outlined"
+                        fullWidth
+                        className={classes.formField}
+                        placeholder="Selecione ou digite um produto"
+                      />
+                    )}
+                  />
+                </div>
+              </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Email"
@@ -322,7 +426,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.sectionTitle}
+                >
                   Informações comerciais
                 </Typography>
                 <Divider />
@@ -362,7 +469,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.sectionTitle}
+                >
                   Presença digital
                 </Typography>
                 <Divider />
@@ -402,7 +512,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.sectionTitle}
+                >
                   CRM
                 </Typography>
                 <Divider />
@@ -462,52 +575,11 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   fullWidth
                   className={classes.formField}
                 />
+                <Typography className={classes.helperNote}>
+                  Tags vinculadas ao módulo de etiquetas.
+                </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  freeSolo
-                  options={products}
-                  value={form.acquiredProduct || ""}
-                  onChange={(event, newValue) => {
-                    const productName =
-                      typeof newValue === "string"
-                        ? newValue
-                        : newValue?.inputValue || newValue?.nome || "";
-                    setForm((prev) => ({ ...prev, acquiredProduct: productName }));
-                  }}
-                  onInputChange={(event, newInputValue, reason) => {
-                    if (reason === "input") {
-                      setForm((prev) => ({ ...prev, acquiredProduct: newInputValue }));
-                    }
-                  }}
-                  getOptionLabel={(option) => {
-                    if (typeof option === "string") return option;
-                    return option?.inputValue || option?.nome || "";
-                  }}
-                  filterOptions={(options, params) => {
-                    const filtered = filter(options, params);
-                    const inputValue = params.inputValue.trim();
-                    if (
-                      inputValue &&
-                      !options.some((o) => (o?.nome || "").toLowerCase() === inputValue.toLowerCase())
-                    ) {
-                      filtered.push({ inputValue, nome: `Usar "${inputValue}"` });
-                    }
-                    return filtered;
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Produto adquirido"
-                      variant="outlined"
-                      fullWidth
-                      className={classes.formField}
-                      placeholder="Selecione ou digite um produto"
-                    />
-                  )}
-                />
-              </Grid>
-              
+
               <Grid item xs={12} sm={4}>
                 <TextField
                   select
@@ -546,7 +618,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   ))}
                 </TextField>
               </Grid>
-              
+
               <Grid item xs={12} sm={4}>
                 <TextField
                   label="Data de nascimento"
@@ -661,7 +733,10 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.sectionTitle}
+                >
                   Endereço
                 </Typography>
                 <Divider />
@@ -759,7 +834,11 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
           form="client-form"
           disabled={submitting || loading}
         >
-          {submitting ? <CircularProgress size={20} color="inherit" /> : "Salvar"}
+          {submitting ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            "Salvar"
+          )}
         </Button>
       </DialogActions>
     </Dialog>
