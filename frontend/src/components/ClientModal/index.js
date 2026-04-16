@@ -100,7 +100,7 @@ const defaultForm = {
   campanhaTag: "",
   temperatura: "",
   score: 0,
-  tags: "",
+  tags: [],
   acquiredProduct: "",
   paymentType: "",
   purchaseType: "",
@@ -127,18 +127,22 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [tags, setTags] = useState([]);
 
   useEffect(() => {
     if (!open) return;
 
     const fetchData = async () => {
       try {
-        const [{ data: usersData }, { data: productsData }] = await Promise.all(
-          [
-            api.get("/users/"),
-            api.get("/produtos", { params: { limit: 100 } }),
-          ],
-        );
+        const [
+          { data: usersData },
+          { data: productsData },
+          { data: tagsData },
+        ] = await Promise.all([
+          api.get("/users/"),
+          api.get("/produtos", { params: { limit: 100 } }),
+          api.get("/tags/list", { params: { kanban: 0 } }),
+        ]);
         setUsers(usersData.users || []);
         setProducts(
           Array.isArray(productsData?.produtos)
@@ -147,6 +151,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
               ? productsData
               : [],
         );
+        setTags(Array.isArray(tagsData) ? tagsData : []);
       } catch (err) {
         toastError(err);
       }
@@ -184,7 +189,14 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         campanhaTag: data.campanhaTag || "",
         temperatura: data.temperatura || "",
         score: data.score || 0,
-        tags: data.tags || "",
+        tags:
+          Array.isArray(data.assignedTags) && data.assignedTags.length > 0
+            ? data.assignedTags
+            : (data.tags || "")
+                .split(",")
+                .map((name) => name.trim())
+                .filter(Boolean)
+                .map((name) => ({ name })),
         acquiredProduct: data.acquiredProduct || "",
         paymentType: data.paymentType || "",
         purchaseType: data.purchaseType || "",
@@ -244,6 +256,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
           form.purchaseValue !== "" && form.purchaseValue != null
             ? Number(form.purchaseValue)
             : null,
+        tags: Array.isArray(form.tags) ? form.tags : [],
       };
 
       if (clientId) {
@@ -565,20 +578,6 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
-                <TextField
-                  label="Tags"
-                  name="tags"
-                  value={form.tags}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                />
-                <Typography className={classes.helperNote}>
-                  Tags vinculadas ao módulo de etiquetas.
-                </Typography>
-              </Grid>
 
               <Grid item xs={12} sm={4}>
                 <TextField
@@ -716,6 +715,70 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   className={classes.formField}
                   inputProps={{ min: 0, step: "0.01" }}
                 />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={tags}
+                  value={form.tags || []}
+                  onChange={(event, newValue) => {
+                    const normalizedTags = newValue.map((tag) => {
+                      if (typeof tag === "string") {
+                        return { name: tag, color: "#A4CCCC" };
+                      }
+
+                      if (tag && tag.inputValue) {
+                        return { name: tag.inputValue, color: "#A4CCCC" };
+                      }
+
+                      return tag;
+                    });
+
+                    setForm((prev) => ({
+                      ...prev,
+                      tags: normalizedTags,
+                    }));
+                  }}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    return option?.name || option?.inputValue || "";
+                  }}
+                  filterOptions={(options, params) => {
+                    const filtered = filter(options, params);
+                    const inputValue = params.inputValue.trim();
+
+                    if (
+                      inputValue &&
+                      !options.some(
+                        (option) =>
+                          (option?.name || "").toLowerCase() ===
+                          inputValue.toLowerCase(),
+                      )
+                    ) {
+                      filtered.push({
+                        inputValue,
+                        name: `Usar "${inputValue}"`,
+                        color: "#A4CCCC",
+                      });
+                    }
+
+                    return filtered;
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Etiquetas do cliente"
+                      variant="outlined"
+                      fullWidth
+                      className={classes.formField}
+                      placeholder="Selecione ou adicione etiquetas"
+                    />
+                  )}
+                />
+                <Typography className={classes.helperNote}>
+                  Tags vinculadas ao módulo de etiquetas.
+                </Typography>
               </Grid>
 
               <Grid item xs={12}>

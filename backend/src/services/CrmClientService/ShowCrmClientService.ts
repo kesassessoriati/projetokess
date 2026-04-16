@@ -1,5 +1,6 @@
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
+import Tag from "../../models/Tag";
 
 interface Request {
   id: number | string;
@@ -11,7 +12,16 @@ const ShowCrmClientService = async ({
   companyId
 }: Request): Promise<CrmClient> => {
   const client = await CrmClient.findOne({
-    where: { id, companyId }
+    where: { id, companyId },
+    include: [
+      {
+        model: Tag,
+        as: "assignedTags",
+        attributes: ["id", "name", "color"],
+        through: { attributes: [] },
+        required: false
+      }
+    ]
   });
 
   if (!client) {

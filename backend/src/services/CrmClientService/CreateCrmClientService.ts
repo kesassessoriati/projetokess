@@ -1,6 +1,13 @@
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
+import { syncCrmClientTags, tagsToString } from "./helpers/syncCrmClientTags";
+
+interface ITagInput {
+  id?: number | string;
+  name: string;
+  color?: string;
+}
 
 export interface CreateCrmClientRequest {
   companyId: number;
@@ -38,7 +45,7 @@ export interface CreateCrmClientRequest {
   campanhaTag?: string;
   temperatura?: string;
   score?: number;
-  tags?: string;
+  tags?: string | ITagInput[];
 }
 
 const CreateCrmClientService = async (
@@ -107,11 +114,14 @@ const CreateCrmClientService = async (
   }
 
   // Sanitiza o telefone antes de criar
+  const tagsText = tagsToString(data.tags);
+
   const clientData = {
     ...validatedData,
     type: validatedData.type || "pf",
     status: validatedData.status || "active",
     phone: data.phone ? data.phone.replace(/\D/g, "") : undefined,
+    tags: tagsText,
     acquiredProduct: data.acquiredProduct || undefined,
     paymentType: data.paymentType || undefined,
     purchaseType: data.purchaseType || undefined,
@@ -121,6 +131,7 @@ const CreateCrmClientService = async (
   };
 
   const client = await CrmClient.create(clientData);
+  await syncCrmClientTags(client.id, data.companyId, data.tags);
 
   return client;
 };

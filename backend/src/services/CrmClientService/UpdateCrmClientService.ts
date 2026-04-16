@@ -2,6 +2,13 @@ import { Op } from "sequelize";
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
+import { syncCrmClientTags, tagsToString } from "./helpers/syncCrmClientTags";
+
+interface ITagInput {
+  id?: number | string;
+  name: string;
+  color?: string;
+}
 
 interface Request {
   id: number | string;
@@ -40,7 +47,7 @@ interface Request {
   campanhaTag?: string;
   temperatura?: string;
   score?: number;
-  tags?: string;
+  tags?: string | ITagInput[];
 }
 
 const UpdateCrmClientService = async ({
@@ -119,6 +126,7 @@ const UpdateCrmClientService = async ({
   const updateData = {
     ...validatedData,
     phone: data.phone ? data.phone.replace(/\D/g, "") : data.phone,
+    tags: data.tags !== undefined ? tagsToString(data.tags) : client.tags,
     acquiredProduct: data.acquiredProduct,
     paymentType: data.paymentType,
     purchaseType: data.purchaseType,
@@ -128,6 +136,10 @@ const UpdateCrmClientService = async ({
   };
 
   await client.update(updateData);
+
+  if (data.tags !== undefined) {
+    await syncCrmClientTags(client.id, companyId, data.tags);
+  }
 
   return client;
 };

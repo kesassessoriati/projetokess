@@ -1,6 +1,8 @@
 import CrmLead from "../../../models/CrmLead";
 import CrmClient from "../../../models/CrmClient";
 import logger from "../../../utils/logger";
+import Tag from "../../../models/Tag";
+import { syncCrmLeadTags } from "../../CrmLeadService/helpers/syncCrmLeadTags";
 
 interface Params {
   client: CrmClient;
@@ -17,6 +19,32 @@ const syncClientToLead = async ({
   client,
   companyId
 }: Params): Promise<void> => {
+  const clientWithTags = await CrmClient.findOne({
+    where: { id: client.id, companyId },
+    include: [
+      {
+        model: Tag,
+        as: "assignedTags",
+        attributes: ["id", "name", "color"],
+        through: { attributes: [] },
+        required: false
+      }
+    ]
+  });
+
+  const tagsInput =
+    typeof client.tags === "string"
+      ? client.tags
+          .split(",")
+          .map(name => name.trim())
+          .filter(Boolean)
+          .map(name => ({ name }))
+      : clientWithTags?.assignedTags?.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color
+        })) || [];
+
   // Busca todos os leads associados a este cliente
   const leads = await CrmLead.findAll({
     where: {
@@ -84,6 +112,8 @@ const syncClientToLead = async ({
       logger.info(`Syncing Client ${client.id} changes to Lead ${lead.id}:`, updates);
       await lead.update(updates);
     }
+
+    await syncCrmLeadTags(lead.id, companyId, tagsInput);
   }
 };
 

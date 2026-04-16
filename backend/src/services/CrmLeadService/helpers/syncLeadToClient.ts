@@ -3,6 +3,7 @@ import CrmLead from "../../../models/CrmLead";
 import CrmClient from "../../../models/CrmClient";
 import CrmClientContact from "../../../models/CrmClientContact";
 import Contact from "../../../models/Contact";
+import { syncCrmClientTags } from "../../CrmClientService/helpers/syncCrmClientTags";
 
 const sanitizeDigits = (value?: string | null): string | null => {
   if (!value) return null;
@@ -42,6 +43,12 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
   const phoneCandidates = resolvePhoneCandidates(normalizedPhone || undefined);
   const leadWithTags = await CrmLead.findOne({ where: { id: lead.id, companyId: lead.companyId }, include: ["tags"] });
   const tagsStr = leadWithTags?.tags?.map(t => t.name).join(", ") || "";
+  const tagsInput =
+    leadWithTags?.tags?.map(tag => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color
+    })) || [];
 
   const email = lead.email || contact?.email || null;
   const name = lead.name || contact?.name || normalizedPhone || "Cliente";
@@ -205,6 +212,8 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       await client.update(updates);
     }
   }
+
+  await syncCrmClientTags(client.id, lead.companyId, tagsInput);
 
   const effectiveContactId =
     contact?.id || lead.contactId || client.contactId || null;
