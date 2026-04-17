@@ -120,7 +120,7 @@ export const updateStageOrder = async (req: Request, res: Response): Promise<Res
 export const storeStage = async (req: Request, res: Response): Promise<Response> => {
     const { id: pipelineId } = req.params;
     const { companyId } = req.user;
-    const { name, color, order, probability, slaDays } = req.body;
+    const { name, color, order, probability, slaDays, linkedStatus } = req.body;
 
     const stage = await PipelineStage.create({
         pipelineId: parseInt(pipelineId, 10),
@@ -129,7 +129,8 @@ export const storeStage = async (req: Request, res: Response): Promise<Response>
         color,
         order,
         probability,
-        slaDays
+        slaDays,
+        linkedStatus: linkedStatus || null
     });
 
     return res.status(200).json(stage);
@@ -138,12 +139,19 @@ export const storeStage = async (req: Request, res: Response): Promise<Response>
 export const updateStage = async (req: Request, res: Response): Promise<Response> => {
     const { stageId } = req.params;
     const { companyId } = req.user;
-    const { name, color, order, probability, slaDays } = req.body;
+    const { name, color, order, probability, slaDays, linkedStatus } = req.body;
 
     const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
     if (!stage) return res.status(404).json({ error: "Stage not found" });
 
-    await stage.update({ name, color, order, probability, slaDays });
+    await stage.update({
+        name,
+        color,
+        order,
+        probability,
+        slaDays,
+        linkedStatus: linkedStatus !== undefined ? (linkedStatus || null) : stage.linkedStatus
+    });
 
     return res.status(200).json(stage);
 };

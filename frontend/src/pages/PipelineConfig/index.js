@@ -18,7 +18,11 @@ import {
     CircularProgress,
     Chip,
     Menu,
-    MenuItem
+    MenuItem,
+    Select,
+    FormControl,
+    InputLabel,
+    FormHelperText,
 } from "@material-ui/core";
 import {
     Add as AddIcon,
@@ -38,6 +42,16 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import ColorPicker from "../../components/ColorPicker";
 import ContextPageHeader from "../../components/ContextPageHeader";
+
+const LEAD_STATUS_LABELS = {
+    novo: "Novo",
+    contactado: "Contactado",
+    qualificado: "Qualificado",
+    reuniao_agendada: "Reunião Agendada",
+    nao_qualificado: "Não Qualificado",
+    convertido: "Convertido",
+    perdido: "Perdido",
+};
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -93,7 +107,7 @@ const PipelineConfig = () => {
     const [stageConfirmModalOpen, setStageConfirmModalOpen] = useState(false);
     const [stageToDelete, setStageToDelete] = useState(null);
 
-    const [stageForm, setStageForm] = useState({ name: "", color: "#764ba2", slaDays: 2, probability: 50 });
+    const [stageForm, setStageForm] = useState({ name: "", color: "#764ba2", slaDays: 2, probability: 50, linkedStatus: "" });
     const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
 
     useEffect(() => {
@@ -365,9 +379,9 @@ const PipelineConfig = () => {
                         <Box mb={3} display="flex" justifyContent="space-between">
                             <Typography variant="h6">Sequência do Funil</Typography>
                             <Button variant="outlined" startIcon={<AddIcon />} onClick={() => { 
-                                setEditingStage({}); 
-                                setStageForm({ name: "", color: "#764ba2", slaDays: 2, probability: 50 });
-                                setModalOpen(true); 
+                                setEditingStage({});
+                                setStageForm({ name: "", color: "#764ba2", slaDays: 2, probability: 50, linkedStatus: "" });
+                                setModalOpen(true);
                             }}>Adicionar Estágio</Button>
                         </Box>
 
@@ -388,7 +402,7 @@ const PipelineConfig = () => {
                                                                     | ID: {stage.id}
                                                                 </Typography>
                                                             </Box>
-                                                            <Box display="flex" gap={2} mt={0.5}>
+                                                            <Box display="flex" gap={2} mt={0.5} flexWrap="wrap" alignItems="center">
                                                                 <Typography variant="caption" color="textSecondary">
                                                                     <TimerIcon style={{ fontSize: 12, verticalAlign: "middle", marginRight: 4 }} />
                                                                     SLA: {stage.slaDays || 2} dias
@@ -396,6 +410,13 @@ const PipelineConfig = () => {
                                                                 <Typography variant="caption" color="textSecondary">
                                                                     Probabilidade: {stage.probability}%
                                                                 </Typography>
+                                                                {stage.linkedStatus && (
+                                                                    <Chip
+                                                                        size="small"
+                                                                        label={`→ ${LEAD_STATUS_LABELS[stage.linkedStatus] || stage.linkedStatus}`}
+                                                                        style={{ height: 16, fontSize: "0.65rem", backgroundColor: "#e3f2fd", color: "#1565c0" }}
+                                                                    />
+                                                                )}
                                                             </Box>
                                                         </Box>
                                                         <Box>
@@ -405,7 +426,8 @@ const PipelineConfig = () => {
                                                                     name: stage.name || "",
                                                                     color: stage.color || "#764ba2",
                                                                     slaDays: stage.slaDays || 2,
-                                                                    probability: stage.probability || 50
+                                                                    probability: stage.probability || 50,
+                                                                    linkedStatus: stage.linkedStatus || ""
                                                                 });
                                                                 setModalOpen(true); 
                                                             }}><EditIcon /></IconButton>
@@ -514,14 +536,36 @@ const PipelineConfig = () => {
                             />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField 
-                                label="Probabilidade (%)" 
-                                type="number" 
-                                fullWidth 
-                                variant="outlined" 
+                            <TextField
+                                label="Probabilidade (%)"
+                                type="number"
+                                fullWidth
+                                variant="outlined"
                                 value={stageForm.probability}
                                 onChange={(e) => setStageForm({ ...stageForm, probability: e.target.value })}
                             />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <FormControl variant="outlined" fullWidth>
+                                <InputLabel>Status do Lead (automático)</InputLabel>
+                                <Select
+                                    value={stageForm.linkedStatus || ""}
+                                    onChange={(e) => setStageForm({ ...stageForm, linkedStatus: e.target.value })}
+                                    label="Status do Lead (automático)"
+                                >
+                                    <MenuItem value=""><em>Nenhum (não alterar status)</em></MenuItem>
+                                    <MenuItem value="novo">Novo</MenuItem>
+                                    <MenuItem value="contactado">Contactado</MenuItem>
+                                    <MenuItem value="qualificado">Qualificado</MenuItem>
+                                    <MenuItem value="reuniao_agendada">Reunião Agendada</MenuItem>
+                                    <MenuItem value="nao_qualificado">Não Qualificado</MenuItem>
+                                    <MenuItem value="convertido">Convertido</MenuItem>
+                                    <MenuItem value="perdido">Perdido</MenuItem>
+                                </Select>
+                                <FormHelperText>
+                                    Ao mover um lead para este estágio, o status será atualizado automaticamente.
+                                </FormHelperText>
+                            </FormControl>
                         </Grid>
                     </Grid>
                 </DialogContent>

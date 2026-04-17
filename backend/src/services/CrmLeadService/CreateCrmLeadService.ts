@@ -354,16 +354,30 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
   }
 
+  // If the target stage has a linkedStatus and no explicit status was provided by caller,
+  // use the stage's linked status so imports/automations into advanced stages are consistent.
+  let resolvedStatus = enrichedData.status || "novo";
+  if (stageId && (!data.status || data.status === "novo" || data.status === "new")) {
+    try {
+      const PipelineStageModel = (await import("../../models/PipelineStage")).default;
+      const targetStage = await PipelineStageModel.findOne({ where: { id: stageId } });
+      if (targetStage?.linkedStatus) {
+        resolvedStatus = targetStage.linkedStatus;
+      }
+    } catch (_) { /* non-critical — fallback to "novo" */ }
+  }
+
   let meetingScheduledAt = undefined;
-  if (enrichedData.status === "reuniao_agendada" || (data.leadStatus && data.leadStatus === "reuniao_agendada")) {
+  if (resolvedStatus === "reuniao_agendada" || (data.leadStatus && data.leadStatus === "reuniao_agendada")) {
     meetingScheduledAt = new Date();
   }
 
   const lead = await CrmLead.create({
     ...enrichedData,
+    status: resolvedStatus,
     contactId,
     primaryTicketId,
-    leadStatus: data.leadStatus || "novo",
+    leadStatus: data.leadStatus || resolvedStatus,
     score,
     notes,
     lastActivityAt: data.lastActivityAt || new Date(),

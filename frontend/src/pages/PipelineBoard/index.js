@@ -577,6 +577,26 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+const LEAD_STATUS_LABELS = {
+  novo: "Novo",
+  contactado: "Contactado",
+  qualificado: "Qualificado",
+  reuniao_agendada: "Reunião Agendada",
+  nao_qualificado: "Não Qualificado",
+  convertido: "Convertido",
+  perdido: "Perdido",
+};
+
+const LEAD_STATUS_COLORS = {
+  novo: { bg: "#e0f2fe", color: "#0369a1" },
+  contactado: { bg: "#fef9c3", color: "#854d0e" },
+  qualificado: { bg: "#dcfce7", color: "#166534" },
+  reuniao_agendada: { bg: "#ede9fe", color: "#5b21b6" },
+  nao_qualificado: { bg: "#f1f5f9", color: "#475569" },
+  convertido: { bg: "#d1fae5", color: "#065f46" },
+  perdido: { bg: "#fee2e2", color: "#991b1b" },
+};
+
 const IntelligentCard = ({ op, onClick, highlight }) => {
   const riskColor =
     op.prediction && op.prediction.riskLevel === "HIGH"
@@ -640,6 +660,22 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
           Win: {probability}%
         </span>
       </Box>
+      {op.lead?.status && op.lead.status !== "novo" && (
+        <Box mt={0.5}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.6rem",
+            fontWeight: 700,
+            padding: "2px 6px",
+            borderRadius: 4,
+            backgroundColor: (LEAD_STATUS_COLORS[op.lead.status] || LEAD_STATUS_COLORS.novo).bg,
+            color: (LEAD_STATUS_COLORS[op.lead.status] || LEAD_STATUS_COLORS.novo).color,
+            letterSpacing: 0.2,
+          }}>
+            {LEAD_STATUS_LABELS[op.lead.status] || op.lead.status}
+          </span>
+        </Box>
+      )}
       {op.slaStatus === "EXPIRED" && (
         <Box
           mt={0.7}

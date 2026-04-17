@@ -59,6 +59,14 @@ class PipelineStage extends Model<PipelineStage> {
     @Column
     isLocked: boolean;
 
+    /**
+     * Optional lead status that is automatically applied when a card/opportunity
+     * is moved to this stage. Allowed values mirror CrmLead.status enum:
+     * novo | contactado | qualificado | reuniao_agendada | nao_qualificado | convertido | perdido
+     */
+    @Column({ allowNull: true, defaultValue: null })
+    linkedStatus: string;
+
     @CreatedAt
     createdAt: Date;
 

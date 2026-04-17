@@ -37,6 +37,9 @@ const MoveOpportunityService = async ({
         return opportunity;
     }
 
+    // Fetch destination stage upfront so linkedStatus is available inside the try block
+    const toStage = await PipelineStage.findOne({ where: { id: toStageId } });
+
     try {
         const updateData: any = {
             stageId: toStageId,
@@ -57,13 +60,32 @@ const MoveOpportunityService = async ({
 
         await opportunity.update(updateData);
 
-        // CORREÇÃO: Atualizar o CrmLead relacionado para manter sincronia do funil/estágio
+        // Auto-sync CrmLead: update stageId and optionally status from stage.linkedStatus
         if (opportunity.leadId) {
             const CrmLead = (await import("../../models/CrmLead")).default;
-            await CrmLead.update(
-                { stageId: toStageId },
-                { where: { id: opportunity.leadId, companyId } }
-            );
+            const leadUpdate: Record<string, any> = { stageId: toStageId };
+
+            if (toStage?.linkedStatus) {
+                leadUpdate.status = toStage.linkedStatus;
+                leadUpdate.leadStatus = toStage.linkedStatus;
+            }
+
+            await CrmLead.update(leadUpdate, {
+                where: { id: opportunity.leadId, companyId }
+            });
+
+            // Emit socket event so open LeadModal re-renders with updated status
+            try {
+                const { getIO } = await import("../../libs/socket");
+                const io = getIO();
+                const updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
+                if (updatedLead) {
+                    io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+                        action: "update",
+                        lead: updatedLead
+                    });
+                }
+            } catch (_) { /* non-critical */ }
         }
     } catch (err) {
         if (err.name === "SequelizeOptimisticLockError") {
@@ -79,8 +101,6 @@ const MoveOpportunityService = async ({
         movedBy,
         reason
     });
-
-    const toStage = await PipelineStage.findOne({ where: { id: toStageId } });
 
     await OpportunityEvent.create({
         companyId,
