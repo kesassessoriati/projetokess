@@ -844,7 +844,7 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
             userId,
             queueId: queueId ? Number(queueId) : null,
             statusTicket: "open",
-            openTicket: "disabled",
+            openTicket: "enabled",
             campaignType: "whatsapp",
             messageType,
             message1: messageType === "poll" ? String(pollName || "").trim() : String(message || "").trim(),

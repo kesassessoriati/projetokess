@@ -1107,6 +1107,19 @@ async function handleDispatchCampaign(job) {
 
     const chatId = campaignShipping.contact.isGroup ? `${campaignShipping.number}@g.us` : `${campaignShipping.number}@s.whatsapp.net`;
 
+    const emitTicketUpdate = async (ticketId: number) => {
+      const refreshedTicket = await ShowTicketService(ticketId, campaign.companyId);
+      const io = getIO();
+
+      io.of(String(campaign.companyId)).emit(`company-${campaign.companyId}-ticket`, {
+        action: "update",
+        ticket: refreshedTicket,
+        ticketId: refreshedTicket.id
+      });
+
+      return refreshedTicket;
+    };
+
     if (campaign.openTicket === "enabled") {
       const [contact] = await Contact.findOrCreate({
         where: {
@@ -1178,7 +1191,7 @@ async function handleDispatchCampaign(job) {
             ticket,
             contact,
             null,
-            true,
+            false,
             false,
             false,
             false,
@@ -1192,10 +1205,9 @@ async function handleDispatchCampaign(job) {
           if (!campaign.mediaPath) {
             let sentMessage;
             if (campaign.messageType === "buttons" && campaign.buttons?.length) {
-              await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
-              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+              sentMessage = await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
             } else if (campaign.messageType === "list" && ((campaign.listSections as any[])?.length || campaign.buttons?.length)) {
-              await sendListMessage(
+              sentMessage = await sendListMessage(
                 wbot,
                 chatId,
                 campaignShipping.message,
@@ -1203,10 +1215,8 @@ async function handleDispatchCampaign(job) {
                 (campaign.listSections as any[])?.length ? campaign.listSections : campaign.buttons,
                 campaign.listFooter || undefined
               );
-              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
             } else if (campaign.messageType === "carousel" && campaign.carouselCards?.length) {
-              await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
-              sentMessage = await wbot.sendMessage(chatId, { text: `\u200c` });
+              sentMessage = await sendCarouselMessage(wbot, chatId, campaign.carouselCards);
             } else if (campaign.messageType === "poll" && campaignShipping.message && campaign.buttons?.length) {
               // Para enquete: message = pergunta, buttons[].displayText = opções
               const pollOptions = (campaign.buttons as any[]).map((b: any) => b.displayText).filter(Boolean);
@@ -1227,7 +1237,7 @@ async function handleDispatchCampaign(job) {
               ticket,
               contact,
               null,
-              true,
+              false,
               false,
               false,
               false,
@@ -1254,7 +1264,7 @@ async function handleDispatchCampaign(job) {
                   ticket,
                   contact,
                   null,
-                  true,
+                  false,
                   false,
                   false,
                   false,
@@ -1282,6 +1292,7 @@ async function handleDispatchCampaign(job) {
           // }
         }
         await campaignShipping.update({ deliveredAt: moment() });
+        ticket = await emitTicketUpdate(ticket.id);
       }
     }
     else {
