@@ -89,6 +89,7 @@ const CLIENT_FIELDS = [
     { id: "birthDate", label: "Data de Nascimento", required: false },
     { id: "clientSince", label: "Cliente Desde", required: false },
     { id: "expirationDate", label: "Data de Vencimento", required: false },
+    { id: "address", label: "Endereço", required: false },
     { id: "notes", label: "Observações", required: false },
     { id: "tags", label: "Tags", required: false }
 ];

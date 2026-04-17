@@ -98,6 +98,7 @@ const LEAD_FIELDS = [
     { id: "clientSince", label: "Cliente Desde", required: false },
     { id: "expirationDate", label: "Data de Vencimento", required: false },
     { id: "score", label: "Score", required: false },
+    { id: "address", label: "Endereço", required: false },
     { id: "notes", label: "Observações", required: false },
     { id: "tags", label: "Tags", required: false }
 ];

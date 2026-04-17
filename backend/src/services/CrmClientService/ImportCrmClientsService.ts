@@ -156,6 +156,7 @@ const ImportCrmClientsService = async ({
                     tags: tagsStr,
                     birthDate: parseDate(clientRow.birthDate || clientRow.dataNascimento),
                     clientSince: parseDate(clientRow.clientSince || clientRow.clienteDesde) ?? new Date(),
+                    address: clientRow.address || clientRow.endereco || undefined,
                     acquisitionDate: parseDate(clientRow.acquisitionDate),
                     expirationDate: parseDate(clientRow.expirationDate || clientRow.dataVencimento),
                     status: (() => {

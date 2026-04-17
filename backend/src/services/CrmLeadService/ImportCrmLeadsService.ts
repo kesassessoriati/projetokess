@@ -170,6 +170,7 @@ const ImportCrmLeadsService = async ({
                     purchaseType: leadRow.purchaseType ? String(leadRow.purchaseType) : undefined,
                     purchaseValue: leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined,
                     tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
+                    address: leadRow.address || leadRow.endereco || undefined,
                     birthDate: parseDate(leadRow.birthDate || leadRow.dataNascimento),
                     clientSince: parseDate(leadRow.clientSince || leadRow.clienteDesde),
                     acquisitionDate: parseDate(leadRow.acquisitionDate),
