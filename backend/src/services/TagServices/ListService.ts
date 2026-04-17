@@ -5,6 +5,7 @@ import TicketTag from "../../models/TicketTag";
 
 import removeAccents from "remove-accents";
 import Contact from "../../models/Contact";
+import CrmClient from "../../models/CrmClient";
 
 interface Request {
   companyId: number;
@@ -58,14 +59,14 @@ const ListService = async ({
       limit: pageSize,
       include: [
         {
-          // model: ContactTag,
-          // as: "contactTags",
-          // include: [
-          //   {
           model: Contact,
           as: "contacts",
-          //   }
-          // ]
+          attributes: ["id", "name", "number"],
+        },
+        {
+          model: CrmClient,
+          as: "clients",
+          attributes: ["id", "name", "phone"],
         },
       ],
       attributes: [

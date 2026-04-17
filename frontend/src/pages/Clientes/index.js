@@ -384,6 +384,11 @@ const Clients = () => {
   const [selectedTagsToAssign, setSelectedTagsToAssign] = useState([]);
   const [bulkTagsLoading, setBulkTagsLoading] = useState(false);
 
+  // Bulk remove tags state
+  const [bulkRemoveTagsModalOpen, setBulkRemoveTagsModalOpen] = useState(false);
+  const [selectedTagsToRemove, setSelectedTagsToRemove] = useState([]);
+  const [bulkRemoveTagsLoading, setBulkRemoveTagsLoading] = useState(false);
+
   // Quick send state
   const [quickSendModalOpen, setQuickSendModalOpen] = useState(false);
   const [quickSendClient, setQuickSendClient] = useState(null);
@@ -553,6 +558,40 @@ const Clients = () => {
       setBulkTagsModalOpen(true);
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const handleOpenBulkRemoveTagsModal = async () => {
+    try {
+      const { data } = await api.get("/tags/list", { params: { kanban: 0 } });
+      setAvailableTags(data || []);
+      setSelectedTagsToRemove([]);
+      setBulkRemoveTagsModalOpen(true);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleBulkRemoveTags = async () => {
+    if (selectedTagsToRemove.length === 0) return;
+    setBulkRemoveTagsLoading(true);
+    try {
+      await api.post("/crm/clients/bulk-remove-tags", {
+        clientIds: selectedClients,
+        tagIds: selectedTagsToRemove.map((t) => t.id),
+      });
+      toast.success(
+        `Etiquetas removidas de ${selectedClients.length} cliente(s).`,
+      );
+      setBulkRemoveTagsModalOpen(false);
+      setSelectedTagsToRemove([]);
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBulkRemoveTagsLoading(false);
     }
   };
 
@@ -867,6 +906,74 @@ const Clients = () => {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={bulkRemoveTagsModalOpen}
+        onClose={() => setBulkRemoveTagsModalOpen(false)}
+      >
+        <DialogTitle>Remover Etiquetas</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 340 }}>
+          <Typography
+            variant="body2"
+            style={{ marginBottom: 12, color: "#6b7280" }}
+          >
+            Selecione as etiquetas que serão removidas dos{" "}
+            {selectedClients.length} cliente(s) selecionado(s).
+          </Typography>
+          <Autocomplete
+            multiple
+            size="small"
+            options={availableTags}
+            value={selectedTagsToRemove}
+            onChange={(_, newValue) => setSelectedTagsToRemove(newValue)}
+            getOptionLabel={(option) => option.name || ""}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <MuiChip
+                  key={option.id}
+                  variant="default"
+                  label={option.name}
+                  size="small"
+                  style={{
+                    backgroundColor: option.color || "#e5e7eb",
+                    color: "#fff",
+                    fontWeight: 600,
+                    marginRight: 2,
+                  }}
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                placeholder="Buscar etiquetas..."
+                size="small"
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkRemoveTagsModalOpen(false)}
+            disabled={bulkRemoveTagsLoading}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleBulkRemoveTags}
+            variant="contained"
+            disabled={selectedTagsToRemove.length === 0 || bulkRemoveTagsLoading}
+            style={{
+              backgroundColor: selectedTagsToRemove.length === 0 || bulkRemoveTagsLoading ? undefined : "#dc2626",
+              color: "#fff",
+            }}
+          >
+            {bulkRemoveTagsLoading ? "Removendo..." : "Remover"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box className={classes.header}>
         <Box className={classes.titleContainer}>
           <BusinessCenterIcon className={classes.titleIcon} />
@@ -1045,6 +1152,14 @@ const Clients = () => {
                 onClick={handleOpenBulkTagsModal}
               >
                 Adicionar etiquetas
+              </Button>
+              <Button
+                size="small"
+                style={{ color: "#dc2626" }}
+                startIcon={<LabelIcon style={{ fontSize: 16 }} />}
+                onClick={handleOpenBulkRemoveTagsModal}
+              >
+                Remover etiquetas
               </Button>
               <Button size="small" onClick={handleClearSelection}>
                 Limpar seleção

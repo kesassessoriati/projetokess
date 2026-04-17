@@ -29,7 +29,7 @@ import {
   Phone as PhoneIcon,
   Label as LabelIcon,
   Search as SearchIcon,
-  FilterList as FilterListIcon
+  BusinessCenter as BusinessCenterIcon
 } from "@material-ui/icons";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -113,16 +113,6 @@ const useStyles = makeStyles((theme) => ({
       padding: "12px 14px",
     },
   },
-  filterButton: {
-    backgroundColor: theme.palette.background.default,
-    borderRadius: "12px",
-    padding: "8px 16px",
-    textTransform: "none",
-    color: theme.palette.text.secondary,
-    "&:hover": {
-      backgroundColor: theme.palette.action.hover,
-    },
-  },
   tableContainer: {
     borderRadius: "8px",
     border: `1px solid ${theme.palette.divider}`,
@@ -161,8 +151,15 @@ const useStyles = makeStyles((theme) => ({
     padding: "16px",
     borderBottom: `1px solid ${theme.palette.divider}`,
   },
-  avatar: {
+  avatarContact: {
     backgroundColor: "#25d366",
+    color: "#fff",
+    width: theme.spacing(4),
+    height: theme.spacing(4),
+    fontSize: "1rem",
+  },
+  avatarClient: {
+    backgroundColor: "#1976d2",
     color: "#fff",
     width: theme.spacing(4),
     height: theme.spacing(4),
@@ -195,7 +192,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.error.light,
     color: theme.palette.error.main,
     "&:hover": {
-      backgroundColor: theme.palette.error.lighter,
+      backgroundColor: "#ffcdd2",
     },
   },
   emptyState: {
@@ -227,7 +224,7 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   countBadge: {
-    backgroundColor: theme.palette.primary.main,
+    backgroundColor: "rgba(255,255,255,0.25)",
     color: theme.palette.primary.contrastText,
     borderRadius: "12px",
     padding: "4px 8px",
@@ -235,17 +232,23 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 600,
     marginLeft: theme.spacing(1),
   },
+  typeBadgeContact: {
+    backgroundColor: "#e8f5e9",
+    color: "#2e7d32",
+    fontWeight: 600,
+    fontSize: "0.7rem",
+    height: 20,
+    borderRadius: 4,
+  },
+  typeBadgeClient: {
+    backgroundColor: "#e3f2fd",
+    color: "#1565c0",
+    fontWeight: 600,
+    fontSize: "0.7rem",
+    height: 20,
+    borderRadius: 4,
+  },
 }));
-
-const handleRemoveContactTag = async (contactId, tagId) => {
-  try {
-    await api.delete(`/tags-contacts/${tagId}/${contactId}`);
-    // Add success notification here
-  } catch (error) {
-    console.error("Erro ao remover tag de contato:", error);
-    // Add error notification here
-  }
-};
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -253,23 +256,41 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 
 const ContactTagListModal = ({ open, onClose, tag }) => {
   const classes = useStyles();
-  const [tagList, setTagList] = useState(tag?.contacts || []);
-  const [filteredList, setFilteredList] = useState(tag?.contacts || []);
+  const [allEntities, setAllEntities] = useState([]);
+  const [filteredList, setFilteredList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useContext(AuthContext);
   const { isConnected, on } = useSocket();
 
+  // Build combined list from contacts + clients
+  const buildEntities = (tagObj) => {
+    const contacts = (tagObj?.contacts || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      displayPhone: c.number,
+      entityType: "Contato",
+      entityKey: `contact-${c.id}`,
+    }));
+    const clients = (tagObj?.clients || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      displayPhone: c.phone,
+      entityType: "Cliente",
+      entityKey: `client-${c.id}`,
+    }));
+    return [...contacts, ...clients];
+  };
+
   useEffect(() => {
     if (open && tag) {
       setLoading(true);
-      // Simulate loading (replace with actual data fetching)
       const timer = setTimeout(() => {
-        const contacts = tag.contacts || [];
-        setTagList(contacts);
-        setFilteredList(contacts);
+        const entities = buildEntities(tag);
+        setAllEntities(entities);
+        setFilteredList(entities);
         setLoading(false);
-      }, 800);
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [open, tag]);
@@ -278,39 +299,51 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
     if (!isConnected || !tag?.id) return;
 
     const onCompanyTags = (data) => {
-      if (data.action === "update" || data.action === "create") {
-        if (data.tag.id === tag.id && data.tag?.contacts?.length > 0) {
-          setTagList(data.tag.contacts);
-          setFilteredList(data.tag.contacts);
-        }
-        if (data.tag.id === tag.id && data.tag?.contacts?.length === 0) {
-          setTagList([]);
-          setFilteredList([]);
-        }
+      if (
+        (data.action === "update" || data.action === "create") &&
+        data.tag?.id === tag.id
+      ) {
+        const entities = buildEntities(data.tag);
+        setAllEntities(entities);
+        setFilteredList(entities);
       }
     };
 
     const cleanup = on(`company${user.companyId}-tag`, onCompanyTags);
-
-    return () => {
-      cleanup();
-    };
+    return () => cleanup();
   }, [isConnected, on, tag?.id, user.companyId]);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
-      setFilteredList(tagList);
+      setFilteredList(allEntities);
     } else {
-      const filtered = tagList.filter(contact =>
-        contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.number?.includes(searchTerm)
+      const lower = searchTerm.toLowerCase();
+      setFilteredList(
+        allEntities.filter(
+          (e) =>
+            e.name?.toLowerCase().includes(lower) ||
+            e.displayPhone?.includes(searchTerm)
+        )
       );
-      setFilteredList(filtered);
     }
-  }, [searchTerm, tagList]);
+  }, [searchTerm, allEntities]);
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+  const handleRemoveContactTag = async (entity) => {
+    try {
+      if (entity.entityType === "Contato") {
+        await api.delete(`/tags-contacts/${tag.id}/${entity.id}`);
+      } else {
+        // Remove from crm_client_tags via bulk-remove-tags endpoint
+        await api.post("/crm/clients/bulk-remove-tags", {
+          clientIds: [entity.id],
+          tagIds: [tag.id],
+        });
+      }
+      const updated = allEntities.filter((e) => e.entityKey !== entity.entityKey);
+      setAllEntities(updated);
+    } catch (error) {
+      console.error("Erro ao remover tag:", error);
+    }
   };
 
   return (
@@ -320,15 +353,13 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
       onClose={onClose}
       closeAfterTransition
       BackdropComponent={Backdrop}
-      BackdropProps={{
-        timeout: 500,
-      }}
+      BackdropProps={{ timeout: 500 }}
     >
       <Transition in={open} timeout={300}>
         <div className={classes.paper}>
           <div className={classes.header}>
             <div className={classes.headerContent}>
-              <Avatar className={classes.avatar}>
+              <Avatar className={classes.avatarContact}>
                 <LabelIcon fontSize="small" />
               </Avatar>
               <Typography variant="h6" className={classes.title}>
@@ -338,10 +369,12 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
                   label={tag?.name}
                   className={classes.tagChip}
                   size="small"
+                  style={{ marginLeft: 8 }}
                 />
                 {filteredList.length > 0 && (
                   <span className={classes.countBadge}>
-                    {filteredList.length} {filteredList.length === 1 ? "contato" : "contatos"}
+                    {filteredList.length}{" "}
+                    {filteredList.length === 1 ? "registro" : "registros"}
                   </span>
                 )}
               </Typography>
@@ -360,9 +393,9 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
               <TextField
                 className={classes.searchField}
                 variant="outlined"
-                placeholder="Localizar contato"
+                placeholder="Localizar contato ou cliente"
                 value={searchTerm}
-                onChange={handleSearchChange}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -371,7 +404,6 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
                   ),
                 }}
               />
-
             </Box>
 
             {loading ? (
@@ -380,49 +412,71 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
               </div>
             ) : filteredList.length > 0 ? (
               <TableContainer component={Paper} className={classes.tableContainer}>
-                <Table className={classes.table} aria-label="Tabela de contatos" stickyHeader>
+                <Table className={classes.table} aria-label="Tabela de registros" stickyHeader>
                   <TableHead className={classes.tableHeader}>
                     <TableRow>
-                      <TableCell>Contato</TableCell>
+                      <TableCell>Nome</TableCell>
+                      <TableCell>Tipo</TableCell>
                       <TableCell>Telefone</TableCell>
                       <TableCell className={classes.actionCell}>Ações</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredList.map((contact) => (
-                      <TableRow key={contact.id} className={classes.tableRow} hover>
+                    {filteredList.map((entity) => (
+                      <TableRow key={entity.entityKey} className={classes.tableRow} hover>
                         <TableCell className={classes.tableCell}>
                           <div className={classes.contactName}>
-                            <Avatar className={classes.avatar}>
-                              {contact.name?.charAt(0) || <PersonIcon fontSize="small" />}
+                            <Avatar
+                              className={
+                                entity.entityType === "Contato"
+                                  ? classes.avatarContact
+                                  : classes.avatarClient
+                              }
+                            >
+                              {entity.entityType === "Contato" ? (
+                                entity.name?.charAt(0) || <PersonIcon fontSize="small" />
+                              ) : (
+                                <BusinessCenterIcon fontSize="small" />
+                              )}
                             </Avatar>
                             <div className={classes.contactInfo}>
                               <Typography variant="body1" style={{ fontWeight: 500 }}>
-                                {contact.name || "Contato sem nome"}
+                                {entity.name || "Sem nome"}
                               </Typography>
                               <Typography variant="caption" className={classes.contactId}>
-                                ID: {contact.id}
+                                ID: {entity.id}
                               </Typography>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className={classes.tableCell}>
+                          <Chip
+                            label={entity.entityType}
+                            size="small"
+                            className={
+                              entity.entityType === "Contato"
+                                ? classes.typeBadgeContact
+                                : classes.typeBadgeClient
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className={classes.tableCell}>
                           <div className={classes.phoneCell}>
                             <PhoneIcon fontSize="small" color="action" />
                             <Typography variant="body1">
-                              {contact.number || "N/A"}
+                              {entity.displayPhone || "N/A"}
                             </Typography>
                           </div>
                         </TableCell>
                         <TableCell className={classes.tableCell} align="center">
-                          <Tooltip title="Remover da seta de tag">
+                          <Tooltip title="Remover desta tag">
                             <IconButton
                               style={{
-                                backgroundColor: "#FF6B6B", // Vermelho claro
+                                backgroundColor: "#FF6B6B",
                                 padding: "8px",
                                 borderRadius: "10px",
                               }}
-                              onClick={() => handleRemoveContactTag(contact.id, tag.id)}
+                              onClick={() => handleRemoveContactTag(entity)}
                               size="small"
                             >
                               <DeleteIcon style={{ color: "#fff" }} />
@@ -438,12 +492,14 @@ const ContactTagListModal = ({ open, onClose, tag }) => {
               <div className={classes.emptyState}>
                 <PersonIcon className={classes.emptyIcon} />
                 <Typography variant="h6" className={classes.emptyText}>
-                  {searchTerm ? "Nenhum contato correspondente encontrado" : "Nenhum contato nesta tag"}
+                  {searchTerm
+                    ? "Nenhum registro correspondente encontrado"
+                    : "Nenhum contato ou cliente nesta tag"}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   {searchTerm
                     ? "Tente ajustar seus critérios de pesquisa"
-                    : "Adicione contatos a esta tag para vê-los listados aqui"}
+                    : "Adicione contatos ou clientes a esta tag para vê-los listados aqui"}
                 </Typography>
               </div>
             )}

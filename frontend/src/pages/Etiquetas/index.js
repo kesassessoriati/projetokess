@@ -448,19 +448,23 @@ const Tags = () => {
                 <Box className={classes.itemDetails}>
                   <span>ID: {tag.id}</span>
                   <span>•</span>
-                  <Tooltip title={tag?.contacts?.length > 0 ? "Ver contatos" : ""}>
-                    <Box
-                      className={`${classes.contactCount} ${tag?.contacts?.length === 0 ? classes.contactCountDisabled : ""
-                        }`}
-                      onClick={() => handleShowContacts(tag?.contacts, tag)}
-                    >
-                      <PeopleIcon style={{ fontSize: 16 }} />
-                      <span>
-                        {tag?.contacts?.length || 0}{" "}
-                        {tag?.contacts?.length === 1 ? "contato" : "contatos"}
-                      </span>
-                    </Box>
-                  </Tooltip>
+                  {(() => {
+                    const totalCount = (tag?.contacts?.length || 0) + (tag?.clients?.length || 0);
+                    return (
+                      <Tooltip title={totalCount > 0 ? "Ver contatos e clientes" : ""}>
+                        <Box
+                          className={`${classes.contactCount} ${totalCount === 0 ? classes.contactCountDisabled : ""}`}
+                          onClick={() => handleShowContacts(tag?.contacts, tag)}
+                        >
+                          <PeopleIcon style={{ fontSize: 16 }} />
+                          <span>
+                            {totalCount}{" "}
+                            {totalCount === 1 ? "contato" : "contatos"}
+                          </span>
+                        </Box>
+                      </Tooltip>
+                    );
+                  })()}
                 </Box>
               </Box>
 

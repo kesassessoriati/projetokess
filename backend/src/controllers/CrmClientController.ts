@@ -157,6 +157,42 @@ export const bulkAssignTags = async (
   return res.status(200).json({ success: true, updated: clients.length });
 };
 
+export const bulkRemoveTags = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { clientIds, tagIds } = req.body as { clientIds: number[]; tagIds: number[] };
+
+  if (!Array.isArray(clientIds) || clientIds.length === 0) {
+    throw new AppError("clientIds deve ser um array não vazio.");
+  }
+  if (!Array.isArray(tagIds) || tagIds.length === 0) {
+    throw new AppError("tagIds deve ser um array não vazio.");
+  }
+
+  // Validate that all clients belong to this company
+  const clients = await CrmClient.findAll({
+    where: { id: clientIds, companyId },
+    attributes: ["id"]
+  });
+
+  if (clients.length === 0) {
+    throw new AppError("Nenhum cliente encontrado.");
+  }
+
+  const validClientIds = clients.map(c => c.id);
+
+  await CrmClientTag.destroy({
+    where: {
+      clientId: validClientIds,
+      tagId: tagIds
+    }
+  });
+
+  return res.status(200).json({ success: true, updated: validClientIds.length });
+};
+
 export const importClients = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const file = req.file;
