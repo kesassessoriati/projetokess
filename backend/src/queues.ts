@@ -40,6 +40,7 @@ import { verifyMediaMessage, verifyMessage } from "./services/WbotServices/wbotM
 import FindOrCreateTicketService from "./services/TicketServices/FindOrCreateTicketService";
 import CreateLogTicketService from "./services/TicketServices/CreateLogTicketService";
 import formatBody from "./helpers/Mustache";
+import renderCampaignTemplate from "./helpers/RenderCampaignTemplate";
 import TicketTag from "./models/TicketTag";
 import Tag from "./models/Tag";
 import { delay } from "@whiskeysockets/baileys";
@@ -766,30 +767,7 @@ function getCampaignValidConfirmationMessages(campaign) {
 }
 
 function getProcessedMessage(msg: string, variables: any[], contact: any) {
-  let finalMessage = msg;
-
-  if (finalMessage.includes("{nome}")) {
-    finalMessage = finalMessage.replace(/{nome}/g, contact.name);
-  }
-
-  if (finalMessage.includes("{email}")) {
-    finalMessage = finalMessage.replace(/{email}/g, contact.email);
-  }
-
-  if (finalMessage.includes("{numero}")) {
-    finalMessage = finalMessage.replace(/{numero}/g, contact.number);
-  }
-
-  if (variables[0]?.value !== '[]') {
-    variables.forEach(variable => {
-      if (finalMessage.includes(`{${variable.key}}`)) {
-        const regex = new RegExp(`{${variable.key}}`, "g");
-        finalMessage = finalMessage.replace(regex, variable.value);
-      }
-    });
-  }
-
-  return finalMessage;
+  return renderCampaignTemplate(msg, contact, variables);
 }
 
 const checkerWeek = async (companyId: number) => {
@@ -944,22 +922,39 @@ async function handleProcessCampaign(job) {
           isGroup: contact.isGroup
         }));
 
-        // const baseDelay = job.data.delay || 0;
-        const longerIntervalAfter = parseToMilliseconds(settings.longerIntervalAfter);
-        const greaterInterval = parseToMilliseconds(settings.greaterInterval);
-        const messageInterval = settings.messageInterval;
+        const longerIntervalAfterCount = Number(settings.longerIntervalAfter) || 20;
+        const greaterIntervalSeconds = Number(settings.greaterInterval) || 60;
+        const messageIntervalSeconds = Number(settings.messageInterval) || 20;
+        const randomizedDispatch = Boolean(campaign.randomizedDispatch);
+        const randomMinDelay = Math.max(
+          5,
+          Number(campaign.dispatchMinDelaySeconds || messageIntervalSeconds || 5)
+        );
+        const randomMaxDelay = Math.max(
+          randomMinDelay,
+          Math.min(
+            60,
+            Number(campaign.dispatchMaxDelaySeconds || greaterIntervalSeconds || 60)
+          )
+        );
 
-        let baseDelay = campaign.scheduledAt;
+        let nextDispatchAt = campaign.scheduledAt ? new Date(campaign.scheduledAt) : new Date();
 
         const isAllowedTime = await checkTime(campaign.companyId);
         const isAllowedWeek = await checkerWeek(campaign.companyId);
 
         const queuePromises = [];
         for (let i = 0; i < contactData.length; i++) {
-          baseDelay = addSeconds(baseDelay, i > longerIntervalAfter ? greaterInterval : messageInterval);
+          const intervalSeconds = randomizedDispatch
+            ? Math.floor(Math.random() * (randomMaxDelay - randomMinDelay + 1)) + randomMinDelay
+            : (longerIntervalAfterCount > 0 && i >= longerIntervalAfterCount
+              ? greaterIntervalSeconds
+              : messageIntervalSeconds);
+
+          nextDispatchAt = addSeconds(nextDispatchAt, intervalSeconds);
 
           const { contactId, campaignId, variables } = contactData[i];
-          let delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
+          let delay = Math.max(differenceInSeconds(nextDispatchAt, new Date()), 0) * 1000;
 
           // Se não for horário permitido, adicionamos um delay de 1 hora para reprocessar
           if (!isAllowedTime || !isAllowedWeek) {
@@ -972,7 +967,9 @@ async function handleProcessCampaign(job) {
             { removeOnComplete: true, delay }
           );
           queuePromises.push(queuePromise);
-          logger.info(`Registro enviado pra fila de disparo: Campanha=${campaign.id};Contato=${contacts[i].name};delay=${delay}`);
+          logger.info(
+            `Registro enviado pra fila de disparo: Campanha=${campaign.id};Contato=${contacts[i].name};delay=${delay};intervalSeconds=${intervalSeconds};randomized=${randomizedDispatch}`
+          );
         }
         await Promise.all(queuePromises);
         // await campaign.update({ status: "EM_ANDAMENTO" });
@@ -1105,6 +1102,20 @@ async function handleDispatchCampaign(job) {
       }
     );
 
+    const renderedButtons = renderCampaignTemplate(campaign.buttons || [], campaignShipping.contact, []);
+    const renderedListSections = renderCampaignTemplate(campaign.listSections || [], campaignShipping.contact, []);
+    const renderedCarouselCards = renderCampaignTemplate(campaign.carouselCards || [], campaignShipping.contact, []);
+    const renderedListButtonText = renderCampaignTemplate(campaign.listButtonText || "", campaignShipping.contact, []);
+    const renderedListFooter = renderCampaignTemplate(campaign.listFooter || "", campaignShipping.contact, []);
+    const renderedConfirmationMessage = renderCampaignTemplate(campaignShipping.confirmationMessage || "", campaignShipping.contact, []);
+
+    campaign.buttons = renderedButtons;
+    campaign.listSections = renderedListSections;
+    campaign.carouselCards = renderedCarouselCards;
+    campaign.listButtonText = renderedListButtonText || campaign.listButtonText;
+    campaign.listFooter = renderedListFooter || campaign.listFooter;
+    campaignShipping.confirmationMessage = renderedConfirmationMessage;
+
     const chatId = campaignShipping.contact.isGroup ? `${campaignShipping.number}@g.us` : `${campaignShipping.number}@s.whatsapp.net`;
 
     const emitTicketUpdate = async (ticketId: number) => {
@@ -1183,7 +1194,7 @@ async function handleDispatchCampaign(job) {
       if (whatsapp.status === "CONNECTED") {
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           const confirmationMessage = await wbot.sendMessage(chatId, {
-            text: `\u200c ${campaignShipping.confirmationMessage}`
+            text: `\u200c ${renderedConfirmationMessage}`
           });
 
           await verifyMessage(
@@ -1204,9 +1215,9 @@ async function handleDispatchCampaign(job) {
 
           if (!campaign.mediaPath) {
             let sentMessage;
-            if (campaign.messageType === "buttons" && campaign.buttons?.length) {
-              sentMessage = await sendButtonMessage(wbot, chatId, campaignShipping.message, "", campaign.buttons);
-            } else if (campaign.messageType === "list" && ((campaign.listSections as any[])?.length || campaign.buttons?.length)) {
+            if (campaign.messageType === "buttons" && renderedButtons?.length) {
+              sentMessage = await sendButtonMessage(wbot, chatId, campaignShipping.message, "", renderedButtons);
+            } else if (campaign.messageType === "list" && ((renderedListSections as any[])?.length || renderedButtons?.length)) {
               sentMessage = await sendListMessage(
                 wbot,
                 chatId,
@@ -1300,7 +1311,7 @@ async function handleDispatchCampaign(job) {
 
       if (campaign.confirmation && campaignShipping.confirmation === null) {
         await wbot.sendMessage(chatId, {
-          text: campaignShipping.confirmationMessage
+          text: renderedConfirmationMessage
         });
         await campaignShipping.update({ confirmationRequestedAt: moment() });
 

@@ -152,6 +152,16 @@ class Campaign extends Model<Campaign> {
   @Column(DataType.STRING(20))
   campaignType: string; // whatsapp | email
 
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  randomizedDispatch: boolean;
+
+  @Column(DataType.INTEGER)
+  dispatchMinDelaySeconds: number;
+
+  @Column(DataType.INTEGER)
+  dispatchMaxDelaySeconds: number;
+
   @Column(DataType.STRING(255))
   emailSubject: string;
 
