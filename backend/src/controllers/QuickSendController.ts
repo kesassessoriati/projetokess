@@ -8,11 +8,13 @@ import Whatsapp from "../models/Whatsapp";
 import Contact from "../models/Contact";
 import Ticket from "../models/Ticket";
 import CrmLead from "../models/CrmLead";
+import Opportunity from "../models/Opportunity";
 import CompaniesSettings from "../models/CompaniesSettings";
 import Campaign from "../models/Campaign";
 import ContactList from "../models/ContactList";
 import ContactListItem from "../models/ContactListItem";
 import Tag from "../models/Tag";
+import PipelineStage from "../models/PipelineStage";
 
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -59,9 +61,12 @@ interface QuickSendBody {
 
 interface QuickSendCampaignBody extends QuickSendBody {
     campaignName?: string;
-    recipientMode?: "single" | "tags" | "contactList" | "upload";
+    recipientMode?: "single" | "tags" | "contactList" | "upload" | "crmStage";
     contactListId?: string | number;
     tagIds?: string | number[] | number[];
+    stageId?: string | number;
+    ownerUserId?: string | number;
+    viewMode?: "team" | "personal";
     sendNow?: string | boolean;
     scheduledAt?: string;
 }
@@ -651,6 +656,9 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
         name,
         contactListId,
         tagIds: tagIdsRaw,
+        stageId,
+        ownerUserId,
+        viewMode,
         whatsappId,
         queueId,
         sendNow: sendNowRaw,
@@ -762,6 +770,92 @@ export const createCampaign = async (req: Request, res: Response): Promise<Respo
             resolvedContactsCount = await ContactListItem.count({
                 where: { companyId, contactListId: record.id }
             });
+        } else if (recipientMode === "crmStage") {
+            const normalizedStageId = Number(stageId);
+
+            if (!normalizedStageId) {
+                throw new AppError("Informe um estágio do funil para o disparo em massa.", 400);
+            }
+
+            const stage = await PipelineStage.findOne({
+                where: { id: normalizedStageId, companyId }
+            });
+
+            if (!stage) {
+                throw new AppError("Estágio do funil não encontrado.", 404);
+            }
+
+            const opportunityWhere: any = {
+                stageId: normalizedStageId,
+                companyId,
+                status: "OPEN"
+            };
+
+            if (req.user.profile !== "admin") {
+                opportunityWhere.assignedUserId = userId;
+            } else if (ownerUserId) {
+                opportunityWhere.assignedUserId = Number(ownerUserId);
+            } else if (viewMode === "personal") {
+                opportunityWhere.assignedUserId = userId;
+            }
+
+            const opportunities = await Opportunity.findAll({
+                where: opportunityWhere,
+                include: [
+                    {
+                        model: Contact,
+                        as: "contact",
+                        attributes: ["id", "name", "number", "email", "isGroup"]
+                    },
+                    {
+                        model: CrmLead,
+                        as: "lead",
+                        attributes: ["id", "name", "phone", "email", "companyName"]
+                    }
+                ]
+            });
+
+            const contacts = opportunities
+                .map(opportunity => {
+                    const contact = opportunity.contact as Contact | undefined;
+                    const lead = opportunity.lead as CrmLead | undefined;
+                    const normalizedNumber = normalizeNumber(
+                        String(contact?.number || lead?.phone || ""),
+                        String(contact?.number || lead?.phone || "")
+                    );
+
+                    if (!normalizedNumber) {
+                        return null;
+                    }
+
+                    return {
+                        name: String(
+                            contact?.name ||
+                            lead?.name ||
+                            lead?.companyName ||
+                            opportunity.title ||
+                            normalizedNumber
+                        ).trim(),
+                        number: normalizedNumber,
+                        email: String(contact?.email || lead?.email || "").trim(),
+                        isGroup: Boolean(contact?.isGroup)
+                    };
+                })
+                .filter(Boolean) as Array<{ name: string; number: string; email?: string; isGroup?: boolean }>;
+
+            if (!contacts.length) {
+                throw new AppError("Nenhum contato válido foi encontrado nesta etapa do funil.", 400);
+            }
+
+            const { record, contactsCount } = await createContactListFromContacts({
+                companyId,
+                name: getQuickSendCampaignName(campaignName, `Funil ${stage.name}`),
+                contacts
+            });
+
+            createdContactList = record;
+            resolvedContactListId = record.id;
+            resolvedContactsCount = contactsCount;
         } else {
             const normalizedInput = normalizeNumber(String(number || ""), "");
 
