@@ -1,5 +1,5 @@
 export const LEAD_STATUS = [
-    { label: "Novo", value: "novo" },
+    { label: "Novo Lead", value: "novo" },
     { label: "Contactado", value: "contactado" },
     { label: "Qualificado", value: "qualificado" },
     { label: "Reunião Agendada", value: "reuniao_agendada" },

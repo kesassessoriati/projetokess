@@ -56,6 +56,10 @@ import GetAppIcon from "@material-ui/icons/GetApp";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import UniversalLeadModal from "../../components/UniversalLeadModal";
 import { CrmAiFab } from "../../components/CrmAiAssistant";
+import {
+  QUICK_MESSAGE_VARIABLES,
+  QUICK_MESSAGE_VARIABLES_HELPER,
+} from "../../constants/messageVariables";
 
 const fCurrency = (value) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -578,7 +582,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const LEAD_STATUS_LABELS = {
-  novo: "Novo",
+  novo: "Novo Lead",
   contactado: "Contactado",
   qualificado: "Qualificado",
   reuniao_agendada: "Reunião Agendada",
@@ -746,6 +750,20 @@ const PipelineBoard = () => {
   const [massTaskBoards, setMassTaskBoards] = useState([]);
   const [massTaskListId, setMassTaskListId] = useState("");
 
+  const appendMassToken = (token) => {
+    setMassMsg((prev) => {
+      const safeCurrent = String(prev || "");
+      const spacer =
+        safeCurrent &&
+        !safeCurrent.endsWith(" ") &&
+        !safeCurrent.endsWith("\n")
+          ? " "
+          : "";
+
+      return `${safeCurrent}${spacer}${token}`;
+    });
+  };
+
   const topScrollRef = useRef(null);
   const boardScrollRef = useRef(null);
   const massMediaInputRef = useRef(null);
@@ -839,6 +857,16 @@ const PipelineBoard = () => {
       }
 
       setBoard(data);
+
+      if (selectedOp?.id && data?.stages?.length) {
+        const refreshedOpportunity = data.stages
+          .flatMap((stage) => stage.opportunities || [])
+          .find((opportunity) => opportunity.id === selectedOp.id);
+
+        if (refreshedOpportunity) {
+          setSelectedOp(refreshedOpportunity);
+        }
+      }
     } catch (err) {
       toast.error("Impossível conectar ao serviço de inteligência");
     } finally {
@@ -1848,6 +1876,60 @@ const PipelineBoard = () => {
                 onChange={(e) => setMassMsg(e.target.value)}
                 placeholder="Digite a mensagem a enviar para todos os contatos desta etapa..."
               />
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+                style={{ marginTop: -4 }}
+              >
+                <Typography
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#4f6f60",
+                    textTransform: "uppercase",
+                    letterSpacing: ".04em",
+                  }}
+                >
+                  Variáveis dinâmicas
+                </Typography>
+                <Typography style={{ fontSize: 11, color: "#789181" }}>
+                  Clique para inserir
+                </Typography>
+              </Box>
+              <Box display="flex" flexWrap="wrap" style={{ gap: 6, marginTop: -4 }}>
+                {QUICK_MESSAGE_VARIABLES.map((item) => (
+                  <Chip
+                    key={item.token}
+                    label={item.label}
+                    size="small"
+                    clickable
+                    onClick={() => appendMassToken(item.token)}
+                    style={{
+                      backgroundColor: "#e0f2fe",
+                      color: "#0f172a",
+                      fontWeight: 700,
+                      border: "1px solid #bae6fd",
+                    }}
+                  />
+                ))}
+              </Box>
+              <Box
+                p={1.25}
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid #cce6d6",
+                  backgroundColor: "#f1fbf5",
+                  marginTop: -4,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  style={{ color: "#2f6f4b", fontSize: 12 }}
+                >
+                  {QUICK_MESSAGE_VARIABLES_HELPER}
+                </Typography>
+              </Box>
               <Box
                 p={2}
                 style={{

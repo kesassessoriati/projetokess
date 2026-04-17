@@ -70,6 +70,7 @@ const findOrCreateLeadByContact = async ({
       email,
       phone: normalizedPhone,
       document: normalizedDocument,
+      status: "novo",
       leadStatus: "novo",
       lastActivityAt: new Date()
     });
@@ -87,6 +88,12 @@ const findOrCreateLeadByContact = async ({
     }
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
+    }
+    if (!lead.status) {
+      updates.status = lead.leadStatus || "novo";
+    }
+    if (!lead.leadStatus) {
+      updates.leadStatus = lead.status || "novo";
     }
     updates.lastActivityAt = new Date();
 

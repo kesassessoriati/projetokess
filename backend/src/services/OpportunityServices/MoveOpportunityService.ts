@@ -63,7 +63,10 @@ const MoveOpportunityService = async ({
         // Auto-sync CrmLead: update stageId and optionally status from stage.linkedStatus
         if (opportunity.leadId) {
             const CrmLead = (await import("../../models/CrmLead")).default;
-            const leadUpdate: Record<string, any> = { stageId: toStageId };
+            const leadUpdate: Record<string, any> = {
+                stageId: toStageId,
+                pipelineId: toStage?.pipelineId || opportunity.pipelineId
+            };
 
             if (toStage?.linkedStatus) {
                 leadUpdate.status = toStage.linkedStatus;

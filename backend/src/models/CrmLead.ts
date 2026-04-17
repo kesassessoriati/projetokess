@@ -120,7 +120,7 @@ class CrmLead extends Model<CrmLead> {
   @Column
   medium: string;
 
-  @Default("new")
+  @Default("novo")
   @Column
   status: string;
 

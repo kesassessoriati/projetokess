@@ -92,6 +92,7 @@ const syncContactToLead = async ({
       email,
       phone: normalizedPhone,
       document: normalizedDocument,
+      status: "novo",
       leadStatus: "novo",
       lastActivityAt: new Date()
     });
@@ -120,6 +121,12 @@ const syncContactToLead = async ({
 
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
+    }
+    if (!lead.status) {
+      updates.status = lead.leadStatus || "novo";
+    }
+    if (!lead.leadStatus) {
+      updates.leadStatus = lead.status || "novo";
     }
 
     if (Object.keys(updates).length > 0) {
