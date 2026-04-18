@@ -830,19 +830,21 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                             />
                           </div>
                         </Grid>
-                        <Grid style={{ paddingTop: 15 }} item>
-                          <FormControlLabel
-                            control={
-                              <Field
-                                as={Switch}
-                                color="primary"
-                                name="isDefault"
-                                checked={values.isDefault}
-                              />
-                            }
-                            label={i18n.t("whatsappModal.form.default")}
-                          />
-                        </Grid>
+                        {user?.profile === "admin" && (
+                          <Grid style={{ paddingTop: 15 }} item>
+                            <FormControlLabel
+                              control={
+                                <Field
+                                  as={Switch}
+                                  color="primary"
+                                  name="isDefault"
+                                  checked={values.isDefault}
+                                />
+                              }
+                              label={i18n.t("whatsappModal.form.default")}
+                            />
+                          </Grid>
+                        )}
                         <Grid style={{ paddingTop: 15 }} item>
                           <FormControlLabel
                             control={
