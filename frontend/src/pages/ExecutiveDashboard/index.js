@@ -31,6 +31,7 @@ import {
   GetApp,
   Refresh,
   Edit,
+  Tune,
   EventAvailable,
   Timeline,
   EmojiEvents,
@@ -55,6 +56,11 @@ const PERIODS = [
 
 const number = (value) =>
   new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+const money = (value) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0));
 
 const percent = (value) => `${Number(value || 0).toFixed(1)}%`;
 const toInputValue = (value) => String(Number(value || 0));
@@ -64,20 +70,6 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(4),
     minHeight: "100vh",
     background: "linear-gradient(180deg, #f6fbfa 0%, #edf5f3 100%)",
-  },
-  hero: {
-    padding: theme.spacing(3),
-    borderRadius: 24,
-    color: "#fff",
-    background:
-      "linear-gradient(135deg, #10283f 0%, #18486a 46%, #18844f 100%)",
-    boxShadow: "0 22px 44px rgba(16,40,63,0.18)",
-  },
-  heroPanel: {
-    borderRadius: 18,
-    padding: theme.spacing(2.5),
-    background: "rgba(255,255,255,0.09)",
-    border: "1px solid rgba(255,255,255,0.12)",
   },
   filterBar: {
     marginTop: theme.spacing(3),
@@ -163,33 +155,6 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(1),
     marginTop: theme.spacing(2),
   },
-  metricBadge: {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    minWidth: 138,
-    padding: "12px 14px",
-    borderRadius: 16,
-    fontSize: "0.78rem",
-    fontWeight: 800,
-    background:
-      "linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.08))",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.14)",
-    boxShadow: "0 14px 28px rgba(6,22,34,0.12)",
-  },
-  metricBadgeLabel: {
-    opacity: 0.78,
-    fontSize: "0.74rem",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  },
-  metricBadgeValue: {
-    marginTop: 4,
-    fontSize: "1.08rem",
-    fontWeight: 900,
-    lineHeight: 1.1,
-  },
   highlightedStageCard: {
     padding: theme.spacing(2.25),
     borderRadius: 18,
@@ -227,6 +192,13 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 14,
     background: "#fbfefd",
   },
+  filterActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
+  },
 }));
 
 const EmptyState = ({ title, description, buttonLabel, onClick, icon }) => {
@@ -261,6 +233,7 @@ const OperationalMetricCard = ({
   classes,
   title,
   value,
+  displayValue,
   helper,
   icon,
   accent,
@@ -273,7 +246,9 @@ const OperationalMetricCard = ({
     <Box display="flex" justifyContent="space-between" alignItems="flex-start">
       <Box>
         <Typography className={classes.label}>{title}</Typography>
-        <Typography className={classes.value}>{number(value)}</Typography>
+        <Typography className={classes.value}>
+          {displayValue || number(value)}
+        </Typography>
       </Box>
       <Box style={{ color: accent }}>{icon}</Box>
     </Box>
@@ -360,6 +335,7 @@ const ExecutiveDashboard = () => {
   const [data, setData] = useState(null);
   const [goalOpen, setGoalOpen] = useState(false);
   const [highlightOpen, setHighlightOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [filters, setFilters] = useState({
     period: "month",
     dateFrom: "",
@@ -375,6 +351,15 @@ const ExecutiveDashboard = () => {
     sellerTargets: [],
   });
   const [highlightedStageIds, setHighlightedStageIds] = useState([]);
+  const [metricVisibilityForm, setMetricVisibilityForm] = useState({
+    avgSalesCycle: false,
+    winRate: false,
+    stageEntries: false,
+    monitoredStages: false,
+    revenueReal: false,
+    revenueForecast: false,
+    revenueGap: false,
+  });
 
   const fetchDashboard = async (nextFilters = filters, showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -397,6 +382,25 @@ const ExecutiveDashboard = () => {
         pipelineId: response.filters.pipelineId || "",
       });
       setHighlightedStageIds(response.preferences?.highlightedStageIds || []);
+      setMetricVisibilityForm({
+        avgSalesCycle: Boolean(
+          response.preferences?.metricVisibility?.avgSalesCycle,
+        ),
+        winRate: Boolean(response.preferences?.metricVisibility?.winRate),
+        stageEntries: Boolean(
+          response.preferences?.metricVisibility?.stageEntries,
+        ),
+        monitoredStages: Boolean(
+          response.preferences?.metricVisibility?.monitoredStages,
+        ),
+        revenueReal: Boolean(
+          response.preferences?.metricVisibility?.revenueReal,
+        ),
+        revenueForecast: Boolean(
+          response.preferences?.metricVisibility?.revenueForecast,
+        ),
+        revenueGap: Boolean(response.preferences?.metricVisibility?.revenueGap),
+      });
     } catch (error) {
       toast.error("Erro ao carregar o dashboard CRM.");
     } finally {
@@ -517,6 +521,45 @@ const ExecutiveDashboard = () => {
       fetchDashboard(filters, false);
     } catch (error) {
       toast.error("Nao foi possivel salvar as etapas em destaque.");
+    }
+  };
+
+  const openMetricSettings = () => {
+    setMetricVisibilityForm({
+      avgSalesCycle: Boolean(
+        data?.preferences?.metricVisibility?.avgSalesCycle,
+      ),
+      winRate: Boolean(data?.preferences?.metricVisibility?.winRate),
+      stageEntries: Boolean(data?.preferences?.metricVisibility?.stageEntries),
+      monitoredStages: Boolean(
+        data?.preferences?.metricVisibility?.monitoredStages,
+      ),
+      revenueReal: Boolean(data?.preferences?.metricVisibility?.revenueReal),
+      revenueForecast: Boolean(
+        data?.preferences?.metricVisibility?.revenueForecast,
+      ),
+      revenueGap: Boolean(data?.preferences?.metricVisibility?.revenueGap),
+    });
+    setSettingsOpen(true);
+  };
+
+  const handleMetricVisibilityChange = (key) => (event) => {
+    setMetricVisibilityForm((current) => ({
+      ...current,
+      [key]: event.target.checked,
+    }));
+  };
+
+  const saveMetricSettings = async () => {
+    try {
+      await api.put("/executive/dashboard/preferences", {
+        metricVisibility: metricVisibilityForm,
+      });
+      toast.success("Configuracoes de metricas atualizadas.");
+      setSettingsOpen(false);
+      fetchDashboard(filters, false);
+    } catch (error) {
+      toast.error("Nao foi possivel salvar as metricas avancadas.");
     }
   };
 
@@ -703,6 +746,79 @@ const ExecutiveDashboard = () => {
     ];
   }, [data]);
 
+  const advancedMetricCards = useMemo(() => {
+    if (!data) return [];
+
+    return [
+      {
+        key: "avgSalesCycle",
+        enabled: data.preferences?.metricVisibility?.avgSalesCycle,
+        title: "Ciclo medio",
+        displayValue: `${Number(data.performance.avgSalesCycle || 0).toFixed(1)} dias`,
+        helper:
+          "Tempo medio para percorrer o ciclo comercial no recorte atual.",
+        accent: "#0f766e",
+        icon: <Timer style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "winRate",
+        enabled: data.preferences?.metricVisibility?.winRate,
+        title: "Taxa de ganho",
+        displayValue: percent(data.performance.winRate),
+        helper: "Percentual de oportunidades convertidas em ganho.",
+        accent: "#178a4a",
+        icon: <EmojiEvents style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "stageEntries",
+        enabled: data.preferences?.metricVisibility?.stageEntries,
+        title: "Entradas no periodo",
+        value: data.pipelineHealth.overview.totalEnteredInPeriod,
+        helper:
+          "Movimentacoes de leads e oportunidades que entraram nas etapas.",
+        accent: "#1d4ed8",
+        icon: <Timeline style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "monitoredStages",
+        enabled: data.preferences?.metricVisibility?.monitoredStages,
+        title: "Etapas monitoradas",
+        value: data.pipelineHealth.overview.totalStages,
+        helper: "Quantidade total de etapas disponiveis no funil ativo.",
+        accent: "#7c3aed",
+        icon: <ViewKanban style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "revenueReal",
+        enabled: data.preferences?.metricVisibility?.revenueReal,
+        title: "Receita realizada",
+        displayValue: money(data.revenue.real),
+        helper: "Metrica financeira opcional habilitada pelo admin.",
+        accent: "#0f766e",
+        icon: <EmojiEvents style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "revenueForecast",
+        enabled: data.preferences?.metricVisibility?.revenueForecast,
+        title: "Forecast",
+        displayValue: money(data.revenue.forecast),
+        helper: "Projecao financeira opcional habilitada pelo admin.",
+        accent: "#1d4ed8",
+        icon: <Timeline style={{ fontSize: 32 }} />,
+      },
+      {
+        key: "revenueGap",
+        enabled: data.preferences?.metricVisibility?.revenueGap,
+        title: "Gap para meta",
+        displayValue: money(data.revenue.gap),
+        helper:
+          "Indicador financeiro opcional para leitura de distancia da meta.",
+        accent: "#ef4444",
+        icon: <Edit style={{ fontSize: 32 }} />,
+      },
+    ].filter((item) => item.enabled);
+  }, [data]);
+
   const highlightedStages = useMemo(
     () => data?.pipelineHealth?.highlightedStages || [],
     [data],
@@ -734,7 +850,6 @@ const ExecutiveDashboard = () => {
     );
   }
 
-  const progressText = `Estamos no dia ${data.periodProgress.elapsedDays} de ${data.periodProgress.totalDays}. As metas abaixo acompanham esse mesmo recorte operacional.`;
   const openKanban = () => history.push("/kanban");
   const openAgenda = () => history.push("/appointments");
 
@@ -765,146 +880,9 @@ const ExecutiveDashboard = () => {
         }
       />
 
-      <Paper className={classes.hero}>
-        <Grid container spacing={3} alignItems="stretch">
-          <Grid item xs={12} md={7}>
-            <Typography
-              variant="h4"
-              style={{ fontWeight: 900, letterSpacing: "-0.03em" }}
-            >
-              Dashboard operacional do Kanban com leitura por escopo
-            </Typography>
-            <Box mt={1.5}>
-              <Typography style={{ opacity: 0.88, lineHeight: 1.6 }}>
-                {data.filters.scope === "company"
-                  ? "O admin acompanha a operacao completa da equipe. Os dados abaixo mostram o que a empresa precisa atingir neste periodo para bater as metas comerciais."
-                  : `Voce esta vendo apenas os seus numeros em ${data.filters.scopeLabel}. Os dados abaixo mostram as metas que voce precisa alcancar neste periodo.`}
-              </Typography>
-            </Box>
-            <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
-              <Chip label={`Periodo: ${data.periodProgress.label}`} />
-              <Chip label={`Escopo: ${data.filters.scopeLabel}`} />
-              <Chip
-                label={`Meta de reunioes agendadas: ${number(data.targets.meetingsScheduled.current)}`}
-              />
-              <Chip
-                label={`Meta de reunioes realizadas: ${number(data.targets.meetingsCompleted.current)}`}
-              />
-              <Chip
-                label={`Meta de conversoes: ${number(data.targets.conversions.current)}`}
-              />
-            </Box>
-          </Grid>
-
-          <Grid item xs={12} md={5}>
-            <Box className={classes.heroPanel}>
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Typography style={{ fontWeight: 900 }}>
-                  Ritmo operacional do periodo
-                </Typography>
-                <Chip
-                  label={`${data.periodProgress.elapsedPercentage.toFixed(1)}% do periodo`}
-                  style={{
-                    background: "rgba(255,255,255,0.12)",
-                    color: "#fff",
-                  }}
-                />
-              </Box>
-              <Box mt={1.5}>
-                <LinearProgress
-                  variant="determinate"
-                  value={data.periodProgress.elapsedPercentage}
-                  style={{
-                    height: 10,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.22)",
-                  }}
-                />
-              </Box>
-              <Box mt={1.5}>
-                <Typography variant="body2" style={{ opacity: 0.92 }}>
-                  {progressText}
-                </Typography>
-              </Box>
-              <Box mt={2}>
-                <Typography
-                  style={{
-                    fontSize: "0.86rem",
-                    fontWeight: 900,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    opacity: 0.8,
-                  }}
-                >
-                  Metas que precisam ser alcancadas neste periodo
-                </Typography>
-                <Typography
-                  variant="body2"
-                  style={{ opacity: 0.92, marginTop: 4, lineHeight: 1.5 }}
-                >
-                  Estes indicadores representam o que a operacao precisa
-                  entregar no recorte atual. Eles servem como norte para o
-                  funil, para a agenda e para a conversao.
-                </Typography>
-              </Box>
-              <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
-                <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>
-                    Meta de reunioes agendadas
-                  </span>
-                  <span className={classes.metricBadgeValue}>
-                    {number(data.targets.meetingsScheduled.current)}
-                  </span>
-                </Box>
-                <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>
-                    Meta de reunioes realizadas
-                  </span>
-                  <span className={classes.metricBadgeValue}>
-                    {number(data.targets.meetingsCompleted.current)}
-                  </span>
-                </Box>
-                <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>
-                    Meta de conversoes
-                  </span>
-                  <span className={classes.metricBadgeValue}>
-                    {number(data.targets.conversions.current)}
-                  </span>
-                </Box>
-                <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>
-                    Leads ativos no funil
-                  </span>
-                  <span className={classes.metricBadgeValue}>
-                    {number(data.leads.activeInPipeline)}
-                  </span>
-                </Box>
-              </Box>
-              {data.filters.canEditGoals ? (
-                <Box mt={2.5} display="flex" justifyContent="flex-end">
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    startIcon={<Edit />}
-                    onClick={openGoals}
-                  >
-                    Ajustar metas
-                  </Button>
-                </Box>
-              ) : null}
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-
       <Paper className={classes.filterBar}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={2}>
             <Box display="flex" flexWrap="wrap" gridGap={8}>
               {PERIODS.map((item) => (
                 <Chip
@@ -960,7 +938,7 @@ const ExecutiveDashboard = () => {
               </FormControl>
             </Grid>
           ) : null}
-          <Grid item xs={12} md={data.filters.canSelectUsers ? 2 : 4}>
+          <Grid item xs={12} md={data.filters.canSelectUsers ? 2 : 6}>
             <FormControl variant="outlined" size="small" fullWidth>
               <InputLabel>Funil</InputLabel>
               <Select
@@ -976,6 +954,28 @@ const ExecutiveDashboard = () => {
               </Select>
             </FormControl>
           </Grid>
+          {data.filters.canEditGoals ? (
+            <Grid item xs={12} md={2}>
+              <Box className={classes.filterActions}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<Tune />}
+                  onClick={openMetricSettings}
+                >
+                  Configurar metricas
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<Edit />}
+                  onClick={openGoals}
+                >
+                  Ajustar metas
+                </Button>
+              </Box>
+            </Grid>
+          ) : null}
         </Grid>
       </Paper>
 
@@ -1003,6 +1003,53 @@ const ExecutiveDashboard = () => {
               />
             </Grid>
           ))}
+
+          {advancedMetricCards.length > 0 ? (
+            <>
+              <Grid item xs={12}>
+                <Paper className={classes.card}>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Box>
+                      <Typography variant="h6" className={classes.sectionTitle}>
+                        Metricas avancadas
+                      </Typography>
+                      <Typography className={classes.hint}>
+                        Area opcional habilitada pelo admin para leituras extras
+                        de pipeline e indicadores de valor.
+                      </Typography>
+                    </Box>
+                    {data.filters.canEditGoals ? (
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<Tune />}
+                        onClick={openMetricSettings}
+                      >
+                        Editar exibicao
+                      </Button>
+                    ) : null}
+                  </Box>
+                </Paper>
+              </Grid>
+              {advancedMetricCards.map((item) => (
+                <Grid item xs={12} md={6} lg={4} key={item.key}>
+                  <OperationalMetricCard
+                    classes={classes}
+                    title={item.title}
+                    value={item.value}
+                    displayValue={item.displayValue}
+                    helper={item.helper}
+                    icon={item.icon}
+                    accent={item.accent}
+                  />
+                </Grid>
+              ))}
+            </>
+          ) : null}
 
           {goalCadenceCards.map((item) => (
             <Grid item xs={12} md={4} key={item.key}>
@@ -1448,6 +1495,126 @@ const ExecutiveDashboard = () => {
           </Grid>
         </Grid>
       </Box>
+
+      <Dialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Configurar metricas avancadas</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="textSecondary">
+            Estas metricas sao opcionais. Elas nao aparecem por padrao e podem
+            ser habilitadas apenas quando fizer sentido para a leitura do
+            dashboard Kanban.
+          </Typography>
+
+          <Box mt={3} className={classes.dialogBlock}>
+            <Typography variant="subtitle1" className={classes.sectionTitle}>
+              Metricas adicionais de pipeline
+            </Typography>
+            <Box mt={1}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.avgSalesCycle}
+                      onChange={handleMetricVisibilityChange("avgSalesCycle")}
+                    />
+                  }
+                  label="Ciclo medio"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.winRate}
+                      onChange={handleMetricVisibilityChange("winRate")}
+                    />
+                  }
+                  label="Taxa de ganho"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.stageEntries}
+                      onChange={handleMetricVisibilityChange("stageEntries")}
+                    />
+                  }
+                  label="Entradas no periodo"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.monitoredStages}
+                      onChange={handleMetricVisibilityChange("monitoredStages")}
+                    />
+                  }
+                  label="Etapas monitoradas"
+                />
+              </FormGroup>
+            </Box>
+          </Box>
+
+          <Box mt={3} className={classes.dialogBlock}>
+            <Typography variant="subtitle1" className={classes.sectionTitle}>
+              Metricas de valores
+            </Typography>
+            <Typography className={classes.hint} style={{ marginTop: 6 }}>
+              Ficam ocultas por padrao e so aparecem no dashboard quando o admin
+              decidir habilitar.
+            </Typography>
+            <Box mt={1}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.revenueReal}
+                      onChange={handleMetricVisibilityChange("revenueReal")}
+                    />
+                  }
+                  label="Receita realizada"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.revenueForecast}
+                      onChange={handleMetricVisibilityChange("revenueForecast")}
+                    />
+                  }
+                  label="Forecast"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      color="primary"
+                      checked={metricVisibilityForm.revenueGap}
+                      onChange={handleMetricVisibilityChange("revenueGap")}
+                    />
+                  }
+                  label="Gap para meta"
+                />
+              </FormGroup>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsOpen(false)}>Cancelar</Button>
+          <Button
+            color="primary"
+            variant="contained"
+            onClick={saveMetricSettings}
+          >
+            Salvar configuracao
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={highlightOpen}

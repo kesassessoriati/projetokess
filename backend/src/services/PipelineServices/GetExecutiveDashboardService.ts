@@ -198,6 +198,15 @@ interface DashboardData {
   preferences: {
     highlightedStageIds: number[];
     highlightedStageLimit: number;
+    metricVisibility: {
+      avgSalesCycle: boolean;
+      winRate: boolean;
+      stageEntries: boolean;
+      monitoredStages: boolean;
+      revenueReal: boolean;
+      revenueForecast: boolean;
+      revenueGap: boolean;
+    };
   };
   selectors: {
     users: Array<{ id: number; name: string }>;
@@ -224,6 +233,15 @@ const GOAL_CATEGORIES = [
   { key: "meetingsCompleted", suffix: "meetings_completed", legacy: [] },
   { key: "conversions", suffix: "conversions", legacy: [] }
 ] as const;
+const DASHBOARD_METRIC_VISIBILITY_DEFAULTS = {
+  avgSalesCycle: false,
+  winRate: false,
+  stageEntries: false,
+  monitoredStages: false,
+  revenueReal: false,
+  revenueForecast: false,
+  revenueGap: false
+} as const;
 
 const toNumber = (value: any): number => Number(value || 0);
 
@@ -433,6 +451,11 @@ class GetExecutiveDashboardService {
             {
               key: {
                 [Op.like]: "executive_stage_highlights%"
+              }
+            },
+            {
+              key: {
+                [Op.like]: "executive_dashboard_metrics%"
               }
             }
           ]
@@ -993,6 +1016,31 @@ class GetExecutiveDashboardService {
     let pipelineHealthStages: DashboardData["pipelineHealth"]["stages"] = [];
     let highlightedStages: DashboardData["pipelineHealth"]["highlightedStages"] =
       [];
+    const metricVisibility = (() => {
+      try {
+        const rawValue = settingsMap.get(
+          `executive_dashboard_metrics_user_${userId}`
+        );
+
+        if (!rawValue) {
+          return { ...DASHBOARD_METRIC_VISIBILITY_DEFAULTS };
+        }
+
+        const parsed = JSON.parse(rawValue);
+
+        return {
+          avgSalesCycle: Boolean(parsed?.avgSalesCycle),
+          winRate: Boolean(parsed?.winRate),
+          stageEntries: Boolean(parsed?.stageEntries),
+          monitoredStages: Boolean(parsed?.monitoredStages),
+          revenueReal: Boolean(parsed?.revenueReal),
+          revenueForecast: Boolean(parsed?.revenueForecast),
+          revenueGap: Boolean(parsed?.revenueGap)
+        };
+      } catch (error) {
+        return { ...DASHBOARD_METRIC_VISIBILITY_DEFAULTS };
+      }
+    })();
     let pipelineHealthOverview: DashboardData["pipelineHealth"]["overview"] = {
       totalStages: 0,
       totalCurrentCards: 0,
@@ -1323,7 +1371,8 @@ class GetExecutiveDashboardService {
       },
       preferences: {
         highlightedStageIds: highlightedStages.map(stage => Number(stage.id)),
-        highlightedStageLimit: HIGHLIGHT_STAGE_LIMIT
+        highlightedStageLimit: HIGHLIGHT_STAGE_LIMIT,
+        metricVisibility
       },
       selectors: {
         users: availableSellers,
