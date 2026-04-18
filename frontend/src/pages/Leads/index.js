@@ -299,6 +299,7 @@ const Leads = () => {
   const [loading, setLoading] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
@@ -378,6 +379,7 @@ const Leads = () => {
           params: {
             searchParam,
             status: statusFilter,
+            ownerUserId: userFilter || undefined,
             pageNumber
           },
           signal: controller.signal
@@ -411,7 +413,7 @@ const Leads = () => {
       isMounted = false;
       controller.abort();
     };
-  }, [searchParam, statusFilter, pageNumber, refreshToken]);
+  }, [searchParam, statusFilter, userFilter, pageNumber, refreshToken]);
 
   const handleOpenModal = (leadId = null) => {
     setSelectedLeadId(leadId);
@@ -735,6 +737,26 @@ const Leads = () => {
             {STATUS_OPTIONS.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Responsável"
+            variant="outlined"
+            value={userFilter}
+            onChange={(event) => {
+              setUserFilter(event.target.value);
+              setPageNumber(1);
+              dispatch({ type: "RESET" });
+            }}
+            className={classes.selectField}
+          >
+            <MenuItem value="">Todos</MenuItem>
+            {users.map((u) => (
+              <MenuItem key={u.id} value={u.id}>
+                {u.name}
               </MenuItem>
             ))}
           </TextField>
