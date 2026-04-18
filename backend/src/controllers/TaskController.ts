@@ -6,6 +6,14 @@ import Task from "../models/Task";
 import TaskChecklist from "../models/TaskChecklist";
 import TaskComment from "../models/TaskComment";
 import User from "../models/User";
+import { getIO } from "../libs/socket";
+
+const emitTaskEvent = (companyId: number, action: string, task?: any) => {
+    try {
+        const io = getIO();
+        io.to(companyId.toString()).emit(`company-${companyId}-task`, { action, task });
+    } catch (_) { /* socket may not be ready during tests */ }
+};
 
 // ======================= ACCESS HELPERS =======================
 
@@ -349,6 +357,7 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
         include: buildTaskInclude(true)
     });
 
+    emitTaskEvent(companyId, "create", createdTask);
     return res.status(200).json(createdTask);
 };
 
@@ -397,6 +406,7 @@ export const updateTask = async (req: Request, res: Response): Promise<Response>
         include: buildTaskInclude(true)
     });
 
+    emitTaskEvent(companyId, "update", updatedTask);
     return res.status(200).json(updatedTask);
 };
 
@@ -424,6 +434,7 @@ export const completeTask = async (req: Request, res: Response): Promise<Respons
         include: buildTaskInclude(true)
     });
 
+    emitTaskEvent(companyId, "update", completedTask);
     return res.status(200).json(completedTask);
 };
 
@@ -451,6 +462,7 @@ export const reopenTask = async (req: Request, res: Response): Promise<Response>
         include: buildTaskInclude(true)
     });
 
+    emitTaskEvent(companyId, "update", reopenedTask);
     return res.status(200).json(reopenedTask);
 };
 
@@ -469,6 +481,7 @@ export const deleteTask = async (req: Request, res: Response): Promise<Response>
     }
 
     await task.destroy();
+    emitTaskEvent(companyId, "delete", { id: parseInt(id, 10) });
     return res.status(200).json({ message: "Task deleted" });
 };
 

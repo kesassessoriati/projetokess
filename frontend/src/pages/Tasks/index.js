@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useHistory, useLocation } from "react-router-dom";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { makeStyles } from "@material-ui/core/styles";
 import {
@@ -273,6 +275,8 @@ const Tasks = () => {
     const classes = useStyles();
     const history = useHistory();
     const location = useLocation();
+    const { user } = useContext(AuthContext);
+    const { on } = useSocket();
 
     const [boards, setBoards]                   = useState([]);
     const [selectedBoardId, setSelectedBoardId] = useState("");
@@ -306,6 +310,17 @@ const Tasks = () => {
         fetchBoards();
         fetchUsers();
     }, []);
+
+    // ── Real-time task updates via socket ─────────────────────────────────
+    useEffect(() => {
+        if (!user?.companyId) return;
+        const cleanup = on(`company-${user.companyId}-task`, () => {
+            fetchBoards();
+            fetchCompletedTasks();
+        });
+        return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.companyId]);
 
     useEffect(() => {
         if (boards.length > 0 && !selectedBoardId) {
