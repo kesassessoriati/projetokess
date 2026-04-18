@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import Appointment from "../../models/Appointment";
 import UserSchedule from "../../models/UserSchedule";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
+import User from "../../models/User";
 import { createOAuth2Client } from "../../helpers/googleCalendarClient";
 import logger from "../../utils/logger";
 
@@ -39,20 +40,28 @@ const SyncGoogleCalendarService = async (
     userGoogleCalendarIntegrationId: { [Op.not]: null }
   };
 
+  const includeArr: any[] = [
+    {
+      model: UserGoogleCalendarIntegration,
+      as: "googleCalendarIntegration",
+      required: true,
+      where: { active: true }
+    }
+  ];
+
   if (userId) {
-    whereClause.userId = userId;
+    includeArr.push({
+      model: User, // Needs import: import User from "../../models/User";
+      as: "users",
+      where: { id: userId },
+      required: true,
+      attributes: []
+    });
   }
 
   const schedules = await UserSchedule.findAll({
     where: whereClause,
-    include: [
-      {
-        model: UserGoogleCalendarIntegration,
-        as: "googleCalendarIntegration",
-        required: true,
-        where: { active: true }
-      }
-    ]
+    include: includeArr
   });
 
   if (schedules.length === 0) {

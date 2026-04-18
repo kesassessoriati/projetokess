@@ -562,14 +562,16 @@ const UserSchedules = () => {
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Excluir">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDeleteModal(schedule)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {isAdmin && (
+                      <Tooltip title="Excluir">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenDeleteModal(schedule)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
                     {/* Botões de integração Google Calendar por agenda - SEMPRE VISÍVEL */}
                     {schedule.userGoogleCalendarIntegrationId ? (

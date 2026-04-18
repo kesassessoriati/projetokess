@@ -44,8 +44,17 @@ const ListAppointmentsService = async ({
   // Se não for admin, filtra apenas compromissos das agendas do próprio usuário
   if (profile !== "admin" && userId) {
     const userSchedules = await UserSchedule.findAll({
-      where: { userId, companyId },
-      attributes: ["id"]
+      where: { companyId },
+      attributes: ["id"],
+      include: [
+        {
+          model: User,
+          as: "users",
+          where: { id: userId },
+          required: true,
+          attributes: []
+        }
+      ]
     });
     const scheduleIds = userSchedules.map(s => s.id);
     
