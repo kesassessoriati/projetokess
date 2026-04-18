@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import AppError from "../errors/AppError";
 import CreateUserScheduleService from "../services/UserScheduleServices/CreateUserScheduleService";
 import ListUserSchedulesService from "../services/UserScheduleServices/ListUserSchedulesService";
 import ShowUserScheduleService from "../services/UserScheduleServices/ShowUserScheduleService";
