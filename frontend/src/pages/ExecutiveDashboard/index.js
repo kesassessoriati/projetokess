@@ -31,9 +31,6 @@ import {
   GetApp,
   Refresh,
   Edit,
-  TrendingUp,
-  AccountBalanceWallet,
-  TrackChanges,
   EventAvailable,
   Timeline,
   EmojiEvents,
@@ -55,12 +52,6 @@ const PERIODS = [
   { value: "month", label: "Mes" },
   { value: "quarter", label: "Trimestre" },
 ];
-
-const money = (value) =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(Number(value || 0));
 
 const number = (value) =>
   new Intl.NumberFormat("pt-BR").format(Number(value || 0));
@@ -266,37 +257,30 @@ const EmptyState = ({ title, description, buttonLabel, onClick, icon }) => {
   );
 };
 
-const GoalMetricCard = ({
+const OperationalMetricCard = ({
   classes,
   title,
   value,
-  target,
-  progress,
-  gap,
   helper,
-  accent,
   icon,
+  accent,
+  progress,
+  targetLabel,
   actionLabel,
   onAction,
-}) => {
-  const isEmpty = Number(value || 0) === 0;
-
-  return (
-    <Paper className={classes.card}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-      >
-        <Box>
-          <Typography className={classes.label}>{title}</Typography>
-          <Typography className={classes.value}>{number(value)}</Typography>
-        </Box>
-        <Box style={{ color: accent }}>{icon}</Box>
+}) => (
+  <Paper className={classes.card}>
+    <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+      <Box>
+        <Typography className={classes.label}>{title}</Typography>
+        <Typography className={classes.value}>{number(value)}</Typography>
       </Box>
-      <Box mt={2}>
-        <Typography className={classes.hint}>{helper}</Typography>
-      </Box>
+      <Box style={{ color: accent }}>{icon}</Box>
+    </Box>
+    <Box mt={2}>
+      <Typography className={classes.hint}>{helper}</Typography>
+    </Box>
+    {typeof progress === "number" ? (
       <Box mt={2}>
         <LinearProgress
           variant="determinate"
@@ -305,25 +289,69 @@ const GoalMetricCard = ({
         />
         <Box className={classes.progressMeta}>
           <span>{percent(progress)}</span>
-          <span>Meta: {number(target)}</span>
-          <span>Gap: {number(gap)}</span>
+          <span>{targetLabel}</span>
         </Box>
       </Box>
-      {isEmpty && actionLabel && onAction ? (
-        <Box className={classes.actionRow}>
-          <Button
-            size="small"
-            color="primary"
-            variant="outlined"
-            onClick={onAction}
-          >
-            {actionLabel}
-          </Button>
-        </Box>
-      ) : null}
-    </Paper>
-  );
-};
+    ) : null}
+    {actionLabel && onAction ? (
+      <Box className={classes.actionRow}>
+        <Button
+          size="small"
+          color="primary"
+          variant="outlined"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </Button>
+      </Box>
+    ) : null}
+  </Paper>
+);
+
+const GoalCadenceCard = ({ classes, title, data, accent }) => (
+  <Paper className={classes.card}>
+    <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Typography className={classes.sectionTitle} style={{ fontSize: "1rem" }}>
+        {title}
+      </Typography>
+      <Box
+        style={{
+          width: 12,
+          height: 12,
+          borderRadius: "50%",
+          background: accent,
+          boxShadow: `0 0 0 6px ${accent}22`,
+        }}
+      />
+    </Box>
+    <Box mt={2} display="flex" flexDirection="column" gridGap={12}>
+      <Box className={classes.stage}>
+        <Typography className={classes.label}>Reunioes agendadas</Typography>
+        <Typography
+          style={{ fontWeight: 900, fontSize: "1.3rem", color: "#14324a" }}
+        >
+          {number(data.meetingsScheduled)}
+        </Typography>
+      </Box>
+      <Box className={classes.stage}>
+        <Typography className={classes.label}>Reunioes realizadas</Typography>
+        <Typography
+          style={{ fontWeight: 900, fontSize: "1.3rem", color: "#14324a" }}
+        >
+          {number(data.meetingsCompleted)}
+        </Typography>
+      </Box>
+      <Box className={classes.stage}>
+        <Typography className={classes.label}>Conversoes esperadas</Typography>
+        <Typography
+          style={{ fontWeight: 900, fontSize: "1.3rem", color: "#14324a" }}
+        >
+          {number(data.conversions)}
+        </Typography>
+      </Box>
+    </Box>
+  </Paper>
+);
 
 const ExecutiveDashboard = () => {
   const classes = useStyles();
@@ -492,36 +520,90 @@ const ExecutiveDashboard = () => {
     }
   };
 
-  const chart = useMemo(() => {
-    if (!data?.performance?.sellerRanking?.length) return null;
-    const rows = [...data.performance.sellerRanking];
+  const stageDistributionChart = useMemo(() => {
+    if (!data?.pipelineHealth?.stages?.length) return null;
+    const rows = [...data.pipelineHealth.stages];
+
     return {
       series: [
         {
-          name: "Projetado",
-          data: rows.map((item) => Number(item.projectedTotal || 0)),
+          name: "Leads",
+          data: rows.map((item) => Number(item.currentLeadCount || 0)),
+        },
+        {
+          name: "Oportunidades",
+          data: rows.map((item) => Number(item.currentOpportunityCount || 0)),
+        },
+      ],
+      options: {
+        chart: {
+          type: "bar",
+          stacked: true,
+          toolbar: { show: false },
+        },
+        plotOptions: {
+          bar: { horizontal: false, borderRadius: 8, columnWidth: "56%" },
+        },
+        colors: ["#178a4a", "#14324a"],
+        xaxis: {
+          categories: rows.map((item) => item.name),
+          labels: {
+            rotate: -20,
+            style: { fontSize: "11px" },
+          },
+        },
+        yaxis: {
+          labels: { formatter: (value) => number(value) },
+        },
+        dataLabels: { enabled: false },
+        legend: { position: "top" },
+        tooltip: {
+          y: { formatter: (value) => `${number(value)} registro(s)` },
+        },
+        grid: { borderColor: "#e5efeb" },
+      },
+    };
+  }, [data]);
+
+  const teamPerformanceChart = useMemo(() => {
+    if (!data?.performance?.sellerRanking?.length) return null;
+    const rows = [...data.performance.sellerRanking].slice(0, 8);
+
+    return {
+      series: [
+        {
+          name: "Score operacional",
+          data: rows.map((item) => Number(item.operationalScore || 0)),
         },
       ],
       options: {
         chart: { type: "bar", toolbar: { show: false } },
         plotOptions: {
-          bar: { horizontal: true, borderRadius: 8, barHeight: "56%" },
+          bar: { horizontal: true, borderRadius: 8, barHeight: "58%" },
         },
-        colors: ["#168a57"],
+        colors: ["#178a4a"],
         xaxis: {
           categories: rows.map((item) => item.sellerName),
-          labels: { formatter: (value) => money(value) },
+          labels: { formatter: (value) => number(value) },
         },
         dataLabels: {
           enabled: true,
           formatter: (_, opts) =>
-            `${rows[opts.dataPointIndex].progressPercentage.toFixed(1)}%`,
+            `${rows[opts.dataPointIndex].conversions} conv.`,
           style: { colors: ["#10223a"], fontWeight: 700 },
         },
         tooltip: {
-          y: {
-            formatter: (_, { dataPointIndex }) =>
-              `${money(rows[dataPointIndex].projectedTotal)} | Meta ${money(rows[dataPointIndex].target)}`,
+          custom: ({ dataPointIndex }) => {
+            const row = rows[dataPointIndex];
+            return `
+              <div style="padding:10px 12px">
+                <strong>${row.sellerName}</strong><br/>
+                Leads gerados: ${number(row.generatedLeads)}<br/>
+                Reunioes agendadas: ${number(row.meetingsScheduled)}<br/>
+                Reunioes realizadas: ${number(row.meetingsCompleted)}<br/>
+                Conversoes: ${number(row.conversions)}
+              </div>
+            `;
           },
         },
         grid: { borderColor: "#e5efeb" },
@@ -533,40 +615,90 @@ const ExecutiveDashboard = () => {
     if (!data) return [];
     return [
       {
+        key: "meetings-total",
+        title: "Total de reunioes",
+        value: data.meetings.totalInPeriod,
+        helper:
+          "Leituras do periodo atual somando reunioes registradas na agenda.",
+        accent: "#1d4ed8",
+        icon: <EventAvailable style={{ fontSize: 32 }} />,
+        actionLabel: "Abrir agenda",
+      },
+      {
         key: "scheduled",
         title: "Reunioes agendadas",
         value: data.meetings.scheduledInPeriod,
-        target: data.targets.meetingsScheduled.current,
         progress: data.meetings.scheduledProgress,
-        gap: data.meetings.scheduledGap,
         helper: `Futuras registradas: ${number(data.meetings.upcoming)}`,
         accent: "#8b5cf6",
         icon: <EventAvailable style={{ fontSize: 32 }} />,
         actionLabel: "Criar reunioes",
+        targetLabel: `Meta: ${number(data.targets.meetingsScheduled.current)}`,
       },
       {
         key: "completed",
         title: "Reunioes realizadas",
         value: data.meetings.completedInPeriod,
-        target: data.targets.meetingsCompleted.current,
         progress: data.meetings.completedProgress,
-        gap: data.meetings.completedGap,
         helper: "Conta compromissos concluidos no periodo filtrado.",
         accent: "#14b8a6",
         icon: <Timer style={{ fontSize: 32 }} />,
         actionLabel: "Revisar agenda",
+        targetLabel: `Meta: ${number(data.targets.meetingsCompleted.current)}`,
+      },
+      {
+        key: "generated",
+        title: "Leads gerados",
+        value: data.leads.generated,
+        helper: `Conversoes no periodo: ${number(data.leads.converted)}`,
+        accent: "#0ea5e9",
+        icon: <Timeline style={{ fontSize: 32 }} />,
+        actionLabel: "Abrir funil",
       },
       {
         key: "conversions",
-        title: "Contratos fechados",
+        title: "Leads convertidos",
         value: data.leads.converted,
-        target: data.targets.conversions.current,
         progress: data.leads.convertedProgress,
-        gap: data.leads.convertedGap,
         helper: `Conversao atual: ${percent(data.leads.conversionRate)}`,
         accent: "#f59e0b",
         icon: <EmojiEvents style={{ fontSize: 32 }} />,
         actionLabel: "Abrir funil",
+        targetLabel: `Meta: ${number(data.targets.conversions.current)}`,
+      },
+      {
+        key: "pipeline-leads",
+        title: "Leads ativos no funil",
+        value: data.leads.activeInPipeline,
+        helper: `Etapas ativas neste funil: ${number(data.pipelineHealth.overview.totalStages)}`,
+        accent: "#178a4a",
+        icon: <ViewKanban style={{ fontSize: 32 }} />,
+        actionLabel: "Abrir funil",
+      },
+    ];
+  }, [data]);
+
+  const goalCadenceCards = useMemo(() => {
+    if (!data) return [];
+
+    return [
+      {
+        key: "daily",
+        title: "Meta diaria",
+        data: data.goalCadence.daily,
+        accent: "#178a4a",
+      },
+      {
+        key: "weekly",
+        title: "Meta semanal",
+        data: data.goalCadence.weekly,
+        accent: "#0f766e",
+      },
+      {
+        key: "monthly",
+        title: "Meta mensal",
+        data: data.goalCadence.monthly,
+        accent: "#1d4ed8",
       },
     ];
   }, [data]);
@@ -602,15 +734,15 @@ const ExecutiveDashboard = () => {
     );
   }
 
-  const progressText = `Estamos no dia ${data.periodProgress.elapsedDays} de ${data.periodProgress.totalDays} - esperado ${money(data.periodProgress.expectedRevenue)} ate aqui.`;
+  const progressText = `Estamos no dia ${data.periodProgress.elapsedDays} de ${data.periodProgress.totalDays}. As metas abaixo acompanham esse mesmo recorte operacional.`;
   const openKanban = () => history.push("/kanban");
   const openAgenda = () => history.push("/appointments");
 
   return (
     <Box className={classes.root}>
       <ContextPageHeader
-        title="Dashboard CRM"
-        subtitle="Visao executiva do funil, das metas e da performance comercial."
+        title="Dashboard Kanban"
+        subtitle="Painel operacional do funil com foco em reunioes, conversoes e distribuicao por etapa."
         fallbackTo="/kanban"
         actions={
           <Box display="flex" gridGap={8}>
@@ -640,7 +772,7 @@ const ExecutiveDashboard = () => {
               variant="h4"
               style={{ fontWeight: 900, letterSpacing: "-0.03em" }}
             >
-              Dashboard comercial com metas operacionais e visao por escopo
+              Dashboard operacional do Kanban com leitura por escopo
             </Typography>
             <Box mt={1.5}>
               <Typography style={{ opacity: 0.88, lineHeight: 1.6 }}>
@@ -653,10 +785,13 @@ const ExecutiveDashboard = () => {
               <Chip label={`Periodo: ${data.periodProgress.label}`} />
               <Chip label={`Escopo: ${data.filters.scopeLabel}`} />
               <Chip
-                label={`Meta de faturamento: ${money(data.targets.value.current)}`}
+                label={`Meta de reunioes agendadas: ${number(data.targets.meetingsScheduled.current)}`}
               />
               <Chip
-                label={`Meta de fechamentos: ${number(data.targets.conversions.current)}`}
+                label={`Meta de reunioes realizadas: ${number(data.targets.meetingsCompleted.current)}`}
+              />
+              <Chip
+                label={`Meta de conversoes: ${number(data.targets.conversions.current)}`}
               />
             </Box>
           </Grid>
@@ -669,7 +804,7 @@ const ExecutiveDashboard = () => {
                 alignItems="center"
               >
                 <Typography style={{ fontWeight: 900 }}>
-                  Ritmo da meta de valor
+                  Ritmo operacional do periodo
                 </Typography>
                 <Chip
                   label={`${data.periodProgress.elapsedPercentage.toFixed(1)}% do periodo`}
@@ -711,20 +846,12 @@ const ExecutiveDashboard = () => {
                   variant="body2"
                   style={{ opacity: 0.92, marginTop: 4, lineHeight: 1.5 }}
                 >
-                  Estes quatro indicadores abaixo nao sao estatisticas soltas.
-                  Eles representam as metas de desempenho que precisam ser
-                  atingidas dentro do filtro atual.
+                  Estes indicadores representam o que a operacao precisa
+                  entregar no recorte atual. Eles servem como norte para o
+                  funil, para a agenda e para a conversao.
                 </Typography>
               </Box>
               <Box mt={2} display="flex" flexWrap="wrap" gridGap={8}>
-                <Box className={classes.metricBadge}>
-                  <span className={classes.metricBadgeLabel}>
-                    Meta a bater em valor
-                  </span>
-                  <span className={classes.metricBadgeValue}>
-                    {money(data.targets.value.current)}
-                  </span>
-                </Box>
                 <Box className={classes.metricBadge}>
                   <span className={classes.metricBadgeLabel}>
                     Meta de reunioes agendadas
@@ -743,10 +870,18 @@ const ExecutiveDashboard = () => {
                 </Box>
                 <Box className={classes.metricBadge}>
                   <span className={classes.metricBadgeLabel}>
-                    Meta de fechamentos
+                    Meta de conversoes
                   </span>
                   <span className={classes.metricBadgeValue}>
                     {number(data.targets.conversions.current)}
+                  </span>
+                </Box>
+                <Box className={classes.metricBadge}>
+                  <span className={classes.metricBadgeLabel}>
+                    Leads ativos no funil
+                  </span>
+                  <span className={classes.metricBadgeValue}>
+                    {number(data.leads.activeInPipeline)}
                   </span>
                 </Box>
               </Box>
@@ -846,136 +981,22 @@ const ExecutiveDashboard = () => {
 
       <Box mt={3}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.card}>
-              <Box display="flex" justifyContent="space-between">
-                <Box>
-                  <Typography className={classes.label}>
-                    Receita realizada
-                  </Typography>
-                  <Typography className={classes.value}>
-                    {money(data.revenue.real)}
-                  </Typography>
-                </Box>
-                <AccountBalanceWallet
-                  style={{ color: "#168a57", fontSize: 34 }}
-                />
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>{progressText}</Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.card}>
-              <Box display="flex" justifyContent="space-between">
-                <Box>
-                  <Typography className={classes.label}>
-                    Forecast do periodo
-                  </Typography>
-                  <Typography
-                    className={classes.value}
-                    style={{ color: "#4f46e5" }}
-                  >
-                    {money(data.revenue.forecast)}
-                  </Typography>
-                </Box>
-                <TrendingUp style={{ color: "#4f46e5", fontSize: 34 }} />
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>
-                  Projetado total:{" "}
-                  <strong>{money(data.revenue.projectedTotal)}</strong>
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.card}>
-              <Box display="flex" justifyContent="space-between">
-                <Box>
-                  <Typography className={classes.label}>
-                    Gap para a meta
-                  </Typography>
-                  <Typography
-                    className={classes.value}
-                    style={{ color: "#ef4444" }}
-                  >
-                    {money(data.revenue.gap)}
-                  </Typography>
-                </Box>
-                <TrackChanges style={{ color: "#ef4444", fontSize: 34 }} />
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>
-                  Esperado ate agora:{" "}
-                  <strong>{money(data.periodProgress.expectedRevenue)}</strong>
-                </Typography>
-                <Typography className={classes.hint}>
-                  Gap real ate hoje:{" "}
-                  <strong>{money(data.revenue.expectedToDateGap)}</strong>
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.darkCard}>
-              <Typography
-                className={classes.label}
-                style={{ color: "rgba(255,255,255,0.72)" }}
-              >
-                ROI da inteligencia
-              </Typography>
-              <Typography
-                variant="h4"
-                style={{ fontWeight: 900, marginTop: 10 }}
-              >
-                +{data.aiRoi.estimatedEfficiencyGain.toFixed(1)}%
-              </Typography>
-              <Box mt={2}>
-                <Typography variant="body2" style={{ opacity: 0.84 }}>
-                  Movimentacoes por IA: {percent(data.aiRoi.movementRate)}
-                </Typography>
-                <Typography variant="body2" style={{ opacity: 0.84 }}>
-                  Precisao da IA: {percent(data.aiRoi.accuracyRate)}
-                </Typography>
-              </Box>
-              {data.aiRoi.estimatedEfficiencyGain === 0 ? (
-                <Box className={classes.actionRow}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    style={{
-                      color: "#fff",
-                      borderColor: "rgba(255,255,255,0.3)",
-                    }}
-                    onClick={openKanban}
-                  >
-                    Revisar automacoes
-                  </Button>
-                </Box>
-              ) : null}
-            </Paper>
-          </Grid>
-
           {operationalSummary.map((item) => (
-            <Grid item xs={12} md={4} key={item.key}>
-              <GoalMetricCard
+            <Grid item xs={12} md={6} lg={4} key={item.key}>
+              <OperationalMetricCard
                 classes={classes}
                 title={item.title}
                 value={item.value}
-                target={item.target}
-                progress={item.progress}
-                gap={item.gap}
                 helper={item.helper}
-                accent={item.accent}
                 icon={item.icon}
+                accent={item.accent}
+                progress={item.progress}
+                targetLabel={item.targetLabel}
                 actionLabel={item.actionLabel}
                 onAction={
-                  item.key === "scheduled" || item.key === "completed"
+                  item.key === "meetings-total" ||
+                  item.key === "scheduled" ||
+                  item.key === "completed"
                     ? openAgenda
                     : openKanban
                 }
@@ -983,52 +1004,16 @@ const ExecutiveDashboard = () => {
             </Grid>
           ))}
 
-          <Grid item xs={12} md={4}>
-            <Paper className={classes.card}>
-              <Timeline style={{ color: "#0ea5e9", fontSize: 32 }} />
-              <Box mt={1}>
-                <Typography className={classes.label}>Leads gerados</Typography>
-                <Typography className={classes.value}>
-                  {number(data.leads.generated)}
-                </Typography>
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>
-                  Oportunidades convertidas:{" "}
-                  <strong>{number(data.leads.converted)}</strong>
-                </Typography>
-                {Number(data.leads.generated || 0) === 0 ? (
-                  <Box className={classes.actionRow}>
-                    <Button
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                      onClick={openKanban}
-                    >
-                      Alimentar funil
-                    </Button>
-                  </Box>
-                ) : null}
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Paper className={classes.card}>
-              <Timer style={{ color: "#14b8a6", fontSize: 32 }} />
-              <Box mt={1}>
-                <Typography className={classes.label}>Ciclo medio</Typography>
-                <Typography className={classes.value}>
-                  {data.performance.avgSalesCycle.toFixed(1)} dias
-                </Typography>
-              </Box>
-              <Box mt={2}>
-                <Typography className={classes.hint}>
-                  Win rate: <strong>{percent(data.performance.winRate)}</strong>
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
+          {goalCadenceCards.map((item) => (
+            <Grid item xs={12} md={4} key={item.key}>
+              <GoalCadenceCard
+                classes={classes}
+                title={item.title}
+                data={item.data}
+                accent={item.accent}
+              />
+            </Grid>
+          ))}
 
           <Grid item xs={12}>
             <Paper className={classes.card}>
@@ -1107,12 +1092,12 @@ const ExecutiveDashboard = () => {
                             <Typography
                               className={classes.highlightedStageValue}
                             >
-                              {money(stage.currentValue)}
+                              {number(stage.currentLeadCount)}
                             </Typography>
                             <Typography
                               className={classes.highlightedStageMeta}
                             >
-                              Valor em aberto
+                              Leads atualmente nesta etapa
                             </Typography>
                           </Box>
                         </Box>
@@ -1142,8 +1127,7 @@ const ExecutiveDashboard = () => {
                             <Typography
                               className={classes.highlightedStageMeta}
                             >
-                              Leads: <strong>{stage.currentLeadCount}</strong> |
-                              Oportunidades:{" "}
+                              Oportunidades abertas:{" "}
                               <strong>{stage.currentOpportunityCount}</strong>
                             </Typography>
                           </Box>
@@ -1166,87 +1150,103 @@ const ExecutiveDashboard = () => {
               >
                 <Box>
                   <Typography variant="h6" className={classes.sectionTitle}>
-                    Forecast por vendedor
+                    Distribuicao por etapa do funil
                   </Typography>
                   <Typography className={classes.hint}>
-                    Ordenado por percentual da meta. Valor, conversoes e
-                    reunioes ficam lado a lado para leitura rapida.
+                    Leitura do funil ativo separando leads e oportunidades por
+                    etapa.
                   </Typography>
                 </Box>
                 <Chip
-                  icon={<Group />}
-                  label={`${data.performance.sellerRanking.length} vendedores`}
+                  icon={<ViewKanban />}
+                  label={`${data.pipelineHealth.overview.totalStages} etapas monitoradas`}
                 />
               </Box>
 
-              {data.emptyStates.forecast ? (
+              {data.emptyStates.pipeline || !stageDistributionChart ? (
                 <EmptyState
-                  icon={<Group style={{ fontSize: 42, color: "#178a4a" }} />}
-                  title="Sem forecast para mostrar"
-                  description="Ainda nao ha carteira suficiente neste filtro para projetar receita. Vale abrir o CRM Kanban e revisar as oportunidades ativas."
-                  buttonLabel="Abrir CRM Kanban"
+                  icon={
+                    <ViewKanban style={{ fontSize: 42, color: "#178a4a" }} />
+                  }
+                  title="Sem distribuicao para mostrar"
+                  description="Nao encontramos etapas com volume suficiente no filtro atual. Vale ampliar o periodo ou revisar o funil ativo."
+                  buttonLabel="Ir para o Kanban"
                   onClick={openKanban}
                 />
               ) : (
                 <>
                   <ReactApexChart
-                    options={chart.options}
-                    series={chart.series}
+                    options={stageDistributionChart.options}
+                    series={stageDistributionChart.series}
                     type="bar"
-                    height={320}
+                    height={340}
                   />
                   <Grid container spacing={2}>
-                    {data.performance.sellerRanking.slice(0, 6).map((item) => (
-                      <Grid item xs={12} md={6} key={item.sellerId}>
-                        <Box className={classes.stage}>
-                          <Box
-                            display="flex"
-                            justifyContent="space-between"
-                            alignItems="center"
-                          >
-                            <Typography style={{ fontWeight: 900 }}>
-                              {item.sellerName}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              label={`${item.progressPercentage.toFixed(1)}% da meta`}
-                              style={{
-                                fontWeight: 800,
-                                background: "#e7f6ef",
-                                color: "#12754f",
-                              }}
-                            />
-                          </Box>
-                          <Box mt={1}>
-                            <Typography
-                              variant="body2"
-                              className={classes.hint}
-                            >
-                              Projetado:{" "}
-                              <strong>{money(item.projectedTotal)}</strong> |
-                              Meta: <strong>{money(item.target)}</strong>
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              className={classes.hint}
-                            >
-                              Real: <strong>{money(item.realRevenue)}</strong> |
-                              Fechamentos:{" "}
-                              <strong>{number(item.conversions)}</strong>
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              className={classes.hint}
-                            >
-                              Reunioes agendadas:{" "}
-                              <strong>{number(item.meetingsScheduled)}</strong>{" "}
-                              | Realizadas:{" "}
-                              <strong>{number(item.meetingsCompleted)}</strong>
-                            </Typography>
-                          </Box>
+                    <Grid item xs={12} md={4}>
+                      <Box className={classes.stage}>
+                        <Typography className={classes.label}>
+                          Resumo do funil
+                        </Typography>
+                        <Box mt={1}>
+                          <Typography variant="body2" className={classes.hint}>
+                            Cards atuais:{" "}
+                            <strong>
+                              {number(
+                                data.pipelineHealth.overview.totalCurrentCards,
+                              )}
+                            </strong>
+                          </Typography>
+                          <Typography variant="body2" className={classes.hint}>
+                            Leads no funil:{" "}
+                            <strong>
+                              {number(
+                                data.pipelineHealth.overview.totalCurrentLeads,
+                              )}
+                            </strong>
+                          </Typography>
+                          <Typography variant="body2" className={classes.hint}>
+                            Oportunidades abertas:{" "}
+                            <strong>
+                              {number(
+                                data.pipelineHealth.overview
+                                  .totalCurrentOpportunities,
+                              )}
+                            </strong>
+                          </Typography>
+                          <Typography variant="body2" className={classes.hint}>
+                            Entradas no periodo:{" "}
+                            <strong>
+                              {number(
+                                data.pipelineHealth.overview
+                                  .totalEnteredInPeriod,
+                              )}
+                            </strong>
+                          </Typography>
                         </Box>
-                      </Grid>
-                    ))}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={8}>
+                      <Box className={classes.stage}>
+                        <Typography className={classes.label}>
+                          Leitura rapida
+                        </Typography>
+                        <Box mt={1}>
+                          <Typography variant="body2" className={classes.hint}>
+                            O grafico mostra onde o volume do funil esta
+                            concentrado e ajuda a identificar gargalos por
+                            etapa.
+                          </Typography>
+                          <Typography variant="body2" className={classes.hint}>
+                            Score medio das etapas:{" "}
+                            <strong>
+                              {percent(
+                                data.pipelineHealth.overview.averageStageScore,
+                              )}
+                            </strong>
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
                   </Grid>
                 </>
               )}
@@ -1263,16 +1263,13 @@ const ExecutiveDashboard = () => {
               >
                 <Box>
                   <Typography variant="h6" className={classes.sectionTitle}>
-                    Saude do pipeline
+                    Totais por etapa
                   </Typography>
                   <Typography className={classes.hint}>
-                    {data.pipelineHealth.selectedPipeline
-                      ? `Funil: ${data.pipelineHealth.selectedPipeline.name}`
-                      : "Sem funil selecionado."}
+                    Resumo compacto do pipeline selecionado.
                   </Typography>
                 </Box>
                 <Chip
-                  icon={<ViewKanban />}
                   label={`${data.pipelineHealth.overview.totalStages} etapas`}
                 />
               </Box>
@@ -1282,51 +1279,13 @@ const ExecutiveDashboard = () => {
                   icon={
                     <ViewKanban style={{ fontSize: 42, color: "#178a4a" }} />
                   }
-                  title="Pipeline sem dados no periodo"
-                  description="Nao encontramos cards ativos para o filtro atual. Vale ampliar o periodo ou revisar o funil."
+                  title="Pipeline sem dados"
+                  description="Nao encontramos volume ativo no funil atual para montar o resumo operacional."
                   buttonLabel="Ir para o Kanban"
                   onClick={openKanban}
                 />
               ) : (
                 <Box display="flex" flexDirection="column" gridGap={12}>
-                  <Box className={classes.stage}>
-                    <Typography className={classes.label}>Resumo</Typography>
-                    <Box mt={1}>
-                      <Typography variant="body2" className={classes.hint}>
-                        Cards atuais:{" "}
-                        <strong>
-                          {number(
-                            data.pipelineHealth.overview.totalCurrentCards,
-                          )}
-                        </strong>
-                      </Typography>
-                      <Typography variant="body2" className={classes.hint}>
-                        Entradas no periodo:{" "}
-                        <strong>
-                          {number(
-                            data.pipelineHealth.overview.totalEnteredInPeriod,
-                          )}
-                        </strong>
-                      </Typography>
-                      <Typography variant="body2" className={classes.hint}>
-                        Valor atual:{" "}
-                        <strong>
-                          {money(
-                            data.pipelineHealth.overview.totalCurrentValue,
-                          )}
-                        </strong>
-                      </Typography>
-                      <Typography variant="body2" className={classes.hint}>
-                        Score medio:{" "}
-                        <strong>
-                          {percent(
-                            data.pipelineHealth.overview.averageStageScore,
-                          )}
-                        </strong>
-                      </Typography>
-                    </Box>
-                  </Box>
-
                   {data.pipelineHealth.stages.map((stage) => (
                     <Box key={stage.id} className={classes.stage}>
                       <Box
@@ -1366,23 +1325,124 @@ const ExecutiveDashboard = () => {
                       </Box>
                       <Box mt={1.5}>
                         <Typography variant="body2" className={classes.hint}>
-                          Valor em aberto:{" "}
-                          <strong>{money(stage.currentValue)}</strong>
+                          Leads no estagio:{" "}
+                          <strong>{stage.currentLeadCount}</strong>
+                        </Typography>
+                        <Typography variant="body2" className={classes.hint}>
+                          Oportunidades abertas:{" "}
+                          <strong>{stage.currentOpportunityCount}</strong>
                         </Typography>
                         <Typography variant="body2" className={classes.hint}>
                           Entradas no periodo:{" "}
                           <strong>{stage.enteredInPeriod}</strong>
                         </Typography>
-                        <Typography variant="body2" className={classes.hint}>
-                          Leads no estagio:{" "}
-                          <strong>{stage.currentLeadCount}</strong> |
-                          Oportunidades:{" "}
-                          <strong>{stage.currentOpportunityCount}</strong>
-                        </Typography>
                       </Box>
                     </Box>
                   ))}
                 </Box>
+              )}
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Paper className={classes.card}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
+                <Box>
+                  <Typography variant="h6" className={classes.sectionTitle}>
+                    {data.filters.canSelectUsers
+                      ? "Comparativo operacional da equipe"
+                      : "Seu resumo operacional"}
+                  </Typography>
+                  <Typography className={classes.hint}>
+                    {data.filters.canSelectUsers
+                      ? "Area exclusiva do admin para acompanhar a equipe sem expor dados fora do escopo permitido."
+                      : "Leitura simplificada do seu desempenho dentro do mesmo filtro do Kanban."}
+                  </Typography>
+                </Box>
+                <Chip
+                  icon={<Group />}
+                  label={`${data.performance.sellerRanking.length} ${data.filters.canSelectUsers ? "vendedores" : "usuario"}`}
+                />
+              </Box>
+
+              {teamPerformanceChart ? (
+                <>
+                  <ReactApexChart
+                    options={teamPerformanceChart.options}
+                    series={teamPerformanceChart.series}
+                    type="bar"
+                    height={320}
+                  />
+                  <Grid container spacing={2}>
+                    {data.performance.sellerRanking.slice(0, 6).map((item) => (
+                      <Grid item xs={12} md={4} key={item.sellerId}>
+                        <Box className={classes.stage}>
+                          <Box
+                            display="flex"
+                            justifyContent="space-between"
+                            alignItems="center"
+                          >
+                            <Typography style={{ fontWeight: 900 }}>
+                              {item.sellerName}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={`${number(item.operationalScore)} pts`}
+                              style={{
+                                fontWeight: 800,
+                                background: "#e7f6ef",
+                                color: "#12754f",
+                              }}
+                            />
+                          </Box>
+                          <Box mt={1}>
+                            <Typography
+                              variant="body2"
+                              className={classes.hint}
+                            >
+                              Leads gerados:{" "}
+                              <strong>{number(item.generatedLeads)}</strong>
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              className={classes.hint}
+                            >
+                              Reunioes agendadas:{" "}
+                              <strong>{number(item.meetingsScheduled)}</strong>
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              className={classes.hint}
+                            >
+                              Reunioes realizadas:{" "}
+                              <strong>{number(item.meetingsCompleted)}</strong>
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              className={classes.hint}
+                            >
+                              Leads convertidos:{" "}
+                              <strong>{number(item.conversions)}</strong>
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </>
+              ) : (
+                <EmptyState
+                  icon={<Group style={{ fontSize: 42, color: "#178a4a" }} />}
+                  title="Sem dados operacionais suficientes"
+                  description="Ainda nao encontramos movimentacao suficiente para montar o comparativo do periodo selecionado."
+                  buttonLabel="Abrir CRM Kanban"
+                  onClick={openKanban}
+                />
               )}
             </Paper>
           </Grid>
@@ -1413,7 +1473,7 @@ const ExecutiveDashboard = () => {
                       onChange={() => toggleHighlightedStage(stage.id)}
                     />
                   }
-                  label={`${stage.name} - ${stage.currentCards} cards - ${money(stage.currentValue)}`}
+                  label={`${stage.name} - ${stage.currentCards} cards - ${stage.currentLeadCount} lead(s)`}
                 />
               ))}
             </FormGroup>
@@ -1440,9 +1500,9 @@ const ExecutiveDashboard = () => {
         <DialogTitle>Ajustar metas do dashboard CRM</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="textSecondary">
-            O admin pode definir meta de valor, reunioes agendadas, reunioes
-            realizadas e contratos fechados. Cada vendedor herda a leitura do
-            seu proprio dashboard, sem permissao para editar estes dados.
+            O admin pode definir as metas operacionais de reunioes agendadas,
+            reunioes realizadas e conversoes. Cada vendedor herda a leitura do
+            proprio dashboard, sem permissao para editar estes dados.
           </Typography>
 
           <Box mt={3} className={classes.dialogBlock}>
@@ -1451,30 +1511,6 @@ const ExecutiveDashboard = () => {
             </Typography>
             <Box mt={2}>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Meta geral de valor"
-                    variant="outlined"
-                    type="number"
-                    fullWidth
-                    value={goalForm.value.global}
-                    onChange={(e) =>
-                      handleTeamGoalChange("value", "global", e.target.value)
-                    }
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Meta da equipe de valor"
-                    variant="outlined"
-                    type="number"
-                    fullWidth
-                    value={goalForm.value.team}
-                    onChange={(e) =>
-                      handleTeamGoalChange("value", "team", e.target.value)
-                    }
-                  />
-                </Grid>
                 <Grid item xs={12} md={3}>
                   <TextField
                     label="Meta geral de reunioes"
@@ -1592,9 +1628,6 @@ const ExecutiveDashboard = () => {
                       Vendedor
                     </TableCell>
                     <TableCell className={classes.tableCellHead} align="right">
-                      Valor
-                    </TableCell>
-                    <TableCell className={classes.tableCellHead} align="right">
                       Reunioes agendadas
                     </TableCell>
                     <TableCell className={classes.tableCellHead} align="right">
@@ -1609,21 +1642,6 @@ const ExecutiveDashboard = () => {
                   {goalForm.sellerTargets.map((seller, index) => (
                     <TableRow key={seller.userId}>
                       <TableCell>{seller.name}</TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          variant="outlined"
-                          size="small"
-                          type="number"
-                          value={seller.valueTarget}
-                          onChange={(e) =>
-                            handleSellerGoalChange(
-                              index,
-                              "valueTarget",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </TableCell>
                       <TableCell align="right">
                         <TextField
                           variant="outlined"
