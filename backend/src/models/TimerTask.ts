@@ -48,6 +48,10 @@ class TimerTask extends Model<TimerTask> {
     @BelongsTo(() => Company)
     company: Company;
 
+    @Default("team")
+    @Column
+    visibility: string;
+
     @HasMany(() => TimerSession)
     sessions: TimerSession[];
 

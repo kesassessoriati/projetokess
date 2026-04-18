@@ -16,7 +16,9 @@ import {
     Select,
     MenuItem as SelectItem,
     FormControl,
-    Tooltip
+    Tooltip,
+    Tabs,
+    Tab
 } from "@material-ui/core";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
 import PauseIcon from "@material-ui/icons/Pause";
@@ -205,6 +207,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const [newTaskTime, setNewTaskTime] = useState(10);
     // null = creating new task; taskId = editing existing task
     const [editingTaskId, setEditingTaskId] = useState(null);
+    const [tabValue, setTabValue] = useState(0);
 
     // 'manual' = auto-select next task but don't start; 'automatic' = auto-select and auto-start
     const [progressionMode, setProgressionMode] = useState(
@@ -524,6 +527,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                 await api.put(`/timer-tasks/${editingTaskId}`, {
                     name: newTaskName,
                     defaultTime: newTaskTime,
+                    visibility: tabValue === 0 ? "private" : "team"
                 });
                 // If the edited task is currently selected, update its timeLeft
                 if (selectedTaskId === editingTaskId) {
@@ -531,7 +535,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                 }
                 toast.success("Tarefa atualizada");
             } else {
-                await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime });
+                await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime, visibility: tabValue === 0 ? "private" : "team" });
                 toast.success("Tarefa criada");
             }
             setNewTaskName("");
@@ -573,6 +577,10 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         : isPaused
             ? `${classes.miniDot} ${classes.miniDotPaused}`
             : `${classes.miniDot} ${classes.miniDotIdle}`;
+
+    const privateTasks = tasks.filter(t => t.visibility === "private" || (!t.visibility && t.userId === userId));
+    const teamTasks = tasks.filter(t => t.visibility === "team" || (!t.visibility && t.userId !== userId));
+    const displayedTasks = tabValue === 0 ? privateTasks : teamTasks;
 
     // ── Render ─────────────────────────────────────────────────────
     return (
@@ -700,6 +708,11 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                 <DialogTitle>Configurações de Produtividade ⏱️</DialogTitle>
                 <DialogContent dividers>
 
+                    <Tabs value={tabValue} onChange={(e, val) => { setTabValue(val); handleCancelEdit(); }} indicatorColor="primary" textColor="primary" variant="fullWidth" style={{ marginBottom: 15 }}>
+                        <Tab label="Minhas Tarefas" />
+                        <Tab label="Tarefas da Equipe" />
+                    </Tabs>
+
                     {/* ── Task form: create or edit ──────────────────────────── */}
                     <Typography variant="subtitle2" gutterBottom>
                         {editingTaskId ? "Editar Tarefa" : "Nova Tarefa Rápida"}
@@ -744,10 +757,10 @@ const ProductivityTimer = ({ userId, collapsed }) => {
 
                     {/* ── Task list ──────────────────────────────────────────── */}
                     <Typography variant="subtitle2" gutterBottom>
-                        Minhas Tarefas ({tasks.length})
+                        {tabValue === 0 ? "Minhas Tarefas" : "Tarefas da Equipe"} ({displayedTasks.length})
                     </Typography>
                     <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 220, overflow: "auto" }}>
-                        {tasks.map((t) => (
+                        {displayedTasks.map((t) => (
                             <ListItem
                                 key={t.id}
                                 style={{
@@ -783,7 +796,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                                 </ListItemSecondaryAction>
                             </ListItem>
                         ))}
-                        {tasks.length === 0 && (
+                        {displayedTasks.length === 0 && (
                             <ListItem><ListItemText primary="Sem tarefas. Adicione uma acima." /></ListItem>
                         )}
                     </List>

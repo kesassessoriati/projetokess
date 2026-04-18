@@ -1,14 +1,21 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
 import User from "../models/User";
 import Ticket from "../models/Ticket";
 
 export const listTasks = async (req: Request, res: Response): Promise<Response> => {
-    const { companyId } = req.user;
+    const { companyId, id: userId } = req.user;
 
     const tasks = await TimerTask.findAll({
-        where: { companyId },
+        where: {
+            companyId,
+            [Op.or]: [
+                { visibility: "team" },
+                { visibility: "private", userId }
+            ]
+        },
         order: [["name", "ASC"]]
     });
 
@@ -17,12 +24,13 @@ export const listTasks = async (req: Request, res: Response): Promise<Response> 
 
 export const createTask = async (req: Request, res: Response): Promise<Response> => {
     const { companyId, id: userId } = req.user;
-    const { name, defaultTime, category } = req.body;
+    const { name, defaultTime, category, visibility } = req.body;
 
     const task = await TimerTask.create({
         name,
         defaultTime,
         category,
+        visibility: visibility || "team",
         companyId,
         userId
     });
@@ -31,29 +39,35 @@ export const createTask = async (req: Request, res: Response): Promise<Response>
 };
 
 export const updateTask = async (req: Request, res: Response): Promise<Response> => {
-    const { companyId } = req.user;
+    const { companyId, id: userId } = req.user;
     const { taskId } = req.params;
-    const { name, defaultTime, category } = req.body;
+    const { name, defaultTime, category, visibility } = req.body;
 
     const task = await TimerTask.findOne({ where: { id: taskId, companyId } });
     if (!task) return res.status(404).json({ error: "Task not found" });
 
-    await task.update({ name, defaultTime, category });
+    if (task.visibility === "private" && task.userId !== parseInt(userId.toString(), 10)) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+
+    await task.update({ name, defaultTime, category, visibility });
     return res.status(200).json(task);
 };
 
 export const deleteTask = async (req: Request, res: Response): Promise<Response> => {
-    const { companyId } = req.user;
+    const { companyId, id: userId } = req.user;
     const { taskId } = req.params;
 
     const task = await TimerTask.findOne({ where: { id: taskId, companyId } });
     if (!task) return res.status(404).json({ error: "Task not found" });
 
+    if (task.visibility === "private" && task.userId !== parseInt(userId.toString(), 10)) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+
     await task.destroy();
     return res.status(200).json({ message: "Task deleted" });
 };
-
-import { Op } from "sequelize";
 
 // Sessions
 export const listSessions = async (req: Request, res: Response): Promise<Response> => {
