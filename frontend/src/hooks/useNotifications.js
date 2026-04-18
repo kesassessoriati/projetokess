@@ -69,6 +69,19 @@ const useNotifications = () => {
           setNotifications((prev) => prev.map((n) => ({ ...n, status: "read" })));
           setUnreadCount(0);
         }
+      } else if (data.action === "delete") {
+        if (data.userId === user.id) {
+          setNotifications((prev) => prev.filter((n) => n.id !== data.notificationId));
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+        }
+      } else if (data.action === "deleteAll") {
+        if (data.userId === user.id) {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } else if (data.action === "cleanupByTask") {
+        setNotifications((prev) => prev.filter((n) => n.metadata?.taskId !== data.taskId));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     });
 
@@ -97,6 +110,22 @@ const useNotifications = () => {
     } catch (_) {}
   }, []);
 
+  const deleteNotification = useCallback(async (notificationId) => {
+    try {
+      await api.delete(`/notification-center/${notificationId}`);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (_) {}
+  }, []);
+
+  const deleteAllNotifications = useCallback(async () => {
+    try {
+      await api.delete("/notification-center/all");
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (_) {}
+  }, []);
+
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
       fetchNotifications(false);
@@ -115,6 +144,8 @@ const useNotifications = () => {
     hasMore,
     markRead,
     markAllRead,
+    deleteNotification,
+    deleteAllNotifications,
     loadMore,
     refresh,
   };

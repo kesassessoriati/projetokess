@@ -3,6 +3,7 @@ import CreateNotificationService from "../services/NotificationServices/CreateNo
 import ListNotificationsService from "../services/NotificationServices/ListNotificationsService";
 import MarkNotificationsReadService from "../services/NotificationServices/MarkNotificationsReadService";
 import { getIO } from "../libs/socket";
+import Notification from "../models/Notification";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const userId = Number(req.user.id);
@@ -50,6 +51,49 @@ export const markAllRead = async (req: Request, res: Response): Promise<Response
     const io = getIO();
     io.of(companyId.toString()).emit(`company-${companyId}-notification`, {
       action: "markAllRead",
+      userId,
+    });
+  } catch (_) {}
+
+  return res.json({ success: true });
+};
+
+export const deleteNotification = async (req: Request, res: Response): Promise<Response> => {
+  const userId = Number(req.user.id);
+  const { companyId } = req.user;
+  const notificationId = parseInt(req.params.id, 10);
+
+  const notification = await Notification.findOne({
+    where: { id: notificationId, userId, companyId, channel: "in_app" }
+  });
+  if (!notification) return res.status(404).json({ error: "Notification not found" });
+
+  await notification.destroy();
+
+  try {
+    const io = getIO();
+    io.of(companyId.toString()).emit(`company-${companyId}-notification`, {
+      action: "delete",
+      notificationId,
+      userId,
+    });
+  } catch (_) {}
+
+  return res.json({ success: true });
+};
+
+export const deleteAllNotifications = async (req: Request, res: Response): Promise<Response> => {
+  const userId = Number(req.user.id);
+  const { companyId } = req.user;
+
+  await Notification.destroy({
+    where: { userId, companyId, channel: "in_app" }
+  });
+
+  try {
+    const io = getIO();
+    io.of(companyId.toString()).emit(`company-${companyId}-notification`, {
+      action: "deleteAll",
       userId,
     });
   } catch (_) {}

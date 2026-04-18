@@ -25,4 +25,16 @@ notificationCenterRoutes.put(
   NotificationCenterController.markRead
 );
 
+notificationCenterRoutes.delete(
+  "/notification-center/all",
+  isAuth,
+  NotificationCenterController.deleteAllNotifications
+);
+
+notificationCenterRoutes.delete(
+  "/notification-center/:id",
+  isAuth,
+  NotificationCenterController.deleteNotification
+);
+
 export default notificationCenterRoutes;

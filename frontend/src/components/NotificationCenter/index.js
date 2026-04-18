@@ -19,6 +19,8 @@ import NotificationsIcon from "@material-ui/icons/Notifications";
 import NotificationsNoneIcon from "@material-ui/icons/NotificationsNone";
 import NotificationsOffIcon from "@material-ui/icons/NotificationsOff";
 import DoneAllIcon from "@material-ui/icons/DoneAll";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import DeleteSweepIcon from "@material-ui/icons/DeleteSweep";
 import SettingsIcon from "@material-ui/icons/Settings";
 import ArrowBackIcon from "@material-ui/icons/ArrowBack";
 import AssignmentLateIcon from "@material-ui/icons/AssignmentLate";
@@ -175,6 +177,20 @@ const useStyles = makeStyles((theme) => ({
       padding: "0 5px",
     },
   },
+  deleteBtn: {
+    opacity: 0,
+    transition: "opacity 0.15s",
+    padding: 2,
+    marginLeft: "auto",
+    flexShrink: 0,
+    "$notificationItem:hover &": {
+      opacity: 1,
+    },
+  },
+  notificationContent: {
+    flex: 1,
+    minWidth: 0,
+  },
   // Settings panel
   settingsContainer: {
     overflowY: "auto",
@@ -237,6 +253,8 @@ const NotificationCenter = () => {
     hasMore,
     markRead,
     markAllRead,
+    deleteNotification,
+    deleteAllNotifications,
     loadMore,
   } = useNotifications();
 
@@ -351,8 +369,15 @@ const NotificationCenter = () => {
                   onClick={markAllRead}
                   size="small"
                 >
-                  Marcar todas
+                  Marcar lidas
                 </Button>
+              </Tooltip>
+            )}
+            {!showSettings && notifications.length > 0 && (
+              <Tooltip title="Limpar todas as notificações">
+                <IconButton size="small" onClick={deleteAllNotifications}>
+                  <DeleteSweepIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
             )}
             <Tooltip title={showSettings ? "Fechar preferências" : "Preferências de notificações"}>
@@ -470,37 +495,41 @@ const NotificationCenter = () => {
                           }`}
                           onClick={() => handleItemClick(n)}
                           alignItems="flex-start"
+                          style={{ display: "flex", alignItems: "flex-start" }}
                         >
                           <TypeIcon
                             className={classes.typeIcon}
                             style={{ color: cfg.color }}
                           />
-                          <ListItemText
-                            disableTypography
-                            primary={
-                              <Typography className={classes.itemTitle}>
-                                {n.title}
-                                <Chip
-                                  label={cfg.label}
-                                  size="small"
-                                  className={classes.typeChip}
-                                  style={{ backgroundColor: cfg.color, color: "#fff" }}
-                                />
+                          <div className={classes.notificationContent}>
+                            <Typography className={classes.itemTitle}>
+                              {n.title}
+                              <Chip
+                                label={cfg.label}
+                                size="small"
+                                className={classes.typeChip}
+                                style={{ backgroundColor: cfg.color, color: "#fff" }}
+                              />
+                            </Typography>
+                            {n.body && (
+                              <Typography className={classes.itemBody} noWrap>
+                                {n.body}
                               </Typography>
-                            }
-                            secondary={
-                              <>
-                                {n.body && (
-                                  <Typography className={classes.itemBody} noWrap>
-                                    {n.body}
-                                  </Typography>
-                                )}
-                                <Typography className={classes.itemTime}>
-                                  {formatTime(n.createdAt)}
-                                </Typography>
-                              </>
-                            }
-                          />
+                            )}
+                            <Typography className={classes.itemTime}>
+                              {formatTime(n.createdAt)}
+                            </Typography>
+                          </div>
+                          <Tooltip title="Remover notificação">
+                            <IconButton
+                              size="small"
+                              className={classes.deleteBtn}
+                              style={{ opacity: 1, marginTop: 2 }}
+                              onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                            >
+                              <DeleteOutlineIcon style={{ fontSize: 15 }} />
+                            </IconButton>
+                          </Tooltip>
                         </ListItem>
                       </React.Fragment>
                     );

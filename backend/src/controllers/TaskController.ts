@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Op } from "sequelize";
+import { Op, Sequelize } from "sequelize";
 import TaskBoard from "../models/TaskBoard";
 import TaskList from "../models/TaskList";
 import Task from "../models/Task";
@@ -7,12 +7,35 @@ import TaskChecklist from "../models/TaskChecklist";
 import TaskComment from "../models/TaskComment";
 import User from "../models/User";
 import { getIO } from "../libs/socket";
+import Notification from "../models/Notification";
+import CreateNotificationService from "../services/NotificationServices/CreateNotificationService";
 
 const emitTaskEvent = (companyId: number, action: string, task?: any) => {
     try {
         const io = getIO();
         io.to(companyId.toString()).emit(`company-${companyId}-task`, { action, task });
     } catch (_) { /* socket may not be ready during tests */ }
+};
+
+const cleanupTaskNotifications = async (taskId: number, companyId: number) => {
+    try {
+        const deleted = await Notification.destroy({
+            where: {
+                companyId,
+                channel: "in_app",
+                [Op.and]: [
+                    Sequelize.literal(`metadata->>'taskId' = '${taskId}'`)
+                ]
+            }
+        });
+        if (deleted > 0) {
+            const io = getIO();
+            io.of(companyId.toString()).emit(`company-${companyId}-notification`, {
+                action: "cleanupByTask",
+                taskId,
+            });
+        }
+    } catch (_) { /* non-fatal */ }
 };
 
 // ======================= ACCESS HELPERS =======================
@@ -358,6 +381,22 @@ export const storeTask = async (req: Request, res: Response): Promise<Response> 
     });
 
     emitTaskEvent(companyId, "create", createdTask);
+
+    // Notify the responsible user if different from creator
+    const responsibleIdNum = responsibleId ? parseInt(responsibleId, 10) : null;
+    if (responsibleIdNum && responsibleIdNum !== parseInt(userId, 10)) {
+        const taskList = (createdTask as any)?.list;
+        const boardName = taskList?.board?.name || "Tarefas";
+        CreateNotificationService({
+            userId: responsibleIdNum,
+            companyId,
+            type: "task_created",
+            title: `Nova tarefa atribuída: ${title}`,
+            body: `Quadro: ${boardName}${description ? ` — ${description.slice(0, 80)}` : ""}`,
+            metadata: { taskId: task.id },
+        }).catch(() => { /* non-fatal */ });
+    }
+
     return res.status(200).json(createdTask);
 };
 
@@ -435,6 +474,7 @@ export const completeTask = async (req: Request, res: Response): Promise<Respons
     });
 
     emitTaskEvent(companyId, "update", completedTask);
+    cleanupTaskNotifications(task.id, companyId);
     return res.status(200).json(completedTask);
 };
 
@@ -480,8 +520,10 @@ export const deleteTask = async (req: Request, res: Response): Promise<Response>
         return res.status(403).json({ error: "Access denied" });
     }
 
+    const taskId = task.id;
     await task.destroy();
     emitTaskEvent(companyId, "delete", { id: parseInt(id, 10) });
+    cleanupTaskNotifications(taskId, companyId);
     return res.status(200).json({ message: "Task deleted" });
 };
 
