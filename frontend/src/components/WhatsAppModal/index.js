@@ -423,12 +423,23 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
     (async () => {
       try {
         const { data } = await api.get("/queue");
-        setQueues(data);
+        if (user && user.profile !== "admin") {
+          const userQueueIds = user.queues?.map(q => q.id) || [];
+          const filteredQueues = data.filter(q => userQueueIds.includes(q.id));
+          setQueues(filteredQueues);
+          
+          // Se o usuário só tiver 1 fila, já pré-seleciona ela no fallback
+          if (filteredQueues.length === 1 && !whatsAppId) {
+             setWhatsApp(prev => ({ ...prev, sendIdQueue: filteredQueues[0].id }));
+          }
+        } else {
+          setQueues(data);
+        }
       } catch (err) {
         toastError(err);
       }
     })();
-  }, []);
+  }, [user, whatsAppId]);
 
   useEffect(() => {
     (async () => {
