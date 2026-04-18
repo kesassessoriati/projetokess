@@ -233,7 +233,7 @@ const LeadModal = ({
 
     fetchData();
 
-    if (leadData && leadData.name) {
+    if (leadData) {
       setForm(normalizeLeadForm(leadData));
     } else if (leadId) {
       loadLead();

@@ -1170,6 +1170,8 @@ const PipelineBoard = () => {
       );
       if (draggedOp) {
         newBoard.stages[sourceStageIdx].opportunities.splice(source.index, 1);
+        // Update stageId so any open modal immediately reflects the new stage
+        draggedOp = { ...draggedOp, stageId: destStageId };
       }
     }
 
