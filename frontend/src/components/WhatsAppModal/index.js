@@ -369,7 +369,13 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
 
   useEffect(() => {
     const fetchSession = async () => {
-      if (!whatsAppId) return;
+      if (!whatsAppId) {
+        if (user && user.queues && user.queues.length > 0) {
+          const defaultQueues = user.queues.map(q => q.id).filter(id => typeof id === 'number' && !isNaN(id));
+          setSelectedQueueIds(defaultQueues);
+        }
+        return;
+      }
 
       try {
         const endpoint = channel === "whatsapp_official" ? `/whatsapp-official/${whatsAppId}` : `whatsapp/${whatsAppId}?session=0`;

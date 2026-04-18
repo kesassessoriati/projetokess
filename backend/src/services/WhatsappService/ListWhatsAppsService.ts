@@ -10,11 +10,13 @@ import { isPlanChannelEnabled } from "../../helpers/planChannelRules";
 interface Request {
   companyId: number;
   session?: number | string;
+  userId?: number;
 }
 
 const ListWhatsAppsService = async ({
   session,
-  companyId
+  companyId,
+  userId
 }: Request): Promise<Whatsapp[]> => {
   const company = await Company.findByPk(companyId, {
     include: [{ model: Plan, as: "plan" }]
@@ -47,7 +49,23 @@ const ListWhatsAppsService = async ({
     options.attributes = { exclude: ["session"] };
   }
 
-  const whatsapps = await Whatsapp.findAll(options);
+  let whatsapps = await Whatsapp.findAll(options);
+
+  if (userId) {
+    const UserObj = (await import("../../models/User")).default;
+    const user = await UserObj.findByPk(userId, { include: ["queues"] });
+    if (user && user.profile !== "admin") {
+      const userQueueIds = user.queues.map(q => q.id);
+      if (userQueueIds.length === 0) {
+        whatsapps = [];
+      } else {
+        whatsapps = whatsapps.filter(whatsapp => {
+          if (!whatsapp.queues || whatsapp.queues.length === 0) return false;
+          return whatsapp.queues.some(q => userQueueIds.includes(q.id));
+        });
+      }
+    }
+  }
 
   whatsapps.forEach(whatsapp => {
     const prompt = (whatsapp as any)?.prompt;
