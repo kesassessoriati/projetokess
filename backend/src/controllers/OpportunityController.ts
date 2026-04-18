@@ -293,13 +293,22 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
         if (status === "WON") {
             leadStatusUpdate.status = "convertido";
+            leadStatusUpdate.leadStatus = "convertido";
         } else if (status === "LOST") {
             leadStatusUpdate.status = "perdido";
+            leadStatusUpdate.leadStatus = "perdido";
         }
 
         if (leadStatusUpdate.status) {
             await CrmLead.update(leadStatusUpdate, { where: { id: opportunity.leadId, companyId } });
-            const updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
+            let updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
+            
+            if (updatedLead && leadStatusUpdate.status === "convertido") {
+                const syncLeadToClient = (await import("../services/CrmLeadService/helpers/syncLeadToClient")).default;
+                await syncLeadToClient(updatedLead);
+                updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
+            }
+
             if (updatedLead) {
                 io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
                     action: "update",

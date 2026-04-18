@@ -81,7 +81,13 @@ const MoveOpportunityService = async ({
             try {
                 const { getIO } = await import("../../libs/socket");
                 const io = getIO();
-                const updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
+                let updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
+                
+                if (updatedLead && leadUpdate.status === "convertido") {
+                    const syncLeadToClient = (await import("../CrmLeadService/helpers/syncLeadToClient")).default;
+                    await syncLeadToClient(updatedLead);
+                    updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
+                }
                 if (updatedLead) {
                     io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
                         action: "update",
