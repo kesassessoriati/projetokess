@@ -92,6 +92,15 @@ const AppointmentModal = (props) => {
     }
   }, [open, appointment, initialScheduleId]);
 
+  useEffect(() => {
+    if (scheduleId && !appointment) {
+      const schedule = schedules.find(s => String(s.id) === String(scheduleId));
+      if (schedule && schedule.user && schedule.user.email) {
+        setOrganizerEmail(schedule.user.email);
+      }
+    }
+  }, [scheduleId, schedules, appointment]);
+
   const loadData = async () => {
     try {
       const { data: schedulesRes } = await api.get("/user-schedules");
@@ -125,7 +134,7 @@ const AppointmentModal = (props) => {
       setTitle("");
       setDescription("");
       setClientEmail(leadContext?.email || "");
-      setOrganizerEmail(user?.email || "");
+      setOrganizerEmail("");
       setStartDatetime("");
       setDurationMinutes("60");
       setStatus("scheduled");

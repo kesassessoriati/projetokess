@@ -45,6 +45,15 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         }
     }, [open, op, user]);
 
+    useEffect(() => {
+        if (scheduleId) {
+            const schedule = schedules.find(s => String(s.id) === String(scheduleId));
+            if (schedule && schedule.user && schedule.user.email) {
+                setOrganizerEmail(schedule.user.email);
+            }
+        }
+    }, [scheduleId, schedules]);
+
     const getCurrentLocalDatetime = () => {
         const now = new Date();
         const pad = n => String(n).padStart(2, "0");
@@ -76,7 +85,7 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         setTitle(`Reunião: ${(op && op.title) || (op && op.name) || (op && op.lead && op.lead.name) || "Novo Lead"}`);
         setDescription("Reunião de negócios para consultoria e análise estratégica.");
         setClientEmail((op && op.contact && op.contact.email) || (op && op.lead && op.lead.email) || "");
-        setOrganizerEmail((user && user.email) || "");
+        setOrganizerEmail("");
         setStartDatetime(getCurrentLocalDatetime());
         setDurationMinutes("60");
         setScheduleId("");
