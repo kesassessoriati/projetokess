@@ -14,7 +14,6 @@ import CreateOpportunityEventService from "../services/OpportunityServices/Creat
 import UpdateOpportunityEventService from "../services/OpportunityServices/UpdateOpportunityEventService";
 import DeleteOpportunityEventService from "../services/OpportunityServices/DeleteOpportunityEventService";
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
-import { ExecuteKanbanAutomationService } from "../services/KanbanAutomationServices/ExecuteKanbanAutomationService";
 import { getIO } from "../libs/socket";
 import EventBus from "../libs/EventBus";
 
@@ -71,12 +70,6 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         assignedUserId
     });
 
-    // Run automations for new opportunity
-    ExecuteKanbanAutomationService("OPPORTUNITY_CREATED", opportunity.id, companyId, {
-        stageId,
-        assignedUserId
-    });
-
     return res.status(201).json(opportunity);
 };
 
@@ -114,12 +107,6 @@ export const move = async (req: Request, res: Response): Promise<Response> => {
         toStageId,
         companyId,
         movedBy: movedBy || "USER",
-        reason
-    });
-
-    // Run automations for moved opportunity
-    ExecuteKanbanAutomationService("OPPORTUNITY_MOVED", opportunity.id, companyId, {
-        toStageId,
         reason
     });
 
@@ -277,8 +264,6 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         updatedAt: opportunity.updatedAt,
         version: opportunity.version
     }, companyId);
-
-    ExecuteKanbanAutomationService("OPPORTUNITY_UPDATED", opportunity.id, companyId, updateData);
 
     const io = getIO();
     io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
