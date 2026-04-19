@@ -102,6 +102,7 @@ import CallHistory from "../pages/CallHistory";
 import PipelineBoard from "../pages/PipelineBoard";
 import ExecutiveDashboard from "../pages/ExecutiveDashboard";
 import Smtp from "../pages/Smtp";
+import Sip from "../pages/Sip";
 import GroupManagement from "../pages/GroupManagement";
 import FollowUps from "../pages/FollowUps";
 import AquecimentoWhatsApp from "../pages/AquecimentoWhatsApp";
@@ -218,6 +219,7 @@ const Routes = () => {
                         <Route exact path="/relatorios" component={Reports} isPrivate />
                         <Route exact path="/sistema" component={Sistema} isPrivate />
                         <Route exact path="/smtp" component={Smtp} isPrivate />
+                        <Route exact path="/sip-settings" component={Sip} isPrivate adminOnly />
                         <Route exact path="/ferramentas" component={FerramentasPage} isPrivate />
                         <Route exact path="/queue-integration" component={QueueIntegration} isPrivate />
                         <Route exact path="/integracao" component={QueueIntegration} isPrivate />

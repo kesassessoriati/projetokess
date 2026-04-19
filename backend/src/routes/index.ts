@@ -119,6 +119,7 @@ import pipelineRoutes from "./pipelineRoutes";
 import crmWebhookRoutes from "./crmWebhookRoutes";
 import migrationRoutes from "./migrationRoutes";
 import smtpSettingRoutes from "./smtpSettingRoutes";
+import sipSettingRoutes from "./sipSettingRoutes";
 import whatsappWarmupRoutes from "./whatsappWarmupRoutes";
 import groupManagementRoutes from "./groupManagementRoutes";
 import followUpCampaignRoutes from "./followUpCampaignRoutes";
@@ -133,6 +134,7 @@ import chipRoutes from "./chipRoutes";
 import companyAiConfigRoutes from "./companyAiConfigRoutes";
 import aiAgentTemplateRoutes from "./aiAgentTemplateRoutes";
 import notificationCenterRoutes from "./notificationCenterRoutes";
+import callSequenceRoutes from "./callSequenceRoutes";
 
 const routes = Router();
 
@@ -272,6 +274,8 @@ routes.use(pipelineRoutes);
 routes.use(crmWebhookRoutes);
 routes.use(migrationRoutes);
 routes.use(smtpSettingRoutes);
+routes.use(sipSettingRoutes);
+routes.use(callSequenceRoutes);
 
 import timerRoutes from "./timerRoutes";
 routes.use(timerRoutes);

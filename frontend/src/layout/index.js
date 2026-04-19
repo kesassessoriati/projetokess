@@ -1273,6 +1273,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Configurações", path: "/settings" },
           { title: "SMTP (E-mail)", path: "/smtp" },
+          { title: "SIP / Webphone", path: "/sip-settings" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
         ],

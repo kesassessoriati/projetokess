@@ -130,6 +130,7 @@ import KanbanAutomationRun from "../models/KanbanAutomationRun";
 import KanbanAutomationRunAction from "../models/KanbanAutomationRunAction";
 import KanbanAutomationTimer from "../models/KanbanAutomationTimer";
 import SmtpSetting from "../models/SmtpSetting";
+import SipSetting from "../models/SipSetting";
 import WhatsappWarmup from "../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
 import WhatsappWarmupSession from "../models/WhatsappWarmupSession";
@@ -183,6 +184,8 @@ import Chip from "../models/Chip";
 import ChipActivityLog from "../models/ChipActivityLog";
 import AIUsageLog from "../models/AIUsageLog";
 import Notification from "../models/Notification";
+import CallSequence from "../models/CallSequence";
+import CallSequenceTarget from "../models/CallSequenceTarget";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -342,6 +345,7 @@ const models = [
   LeadMessage,
   LeadAttachment,
   SmtpSetting,
+  SipSetting,
   TimerTask,
   TimerSession,
   KanbanAutomation,
@@ -380,6 +384,8 @@ const models = [
   OfficialTemplate,
   OfficialCampaign,
   OfficialCampaignShipping,
+  CallSequence,
+  CallSequenceTarget,
   GfProfile,
   GfCategoria,
   GfReceita,

@@ -8,7 +8,8 @@ import {
   AutoIncrement,
   DataType,
   BelongsTo,
-  ForeignKey
+  ForeignKey,
+  Default
 } from "sequelize-typescript";
 import Company from "./Company";
 import Contact from "./Contact";
@@ -113,6 +114,20 @@ class CallRecord extends Model<CallRecord> {
 
   @Column
   sequenceId: string;
+
+  @Default("manual")
+  @Column
+  source: string;
+
+  @Column
+  disposition: string;
+
+  @Default({})
+  @Column(DataType.JSONB)
+  metadata: Record<string, any>;
+
+  @Column
+  answeredAt: Date;
 
   @Column
   callStartedAt: Date;

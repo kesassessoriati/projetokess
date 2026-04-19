@@ -33,6 +33,7 @@ import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
 import LeadAttachmentsTab from "../LeadAttachmentsTab";
 import LeadTasksTab from "../LeadTasksTab";
+import WebphoneWorkspace from "../WebphoneWorkspace";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -98,6 +99,9 @@ const useStyles = makeStyles((theme) => ({
         gap: 8,
         marginTop: 8,
         alignItems: "center",
+    },
+    miniWebphoneWrap: {
+        marginTop: theme.spacing(3),
     },
 }));
 
@@ -424,6 +428,10 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             </div>
                             <Typography variant="body2" style={{ fontWeight: 700, color: "#475569" }}>{(cardColor || "#FFFFFF").toUpperCase()}</Typography>
                         </Box>
+                    </Box>
+
+                    <Box className={classes.miniWebphoneWrap}>
+                        <WebphoneWorkspace compact />
                     </Box>
                 </Box>
 

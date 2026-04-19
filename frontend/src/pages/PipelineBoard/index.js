@@ -734,6 +734,7 @@ const PipelineBoard = () => {
   const classes = useStyles();
   const history = useHistory();
   const { user } = useContext(AuthContext);
+  const { hydrateLeadContext } = useWebphone();
   const isAdmin = user && user.profile === "admin";
 
   const [pipelines, setPipelines] = useState([]);
@@ -1672,6 +1673,29 @@ const PipelineBoard = () => {
                                             op={op}
                                             highlight={!!searchText.trim()}
                                             onClick={(o) => {
+                                              hydrateLeadContext(
+                                                {
+                                                  id: o.lead?.id || o.leadId || null,
+                                                  name: o.lead?.name || o.contact?.name || o.title,
+                                                  phone: o.lead?.phone || o.contact?.number || "",
+                                                  companyName: o.lead?.companyName || "",
+                                                  pipelineId: o.pipelineId || selectedPipelineId,
+                                                  stageId: o.stageId || null,
+                                                  opportunityId: o.id,
+                                                  contactId: o.contact?.id || o.lead?.contactId || null,
+                                                  status: o.lead?.status || null,
+                                                  meetingScheduledAt: o.lead?.meetingScheduledAt || null,
+                                                },
+                                                {
+                                                  contactId: o.contact?.id || o.lead?.contactId || null,
+                                                  leadId: o.lead?.id || o.leadId || null,
+                                                  opportunityId: o.id,
+                                                  pipelineId: o.pipelineId || selectedPipelineId || null,
+                                                  stageId: o.stageId || null,
+                                                  ticketId: o.ticketId || null,
+                                                },
+                                                { tab: "lead" }
+                                              );
                                               setSelectedOp(o);
                                               setUniversalModalOpen(true);
                                             }}

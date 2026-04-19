@@ -4,8 +4,8 @@ import { Route as RouterRoute, Redirect } from "react-router-dom";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
 
-const Route = ({ component: Component, isPrivate = false, isPublic = false, ...rest }) => {
-  const { isAuth, loading } = useContext(AuthContext);
+const Route = ({ component: Component, isPrivate = false, isPublic = false, adminOnly = false, ...rest }) => {
+  const { isAuth, loading, user } = useContext(AuthContext);
 
   // Rotas públicas (landing, login, cadastro, etc) - carrega instantaneamente sem loading
   if (isPublic) {
@@ -29,6 +29,10 @@ const Route = ({ component: Component, isPrivate = false, isPublic = false, ...r
   // Usuário não logado em rota não marcada -> vai para login
   if (!isAuth && !isPrivate) {
     return <Redirect to={{ pathname: "/login", state: { from: rest.location } }} />;
+  }
+
+  if (adminOnly && user?.profile !== "admin" && user?.profile !== "super") {
+    return <Redirect to={{ pathname: "/atendimentos", state: { from: rest.location } }} />;
   }
 
   return <RouterRoute {...rest} component={Component} />;

@@ -744,7 +744,7 @@ const CrmAiAssistant = ({ open, onClose, onNewLead, pipelineId }) => {
 export const CrmAiFab = ({ onNewLead, pipelineId }) => {
   const classes = useStyles();
   const permissions = usePlanPermissions();
-  const { setPanelOpen } = useWebphone();
+  const { setPanelOpen, setActiveTab } = useWebphone();
   const [menuOpen, setMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [pendingCount] = useState(0);
@@ -792,6 +792,7 @@ export const CrmAiFab = ({ onNewLead, pipelineId }) => {
                 className={classes.fabMenuItem}
                 onClick={() => {
                   setMenuOpen(false);
+                  setActiveTab("dialer");
                   setPanelOpen(true);
                 }}
               >
