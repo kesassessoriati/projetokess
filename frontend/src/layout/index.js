@@ -115,6 +115,7 @@ import SendIcon from "@material-ui/icons/Send";
 import QuickSendModal from "../components/QuickSendModal";
 import WhatsAppWarmupModal from "../components/WhatsAppWarmupModal";
 import ChatPopover from "../pages/Chat/ChatPopover";
+import WebphoneSidePanel from "../components/WebphoneSidePanel";
 
 const backendUrl = getBackendUrl();
 
@@ -1546,6 +1547,7 @@ const LoggedInLayout = ({ children }) => {
 
   return (
     <div className={classes.root}>
+      <WebphoneSidePanel />
       {/* Sidebar Desktop - Ocultar se estiver no modo mobile app */}
       {!shouldHideLayout && (
         <Drawer

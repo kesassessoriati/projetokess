@@ -49,6 +49,7 @@ import { PlanPermissionsProvider } from "../context/PlanPermissionsContext";
 import { SocketProvider } from "../context/SocketContext";
 import { TicketsContextProvider } from "../context/Tickets/TicketsContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
+import { WebphoneProvider } from "../context/WebphoneContext";
 import Route from "./Route";
 import Schedules from "../pages/Lembretes";
 import Campanhas from "../pages/Campanhas";
@@ -144,7 +145,8 @@ const Routes = () => {
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
-          <PlanPermissionsProvider>
+          <WebphoneProvider>
+            <PlanPermissionsProvider>
             <TicketsContextProvider>
               <Switch>
                 <Route exact path="/" component={Login} isPublic />
@@ -341,7 +343,8 @@ const Routes = () => {
               </Switch>
               <ToastContainer position="top-center" autoClose={3000} />
             </TicketsContextProvider>
-          </PlanPermissionsProvider>
+            </PlanPermissionsProvider>
+          </WebphoneProvider>
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>

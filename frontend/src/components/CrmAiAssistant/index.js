@@ -19,6 +19,8 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import PhoneIcon from "@material-ui/icons/Phone";
+import { useWebphone } from "../../context/WebphoneContext";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import { usePlanPermissions } from "../../context/PlanPermissionsContext";
@@ -742,6 +744,7 @@ const CrmAiAssistant = ({ open, onClose, onNewLead, pipelineId }) => {
 export const CrmAiFab = ({ onNewLead, pipelineId }) => {
   const classes = useStyles();
   const permissions = usePlanPermissions();
+  const { setPanelOpen } = useWebphone();
   const [menuOpen, setMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [pendingCount] = useState(0);
@@ -782,6 +785,25 @@ export const CrmAiFab = ({ onNewLead, pipelineId }) => {
                   </Typography>
                   <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
                     Análise e sugestões
+                  </Typography>
+                </div>
+              </div>
+              <div
+                className={classes.fabMenuItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setPanelOpen(true);
+                }}
+              >
+                <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
+                  <PhoneIcon style={{ color: "#fff", fontSize: 20 }} />
+                </div>
+                <div>
+                  <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                    Webphone
+                  </Typography>
+                  <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                    Discador e chamadas
                   </Typography>
                 </div>
               </div>

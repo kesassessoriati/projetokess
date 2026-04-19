@@ -15,6 +15,10 @@ import Contact from "./Contact";
 import Whatsapp from "./Whatsapp";
 import Ticket from "./Ticket";
 import User from "./User";
+import CrmLead from "./CrmLead";
+import Opportunity from "./Opportunity";
+import Pipeline from "./Pipeline";
+import PipelineStage from "./PipelineStage";
 
 @Table({ tableName: "CallRecords" })
 class CallRecord extends Model<CallRecord> {
@@ -78,6 +82,37 @@ class CallRecord extends Model<CallRecord> {
 
   @BelongsTo(() => Company)
   company: Company;
+
+  @ForeignKey(() => CrmLead)
+  @Column
+  leadId: number;
+
+  @BelongsTo(() => CrmLead)
+  lead: CrmLead;
+
+  @ForeignKey(() => Opportunity)
+  @Column
+  opportunityId: number;
+
+  @BelongsTo(() => Opportunity)
+  opportunity: Opportunity;
+
+  @ForeignKey(() => Pipeline)
+  @Column
+  pipelineId: number;
+
+  @BelongsTo(() => Pipeline)
+  pipeline: Pipeline;
+
+  @ForeignKey(() => PipelineStage)
+  @Column
+  stageId: number;
+
+  @BelongsTo(() => PipelineStage)
+  stage: PipelineStage;
+
+  @Column
+  sequenceId: string;
 
   @Column
   callStartedAt: Date;

@@ -4,6 +4,10 @@ import CallRecord from "../models/CallRecord";
 import Contact from "../models/Contact";
 import Whatsapp from "../models/Whatsapp";
 import User from "../models/User";
+import CrmLead from "../models/CrmLead";
+import Opportunity from "../models/Opportunity";
+import Pipeline from "../models/Pipeline";
+import PipelineStage from "../models/PipelineStage";
 
 type IndexQuery = {
   pageNumber?: string;
@@ -16,14 +20,27 @@ type IndexQuery = {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: userId } = req.user;
-  const { contactId, whatsappId, ticketId, toNumber } = req.body;
+  const {
+    contactId,
+    whatsappId,
+    ticketId,
+    toNumber,
+    fromNumber,
+    type,
+    status,
+    leadId,
+    opportunityId,
+    pipelineId,
+    stageId,
+    sequenceId
+  } = req.body;
 
   try {
     const callRecord = await CallRecord.create({
       callId: `out-${Date.now()}`,
-      type: "outgoing",
-      status: "answered",
-      fromNumber: "",
+      type: type || "outgoing",
+      status: status || "answered",
+      fromNumber: fromNumber || "",
       toNumber: toNumber || "",
       duration: 0,
       contactId: contactId || null,
@@ -31,6 +48,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       ticketId: ticketId || null,
       userId,
       companyId,
+      leadId: leadId || null,
+      opportunityId: opportunityId || null,
+      pipelineId: pipelineId || null,
+      stageId: stageId || null,
+      sequenceId: sequenceId || null,
       callStartedAt: new Date(),
     });
 
@@ -125,6 +147,26 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
           model: User,
           as: "user",
           attributes: ["id", "name"]
+        },
+        {
+          model: CrmLead,
+          as: "lead",
+          attributes: ["id", "name"]
+        },
+        {
+          model: Pipeline,
+          as: "pipeline",
+          attributes: ["id", "name"]
+        },
+        {
+          model: PipelineStage,
+          as: "stage",
+          attributes: ["id", "name", "pipelineId"]
+        },
+        {
+          model: Opportunity,
+          as: "opportunity",
+          attributes: ["id", "title", "pipelineId", "stageId", "leadId"]
         }
       ],
       order: [["createdAt", "DESC"]],
@@ -162,6 +204,26 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         model: User,
         as: "user",
         attributes: ["id", "name"]
+      },
+      {
+        model: CrmLead,
+        as: "lead",
+        attributes: ["id", "name", "phone"]
+      },
+      {
+        model: Pipeline,
+        as: "pipeline",
+        attributes: ["id", "name"]
+      },
+      {
+        model: PipelineStage,
+        as: "stage",
+        attributes: ["id", "name", "pipelineId"]
+      },
+      {
+        model: Opportunity,
+        as: "opportunity",
+        attributes: ["id", "title", "pipelineId", "stageId", "leadId"]
       }
     ]
   });
