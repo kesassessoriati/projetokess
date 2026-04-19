@@ -65,8 +65,6 @@ import AllConnections from "../pages/AllConnections";
 import Reports from "../pages/Relatorios";
 import { FlowBuilderConfig } from "../pages/FlowBuilderConfig";
 import FlowBuilder from "../pages/FlowBuilder";
-import KanbanAutomationsConfig from "../pages/KanbanAutomationsConfig";
-import KanbanAutomations from "../pages/KanbanAutomations";
 import FlowDefault from "../pages/FlowDefault"
 import CampaignsPhrase from "../pages/CampaignsPhrase";
 import Subscription from "../pages/Subscription";
@@ -254,18 +252,6 @@ const Routes = () => {
                           exact
                           path="/flowbuilder/:id?"
                           component={FlowBuilderConfig}
-                          isPrivate
-                        />
-                        <Route
-                          exact
-                          path="/kanban-automations"
-                          component={KanbanAutomations}
-                          isPrivate
-                        />
-                        <Route
-                          exact
-                          path="/kanban-automations-config/:id?"
-                          component={KanbanAutomationsConfig}
                           isPrivate
                         />
                         <Route exact path="/chats/:id?" component={Chat} isPrivate />

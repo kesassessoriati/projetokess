@@ -282,8 +282,6 @@ routes.use(callSequenceRoutes);
 import timerRoutes from "./timerRoutes";
 routes.use(timerRoutes);
 
-import kanbanAutomationRoutes from "./kanbanAutomationRoutes";
-routes.use(kanbanAutomationRoutes);
 routes.use(groupManagementRoutes);
 routes.use(followUpCampaignRoutes);
 routes.use(buttonCampaignRoutes);

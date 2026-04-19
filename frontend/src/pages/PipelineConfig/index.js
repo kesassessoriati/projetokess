@@ -308,17 +308,6 @@ const PipelineConfig = () => {
                                 Webhooks
                             </Button>
                         </Tooltip>
-                        <Tooltip title="Automações do Kanban">
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<TimelineIcon style={{ fontSize: 15 }} />}
-                                onClick={() => history.push({ pathname: "/kanban-automations", state: { from: history.location.pathname } })}
-                                style={{ borderRadius: 12 }}
-                            >
-                                Automações
-                            </Button>
-                        </Tooltip>
                     </Box>
                     <Button
                         variant="contained"

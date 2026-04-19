@@ -11,13 +11,10 @@ import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhats
 import Company from "./models/Company";
 import BullQueue from './libs/queue';
 import { startQueueProcess } from "./queues";
-import AutomationEngineService from "./services/PipelineServices/AutomationEngineService";
 import SLASchedulerService from "./services/PipelineServices/SLASchedulerService";
 import WebhookService from "./services/PipelineServices/WebhookService";
 import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 import InitPipelineTemplatesService from "./services/PipelineServices/InitPipelineTemplatesService";
-import KanbanAutomationShadowRouterService from "./services/KanbanAutomationServices/KanbanAutomationShadowRouterService";
-import KanbanAutomationTimerSchedulerService from "./services/KanbanAutomationServices/KanbanAutomationTimerSchedulerService";
 
 if (process.env.CERTIFICADOS == "true") {
 
@@ -49,13 +46,10 @@ if (process.env.CERTIFICADOS == "true") {
     logger.info(`Server started on port: ${process.env.PORT} with HTTPS`);
 
     // Inicializar Pipeline Engine
-    AutomationEngineService.init();
     SLASchedulerService.init();
     WebhookService.init();
     AIAnalyzerService.init();
     InitPipelineTemplatesService();
-    KanbanAutomationShadowRouterService.init();
-    KanbanAutomationTimerSchedulerService.init();
   });
 
   process.on("uncaughtException", err => {
@@ -101,13 +95,10 @@ if (process.env.CERTIFICADOS == "true") {
     logger.info(`Server started on port: ${process.env.PORT}`);
 
     // Inicializar Pipeline Engine
-    AutomationEngineService.init();
     SLASchedulerService.init();
     WebhookService.init();
     AIAnalyzerService.init();
     InitPipelineTemplatesService();
-    KanbanAutomationShadowRouterService.init();
-    KanbanAutomationTimerSchedulerService.init();
   });
 
   process.on("uncaughtException", err => {

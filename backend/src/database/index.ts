@@ -115,8 +115,6 @@ import PipelineStage from "../models/PipelineStage";
 import Opportunity from "../models/Opportunity";
 import OpportunityMovement from "../models/OpportunityMovement";
 import OpportunityEvent from "../models/OpportunityEvent";
-import PipelineAutomation from "../models/PipelineAutomation";
-import PipelineAutomationLog from "../models/PipelineAutomationLog";
 import SystemWebhook from "../models/SystemWebhook";
 import WebhookDeliveryLog from "../models/WebhookDeliveryLog";
 import OpportunityPrediction from "../models/OpportunityPrediction";
@@ -126,10 +124,6 @@ import LeadMessage from "../models/LeadMessage";
 import LeadAttachment from "../models/LeadAttachment";
 import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
-import KanbanAutomation from "../models/KanbanAutomation";
-import KanbanAutomationRun from "../models/KanbanAutomationRun";
-import KanbanAutomationRunAction from "../models/KanbanAutomationRunAction";
-import KanbanAutomationTimer from "../models/KanbanAutomationTimer";
 import SmtpSetting from "../models/SmtpSetting";
 import SipSetting from "../models/SipSetting";
 import WhatsappWarmup from "../models/WhatsappWarmup";
@@ -338,8 +332,6 @@ const models = [
   Opportunity,
   OpportunityMovement,
   OpportunityEvent,
-  PipelineAutomation,
-  PipelineAutomationLog,
   SystemWebhook,
   WebhookDeliveryLog,
   OpportunityPrediction,
@@ -350,10 +342,6 @@ const models = [
   SipSetting,
   TimerTask,
   TimerSession,
-  KanbanAutomation,
-  KanbanAutomationRun,
-  KanbanAutomationRunAction,
-  KanbanAutomationTimer,
   WhatsappWarmup,
   WhatsappWarmupLog,
   WhatsappWarmupSession,
