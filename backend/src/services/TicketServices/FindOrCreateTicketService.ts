@@ -403,6 +403,10 @@ const FindOrCreateTicketService = async (
   if (queueId != 0 && !isNil(queueId)) {
     //Determina qual a fila esse ticket pertence.
     await ticket.update({ queueId: queueId });
+  } else if (isNil(ticket.queueId) && whatsapp.sendIdQueue) {
+    // Se a conexão tiver uma fila padrão (Fila de Desvio), atribui ela automaticamente.
+    // Isso evita que o ticket caia na aba "Automação" e vá direto para "Aguardando" da fila.
+    await ticket.update({ queueId: whatsapp.sendIdQueue });
   }
 
   if (userId != 0 && !isNil(userId)) {
