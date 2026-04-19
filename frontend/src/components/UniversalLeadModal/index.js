@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     Dialog,
-    DialogContent,
     IconButton,
     makeStyles,
     Box,
@@ -18,6 +17,8 @@ import CloseIcon from "@material-ui/icons/Close";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
+import ViewCarouselIcon from "@material-ui/icons/ViewCarousel";
+import FiberManualRecordIcon from "@material-ui/icons/FiberManualRecord";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import InfoIcon from "@material-ui/icons/Info";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
@@ -33,8 +34,10 @@ import LeadAppointmentModal from "../LeadAppointmentModal";
 import LeadEmailComponent from "../LeadEmailComponent";
 import LeadAttachmentsTab from "../LeadAttachmentsTab";
 import LeadTasksTab from "../LeadTasksTab";
+import LeadCallRecordingsTab from "../LeadCallRecordingsTab";
 import WebphoneWorkspace from "../WebphoneWorkspace";
 import api from "../../services/api";
+import { useWebphone } from "../../context/WebphoneContext";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -71,6 +74,32 @@ const useStyles = makeStyles((theme) => ({
         borderRadius: "8px 8px 0 0",
         border: "1px solid #e0e0e0",
         borderBottom: "none",
+    },
+    secondaryMenu: {
+        display: "flex",
+        alignItems: "center",
+        gap: theme.spacing(1),
+        padding: theme.spacing(1.25, 2, 1.5),
+        borderTop: "1px solid #eef2f7",
+        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+        flexWrap: "wrap",
+    },
+    secondaryMenuButton: {
+        textTransform: "none",
+        borderRadius: 999,
+        fontWeight: 800,
+        padding: theme.spacing(0.75, 1.5),
+        border: "1px solid #d7e3dc",
+        color: "#475569",
+        backgroundColor: "#ffffff",
+    },
+    secondaryMenuButtonActive: {
+        backgroundColor: "#111827",
+        color: "#ffffff",
+        borderColor: "#111827",
+        "&:hover": {
+            backgroundColor: "#0f172a",
+        },
     },
     tabContent: {
         backgroundColor: "#ffffff",
@@ -121,11 +150,15 @@ function TabPanel(props) {
 
 const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
+    const { syncLeadModalState } = useWebphone();
     const opportunityValue =
         op && Number(op.value || 0) === 0 && op.lead?.purchaseValue != null
             ? Number(op.lead.purchaseValue)
             : Number((op && op.value) || 0);
+    const resolvedLeadId = leadId || (op && (op.leadId || op.lead?.id)) || null;
+    const resolvedOpportunityId = (op && op.id) || null;
     const [tabValue, setTabValue] = useState(0);
+    const [secondaryView, setSecondaryView] = useState("content");
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
     const [activityType] = useState("ATIVIDADE");
@@ -146,8 +179,17 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             setNoteText("");
             setActivityToDelete(null);
             setConfirmDeleteOpen(false);
+            setSecondaryView("content");
         }
     }, [open]);
+
+    useEffect(() => {
+        syncLeadModalState(open);
+
+        return () => {
+            syncLeadModalState(false);
+        };
+    }, [open, syncLeadModalState]);
 
     useEffect(() => {
         if (op && op.lead) {
@@ -155,12 +197,12 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         } else if (!leadId) {
             setCardColor(null);
         }
-    }, [leadId, (op && op.id)]);
+    }, [leadId, op]);
 
     const handleCardColorChange = async (e) => {
         const newColor = e.target.value;
         setCardColor(newColor);
-        const lId = leadId || (op && op.leadId);
+        const lId = resolvedLeadId;
         if (!lId) return;
 
         try {
@@ -172,23 +214,28 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         }
     };
 
-    useEffect(() => {
-        if (open && op && op.id && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
-            fetchActivities();
+    const fetchActivities = useCallback(async () => {
+        if (!resolvedOpportunityId) {
+            setActivities([]);
+            return;
         }
-    }, [open, (op && op.id), tabValue]);
 
-    const fetchActivities = async () => {
         try {
             setLoadingActivities(true);
-            const { data } = await api.get(`/opportunities/${op.id}/events`);
+            const { data } = await api.get(`/opportunities/${resolvedOpportunityId}/events`);
             setActivities(data);
         } catch (err) {
             toast.error("Erro ao carregar atividades");
         } finally {
             setLoadingActivities(false);
         }
-    };
+    }, [resolvedOpportunityId]);
+
+    useEffect(() => {
+        if (open && resolvedOpportunityId && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
+            fetchActivities();
+        }
+    }, [fetchActivities, open, resolvedOpportunityId, tabValue]);
 
     if (!op && !leadId && open && false) {
         return null; // bloqueio removido para permitir a criação de um Novo Lead
@@ -456,16 +503,39 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <Tab icon={<ChatBubbleOutlineIcon fontSize="small" />} label="Chat" style={{ minWidth: 100 }} />
                             <Tab icon={<AttachFileIcon fontSize="small" />} label="Arquivos" style={{ minWidth: 100 }} />
                         </Tabs>
+                        <Box className={classes.secondaryMenu}>
+                            <Button
+                                className={`${classes.secondaryMenuButton} ${secondaryView === "content" ? classes.secondaryMenuButtonActive : ""}`}
+                                startIcon={<ViewCarouselIcon fontSize="small" />}
+                                onClick={() => setSecondaryView("content")}
+                            >
+                                Painel do lead
+                            </Button>
+                            <Button
+                                className={`${classes.secondaryMenuButton} ${secondaryView === "recordings" ? classes.secondaryMenuButtonActive : ""}`}
+                                startIcon={<FiberManualRecordIcon fontSize="small" />}
+                                onClick={() => setSecondaryView("recordings")}
+                            >
+                                Gravacoes
+                            </Button>
+                        </Box>
                     </Paper>
 
                     <Paper className={classes.tabContent} elevation={0}>
+                        {secondaryView === "recordings" ? (
+                            <LeadCallRecordingsTab
+                                leadId={resolvedLeadId}
+                                opportunityId={resolvedOpportunityId}
+                            />
+                        ) : (
+                            <>
 
                         {/* Informações: Formulário completo usando LeadModal (isEmbedded) */}
                         <TabPanel value={tabValue} index={0}>
                             <LeadModal
                                 open={true}
                                 onClose={onClose}
-                                leadId={leadId || (op && op.leadId) || null}
+                                leadId={resolvedLeadId}
                                 contactId={(op && op.contact && op.contact.id) || null}
                                 onSuccess={onSuccess}
                                 isEmbedded={true}
@@ -553,7 +623,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         {/* Tarefas */}
                         <TabPanel value={tabValue} index={2}>
                             <LeadTasksTab
-                                leadId={leadId || (op && op.leadId) || null}
+                                leadId={resolvedLeadId}
                                 op={op}
                             />
                         </TabPanel>
@@ -658,7 +728,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         <TabPanel value={tabValue} index={6}>
                             <Box height="500px">
                                 <LeadWhatsAppChat
-                                    leadId={leadId || (op && (op.leadId || op.id)) || null}
+                                    leadId={resolvedLeadId || resolvedOpportunityId}
                                     op={op}
                                     onBackToInfo={() => setTabValue(0)}
                                 />
@@ -668,11 +738,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         {/* Arquivos */}
                         <TabPanel value={tabValue} index={7}>
                             <LeadAttachmentsTab
-                                leadId={leadId || (op && (op.leadId || op.id)) || null}
+                                leadId={resolvedLeadId || resolvedOpportunityId}
                                 op={op}
                             />
                         </TabPanel>
 
+                            </>
+                        )}
                     </Paper>
                 </Box>
             </Box>

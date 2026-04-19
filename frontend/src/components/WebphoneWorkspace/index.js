@@ -20,6 +20,7 @@ import {
 } from "@material-ui/core";
 import {
   Close as CloseIcon,
+  Remove as RemoveIcon,
   Call as CallIcon,
   CallEnd as CallEndIcon,
   Mic as MicIcon,
@@ -343,7 +344,7 @@ const tabConfig = [
   { value: "lead", label: "Lead", icon: <PersonIcon fontSize="small" /> },
 ];
 
-const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
+const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = false, onMinimize, onClose }) => {
   const classes = useStyles();
   const {
     status,
@@ -368,10 +369,14 @@ const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
     setActiveTab,
     activeSequence,
     sequenceLoading,
+    recordingState,
+    recordingDuration,
     createSequence,
     controlSequence,
     hydrateLeadContext,
     loadSequenceById,
+    startRecording,
+    stopRecording,
   } = useWebphone();
 
   const [pipelines, setPipelines] = useState([]);
@@ -663,6 +668,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
   const currentStatus = statusMap[status] || statusMap.disconnected;
   const isActiveCall = status === "calling" || status === "in-call" || status === "incoming";
   const canStartCall = !isActiveCall && (status === "connected" || status === "incoming");
+  const isRecording = recordingState === "recording" || recordingState === "uploading";
 
   return (
     <Box className={`${classes.root} ${compact ? classes.rootCompact : ""}`}>
@@ -680,11 +686,18 @@ const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
           </Typography>
         </Box>
 
-        {closable && (
-          <IconButton size="small" onClick={onClose} style={{ color: "#9ca3af" }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        )}
+        <Box display="flex" alignItems="center" gridGap={6}>
+          {allowMinimize && !compact && (
+            <IconButton size="small" onClick={onMinimize} style={{ color: "#9ca3af" }}>
+              <RemoveIcon fontSize="small" />
+            </IconButton>
+          )}
+          {closable && (
+            <IconButton size="small" onClick={onClose} style={{ color: "#9ca3af" }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
       </Box>
 
       <Tabs
@@ -711,7 +724,13 @@ const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
               </span>
 
               <Typography className={classes.statusInfo}>
-                {status === "in-call" ? `Duração: ${formatDuration(callDuration)}` : sipLoading ? "Carregando SIP..." : sipSettings?.enabled ? "Discador ativo" : "Aguardando configuração"}
+                {status === "in-call"
+                  ? `Duração: ${formatDuration(callDuration)}${isRecording ? ` • Gravando ${formatDuration(recordingDuration)}` : ""}`
+                  : sipLoading
+                    ? "Carregando SIP..."
+                    : sipSettings?.enabled
+                      ? "Discador ativo"
+                      : "Aguardando configuração"}
               </Typography>
             </Box>
 
@@ -767,6 +786,20 @@ const WebphoneWorkspace = ({ compact = false, closable = false, onClose }) => {
                 </span>
               </Tooltip>
             </Box>
+
+            <Button
+              variant="outlined"
+              className={classes.primaryButton}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={(status !== "in-call" && !isRecording) || recordingState === "uploading"}
+              startIcon={isRecording ? <StopIcon /> : <MicIcon />}
+            >
+              {recordingState === "uploading"
+                ? "Salvando gravação..."
+                : isRecording
+                  ? `Parar gravação (${formatDuration(recordingDuration)})`
+                  : "Gravar ligação"}
+            </Button>
 
             {status === "incoming" && (
               <Button

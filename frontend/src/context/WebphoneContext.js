@@ -40,6 +40,8 @@ export const WebphoneProvider = ({ children }) => {
   const [currentCallContext, setCurrentCallContext] = useState(null);
   const [muted, setMuted] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMinimized, setPanelMinimized] = useState(false);
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [dialNumber, setDialNumber] = useState("");
   const [recentCalls, setRecentCalls] = useState([]);
@@ -47,6 +49,9 @@ export const WebphoneProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState("dialer");
   const [activeSequence, setActiveSequence] = useState(null);
   const [sequenceLoading, setSequenceLoading] = useState(false);
+  const [activeCallRecord, setActiveCallRecord] = useState(null);
+  const [recordingState, setRecordingState] = useState("idle");
+  const [recordingDuration, setRecordingDuration] = useState(0);
 
   const uaRef = useRef(null);
   const sessionRef = useRef(null);
@@ -56,6 +61,13 @@ export const WebphoneProvider = ({ children }) => {
   const currentSequenceTargetRef = useRef(null);
   const sequenceTimerRef = useRef(null);
   const isPlacingSequenceCallRef = useRef(false);
+  const autoRestorePanelOnLeadCloseRef = useRef(false);
+  const mediaRecorderRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+  const recordingCleanupRef = useRef(null);
+  const recordingStopResolverRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -68,11 +80,292 @@ export const WebphoneProvider = ({ children }) => {
     setSession(null);
     setMuted(false);
     setCallDuration(0);
+    setActiveCallRecord(null);
     sessionRef.current = null;
     activeCallRecordIdRef.current = null;
     callStartedAtRef.current = null;
     callAnsweredRef.current = false;
   }, []);
+
+  const closePanel = useCallback(() => {
+    setPanelOpen(false);
+    setPanelMinimized(false);
+    autoRestorePanelOnLeadCloseRef.current = false;
+  }, []);
+
+  const minimizePanel = useCallback((reason = "manual") => {
+    setPanelOpen(true);
+    setPanelMinimized(true);
+    autoRestorePanelOnLeadCloseRef.current = reason === "lead-modal";
+  }, []);
+
+  const restorePanel = useCallback(() => {
+    if (!panelOpen) {
+      setPanelOpen(true);
+      if (leadModalOpen) {
+        setPanelMinimized(true);
+      }
+    }
+    if (!leadModalOpen) {
+      setPanelMinimized(false);
+    }
+    autoRestorePanelOnLeadCloseRef.current = false;
+  }, [leadModalOpen, panelOpen]);
+
+  const syncLeadModalState = useCallback((isOpen) => {
+    setLeadModalOpen(isOpen);
+
+    if (isOpen) {
+      if (panelOpen && !panelMinimized) {
+        setPanelMinimized(true);
+        autoRestorePanelOnLeadCloseRef.current = true;
+      } else {
+        autoRestorePanelOnLeadCloseRef.current = false;
+      }
+      return;
+    }
+
+    if (autoRestorePanelOnLeadCloseRef.current && panelOpen) {
+      setPanelMinimized(false);
+    }
+    autoRestorePanelOnLeadCloseRef.current = false;
+  }, [panelMinimized, panelOpen]);
+
+  const loadRecordings = useCallback(async (filters = {}) => {
+    try {
+      const { data } = await api.get("/call-recordings", { params: filters });
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error("[Webphone] Failed to load recordings", error);
+      return [];
+    }
+  }, []);
+
+  const clearRecordingInterval = useCallback(() => {
+    if (recordingIntervalRef.current) {
+      window.clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+  }, []);
+
+  const cleanupRecordingResources = useCallback(() => {
+    clearRecordingInterval();
+    if (typeof recordingCleanupRef.current === "function") {
+      try {
+        recordingCleanupRef.current();
+      } catch (error) {
+        console.error("[Webphone] Failed to cleanup recording resources", error);
+      }
+    }
+    recordingCleanupRef.current = null;
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+    recordingStartedAtRef.current = null;
+    setRecordingState("idle");
+    setRecordingDuration(0);
+  }, [clearRecordingInterval]);
+
+  const buildRecordingStream = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    const peerConnection =
+      currentSession?.connection ||
+      currentSession?._connection ||
+      currentSession?.rtcSession?.connection ||
+      null;
+
+    if (!peerConnection) {
+      throw new Error("Conexão de mídia da chamada não encontrada.");
+    }
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) {
+      throw new Error("Seu navegador não suporta captura de áudio.");
+    }
+
+    const audioContext = new AudioContextCtor();
+    await audioContext.resume();
+    const destination = audioContext.createMediaStreamDestination();
+    const sources = [];
+
+    const connectTrack = (track) => {
+      if (!track || track.kind !== "audio") {
+        return;
+      }
+
+      const sourceStream = new MediaStream([track]);
+      const sourceNode = audioContext.createMediaStreamSource(sourceStream);
+      sourceNode.connect(destination);
+      sources.push(sourceNode);
+    };
+
+    (peerConnection.getSenders?.() || []).forEach((sender) => connectTrack(sender.track));
+    (peerConnection.getReceivers?.() || []).forEach((receiver) => connectTrack(receiver.track));
+
+    if (!destination.stream.getAudioTracks().length) {
+      throw new Error("Nenhuma trilha de áudio disponível para gravação.");
+    }
+
+    return {
+      stream: destination.stream,
+      cleanup: () => {
+        sources.forEach((source) => {
+          try {
+            source.disconnect();
+          } catch (_error) {}
+        });
+        destination.stream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (_error) {}
+        });
+        audioContext.close().catch(() => {});
+      },
+    };
+  }, []);
+
+  const uploadRecording = useCallback(async (blob, durationSeconds) => {
+    if (!activeCallRecordIdRef.current) {
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append("file", blob, `call-${activeCallRecordIdRef.current}.webm`);
+    formData.append("callRecordId", String(activeCallRecordIdRef.current));
+    formData.append("leadId", String(currentLead?.id || currentCallContext?.leadId || ""));
+    formData.append("opportunityId", String(currentLead?.opportunityId || currentCallContext?.opportunityId || ""));
+    formData.append("pipelineId", String(currentLead?.pipelineId || currentCallContext?.pipelineId || ""));
+    formData.append("stageId", String(currentLead?.stageId || currentCallContext?.stageId || ""));
+    formData.append("duration", String(durationSeconds || 0));
+    formData.append("source", "browser");
+    formData.append("metadata", JSON.stringify({
+      fileType: blob.type || "audio/webm",
+    }));
+
+    const { data } = await api.post("/call-recordings/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return data;
+  }, [currentCallContext, currentLead]);
+
+  const stopRecording = useCallback(async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      cleanupRecordingResources();
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      recordingStopResolverRef.current = resolve;
+      setRecordingState("uploading");
+      recorder.stop();
+    });
+  }, [cleanupRecordingResources]);
+
+  const startRecording = useCallback(async () => {
+    if (status !== "in-call") {
+      toast.info("A gravação só pode começar com a chamada em andamento.");
+      return false;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      return true;
+    }
+
+    try {
+      const { stream, cleanup } = await buildRecordingStream();
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "";
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+      recordingChunksRef.current = [];
+      recordingCleanupRef.current = cleanup;
+      mediaRecorderRef.current = recorder;
+      recordingStartedAtRef.current = Date.now();
+      setRecordingState("recording");
+      setRecordingDuration(0);
+
+      clearRecordingInterval();
+      recordingIntervalRef.current = window.setInterval(() => {
+        if (!recordingStartedAtRef.current) {
+          return;
+        }
+        setRecordingDuration(Math.max(0, Math.round((Date.now() - recordingStartedAtRef.current) / 1000)));
+      }, 1000);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onerror = (event) => {
+        console.error("[Webphone] Recording error", event);
+        toast.error("Não foi possível gravar a ligação.");
+        const resolver = recordingStopResolverRef.current;
+        cleanupRecordingResources();
+        recordingStopResolverRef.current = null;
+        if (typeof resolver === "function") {
+          resolver(null);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const resolver = recordingStopResolverRef.current;
+        try {
+          const durationSeconds = recordingStartedAtRef.current
+            ? Math.max(0, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+            : recordingDuration;
+          const recordingBlob = new Blob(recordingChunksRef.current, {
+            type: recorder.mimeType || "audio/webm",
+          });
+
+          let createdRecording = null;
+          if (recordingBlob.size > 0) {
+            createdRecording = await uploadRecording(recordingBlob, durationSeconds);
+            if (currentLead?.id) {
+              await loadRecordings({ leadId: currentLead.id });
+            }
+          }
+
+          cleanupRecordingResources();
+          recordingStopResolverRef.current = null;
+          if (createdRecording) {
+            toast.success("Gravação salva com sucesso.");
+          }
+          if (typeof resolver === "function") {
+            resolver(createdRecording);
+          }
+        } catch (error) {
+          console.error("[Webphone] Failed to upload recording", error);
+          cleanupRecordingResources();
+          recordingStopResolverRef.current = null;
+          toast.error("Não foi possível salvar a gravação.");
+          if (typeof resolver === "function") {
+            resolver(null);
+          }
+        }
+      };
+
+      recorder.start(1000);
+      return true;
+    } catch (error) {
+      console.error("[Webphone] Failed to start recording", error);
+      toast.error(error?.message || "Não foi possível iniciar a gravação.");
+      cleanupRecordingResources();
+      return false;
+    }
+  }, [
+    buildRecordingStream,
+    cleanupRecordingResources,
+    clearRecordingInterval,
+    currentLead?.id,
+    loadRecordings,
+    recordingDuration,
+    status,
+    uploadRecording,
+  ]);
 
   const loadHistory = useCallback(async (filters = {}) => {
     setHistoryLoading(true);
@@ -132,6 +425,7 @@ export const WebphoneProvider = ({ children }) => {
 
   const stopUA = useCallback(() => {
     clearSequenceTimer();
+    cleanupRecordingResources();
     if (uaRef.current) {
       try {
         uaRef.current.stop();
@@ -144,8 +438,9 @@ export const WebphoneProvider = ({ children }) => {
     setUa(null);
     setSipSettings(null);
     setStatus("disconnected");
+    closePanel();
     resetCallState();
-  }, [clearSequenceTimer, resetCallState]);
+  }, [cleanupRecordingResources, clearSequenceTimer, closePanel, resetCallState]);
 
   const persistCallUpdate = useCallback(async (payload) => {
     if (!activeCallRecordIdRef.current) {
@@ -153,9 +448,12 @@ export const WebphoneProvider = ({ children }) => {
     }
 
     try {
-      await api.put(`/call-records/${activeCallRecordIdRef.current}`, payload);
+      const { data } = await api.put(`/call-records/${activeCallRecordIdRef.current}`, payload);
+      setActiveCallRecord(data || null);
+      return data || null;
     } catch (error) {
       console.error("[Webphone] Failed to update call record", error);
+      return null;
     }
   }, []);
 
@@ -209,6 +507,10 @@ export const WebphoneProvider = ({ children }) => {
 
   const finalizeCall = useCallback(
     async ({ finalStatus, failureCause }) => {
+      if (recordingState === "recording" || recordingState === "uploading") {
+        await stopRecording();
+      }
+
       const duration = callStartedAtRef.current
         ? Math.max(0, Math.round((Date.now() - callStartedAtRef.current) / 1000))
         : callDuration;
@@ -246,6 +548,8 @@ export const WebphoneProvider = ({ children }) => {
       loadHistory,
       persistCallUpdate,
       resetCallState,
+      recordingState,
+      stopRecording,
     ]
   );
 
@@ -268,9 +572,16 @@ export const WebphoneProvider = ({ children }) => {
     setCurrentLead(nextLead);
     setCurrentCallContext(callContext || null);
     setDialNumber(nextLead?.phone || normalizePhone(callContext?.toNumber || ""));
-    setPanelOpen(true);
+    if (options.openPanel) {
+      setPanelOpen(true);
+      if (leadModalOpen) {
+        setPanelMinimized(true);
+      } else if (!options.minimized) {
+        setPanelMinimized(false);
+      }
+    }
     setActiveTab(options.tab || "dialer");
-  }, []);
+  }, [leadModalOpen]);
 
   const createCallRecord = useCallback(async (number, callMetadata = {}, options = {}) => {
     const payload = {
@@ -291,6 +602,7 @@ export const WebphoneProvider = ({ children }) => {
 
     const { data } = await api.post("/call-records", payload);
     activeCallRecordIdRef.current = data?.id || null;
+    setActiveCallRecord(data || null);
     return data;
   }, []);
 
@@ -329,6 +641,7 @@ export const WebphoneProvider = ({ children }) => {
         setCurrentCallContext(callMetadata || currentCallContext || null);
         setDialNumber(sanitizedNumber);
         setPanelOpen(true);
+        setPanelMinimized(leadModalOpen);
         setStatus("calling");
         callStartedAtRef.current = Date.now();
         callAnsweredRef.current = false;
@@ -361,6 +674,7 @@ export const WebphoneProvider = ({ children }) => {
       sipSettings,
       status,
       updateSequenceTarget,
+      leadModalOpen,
     ]
   );
 
@@ -510,6 +824,7 @@ export const WebphoneProvider = ({ children }) => {
         sessionRef.current = nextSession;
         setSession(nextSession);
         setPanelOpen(true);
+        setPanelMinimized(leadModalOpen);
 
         if (nextSession.direction === "incoming") {
           setStatus("incoming");
@@ -569,7 +884,7 @@ export const WebphoneProvider = ({ children }) => {
       uaRef.current = nextUa;
       setUa(nextUa);
     },
-    [currentLead, finalizeCall, persistCallUpdate, stopUA, user?.name]
+    [currentLead, finalizeCall, leadModalOpen, persistCallUpdate, stopUA, user?.name]
   );
 
   const createSequence = useCallback(async (payload) => {
@@ -579,6 +894,9 @@ export const WebphoneProvider = ({ children }) => {
       setActiveSequence(data || null);
       setActiveTab("sequence");
       setPanelOpen(true);
+      if (leadModalOpen) {
+        setPanelMinimized(true);
+      }
       toast.success("Sequência de ligações iniciada.");
       return data || null;
     } catch (error) {
@@ -588,7 +906,7 @@ export const WebphoneProvider = ({ children }) => {
     } finally {
       setSequenceLoading(false);
     }
-  }, []);
+  }, [leadModalOpen]);
 
   const controlSequence = useCallback(async (sequenceId, action) => {
     if (!sequenceId) {
@@ -651,6 +969,19 @@ export const WebphoneProvider = ({ children }) => {
     setCurrentCallContext(null);
     setDialNumber("");
   }, []);
+
+  const setPanelVisibility = useCallback((nextOpen) => {
+    const shouldOpen = Boolean(nextOpen);
+    setPanelOpen(shouldOpen);
+
+    if (!shouldOpen) {
+      setPanelMinimized(false);
+      autoRestorePanelOnLeadCloseRef.current = false;
+      return;
+    }
+
+    setPanelMinimized(leadModalOpen);
+  }, [leadModalOpen]);
 
   useEffect(() => {
     if (!isAuth || !user) {
@@ -738,14 +1069,23 @@ export const WebphoneProvider = ({ children }) => {
       currentCallContext,
       muted,
       panelOpen,
+      panelMinimized,
+      leadModalOpen,
       callDuration,
+      activeCallRecord,
+      recordingState,
+      recordingDuration,
       dialNumber,
       recentCalls,
       historyLoading,
       activeTab,
       activeSequence,
       sequenceLoading,
-      setPanelOpen,
+      setPanelOpen: setPanelVisibility,
+      closePanel,
+      minimizePanel,
+      restorePanel,
+      syncLeadModalState,
       setActiveTab,
       setDialNumber,
       appendDialDigit,
@@ -756,7 +1096,10 @@ export const WebphoneProvider = ({ children }) => {
       hangup,
       answer,
       toggleMute,
+      startRecording,
+      stopRecording,
       loadHistory,
+      loadRecordings,
       loadSipSettings,
       loadSequences,
       loadSequenceById,
@@ -767,11 +1110,13 @@ export const WebphoneProvider = ({ children }) => {
     [
       activeSequence,
       activeTab,
+      activeCallRecord,
       answer,
       appendDialDigit,
       backspaceDialDigit,
       callDuration,
       clearLeadContext,
+      closePanel,
       controlSequence,
       createSequence,
       currentCallContext,
@@ -780,19 +1125,30 @@ export const WebphoneProvider = ({ children }) => {
       hangup,
       historyLoading,
       hydrateLeadContext,
+      leadModalOpen,
       loadHistory,
+      loadRecordings,
       loadSequenceById,
       loadSequences,
       loadSipSettings,
       makeCall,
+      minimizePanel,
       muted,
       panelOpen,
+      panelMinimized,
       recentCalls,
+      recordingDuration,
+      recordingState,
+      restorePanel,
       sequenceLoading,
       session,
+      setPanelVisibility,
       sipLoading,
       sipSettings,
+      startRecording,
       status,
+      stopRecording,
+      syncLeadModalState,
       toggleMute,
       ua,
       updateSequenceTarget,

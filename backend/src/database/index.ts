@@ -99,6 +99,7 @@ import UserService from "../models/UserService";
 import UserGoogleCalendarIntegration from "../models/UserGoogleCalendarIntegration";
 import FollowUp from "../models/FollowUp";
 import CallRecord from "../models/CallRecord";
+import CallRecording from "../models/CallRecording";
 import GoogleSheetsToken from "../models/GoogleSheetsToken";
 import UserDevice from "../models/UserDevice";
 import ExternalApp from "../models/ExternalApp";
@@ -322,6 +323,7 @@ const models = [
   GoogleSheetsToken,
   UserDevice,
   CallRecord,
+  CallRecording,
   ExternalApp,
   IaWorkflow,
   FrontendError,
