@@ -134,6 +134,7 @@ import FlowBuilderSendMessageModal from "../../components/FlowBuilderSendMessage
 import FlowBuilderWaitQuestionModal from "../../components/FlowBuilderWaitQuestionModal";
 import FlowBuilderProductListModal from "../../components/FlowBuilderProductListModal";
 import FlowBuilderAddKanbanStageModal from "../../components/FlowBuilderAddKanbanStageModal";
+import FlowBuilderTriggerModal from "../../components/FlowBuilderTriggerModal";
 
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
@@ -541,6 +542,8 @@ export const FlowBuilderConfig = () => {
   const [modalWaitQuestion, setModalWaitQuestion] = useState(null);
   const [modalAddKanbanStage, setModalAddKanbanStage] = useState(null);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const [flowTriggers, setFlowTriggers] = useState([]);
 
   const [nodeRenaming, setNodeRenaming] = useState(null);
   const [flowLocked, setFlowLocked] = useState(false);
@@ -581,7 +584,7 @@ export const FlowBuilderConfig = () => {
           {
             id: "1",
             position: { x: posX, y: posY },
-            data: withTitleData("start", { label: "Inicio do fluxo" }),
+            data: withTitleData("start", { label: "Inicio do fluxo", triggers: flowTriggers, onOpenTriggerModal: () => setTriggerModalOpen(true) }),
             type: "start",
           },
         ];
@@ -998,7 +1001,13 @@ export const FlowBuilderConfig = () => {
           const { data } = await api.get(`/flowbuilder/flow/${id}`);
 
           if (data.flow.flow !== null) {
-            const flowNodes = data.flow.flow.nodes;
+            const loadedTriggers = data.flow.triggers || [];
+            setFlowTriggers(loadedTriggers);
+            const flowNodes = data.flow.flow.nodes.map((n) =>
+              n.type === "start"
+                ? { ...n, data: { ...n.data, triggers: loadedTriggers, onOpenTriggerModal: () => setTriggerModalOpen(true) } }
+                : n
+            );
             setNodes(applyTitlesToNodes(flowNodes));
             setEdges(data.flow.flow.connections);
             // Extrair variáveis dos nós question
@@ -1236,21 +1245,20 @@ export const FlowBuilderConfig = () => {
   const saveFlow = async () => {
     const nodesWithTitles = applyTitlesToNodes(nodes);
     setNodes(nodesWithTitles);
-    await api
-      .post("/flowbuilder/flow", {
-        idFlow: id,
-        nodes: nodesWithTitles,
-        connections: edges,
-      })
-      .then((res) => {
-        toast.success("Fluxo salvo com sucesso");
-      });
+    await api.post("/flowbuilder/flow", {
+      idFlow: id,
+      nodes: nodesWithTitles,
+      connections: edges,
+    });
+    await api.put(`/flowbuilder/${id}/triggers`, { triggers: flowTriggers });
+    toast.success("Fluxo salvo com sucesso");
   };
 
   // [TODAS AS FUNÇÕES DE EVENTOS MANTIDAS IGUAIS]
   const doubleClick = (event, node) => {
     console.log("NODE", node);
     setDataNode(node);
+    if (node.type === "start") { setTriggerModalOpen(true); return; }
     if (node.type === "message") { setModalAddText("edit"); }
     if (node.type === "interval") { setModalAddInterval("edit"); }
     if (node.type === "menu") { setModalAddMenu("edit"); }
@@ -1321,6 +1329,18 @@ export const FlowBuilderConfig = () => {
           },
         };
       })
+    );
+  };
+
+  const handleTriggerSave = (updatedTriggers) => {
+    setFlowTriggers(updatedTriggers);
+    // Sync triggers into the start node data so badges update immediately
+    setNodes((old) =>
+      old.map((n) =>
+        n.type === "start"
+          ? { ...n, data: { ...n.data, triggers: updatedTriggers, onOpenTriggerModal: () => setTriggerModalOpen(true) } }
+          : n
+      )
     );
   };
 
@@ -1704,6 +1724,13 @@ export const FlowBuilderConfig = () => {
         defaultTitle={nodeRenaming ? getDefaultTitle(nodeRenaming.type) : "Bloco"}
         onClose={closeRenameModal}
         onSave={handleRenameSave}
+      />
+
+      <FlowBuilderTriggerModal
+        open={triggerModalOpen}
+        onClose={() => setTriggerModalOpen(false)}
+        triggers={flowTriggers}
+        onSave={handleTriggerSave}
       />
 
       {!loading && (

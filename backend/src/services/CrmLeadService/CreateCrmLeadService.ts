@@ -7,6 +7,7 @@ import { Op } from "sequelize";
 import syncLeadToClient from "./helpers/syncLeadToClient";
 import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 import CheckContactNumber from "../WbotServices/CheckNumber";
 import logger from "../../utils/logger";
 import serializeCrmLead from "./helpers/serializeCrmLead";
@@ -434,6 +435,13 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       ownerUserId: lead.ownerUserId
     }
   });
+
+  // Dispatch flow triggers for lead_created event (fire-and-forget)
+  dispatchFlowTrigger("lead_created", data.companyId, {
+    contactNumber: lead.phone || "",
+    contactName: lead.name || "",
+    metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
+  }).catch(() => null);
 
   return lead;
 };

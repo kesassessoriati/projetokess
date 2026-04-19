@@ -101,4 +101,17 @@ flowBuilder.get(
   FlowBuilderController.listFlowExecutions
 );
 
+// Save triggers for a flow
+flowBuilder.put(
+  "/flowbuilder/:idFlow/triggers",
+  isAuth,
+  FlowBuilderController.saveTriggers
+);
+
+// Public HTTP webhook trigger — NO auth (called externally)
+flowBuilder.post(
+  "/public/flow-webhook/:token",
+  FlowBuilderController.publicWebhookTrigger
+);
+
 export default flowBuilder;

@@ -4306,6 +4306,21 @@ const flowbuilderIntegration = async (
     return;
   }
 
+  // Fire message_received flow triggers when no active flow is running on this ticket
+  if (!ticket.flowWebhook) {
+    try {
+      const { dispatchFlowTrigger } = await import("../FlowBuilderService/FlowTriggerDispatchService");
+      const triggered = await dispatchFlowTrigger("message_received", ticket.companyId, {
+        ticketId: ticket.id,
+        whatsappId: whatsapp.id,
+        message: body,
+        contactNumber: contact.number,
+        contactName: contact.name,
+      });
+      if (triggered) return; // A flow was started — stop further processing
+    } catch (_) {}
+  }
+
   if (ticket.flowWebhook) {
     console.log(`🔄 FlowWebhook ativo - hashFlowId: ${ticket.hashFlowId}, flowStopped: ${ticket.flowStopped}, lastFlowId: ${ticket.lastFlowId}`);
 

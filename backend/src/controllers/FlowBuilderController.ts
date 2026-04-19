@@ -21,6 +21,8 @@ import fs from "fs";
 import TestFlowBuilderService from "../services/FlowBuilderService/TestFlowBuilderService";
 import TriggerFlowWebhookService from "../services/FlowBuilderService/TriggerFlowWebhookService";
 import ListFlowExecutionsService from "../services/FlowBuilderService/ListFlowExecutionsService";
+import { executeFlowByToken } from "../services/FlowBuilderService/FlowTriggerDispatchService";
+import { FlowBuilderModel } from "../models/FlowBuilder";
 // import { handleMessage } from "../services/FacebookServices/facebookMessageListener";
 
 export const createFlow = async (
@@ -401,4 +403,53 @@ export const listFlowExecutions = async (
   });
 
   return res.status(200).json(data);
+};
+
+// Save triggers for a specific flow
+export const saveTriggers = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { idFlow } = req.params;
+  const { companyId } = req.user;
+  const { triggers } = req.body;
+
+  const flow = await FlowBuilderModel.findOne({
+    where: { id: parseInt(idFlow), company_id: companyId }
+  });
+
+  if (!flow) {
+    return res.status(404).json({ error: "Fluxo não encontrado" });
+  }
+
+  await flow.update({ triggers: Array.isArray(triggers) ? triggers : [] });
+
+  return res.status(200).json({ id: flow.id, triggers: flow.triggers });
+};
+
+// Public HTTP webhook trigger — no auth required
+export const publicWebhookTrigger = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { token } = req.params;
+
+  const body = req.body || {};
+  const contactNumber = body.contactNumber || body.phone || body.number || "";
+  const contactName = body.contactName || body.name || contactNumber;
+  const whatsappId = body.whatsappId ? Number(body.whatsappId) : undefined;
+
+  const result = await executeFlowByToken(token, {
+    contactNumber,
+    contactName,
+    whatsappId,
+    metadata: body
+  });
+
+  if (!result.success) {
+    return res.status(result.error === "Token not found or flow inactive" ? 404 : 500)
+      .json({ error: result.error });
+  }
+
+  return res.status(200).json({ success: true, flowId: result.flowId });
 };

@@ -16,6 +16,7 @@ import CreateLogTicketService from "./CreateLogTicketService";
 import ShowTicketService from "./ShowTicketService";
 import { trackProductEvent } from "../SystemMetricService";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 
 interface Request {
   contactId: number;
@@ -170,6 +171,14 @@ const CreateTicketService = async ({
       : { id: contactId },
     queue: ticket.queue ? { id: ticket.queue.id, name: ticket.queue.name } : null
   });
+
+  // Dispatch flow triggers for ticket_created event (fire-and-forget)
+  dispatchFlowTrigger("ticket_created", companyId, {
+    ticketId: ticket.id,
+    whatsappId: ticket.whatsappId,
+    contactNumber: ticket.contact?.number,
+    contactName: ticket.contact?.name,
+  }).catch(() => null);
 
   return ticket;
 };

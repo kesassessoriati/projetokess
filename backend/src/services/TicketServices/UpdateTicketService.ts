@@ -25,6 +25,7 @@ import FindOrCreateTicketService from "./FindOrCreateTicketService";
 import formatBody from "../../helpers/Mustache";
 import { Mutex } from "async-mutex";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 import CrmLead from "../../models/CrmLead";
 import Opportunity from "../../models/Opportunity";
 
@@ -1088,6 +1089,12 @@ const UpdateTicketService = async ({
         oldStatus,
         agent: oldUserId ? { id: oldUserId } : null
       });
+      dispatchFlowTrigger("ticket_closed", companyId, {
+        ticketId: ticket.id,
+        whatsappId: ticket.whatsappId,
+        contactNumber: ticket.contact?.number,
+        contactName: ticket.contact?.name,
+      }).catch(() => null);
     } else if (status === "resolved" && oldStatus !== "resolved") {
       webhookDispatch("TICKET_RESOLVED", companyId, {
         ticket: ticketPayload,
