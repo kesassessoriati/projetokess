@@ -98,6 +98,7 @@ export const scheduleMonitor = new BullQueue("ScheduleMonitor", connection);
 export const sendScheduledMessages = new BullQueue("SendSacheduledMessages", connection);
 export const campaignQueue = new BullQueue("CampaignQueue", connection);
 export const queueMonitor = new BullQueue("QueueMonitor", connection);
+export const meetingQueue = new BullQueue("MeetingQueue", connection);
 
 export const messageQueue = new BullQueue("MessageQueue", connection, {
   limiter: {
@@ -2036,6 +2037,24 @@ handleProcessLanes();
 handleCloseTicketsAutomatic();
 handleRandomUser();
 
+async function handleProcessMeeting(job) {
+  try {
+    const { meetingId, companyId } = job.data;
+    const { processMeeting } = await import("./services/MeetingServices/MeetingProcessingService");
+    await processMeeting(meetingId, companyId);
+
+    const io = getIO();
+    io.to(String(companyId)).emit(`company-${companyId}-meeting`, {
+      action: "updated",
+      meetingId
+    });
+  } catch (e: any) {
+    Sentry.captureException(e);
+    logger.error("MeetingQueue -> ProcessMeeting: error", e.message);
+    throw e;
+  }
+}
+
 export async function startQueueProcess() {
   logger.info("Iniciando processamento de filas");
 
@@ -2060,6 +2079,8 @@ export async function startQueueProcess() {
   userMonitor.process("VerifyLoginStatus", handleLoginStatus);
 
   queueMonitor.process("VerifyQueueStatus", handleVerifyQueue);
+
+  meetingQueue.process("ProcessMeeting", handleProcessMeeting);
 
   scheduleMonitor.add(
     "Verify",

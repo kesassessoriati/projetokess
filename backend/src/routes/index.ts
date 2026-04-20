@@ -136,6 +136,7 @@ import companyAiConfigRoutes from "./companyAiConfigRoutes";
 import aiAgentTemplateRoutes from "./aiAgentTemplateRoutes";
 import notificationCenterRoutes from "./notificationCenterRoutes";
 import callSequenceRoutes from "./callSequenceRoutes";
+import meetingRoutes from "./meetingRoutes";
 
 const routes = Router();
 
@@ -300,5 +301,8 @@ routes.use(taskRoutes);
 
 // Notification Center
 routes.use(notificationCenterRoutes);
+
+// Gravação e Transcrição de Reuniões
+routes.use(meetingRoutes);
 
 export default routes;

@@ -106,6 +106,7 @@ import FollowUps from "../pages/FollowUps";
 import AquecimentoWhatsApp from "../pages/AquecimentoWhatsApp";
 import DisparoBotoes from "../pages/DisparoBotoes";
 import Chips from "../pages/Chips";
+import Meetings from "../pages/Meetings";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -303,6 +304,8 @@ const Routes = () => {
                         <Route exact path="/contact-analytics" component={ContactAnalytics} isPrivate />
                         <Route exact path="/call-history" component={CallHistory} isPrivate />
                         <Route exact path="/chamadas" component={CallHistory} isPrivate />
+                        <Route exact path="/meetings" component={Meetings} isPrivate />
+                        <Route exact path="/reunioes" component={Meetings} isPrivate />
                         <Route exact path="/admin/frontend-errors" component={FrontendErrors} isPrivate />
                         <Route exact path="/admin/backend-errors" component={BackendErrors} isPrivate />
                         <Route exact path="/admin/system-metrics" component={SystemMetrics} isPrivate />
