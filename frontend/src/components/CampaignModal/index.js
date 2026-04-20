@@ -16,6 +16,7 @@ import CircularProgress from "@material-ui/core/CircularProgress";
 import { Slide } from "@material-ui/core";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import FlashOnIcon from "@material-ui/icons/FlashOn";
 import { isNil } from "lodash";
 import { i18n } from "../../translate/i18n";
 import moment from "moment";
@@ -38,26 +39,29 @@ import {
 } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import UserStatusIcon from "../UserModal/statusIcon";
-import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
-import EmojiPicker from 'emoji-picker-react';
-import Draggable from 'react-draggable';
-import Paper from '@material-ui/core/Paper';
+import Autocomplete, {
+  createFilterOptions,
+} from "@material-ui/lab/Autocomplete";
+import EmojiPicker from "emoji-picker-react";
+import Draggable from "react-draggable";
+import Paper from "@material-ui/core/Paper";
 import { getBackendUrl } from "../../config";
 import MediaDrivePickerModal from "../MediaDrivePickerModal";
+import QuickRepliesModal from "../QuickRepliesModal";
 
 // Icons for fields
-import CampaignIcon from '@mui/icons-material/Campaign';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ContactsIcon from '@mui/icons-material/Contacts';
-import LabelIcon from '@mui/icons-material/Label';
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import TicketIcon from '@mui/icons-material/ConfirmationNumber';
-import QueueIcon from '@mui/icons-material/People';
-import PersonIcon from '@mui/icons-material/Person';
-import MessageIcon from '@mui/icons-material/Message';
-import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import CampaignIcon from "@mui/icons-material/Campaign";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ContactsIcon from "@mui/icons-material/Contacts";
+import LabelIcon from "@mui/icons-material/Label";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import TicketIcon from "@mui/icons-material/ConfirmationNumber";
+import QueueIcon from "@mui/icons-material/People";
+import PersonIcon from "@mui/icons-material/Person";
+import MessageIcon from "@mui/icons-material/Message";
+import InsertEmoticonIcon from "@mui/icons-material/InsertEmoticon";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 
 // Transition component
 const Transition = React.forwardRef(function Transition(props, ref) {
@@ -71,10 +75,19 @@ const useStyles = makeStyles((theme) => ({
   },
   dialogPaper: {
     borderRadius: "8px",
-    boxShadow: "0px 8px 40px rgba(0, 212, 255, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.5)",
+    boxShadow:
+      "0px 8px 40px rgba(0, 212, 255, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.5)",
     background: "#ffffff",
     minWidth: "500px",
     maxWidth: "800px",
+  },
+  dialogPaperExpanded: {
+    borderRadius: "8px",
+    boxShadow:
+      "0px 8px 40px rgba(0, 212, 255, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.5)",
+    background: "#ffffff",
+    width: "min(1180px, 96vw)",
+    maxWidth: "96vw",
   },
   dialogTitle: {
     backgroundColor: "#0a0a0a",
@@ -93,6 +106,16 @@ const useStyles = makeStyles((theme) => ({
   dialogContent: {
     padding: "24px",
     background: "#f9fafc",
+    overflow: "hidden",
+  },
+  dialogContentLayout: {
+    display: "flex",
+    alignItems: "stretch",
+    gap: 16,
+  },
+  dialogContentMain: {
+    flex: 1,
+    minWidth: 0,
   },
   dialogActions: {
     padding: "16px 24px",
@@ -243,6 +266,19 @@ const useStyles = makeStyles((theme) => ({
     top: 8,
     zIndex: 1,
   },
+  quickRepliesToggle: {
+    borderRadius: 10,
+    border: "1px solid rgba(0, 212, 255, 0.18)",
+    backgroundColor: "#eef9ff",
+    color: "#0891b2",
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "none",
+    "&:hover": {
+      backgroundColor: "#dff6ff",
+    },
+  },
   phonePreviewContainer: {
     height: "100%",
     display: "flex",
@@ -348,7 +384,10 @@ const CampaignSchema = Yup.object().shape({
 
 const DraggablePaper = (props) => {
   return (
-    <Draggable handle="#draggable-dialog-title" cancel={'[class*="MuiDialogContent-root"]'}>
+    <Draggable
+      handle="#draggable-dialog-title"
+      cancel={'[class*="MuiDialogContent-root"]'}
+    >
       <Paper {...props} />
     </Draggable>
   );
@@ -356,7 +395,13 @@ const DraggablePaper = (props) => {
 
 const backendUrl = getBackendUrl();
 
-const MESSAGE_FIELDS = ["message1", "message2", "message3", "message4", "message5"];
+const MESSAGE_FIELDS = [
+  "message1",
+  "message2",
+  "message3",
+  "message4",
+  "message5",
+];
 
 const BUTTONS_TEMPLATE = [
   { displayText: "Sim, quero!", type: "reply", value: "btn_sim" },
@@ -373,14 +418,26 @@ const LIST_TEMPLATE = {
     {
       title: "Atendimento",
       rows: [
-        { title: "Suporte técnico", rowId: "suporte", description: "Dúvidas e problemas técnicos" },
-        { title: "Financeiro", rowId: "financeiro", description: "Boletos, pagamentos e faturas" },
+        {
+          title: "Suporte técnico",
+          rowId: "suporte",
+          description: "Dúvidas e problemas técnicos",
+        },
+        {
+          title: "Financeiro",
+          rowId: "financeiro",
+          description: "Boletos, pagamentos e faturas",
+        },
       ],
     },
     {
       title: "Comercial",
       rows: [
-        { title: "Vendas e propostas", rowId: "comercial", description: "Orçamentos e novos contratos" },
+        {
+          title: "Vendas e propostas",
+          rowId: "comercial",
+          description: "Orçamentos e novos contratos",
+        },
       ],
     },
   ],
@@ -393,7 +450,11 @@ const CAROUSEL_TEMPLATE = [
     body: "Aproveite nossas melhores ofertas com desconto exclusivo!",
     footer: "Válido até hoje",
     buttons: [
-      { displayText: "Ver oferta", type: "url", value: "https://seusite.com.br/oferta" },
+      {
+        displayText: "Ver oferta",
+        type: "url",
+        value: "https://seusite.com.br/oferta",
+      },
       { displayText: "Quero!", type: "reply", value: "btn_quero" },
     ],
   },
@@ -418,31 +479,46 @@ const POLL_TEMPLATE = {
   ],
 };
 
-const cloneButtons = (items = []) => items.map(item => ({ ...item }));
-const cloneCarouselCards = (cards = []) => cards.map(card => ({ ...card, buttons: cloneButtons(card.buttons || []) }));
-const cloneListSections = (sections = []) => sections.map(section => ({ ...section, rows: (section.rows || []).map(row => ({ ...row })) }));
+const cloneButtons = (items = []) => items.map((item) => ({ ...item }));
+const cloneCarouselCards = (cards = []) =>
+  cards.map((card) => ({ ...card, buttons: cloneButtons(card.buttons || []) }));
+const cloneListSections = (sections = []) =>
+  sections.map((section) => ({
+    ...section,
+    rows: (section.rows || []).map((row) => ({ ...row })),
+  }));
 
 const normalizeListSections = (input = []) => {
   if (!Array.isArray(input) || input.length === 0) {
     return cloneListSections(LIST_TEMPLATE.sections);
   }
 
-  const alreadyGrouped = input.every(section => section && Array.isArray(section.rows));
+  const alreadyGrouped = input.every(
+    (section) => section && Array.isArray(section.rows),
+  );
   if (alreadyGrouped) {
     const sections = input
       .map((section, sectionIndex) => ({
-        title: typeof section?.title === "string" ? section.title : `Seção ${sectionIndex + 1}`,
+        title:
+          typeof section?.title === "string"
+            ? section.title
+            : `Seção ${sectionIndex + 1}`,
         rows: (section.rows || [])
           .map((row, rowIndex) => ({
             title: row?.title || row?.displayText || `Item ${rowIndex + 1}`,
-            rowId: row?.rowId || row?.value || `item_${sectionIndex + 1}_${rowIndex + 1}`,
+            rowId:
+              row?.rowId ||
+              row?.value ||
+              `item_${sectionIndex + 1}_${rowIndex + 1}`,
             description: row?.description || "",
           }))
-          .filter(row => row.title),
+          .filter((row) => row.title),
       }))
-      .filter(section => section.rows.length > 0);
+      .filter((section) => section.rows.length > 0);
 
-    return sections.length > 0 ? cloneListSections(sections) : cloneListSections(LIST_TEMPLATE.sections);
+    return sections.length > 0
+      ? cloneListSections(sections)
+      : cloneListSections(LIST_TEMPLATE.sections);
   }
 
   const rows = input
@@ -451,7 +527,7 @@ const normalizeListSections = (input = []) => {
       rowId: item?.rowId || item?.value || `item_${index + 1}`,
       description: item?.description || "",
     }))
-    .filter(row => row.title);
+    .filter((row) => row.title);
 
   return rows.length > 0
     ? [{ title: "Opções", rows }]
@@ -459,32 +535,59 @@ const normalizeListSections = (input = []) => {
 };
 
 const flattenListSections = (sections = []) =>
-  (sections || []).flatMap(section =>
-    (section.rows || []).map(row => ({
+  (sections || []).flatMap((section) =>
+    (section.rows || []).map((row) => ({
       displayText: row.title || "",
       type: "reply",
       value: row.rowId || "",
       description: row.description || "",
-    }))
+    })),
   );
 
 const getListRowCount = (sections = []) =>
-  (sections || []).reduce((acc, section) => acc + ((section.rows || []).length), 0);
+  (sections || []).reduce(
+    (acc, section) => acc + (section.rows || []).length,
+    0,
+  );
 
-const hasAnyCampaignMessage = values =>
-  MESSAGE_FIELDS.some(field => String(values?.[field] || "").trim().length > 0);
+const hasAnyCampaignMessage = (values) =>
+  MESSAGE_FIELDS.some(
+    (field) => String(values?.[field] || "").trim().length > 0,
+  );
 
-const validateInteractiveCampaign = values => {
+const appendQuickReplyMessage = (currentValue, nextValue) => {
+  const safeCurrent = String(currentValue || "").trimEnd();
+  const safeNext = String(nextValue || "").trim();
+
+  if (!safeNext) {
+    return safeCurrent;
+  }
+
+  if (!safeCurrent) {
+    return safeNext;
+  }
+
+  return `${safeCurrent}${safeCurrent.endsWith("\n") ? "\n" : "\n\n"}${safeNext}`;
+};
+
+const validateInteractiveCampaign = (values) => {
   if (values.messageType === "carousel") {
-    if (!(values.carouselCards || []).length) return "Adicione pelo menos um card ao carrossel.";
-    const invalidCard = (values.carouselCards || []).find(card =>
-      !String(card.body || "").trim() ||
-      (card.buttons || []).some(btn =>
-        !String(btn.displayText || "").trim() ||
-        ((btn.type === "url" || btn.type === "call" || btn.type === "copy") && !String(btn.value || "").trim())
-      )
+    if (!(values.carouselCards || []).length)
+      return "Adicione pelo menos um card ao carrossel.";
+    const invalidCard = (values.carouselCards || []).find(
+      (card) =>
+        !String(card.body || "").trim() ||
+        (card.buttons || []).some(
+          (btn) =>
+            !String(btn.displayText || "").trim() ||
+            ((btn.type === "url" ||
+              btn.type === "call" ||
+              btn.type === "copy") &&
+              !String(btn.value || "").trim()),
+        ),
     );
-    if (invalidCard) return "Preencha o corpo do card e os botões obrigatórios do carrossel.";
+    if (invalidCard)
+      return "Preencha o corpo do card e os botões obrigatórios do carrossel.";
     return "";
   }
 
@@ -495,28 +598,40 @@ const validateInteractiveCampaign = values => {
   if (values.messageType === "buttons") {
     const buttonList = values.buttons || [];
     if (!buttonList.length) return "Adicione pelo menos um botão de ação.";
-    const invalidButton = buttonList.find(btn =>
-      !String(btn.displayText || "").trim() ||
-      ((btn.type === "url" || btn.type === "call" || btn.type === "copy") && !String(btn.value || "").trim())
+    const invalidButton = buttonList.find(
+      (btn) =>
+        !String(btn.displayText || "").trim() ||
+        ((btn.type === "url" || btn.type === "call" || btn.type === "copy") &&
+          !String(btn.value || "").trim()),
     );
-    if (invalidButton) return "Preencha o texto e os valores obrigatórios dos botões.";
+    if (invalidButton)
+      return "Preencha o texto e os valores obrigatórios dos botões.";
   }
 
   if (values.messageType === "list") {
     const sections = values.listSections || [];
     const totalRows = getListRowCount(sections);
-    if (!String(values.listButtonText || "").trim()) return "Defina o texto do botão da lista.";
-    if (totalRows < 1 || totalRows > 10) return "A lista precisa ter entre 1 e 10 itens.";
-    const invalidRow = sections.find(section =>
-      !(section.rows || []).length ||
-      (section.rows || []).some(row => !String(row.title || "").trim() || !String(row.rowId || "").trim())
+    if (!String(values.listButtonText || "").trim())
+      return "Defina o texto do botão da lista.";
+    if (totalRows < 1 || totalRows > 10)
+      return "A lista precisa ter entre 1 e 10 itens.";
+    const invalidRow = sections.find(
+      (section) =>
+        !(section.rows || []).length ||
+        (section.rows || []).some(
+          (row) =>
+            !String(row.title || "").trim() || !String(row.rowId || "").trim(),
+        ),
     );
     if (invalidRow) return "Preencha o título e o ID de cada item da lista.";
   }
 
   if (values.messageType === "poll") {
-    const options = (values.buttons || []).filter(btn => String(btn.displayText || "").trim());
-    if (options.length < 2) return "A enquete precisa ter pelo menos duas opções.";
+    const options = (values.buttons || []).filter((btn) =>
+      String(btn.displayText || "").trim(),
+    );
+    if (options.length < 2)
+      return "A enquete precisa ter pelo menos duas opções.";
   }
 
   return "";
@@ -560,10 +675,11 @@ const CampaignModal = ({
   const [whatsappId, setWhatsappId] = useState(false);
   const [contactLists, setContactLists] = useState([]);
   const [tagLists, setTagLists] = useState([]);
-    const [messageTab, setMessageTab] = useState(0);
+  const [messageTab, setMessageTab] = useState(0);
   const [attachment, setAttachment] = useState(null);
   const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
   const [campaignEditable, setCampaignEditable] = useState(true);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const attachmentFile = useRef(null);
 
   const [emojiAnchorEl, setEmojiAnchorEl] = useState(null);
@@ -608,7 +724,11 @@ const CampaignModal = ({
     }
 
     if (campaign.mediaPath) {
-      const nameSource = (campaign.mediaName || campaign.mediaPath || "").toLowerCase();
+      const nameSource = (
+        campaign.mediaName ||
+        campaign.mediaPath ||
+        ""
+      ).toLowerCase();
       const ext = nameSource.includes(".") ? nameSource.split(".").pop() : "";
       const url = campaign.mediaPath.startsWith("http")
         ? campaign.mediaPath
@@ -628,7 +748,7 @@ const CampaignModal = ({
   };
 
   const emojiOpen = Boolean(emojiAnchorEl);
-  const emojiId = emojiOpen ? 'emoji-popover' : undefined;
+  const emojiId = emojiOpen ? "emoji-popover" : undefined;
 
   useEffect(() => {
     return () => {
@@ -636,7 +756,6 @@ const CampaignModal = ({
     };
   }, []);
 
-  
   useEffect(() => {
     if (isMounted.current) {
       if (initialValues) {
@@ -695,18 +814,24 @@ const CampaignModal = ({
             }
           });
           if ((data.messageType || "text") === "list") {
-            prevCampaignData.listSections = normalizeListSections(data.listSections || data.buttons || []);
-            prevCampaignData.listButtonText = data.listButtonText || LIST_TEMPLATE.buttonText;
+            prevCampaignData.listSections = normalizeListSections(
+              data.listSections || data.buttons || [],
+            );
+            prevCampaignData.listButtonText =
+              data.listButtonText || LIST_TEMPLATE.buttonText;
             prevCampaignData.listFooter = data.listFooter || "";
           } else {
             prevCampaignData.listSections = Array.isArray(data.listSections)
               ? normalizeListSections(data.listSections)
               : cloneListSections(LIST_TEMPLATE.sections);
-            prevCampaignData.listButtonText = data.listButtonText || LIST_TEMPLATE.buttonText;
+            prevCampaignData.listButtonText =
+              data.listButtonText || LIST_TEMPLATE.buttonText;
             prevCampaignData.listFooter = data.listFooter || "";
           }
           if (Array.isArray(data.carouselCards)) {
-            prevCampaignData.carouselCards = cloneCarouselCards(data.carouselCards);
+            prevCampaignData.carouselCards = cloneCarouselCards(
+              data.carouselCards,
+            );
           }
           if (Array.isArray(data.buttons)) {
             prevCampaignData.buttons = cloneButtons(data.buttons);
@@ -731,6 +856,7 @@ const CampaignModal = ({
   const handleClose = () => {
     onClose();
     setCampaign(initialState);
+    setQuickRepliesOpen(false);
   };
 
   const handleAttachmentFile = (e) => {
@@ -741,6 +867,32 @@ const CampaignModal = ({
     }
   };
 
+  const handleCampaignQuickReplySelect = (
+    replyMessage,
+    file,
+    values,
+    setFieldValue,
+  ) => {
+    const currentField = MESSAGE_FIELDS[messageTab] || "message1";
+    const currentValue = values?.[currentField] || "";
+
+    setFieldValue(
+      currentField,
+      appendQuickReplyMessage(currentValue, replyMessage),
+    );
+
+    if (file) {
+      setAttachment(file);
+      setCampaign((prev) => ({
+        ...prev,
+        mediaPath: "",
+        mediaName: file.name || prev.mediaName || "",
+      }));
+    }
+
+    setQuickRepliesOpen(false);
+  };
+
   const handleSaveCampaign = async (values) => {
     const validationError = validateInteractiveCampaign(values);
     if (validationError) {
@@ -749,7 +901,9 @@ const CampaignModal = ({
     }
 
     try {
-      const normalizedListSections = normalizeListSections(values.listSections || []);
+      const normalizedListSections = normalizeListSections(
+        values.listSections || [],
+      );
       const normalizedValues = {
         ...values,
         buttons:
@@ -760,16 +914,21 @@ const CampaignModal = ({
           values.messageType === "carousel"
             ? cloneCarouselCards(values.carouselCards || [])
             : [],
-        listSections: values.messageType === "list" ? normalizedListSections : [],
-        listButtonText: values.messageType === "list" ? (values.listButtonText || LIST_TEMPLATE.buttonText) : "",
-        listFooter: values.messageType === "list" ? (values.listFooter || "") : "",
+        listSections:
+          values.messageType === "list" ? normalizedListSections : [],
+        listButtonText:
+          values.messageType === "list"
+            ? values.listButtonText || LIST_TEMPLATE.buttonText
+            : "",
+        listFooter:
+          values.messageType === "list" ? values.listFooter || "" : "",
       };
 
       const dataValues = {
         ...normalizedValues,
         whatsappId: whatsappId,
         mediaPath: attachment ? values.mediaPath : campaign.mediaPath || null,
-        mediaName: attachment ? values.mediaName : campaign.mediaName || null
+        mediaName: attachment ? values.mediaName : campaign.mediaName || null,
       };
 
       Object.entries(normalizedValues).forEach(([key, value]) => {
@@ -807,7 +966,6 @@ const CampaignModal = ({
     }
   };
 
-  
   const renderMessageField = (identifier, values, setFieldValue) => {
     const handleEmojiSelect = (emojiObject) => {
       const emoji = emojiObject.emoji;
@@ -838,6 +996,24 @@ const CampaignModal = ({
             ),
           }}
         />
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          mt={1}
+        >
+          <Button
+            size="small"
+            className={classes.quickRepliesToggle}
+            startIcon={<FlashOnIcon fontSize="small" />}
+            onClick={() => setQuickRepliesOpen((prev) => !prev)}
+          >
+            Respostas rápidas
+          </Button>
+          <Typography style={{ fontSize: 11, color: "#64748b" }}>
+            Use o raio para aproveitar campanhas prontas.
+          </Typography>
+        </Box>
         <IconButton
           ref={emojiButtonRef}
           onClick={handleEmojiClick}
@@ -851,16 +1027,16 @@ const CampaignModal = ({
           anchorEl={emojiAnchorEl}
           onClose={handleEmojiClose}
           anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'center',
+            vertical: "bottom",
+            horizontal: "center",
           }}
           transformOrigin={{
-            vertical: 'top',
-            horizontal: 'center',
+            vertical: "top",
+            horizontal: "center",
           }}
         >
           <div className={classes.emojiPickerContainer}>
-            <EmojiPicker 
+            <EmojiPicker
               onEmojiClick={handleEmojiSelect}
               width={350}
               height={400}
@@ -871,7 +1047,6 @@ const CampaignModal = ({
     );
   };
 
-  
   const cancelCampaign = async () => {
     try {
       await api.post(`/campaigns/${campaign.id}/cancel`);
@@ -907,7 +1082,11 @@ const CampaignModal = ({
         maxWidth="md"
         scroll="paper"
         TransitionComponent={Transition}
-        classes={{ paper: classes.dialogPaper }}
+        classes={{
+          paper: quickRepliesOpen
+            ? classes.dialogPaperExpanded
+            : classes.dialogPaper,
+        }}
         PaperComponent={DraggablePaper}
         disableBackdropClick
         disableEscapeKeyDown
@@ -920,7 +1099,7 @@ const CampaignModal = ({
             setCampaign((prev) => ({
               ...prev,
               mediaPath: media.storagePath,
-              mediaName: media.name
+              mediaName: media.name,
             }));
           }}
           title="Selecionar mídia da campanha"
@@ -961,448 +1140,429 @@ const CampaignModal = ({
           {({ values, errors, touched, isSubmitting, setFieldValue }) => (
             <Form>
               <DialogContent dividers className={classes.dialogContent}>
-                <Grid container spacing={2}>
-                  {/* Coluna esquerda: formulário */}
-                  <Grid item xs={12} md={8}>
+                <Box className={classes.dialogContentLayout}>
+                  <Box className={classes.dialogContentMain}>
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={4}>
-                        <Field
-                          as={TextField}
-                          label={i18n.t("campaigns.dialog.form.name")}
-                          name="name"
-                          error={touched.name && Boolean(errors.name)}
-                          helperText={touched.name && errors.name}
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          className={classes.textField}
-                          disabled={!campaignEditable}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <CampaignIcon color="action" />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <FormControl
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          className={classes.formControl}
-                        >
-                          <InputLabel id="contactList-selection-label">
-                            {i18n.t("campaigns.dialog.form.contactList")}
-                          </InputLabel>
-                          <Field
-                            as={Select}
-                            label={i18n.t(
-                              "campaigns.dialog.form.contactList"
-                            )}
-                            placeholder={i18n.t(
-                              "campaigns.dialog.form.contactList"
-                            )}
-                            labelId="contactList-selection-label"
-                            id="contactListId"
-                            name="contactListId"
-                            error={
-                              touched.contactListId &&
-                              Boolean(errors.contactListId)
-                            }
-                            disabled={!campaignEditable}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <ContactsIcon color="action" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          >
-                            <MenuItem value="">Nenhuma</MenuItem>
-                            {contactLists &&
-                              contactLists.map((contactList) => (
-                                <MenuItem
-                                  key={contactList.id}
-                                  value={contactList.id}
-                                >
-                                  {contactList.name}
-                                </MenuItem>
-                              ))}
-                          </Field>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <FormControl
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          className={classes.formControl}
-                        >
-                          <InputLabel id="tagList-selection-label">
-                            {i18n.t("campaigns.dialog.form.tagList")}
-                          </InputLabel>
-                          <Field
-                            as={Select}
-                            label={i18n.t("campaigns.dialog.form.tagList")}
-                            placeholder={i18n.t(
-                              "campaigns.dialog.form.tagList"
-                            )}
-                            labelId="tagList-selection-label"
-                            id="tagListId"
-                            name="tagListId"
-                            error={
-                              touched.tagListId && Boolean(errors.tagListId)
-                            }
-                            disabled={!campaignEditable}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <LabelIcon color="action" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          >
-                            {Array.isArray(tagLists) &&
-                              tagLists.map((tagList) => (
-                                <MenuItem key={tagList.id} value={tagList.id}>
-                                  {tagList.name}
-                                </MenuItem>
-                              ))}
-                          </Field>
-                        </FormControl>
-                      </Grid>
-                                            <Grid item xs={12} md={4}>
-                        <FormControl
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          className={classes.formControl}
-                        >
-                          <InputLabel id="whatsapp-selection-label">
-                            {i18n.t("campaigns.dialog.form.whatsapp")}
-                          </InputLabel>
-                          <Field
-                            as={Select}
-                            label={i18n.t("campaigns.dialog.form.whatsapp")}
-                            placeholder={i18n.t(
-                              "campaigns.dialog.form.whatsapp"
-                            )}
-                            labelId="whatsapp-selection-label"
-                            id="whatsappIds"
-                            name="whatsappIds"
-                            required
-                            error={
-                              touched.whatsappId && Boolean(errors.whatsappId)
-                            }
-                            disabled={!campaignEditable}
-                            value={whatsappId}
-                            onChange={(event) => {
-                              setWhatsappId(event.target.value);
-                            }}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <WhatsAppIcon color="action" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          >
-                            {whatsapps &&
-                              whatsapps.map((whatsapp) => (
-                                <MenuItem key={whatsapp.id} value={whatsapp.id}>
-                                  {whatsapp.name}
-                                </MenuItem>
-                              ))}
-                          </Field>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Field
-                          as={TextField}
-                          label={i18n.t("campaigns.dialog.form.scheduledAt")}
-                          name="scheduledAt"
-                          error={
-                            touched.scheduledAt && Boolean(errors.scheduledAt)
-                          }
-                          helperText={
-                            touched.scheduledAt && errors.scheduledAt
-                          }
-                          variant="outlined"
-                          margin="dense"
-                          type="datetime-local"
-                          InputLabelProps={{
-                            shrink: true,
-                          }}
-                          fullWidth
-                          className={classes.textField}
-                          disabled={!campaignEditable}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <ScheduleIcon color="action" />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Tabs
-                          value={messageTab}
-                          indicatorColor="primary"
-                          onChange={(e, v) => setMessageTab(v)}
-                          variant="fullWidth"
-                          centered
-                          className={classes.tabs}
-                        >
-                          <Tab label="Msg. 1" index={0} className={classes.tab} />
-                          <Tab label="Msg. 2" index={1} className={classes.tab} />
-                          <Tab label="Msg. 3" index={2} className={classes.tab} />
-                          <Tab label="Msg. 4" index={3} className={classes.tab} />
-                          <Tab label="Msg. 5" index={4} className={classes.tab} />
-                        </Tabs>
-                        <Box style={{ paddingTop: 20 }}>
-                          {messageTab === 0 && renderMessageField("message1", values, setFieldValue)}
-                          {messageTab === 1 && renderMessageField("message2", values, setFieldValue)}
-                          {messageTab === 2 && renderMessageField("message3", values, setFieldValue)}
-                          {messageTab === 3 && renderMessageField("message4", values, setFieldValue)}
-                          {messageTab === 4 && renderMessageField("message5", values, setFieldValue)}
-                        </Box>
-                      </Grid>
-
-                      {/* ── Mensagem Interativa ─────────────────────── */}
-                      <Grid item xs={12}>
-                        <FormControl variant="outlined" margin="dense" fullWidth>
-                          <InputLabel id="messageType-label">Tipo de Mensagem</InputLabel>
-                          <Select
-                            labelId="messageType-label"
-                            label="Tipo de Mensagem"
-                            value={values.messageType || "text"}
-                            onChange={(e) => {
-                              const newType = e.target.value;
-                              setFieldValue("messageType", newType);
-                              if (newType !== "carousel") {
-                                setFieldValue("carouselCards", []);
-                              }
-                              if (newType !== "list") {
-                                setFieldValue("listSections", []);
-                                setFieldValue("listButtonText", "");
-                                setFieldValue("listFooter", "");
-                              }
-                              if (newType === "text") {
-                                setFieldValue("buttons", []);
-                              }
-
-                              if (newType === "buttons") {
-                                setFieldValue("buttons", cloneButtons(BUTTONS_TEMPLATE));
-                              }
-
-                              if (newType === "list") {
-                                if (!hasAnyCampaignMessage(values)) {
-                                  setFieldValue("message1", LIST_TEMPLATE.message);
+                      {/* Coluna esquerda: formulário */}
+                      <Grid item xs={12} md={8}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={4}>
+                            <Field
+                              as={TextField}
+                              label={i18n.t("campaigns.dialog.form.name")}
+                              name="name"
+                              error={touched.name && Boolean(errors.name)}
+                              helperText={touched.name && errors.name}
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                              className={classes.textField}
+                              disabled={!campaignEditable}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <CampaignIcon color="action" />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <FormControl
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                              className={classes.formControl}
+                            >
+                              <InputLabel id="contactList-selection-label">
+                                {i18n.t("campaigns.dialog.form.contactList")}
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label={i18n.t(
+                                  "campaigns.dialog.form.contactList",
+                                )}
+                                placeholder={i18n.t(
+                                  "campaigns.dialog.form.contactList",
+                                )}
+                                labelId="contactList-selection-label"
+                                id="contactListId"
+                                name="contactListId"
+                                error={
+                                  touched.contactListId &&
+                                  Boolean(errors.contactListId)
                                 }
-                                setFieldValue("buttons", flattenListSections(LIST_TEMPLATE.sections));
-                                setFieldValue("listSections", cloneListSections(LIST_TEMPLATE.sections));
-                                setFieldValue("listButtonText", LIST_TEMPLATE.buttonText);
-                                setFieldValue("listFooter", LIST_TEMPLATE.footer);
-                              }
-
-                              if (newType === "carousel") {
-                                setFieldValue("buttons", []);
-                                setFieldValue("carouselCards", cloneCarouselCards(CAROUSEL_TEMPLATE));
-                              }
-
-                              if (newType === "poll") {
-                                if (!values.message1) {
-                                  setFieldValue("message1", POLL_TEMPLATE.message);
-                                }
-                                setFieldValue("buttons", cloneButtons(POLL_TEMPLATE.options));
-                              }
-                            }}
-                            disabled={!campaignEditable}
-                          >
-                            <MenuItem value="text">Texto simples</MenuItem>
-                            <MenuItem value="buttons">Botões de ação</MenuItem>
-                            <MenuItem value="list">Lista selecionável</MenuItem>
-                            <MenuItem value="carousel">Carrossel de cards</MenuItem>
-                            <MenuItem value="poll">Enquete (Poll)</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Grid>
-
-                      {/* Botões */}
-                      {values.messageType === "buttons" && (
-                        <Grid item xs={12}>
-                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: "#555" }}>
-                              Botões (máx. 4)
-                            </Box>
-                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 10 }}>
-                              ✏️ Modelo pré-preenchido com exemplos. Edite os textos e valores com seus dados reais antes de salvar.
-                            </Box>
-                            {(values.buttons || []).map((btn, idx) => (
-                              <Grid container spacing={1} key={idx} style={{ marginBottom: 6 }}>
-                                <Grid item xs={4}>
-                                  <TextField
-                                    label="Texto do botão"
-                                    value={btn.displayText || ""}
-                                    onChange={(e) => {
-                                      const updated = [...(values.buttons || [])];
-                                      updated[idx] = { ...updated[idx], displayText: e.target.value };
-                                      setFieldValue("buttons", updated);
-                                    }}
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    disabled={!campaignEditable}
-                                  />
-                                </Grid>
-                                <Grid item xs={3}>
-                                  <FormControl variant="outlined" size="small" fullWidth>
-                                    <InputLabel>Tipo</InputLabel>
-                                    <Select
-                                      label="Tipo"
-                                      value={btn.type || "reply"}
-                                      onChange={(e) => {
-                                        const updated = [...(values.buttons || [])];
-                                        updated[idx] = { ...updated[idx], type: e.target.value };
-                                        setFieldValue("buttons", updated);
-                                      }}
-                                      disabled={!campaignEditable}
-                                    >
-                                      <MenuItem value="reply">Resposta</MenuItem>
-                                      <MenuItem value="url">Link URL</MenuItem>
-                                      <MenuItem value="call">Ligar</MenuItem>
-                                      <MenuItem value="copy">Copiar código</MenuItem>
-                                    </Select>
-                                  </FormControl>
-                                </Grid>
-                                <Grid item xs={4}>
-                                  <TextField
-                                    label={btn.type === "url" ? "URL" : btn.type === "call" ? "Telefone" : "Valor / ID"}
-                                    value={btn.value || ""}
-                                    onChange={(e) => {
-                                      const updated = [...(values.buttons || [])];
-                                      updated[idx] = { ...updated[idx], value: e.target.value };
-                                      setFieldValue("buttons", updated);
-                                    }}
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    disabled={!campaignEditable}
-                                  />
-                                </Grid>
-                                <Grid item xs={1} style={{ display: "flex", alignItems: "center" }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const updated = (values.buttons || []).filter((_, i) => i !== idx);
-                                      setFieldValue("buttons", updated);
-                                    }}
-                                    disabled={!campaignEditable}
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Grid>
-                              </Grid>
-                            ))}
-                            {(values.buttons || []).length < 4 && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                onClick={() => setFieldValue("buttons", [
-                                  ...(values.buttons || []),
-                                  { displayText: "", type: "reply", value: "" }
-                                ])}
                                 disabled={!campaignEditable}
-                                style={{ marginTop: 4 }}
+                                InputProps={{
+                                  startAdornment: (
+                                    <InputAdornment position="start">
+                                      <ContactsIcon color="action" />
+                                    </InputAdornment>
+                                  ),
+                                }}
                               >
-                                + Adicionar botão
-                              </Button>
-                            )}
-                          </Box>
-                        </Grid>
-                      )}
+                                <MenuItem value="">Nenhuma</MenuItem>
+                                {contactLists &&
+                                  contactLists.map((contactList) => (
+                                    <MenuItem
+                                      key={contactList.id}
+                                      value={contactList.id}
+                                    >
+                                      {contactList.name}
+                                    </MenuItem>
+                                  ))}
+                              </Field>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <FormControl
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                              className={classes.formControl}
+                            >
+                              <InputLabel id="tagList-selection-label">
+                                {i18n.t("campaigns.dialog.form.tagList")}
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label={i18n.t("campaigns.dialog.form.tagList")}
+                                placeholder={i18n.t(
+                                  "campaigns.dialog.form.tagList",
+                                )}
+                                labelId="tagList-selection-label"
+                                id="tagListId"
+                                name="tagListId"
+                                error={
+                                  touched.tagListId && Boolean(errors.tagListId)
+                                }
+                                disabled={!campaignEditable}
+                                InputProps={{
+                                  startAdornment: (
+                                    <InputAdornment position="start">
+                                      <LabelIcon color="action" />
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              >
+                                {Array.isArray(tagLists) &&
+                                  tagLists.map((tagList) => (
+                                    <MenuItem
+                                      key={tagList.id}
+                                      value={tagList.id}
+                                    >
+                                      {tagList.name}
+                                    </MenuItem>
+                                  ))}
+                              </Field>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <FormControl
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                              className={classes.formControl}
+                            >
+                              <InputLabel id="whatsapp-selection-label">
+                                {i18n.t("campaigns.dialog.form.whatsapp")}
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label={i18n.t("campaigns.dialog.form.whatsapp")}
+                                placeholder={i18n.t(
+                                  "campaigns.dialog.form.whatsapp",
+                                )}
+                                labelId="whatsapp-selection-label"
+                                id="whatsappIds"
+                                name="whatsappIds"
+                                required
+                                error={
+                                  touched.whatsappId &&
+                                  Boolean(errors.whatsappId)
+                                }
+                                disabled={!campaignEditable}
+                                value={whatsappId}
+                                onChange={(event) => {
+                                  setWhatsappId(event.target.value);
+                                }}
+                                InputProps={{
+                                  startAdornment: (
+                                    <InputAdornment position="start">
+                                      <WhatsAppIcon color="action" />
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              >
+                                {whatsapps &&
+                                  whatsapps.map((whatsapp) => (
+                                    <MenuItem
+                                      key={whatsapp.id}
+                                      value={whatsapp.id}
+                                    >
+                                      {whatsapp.name}
+                                    </MenuItem>
+                                  ))}
+                              </Field>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <Field
+                              as={TextField}
+                              label={i18n.t(
+                                "campaigns.dialog.form.scheduledAt",
+                              )}
+                              name="scheduledAt"
+                              error={
+                                touched.scheduledAt &&
+                                Boolean(errors.scheduledAt)
+                              }
+                              helperText={
+                                touched.scheduledAt && errors.scheduledAt
+                              }
+                              variant="outlined"
+                              margin="dense"
+                              type="datetime-local"
+                              InputLabelProps={{
+                                shrink: true,
+                              }}
+                              fullWidth
+                              className={classes.textField}
+                              disabled={!campaignEditable}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <ScheduleIcon color="action" />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Tabs
+                              value={messageTab}
+                              indicatorColor="primary"
+                              onChange={(e, v) => setMessageTab(v)}
+                              variant="fullWidth"
+                              centered
+                              className={classes.tabs}
+                            >
+                              <Tab
+                                label="Msg. 1"
+                                index={0}
+                                className={classes.tab}
+                              />
+                              <Tab
+                                label="Msg. 2"
+                                index={1}
+                                className={classes.tab}
+                              />
+                              <Tab
+                                label="Msg. 3"
+                                index={2}
+                                className={classes.tab}
+                              />
+                              <Tab
+                                label="Msg. 4"
+                                index={3}
+                                className={classes.tab}
+                              />
+                              <Tab
+                                label="Msg. 5"
+                                index={4}
+                                className={classes.tab}
+                              />
+                            </Tabs>
+                            <Box style={{ paddingTop: 20 }}>
+                              {messageTab === 0 &&
+                                renderMessageField(
+                                  "message1",
+                                  values,
+                                  setFieldValue,
+                                )}
+                              {messageTab === 1 &&
+                                renderMessageField(
+                                  "message2",
+                                  values,
+                                  setFieldValue,
+                                )}
+                              {messageTab === 2 &&
+                                renderMessageField(
+                                  "message3",
+                                  values,
+                                  setFieldValue,
+                                )}
+                              {messageTab === 3 &&
+                                renderMessageField(
+                                  "message4",
+                                  values,
+                                  setFieldValue,
+                                )}
+                              {messageTab === 4 &&
+                                renderMessageField(
+                                  "message5",
+                                  values,
+                                  setFieldValue,
+                                )}
+                            </Box>
+                          </Grid>
 
-                      {values.messageType === "list" && (
-                        <Grid item xs={12}>
-                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, backgroundColor: "#f8fafc" }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
-                              📋 Lista selecionável
-                            </Box>
-                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
-                              ✏️ O texto principal vem do campo <strong>Mensagem 1</strong> acima. Aqui você define botão, rodapé, seções e itens da lista.
-                            </Box>
-                            <Grid container spacing={1} style={{ marginBottom: 8 }}>
-                              <Grid item xs={12} md={6}>
-                                <TextField
-                                  label="Texto do botão *"
-                                  value={values.listButtonText || ""}
-                                  placeholder="Ex: Ver opções"
-                                  onChange={(e) => setFieldValue("listButtonText", e.target.value)}
-                                  variant="outlined"
-                                  size="small"
-                                  fullWidth
-                                  disabled={!campaignEditable}
-                                />
-                              </Grid>
-                              <Grid item xs={12} md={6}>
-                                <TextField
-                                  label="Rodapé (opcional)"
-                                  value={values.listFooter || ""}
-                                  placeholder="Ex: Atendimento de segunda a sexta"
-                                  onChange={(e) => setFieldValue("listFooter", e.target.value)}
-                                  variant="outlined"
-                                  size="small"
-                                  fullWidth
-                                  disabled={!campaignEditable}
-                                />
-                              </Grid>
-                            </Grid>
-                            <Box style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>
-                              Itens configurados: <strong>{getListRowCount(values.listSections || [])}/10</strong>
-                            </Box>
-                            {(values.listSections || []).map((section, sectionIndex) => (
-                              <Box key={sectionIndex} style={{ border: "1px dashed #cbd5e1", borderRadius: 6, padding: 10, marginBottom: 10, backgroundColor: "#fff" }}>
-                                <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                  <span style={{ fontWeight: 600, fontSize: 12 }}>Seção {sectionIndex + 1}</span>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const updated = (values.listSections || []).filter((_, index) => index !== sectionIndex);
-                                      if (updated.length > 0) setFieldValue("listSections", updated);
-                                    }}
-                                    disabled={!campaignEditable || (values.listSections || []).length <= 1}
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                                <TextField
-                                  label="Título da seção (opcional)"
-                                  value={section.title || ""}
-                                  onChange={(e) => {
-                                    const updated = cloneListSections(values.listSections || []);
-                                    updated[sectionIndex] = { ...updated[sectionIndex], title: e.target.value };
-                                    setFieldValue("listSections", updated);
+                          {/* ── Mensagem Interativa ─────────────────────── */}
+                          <Grid item xs={12}>
+                            <FormControl
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                            >
+                              <InputLabel id="messageType-label">
+                                Tipo de Mensagem
+                              </InputLabel>
+                              <Select
+                                labelId="messageType-label"
+                                label="Tipo de Mensagem"
+                                value={values.messageType || "text"}
+                                onChange={(e) => {
+                                  const newType = e.target.value;
+                                  setFieldValue("messageType", newType);
+                                  if (newType !== "carousel") {
+                                    setFieldValue("carouselCards", []);
+                                  }
+                                  if (newType !== "list") {
+                                    setFieldValue("listSections", []);
+                                    setFieldValue("listButtonText", "");
+                                    setFieldValue("listFooter", "");
+                                  }
+                                  if (newType === "text") {
+                                    setFieldValue("buttons", []);
+                                  }
+
+                                  if (newType === "buttons") {
+                                    setFieldValue(
+                                      "buttons",
+                                      cloneButtons(BUTTONS_TEMPLATE),
+                                    );
+                                  }
+
+                                  if (newType === "list") {
+                                    if (!hasAnyCampaignMessage(values)) {
+                                      setFieldValue(
+                                        "message1",
+                                        LIST_TEMPLATE.message,
+                                      );
+                                    }
+                                    setFieldValue(
+                                      "buttons",
+                                      flattenListSections(
+                                        LIST_TEMPLATE.sections,
+                                      ),
+                                    );
+                                    setFieldValue(
+                                      "listSections",
+                                      cloneListSections(LIST_TEMPLATE.sections),
+                                    );
+                                    setFieldValue(
+                                      "listButtonText",
+                                      LIST_TEMPLATE.buttonText,
+                                    );
+                                    setFieldValue(
+                                      "listFooter",
+                                      LIST_TEMPLATE.footer,
+                                    );
+                                  }
+
+                                  if (newType === "carousel") {
+                                    setFieldValue("buttons", []);
+                                    setFieldValue(
+                                      "carouselCards",
+                                      cloneCarouselCards(CAROUSEL_TEMPLATE),
+                                    );
+                                  }
+
+                                  if (newType === "poll") {
+                                    if (!values.message1) {
+                                      setFieldValue(
+                                        "message1",
+                                        POLL_TEMPLATE.message,
+                                      );
+                                    }
+                                    setFieldValue(
+                                      "buttons",
+                                      cloneButtons(POLL_TEMPLATE.options),
+                                    );
+                                  }
+                                }}
+                                disabled={!campaignEditable}
+                              >
+                                <MenuItem value="text">Texto simples</MenuItem>
+                                <MenuItem value="buttons">
+                                  Botões de ação
+                                </MenuItem>
+                                <MenuItem value="list">
+                                  Lista selecionável
+                                </MenuItem>
+                                <MenuItem value="carousel">
+                                  Carrossel de cards
+                                </MenuItem>
+                                <MenuItem value="poll">Enquete (Poll)</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+
+                          {/* Botões */}
+                          {values.messageType === "buttons" && (
+                            <Grid item xs={12}>
+                              <Box
+                                style={{
+                                  border: "1px solid #e0e0e0",
+                                  borderRadius: 8,
+                                  padding: 12,
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    fontWeight: 600,
+                                    marginBottom: 4,
+                                    fontSize: 13,
+                                    color: "#555",
                                   }}
-                                  variant="outlined"
-                                  size="small"
-                                  fullWidth
-                                  disabled={!campaignEditable}
-                                  style={{ marginBottom: 10 }}
-                                />
-                                {(section.rows || []).map((row, rowIndex) => (
-                                  <Grid container spacing={1} key={`${sectionIndex}-${rowIndex}`} style={{ marginBottom: 6 }}>
-                                    <Grid item xs={12} md={4}>
+                                >
+                                  Botões (máx. 4)
+                                </Box>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#856404",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    marginBottom: 10,
+                                  }}
+                                >
+                                  ✏️ Modelo pré-preenchido com exemplos. Edite
+                                  os textos e valores com seus dados reais antes
+                                  de salvar.
+                                </Box>
+                                {(values.buttons || []).map((btn, idx) => (
+                                  <Grid
+                                    container
+                                    spacing={1}
+                                    key={idx}
+                                    style={{ marginBottom: 6 }}
+                                  >
+                                    <Grid item xs={4}>
                                       <TextField
-                                        label="Título do item *"
-                                        value={row.title || ""}
+                                        label="Texto do botão"
+                                        value={btn.displayText || ""}
                                         onChange={(e) => {
-                                          const updated = cloneListSections(values.listSections || []);
-                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], title: e.target.value };
-                                          setFieldValue("listSections", updated);
+                                          const updated = [
+                                            ...(values.buttons || []),
+                                          ];
+                                          updated[idx] = {
+                                            ...updated[idx],
+                                            displayText: e.target.value,
+                                          };
+                                          setFieldValue("buttons", updated);
                                         }}
                                         variant="outlined"
                                         size="small"
@@ -1410,14 +1570,62 @@ const CampaignModal = ({
                                         disabled={!campaignEditable}
                                       />
                                     </Grid>
-                                    <Grid item xs={12} md={3}>
+                                    <Grid item xs={3}>
+                                      <FormControl
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                      >
+                                        <InputLabel>Tipo</InputLabel>
+                                        <Select
+                                          label="Tipo"
+                                          value={btn.type || "reply"}
+                                          onChange={(e) => {
+                                            const updated = [
+                                              ...(values.buttons || []),
+                                            ];
+                                            updated[idx] = {
+                                              ...updated[idx],
+                                              type: e.target.value,
+                                            };
+                                            setFieldValue("buttons", updated);
+                                          }}
+                                          disabled={!campaignEditable}
+                                        >
+                                          <MenuItem value="reply">
+                                            Resposta
+                                          </MenuItem>
+                                          <MenuItem value="url">
+                                            Link URL
+                                          </MenuItem>
+                                          <MenuItem value="call">
+                                            Ligar
+                                          </MenuItem>
+                                          <MenuItem value="copy">
+                                            Copiar código
+                                          </MenuItem>
+                                        </Select>
+                                      </FormControl>
+                                    </Grid>
+                                    <Grid item xs={4}>
                                       <TextField
-                                        label="ID do item *"
-                                        value={row.rowId || ""}
+                                        label={
+                                          btn.type === "url"
+                                            ? "URL"
+                                            : btn.type === "call"
+                                              ? "Telefone"
+                                              : "Valor / ID"
+                                        }
+                                        value={btn.value || ""}
                                         onChange={(e) => {
-                                          const updated = cloneListSections(values.listSections || []);
-                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], rowId: e.target.value };
-                                          setFieldValue("listSections", updated);
+                                          const updated = [
+                                            ...(values.buttons || []),
+                                          ];
+                                          updated[idx] = {
+                                            ...updated[idx],
+                                            value: e.target.value,
+                                          };
+                                          setFieldValue("buttons", updated);
                                         }}
                                         variant="outlined"
                                         size="small"
@@ -1425,597 +1633,1431 @@ const CampaignModal = ({
                                         disabled={!campaignEditable}
                                       />
                                     </Grid>
-                                    <Grid item xs={12} md={4}>
-                                      <TextField
-                                        label="Descrição (opcional)"
-                                        value={row.description || ""}
-                                        onChange={(e) => {
-                                          const updated = cloneListSections(values.listSections || []);
-                                          updated[sectionIndex].rows[rowIndex] = { ...updated[sectionIndex].rows[rowIndex], description: e.target.value };
-                                          setFieldValue("listSections", updated);
-                                        }}
-                                        variant="outlined"
-                                        size="small"
-                                        fullWidth
-                                        disabled={!campaignEditable}
-                                      />
-                                    </Grid>
-                                    <Grid item xs={12} md={1} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <Grid
+                                      item
+                                      xs={1}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
                                       <IconButton
                                         size="small"
                                         onClick={() => {
-                                          const updated = cloneListSections(values.listSections || []);
-                                          const nextRows = updated[sectionIndex].rows.filter((_, index) => index !== rowIndex);
-                                          if (nextRows.length > 0) {
-                                            updated[sectionIndex] = { ...updated[sectionIndex], rows: nextRows };
-                                            setFieldValue("listSections", updated);
-                                          }
+                                          const updated = (
+                                            values.buttons || []
+                                          ).filter((_, i) => i !== idx);
+                                          setFieldValue("buttons", updated);
                                         }}
-                                        disabled={!campaignEditable || (section.rows || []).length <= 1}
+                                        disabled={!campaignEditable}
                                       >
                                         <DeleteOutlineIcon fontSize="small" />
                                       </IconButton>
                                     </Grid>
                                   </Grid>
                                 ))}
-                                {getListRowCount(values.listSections || []) < 10 && (
+                                {(values.buttons || []).length < 4 && (
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    onClick={() => {
-                                      const updated = cloneListSections(values.listSections || []);
-                                      updated[sectionIndex] = {
-                                        ...updated[sectionIndex],
-                                        rows: [
-                                          ...(updated[sectionIndex].rows || []),
-                                          { title: "", rowId: "", description: "" }
-                                        ]
-                                      };
-                                      setFieldValue("listSections", updated);
-                                    }}
+                                    color="primary"
+                                    onClick={() =>
+                                      setFieldValue("buttons", [
+                                        ...(values.buttons || []),
+                                        {
+                                          displayText: "",
+                                          type: "reply",
+                                          value: "",
+                                        },
+                                      ])
+                                    }
                                     disabled={!campaignEditable}
-                                    style={{ fontSize: 11 }}
+                                    style={{ marginTop: 4 }}
                                   >
-                                    + Item
+                                    + Adicionar botão
                                   </Button>
                                 )}
                               </Box>
-                            ))}
-                            {getListRowCount(values.listSections || []) < 10 && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                onClick={() => setFieldValue("listSections", [
-                                  ...(values.listSections || []),
-                                  { title: "", rows: [{ title: "", rowId: "", description: "" }] }
-                                ])}
-                                disabled={!campaignEditable}
-                                style={{ marginTop: 4 }}
-                              >
-                                + Adicionar seção
-                              </Button>
-                            )}
-                          </Box>
-                        </Grid>
-                      )}
+                            </Grid>
+                          )}
 
-                      {/* Carrossel */}
-                      {values.messageType === "carousel" && (
-                        <Grid item xs={12}>
-                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12 }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: "#555" }}>
-                              🎠 Cards do Carrossel (máx. 10)
-                            </Box>
-                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 10 }}>
-                              ✏️ Modelo pré-preenchido com 2 cards de exemplo. Edite título, imagem, texto e botões com seus dados reais antes de salvar.
-                            </Box>
-                            {(values.carouselCards || []).map((card, cidx) => (
-                              <Box key={cidx} style={{ border: "1px dashed #ccc", borderRadius: 6, padding: 10, marginBottom: 10 }}>
-                                <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                  <span style={{ fontWeight: 600, fontSize: 12 }}>Card {cidx + 1}</span>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const updated = (values.carouselCards || []).filter((_, i) => i !== cidx);
-                                      setFieldValue("carouselCards", updated);
-                                    }}
-                                    disabled={!campaignEditable}
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                                <Grid container spacing={1}>
-                                  <Grid item xs={6}>
-                                    <TextField
-                                      label="Título"
-                                      value={card.headerTitle || ""}
-                                      onChange={(e) => {
-                                        const updated = [...(values.carouselCards || [])];
-                                        updated[cidx] = { ...updated[cidx], headerTitle: e.target.value };
-                                        setFieldValue("carouselCards", updated);
-                                      }}
-                                      variant="outlined" size="small" fullWidth
-                                      disabled={!campaignEditable}
-                                    />
-                                  </Grid>
-                                  <Grid item xs={6}>
-                                    <TextField
-                                      label="URL da Imagem"
-                                      value={card.imageUrl || ""}
-                                      onChange={(e) => {
-                                        const updated = [...(values.carouselCards || [])];
-                                        updated[cidx] = { ...updated[cidx], imageUrl: e.target.value };
-                                        setFieldValue("carouselCards", updated);
-                                      }}
-                                      variant="outlined" size="small" fullWidth
-                                      disabled={!campaignEditable}
-                                    />
-                                  </Grid>
-                                  <Grid item xs={12}>
-                                    <TextField
-                                      label="Corpo da mensagem"
-                                      value={card.body || ""}
-                                      onChange={(e) => {
-                                        const updated = [...(values.carouselCards || [])];
-                                        updated[cidx] = { ...updated[cidx], body: e.target.value };
-                                        setFieldValue("carouselCards", updated);
-                                      }}
-                                      variant="outlined" size="small" fullWidth multiline rows={2}
-                                      disabled={!campaignEditable}
-                                    />
-                                  </Grid>
-                                  <Grid item xs={12}>
-                                    <TextField
-                                      label="Rodapé (opcional)"
-                                      value={card.footer || ""}
-                                      onChange={(e) => {
-                                        const updated = [...(values.carouselCards || [])];
-                                        updated[cidx] = { ...updated[cidx], footer: e.target.value };
-                                        setFieldValue("carouselCards", updated);
-                                      }}
-                                      variant="outlined" size="small" fullWidth
-                                      disabled={!campaignEditable}
-                                    />
-                                  </Grid>
-                                  {/* Botões do card */}
-                                  <Grid item xs={12}>
-                                    <Box style={{ fontSize: 12, color: "#777", marginBottom: 4 }}>Botões do card (máx. 3)</Box>
-                                    {(card.buttons || []).map((btn, bidx) => (
-                                      <Grid container spacing={1} key={bidx} style={{ marginBottom: 4 }}>
-                                        <Grid item xs={4}>
-                                          <TextField
-                                            label="Texto"
-                                            value={btn.displayText || ""}
-                                            onChange={(e) => {
-                                              const updatedCards = [...(values.carouselCards || [])];
-                                              const updatedBtns = [...(updatedCards[cidx].buttons || [])];
-                                              updatedBtns[bidx] = { ...updatedBtns[bidx], displayText: e.target.value };
-                                              updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
-                                              setFieldValue("carouselCards", updatedCards);
-                                            }}
-                                            variant="outlined" size="small" fullWidth
-                                            disabled={!campaignEditable}
-                                          />
-                                        </Grid>
-                                        <Grid item xs={3}>
-                                          <FormControl variant="outlined" size="small" fullWidth>
-                                            <InputLabel>Tipo</InputLabel>
-                                            <Select
-                                              label="Tipo"
-                                              value={btn.type || "reply"}
-                                              onChange={(e) => {
-                                                const updatedCards = [...(values.carouselCards || [])];
-                                                const updatedBtns = [...(updatedCards[cidx].buttons || [])];
-                                                updatedBtns[bidx] = { ...updatedBtns[bidx], type: e.target.value };
-                                                updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
-                                                setFieldValue("carouselCards", updatedCards);
-                                              }}
-                                              disabled={!campaignEditable}
-                                            >
-                                              <MenuItem value="reply">Resposta</MenuItem>
-                                              <MenuItem value="url">URL</MenuItem>
-                                              <MenuItem value="call">Ligar</MenuItem>
-                                            </Select>
-                                          </FormControl>
-                                        </Grid>
-                                        <Grid item xs={4}>
-                                          <TextField
-                                            label="Valor"
-                                            value={btn.value || ""}
-                                            onChange={(e) => {
-                                              const updatedCards = [...(values.carouselCards || [])];
-                                              const updatedBtns = [...(updatedCards[cidx].buttons || [])];
-                                              updatedBtns[bidx] = { ...updatedBtns[bidx], value: e.target.value };
-                                              updatedCards[cidx] = { ...updatedCards[cidx], buttons: updatedBtns };
-                                              setFieldValue("carouselCards", updatedCards);
-                                            }}
-                                            variant="outlined" size="small" fullWidth
-                                            disabled={!campaignEditable}
-                                          />
-                                        </Grid>
-                                        <Grid item xs={1} style={{ display: "flex", alignItems: "center" }}>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => {
-                                              const updatedCards = [...(values.carouselCards || [])];
-                                              updatedCards[cidx] = {
-                                                ...updatedCards[cidx],
-                                                buttons: (updatedCards[cidx].buttons || []).filter((_, i) => i !== bidx)
-                                              };
-                                              setFieldValue("carouselCards", updatedCards);
-                                            }}
-                                            disabled={!campaignEditable}
-                                          >
-                                            <DeleteOutlineIcon fontSize="small" />
-                                          </IconButton>
-                                        </Grid>
-                                      </Grid>
-                                    ))}
-                                    {(card.buttons || []).length < 3 && (
-                                      <Button
-                                        size="small"
-                                        variant="outlined"
-                                        onClick={() => {
-                                          const updatedCards = [...(values.carouselCards || [])];
-                                          updatedCards[cidx] = {
-                                            ...updatedCards[cidx],
-                                            buttons: [...(updatedCards[cidx].buttons || []), { displayText: "", type: "reply", value: "" }]
-                                          };
-                                          setFieldValue("carouselCards", updatedCards);
-                                        }}
-                                        disabled={!campaignEditable}
-                                        style={{ fontSize: 11 }}
-                                      >
-                                        + Botão
-                                      </Button>
-                                    )}
-                                  </Grid>
-                                </Grid>
-                              </Box>
-                            ))}
-                            {(values.carouselCards || []).length < 10 && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                onClick={() => setFieldValue("carouselCards", [
-                                  ...(values.carouselCards || []),
-                                  { headerTitle: "", imageUrl: "", body: "", footer: "", buttons: [] }
-                                ])}
-                                disabled={!campaignEditable}
-                                style={{ marginTop: 4 }}
-                              >
-                                + Adicionar card
-                              </Button>
-                            )}
-                          </Box>
-                        </Grid>
-                      )}
-
-                      {/* Enquete (Poll) */}
-                      {values.messageType === "poll" && (
-                        <Grid item xs={12}>
-                          <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, backgroundColor: "#fffbf0" }}>
-                            <Box style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
-                              📊 Enquete — Pergunta e opções de resposta
-                            </Box>
-                            <Box style={{ fontSize: 11, color: "#856404", backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
-                              ✏️ Modelo pré-preenchido. Edite a pergunta no campo <strong>Mensagem 1</strong> acima e substitua as opções pelos textos reais.
-                            </Box>
-                            <Box style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
-                              A <strong>pergunta</strong> vem do campo Mensagem 1 acima. As <strong>opções</strong> são os textos de botão abaixo (mín. 2, máx. 12).
-                            </Box>
-                            {(values.buttons || []).map((opt, idx) => (
-                              <Grid container spacing={1} key={idx} style={{ marginBottom: 6 }}>
-                                <Grid item xs={10}>
-                                  <TextField
-                                    label={`Opção ${idx + 1}`}
-                                    value={opt.displayText || ""}
-                                    placeholder={idx === 0 ? "Ex: Manhã (8h–12h)" : idx === 1 ? "Ex: Tarde (13h–17h)" : "Ex: Noite (18h–22h)"}
-                                    onChange={(e) => {
-                                      const updated = [...(values.buttons || [])];
-                                      updated[idx] = { displayText: e.target.value, type: "reply", value: "" };
-                                      setFieldValue("buttons", updated);
-                                    }}
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    disabled={!campaignEditable}
-                                    inputProps={{ maxLength: 100 }}
-                                  />
-                                </Grid>
-                                <Grid item xs={2} style={{ display: "flex", alignItems: "center" }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => {
-                                      const updated = (values.buttons || []).filter((_, i) => i !== idx);
-                                      setFieldValue("buttons", updated);
-                                    }}
-                                    disabled={!campaignEditable || (values.buttons || []).length <= 2}
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Grid>
-                              </Grid>
-                            ))}
-                            {(values.buttons || []).length < 12 && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                onClick={() => setFieldValue("buttons", [
-                                  ...(values.buttons || []),
-                                  { displayText: "", type: "reply", value: "" }
-                                ])}
-                                disabled={!campaignEditable}
-                                style={{ marginTop: 4 }}
-                              >
-                                + Adicionar opção
-                              </Button>
-                            )}
-                            {(values.buttons || []).length === 0 && (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="primary"
-                                onClick={() => setFieldValue("buttons", [
-                                  { displayText: "Manhã (8h–12h)", type: "reply", value: "" },
-                                  { displayText: "Tarde (13h–17h)", type: "reply", value: "" },
-                                  { displayText: "Noite (18h–22h)", type: "reply", value: "" },
-                                ])}
-                                disabled={!campaignEditable}
-                              >
-                                Usar modelo de exemplo
-                              </Button>
-                            )}
-                          </Box>
-                        </Grid>
-                      )}
-
-                      {(campaign.mediaPath || attachment) && (
-                        <Grid item xs={12}>
-                          <Box display="flex" alignItems="center">
-                            <AttachFileIcon
-                              color="action"
-                              style={{ marginRight: 8 }}
-                            />
-                            <span>
-                              {attachment != null
-                                ? attachment.name
-                                : campaign.mediaName}
-                            </span>
-                          </Box>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Grid>
-
-                  {/* Coluna direita: preview no celular */}
-                  <Grid item xs={12} md={4}>
-                    <div className={classes.phonePreviewContainer}>
-                      <div className={classes.phoneFrame}>
-                        <div className={classes.phoneScreen}>
-                          <div className={classes.phoneHeader}>
-                            <WhatsAppIcon fontSize="small" />
-                            <div className={classes.phoneHeaderTitle}>
-                              <span>
-                                {values.name || campaign.name || "Campanha em massa"}
-                              </span>
-                              <span className={classes.phoneHeaderSubtitle}>
-                                Pré-visualização da mensagem
-                              </span>
-                            </div>
-                          </div>
-                          <div className={classes.phoneMessagesArea}>
-                            {/* Mídia primeiro */}
-                            {(() => {
-                              const preview = getAttachmentPreview();
-
-                              if (preview.type === "image" && preview.url) {
-                                return (
-                                  <div className={classes.phoneMediaFileRow}>
-                                    <img
-                                      src={preview.url}
-                                      alt={attachment?.name || campaign.mediaName || "mídia"}
-                                      style={{ maxWidth: "100%", borderRadius: 12 }}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              if (preview.type === "video" && preview.url) {
-                                return (
-                                  <div className={classes.phoneMediaFileRow}>
-                                    <video
-                                      src={preview.url}
-                                      controls
-                                      style={{ width: "100%", borderRadius: 12 }}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              if (preview.type === "audio" && preview.url) {
-                                return (
-                                  <div className={classes.phoneMediaFileRow}>
-                                    <audio
-                                      src={preview.url}
-                                      controls
-                                      style={{ width: "100%" }}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              if (preview.type === "document") {
-                                const name = attachment?.name || campaign.mediaName;
-                                const ext = name && name.includes(".")
-                                  ? name.split(".").pop().toUpperCase()
-                                  : "DOC";
-
-                                return (
-                                  <div className={classes.phoneMediaFileRow}>
-                                    <AttachFileIcon fontSize="small" />
-                                    <div style={{ display: "flex", flexDirection: "column" }}>
-                                      <span style={{ fontSize: 10, opacity: 0.8 }}>{ext} • arquivo</span>
-                                      <span>{name}</span>
-                                    </div>
-                                  </div>
-                                );
-                              }
-
-                              if (campaign.mediaPath || campaign.mediaName || attachment) {
-                                return (
-                                  <div className={classes.phoneMediaFileRow}>
-                                    <AttachFileIcon fontSize="small" />
-                                    <span>
-                                      {attachment != null
-                                        ? attachment.name
-                                        : campaign.mediaName}
-                                    </span>
-                                  </div>
-                                );
-                              }
-
-                              return null;
-                            })()}
-
-                            {/* Texto sempre abaixo da mídia */}
-                            {values[`message${messageTab + 1}`] ? (
-                              <div className={classes.phoneMessageBubble}>
-                                {values[`message${messageTab + 1}`]}
-                              </div>
-                            ) : (
-                              <div className={classes.phonePlaceholder}>
-                                Comece a digitar a mensagem para ver aqui como ela
-                                ficará no celular.
-                              </div>
-                            )}
-                            {values.messageType === "buttons" && (values.buttons || []).length > 0 && (
-                              <div style={{ alignSelf: "flex-end", width: "85%", display: "flex", flexDirection: "column", gap: 6 }}>
-                                {(values.buttons || []).slice(0, 4).map((btn, index) => (
-                                  <div
-                                    key={`preview-button-${index}`}
-                                    style={{
-                                      padding: "8px 10px",
-                                      borderRadius: 10,
-                                      backgroundColor: "#111827",
-                                      color: "#e5e7eb",
-                                      fontSize: 11,
-                                      border: "1px solid rgba(34,197,94,0.35)",
-                                      textAlign: "center",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {btn.displayText || `Botão ${index + 1}`}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {values.messageType === "list" && (
-                              <div
+                          {values.messageType === "list" && (
+                            <Grid item xs={12}>
+                              <Box
                                 style={{
-                                  alignSelf: "flex-end",
-                                  width: "85%",
-                                  borderRadius: 14,
-                                  overflow: "hidden",
-                                  backgroundColor: "#111827",
-                                  color: "#e5e7eb",
-                                  boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
+                                  border: "1px solid #e0e0e0",
+                                  borderRadius: 8,
+                                  padding: 12,
+                                  backgroundColor: "#f8fafc",
                                 }}
                               >
-                                <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                                  {values.listButtonText || LIST_TEMPLATE.buttonText}
-                                </div>
-                                <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-                                  {(values.listSections || []).slice(0, 2).map((section, sectionIndex) => (
-                                    <div key={`preview-section-${sectionIndex}`}>
-                                      <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.7, marginBottom: 4 }}>
-                                        {section.title || `Seção ${sectionIndex + 1}`}
-                                      </div>
-                                      {(section.rows || []).slice(0, 3).map((row, rowIndex) => (
-                                        <div key={`preview-row-${sectionIndex}-${rowIndex}`} style={{ marginBottom: 4 }}>
-                                          <div style={{ fontSize: 11, fontWeight: 600 }}>{row.title || `Item ${rowIndex + 1}`}</div>
-                                          {row.description ? (
-                                            <div style={{ fontSize: 10, opacity: 0.75 }}>{row.description}</div>
-                                          ) : null}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ))}
-                                  {values.listFooter ? (
-                                    <div style={{ fontSize: 10, opacity: 0.7, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 6 }}>
-                                      {values.listFooter}
-                                    </div>
-                                  ) : null}
+                                <Box
+                                  style={{
+                                    fontWeight: 600,
+                                    marginBottom: 6,
+                                    fontSize: 13,
+                                    color: "#555",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
+                                  📋 Lista selecionável
+                                </Box>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#856404",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    marginBottom: 8,
+                                  }}
+                                >
+                                  ✏️ O texto principal vem do campo{" "}
+                                  <strong>Mensagem 1</strong> acima. Aqui você
+                                  define botão, rodapé, seções e itens da lista.
+                                </Box>
+                                <Grid
+                                  container
+                                  spacing={1}
+                                  style={{ marginBottom: 8 }}
+                                >
+                                  <Grid item xs={12} md={6}>
+                                    <TextField
+                                      label="Texto do botão *"
+                                      value={values.listButtonText || ""}
+                                      placeholder="Ex: Ver opções"
+                                      onChange={(e) =>
+                                        setFieldValue(
+                                          "listButtonText",
+                                          e.target.value,
+                                        )
+                                      }
+                                      variant="outlined"
+                                      size="small"
+                                      fullWidth
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12} md={6}>
+                                    <TextField
+                                      label="Rodapé (opcional)"
+                                      value={values.listFooter || ""}
+                                      placeholder="Ex: Atendimento de segunda a sexta"
+                                      onChange={(e) =>
+                                        setFieldValue(
+                                          "listFooter",
+                                          e.target.value,
+                                        )
+                                      }
+                                      variant="outlined"
+                                      size="small"
+                                      fullWidth
+                                      disabled={!campaignEditable}
+                                    />
+                                  </Grid>
+                                </Grid>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#666",
+                                    marginBottom: 10,
+                                  }}
+                                >
+                                  Itens configurados:{" "}
+                                  <strong>
+                                    {getListRowCount(values.listSections || [])}
+                                    /10
+                                  </strong>
+                                </Box>
+                                {(values.listSections || []).map(
+                                  (section, sectionIndex) => (
+                                    <Box
+                                      key={sectionIndex}
+                                      style={{
+                                        border: "1px dashed #cbd5e1",
+                                        borderRadius: 6,
+                                        padding: 10,
+                                        marginBottom: 10,
+                                        backgroundColor: "#fff",
+                                      }}
+                                    >
+                                      <Box
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                          marginBottom: 6,
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            fontWeight: 600,
+                                            fontSize: 12,
+                                          }}
+                                        >
+                                          Seção {sectionIndex + 1}
+                                        </span>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            const updated = (
+                                              values.listSections || []
+                                            ).filter(
+                                              (_, index) =>
+                                                index !== sectionIndex,
+                                            );
+                                            if (updated.length > 0)
+                                              setFieldValue(
+                                                "listSections",
+                                                updated,
+                                              );
+                                          }}
+                                          disabled={
+                                            !campaignEditable ||
+                                            (values.listSections || [])
+                                              .length <= 1
+                                          }
+                                        >
+                                          <DeleteOutlineIcon fontSize="small" />
+                                        </IconButton>
+                                      </Box>
+                                      <TextField
+                                        label="Título da seção (opcional)"
+                                        value={section.title || ""}
+                                        onChange={(e) => {
+                                          const updated = cloneListSections(
+                                            values.listSections || [],
+                                          );
+                                          updated[sectionIndex] = {
+                                            ...updated[sectionIndex],
+                                            title: e.target.value,
+                                          };
+                                          setFieldValue(
+                                            "listSections",
+                                            updated,
+                                          );
+                                        }}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                        style={{ marginBottom: 10 }}
+                                      />
+                                      {(section.rows || []).map(
+                                        (row, rowIndex) => (
+                                          <Grid
+                                            container
+                                            spacing={1}
+                                            key={`${sectionIndex}-${rowIndex}`}
+                                            style={{ marginBottom: 6 }}
+                                          >
+                                            <Grid item xs={12} md={4}>
+                                              <TextField
+                                                label="Título do item *"
+                                                value={row.title || ""}
+                                                onChange={(e) => {
+                                                  const updated =
+                                                    cloneListSections(
+                                                      values.listSections || [],
+                                                    );
+                                                  updated[sectionIndex].rows[
+                                                    rowIndex
+                                                  ] = {
+                                                    ...updated[sectionIndex]
+                                                      .rows[rowIndex],
+                                                    title: e.target.value,
+                                                  };
+                                                  setFieldValue(
+                                                    "listSections",
+                                                    updated,
+                                                  );
+                                                }}
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                                disabled={!campaignEditable}
+                                              />
+                                            </Grid>
+                                            <Grid item xs={12} md={3}>
+                                              <TextField
+                                                label="ID do item *"
+                                                value={row.rowId || ""}
+                                                onChange={(e) => {
+                                                  const updated =
+                                                    cloneListSections(
+                                                      values.listSections || [],
+                                                    );
+                                                  updated[sectionIndex].rows[
+                                                    rowIndex
+                                                  ] = {
+                                                    ...updated[sectionIndex]
+                                                      .rows[rowIndex],
+                                                    rowId: e.target.value,
+                                                  };
+                                                  setFieldValue(
+                                                    "listSections",
+                                                    updated,
+                                                  );
+                                                }}
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                                disabled={!campaignEditable}
+                                              />
+                                            </Grid>
+                                            <Grid item xs={12} md={4}>
+                                              <TextField
+                                                label="Descrição (opcional)"
+                                                value={row.description || ""}
+                                                onChange={(e) => {
+                                                  const updated =
+                                                    cloneListSections(
+                                                      values.listSections || [],
+                                                    );
+                                                  updated[sectionIndex].rows[
+                                                    rowIndex
+                                                  ] = {
+                                                    ...updated[sectionIndex]
+                                                      .rows[rowIndex],
+                                                    description: e.target.value,
+                                                  };
+                                                  setFieldValue(
+                                                    "listSections",
+                                                    updated,
+                                                  );
+                                                }}
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                                disabled={!campaignEditable}
+                                              />
+                                            </Grid>
+                                            <Grid
+                                              item
+                                              xs={12}
+                                              md={1}
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                              }}
+                                            >
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => {
+                                                  const updated =
+                                                    cloneListSections(
+                                                      values.listSections || [],
+                                                    );
+                                                  const nextRows = updated[
+                                                    sectionIndex
+                                                  ].rows.filter(
+                                                    (_, index) =>
+                                                      index !== rowIndex,
+                                                  );
+                                                  if (nextRows.length > 0) {
+                                                    updated[sectionIndex] = {
+                                                      ...updated[sectionIndex],
+                                                      rows: nextRows,
+                                                    };
+                                                    setFieldValue(
+                                                      "listSections",
+                                                      updated,
+                                                    );
+                                                  }
+                                                }}
+                                                disabled={
+                                                  !campaignEditable ||
+                                                  (section.rows || []).length <=
+                                                    1
+                                                }
+                                              >
+                                                <DeleteOutlineIcon fontSize="small" />
+                                              </IconButton>
+                                            </Grid>
+                                          </Grid>
+                                        ),
+                                      )}
+                                      {getListRowCount(
+                                        values.listSections || [],
+                                      ) < 10 && (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          onClick={() => {
+                                            const updated = cloneListSections(
+                                              values.listSections || [],
+                                            );
+                                            updated[sectionIndex] = {
+                                              ...updated[sectionIndex],
+                                              rows: [
+                                                ...(updated[sectionIndex]
+                                                  .rows || []),
+                                                {
+                                                  title: "",
+                                                  rowId: "",
+                                                  description: "",
+                                                },
+                                              ],
+                                            };
+                                            setFieldValue(
+                                              "listSections",
+                                              updated,
+                                            );
+                                          }}
+                                          disabled={!campaignEditable}
+                                          style={{ fontSize: 11 }}
+                                        >
+                                          + Item
+                                        </Button>
+                                      )}
+                                    </Box>
+                                  ),
+                                )}
+                                {getListRowCount(values.listSections || []) <
+                                  10 && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() =>
+                                      setFieldValue("listSections", [
+                                        ...(values.listSections || []),
+                                        {
+                                          title: "",
+                                          rows: [
+                                            {
+                                              title: "",
+                                              rowId: "",
+                                              description: "",
+                                            },
+                                          ],
+                                        },
+                                      ])
+                                    }
+                                    disabled={!campaignEditable}
+                                    style={{ marginTop: 4 }}
+                                  >
+                                    + Adicionar seção
+                                  </Button>
+                                )}
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {/* Carrossel */}
+                          {values.messageType === "carousel" && (
+                            <Grid item xs={12}>
+                              <Box
+                                style={{
+                                  border: "1px solid #e0e0e0",
+                                  borderRadius: 8,
+                                  padding: 12,
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    fontWeight: 600,
+                                    marginBottom: 4,
+                                    fontSize: 13,
+                                    color: "#555",
+                                  }}
+                                >
+                                  🎠 Cards do Carrossel (máx. 10)
+                                </Box>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#856404",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    marginBottom: 10,
+                                  }}
+                                >
+                                  ✏️ Modelo pré-preenchido com 2 cards de
+                                  exemplo. Edite título, imagem, texto e botões
+                                  com seus dados reais antes de salvar.
+                                </Box>
+                                {(values.carouselCards || []).map(
+                                  (card, cidx) => (
+                                    <Box
+                                      key={cidx}
+                                      style={{
+                                        border: "1px dashed #ccc",
+                                        borderRadius: 6,
+                                        padding: 10,
+                                        marginBottom: 10,
+                                      }}
+                                    >
+                                      <Box
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                          marginBottom: 6,
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            fontWeight: 600,
+                                            fontSize: 12,
+                                          }}
+                                        >
+                                          Card {cidx + 1}
+                                        </span>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            const updated = (
+                                              values.carouselCards || []
+                                            ).filter((_, i) => i !== cidx);
+                                            setFieldValue(
+                                              "carouselCards",
+                                              updated,
+                                            );
+                                          }}
+                                          disabled={!campaignEditable}
+                                        >
+                                          <DeleteOutlineIcon fontSize="small" />
+                                        </IconButton>
+                                      </Box>
+                                      <Grid container spacing={1}>
+                                        <Grid item xs={6}>
+                                          <TextField
+                                            label="Título"
+                                            value={card.headerTitle || ""}
+                                            onChange={(e) => {
+                                              const updated = [
+                                                ...(values.carouselCards || []),
+                                              ];
+                                              updated[cidx] = {
+                                                ...updated[cidx],
+                                                headerTitle: e.target.value,
+                                              };
+                                              setFieldValue(
+                                                "carouselCards",
+                                                updated,
+                                              );
+                                            }}
+                                            variant="outlined"
+                                            size="small"
+                                            fullWidth
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                          <TextField
+                                            label="URL da Imagem"
+                                            value={card.imageUrl || ""}
+                                            onChange={(e) => {
+                                              const updated = [
+                                                ...(values.carouselCards || []),
+                                              ];
+                                              updated[cidx] = {
+                                                ...updated[cidx],
+                                                imageUrl: e.target.value,
+                                              };
+                                              setFieldValue(
+                                                "carouselCards",
+                                                updated,
+                                              );
+                                            }}
+                                            variant="outlined"
+                                            size="small"
+                                            fullWidth
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                          <TextField
+                                            label="Corpo da mensagem"
+                                            value={card.body || ""}
+                                            onChange={(e) => {
+                                              const updated = [
+                                                ...(values.carouselCards || []),
+                                              ];
+                                              updated[cidx] = {
+                                                ...updated[cidx],
+                                                body: e.target.value,
+                                              };
+                                              setFieldValue(
+                                                "carouselCards",
+                                                updated,
+                                              );
+                                            }}
+                                            variant="outlined"
+                                            size="small"
+                                            fullWidth
+                                            multiline
+                                            rows={2}
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                          <TextField
+                                            label="Rodapé (opcional)"
+                                            value={card.footer || ""}
+                                            onChange={(e) => {
+                                              const updated = [
+                                                ...(values.carouselCards || []),
+                                              ];
+                                              updated[cidx] = {
+                                                ...updated[cidx],
+                                                footer: e.target.value,
+                                              };
+                                              setFieldValue(
+                                                "carouselCards",
+                                                updated,
+                                              );
+                                            }}
+                                            variant="outlined"
+                                            size="small"
+                                            fullWidth
+                                            disabled={!campaignEditable}
+                                          />
+                                        </Grid>
+                                        {/* Botões do card */}
+                                        <Grid item xs={12}>
+                                          <Box
+                                            style={{
+                                              fontSize: 12,
+                                              color: "#777",
+                                              marginBottom: 4,
+                                            }}
+                                          >
+                                            Botões do card (máx. 3)
+                                          </Box>
+                                          {(card.buttons || []).map(
+                                            (btn, bidx) => (
+                                              <Grid
+                                                container
+                                                spacing={1}
+                                                key={bidx}
+                                                style={{ marginBottom: 4 }}
+                                              >
+                                                <Grid item xs={4}>
+                                                  <TextField
+                                                    label="Texto"
+                                                    value={
+                                                      btn.displayText || ""
+                                                    }
+                                                    onChange={(e) => {
+                                                      const updatedCards = [
+                                                        ...(values.carouselCards ||
+                                                          []),
+                                                      ];
+                                                      const updatedBtns = [
+                                                        ...(updatedCards[cidx]
+                                                          .buttons || []),
+                                                      ];
+                                                      updatedBtns[bidx] = {
+                                                        ...updatedBtns[bidx],
+                                                        displayText:
+                                                          e.target.value,
+                                                      };
+                                                      updatedCards[cidx] = {
+                                                        ...updatedCards[cidx],
+                                                        buttons: updatedBtns,
+                                                      };
+                                                      setFieldValue(
+                                                        "carouselCards",
+                                                        updatedCards,
+                                                      );
+                                                    }}
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                    disabled={!campaignEditable}
+                                                  />
+                                                </Grid>
+                                                <Grid item xs={3}>
+                                                  <FormControl
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                  >
+                                                    <InputLabel>
+                                                      Tipo
+                                                    </InputLabel>
+                                                    <Select
+                                                      label="Tipo"
+                                                      value={
+                                                        btn.type || "reply"
+                                                      }
+                                                      onChange={(e) => {
+                                                        const updatedCards = [
+                                                          ...(values.carouselCards ||
+                                                            []),
+                                                        ];
+                                                        const updatedBtns = [
+                                                          ...(updatedCards[cidx]
+                                                            .buttons || []),
+                                                        ];
+                                                        updatedBtns[bidx] = {
+                                                          ...updatedBtns[bidx],
+                                                          type: e.target.value,
+                                                        };
+                                                        updatedCards[cidx] = {
+                                                          ...updatedCards[cidx],
+                                                          buttons: updatedBtns,
+                                                        };
+                                                        setFieldValue(
+                                                          "carouselCards",
+                                                          updatedCards,
+                                                        );
+                                                      }}
+                                                      disabled={
+                                                        !campaignEditable
+                                                      }
+                                                    >
+                                                      <MenuItem value="reply">
+                                                        Resposta
+                                                      </MenuItem>
+                                                      <MenuItem value="url">
+                                                        URL
+                                                      </MenuItem>
+                                                      <MenuItem value="call">
+                                                        Ligar
+                                                      </MenuItem>
+                                                    </Select>
+                                                  </FormControl>
+                                                </Grid>
+                                                <Grid item xs={4}>
+                                                  <TextField
+                                                    label="Valor"
+                                                    value={btn.value || ""}
+                                                    onChange={(e) => {
+                                                      const updatedCards = [
+                                                        ...(values.carouselCards ||
+                                                          []),
+                                                      ];
+                                                      const updatedBtns = [
+                                                        ...(updatedCards[cidx]
+                                                          .buttons || []),
+                                                      ];
+                                                      updatedBtns[bidx] = {
+                                                        ...updatedBtns[bidx],
+                                                        value: e.target.value,
+                                                      };
+                                                      updatedCards[cidx] = {
+                                                        ...updatedCards[cidx],
+                                                        buttons: updatedBtns,
+                                                      };
+                                                      setFieldValue(
+                                                        "carouselCards",
+                                                        updatedCards,
+                                                      );
+                                                    }}
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                    disabled={!campaignEditable}
+                                                  />
+                                                </Grid>
+                                                <Grid
+                                                  item
+                                                  xs={1}
+                                                  style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                  }}
+                                                >
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={() => {
+                                                      const updatedCards = [
+                                                        ...(values.carouselCards ||
+                                                          []),
+                                                      ];
+                                                      updatedCards[cidx] = {
+                                                        ...updatedCards[cidx],
+                                                        buttons: (
+                                                          updatedCards[cidx]
+                                                            .buttons || []
+                                                        ).filter(
+                                                          (_, i) => i !== bidx,
+                                                        ),
+                                                      };
+                                                      setFieldValue(
+                                                        "carouselCards",
+                                                        updatedCards,
+                                                      );
+                                                    }}
+                                                    disabled={!campaignEditable}
+                                                  >
+                                                    <DeleteOutlineIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Grid>
+                                              </Grid>
+                                            ),
+                                          )}
+                                          {(card.buttons || []).length < 3 && (
+                                            <Button
+                                              size="small"
+                                              variant="outlined"
+                                              onClick={() => {
+                                                const updatedCards = [
+                                                  ...(values.carouselCards ||
+                                                    []),
+                                                ];
+                                                updatedCards[cidx] = {
+                                                  ...updatedCards[cidx],
+                                                  buttons: [
+                                                    ...(updatedCards[cidx]
+                                                      .buttons || []),
+                                                    {
+                                                      displayText: "",
+                                                      type: "reply",
+                                                      value: "",
+                                                    },
+                                                  ],
+                                                };
+                                                setFieldValue(
+                                                  "carouselCards",
+                                                  updatedCards,
+                                                );
+                                              }}
+                                              disabled={!campaignEditable}
+                                              style={{ fontSize: 11 }}
+                                            >
+                                              + Botão
+                                            </Button>
+                                          )}
+                                        </Grid>
+                                      </Grid>
+                                    </Box>
+                                  ),
+                                )}
+                                {(values.carouselCards || []).length < 10 && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() =>
+                                      setFieldValue("carouselCards", [
+                                        ...(values.carouselCards || []),
+                                        {
+                                          headerTitle: "",
+                                          imageUrl: "",
+                                          body: "",
+                                          footer: "",
+                                          buttons: [],
+                                        },
+                                      ])
+                                    }
+                                    disabled={!campaignEditable}
+                                    style={{ marginTop: 4 }}
+                                  >
+                                    + Adicionar card
+                                  </Button>
+                                )}
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {/* Enquete (Poll) */}
+                          {values.messageType === "poll" && (
+                            <Grid item xs={12}>
+                              <Box
+                                style={{
+                                  border: "1px solid #e0e0e0",
+                                  borderRadius: 8,
+                                  padding: 12,
+                                  backgroundColor: "#fffbf0",
+                                }}
+                              >
+                                <Box
+                                  style={{
+                                    fontWeight: 600,
+                                    marginBottom: 6,
+                                    fontSize: 13,
+                                    color: "#555",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
+                                  📊 Enquete — Pergunta e opções de resposta
+                                </Box>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#856404",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    marginBottom: 8,
+                                  }}
+                                >
+                                  ✏️ Modelo pré-preenchido. Edite a pergunta no
+                                  campo <strong>Mensagem 1</strong> acima e
+                                  substitua as opções pelos textos reais.
+                                </Box>
+                                <Box
+                                  style={{
+                                    fontSize: 11,
+                                    color: "#888",
+                                    marginBottom: 10,
+                                  }}
+                                >
+                                  A <strong>pergunta</strong> vem do campo
+                                  Mensagem 1 acima. As <strong>opções</strong>{" "}
+                                  são os textos de botão abaixo (mín. 2, máx.
+                                  12).
+                                </Box>
+                                {(values.buttons || []).map((opt, idx) => (
+                                  <Grid
+                                    container
+                                    spacing={1}
+                                    key={idx}
+                                    style={{ marginBottom: 6 }}
+                                  >
+                                    <Grid item xs={10}>
+                                      <TextField
+                                        label={`Opção ${idx + 1}`}
+                                        value={opt.displayText || ""}
+                                        placeholder={
+                                          idx === 0
+                                            ? "Ex: Manhã (8h–12h)"
+                                            : idx === 1
+                                              ? "Ex: Tarde (13h–17h)"
+                                              : "Ex: Noite (18h–22h)"
+                                        }
+                                        onChange={(e) => {
+                                          const updated = [
+                                            ...(values.buttons || []),
+                                          ];
+                                          updated[idx] = {
+                                            displayText: e.target.value,
+                                            type: "reply",
+                                            value: "",
+                                          };
+                                          setFieldValue("buttons", updated);
+                                        }}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                        inputProps={{ maxLength: 100 }}
+                                      />
+                                    </Grid>
+                                    <Grid
+                                      item
+                                      xs={2}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          const updated = (
+                                            values.buttons || []
+                                          ).filter((_, i) => i !== idx);
+                                          setFieldValue("buttons", updated);
+                                        }}
+                                        disabled={
+                                          !campaignEditable ||
+                                          (values.buttons || []).length <= 2
+                                        }
+                                      >
+                                        <DeleteOutlineIcon fontSize="small" />
+                                      </IconButton>
+                                    </Grid>
+                                  </Grid>
+                                ))}
+                                {(values.buttons || []).length < 12 && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() =>
+                                      setFieldValue("buttons", [
+                                        ...(values.buttons || []),
+                                        {
+                                          displayText: "",
+                                          type: "reply",
+                                          value: "",
+                                        },
+                                      ])
+                                    }
+                                    disabled={!campaignEditable}
+                                    style={{ marginTop: 4 }}
+                                  >
+                                    + Adicionar opção
+                                  </Button>
+                                )}
+                                {(values.buttons || []).length === 0 && (
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() =>
+                                      setFieldValue("buttons", [
+                                        {
+                                          displayText: "Manhã (8h–12h)",
+                                          type: "reply",
+                                          value: "",
+                                        },
+                                        {
+                                          displayText: "Tarde (13h–17h)",
+                                          type: "reply",
+                                          value: "",
+                                        },
+                                        {
+                                          displayText: "Noite (18h–22h)",
+                                          type: "reply",
+                                          value: "",
+                                        },
+                                      ])
+                                    }
+                                    disabled={!campaignEditable}
+                                  >
+                                    Usar modelo de exemplo
+                                  </Button>
+                                )}
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {(campaign.mediaPath || attachment) && (
+                            <Grid item xs={12}>
+                              <Box display="flex" alignItems="center">
+                                <AttachFileIcon
+                                  color="action"
+                                  style={{ marginRight: 8 }}
+                                />
+                                <span>
+                                  {attachment != null
+                                    ? attachment.name
+                                    : campaign.mediaName}
+                                </span>
+                              </Box>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Grid>
+
+                      {/* Coluna direita: preview no celular */}
+                      <Grid item xs={12} md={4}>
+                        <div className={classes.phonePreviewContainer}>
+                          <div className={classes.phoneFrame}>
+                            <div className={classes.phoneScreen}>
+                              <div className={classes.phoneHeader}>
+                                <WhatsAppIcon fontSize="small" />
+                                <div className={classes.phoneHeaderTitle}>
+                                  <span>
+                                    {values.name ||
+                                      campaign.name ||
+                                      "Campanha em massa"}
+                                  </span>
+                                  <span className={classes.phoneHeaderSubtitle}>
+                                    Pré-visualização da mensagem
+                                  </span>
                                 </div>
                               </div>
-                            )}
-                            {values.messageType === "carousel" && (values.carouselCards || []).length > 0 && (
-                              <div style={{ alignSelf: "flex-end", width: "100%", display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                                {(values.carouselCards || []).slice(0, 3).map((card, index) => (
+                              <div className={classes.phoneMessagesArea}>
+                                {/* Mídia primeiro */}
+                                {(() => {
+                                  const preview = getAttachmentPreview();
+
+                                  if (preview.type === "image" && preview.url) {
+                                    return (
+                                      <div
+                                        className={classes.phoneMediaFileRow}
+                                      >
+                                        <img
+                                          src={preview.url}
+                                          alt={
+                                            attachment?.name ||
+                                            campaign.mediaName ||
+                                            "mídia"
+                                          }
+                                          style={{
+                                            maxWidth: "100%",
+                                            borderRadius: 12,
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  }
+
+                                  if (preview.type === "video" && preview.url) {
+                                    return (
+                                      <div
+                                        className={classes.phoneMediaFileRow}
+                                      >
+                                        <video
+                                          src={preview.url}
+                                          controls
+                                          style={{
+                                            width: "100%",
+                                            borderRadius: 12,
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  }
+
+                                  if (preview.type === "audio" && preview.url) {
+                                    return (
+                                      <div
+                                        className={classes.phoneMediaFileRow}
+                                      >
+                                        <audio
+                                          src={preview.url}
+                                          controls
+                                          style={{ width: "100%" }}
+                                        />
+                                      </div>
+                                    );
+                                  }
+
+                                  if (preview.type === "document") {
+                                    const name =
+                                      attachment?.name || campaign.mediaName;
+                                    const ext =
+                                      name && name.includes(".")
+                                        ? name.split(".").pop().toUpperCase()
+                                        : "DOC";
+
+                                    return (
+                                      <div
+                                        className={classes.phoneMediaFileRow}
+                                      >
+                                        <AttachFileIcon fontSize="small" />
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              fontSize: 10,
+                                              opacity: 0.8,
+                                            }}
+                                          >
+                                            {ext} • arquivo
+                                          </span>
+                                          <span>{name}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (
+                                    campaign.mediaPath ||
+                                    campaign.mediaName ||
+                                    attachment
+                                  ) {
+                                    return (
+                                      <div
+                                        className={classes.phoneMediaFileRow}
+                                      >
+                                        <AttachFileIcon fontSize="small" />
+                                        <span>
+                                          {attachment != null
+                                            ? attachment.name
+                                            : campaign.mediaName}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return null;
+                                })()}
+
+                                {/* Texto sempre abaixo da mídia */}
+                                {values[`message${messageTab + 1}`] ? (
+                                  <div className={classes.phoneMessageBubble}>
+                                    {values[`message${messageTab + 1}`]}
+                                  </div>
+                                ) : (
+                                  <div className={classes.phonePlaceholder}>
+                                    Comece a digitar a mensagem para ver aqui
+                                    como ela ficará no celular.
+                                  </div>
+                                )}
+                                {values.messageType === "buttons" &&
+                                  (values.buttons || []).length > 0 && (
+                                    <div
+                                      style={{
+                                        alignSelf: "flex-end",
+                                        width: "85%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 6,
+                                      }}
+                                    >
+                                      {(values.buttons || [])
+                                        .slice(0, 4)
+                                        .map((btn, index) => (
+                                          <div
+                                            key={`preview-button-${index}`}
+                                            style={{
+                                              padding: "8px 10px",
+                                              borderRadius: 10,
+                                              backgroundColor: "#111827",
+                                              color: "#e5e7eb",
+                                              fontSize: 11,
+                                              border:
+                                                "1px solid rgba(34,197,94,0.35)",
+                                              textAlign: "center",
+                                              fontWeight: 600,
+                                            }}
+                                          >
+                                            {btn.displayText ||
+                                              `Botão ${index + 1}`}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                {values.messageType === "list" && (
                                   <div
-                                    key={`preview-carousel-${index}`}
                                     style={{
-                                      minWidth: 150,
+                                      alignSelf: "flex-end",
+                                      width: "85%",
                                       borderRadius: 14,
+                                      overflow: "hidden",
                                       backgroundColor: "#111827",
                                       color: "#e5e7eb",
-                                      overflow: "hidden",
                                       boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
                                     }}
                                   >
-                                    <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                                      <div style={{ fontSize: 11, fontWeight: 700 }}>{card.headerTitle || `Card ${index + 1}`}</div>
+                                    <div
+                                      style={{
+                                        padding: "8px 10px",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        borderBottom:
+                                          "1px solid rgba(255,255,255,0.08)",
+                                      }}
+                                    >
+                                      {values.listButtonText ||
+                                        LIST_TEMPLATE.buttonText}
                                     </div>
-                                    <div style={{ padding: "8px 10px" }}>
-                                      <div style={{ fontSize: 11, marginBottom: 8 }}>{card.body || "Descrição do card"}</div>
-                                      {(card.buttons || []).slice(0, 2).map((btn, buttonIndex) => (
-                                        <div key={`preview-carousel-btn-${index}-${buttonIndex}`} style={{ fontSize: 10, color: "#86efac", marginBottom: 4 }}>
-                                          • {btn.displayText || `Botão ${buttonIndex + 1}`}
+                                    <div
+                                      style={{
+                                        padding: "8px 10px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 6,
+                                      }}
+                                    >
+                                      {(values.listSections || [])
+                                        .slice(0, 2)
+                                        .map((section, sectionIndex) => (
+                                          <div
+                                            key={`preview-section-${sectionIndex}`}
+                                          >
+                                            <div
+                                              style={{
+                                                fontSize: 10,
+                                                textTransform: "uppercase",
+                                                opacity: 0.7,
+                                                marginBottom: 4,
+                                              }}
+                                            >
+                                              {section.title ||
+                                                `Seção ${sectionIndex + 1}`}
+                                            </div>
+                                            {(section.rows || [])
+                                              .slice(0, 3)
+                                              .map((row, rowIndex) => (
+                                                <div
+                                                  key={`preview-row-${sectionIndex}-${rowIndex}`}
+                                                  style={{ marginBottom: 4 }}
+                                                >
+                                                  <div
+                                                    style={{
+                                                      fontSize: 11,
+                                                      fontWeight: 600,
+                                                    }}
+                                                  >
+                                                    {row.title ||
+                                                      `Item ${rowIndex + 1}`}
+                                                  </div>
+                                                  {row.description ? (
+                                                    <div
+                                                      style={{
+                                                        fontSize: 10,
+                                                        opacity: 0.75,
+                                                      }}
+                                                    >
+                                                      {row.description}
+                                                    </div>
+                                                  ) : null}
+                                                </div>
+                                              ))}
+                                          </div>
+                                        ))}
+                                      {values.listFooter ? (
+                                        <div
+                                          style={{
+                                            fontSize: 10,
+                                            opacity: 0.7,
+                                            borderTop:
+                                              "1px solid rgba(255,255,255,0.08)",
+                                            paddingTop: 6,
+                                          }}
+                                        >
+                                          {values.listFooter}
                                         </div>
-                                      ))}
+                                      ) : null}
                                     </div>
                                   </div>
-                                ))}
+                                )}
+                                {values.messageType === "carousel" &&
+                                  (values.carouselCards || []).length > 0 && (
+                                    <div
+                                      style={{
+                                        alignSelf: "flex-end",
+                                        width: "100%",
+                                        display: "flex",
+                                        gap: 8,
+                                        overflowX: "auto",
+                                        paddingBottom: 4,
+                                      }}
+                                    >
+                                      {(values.carouselCards || [])
+                                        .slice(0, 3)
+                                        .map((card, index) => (
+                                          <div
+                                            key={`preview-carousel-${index}`}
+                                            style={{
+                                              minWidth: 150,
+                                              borderRadius: 14,
+                                              backgroundColor: "#111827",
+                                              color: "#e5e7eb",
+                                              overflow: "hidden",
+                                              boxShadow:
+                                                "0 6px 14px rgba(0,0,0,0.35)",
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                padding: "8px 10px",
+                                                borderBottom:
+                                                  "1px solid rgba(255,255,255,0.08)",
+                                              }}
+                                            >
+                                              <div
+                                                style={{
+                                                  fontSize: 11,
+                                                  fontWeight: 700,
+                                                }}
+                                              >
+                                                {card.headerTitle ||
+                                                  `Card ${index + 1}`}
+                                              </div>
+                                            </div>
+                                            <div
+                                              style={{ padding: "8px 10px" }}
+                                            >
+                                              <div
+                                                style={{
+                                                  fontSize: 11,
+                                                  marginBottom: 8,
+                                                }}
+                                              >
+                                                {card.body ||
+                                                  "Descrição do card"}
+                                              </div>
+                                              {(card.buttons || [])
+                                                .slice(0, 2)
+                                                .map((btn, buttonIndex) => (
+                                                  <div
+                                                    key={`preview-carousel-btn-${index}-${buttonIndex}`}
+                                                    style={{
+                                                      fontSize: 10,
+                                                      color: "#86efac",
+                                                      marginBottom: 4,
+                                                    }}
+                                                  >
+                                                    •{" "}
+                                                    {btn.displayText ||
+                                                      `Botão ${buttonIndex + 1}`}
+                                                  </div>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                {values.messageType === "poll" &&
+                                  (values.buttons || []).length > 0 && (
+                                    <div
+                                      style={{
+                                        alignSelf: "flex-end",
+                                        width: "85%",
+                                        borderRadius: 14,
+                                        backgroundColor: "#111827",
+                                        color: "#e5e7eb",
+                                        padding: "8px 10px",
+                                        boxShadow:
+                                          "0 6px 14px rgba(0,0,0,0.35)",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          marginBottom: 6,
+                                        }}
+                                      >
+                                        Enquete
+                                      </div>
+                                      {(values.buttons || [])
+                                        .slice(0, 4)
+                                        .map((option, index) => (
+                                          <div
+                                            key={`preview-poll-${index}`}
+                                            style={{
+                                              fontSize: 10,
+                                              padding: "6px 8px",
+                                              borderRadius: 8,
+                                              backgroundColor:
+                                                "rgba(255,255,255,0.05)",
+                                              marginBottom: 4,
+                                            }}
+                                          >
+                                            {option.displayText ||
+                                              `Opção ${index + 1}`}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
                               </div>
-                            )}
-                            {values.messageType === "poll" && (values.buttons || []).length > 0 && (
-                              <div
-                                style={{
-                                  alignSelf: "flex-end",
-                                  width: "85%",
-                                  borderRadius: 14,
-                                  backgroundColor: "#111827",
-                                  color: "#e5e7eb",
-                                  padding: "8px 10px",
-                                  boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
-                                }}
-                              >
-                                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Enquete</div>
-                                {(values.buttons || []).slice(0, 4).map((option, index) => (
-                                  <div
-                                    key={`preview-poll-${index}`}
-                                    style={{
-                                      fontSize: 10,
-                                      padding: "6px 8px",
-                                      borderRadius: 8,
-                                      backgroundColor: "rgba(255,255,255,0.05)",
-                                      marginBottom: 4,
-                                    }}
-                                  >
-                                    {option.displayText || `Opção ${index + 1}`}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </Grid>
-                </Grid>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  {quickRepliesOpen && (
+                    <QuickRepliesModal
+                      open={quickRepliesOpen}
+                      onClose={() => setQuickRepliesOpen(false)}
+                      onSelect={(replyMessage, file) =>
+                        handleCampaignQuickReplySelect(
+                          replyMessage,
+                          file,
+                          values,
+                          setFieldValue,
+                        )
+                      }
+                      variant="sidebar"
+                    />
+                  )}
+                </Box>
               </DialogContent>
 
               <DialogActions className={classes.dialogActions}>

@@ -29,11 +29,13 @@ import AttachFileIcon from "@material-ui/icons/AttachFile";
 import HighlightOffIcon from "@material-ui/icons/HighlightOff";
 import AddIcon from "@material-ui/icons/Add";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import FlashOnIcon from "@material-ui/icons/FlashOn";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 import Autocomplete from "@material-ui/lab/Autocomplete";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import QuickRepliesModal from "../QuickRepliesModal";
 
 const useStyles = makeStyles((theme) => ({
   dialog: {
@@ -43,6 +45,12 @@ const useStyles = makeStyles((theme) => ({
       width: "100%",
       overflow: "hidden",
       boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+    },
+  },
+  dialogExpanded: {
+    "& .MuiDialog-paper": {
+      maxWidth: 980,
+      width: "96vw",
     },
   },
   header: {
@@ -77,7 +85,17 @@ const useStyles = makeStyles((theme) => ({
   content: {
     padding: 0,
     backgroundColor: "#f0f2f5",
+    overflow: "hidden",
+  },
+  dialogBody: {
+    display: "flex",
+    alignItems: "stretch",
     maxHeight: "80vh",
+    minHeight: 0,
+  },
+  mainPane: {
+    flex: 1,
+    minWidth: 0,
     overflowY: "auto",
   },
   inner: {
@@ -108,6 +126,14 @@ const useStyles = makeStyles((theme) => ({
     fontSize: 11,
     color: "#94a3b8",
     marginTop: 4,
+  },
+  quickRepliesToggle: {
+    color: "#075E54",
+    border: "1px solid rgba(7, 94, 84, 0.18)",
+    backgroundColor: "#eefaf7",
+    "&:hover": {
+      backgroundColor: "#def7f1",
+    },
   },
   resultCard: {
     borderRadius: 12,
@@ -367,6 +393,7 @@ export default function QuickSendModal({
   const [selectedContactListId, setSelectedContactListId] = useState("");
   const [contactsFile, setContactsFile] = useState(null);
   const [medias, setMedias] = useState([]);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connections, setConnections] = useState([]);
   const [queues, setQueues] = useState([]);
@@ -431,6 +458,74 @@ export default function QuickSendModal({
         ? " "
         : "";
     setValue(`${safeCurrent}${spacer}${token}`);
+  };
+
+  const appendQuickReplyMessage = (currentValue, nextValue) => {
+    const safeCurrent = String(currentValue || "").trimEnd();
+    const safeNext = String(nextValue || "").trim();
+
+    if (!safeNext) {
+      return safeCurrent;
+    }
+
+    if (!safeCurrent) {
+      return safeNext;
+    }
+
+    return `${safeCurrent}${safeCurrent.endsWith("\n") ? "\n" : "\n\n"}${safeNext}`;
+  };
+
+  const handleQuickReplySelect = (replyMessage, file) => {
+    const normalizedMessage = String(replyMessage || "");
+
+    if (messageType === "text" || messageType === "buttons") {
+      setMessage((prev) => appendQuickReplyMessage(prev, normalizedMessage));
+    } else if (messageType === "list") {
+      setListText((prev) => appendQuickReplyMessage(prev, normalizedMessage));
+    } else if (messageType === "poll") {
+      setPollName((prev) => appendQuickReplyMessage(prev, normalizedMessage));
+    } else if (messageType === "carousel") {
+      setCarouselCards((prev) => {
+        const updatedCards =
+          prev.length > 0
+            ? [...prev]
+            : [
+                {
+                  headerTitle: "",
+                  imageUrl: "",
+                  body: "",
+                  footer: "",
+                  buttons: [],
+                },
+              ];
+
+        updatedCards[0] = {
+          ...updatedCards[0],
+          body: appendQuickReplyMessage(
+            updatedCards[0]?.body,
+            normalizedMessage,
+          ),
+        };
+
+        return updatedCards;
+      });
+
+      if (normalizedMessage) {
+        toast.info("Resposta rápida aplicada ao corpo do primeiro card.");
+      }
+    }
+
+    if (file) {
+      if (messageType === "text") {
+        setMedias((prev) => [...prev, file]);
+      } else {
+        toast.info(
+          "A mídia da resposta rápida é anexada apenas no modo Texto.",
+        );
+      }
+    }
+
+    setQuickRepliesOpen(false);
   };
 
   const renderVariableChips = (onSelectToken) => (
@@ -498,6 +593,7 @@ export default function QuickSendModal({
     setSelectedContactListId("");
     setContactsFile(null);
     setMedias([]);
+    setQuickRepliesOpen(false);
     setMessageType("text");
     setButtons([...BUTTONS_TEMPLATE]);
     setCarouselCards(
@@ -1050,7 +1146,7 @@ export default function QuickSendModal({
     <Dialog
       open={open}
       onClose={onClose}
-      className={classes.dialog}
+      className={`${classes.dialog} ${quickRepliesOpen ? classes.dialogExpanded : ""}`}
       maxWidth="sm"
     >
       {/* Header */}
@@ -1080,702 +1176,564 @@ export default function QuickSendModal({
       </Box>
 
       <DialogContent className={classes.content}>
-        <Box className={classes.inner}>
-          <Box className={classes.card}>
-            <Typography className={classes.sectionLabel}>
-              <PhoneIcon style={{ fontSize: 13 }} />
-              Destinatarios do disparo
-            </Typography>
+        <Box className={classes.dialogBody}>
+          <Box className={classes.mainPane}>
+            <Box className={classes.inner}>
+              <Box className={classes.card}>
+                <Typography className={classes.sectionLabel}>
+                  <PhoneIcon style={{ fontSize: 13 }} />
+                  Destinatarios do disparo
+                </Typography>
 
-            <Box
-              display="flex"
-              style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}
-            >
-              {[
-                { value: "single", label: "Numero unico" },
-                { value: "tags", label: "Por etiquetas" },
-                { value: "contactList", label: "Lista cadastrada" },
-                { value: "upload", label: "Subir lista" },
-              ].map((mode) => (
                 <Box
-                  key={mode.value}
-                  className={`${classes.msgTypeBtn} ${recipientMode === mode.value ? classes.msgTypeBtnActive : ""}`}
-                  style={{ minWidth: 110, flex: "1 1 110px" }}
-                  onClick={() => setRecipientMode(mode.value)}
+                  display="flex"
+                  style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}
                 >
-                  {mode.label}
+                  {[
+                    { value: "single", label: "Numero unico" },
+                    { value: "tags", label: "Por etiquetas" },
+                    { value: "contactList", label: "Lista cadastrada" },
+                    { value: "upload", label: "Subir lista" },
+                  ].map((mode) => (
+                    <Box
+                      key={mode.value}
+                      className={`${classes.msgTypeBtn} ${recipientMode === mode.value ? classes.msgTypeBtnActive : ""}`}
+                      style={{ minWidth: 110, flex: "1 1 110px" }}
+                      onClick={() => setRecipientMode(mode.value)}
+                    >
+                      {mode.label}
+                    </Box>
+                  ))}
                 </Box>
-              ))}
-            </Box>
 
-            {recipientMode === "tags" && (
-              <>
-                <Autocomplete
-                  multiple
-                  options={tags}
-                  value={selectedTags}
-                  onChange={(_, value) => setSelectedTags(value)}
-                  getOptionLabel={(option) => option.name || ""}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        variant="default"
-                        label={option.name}
-                        size="small"
-                        style={{
-                          backgroundColor: option.color || "#e8f5e9",
-                          color: "#0f172a",
-                        }}
-                        {...getTagProps({ index })}
-                      />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      variant="outlined"
-                      size="small"
-                      placeholder="Selecione uma ou mais etiquetas"
+                {recipientMode === "tags" && (
+                  <>
+                    <Autocomplete
+                      multiple
+                      options={tags}
+                      value={selectedTags}
+                      onChange={(_, value) => setSelectedTags(value)}
+                      getOptionLabel={(option) => option.name || ""}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            variant="default"
+                            label={option.name}
+                            size="small"
+                            style={{
+                              backgroundColor: option.color || "#e8f5e9",
+                              color: "#0f172a",
+                            }}
+                            {...getTagProps({ index })}
+                          />
+                        ))
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Selecione uma ou mais etiquetas"
+                        />
+                      )}
                     />
-                  )}
+                    <Box className={classes.infoBox}>
+                      <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                        As etiquetas escolhidas serao transformadas em publico
+                        do disparo no backend.
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                {recipientMode === "contactList" && (
+                  <>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <Select
+                        value={selectedContactListId}
+                        onChange={(e) =>
+                          setSelectedContactListId(e.target.value)
+                        }
+                        displayEmpty
+                        style={{ borderRadius: 8 }}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione uma lista cadastrada</em>
+                        </MenuItem>
+                        {contactLists.map((list) => (
+                          <MenuItem key={list.id} value={list.id}>
+                            {list.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Box className={classes.infoBox}>
+                      <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                        Essa lista sera usada diretamente no modulo de disparos.
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                {recipientMode === "upload" && (
+                  <>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<AttachFileIcon />}
+                      className={classes.addBtn}
+                      style={{ width: "100%", justifyContent: "flex-start" }}
+                    >
+                      {contactsFile
+                        ? contactsFile.name
+                        : "Selecionar arquivo da lista"}
+                      <input
+                        type="file"
+                        hidden
+                        accept=".csv,.txt,.xlsx,.xls"
+                        onChange={handleContactsFileChange}
+                      />
+                    </Button>
+                    <Box className={classes.warnBox}>
+                      <Typography style={{ fontSize: 11, color: "#92400e" }}>
+                        A lista enviada sera cadastrada na empresa e vinculada
+                        ao disparo.
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+              </Box>
+
+              <Box className={classes.card}>
+                <Typography className={classes.sectionLabel}>
+                  <SendIcon style={{ fontSize: 13 }} />
+                  Execucao do disparo
+                </Typography>
+
+                <Box display="flex" style={{ gap: 8, marginBottom: 12 }}>
+                  {[
+                    { value: "instant", label: "Enviar agora" },
+                    { value: "scheduled", label: "Agendar" },
+                  ].map((mode) => (
+                    <Box
+                      key={mode.value}
+                      className={`${classes.msgTypeBtn} ${deliveryMode === mode.value ? classes.msgTypeBtnActive : ""}`}
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        setDeliveryMode(mode.value);
+                        if (mode.value === "instant") {
+                          setScheduledAt("");
+                        }
+                      }}
+                    >
+                      {mode.label}
+                    </Box>
+                  ))}
+                </Box>
+
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  label="Nome do disparo"
+                  placeholder="Ex: Campanha clientes VIP"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  helperText={
+                    shouldUseCampaignFlow
+                      ? "Esse nome aparecera no modulo de disparos."
+                      : "Opcional para o disparo em massa."
+                  }
+                  InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
                 />
+
+                {deliveryMode === "scheduled" && (
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    type="datetime-local"
+                    label="Data e hora do agendamento"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    style={{ marginTop: 10 }}
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                  />
+                )}
+
                 <Box className={classes.infoBox}>
                   <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                    As etiquetas escolhidas serao transformadas em publico do
-                    disparo no backend.
+                    O disparador rapido passa a criar disparos sincronizados com
+                    o modulo de campanhas.
                   </Typography>
                 </Box>
-              </>
-            )}
+                {shouldUseCampaignFlow && (
+                  <Box className={classes.warnBox}>
+                    <Typography style={{ fontSize: 11, color: "#92400e" }}>
+                      Anti-ban ativo: no disparo em massa o backend distribui os
+                      envios com intervalo aleatorio entre 5 e 60 segundos.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
 
-            {recipientMode === "contactList" && (
-              <>
+              {/* Número de destino */}
+              <Box
+                className={classes.card}
+                style={{
+                  display: recipientMode === "single" ? "block" : "none",
+                }}
+              >
+                <Typography className={classes.sectionLabel}>
+                  <PhoneIcon style={{ fontSize: 13 }} />
+                  Número de destino
+                </Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  placeholder="5511999998888 (com DDD e código do país)"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  error={numberValidation.status === "invalid"}
+                  helperText={
+                    normalizedNumber.length > 0
+                      ? `${normalizedNumber.length} dígitos`
+                      : "Digite com DDI+DDD (ex: 5511999998888)"
+                  }
+                  InputProps={{
+                    style: { borderRadius: 8, fontSize: 15 },
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon style={{ color: "#54656f", fontSize: 18 }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                {numberValidation.status === "loading" && (
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    mt={1}
+                    style={{ gap: 6 }}
+                  >
+                    <CircularProgress size={14} style={{ color: "#54656f" }} />
+                    <Typography style={{ fontSize: 12, color: "#54656f" }}>
+                      Validando número no WhatsApp...
+                    </Typography>
+                  </Box>
+                )}
+                {numberValidation.status === "valid" && (
+                  <Box
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      backgroundColor: "#dcfce7",
+                      borderRadius: 8,
+                      border: "1px solid #86efac",
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                      <CheckCircleIcon
+                        style={{ color: "#16a34a", fontSize: 16 }}
+                      />
+                      <Typography
+                        style={{
+                          fontSize: 12,
+                          color: "#15803d",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Número válido no WhatsApp ✓
+                      </Typography>
+                    </Box>
+                    {numberValidation.existingContact && (
+                      <Typography
+                        style={{ fontSize: 11, color: "#166534", marginTop: 2 }}
+                      >
+                        Contato existente:{" "}
+                        <strong>{numberValidation.existingContact.name}</strong>
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                {numberValidation.status === "invalid" && (
+                  <Box
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      backgroundColor: "#fee2e2",
+                      borderRadius: 8,
+                      border: "1px solid #fca5a5",
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                      <ErrorIcon style={{ color: "#dc2626", fontSize: 16 }} />
+                      <Typography
+                        style={{
+                          fontSize: 12,
+                          color: "#dc2626",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Número inválido — não encontrado no WhatsApp ✗
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  placeholder="Nome do contato (opcional — usado ao criar)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{ marginTop: 8 }}
+                  InputProps={{
+                    style: { borderRadius: 8, fontSize: 13 },
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PersonAddIcon
+                          style={{ color: "#54656f", fontSize: 16 }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+
+              {/* Conexão WhatsApp */}
+              <Box className={classes.card}>
+                <Typography className={classes.sectionLabel}>
+                  <WifiIcon style={{ fontSize: 13 }} />
+                  Conexão WhatsApp
+                </Typography>
                 <FormControl fullWidth variant="outlined" size="small">
                   <Select
-                    value={selectedContactListId}
-                    onChange={(e) => setSelectedContactListId(e.target.value)}
+                    value={whatsappId}
+                    onChange={(e) => setWhatsappId(e.target.value)}
                     displayEmpty
                     style={{ borderRadius: 8 }}
                   >
-                    <MenuItem value="">
-                      <em>Selecione uma lista cadastrada</em>
+                    <MenuItem value="" disabled>
+                      <em>Selecione uma conexão...</em>
                     </MenuItem>
-                    {contactLists.map((list) => (
-                      <MenuItem key={list.id} value={list.id}>
-                        {list.name}
+                    {connections.map((conn) => (
+                      <MenuItem key={conn.id} value={conn.id}>
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          width="100%"
+                          style={{ gap: 8 }}
+                        >
+                          <Box>
+                            <Typography
+                              style={{ fontWeight: 600, fontSize: 13 }}
+                            >
+                              {conn.name}
+                            </Typography>
+                            <Typography
+                              style={{ fontSize: 11, color: "#667781" }}
+                            >
+                              {conn.number || "Sem número"}
+                            </Typography>
+                          </Box>
+                          <ConnectionStatusChip status={conn.status} />
+                        </Box>
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Box className={classes.infoBox}>
-                  <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                    Essa lista sera usada diretamente no modulo de disparos.
-                  </Typography>
-                </Box>
-              </>
-            )}
-
-            {recipientMode === "upload" && (
-              <>
-                <Button
+                <FormControl
+                  fullWidth
                   variant="outlined"
-                  component="label"
-                  startIcon={<AttachFileIcon />}
-                  className={classes.addBtn}
-                  style={{ width: "100%", justifyContent: "flex-start" }}
+                  size="small"
+                  style={{ marginTop: 8 }}
                 >
-                  {contactsFile
-                    ? contactsFile.name
-                    : "Selecionar arquivo da lista"}
-                  <input
-                    type="file"
-                    hidden
-                    accept=".csv,.txt,.xlsx,.xls"
-                    onChange={handleContactsFileChange}
-                  />
-                </Button>
-                <Box className={classes.warnBox}>
-                  <Typography style={{ fontSize: 11, color: "#92400e" }}>
-                    A lista enviada sera cadastrada na empresa e vinculada ao
-                    disparo.
-                  </Typography>
-                </Box>
-              </>
-            )}
-          </Box>
+                  <Select
+                    value={queueId}
+                    onChange={(e) => setQueueId(e.target.value)}
+                    displayEmpty
+                    style={{ borderRadius: 8 }}
+                  >
+                    <MenuItem value="">
+                      <em>Sem fila (opcional)</em>
+                    </MenuItem>
+                    {queues.map((q) => (
+                      <MenuItem key={q.id} value={q.id}>
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          style={{ gap: 8 }}
+                        >
+                          <Box
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: q.color || "#54656f",
+                              flexShrink: 0,
+                            }}
+                          />
+                          {q.name}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
 
-          <Box className={classes.card}>
-            <Typography className={classes.sectionLabel}>
-              <SendIcon style={{ fontSize: 13 }} />
-              Execucao do disparo
-            </Typography>
-
-            <Box display="flex" style={{ gap: 8, marginBottom: 12 }}>
-              {[
-                { value: "instant", label: "Enviar agora" },
-                { value: "scheduled", label: "Agendar" },
-              ].map((mode) => (
-                <Box
-                  key={mode.value}
-                  className={`${classes.msgTypeBtn} ${deliveryMode === mode.value ? classes.msgTypeBtnActive : ""}`}
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    setDeliveryMode(mode.value);
-                    if (mode.value === "instant") {
-                      setScheduledAt("");
-                    }
-                  }}
-                >
-                  {mode.label}
-                </Box>
-              ))}
-            </Box>
-
-            <TextField
-              fullWidth
-              variant="outlined"
-              size="small"
-              label="Nome do disparo"
-              placeholder="Ex: Campanha clientes VIP"
-              value={campaignName}
-              onChange={(e) => setCampaignName(e.target.value)}
-              helperText={
-                shouldUseCampaignFlow
-                  ? "Esse nome aparecera no modulo de disparos."
-                  : "Opcional para o disparo em massa."
-              }
-              InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-            />
-
-            {deliveryMode === "scheduled" && (
-              <TextField
-                fullWidth
-                variant="outlined"
-                size="small"
-                type="datetime-local"
-                label="Data e hora do agendamento"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                style={{ marginTop: 10 }}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-              />
-            )}
-
-            <Box className={classes.infoBox}>
-              <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                O disparador rapido passa a criar disparos sincronizados com o
-                modulo de campanhas.
-              </Typography>
-            </Box>
-            {shouldUseCampaignFlow && (
-              <Box className={classes.warnBox}>
-                <Typography style={{ fontSize: 11, color: "#92400e" }}>
-                  Anti-ban ativo: no disparo em massa o backend distribui os
-                  envios com intervalo aleatorio entre 5 e 60 segundos.
+              {/* Tipo de Mensagem */}
+              <Box className={classes.card}>
+                <Typography className={classes.sectionLabel}>
+                  Tipo de mensagem
                 </Typography>
-              </Box>
-            )}
-          </Box>
-
-          {/* Número de destino */}
-          <Box
-            className={classes.card}
-            style={{ display: recipientMode === "single" ? "block" : "none" }}
-          >
-            <Typography className={classes.sectionLabel}>
-              <PhoneIcon style={{ fontSize: 13 }} />
-              Número de destino
-            </Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              size="small"
-              placeholder="5511999998888 (com DDD e código do país)"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              error={numberValidation.status === "invalid"}
-              helperText={
-                normalizedNumber.length > 0
-                  ? `${normalizedNumber.length} dígitos`
-                  : "Digite com DDI+DDD (ex: 5511999998888)"
-              }
-              InputProps={{
-                style: { borderRadius: 8, fontSize: 15 },
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PhoneIcon style={{ color: "#54656f", fontSize: 18 }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            {numberValidation.status === "loading" && (
-              <Box display="flex" alignItems="center" mt={1} style={{ gap: 6 }}>
-                <CircularProgress size={14} style={{ color: "#54656f" }} />
-                <Typography style={{ fontSize: 12, color: "#54656f" }}>
-                  Validando número no WhatsApp...
-                </Typography>
-              </Box>
-            )}
-            {numberValidation.status === "valid" && (
-              <Box
-                style={{
-                  marginTop: 8,
-                  padding: "8px 12px",
-                  backgroundColor: "#dcfce7",
-                  borderRadius: 8,
-                  border: "1px solid #86efac",
-                }}
-              >
-                <Box display="flex" alignItems="center" style={{ gap: 6 }}>
-                  <CheckCircleIcon style={{ color: "#16a34a", fontSize: 16 }} />
-                  <Typography
-                    style={{ fontSize: 12, color: "#15803d", fontWeight: 600 }}
-                  >
-                    Número válido no WhatsApp ✓
-                  </Typography>
-                </Box>
-                {numberValidation.existingContact && (
-                  <Typography
-                    style={{ fontSize: 11, color: "#166534", marginTop: 2 }}
-                  >
-                    Contato existente:{" "}
-                    <strong>{numberValidation.existingContact.name}</strong>
-                  </Typography>
-                )}
-              </Box>
-            )}
-            {numberValidation.status === "invalid" && (
-              <Box
-                style={{
-                  marginTop: 8,
-                  padding: "8px 12px",
-                  backgroundColor: "#fee2e2",
-                  borderRadius: 8,
-                  border: "1px solid #fca5a5",
-                }}
-              >
-                <Box display="flex" alignItems="center" style={{ gap: 6 }}>
-                  <ErrorIcon style={{ color: "#dc2626", fontSize: 16 }} />
-                  <Typography
-                    style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}
-                  >
-                    Número inválido — não encontrado no WhatsApp ✗
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-            <TextField
-              fullWidth
-              variant="outlined"
-              size="small"
-              placeholder="Nome do contato (opcional — usado ao criar)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ marginTop: 8 }}
-              InputProps={{
-                style: { borderRadius: 8, fontSize: 13 },
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonAddIcon style={{ color: "#54656f", fontSize: 16 }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-
-          {/* Conexão WhatsApp */}
-          <Box className={classes.card}>
-            <Typography className={classes.sectionLabel}>
-              <WifiIcon style={{ fontSize: 13 }} />
-              Conexão WhatsApp
-            </Typography>
-            <FormControl fullWidth variant="outlined" size="small">
-              <Select
-                value={whatsappId}
-                onChange={(e) => setWhatsappId(e.target.value)}
-                displayEmpty
-                style={{ borderRadius: 8 }}
-              >
-                <MenuItem value="" disabled>
-                  <em>Selecione uma conexão...</em>
-                </MenuItem>
-                {connections.map((conn) => (
-                  <MenuItem key={conn.id} value={conn.id}>
+                <Box display="flex" gap={1} style={{ gap: 8 }}>
+                  {MSG_TYPES.map((t) => (
                     <Box
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      width="100%"
-                      style={{ gap: 8 }}
+                      key={t.value}
+                      className={`${classes.msgTypeBtn} ${messageType === t.value ? classes.msgTypeBtnActive : ""}`}
+                      onClick={() => setMessageType(t.value)}
+                      component="button"
+                      style={{
+                        border:
+                          messageType === t.value
+                            ? "2px solid #075E54"
+                            : "2px solid #e2e8f0",
+                        cursor: "pointer",
+                        background: "none",
+                        outline: "none",
+                      }}
                     >
-                      <Box>
-                        <Typography style={{ fontWeight: 600, fontSize: 13 }}>
-                          {conn.name}
-                        </Typography>
-                        <Typography style={{ fontSize: 11, color: "#667781" }}>
-                          {conn.number || "Sem número"}
-                        </Typography>
-                      </Box>
-                      <ConnectionStatusChip status={conn.status} />
+                      <span style={{ fontSize: 22 }}>{t.icon}</span>
+                      <span>{t.label}</span>
                     </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl
-              fullWidth
-              variant="outlined"
-              size="small"
-              style={{ marginTop: 8 }}
-            >
-              <Select
-                value={queueId}
-                onChange={(e) => setQueueId(e.target.value)}
-                displayEmpty
-                style={{ borderRadius: 8 }}
-              >
-                <MenuItem value="">
-                  <em>Sem fila (opcional)</em>
-                </MenuItem>
-                {queues.map((q) => (
-                  <MenuItem key={q.id} value={q.id}>
-                    <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                      <Box
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: q.color || "#54656f",
-                          flexShrink: 0,
-                        }}
-                      />
-                      {q.name}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Tipo de Mensagem */}
-          <Box className={classes.card}>
-            <Typography className={classes.sectionLabel}>
-              Tipo de mensagem
-            </Typography>
-            <Box display="flex" gap={1} style={{ gap: 8 }}>
-              {MSG_TYPES.map((t) => (
-                <Box
-                  key={t.value}
-                  className={`${classes.msgTypeBtn} ${messageType === t.value ? classes.msgTypeBtnActive : ""}`}
-                  onClick={() => setMessageType(t.value)}
-                  component="button"
-                  style={{
-                    border:
-                      messageType === t.value
-                        ? "2px solid #075E54"
-                        : "2px solid #e2e8f0",
-                    cursor: "pointer",
-                    background: "none",
-                    outline: "none",
-                  }}
-                >
-                  <span style={{ fontSize: 22 }}>{t.icon}</span>
-                  <span>{t.label}</span>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-
-          {/* ── Texto simples ──────────────────────────────────────── */}
-          {messageType === "text" && (
-            <Box className={classes.card}>
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={1}
-              >
-                <Typography
-                  className={classes.sectionLabel}
-                  style={{ marginBottom: 0 }}
-                >
-                  Mensagem e Anexos
-                </Typography>
-                <>
-                  <input
-                    type="file"
-                    multiple
-                    style={{ display: "none" }}
-                    id="quick-send-upload"
-                    onChange={handleChangeMedias}
-                  />
-                  <label htmlFor="quick-send-upload">
-                    <IconButton
-                      component="span"
-                      size="small"
-                      style={{ color: "#075E54" }}
-                    >
-                      <AttachFileIcon fontSize="small" />
-                    </IconButton>
-                  </label>
-                </>
-              </Box>
-              {medias.length > 0 && (
-                <Box display="flex" flexWrap="wrap" mb={2} style={{ gap: 4 }}>
-                  {medias.map((media, idx) => (
-                    <Chip
-                      key={idx}
-                      size="small"
-                      label={media.name}
-                      onDelete={() =>
-                        setMedias(medias.filter((_, i) => i !== idx))
-                      }
-                      deleteIcon={<HighlightOffIcon />}
-                    />
                   ))}
                 </Box>
-              )}
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                maxRows={6}
-                variant="outlined"
-                placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.ctrlKey && e.key === "Enter") {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
-              />
-              {renderVariableChips((token) =>
-                appendToken(message, setMessage, token),
-              )}
-              <Typography className={classes.charCount}>
-                {message.length} caracteres
-              </Typography>
-            </Box>
-          )}
-
-          {/* ── Botões interativos ─────────────────────────────────── */}
-          {messageType === "buttons" && (
-            <Box className={classes.card}>
-              <Typography className={classes.sectionLabel}>
-                💬 Texto da mensagem (aparece acima dos botões)
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                maxRows={4}
-                variant="outlined"
-                placeholder="Ex: Escolha uma das opções abaixo:"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
-              />
-              {renderVariableChips((token) =>
-                appendToken(message, setMessage, token),
-              )}
-              <Typography className={classes.charCount}>
-                {message.length} caracteres
-              </Typography>
-
-              <Box mt={2}>
-                <Typography className={classes.sectionLabel}>
-                  🔘 Botões interativos ({buttons.length}/4)
-                </Typography>
-                {buttons.map((btn, i) => (
-                  <Box key={i} className={classes.buttonRow}>
-                    <Box className={classes.buttonIndex}>{i + 1}</Box>
-                    <Box
-                      flex={1}
-                      display="flex"
-                      flexDirection="column"
-                      style={{ gap: 6 }}
-                    >
-                      <TextField
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        label="Texto do botão"
-                        placeholder="Ex: Sim, quero!"
-                        value={btn.displayText}
-                        onChange={(e) =>
-                          updateButton(i, "displayText", e.target.value)
-                        }
-                        inputProps={{ maxLength: 25 }}
-                        helperText={`${btn.displayText.length}/25`}
-                        InputProps={{
-                          style: { borderRadius: 8, fontSize: 13 },
-                        }}
-                      />
-                      <Box display="flex" style={{ gap: 6 }}>
-                        <FormControl
-                          variant="outlined"
-                          size="small"
-                          style={{ minWidth: 160 }}
-                        >
-                          <Select
-                            value={btn.type}
-                            onChange={(e) =>
-                              updateButton(i, "type", e.target.value)
-                            }
-                            style={{ borderRadius: 8, fontSize: 13 }}
-                          >
-                            {BUTTON_TYPES.map((t) => (
-                              <MenuItem key={t.value} value={t.value}>
-                                {t.label}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        {btn.type !== "reply" && (
-                          <TextField
-                            variant="outlined"
-                            size="small"
-                            label={valueLabel(btn.type)}
-                            placeholder={valuePlaceholder(btn.type)}
-                            value={btn.value}
-                            onChange={(e) =>
-                              updateButton(i, "value", e.target.value)
-                            }
-                            InputProps={{
-                              style: { borderRadius: 8, fontSize: 13 },
-                            }}
-                            style={{ flex: 1 }}
-                          />
-                        )}
-                      </Box>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => removeButton(i)}
-                      style={{ color: "#ef4444", marginTop: 4 }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-                {buttons.length < 4 && (
-                  <Box className={classes.addBtnRow}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      className={classes.addBtn}
-                      startIcon={<AddIcon />}
-                      onClick={addButton}
-                    >
-                      Adicionar botão
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-              <Box className={classes.infoBox}>
-                <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                  💡 Modelo pré-preenchido com exemplo. Edite os textos e
-                  valores para a sua mensagem real.
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          {/* ── Carrossel de cards ──────────────────────────────────── */}
-          {messageType === "list" && (
-            <Box className={classes.card}>
-              <Typography className={classes.sectionLabel}>
-                📋 Texto da mensagem da lista
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                maxRows={4}
-                variant="outlined"
-                placeholder="Ex: Selecione uma das opções abaixo para continuar:"
-                value={listText}
-                onChange={(e) => setListText(e.target.value)}
-                InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
-              />
-              {renderVariableChips((token) =>
-                appendToken(listText, setListText, token),
-              )}
-              <Typography className={classes.charCount}>
-                {listText.length} caracteres
-              </Typography>
-
-              <Box display="flex" style={{ gap: 8, marginTop: 12 }}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  label="Texto do botão *"
-                  placeholder="Ex: Ver opções"
-                  value={listButtonText}
-                  onChange={(e) => setListButtonText(e.target.value)}
-                  inputProps={{ maxLength: 30 }}
-                  InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-                />
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  label="Rodapé (opcional)"
-                  placeholder="Ex: Atendimento de segunda a sexta"
-                  value={listFooter}
-                  onChange={(e) => setListFooter(e.target.value)}
-                  inputProps={{ maxLength: 60 }}
-                  InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-                />
               </Box>
 
-              <Box mt={2}>
-                <Typography className={classes.sectionLabel}>
-                  🧾 Seções e itens ({totalListRows}/10)
-                </Typography>
-                {listSections.map((section, si) => (
-                  <Box key={si} className={classes.cardRow}>
-                    <Box className={classes.cardHeader}>
-                      <Typography
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 13,
-                          color: "#075E54",
-                        }}
-                      >
-                        Seção {si + 1}
-                      </Typography>
-                      {listSections.length > 1 && (
+              {/* ── Texto simples ──────────────────────────────────────── */}
+              {messageType === "text" && (
+                <Box className={classes.card}>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    mb={1}
+                  >
+                    <Typography
+                      className={classes.sectionLabel}
+                      style={{ marginBottom: 0 }}
+                    >
+                      Mensagem e Anexos
+                    </Typography>
+                    <Box display="flex" alignItems="center" style={{ gap: 4 }}>
+                      <Tooltip title="Abrir respostas rápidas">
                         <IconButton
                           size="small"
-                          onClick={() => removeListSection(si)}
-                          style={{ color: "#ef4444" }}
+                          className={classes.quickRepliesToggle}
+                          onClick={() => setQuickRepliesOpen((prev) => !prev)}
                         >
-                          <DeleteOutlineIcon fontSize="small" />
+                          <FlashOnIcon fontSize="small" />
                         </IconButton>
-                      )}
+                      </Tooltip>
+                      <input
+                        type="file"
+                        multiple
+                        style={{ display: "none" }}
+                        id="quick-send-upload"
+                        onChange={handleChangeMedias}
+                      />
+                      <label htmlFor="quick-send-upload">
+                        <IconButton
+                          component="span"
+                          size="small"
+                          style={{ color: "#075E54" }}
+                        >
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </label>
                     </Box>
+                  </Box>
+                  {medias.length > 0 && (
+                    <Box
+                      display="flex"
+                      flexWrap="wrap"
+                      mb={2}
+                      style={{ gap: 4 }}
+                    >
+                      {medias.map((media, idx) => (
+                        <Chip
+                          key={idx}
+                          size="small"
+                          label={media.name}
+                          onDelete={() =>
+                            setMedias(medias.filter((_, i) => i !== idx))
+                          }
+                          deleteIcon={<HighlightOffIcon />}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    maxRows={6}
+                    variant="outlined"
+                    placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey && e.key === "Enter") {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
+                  />
+                  {renderVariableChips((token) =>
+                    appendToken(message, setMessage, token),
+                  )}
+                  <Typography className={classes.charCount}>
+                    {message.length} caracteres
+                  </Typography>
+                </Box>
+              )}
 
-                    <TextField
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      label="Título da seção (opcional)"
-                      placeholder="Ex: Atendimento"
-                      value={section.title}
-                      onChange={(e) => updateListSection(si, e.target.value)}
-                      InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-                      style={{ marginBottom: 10 }}
-                    />
+              {/* ── Botões interativos ─────────────────────────────────── */}
+              {messageType === "buttons" && (
+                <Box className={classes.card}>
+                  <Typography className={classes.sectionLabel}>
+                    💬 Texto da mensagem (aparece acima dos botões)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    maxRows={4}
+                    variant="outlined"
+                    placeholder="Ex: Escolha uma das opções abaixo:"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
+                  />
+                  {renderVariableChips((token) =>
+                    appendToken(message, setMessage, token),
+                  )}
+                  <Typography className={classes.charCount}>
+                    {message.length} caracteres
+                  </Typography>
 
-                    {(section.rows || []).map((row, ri) => (
-                      <Box key={`${si}-${ri}`} className={classes.buttonRow}>
-                        <Box className={classes.buttonIndex}>{ri + 1}</Box>
+                  <Box mt={2}>
+                    <Typography className={classes.sectionLabel}>
+                      🔘 Botões interativos ({buttons.length}/4)
+                    </Typography>
+                    {buttons.map((btn, i) => (
+                      <Box key={i} className={classes.buttonRow}>
+                        <Box className={classes.buttonIndex}>{i + 1}</Box>
                         <Box
                           flex={1}
                           display="flex"
@@ -1786,172 +1744,122 @@ export default function QuickSendModal({
                             fullWidth
                             variant="outlined"
                             size="small"
-                            label="Título do item *"
-                            placeholder="Ex: Suporte técnico"
-                            value={row.title}
+                            label="Texto do botão"
+                            placeholder="Ex: Sim, quero!"
+                            value={btn.displayText}
                             onChange={(e) =>
-                              updateListRow(si, ri, "title", e.target.value)
+                              updateButton(i, "displayText", e.target.value)
                             }
-                            inputProps={{ maxLength: 24 }}
+                            inputProps={{ maxLength: 25 }}
+                            helperText={`${btn.displayText.length}/25`}
                             InputProps={{
                               style: { borderRadius: 8, fontSize: 13 },
                             }}
                           />
                           <Box display="flex" style={{ gap: 6 }}>
-                            <TextField
+                            <FormControl
                               variant="outlined"
                               size="small"
-                              label="ID do item *"
-                              placeholder="Ex: suporte"
-                              value={row.rowId}
-                              onChange={(e) =>
-                                updateListRow(si, ri, "rowId", e.target.value)
-                              }
-                              InputProps={{
-                                style: { borderRadius: 8, fontSize: 13 },
-                              }}
-                              style={{ flex: 1 }}
-                            />
-                            <TextField
-                              variant="outlined"
-                              size="small"
-                              label="Descrição (opcional)"
-                              placeholder="Ex: Dúvidas e problemas"
-                              value={row.description || ""}
-                              onChange={(e) =>
-                                updateListRow(
-                                  si,
-                                  ri,
-                                  "description",
-                                  e.target.value,
-                                )
-                              }
-                              inputProps={{ maxLength: 72 }}
-                              InputProps={{
-                                style: { borderRadius: 8, fontSize: 13 },
-                              }}
-                              style={{ flex: 1 }}
-                            />
+                              style={{ minWidth: 160 }}
+                            >
+                              <Select
+                                value={btn.type}
+                                onChange={(e) =>
+                                  updateButton(i, "type", e.target.value)
+                                }
+                                style={{ borderRadius: 8, fontSize: 13 }}
+                              >
+                                {BUTTON_TYPES.map((t) => (
+                                  <MenuItem key={t.value} value={t.value}>
+                                    {t.label}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            {btn.type !== "reply" && (
+                              <TextField
+                                variant="outlined"
+                                size="small"
+                                label={valueLabel(btn.type)}
+                                placeholder={valuePlaceholder(btn.type)}
+                                value={btn.value}
+                                onChange={(e) =>
+                                  updateButton(i, "value", e.target.value)
+                                }
+                                InputProps={{
+                                  style: { borderRadius: 8, fontSize: 13 },
+                                }}
+                                style={{ flex: 1 }}
+                              />
+                            )}
                           </Box>
                         </Box>
                         <IconButton
                           size="small"
-                          onClick={() => removeListRow(si, ri)}
-                          disabled={(section.rows || []).length <= 1}
+                          onClick={() => removeButton(i)}
                           style={{ color: "#ef4444", marginTop: 4 }}
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Box>
                     ))}
-
-                    {totalListRows < 10 && (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        className={classes.addBtn}
-                        startIcon={<AddIcon />}
-                        onClick={() => addListRow(si)}
-                      >
-                        Adicionar item
-                      </Button>
+                    {buttons.length < 4 && (
+                      <Box className={classes.addBtnRow}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          className={classes.addBtn}
+                          startIcon={<AddIcon />}
+                          onClick={addButton}
+                        >
+                          Adicionar botão
+                        </Button>
+                      </Box>
                     )}
                   </Box>
-                ))}
-
-                {totalListRows < 10 && (
-                  <Box className={classes.addBtnRow}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      className={classes.addBtn}
-                      startIcon={<AddIcon />}
-                      onClick={addListSection}
-                    >
-                      Adicionar seção
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-
-              <Box className={classes.infoBox}>
-                <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                  💡 Exemplo válido já carregado. Você pode editar botão,
-                  rodapé, seções e itens antes de enviar.
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          {messageType === "carousel" && (
-            <Box className={classes.card}>
-              <Typography className={classes.sectionLabel}>
-                🎠 Cards do carrossel ({carouselCards.length}/10)
-              </Typography>
-              <Box className={classes.warnBox} style={{ marginBottom: 10 }}>
-                <Typography style={{ fontSize: 11, color: "#92400e" }}>
-                  ✏️ Modelo pré-preenchido. Edite os campos com seus dados reais
-                  e clique em Enviar.
-                </Typography>
-              </Box>
-              {carouselCards.map((card, ci) => (
-                <Box key={ci} className={classes.cardRow}>
-                  <Box className={classes.cardHeader}>
-                    <Typography
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 13,
-                        color: "#075E54",
-                      }}
-                    >
-                      Card {ci + 1}
+                  <Box className={classes.infoBox}>
+                    <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                      💡 Modelo pré-preenchido com exemplo. Edite os textos e
+                      valores para a sua mensagem real.
                     </Typography>
-                    {carouselCards.length > 1 && (
-                      <IconButton
-                        size="small"
-                        onClick={() => removeCard(ci)}
-                        style={{ color: "#ef4444" }}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    )}
                   </Box>
-                  <Box display="flex" flexDirection="column" style={{ gap: 8 }}>
+                </Box>
+              )}
+
+              {/* ── Carrossel de cards ──────────────────────────────────── */}
+              {messageType === "list" && (
+                <Box className={classes.card}>
+                  <Typography className={classes.sectionLabel}>
+                    📋 Texto da mensagem da lista
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    maxRows={4}
+                    variant="outlined"
+                    placeholder="Ex: Selecione uma das opções abaixo para continuar:"
+                    value={listText}
+                    onChange={(e) => setListText(e.target.value)}
+                    InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
+                  />
+                  {renderVariableChips((token) =>
+                    appendToken(listText, setListText, token),
+                  )}
+                  <Typography className={classes.charCount}>
+                    {listText.length} caracteres
+                  </Typography>
+
+                  <Box display="flex" style={{ gap: 8, marginTop: 12 }}>
                     <TextField
                       fullWidth
                       variant="outlined"
                       size="small"
-                      label="Título"
-                      placeholder="Ex: Oferta Especial"
-                      value={card.headerTitle}
-                      onChange={(e) =>
-                        updateCard(ci, "headerTitle", e.target.value)
-                      }
-                      InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-                    />
-                    <TextField
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      label="URL da Imagem"
-                      placeholder="https://..."
-                      value={card.imageUrl}
-                      onChange={(e) =>
-                        updateCard(ci, "imageUrl", e.target.value)
-                      }
-                      InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
-                    />
-                    <TextField
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      label="Corpo da mensagem *"
-                      placeholder="Descrição do produto ou oferta"
-                      required
-                      value={card.body}
-                      onChange={(e) => updateCard(ci, "body", e.target.value)}
-                      multiline
-                      rows={2}
+                      label="Texto do botão *"
+                      placeholder="Ex: Ver opções"
+                      value={listButtonText}
+                      onChange={(e) => setListButtonText(e.target.value)}
+                      inputProps={{ maxLength: 30 }}
                       InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
                     />
                     <TextField
@@ -1959,288 +1867,578 @@ export default function QuickSendModal({
                       variant="outlined"
                       size="small"
                       label="Rodapé (opcional)"
-                      placeholder="Ex: Frete grátis"
-                      value={card.footer}
-                      onChange={(e) => updateCard(ci, "footer", e.target.value)}
+                      placeholder="Ex: Atendimento de segunda a sexta"
+                      value={listFooter}
+                      onChange={(e) => setListFooter(e.target.value)}
+                      inputProps={{ maxLength: 60 }}
                       InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
                     />
+                  </Box>
 
-                    {/* Botões do card */}
-                    <Typography
-                      style={{
-                        fontSize: 11,
-                        color: "#667781",
-                        fontWeight: 700,
-                        marginTop: 4,
-                      }}
-                    >
-                      Botões do card ({(card.buttons || []).length}/3)
+                  <Box mt={2}>
+                    <Typography className={classes.sectionLabel}>
+                      🧾 Seções e itens ({totalListRows}/10)
                     </Typography>
-                    {(card.buttons || []).map((btn, bi) => (
-                      <Box
-                        key={bi}
-                        display="flex"
-                        alignItems="center"
-                        style={{ gap: 6 }}
-                      >
-                        <TextField
-                          variant="outlined"
-                          size="small"
-                          label="Texto"
-                          placeholder="Ex: Ver oferta"
-                          value={btn.displayText}
-                          onChange={(e) =>
-                            updateCardButton(
-                              ci,
-                              bi,
-                              "displayText",
-                              e.target.value,
-                            )
-                          }
-                          inputProps={{ maxLength: 25 }}
-                          InputProps={{
-                            style: { borderRadius: 8, fontSize: 12 },
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <FormControl
-                          variant="outlined"
-                          size="small"
-                          style={{ minWidth: 130 }}
-                        >
-                          <Select
-                            value={btn.type}
-                            onChange={(e) =>
-                              updateCardButton(ci, bi, "type", e.target.value)
-                            }
-                            style={{ borderRadius: 8, fontSize: 12 }}
+                    {listSections.map((section, si) => (
+                      <Box key={si} className={classes.cardRow}>
+                        <Box className={classes.cardHeader}>
+                          <Typography
+                            style={{
+                              fontWeight: 700,
+                              fontSize: 13,
+                              color: "#075E54",
+                            }}
                           >
-                            {BUTTON_TYPES.map((t) => (
-                              <MenuItem key={t.value} value={t.value}>
-                                {t.label}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        {btn.type !== "reply" && (
-                          <TextField
+                            Seção {si + 1}
+                          </Typography>
+                          {listSections.length > 1 && (
+                            <IconButton
+                              size="small"
+                              onClick={() => removeListSection(si)}
+                              style={{ color: "#ef4444" }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          label="Título da seção (opcional)"
+                          placeholder="Ex: Atendimento"
+                          value={section.title}
+                          onChange={(e) =>
+                            updateListSection(si, e.target.value)
+                          }
+                          InputProps={{
+                            style: { borderRadius: 8, fontSize: 13 },
+                          }}
+                          style={{ marginBottom: 10 }}
+                        />
+
+                        {(section.rows || []).map((row, ri) => (
+                          <Box
+                            key={`${si}-${ri}`}
+                            className={classes.buttonRow}
+                          >
+                            <Box className={classes.buttonIndex}>{ri + 1}</Box>
+                            <Box
+                              flex={1}
+                              display="flex"
+                              flexDirection="column"
+                              style={{ gap: 6 }}
+                            >
+                              <TextField
+                                fullWidth
+                                variant="outlined"
+                                size="small"
+                                label="Título do item *"
+                                placeholder="Ex: Suporte técnico"
+                                value={row.title}
+                                onChange={(e) =>
+                                  updateListRow(si, ri, "title", e.target.value)
+                                }
+                                inputProps={{ maxLength: 24 }}
+                                InputProps={{
+                                  style: { borderRadius: 8, fontSize: 13 },
+                                }}
+                              />
+                              <Box display="flex" style={{ gap: 6 }}>
+                                <TextField
+                                  variant="outlined"
+                                  size="small"
+                                  label="ID do item *"
+                                  placeholder="Ex: suporte"
+                                  value={row.rowId}
+                                  onChange={(e) =>
+                                    updateListRow(
+                                      si,
+                                      ri,
+                                      "rowId",
+                                      e.target.value,
+                                    )
+                                  }
+                                  InputProps={{
+                                    style: { borderRadius: 8, fontSize: 13 },
+                                  }}
+                                  style={{ flex: 1 }}
+                                />
+                                <TextField
+                                  variant="outlined"
+                                  size="small"
+                                  label="Descrição (opcional)"
+                                  placeholder="Ex: Dúvidas e problemas"
+                                  value={row.description || ""}
+                                  onChange={(e) =>
+                                    updateListRow(
+                                      si,
+                                      ri,
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
+                                  inputProps={{ maxLength: 72 }}
+                                  InputProps={{
+                                    style: { borderRadius: 8, fontSize: 13 },
+                                  }}
+                                  style={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                            <IconButton
+                              size="small"
+                              onClick={() => removeListRow(si, ri)}
+                              disabled={(section.rows || []).length <= 1}
+                              style={{ color: "#ef4444", marginTop: 4 }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+
+                        {totalListRows < 10 && (
+                          <Button
                             variant="outlined"
                             size="small"
-                            label={valueLabel(btn.type)}
-                            placeholder={valuePlaceholder(btn.type)}
-                            value={btn.value}
-                            onChange={(e) =>
-                              updateCardButton(ci, bi, "value", e.target.value)
-                            }
-                            InputProps={{
-                              style: { borderRadius: 8, fontSize: 12 },
-                            }}
-                            style={{ flex: 1 }}
-                          />
+                            className={classes.addBtn}
+                            startIcon={<AddIcon />}
+                            onClick={() => addListRow(si)}
+                          >
+                            Adicionar item
+                          </Button>
                         )}
-                        <IconButton
-                          size="small"
-                          onClick={() => removeCardButton(ci, bi)}
-                          style={{ color: "#ef4444" }}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
                       </Box>
                     ))}
-                    {(card.buttons || []).length < 3 && (
+
+                    {totalListRows < 10 && (
+                      <Box className={classes.addBtnRow}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          className={classes.addBtn}
+                          startIcon={<AddIcon />}
+                          onClick={addListSection}
+                        >
+                          Adicionar seção
+                        </Button>
+                      </Box>
+                    )}
+                  </Box>
+
+                  <Box className={classes.infoBox}>
+                    <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                      💡 Exemplo válido já carregado. Você pode editar botão,
+                      rodapé, seções e itens antes de enviar.
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {messageType === "carousel" && (
+                <Box className={classes.card}>
+                  <Typography className={classes.sectionLabel}>
+                    🎠 Cards do carrossel ({carouselCards.length}/10)
+                  </Typography>
+                  <Box className={classes.warnBox} style={{ marginBottom: 10 }}>
+                    <Typography style={{ fontSize: 11, color: "#92400e" }}>
+                      ✏️ Modelo pré-preenchido. Edite os campos com seus dados
+                      reais e clique em Enviar.
+                    </Typography>
+                  </Box>
+                  {carouselCards.map((card, ci) => (
+                    <Box key={ci} className={classes.cardRow}>
+                      <Box className={classes.cardHeader}>
+                        <Typography
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 13,
+                            color: "#075E54",
+                          }}
+                        >
+                          Card {ci + 1}
+                        </Typography>
+                        {carouselCards.length > 1 && (
+                          <IconButton
+                            size="small"
+                            onClick={() => removeCard(ci)}
+                            style={{ color: "#ef4444" }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                      <Box
+                        display="flex"
+                        flexDirection="column"
+                        style={{ gap: 8 }}
+                      >
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          label="Título"
+                          placeholder="Ex: Oferta Especial"
+                          value={card.headerTitle}
+                          onChange={(e) =>
+                            updateCard(ci, "headerTitle", e.target.value)
+                          }
+                          InputProps={{
+                            style: { borderRadius: 8, fontSize: 13 },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          label="URL da Imagem"
+                          placeholder="https://..."
+                          value={card.imageUrl}
+                          onChange={(e) =>
+                            updateCard(ci, "imageUrl", e.target.value)
+                          }
+                          InputProps={{
+                            style: { borderRadius: 8, fontSize: 13 },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          label="Corpo da mensagem *"
+                          placeholder="Descrição do produto ou oferta"
+                          required
+                          value={card.body}
+                          onChange={(e) =>
+                            updateCard(ci, "body", e.target.value)
+                          }
+                          multiline
+                          rows={2}
+                          InputProps={{
+                            style: { borderRadius: 8, fontSize: 13 },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          label="Rodapé (opcional)"
+                          placeholder="Ex: Frete grátis"
+                          value={card.footer}
+                          onChange={(e) =>
+                            updateCard(ci, "footer", e.target.value)
+                          }
+                          InputProps={{
+                            style: { borderRadius: 8, fontSize: 13 },
+                          }}
+                        />
+
+                        {/* Botões do card */}
+                        <Typography
+                          style={{
+                            fontSize: 11,
+                            color: "#667781",
+                            fontWeight: 700,
+                            marginTop: 4,
+                          }}
+                        >
+                          Botões do card ({(card.buttons || []).length}/3)
+                        </Typography>
+                        {(card.buttons || []).map((btn, bi) => (
+                          <Box
+                            key={bi}
+                            display="flex"
+                            alignItems="center"
+                            style={{ gap: 6 }}
+                          >
+                            <TextField
+                              variant="outlined"
+                              size="small"
+                              label="Texto"
+                              placeholder="Ex: Ver oferta"
+                              value={btn.displayText}
+                              onChange={(e) =>
+                                updateCardButton(
+                                  ci,
+                                  bi,
+                                  "displayText",
+                                  e.target.value,
+                                )
+                              }
+                              inputProps={{ maxLength: 25 }}
+                              InputProps={{
+                                style: { borderRadius: 8, fontSize: 12 },
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <FormControl
+                              variant="outlined"
+                              size="small"
+                              style={{ minWidth: 130 }}
+                            >
+                              <Select
+                                value={btn.type}
+                                onChange={(e) =>
+                                  updateCardButton(
+                                    ci,
+                                    bi,
+                                    "type",
+                                    e.target.value,
+                                  )
+                                }
+                                style={{ borderRadius: 8, fontSize: 12 }}
+                              >
+                                {BUTTON_TYPES.map((t) => (
+                                  <MenuItem key={t.value} value={t.value}>
+                                    {t.label}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            {btn.type !== "reply" && (
+                              <TextField
+                                variant="outlined"
+                                size="small"
+                                label={valueLabel(btn.type)}
+                                placeholder={valuePlaceholder(btn.type)}
+                                value={btn.value}
+                                onChange={(e) =>
+                                  updateCardButton(
+                                    ci,
+                                    bi,
+                                    "value",
+                                    e.target.value,
+                                  )
+                                }
+                                InputProps={{
+                                  style: { borderRadius: 8, fontSize: 12 },
+                                }}
+                                style={{ flex: 1 }}
+                              />
+                            )}
+                            <IconButton
+                              size="small"
+                              onClick={() => removeCardButton(ci, bi)}
+                              style={{ color: "#ef4444" }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        {(card.buttons || []).length < 3 && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={() => addCardButton(ci)}
+                            style={{
+                              borderColor: "#075E54",
+                              color: "#075E54",
+                              borderRadius: 8,
+                              textTransform: "none",
+                              fontSize: 12,
+                            }}
+                          >
+                            + Botão
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                  {carouselCards.length < 10 && (
+                    <Box
+                      className={classes.addBtnRow}
+                      style={{ marginTop: 10 }}
+                    >
                       <Button
                         variant="outlined"
                         size="small"
+                        className={classes.addBtn}
                         startIcon={<AddIcon />}
-                        onClick={() => addCardButton(ci)}
-                        style={{
-                          borderColor: "#075E54",
-                          color: "#075E54",
-                          borderRadius: 8,
-                          textTransform: "none",
-                          fontSize: 12,
-                        }}
+                        onClick={addCard}
                       >
-                        + Botão
+                        Adicionar card
                       </Button>
-                    )}
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Enquete (Poll) ─────────────────────────────────────── */}
+              {messageType === "poll" && (
+                <Box className={classes.card}>
+                  <Typography className={classes.sectionLabel}>
+                    📊 Enquete
+                  </Typography>
+                  <Box className={classes.warnBox} style={{ marginBottom: 12 }}>
+                    <Typography style={{ fontSize: 11, color: "#92400e" }}>
+                      ✏️ Modelo pré-preenchido. Edite a pergunta e as opções
+                      para a sua enquete real.
+                    </Typography>
                   </Box>
-                </Box>
-              ))}
-              {carouselCards.length < 10 && (
-                <Box className={classes.addBtnRow} style={{ marginTop: 10 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    className={classes.addBtn}
-                    startIcon={<AddIcon />}
-                    onClick={addCard}
-                  >
-                    Adicionar card
-                  </Button>
-                </Box>
-              )}
-            </Box>
-          )}
-
-          {/* ── Enquete (Poll) ─────────────────────────────────────── */}
-          {messageType === "poll" && (
-            <Box className={classes.card}>
-              <Typography className={classes.sectionLabel}>
-                📊 Enquete
-              </Typography>
-              <Box className={classes.warnBox} style={{ marginBottom: 12 }}>
-                <Typography style={{ fontSize: 11, color: "#92400e" }}>
-                  ✏️ Modelo pré-preenchido. Edite a pergunta e as opções para a
-                  sua enquete real.
-                </Typography>
-              </Box>
-              <TextField
-                fullWidth
-                variant="outlined"
-                size="small"
-                label="Pergunta da enquete *"
-                placeholder="Ex: Qual o seu horário preferido?"
-                value={pollName}
-                onChange={(e) => setPollName(e.target.value)}
-                inputProps={{ maxLength: 255 }}
-                helperText={`${pollName.length}/255`}
-                InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
-                style={{ marginBottom: 12 }}
-              />
-              {renderVariableChips((token) =>
-                appendToken(pollName, setPollName, token),
-              )}
-
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={1}
-              >
-                <Typography
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#667781",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Opções ({pollOptions.length}/12) — mín. 2
-                </Typography>
-                <FormControl
-                  variant="outlined"
-                  size="small"
-                  style={{ minWidth: 170 }}
-                >
-                  <Select
-                    value={pollSelectableCount}
-                    onChange={(e) => setPollSelectableCount(e.target.value)}
-                    style={{ borderRadius: 8, fontSize: 12 }}
-                  >
-                    <MenuItem value={1}>Escolha única (1)</MenuItem>
-                    <MenuItem value={0}>Múltipla escolha</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-
-              {pollOptions.map((opt, i) => (
-                <Box
-                  key={i}
-                  display="flex"
-                  alignItems="center"
-                  style={{ gap: 8, marginBottom: 8 }}
-                >
-                  <Box className={classes.buttonIndex}>{i + 1}</Box>
                   <TextField
                     fullWidth
                     variant="outlined"
                     size="small"
-                    placeholder={
-                      i === 0
-                        ? "Ex: Manhã (8h–12h)"
-                        : i === 1
-                          ? "Ex: Tarde (13h–17h)"
-                          : "Ex: Noite (18h–22h)"
-                    }
-                    value={opt}
-                    onChange={(e) => updatePollOption(i, e.target.value)}
-                    inputProps={{ maxLength: 100 }}
-                    InputProps={{ style: { borderRadius: 8, fontSize: 13 } }}
+                    label="Pergunta da enquete *"
+                    placeholder="Ex: Qual o seu horário preferido?"
+                    value={pollName}
+                    onChange={(e) => setPollName(e.target.value)}
+                    inputProps={{ maxLength: 255 }}
+                    helperText={`${pollName.length}/255`}
+                    InputProps={{ style: { borderRadius: 8, fontSize: 14 } }}
+                    style={{ marginBottom: 12 }}
                   />
-                  <IconButton
-                    size="small"
-                    onClick={() => removePollOption(i)}
-                    disabled={pollOptions.length <= 2}
-                    style={{ color: "#ef4444" }}
+                  {renderVariableChips((token) =>
+                    appendToken(pollName, setPollName, token),
+                  )}
+
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    mb={1}
                   >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              ))}
-              {pollOptions.length < 12 && (
-                <Box className={classes.addBtnRow}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    className={classes.addBtn}
-                    startIcon={<AddIcon />}
-                    onClick={addPollOption}
-                  >
-                    Adicionar opção
-                  </Button>
+                    <Typography
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#667781",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Opções ({pollOptions.length}/12) — mín. 2
+                    </Typography>
+                    <FormControl
+                      variant="outlined"
+                      size="small"
+                      style={{ minWidth: 170 }}
+                    >
+                      <Select
+                        value={pollSelectableCount}
+                        onChange={(e) => setPollSelectableCount(e.target.value)}
+                        style={{ borderRadius: 8, fontSize: 12 }}
+                      >
+                        <MenuItem value={1}>Escolha única (1)</MenuItem>
+                        <MenuItem value={0}>Múltipla escolha</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  {pollOptions.map((opt, i) => (
+                    <Box
+                      key={i}
+                      display="flex"
+                      alignItems="center"
+                      style={{ gap: 8, marginBottom: 8 }}
+                    >
+                      <Box className={classes.buttonIndex}>{i + 1}</Box>
+                      <TextField
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        placeholder={
+                          i === 0
+                            ? "Ex: Manhã (8h–12h)"
+                            : i === 1
+                              ? "Ex: Tarde (13h–17h)"
+                              : "Ex: Noite (18h–22h)"
+                        }
+                        value={opt}
+                        onChange={(e) => updatePollOption(i, e.target.value)}
+                        inputProps={{ maxLength: 100 }}
+                        InputProps={{
+                          style: { borderRadius: 8, fontSize: 13 },
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => removePollOption(i)}
+                        disabled={pollOptions.length <= 2}
+                        style={{ color: "#ef4444" }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                  {pollOptions.length < 12 && (
+                    <Box className={classes.addBtnRow}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        className={classes.addBtn}
+                        startIcon={<AddIcon />}
+                        onClick={addPollOption}
+                      >
+                        Adicionar opção
+                      </Button>
+                    </Box>
+                  )}
+                  <Box className={classes.infoBox} style={{ marginTop: 10 }}>
+                    <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                      📌 Enquetes funcionam apenas em conversas individuais. Os
+                      votos aparecem na conversa em tempo real.
+                    </Typography>
+                  </Box>
                 </Box>
               )}
-              <Box className={classes.infoBox} style={{ marginTop: 10 }}>
-                <Typography style={{ fontSize: 11, color: "#15803d" }}>
-                  📌 Enquetes funcionam apenas em conversas individuais. Os
-                  votos aparecem na conversa em tempo real.
-                </Typography>
-              </Box>
-            </Box>
-          )}
 
-          {/* Resultado */}
-          {result && (
-            <Box
-              className={`${classes.resultCard} ${result.type === "success" ? classes.resultSuccess : result.type === "warning" ? classes.resultWarning : classes.resultError}`}
-            >
-              <Box style={{ flex: 1 }}>
-                {result.type === "success" && (
-                  <CheckCircleIcon
-                    style={{ color: "#16a34a", marginRight: 6 }}
-                  />
-                )}
-                {result.type === "error" && (
-                  <ErrorIcon style={{ color: "#dc2626", marginRight: 6 }} />
-                )}
-                <Typography
-                  style={{ display: "inline", fontSize: 13, fontWeight: 500 }}
+              {/* Resultado */}
+              {result && (
+                <Box
+                  className={`${classes.resultCard} ${result.type === "success" ? classes.resultSuccess : result.type === "warning" ? classes.resultWarning : classes.resultError}`}
                 >
-                  {result.msg}
-                </Typography>
-                {result.ticket && (
-                  <Button
-                    className={classes.openTicketBtn}
-                    startIcon={<OpenInNewIcon />}
-                    onClick={handleOpenTicket}
-                    size="small"
-                  >
-                    Abrir conversa #{result.ticket.id}
-                  </Button>
-                )}
-                {result.campaign && (
-                  <Button
-                    className={classes.openTicketBtn}
-                    startIcon={<OpenInNewIcon />}
-                    onClick={handleOpenCampaigns}
-                    size="small"
-                  >
-                    Abrir disparos
-                  </Button>
-                )}
-              </Box>
+                  <Box style={{ flex: 1 }}>
+                    {result.type === "success" && (
+                      <CheckCircleIcon
+                        style={{ color: "#16a34a", marginRight: 6 }}
+                      />
+                    )}
+                    {result.type === "error" && (
+                      <ErrorIcon style={{ color: "#dc2626", marginRight: 6 }} />
+                    )}
+                    <Typography
+                      style={{
+                        display: "inline",
+                        fontSize: 13,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {result.msg}
+                    </Typography>
+                    {result.ticket && (
+                      <Button
+                        className={classes.openTicketBtn}
+                        startIcon={<OpenInNewIcon />}
+                        onClick={handleOpenTicket}
+                        size="small"
+                      >
+                        Abrir conversa #{result.ticket.id}
+                      </Button>
+                    )}
+                    {result.campaign && (
+                      <Button
+                        className={classes.openTicketBtn}
+                        startIcon={<OpenInNewIcon />}
+                        onClick={handleOpenCampaigns}
+                        size="small"
+                      >
+                        Abrir disparos
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              )}
             </Box>
+          </Box>
+          {quickRepliesOpen && (
+            <QuickRepliesModal
+              open={quickRepliesOpen}
+              onClose={() => setQuickRepliesOpen(false)}
+              onSelect={handleQuickReplySelect}
+              variant="sidebar"
+            />
           )}
         </Box>
       </DialogContent>
