@@ -101,7 +101,6 @@ import {
   DataObject,
   ShoppingBag,
   StickyNote2,
-  JavaScript,
 } from "@mui/icons-material";
 import DescriptionIcon from "@mui/icons-material/Description";
 import RemoveEdge from "./nodes/removeEdge";
@@ -1511,7 +1510,7 @@ export const FlowBuilderConfig = () => {
         { icon: <Send sx={{ color: "#22c55e", fontSize: 14 }} />, name: "Enviar Mensagem", type: "sendMessage" },
         { icon: <span style={{ fontSize: "14px" }}>📊</span>, name: "Google Sheets", type: "googleSheets" },
         { icon: <span style={{ fontSize: "14px" }}></span>, name: "Agente IA Direto", type: "directOpenai" },
-        { icon: <JavaScript sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "JavaScript", type: "javascript" },
+        { icon: <Code sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "JavaScript", type: "javascript" },
       ],
     },
     {
@@ -1929,7 +1928,7 @@ export const FlowBuilderConfig = () => {
                 transition: "all 0.15s",
               }}
             >
-              <JavaScript style={{ fontSize: 16, color: "#f59e0b" }} />
+              <Code style={{ fontSize: 16, color: "#f59e0b" }} />
             </button>
           </div>
 
