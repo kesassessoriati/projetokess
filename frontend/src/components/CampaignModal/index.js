@@ -36,6 +36,7 @@ import {
   InputAdornment,
   Avatar,
   Popover,
+  Typography,
 } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import UserStatusIcon from "../UserModal/statusIcon";
