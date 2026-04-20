@@ -345,6 +345,11 @@ const UserModal = ({ open, onClose, userId }) => {
   // Estados para aba de tarefas
   const [userTasks, setUserTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [firecrawlApiKey, setFirecrawlApiKey] = useState("");
+  const [firecrawlMaskedKey, setFirecrawlMaskedKey] = useState("");
+  const [hasFirecrawlApiKey, setHasFirecrawlApiKey] = useState(false);
+  const [firecrawlConfigLoading, setFirecrawlConfigLoading] = useState(false);
+  const [firecrawlSaving, setFirecrawlSaving] = useState(false);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -387,6 +392,27 @@ const UserModal = ({ open, onClose, userId }) => {
 
     fetchUser();
   }, [userId, open]);
+
+  useEffect(() => {
+    const loadFirecrawlConfig = async () => {
+      if (!open || !userId || Number(userId) !== Number(loggedInUser.id)) {
+        return;
+      }
+
+      setFirecrawlConfigLoading(true);
+      try {
+        const { data } = await api.get("/firecrawl/config/me");
+        setHasFirecrawlApiKey(Boolean(data?.hasOwnApiKey));
+        setFirecrawlMaskedKey(data?.ownApiKeyMasked || "");
+      } catch (err) {
+        console.error("Erro ao carregar configuraÃ§Ã£o Firecrawl:", err);
+      } finally {
+        setFirecrawlConfigLoading(false);
+      }
+    };
+
+    loadFirecrawlConfig();
+  }, [open, userId, loggedInUser.id]);
 
   // Buscar compromissos do usuário profissional
   const fetchAppointments = async () => {
@@ -498,6 +524,27 @@ const UserModal = ({ open, onClose, userId }) => {
   const handleCloseAppointmentModal = () => {
     setAppointmentModalOpen(false);
     setSelectedAppointment(null);
+  };
+
+  const handleSaveFirecrawlApiKey = async () => {
+    setFirecrawlSaving(true);
+    try {
+      const { data } = await api.put("/firecrawl/config/me", {
+        apiKey: firecrawlApiKey
+      });
+      setHasFirecrawlApiKey(Boolean(data?.hasOwnApiKey));
+      setFirecrawlMaskedKey(data?.ownApiKeyMasked || "");
+      setFirecrawlApiKey("");
+      toast.success(
+        data?.hasOwnApiKey
+          ? "Chave pessoal da Firecrawl salva com sucesso."
+          : "Chave pessoal da Firecrawl removida com sucesso."
+      );
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setFirecrawlSaving(false);
+    }
   };
 
   const handleAppointmentSaved = () => {
@@ -852,6 +899,61 @@ const UserModal = ({ open, onClose, userId }) => {
                       </Grid>
                     </Grid>
                   </Paper>
+
+                  {Number(userId) === Number(loggedInUser.id) && (
+                    <Paper elevation={0} className={classes.card}>
+                      <Typography className={classes.sectionTitle}>
+                        <SettingsIcon fontSize="small" /> IntegraÃ§Ãµes pessoais
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <Typography style={{ color: "#6b7280", fontSize: "0.9rem", lineHeight: 1.6 }}>
+                            Configure sua chave pessoal da Firecrawl para usar a busca de leads na internet dentro do CRM Kanban.
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={8}>
+                          <TextField
+                            label="API Key pessoal da Firecrawl"
+                            type="password"
+                            variant="outlined"
+                            margin="dense"
+                            fullWidth
+                            value={firecrawlApiKey}
+                            onChange={(e) => setFirecrawlApiKey(e.target.value)}
+                            placeholder={
+                              hasFirecrawlApiKey
+                                ? `Chave atual: ${firecrawlMaskedKey}`
+                                : "Cole aqui a sua API key da Firecrawl"
+                            }
+                            helperText={
+                              hasFirecrawlApiKey
+                                ? "Para remover a chave pessoal, salve este campo em branco."
+                                : "Sem chave pessoal configurada."
+                            }
+                            className={classes.inputField}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={4} style={{ display: "flex", alignItems: "center" }}>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            fullWidth
+                            onClick={handleSaveFirecrawlApiKey}
+                            disabled={firecrawlSaving || firecrawlConfigLoading}
+                            className={classes.saveButton}
+                            style={{ maxWidth: 220 }}
+                          >
+                            {firecrawlSaving ? (
+                              <CircularProgress size={18} color="inherit" />
+                            ) : (
+                              "Salvar Firecrawl"
+                            )}
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  )}
 
                   <Paper elevation={0} className={classes.card}>
                     <Typography className={classes.sectionTitle}>

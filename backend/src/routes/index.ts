@@ -137,6 +137,7 @@ import aiAgentTemplateRoutes from "./aiAgentTemplateRoutes";
 import notificationCenterRoutes from "./notificationCenterRoutes";
 import callSequenceRoutes from "./callSequenceRoutes";
 import meetingRoutes from "./meetingRoutes";
+import firecrawlRoutes from "./firecrawlRoutes";
 
 const routes = Router();
 
@@ -294,6 +295,7 @@ routes.use(mySiteBoardRoutes);
 routes.use(mediaDriveRoutes);
 routes.use(chipRoutes);
 routes.use(companyAiConfigRoutes);
+routes.use(firecrawlRoutes);
 routes.use(aiAgentTemplateRoutes);
 
 import taskRoutes from "./taskRoutes";

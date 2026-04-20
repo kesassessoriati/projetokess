@@ -53,6 +53,7 @@ import {
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import ImportLeadsModal from "../../components/ImportLeadsModal";
+import InternetLeadSearchModal from "../../components/InternetLeadSearchModal";
 import GetAppIcon from "@material-ui/icons/GetApp";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import UniversalLeadModal from "../../components/UniversalLeadModal";
@@ -275,6 +276,34 @@ const useStyles = makeStyles((theme) => ({
       border: "1px solid #1f9d55",
       backgroundColor: "#fff",
       boxShadow: "0 0 0 3px rgba(31,157,85,0.18)",
+    },
+  },
+  searchToolsStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    minWidth: 250,
+    maxWidth: 340,
+    flex: 1,
+    [theme.breakpoints.down("sm")]: {
+      minWidth: 220,
+      maxWidth: 260,
+      flex: "0 0 220px",
+    },
+  },
+  internetSearchBtn: {
+    justifyContent: "flex-start",
+    borderRadius: 11,
+    border: "1px solid #cde1d4",
+    backgroundColor: "#eff8f3",
+    color: "#185c35",
+    fontWeight: 800,
+    textTransform: "none",
+    padding: "7px 12px",
+    boxShadow: "0 10px 18px rgba(24,92,53,0.08)",
+    "&:hover": {
+      backgroundColor: "#e4f4ea",
+      borderColor: "#9fcbaf",
     },
   },
   searchInput: {
@@ -756,6 +785,7 @@ const PipelineBoard = () => {
   const [sort, setSort] = useState("CREATED_AT");
 
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [internetSearchOpen, setInternetSearchOpen] = useState(false);
   const [selectedStageToImport, setSelectedStageToImport] = useState(null);
   const [universalModalOpen, setUniversalModalOpen] = useState(false);
 
@@ -1385,25 +1415,35 @@ const PipelineBoard = () => {
         </div>
 
         <div className={classes.controlBar}>
-          <div className={classes.searchBox}>
-            <SearchIcon
-              style={{ fontSize: 16, color: "#7b9688", flexShrink: 0 }}
-            />
-            <input
-              className={classes.searchInput}
-              placeholder="Buscar lead, contato, empresa ou CNPJ..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-            {searchText && (
-              <IconButton
-                size="small"
-                onClick={() => setSearchText("")}
-                style={{ padding: 2 }}
-              >
-                <ClearIcon style={{ fontSize: 14, color: "#7b9688" }} />
-              </IconButton>
-            )}
+          <div className={classes.searchToolsStack}>
+            <div className={classes.searchBox}>
+              <SearchIcon
+                style={{ fontSize: 16, color: "#7b9688", flexShrink: 0 }}
+              />
+              <input
+                className={classes.searchInput}
+                placeholder="Buscar lead, contato, empresa ou CNPJ..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+              {searchText && (
+                <IconButton
+                  size="small"
+                  onClick={() => setSearchText("")}
+                  style={{ padding: 2 }}
+                >
+                  <ClearIcon style={{ fontSize: 14, color: "#7b9688" }} />
+                </IconButton>
+              )}
+            </div>
+            <Button
+              size="small"
+              startIcon={<FlashOnIcon style={{ fontSize: 16 }} />}
+              className={classes.internetSearchBtn}
+              onClick={() => setInternetSearchOpen(true)}
+            >
+              Buscar Leads na internet
+            </Button>
           </div>
 
           {searchText && searchResultCount !== null && (
@@ -2552,6 +2592,13 @@ const PipelineBoard = () => {
         defaultPipelineId={selectedPipelineId}
         stageId={selectedStageToImport}
         onSuccess={handleImportSuccess}
+      />
+      <InternetLeadSearchModal
+        open={internetSearchOpen}
+        onClose={() => setInternetSearchOpen(false)}
+        pipelines={pipelines}
+        defaultPipelineId={selectedPipelineId}
+        onImported={handleImportSuccess}
       />
 
       {/* CRM AI Assistant FAB */}

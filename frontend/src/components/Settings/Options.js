@@ -7,6 +7,9 @@ import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 import FormHelperText from "@material-ui/core/FormHelperText";
 import InputAdornment from "@material-ui/core/InputAdornment";
+import Box from "@material-ui/core/Box";
+import Button from "@material-ui/core/Button";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
 import useSettings from "../../hooks/useSettings";
 import { ToastContainer, toast } from 'react-toastify';
@@ -18,6 +21,7 @@ import Switch from "@material-ui/core/Switch";
 import { Tab, Tabs, TextField } from "@material-ui/core";
 import { i18n } from "../../translate/i18n";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
+import api from "../../services/api";
 
 // Ícones nativos do Material-UI
 import ChatIcon from "@material-ui/icons/Chat";
@@ -219,6 +223,10 @@ export default function Options(props) {
 
   const [notificameHubToken, setNotificameHubToken] = useState("");
   const [loadingNotificameHubToken, setLoadingNotificameHubToken] = useState(false);
+  const [firecrawlGlobalApiKey, setFirecrawlGlobalApiKey] = useState("");
+  const [firecrawlGlobalMaskedKey, setFirecrawlGlobalMaskedKey] = useState("");
+  const [hasFirecrawlGlobalApiKey, setHasFirecrawlGlobalApiKey] = useState(false);
+  const [loadingFirecrawlGlobalApiKey, setLoadingFirecrawlGlobalApiKey] = useState(false);
 
   const { update: updateUserCreation, getAll } = useSettings();
   const { update: updatedownloadLimit } = useSettings();
@@ -298,6 +306,23 @@ export default function Options(props) {
     // Força sempre o tipo de bot como texto no backend/front
     handleChatBotType("text");
   }, []);
+
+  useEffect(() => {
+    if (!isSuper() || user.companyId !== 1) return;
+
+    const loadFirecrawlGlobalConfig = async () => {
+      try {
+        const { data } = await api.get("/firecrawl/config/global");
+        setHasFirecrawlGlobalApiKey(Boolean(data?.hasGlobalApiKey));
+        setFirecrawlGlobalMaskedKey(data?.globalApiKeyMasked || "");
+      } catch (error) {
+        console.error("Erro ao carregar configuraÃ§Ã£o global da Firecrawl:", error);
+      }
+    };
+
+    loadFirecrawlGlobalConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.companyId]);
 
   async function handleChangeUserCreation(value) {
     setUserCreation(value);
@@ -566,9 +591,88 @@ export default function Options(props) {
     setLoadingNotificameHubToken(false);
   }
 
+  async function handleSaveFirecrawlGlobalApiKey() {
+    setLoadingFirecrawlGlobalApiKey(true);
+
+    try {
+      const { data } = await api.put("/firecrawl/config/global", {
+        apiKey: firecrawlGlobalApiKey
+      });
+
+      setHasFirecrawlGlobalApiKey(Boolean(data?.hasGlobalApiKey));
+      setFirecrawlGlobalMaskedKey(data?.globalApiKeyMasked || "");
+      setFirecrawlGlobalApiKey("");
+      toast.success(
+        data?.hasGlobalApiKey
+          ? "Chave global da Firecrawl salva com sucesso."
+          : "Chave global da Firecrawl removida com sucesso."
+      );
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          "NÃ£o foi possÃ­vel salvar a chave global da Firecrawl."
+      );
+    }
+
+    setLoadingFirecrawlGlobalApiKey(false);
+  }
+
   return (
     <>
       <Grid spacing={3} container>
+        {isSuper() && user.companyId === 1 ? (
+          <Grid item xs={12}>
+            <FormControl className={classes.selectContainer} style={{ backgroundColor: "white" }}>
+              <Box p={2}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <LockIcon style={{ color: grey[600] }} />
+                  <strong>Firecrawl global</strong>
+                </div>
+                <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
+                  Configure aqui a chave global da Firecrawl para servir como fallback em toda a plataforma.
+                  Se o usuÃ¡rio nÃ£o tiver chave pessoal, o sistema tenta usar esta chave global.
+                </div>
+                <Box display="flex" flexWrap="wrap" style={{ gap: 12 }}>
+                  <TextField
+                    variant="outlined"
+                    type="password"
+                    size="small"
+                    fullWidth
+                    label="API Key global da Firecrawl"
+                    value={firecrawlGlobalApiKey}
+                    onChange={(e) => setFirecrawlGlobalApiKey(e.target.value)}
+                    placeholder={
+                      hasFirecrawlGlobalApiKey
+                        ? `Chave atual: ${firecrawlGlobalMaskedKey}`
+                        : "Cole aqui a chave global da Firecrawl"
+                    }
+                    helperText={
+                      hasFirecrawlGlobalApiKey
+                        ? "Para remover a chave global, salve este campo em branco."
+                        : "Sem chave global configurada."
+                    }
+                  />
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleSaveFirecrawlGlobalApiKey}
+                    disabled={loadingFirecrawlGlobalApiKey}
+                    style={{ textTransform: "none", fontWeight: 700, minWidth: 180 }}
+                  >
+                    {loadingFirecrawlGlobalApiKey ? (
+                      <CircularProgress size={18} color="inherit" />
+                    ) : (
+                      "Salvar Firecrawl"
+                    )}
+                  </Button>
+                </Box>
+              </Box>
+              <Divider />
+            </FormControl>
+          </Grid>
+        ) : null}
+
         {/* Campo de tipo de bot ocultado: o sistema permanece sempre em modo texto */}
 
         {/* LIMITAR DOWNLOAD */}
