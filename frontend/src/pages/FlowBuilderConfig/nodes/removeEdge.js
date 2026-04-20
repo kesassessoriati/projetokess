@@ -1,19 +1,14 @@
-import React, { useContext } from "react";
-import {
-  getBezierPath,
-  getEdgeCenter,
-  getMarkerEnd
-} from "react-flow-renderer";
-
+import React from "react";
+import { getBezierPath, getEdgeCenter, getMarkerEnd } from "react-flow-renderer";
 import "./css/buttonedge.css";
 import { Delete } from "@mui/icons-material";
 
 const onEdgeClick = (evt, id) => {
   evt.stopPropagation();
-  //removeEdgeList(id);
+  window.dispatchEvent(new CustomEvent("flowbuilder:delete-edge", { detail: { id } }));
 };
 
-export default function removeEdge({
+export default function RemoveEdge({
   id,
   sourceX,
   sourceY,
@@ -24,35 +19,16 @@ export default function removeEdge({
   style = {},
   data,
   arrowHeadType,
-  markerEndId
+  markerEndId,
 }) {
-  const edgePath = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition
-  });
+  const edgePath = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const markerEnd = getMarkerEnd(arrowHeadType, markerEndId);
-  const [edgeCenterX, edgeCenterY] = getEdgeCenter({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY
-  });
-
-  const foreignObjectSize = 40;
+  const [edgeCenterX, edgeCenterY] = getEdgeCenter({ sourceX, sourceY, targetX, targetY });
+  const foreignObjectSize = 28;
 
   return (
     <>
-      <path
-        id={id}
-        style={style}
-        className="react-flow__edge-path"
-        d={edgePath}
-        markerEnd={markerEnd}
-      />
+      <path id={id} style={style} className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd} />
       <foreignObject
         width={foreignObjectSize}
         height={foreignObjectSize}
@@ -61,15 +37,14 @@ export default function removeEdge({
         className="edgebutton-foreignobject"
         requiredExtensions="http://www.w3.org/1999/xhtml"
       >
-        <body>
-          {/* Botão comentado igual ao original, mas agora com CSS moderno aplicado
-          <button
-            className="edgebutton"
-            onClick={event => onEdgeClick(event, id)}
-          >
-            <Delete sx={{ width: "12px", height: "12px", color: "#ef4444" }} />
-          </button> */}
-        </body>
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          className="edgebutton"
+          onClick={(evt) => onEdgeClick(evt, id)}
+          title="Remover conexão"
+        >
+          <Delete style={{ width: "12px", height: "12px", color: "#ef4444", display: "block" }} />
+        </div>
       </foreignObject>
     </>
   );

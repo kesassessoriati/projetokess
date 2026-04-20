@@ -17,6 +17,8 @@ import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
 
+import noteNode from "./nodes/noteNode";
+import javascriptNode from "./nodes/javascriptNode";
 import audioNode from "./nodes/audioNode";
 import typebotNode from "./nodes/typebotNode";
 import openaiNode from "./nodes/openaiNode";
@@ -98,6 +100,8 @@ import {
   RocketLaunch,
   DataObject,
   ShoppingBag,
+  StickyNote2,
+  JavaScript,
 } from "@mui/icons-material";
 import DescriptionIcon from "@mui/icons-material/Description";
 import RemoveEdge from "./nodes/removeEdge";
@@ -135,6 +139,7 @@ import FlowBuilderWaitQuestionModal from "../../components/FlowBuilderWaitQuesti
 import FlowBuilderProductListModal from "../../components/FlowBuilderProductListModal";
 import FlowBuilderAddKanbanStageModal from "../../components/FlowBuilderAddKanbanStageModal";
 import FlowBuilderTriggerModal from "../../components/FlowBuilderTriggerModal";
+import FlowBuilderJavaScriptModal from "../../components/FlowBuilderJavaScriptModal";
 
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
@@ -403,6 +408,8 @@ const NODE_TITLES = {
   productList: "Lista de Produtos",
   waitQuestion: "Espera Condicional",
   kanbanStage: "Etapa Kanban",
+  javascript: "JavaScript",
+  note: "Nota",
 };
 
 
@@ -478,6 +485,8 @@ const nodeTypes = {
   productList: withNodeTitle(productListNode, NODE_TITLES.productList),
   waitQuestion: withNodeTitle(waitQuestionNode, NODE_TITLES.waitQuestion),
   kanbanStage: withNodeTitle(kanbanStageNode, NODE_TITLES.kanbanStage),
+  javascript: withNodeTitle(javascriptNode, NODE_TITLES.javascript),
+  note: noteNode,
 };
 
 
@@ -544,6 +553,7 @@ export const FlowBuilderConfig = () => {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [flowTriggers, setFlowTriggers] = useState([]);
+  const [modalJavaScript, setModalJavaScript] = useState(null);
 
   const [nodeRenaming, setNodeRenaming] = useState(null);
   const [flowLocked, setFlowLocked] = useState(false);
@@ -959,6 +969,41 @@ export const FlowBuilderConfig = () => {
       ]);
       setModalAddKanbanStage(null);
     }
+
+    if (type === "javascript") {
+      setNodes((old) => [
+        ...old,
+        {
+          id: geraStringAleatoria(30),
+          position: { x: posX, y: posY },
+          data: withTitleData("javascript", { code: data?.code || "" }),
+          type: "javascript",
+        },
+      ]);
+      setModalJavaScript(null);
+    }
+
+    if (type === "note") {
+      const noteId = geraStringAleatoria(30);
+      setNodes((old) => [
+        ...old,
+        {
+          id: noteId,
+          position: { x: posX, y: posY + 40 },
+          data: {
+            text: "Clique duas vezes para editar...",
+            color: "#fef9c3",
+            onTextChange: (nId, newText) => {
+              setNodes((prev) => prev.map((n) => n.id === nId ? { ...n, data: { ...n.data, text: newText } } : n));
+            },
+            onColorChange: (nId, newColor) => {
+              setNodes((prev) => prev.map((n) => n.id === nId ? { ...n, data: { ...n.data, color: newColor } } : n));
+            },
+          },
+          type: "note",
+        },
+      ]);
+    }
   };
 
 
@@ -990,6 +1035,8 @@ export const FlowBuilderConfig = () => {
   const sendMessageAdd = (data) => { addNode("sendMessage", data); };
   const productListAdd = (data) => { addNode("productList", data); };
   const kanbanStageAdd = (data) => { addNode("kanbanStage", data); };
+  const javascriptAdd = (data) => { addNode("javascript", data); };
+  const noteAdd = () => { addNode("note", {}); };
 
 
   // [TODOS OS useEffect MANTIDOS IGUAIS]
@@ -1104,6 +1151,15 @@ export const FlowBuilderConfig = () => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Edge deletion via custom event dispatched by RemoveEdge component
+  useEffect(() => {
+    const handler = (e) => {
+      setEdges((eds) => eds.filter((edge) => edge.id !== e.detail.id));
+    };
+    window.addEventListener("flowbuilder:delete-edge", handler);
+    return () => window.removeEventListener("flowbuilder:delete-edge", handler);
+  }, [setEdges]);
   const [groupSelectionActive, setGroupSelectionActive] = useState(false);
   const [groupSelectionIds, setGroupSelectionIds] = useState([]);
   const selectionActiveRef = useRef(false);
@@ -1286,6 +1342,8 @@ export const FlowBuilderConfig = () => {
     if (node.type === "productList") { setModalProductList("edit"); }
     if (node.type === "waitQuestion") { setModalWaitQuestion("edit"); }
     if (node.type === "kanbanStage") { setModalAddKanbanStage("edit"); }
+    if (node.type === "javascript") { setModalJavaScript("edit"); }
+    if (node.type === "note") { /* handled inline by noteNode */ }
   };
 
 
@@ -1443,16 +1501,23 @@ export const FlowBuilderConfig = () => {
       label: "Integrações",
       actions: [
         { icon: <Http sx={{ color: "#22c55e", fontSize: 14 }} />, name: "API Request", type: "apiRequest" },
-        { 
-          icon: <Box component="img" sx={{ width: 14, height: 14 }} src={typebotIcon} alt="typebot" />, 
-          name: "TypeBot", 
-          type: "typebot" 
+        {
+          icon: <Box component="img" sx={{ width: 14, height: 14 }} src={typebotIcon} alt="typebot" />,
+          name: "TypeBot",
+          type: "typebot"
         },
         { icon: <Receipt sx={{ color: "#10b981", fontSize: 14 }} />, name: "2ª Via Boleto", type: "asaas" },
         { icon: <Email sx={{ color: "#2563eb", fontSize: 14 }} />, name: "Enviar SMTP", type: "smtp" },
         { icon: <Send sx={{ color: "#22c55e", fontSize: 14 }} />, name: "Enviar Mensagem", type: "sendMessage" },
         { icon: <span style={{ fontSize: "14px" }}>📊</span>, name: "Google Sheets", type: "googleSheets" },
         { icon: <span style={{ fontSize: "14px" }}></span>, name: "Agente IA Direto", type: "directOpenai" },
+        { icon: <JavaScript sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "JavaScript", type: "javascript" },
+      ],
+    },
+    {
+      label: "Extras",
+      actions: [
+        { icon: <StickyNote2 sx={{ color: "#a16207", fontSize: 14 }} />, name: "Nota", type: "note" },
       ],
     },
   ];
@@ -1519,6 +1584,8 @@ export const FlowBuilderConfig = () => {
       case "productList": setModalProductList("create"); break;
       case "waitQuestion": setModalWaitQuestion("create"); break;
       case "kanbanStage": setModalAddKanbanStage("create"); break;
+      case "javascript": setModalJavaScript("create"); break;
+      case "note": noteAdd(); break;
       default: break;
 
     }
@@ -1733,6 +1800,14 @@ export const FlowBuilderConfig = () => {
         onSave={handleTriggerSave}
       />
 
+      <FlowBuilderJavaScriptModal
+        open={modalJavaScript}
+        data={dataNode}
+        onSave={javascriptAdd}
+        onUpdate={updateNode}
+        close={() => setModalJavaScript(null)}
+      />
+
       {!loading && (
         <Paper className={classes.mainPaper} variant="outlined" onScroll={handleScroll}>
           {/* Sidebar Estilo Typebot */}
@@ -1779,6 +1854,84 @@ export const FlowBuilderConfig = () => {
           >
             Salvar Fluxo
           </Button>
+
+          {/* Top Toolbar */}
+          <div style={{
+            position: "absolute",
+            top: 14,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1200,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "rgba(255,255,255,0.95)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            padding: "6px 10px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+          }}>
+            {/* Lock/Unlock */}
+            <button
+              onClick={() => setFlowLocked((v) => !v)}
+              title={flowLocked ? "Desbloquear canvas" : "Bloquear canvas"}
+              style={{
+                width: 34, height: 34, borderRadius: 8, border: "none",
+                background: flowLocked ? "#fef2f2" : "#f9fafb",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >
+              {flowLocked
+                ? <LockIcon style={{ fontSize: 16, color: "#ef4444" }} />
+                : <LockOpenIcon style={{ fontSize: 16, color: "#6b7280" }} />}
+            </button>
+
+            <div style={{ width: 1, height: 20, background: "#e5e7eb" }} />
+
+            {/* Save */}
+            <button
+              onClick={saveFlow}
+              title="Salvar fluxo"
+              style={{
+                width: 34, height: 34, borderRadius: 8, border: "none",
+                background: "#eff6ff", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >
+              <SaveIcon style={{ fontSize: 16, color: "#3b82f6" }} />
+            </button>
+
+            {/* Add Note */}
+            <button
+              onClick={() => clickActions("note")}
+              title="Adicionar nota"
+              style={{
+                width: 34, height: 34, borderRadius: 8, border: "none",
+                background: "#fefce8", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >
+              <StickyNote2 style={{ fontSize: 16, color: "#a16207" }} />
+            </button>
+
+            {/* Add JavaScript */}
+            <button
+              onClick={() => clickActions("javascript")}
+              title="Adicionar node JavaScript"
+              style={{
+                width: 34, height: 34, borderRadius: 8, border: "none",
+                background: "#fffbeb", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >
+              <JavaScript style={{ fontSize: 16, color: "#f59e0b" }} />
+            </button>
+          </div>
 
           
           {/* Flow Container */}

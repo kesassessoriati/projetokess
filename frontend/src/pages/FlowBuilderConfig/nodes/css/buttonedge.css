@@ -30,14 +30,13 @@
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
-.edgebutton-foreignobject body {
+.edgebutton-foreignobject div {
   background: transparent;
-  width: 44px;
-  height: 44px;
+  width: 28px;
+  height: 28px;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 44px;
 }
 
 /* Modern Edge Styles */

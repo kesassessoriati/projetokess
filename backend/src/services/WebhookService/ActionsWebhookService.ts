@@ -2680,6 +2680,61 @@ export const ActionsWebhookService = async (
         }
       }
 
+      // Nó: JavaScript
+      if (nodeSelected.type === "javascript") {
+        const code = nodeSelected.data?.code || nodeSelected.data?.data?.code || "";
+        if (code.trim()) {
+          try {
+            const sessionProxy = {
+              getValue: async (name: string) => {
+                if (!ticket && idTicket) {
+                  ticket = await Ticket.findOne({ where: { id: idTicket, companyId } });
+                }
+                return ticket?.dataWebhook?.variables?.[name] ?? null;
+              },
+              setValue: async (name: string, value: any) => {
+                if (!ticket && idTicket) {
+                  ticket = await Ticket.findOne({ where: { id: idTicket, companyId } });
+                }
+                if (ticket) {
+                  const vars = ticket.dataWebhook?.variables || {};
+                  vars[name] = value;
+                  await ticket.update({ dataWebhook: { ...(ticket.dataWebhook || {}), variables: vars } });
+                }
+              },
+              getAdditionalValue: async (name: string) => {
+                if (!ticket && idTicket) {
+                  ticket = await Ticket.findOne({ where: { id: idTicket, companyId } });
+                }
+                return ticket?.dataWebhook?.additionalValues?.[name] ?? null;
+              },
+              setAdditionalValue: async (name: string, value: any) => {
+                if (!ticket && idTicket) {
+                  ticket = await Ticket.findOne({ where: { id: idTicket, companyId } });
+                }
+                if (ticket) {
+                  const av = ticket.dataWebhook?.additionalValues || {};
+                  av[name] = value;
+                  await ticket.update({ dataWebhook: { ...(ticket.dataWebhook || {}), additionalValues: av } });
+                }
+              },
+              datasources: {},
+            };
+
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+            const fn = new AsyncFunction("session", code);
+            await Promise.race([
+              fn(sessionProxy),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("JavaScript node timeout (30s)")), 30000)
+              ),
+            ]);
+          } catch (err) {
+            console.error("[JavaScript Node] Erro na execução:", err);
+          }
+        }
+      }
+
       // Nó: Encerrar Ticket
       if (nodeSelected.type === "closeTicket") {
         console.log(`=== PROCESSANDO NÓ closeTicket (ENCERRAR TICKET) ===`);
