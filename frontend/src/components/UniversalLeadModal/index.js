@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Dialog,
     IconButton,
@@ -17,7 +17,6 @@ import CloseIcon from "@material-ui/icons/Close";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
-import ViewCarouselIcon from "@material-ui/icons/ViewCarousel";
 import FiberManualRecordIcon from "@material-ui/icons/FiberManualRecord";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import InfoIcon from "@material-ui/icons/Info";
@@ -158,7 +157,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const resolvedLeadId = leadId || (op && (op.leadId || op.lead?.id)) || null;
     const resolvedOpportunityId = (op && op.id) || null;
     const [tabValue, setTabValue] = useState(0);
-    const [secondaryView, setSecondaryView] = useState("content");
+    const [showRecordings, setShowRecordings] = useState(false);
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
     const [activityType] = useState("ATIVIDADE");
@@ -170,6 +169,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [editingNote, setEditingNote] = useState(null);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [activityToDelete, setActivityToDelete] = useState(null);
+    const syncLeadModalStateRef = useRef(syncLeadModalState);
 
     useEffect(() => {
         if (!open) {
@@ -179,17 +179,21 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             setNoteText("");
             setActivityToDelete(null);
             setConfirmDeleteOpen(false);
-            setSecondaryView("content");
+            setShowRecordings(false);
         }
     }, [open]);
 
     useEffect(() => {
-        syncLeadModalState(open);
+        syncLeadModalStateRef.current = syncLeadModalState;
+    }, [syncLeadModalState]);
+
+    useEffect(() => {
+        syncLeadModalStateRef.current(open);
 
         return () => {
-            syncLeadModalState(false);
+            syncLeadModalStateRef.current(false);
         };
-    }, [open, syncLeadModalState]);
+    }, [open]);
 
     useEffect(() => {
         if (op && op.lead) {
@@ -505,16 +509,9 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </Tabs>
                         <Box className={classes.secondaryMenu}>
                             <Button
-                                className={`${classes.secondaryMenuButton} ${secondaryView === "content" ? classes.secondaryMenuButtonActive : ""}`}
-                                startIcon={<ViewCarouselIcon fontSize="small" />}
-                                onClick={() => setSecondaryView("content")}
-                            >
-                                Painel do lead
-                            </Button>
-                            <Button
-                                className={`${classes.secondaryMenuButton} ${secondaryView === "recordings" ? classes.secondaryMenuButtonActive : ""}`}
+                                className={`${classes.secondaryMenuButton} ${showRecordings ? classes.secondaryMenuButtonActive : ""}`}
                                 startIcon={<FiberManualRecordIcon fontSize="small" />}
-                                onClick={() => setSecondaryView("recordings")}
+                                onClick={() => setShowRecordings((current) => !current)}
                             >
                                 Gravacoes
                             </Button>
@@ -522,7 +519,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                     </Paper>
 
                     <Paper className={classes.tabContent} elevation={0}>
-                        {secondaryView === "recordings" ? (
+                        {showRecordings ? (
                             <LeadCallRecordingsTab
                                 leadId={resolvedLeadId}
                                 opportunityId={resolvedOpportunityId}

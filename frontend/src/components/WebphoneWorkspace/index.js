@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   makeStyles,
   Box,
@@ -337,6 +337,21 @@ const formatDateTime = (value) => {
   }
 };
 
+const dtmfFrequencies = {
+  "1": [697, 1209],
+  "2": [697, 1336],
+  "3": [697, 1477],
+  "4": [770, 1209],
+  "5": [770, 1336],
+  "6": [770, 1477],
+  "7": [852, 1209],
+  "8": [852, 1336],
+  "9": [852, 1477],
+  "*": [941, 1209],
+  "0": [941, 1336],
+  "#": [941, 1477],
+};
+
 const tabConfig = [
   { value: "dialer", label: "Discador", icon: <PhoneIcon fontSize="small" /> },
   { value: "sequence", label: "Sequência", icon: <TimelineIcon fontSize="small" /> },
@@ -347,6 +362,7 @@ const tabConfig = [
 const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = false, onMinimize, onClose }) => {
   const classes = useStyles();
   const {
+    session,
     status,
     muted,
     sipLoading,
@@ -392,6 +408,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [leadNote, setLeadNote] = useState("");
   const [leadScheduleAt, setLeadScheduleAt] = useState("");
+  const keypadAudioContextRef = useRef(null);
 
   const selectedPipeline = useMemo(
     () => pipelines.find((pipeline) => Number(pipeline.id) === Number(selectedPipelineId)) || null,
@@ -498,6 +515,67 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       loadHistory(currentLeadId ? { leadId: currentLeadId } : {});
     }
   }, [activeTab, currentLeadId, loadHistory]);
+
+  useEffect(() => () => {
+    if (keypadAudioContextRef.current?.close) {
+      keypadAudioContextRef.current.close().catch(() => {});
+      keypadAudioContextRef.current = null;
+    }
+  }, []);
+
+  const playDialTone = useCallback((digit) => {
+    const frequencies = dtmfFrequencies[digit];
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+
+    if (!frequencies || !AudioContextCtor) {
+      return;
+    }
+
+    const audioContext =
+      keypadAudioContextRef.current || new AudioContextCtor();
+    keypadAudioContextRef.current = audioContext;
+
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+    const gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.06, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.14);
+    gainNode.connect(audioContext.destination);
+
+    frequencies.forEach((frequency) => {
+      const oscillator = audioContext.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      oscillator.connect(gainNode);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.14);
+      oscillator.onended = () => {
+        oscillator.disconnect();
+      };
+    });
+
+    window.setTimeout(() => {
+      try {
+        gainNode.disconnect();
+      } catch (_error) {}
+    }, 180);
+  }, []);
+
+  const handleDialDigit = useCallback((digit) => {
+    appendDialDigit(digit);
+    playDialTone(digit);
+
+    if (status === "in-call" && session?.sendDTMF) {
+      try {
+        session.sendDTMF(digit);
+      } catch (error) {
+        console.error("[WebphoneWorkspace] Failed to send DTMF digit", error);
+      }
+    }
+  }, [appendDialDigit, playDialTone, session, status]);
 
   const previewSequenceTargets = async () => {
     if (!selectedPipelineId || !selectedStageId) {
@@ -748,7 +826,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <Button
                   key={digit}
                   className={classes.keyButton}
-                  onClick={() => appendDialDigit(digit)}
+                  onClick={() => handleDialDigit(digit)}
                 >
                   {digit}
                 </Button>
