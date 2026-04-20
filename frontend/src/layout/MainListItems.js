@@ -1498,6 +1498,30 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           </ListItem>
         </Tooltip>
 
+        <Tooltip title={collapsed ? "Reuniões Gravadas" : ""} placement="right">
+          <ListItem
+            button
+            component={RouterLink}
+            to="/meetings"
+            className={`${classes.listItem} ${location.pathname.startsWith("/meetings") ? "active" : ""}`}
+          >
+            <ListItemIcon className={classes.listItemIcon}>
+              <Avatar className={classes.iconAvatar}>
+                <VideoLibraryIcon />
+              </Avatar>
+            </ListItemIcon>
+            {!collapsed && (
+              <ListItemText
+                primary={
+                  <Typography className={`${classes.listItemText} ${location.pathname.startsWith("/meetings") ? "active" : ""}`}>
+                    Reuniões
+                  </Typography>
+                }
+              />
+            )}
+          </ListItem>
+        </Tooltip>
+
         <Tooltip title={collapsed ? "Biblioteca de Mídia" : ""} placement="right">
           <ListItem
             button

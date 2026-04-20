@@ -18,6 +18,7 @@ import ListAltIcon from "@material-ui/icons/ListAlt";
 import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
 import FiberManualRecordIcon from "@material-ui/icons/FiberManualRecord";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import InfoIcon from "@material-ui/icons/Info";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
@@ -34,6 +35,7 @@ import LeadEmailComponent from "../LeadEmailComponent";
 import LeadAttachmentsTab from "../LeadAttachmentsTab";
 import LeadTasksTab from "../LeadTasksTab";
 import LeadCallRecordingsTab from "../LeadCallRecordingsTab";
+import LeadMeetingsTab from "../LeadMeetingsTab";
 import WebphoneWorkspace from "../WebphoneWorkspace";
 import api from "../../services/api";
 import { useWebphone } from "../../context/WebphoneContext";
@@ -158,6 +160,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const resolvedOpportunityId = (op && op.id) || null;
     const [tabValue, setTabValue] = useState(0);
     const [showRecordings, setShowRecordings] = useState(false);
+    const [showMeetings, setShowMeetings] = useState(false);
     const [activityText, setActivityText] = useState("");
     const [noteText, setNoteText] = useState("");
     const [activityType] = useState("ATIVIDADE");
@@ -180,6 +183,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             setActivityToDelete(null);
             setConfirmDeleteOpen(false);
             setShowRecordings(false);
+            setShowMeetings(false);
         }
     }, [open]);
 
@@ -511,15 +515,27 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <Button
                                 className={`${classes.secondaryMenuButton} ${showRecordings ? classes.secondaryMenuButtonActive : ""}`}
                                 startIcon={<FiberManualRecordIcon fontSize="small" />}
-                                onClick={() => setShowRecordings((current) => !current)}
+                                onClick={() => { setShowRecordings(v => !v); setShowMeetings(false); }}
                             >
                                 Gravacoes
+                            </Button>
+                            <Button
+                                className={`${classes.secondaryMenuButton} ${showMeetings ? classes.secondaryMenuButtonActive : ""}`}
+                                startIcon={<VideoLibraryIcon fontSize="small" />}
+                                onClick={() => { setShowMeetings(v => !v); setShowRecordings(false); }}
+                            >
+                                Reuniões
                             </Button>
                         </Box>
                     </Paper>
 
                     <Paper className={classes.tabContent} elevation={0}>
-                        {showRecordings ? (
+                        {showMeetings ? (
+                            <LeadMeetingsTab
+                                leadId={resolvedLeadId}
+                                opportunityId={resolvedOpportunityId}
+                            />
+                        ) : showRecordings ? (
                             <LeadCallRecordingsTab
                                 leadId={resolvedLeadId}
                                 opportunityId={resolvedOpportunityId}
