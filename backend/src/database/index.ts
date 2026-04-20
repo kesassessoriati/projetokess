@@ -181,6 +181,7 @@ import AIUsageLog from "../models/AIUsageLog";
 import Notification from "../models/Notification";
 import CallSequence from "../models/CallSequence";
 import CallSequenceTarget from "../models/CallSequenceTarget";
+import Meeting from "../models/Meeting";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -395,7 +396,8 @@ const models = [
   GfIaAnalysisResult,
   Chip,
   ChipActivityLog,
-  Notification
+  Notification,
+  Meeting
 ];
 
 sequelize.addModels(models);
