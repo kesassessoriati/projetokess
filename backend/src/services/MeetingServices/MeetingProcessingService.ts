@@ -28,15 +28,18 @@ async function transcribeAudio(companyId: number, audioFilename: string): Promis
   const whisperUrl = process.env.WHISPER_API_URL || "http://whisper-api:8000";
   const audioPath = path.join(publicFolder, `company${companyId}`, "meetings", audioFilename);
 
+  // fedirz/faster-whisper-server uses OpenAI-compatible API
   const form = new FormData();
-  form.append("audio", fs.createReadStream(audioPath), {
+  form.append("file", fs.createReadStream(audioPath), {
     filename: audioFilename,
     contentType: "audio/wav"
   });
+  form.append("model", process.env.WHISPER_MODEL || "small");
+  form.append("language", "pt");
 
-  const response = await axios.post(`${whisperUrl}/transcribe`, form, {
+  const response = await axios.post(`${whisperUrl}/v1/audio/transcriptions`, form, {
     headers: form.getHeaders(),
-    timeout: 600000 // 10 minutes for long recordings
+    timeout: 600000
   });
 
   return response.data.text as string;
