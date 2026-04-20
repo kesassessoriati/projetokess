@@ -57,6 +57,7 @@ import LanguageIcon from "@mui/icons-material/Language";
 import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import PermMediaIcon from "@mui/icons-material/PermMedia";
 import SimCardIcon from "@mui/icons-material/SimCard";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -1096,6 +1097,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 to="/appointments"
                 primary="Compromissos"
                 icon={<ScheduleIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/meetings"
+                primary="Reuniões Gravadas"
+                icon={<VideoLibraryIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
             </div>
