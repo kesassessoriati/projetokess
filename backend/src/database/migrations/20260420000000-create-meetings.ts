@@ -36,7 +36,7 @@ module.exports = {
       leadId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        references: { model: "CrmLeads", key: "id" },
+        references: { model: "crm_leads", key: "id" },
         onUpdate: "CASCADE",
         onDelete: "SET NULL"
       },
