@@ -161,6 +161,8 @@ const defaultPlanValues = {
     email: false,
     gestor_financas: false,
     gestor_financeiro_ia: false,
+    useMeetings: false,
+    useFirecrawl: false,
     recurrence: "MENSAL",
     isPublic: true,
     aiCredits: 0,
@@ -574,6 +576,46 @@ export function PlanManagerForm(props) {
       </Field>
     </FormControl>
   </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="use-meetings-selection" style={{ fontWeight: "bold" }}>
+        Reuniões Gravadas
+      </InputLabel>
+      <Field as={Select} id="use-meetings-selection" name="useMeetings" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="use-firecrawl-selection" style={{ fontWeight: "bold" }}>
+        Buscar Leads Internet
+      </InputLabel>
+      <Field as={Select} id="use-firecrawl-selection" name="useFirecrawl" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
 </div>
 
 <Divider />
@@ -785,6 +827,8 @@ export default function PlansManager() {
         email: false,
         gestor_financas: false,
         gestor_financeiro_ia: false,
+        useMeetings: false,
+        useFirecrawl: false,
         recurrence: "MENSAL",
         isPublic: true,
         aiCredits: 0,
@@ -872,6 +916,8 @@ export default function PlansManager() {
             email: false,
             gestor_financas: false,
             gestor_financeiro_ia: false,
+            useMeetings: false,
+            useFirecrawl: false,
             recurrence: "MENSAL",
             isPublic: true,
             aiCredits: 0,
@@ -899,6 +945,8 @@ export default function PlansManager() {
         let email = Boolean(data.email)
         let gestor_financas = Boolean(data.gestor_financas)
         let gestor_financeiro_ia = Boolean(data.gestor_financeiro_ia)
+        let useMeetings = Boolean(data.useMeetings)
+        let useFirecrawl = Boolean(data.useFirecrawl)
 
         setRecord({
             id: data.id,
@@ -925,6 +973,8 @@ export default function PlansManager() {
             email,
             gestor_financas,
             gestor_financeiro_ia,
+            useMeetings,
+            useFirecrawl,
             recurrence: data.recurrence || "MENSAL",
             isPublic: data.isPublic,
             aiCredits: data.aiDailyCredits || data.aiCredits || 0,

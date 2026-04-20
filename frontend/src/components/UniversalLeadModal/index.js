@@ -19,6 +19,7 @@ import EventNoteIcon from "@material-ui/icons/EventNote";
 import ScheduleIcon from "@material-ui/icons/Schedule";
 import FiberManualRecordIcon from "@material-ui/icons/FiberManualRecord";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import InfoIcon from "@material-ui/icons/Info";
 import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
@@ -151,6 +152,7 @@ function TabPanel(props) {
 
 const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
+    const { meetings: canUseMeetings } = usePlanPermissions();
     const { syncLeadModalState } = useWebphone();
     const opportunityValue =
         op && Number(op.value || 0) === 0 && op.lead?.purchaseValue != null
@@ -519,6 +521,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             >
                                 Gravacoes
                             </Button>
+                            {canUseMeetings && (
                             <Button
                                 className={`${classes.secondaryMenuButton} ${showMeetings ? classes.secondaryMenuButtonActive : ""}`}
                                 startIcon={<VideoLibraryIcon fontSize="small" />}
@@ -526,6 +529,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             >
                                 Reuniões
                             </Button>
+                            )}
                         </Box>
                     </Paper>
 

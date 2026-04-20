@@ -123,6 +123,14 @@ class Plan extends Model<Plan> {
   @Default(false)
   @Column
   aiAgentEnabled: boolean;
+
+  @Default(false)
+  @Column
+  useMeetings: boolean;
+
+  @Default(false)
+  @Column
+  useFirecrawl: boolean;
 }
 
 export default Plan;

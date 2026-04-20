@@ -23,6 +23,8 @@ const defaultState = {
   email: false,
   gestor_financas: false,
   gestor_financeiro_ia: false,
+  meetings: false,
+  firecrawl: false,
 };
 
 const PlanPermissionsContext = createContext({
@@ -78,6 +80,8 @@ export const PlanPermissionsProvider = ({ children }) => {
             email: Boolean(plan.email),
             gestor_financas: Boolean(plan.gestor_financas),
             gestor_financeiro_ia: Boolean(plan.gestor_financeiro_ia),
+            meetings: Boolean(plan.useMeetings),
+            firecrawl: Boolean(plan.useFirecrawl),
           });
         } else {
           setState((prev) => ({ ...defaultState, loading: false }));

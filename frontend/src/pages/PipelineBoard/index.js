@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from "react";
 import { useHistory } from "react-router-dom";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 import { useSocket } from "../../context/SocketContext";
 import {
   makeStyles,
@@ -775,6 +776,7 @@ const PipelineBoard = () => {
   const classes = useStyles();
   const history = useHistory();
   const { user } = useContext(AuthContext);
+  const { firecrawl: canUseFirecrawl } = usePlanPermissions();
   const { hydrateLeadContext } = useWebphone();
   const isAdmin = user && user.profile === "admin";
 
@@ -1436,6 +1438,7 @@ const PipelineBoard = () => {
                 </IconButton>
               )}
             </div>
+            {canUseFirecrawl && (
             <Button
               size="small"
               startIcon={<FlashOnIcon style={{ fontSize: 16 }} />}
@@ -1444,6 +1447,7 @@ const PipelineBoard = () => {
             >
               Buscar Leads na internet
             </Button>
+            )}
           </div>
 
           {searchText && searchResultCount !== null && (
