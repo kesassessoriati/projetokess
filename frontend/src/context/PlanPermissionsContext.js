@@ -26,6 +26,7 @@ const defaultState = {
   meetings: false,
   firecrawl: false,
   propostas: false,
+  followUps: false,
 };
 
 const PlanPermissionsContext = createContext({
@@ -84,6 +85,7 @@ export const PlanPermissionsProvider = ({ children }) => {
             meetings: Boolean(plan.useMeetings),
             firecrawl: Boolean(plan.useFirecrawl),
             propostas: Boolean(plan.usePropostas),
+            followUps: Boolean(plan.useFollowUps),
           });
         } else {
           setState((prev) => ({ ...defaultState, loading: false }));

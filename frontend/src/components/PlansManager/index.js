@@ -164,6 +164,7 @@ const defaultPlanValues = {
     useMeetings: false,
     useFirecrawl: false,
     usePropostas: false,
+    useFollowUps: false,
     recurrence: "MENSAL",
     isPublic: true,
     aiCredits: 0,
@@ -636,6 +637,25 @@ export function PlanManagerForm(props) {
       </Field>
     </FormControl>
   </Box>
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="use-follow-ups-selection" style={{ fontWeight: "bold" }}>
+        Módulo Follow-ups
+      </InputLabel>
+      <Field as={Select} id="use-follow-ups-selection" name="useFollowUps" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
 </div>
 
 <Divider />
@@ -850,6 +870,7 @@ export default function PlansManager() {
         useMeetings: false,
         useFirecrawl: false,
         usePropostas: false,
+        useFollowUps: false,
         recurrence: "MENSAL",
         isPublic: true,
         aiCredits: 0,
@@ -940,6 +961,7 @@ export default function PlansManager() {
             useMeetings: false,
             useFirecrawl: false,
             usePropostas: false,
+            useFollowUps: false,
             recurrence: "MENSAL",
             isPublic: true,
             aiCredits: 0,
@@ -970,6 +992,7 @@ export default function PlansManager() {
         let useMeetings = Boolean(data.useMeetings)
         let useFirecrawl = Boolean(data.useFirecrawl)
         let usePropostas = Boolean(data.usePropostas)
+        let useFollowUps = Boolean(data.useFollowUps)
 
         setRecord({
             id: data.id,
@@ -999,6 +1022,7 @@ export default function PlansManager() {
             useMeetings,
             useFirecrawl,
             usePropostas,
+            useFollowUps,
             recurrence: data.recurrence || "MENSAL",
             isPublic: data.isPublic,
             aiCredits: data.aiDailyCredits || data.aiCredits || 0,

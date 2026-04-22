@@ -135,6 +135,10 @@ class Plan extends Model<Plan> {
   @Default(false)
   @Column
   usePropostas: boolean;
+
+  @Default(false)
+  @Column
+  useFollowUps: boolean;
 }
 
 export default Plan;

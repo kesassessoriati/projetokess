@@ -952,6 +952,7 @@ const LoggedInLayout = ({ children }) => {
     gestor_financas,
     gestor_financeiro_ia,
     propostas,
+    followUps,
   } = usePlanPermissions();
   const { showAlert } = useSystemAlert();
 
@@ -1236,7 +1237,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Clientes", path: "/clientes", icon: <BusinessCenterIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Usuários", path: "/users", icon: <GroupIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gestão de Grupos", path: "/group-management", icon: <GroupWorkIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
-      { title: "Follow-ups", path: "/follow-ups", icon: <ScheduleIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      ...(followUps ? [{ title: "Follow-ups", path: "/follow-ups", icon: <ScheduleIcon />, disabled: !planActive && location.pathname !== "/financeiro" }] : []),
       { title: "Canais", path: "/canais", icon: <DeviceHubIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Respostas rápidas", path: "/quick-messages", icon: <QuestionAnswerIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Biblioteca de Mídia", path: "/media-drive", icon: <VideoLibraryIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
@@ -1247,6 +1248,12 @@ const LoggedInLayout = ({ children }) => {
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      ...(gestor_financas && gestor_financeiro_ia ? [{
+        title: "Gestor Financeiro IA",
+        path: "/gestor-financas/gestor-financeiro-ia",
+        icon: <LocalAtmIcon />,
+        disabled: !planActive && location.pathname !== "/financeiro",
+      }] : []),
       { title: "Faturas", path: "/faturas", icon: <LocalAtmIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Financeiro", path: "/financeiro", icon: <AttachMoneyIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
       { title: "Gateways de Pagamento", path: "/payment-settings", icon: <TuneIcon />, disabled: !planActive && location.pathname !== "/financeiro", adminOnly: true },
@@ -1282,7 +1289,7 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
     ],
-    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia, propostas]
+    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia, propostas, followUps]
   );
 
   const isAdmin = user?.profile === "admin";
@@ -1293,23 +1300,7 @@ const LoggedInLayout = ({ children }) => {
       if (!group) return null;
 
       if (group.title === "Gestor Finanças") {
-        if (!gestor_financas) {
-          return null;
-        }
-
-        const financeChildren = (group.children || []).filter((child) => {
-          if (child.path === "/gestor-financas/gestor-financeiro-ia") {
-            return gestor_financeiro_ia;
-          }
-
-          return true;
-        });
-
-        if (!financeChildren.length) {
-          return null;
-        }
-
-        return { ...group, children: financeChildren };
+        return null;
       }
 
       return group;
@@ -1341,7 +1332,7 @@ const LoggedInLayout = ({ children }) => {
         return filtered.length ? { ...visibleGroup, children: filtered } : null;
       })
       .filter(Boolean);
-  }, [isAdmin, isSuperAdmin, menuGroups, gestor_financas, gestor_financeiro_ia, propostas]);
+  }, [isAdmin, isSuperAdmin, menuGroups]);
 
   const [openMenus, setOpenMenus] = useState({});
 

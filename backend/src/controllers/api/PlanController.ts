@@ -56,6 +56,7 @@ type StorePlanData = {
   email?: boolean;
   gestor_financas?: boolean;
   gestor_financeiro_ia?: boolean;
+  useFollowUps?: boolean;
 };
 
 type UpdatePlanData = {
@@ -87,6 +88,7 @@ type UpdatePlanData = {
   email?: boolean;
   gestor_financas?: boolean;
   gestor_financeiro_ia?: boolean;
+  useFollowUps?: boolean;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -136,7 +138,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     whatsapp_whaleys: Yup.boolean(),
     email: Yup.boolean(),
     gestor_financas: Yup.boolean(),
-    gestor_financeiro_ia: Yup.boolean()
+    gestor_financeiro_ia: Yup.boolean(),
+    useFollowUps: Yup.boolean()
   });
 
   try {
@@ -192,7 +195,8 @@ export const update = async (
     whatsapp_whaleys: Yup.boolean(),
     email: Yup.boolean(),
     gestor_financas: Yup.boolean(),
-    gestor_financeiro_ia: Yup.boolean()
+    gestor_financeiro_ia: Yup.boolean(),
+    useFollowUps: Yup.boolean()
   });
 
   try {
@@ -225,7 +229,8 @@ export const update = async (
     whatsapp_whaleys,
     email,
     gestor_financas,
-    gestor_financeiro_ia
+    gestor_financeiro_ia,
+    useFollowUps
   } = planData;
 
   const plan = await UpdatePlanService({
@@ -250,7 +255,8 @@ export const update = async (
     whatsapp_whaleys,
     email,
     gestor_financas,
-    gestor_financeiro_ia
+    gestor_financeiro_ia,
+    useFollowUps
   });
   return res.status(200).json(plan);
 };

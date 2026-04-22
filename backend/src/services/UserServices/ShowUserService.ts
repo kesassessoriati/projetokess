@@ -71,7 +71,8 @@ const ShowUserService = async (id: string | number, companyId: string | number):
                 "email",
                 "gestor_financas",
                 "gestor_financeiro_ia",
-                "usePropostas"
+                "usePropostas",
+                "useFollowUps"
               ]
             },
           ]

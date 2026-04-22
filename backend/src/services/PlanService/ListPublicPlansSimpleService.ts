@@ -26,6 +26,7 @@ interface PublicPlan {
   email: boolean;
   gestor_financas: boolean;
   gestor_financeiro_ia: boolean;
+  useFollowUps: boolean;
   trial: boolean;
   trialDays: number;
   recurrence: string;
@@ -40,7 +41,7 @@ const ListPublicPlansSimpleService = async (): Promise<PublicPlan[]> => {
       "useSchedules", "useInternalChat", "useExternalApi", "useKanban",
       "useOpenAi", "useIntegrations", "aiEnabled", "aiDailyCredits", "aiAgentEnabled", "notifica_mehub", "whatsapp_whatsmeow",
       "whatsapp_whaleys", "email", "gestor_financas", "gestor_financeiro_ia",
-      "trial", "trialDays", "recurrence"
+      "useFollowUps", "trial", "trialDays", "recurrence"
     ],
     order: [["name", "ASC"]]
   });

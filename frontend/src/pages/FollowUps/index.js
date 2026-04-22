@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useHistory } from "react-router-dom";
 import {
   Box,
   Button,
@@ -50,6 +51,7 @@ import ForumIcon from "@material-ui/icons/Forum";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 
@@ -1555,7 +1557,9 @@ const KanbanBoard = ({ board, campaigns, onEdit, onDrop, onDelete, whatsApps, ha
 
 const FollowUps = () => {
   const classes = useStyles();
+  const history = useHistory();
   const { user } = useContext(AuthContext);
+  const { loading: planLoading, followUps } = usePlanPermissions();
   const { whatsApps } = useContext(WhatsAppsContext);
 
   const [campaigns, setCampaigns] = useState([]);
@@ -1627,9 +1631,16 @@ const FollowUps = () => {
   };
 
   useEffect(() => {
+    if (!planLoading && !followUps) {
+      history.push("/atendimentos");
+    }
+  }, [planLoading, followUps, history]);
+
+  useEffect(() => {
+    if (planLoading || !followUps) return;
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [planLoading, followUps]);
 
   const funnels = useMemo(
     () => ["all", ...boards.map((board) => board.funnelName).filter((value, index, array) => array.indexOf(value) === index)],
@@ -1746,6 +1757,10 @@ const FollowUps = () => {
       throw error;
     }
   };
+
+  if (planLoading || !followUps) {
+    return null;
+  }
 
   return (
     <Box className={classes.root}>

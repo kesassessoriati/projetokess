@@ -33,6 +33,7 @@ interface PlanData {
   gestor_financeiro_ia?: boolean;
   isPublic?: boolean;
   usePropostas?: boolean;
+  useFollowUps?: boolean;
 }
 
 const CreatePlanService = async (planData: PlanData): Promise<Plan> => {
