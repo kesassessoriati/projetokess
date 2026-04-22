@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     Dialog,
     IconButton,
@@ -8,6 +8,8 @@ import {
     Tabs,
     Tab,
     Button,
+    Chip,
+    CircularProgress,
     TextField,
     Avatar,
     Paper,
@@ -27,6 +29,7 @@ import AttachFileIcon from "@mui/icons-material/AttachFile";
 import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 import { toast } from "react-toastify";
 import LeadModal from "../LeadModal";
 import ConfirmationModal from "../ConfirmationModal";
@@ -168,6 +171,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activityType] = useState("ATIVIDADE");
     const [leadAppointmentOpen, setLeadAppointmentOpen] = useState(false);
     const [activities, setActivities] = useState([]);
+    const [leadAppointments, setLeadAppointments] = useState([]);
+    const [loadingLeadAppointments, setLoadingLeadAppointments] = useState(false);
     const [cardColor, setCardColor] = useState(null);
     const [loadingActivities, setLoadingActivities] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
@@ -175,6 +180,15 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [activityToDelete, setActivityToDelete] = useState(null);
     const syncLeadModalStateRef = useRef(syncLeadModalState);
+    const leadAppointmentPhone = useMemo(() => {
+        const rawPhone =
+            (op && op.lead && op.lead.phone) ||
+            (op && op.contact && op.contact.number) ||
+            (op && op.leadPhone) ||
+            "";
+
+        return String(rawPhone).replace(/\D/g, "");
+    }, [op]);
 
     useEffect(() => {
         if (!open) {
@@ -241,11 +255,36 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         }
     }, [resolvedOpportunityId]);
 
+    const fetchLeadAppointments = useCallback(async () => {
+        if (!leadAppointmentPhone) {
+            setLeadAppointments([]);
+            return;
+        }
+
+        try {
+            setLoadingLeadAppointments(true);
+            const { data } = await api.get("/appointments", {
+                params: { leadPhone: leadAppointmentPhone }
+            });
+            setLeadAppointments(Array.isArray(data?.appointments) ? data.appointments : []);
+        } catch (err) {
+            toast.error("Erro ao carregar agendamentos do lead");
+        } finally {
+            setLoadingLeadAppointments(false);
+        }
+    }, [leadAppointmentPhone]);
+
     useEffect(() => {
         if (open && resolvedOpportunityId && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
             fetchActivities();
         }
     }, [fetchActivities, open, resolvedOpportunityId, tabValue]);
+
+    useEffect(() => {
+        if (open && tabValue === 4) {
+            fetchLeadAppointments();
+        }
+    }, [fetchLeadAppointments, open, tabValue]);
 
     if (!op && !leadId && open && false) {
         return null; // bloqueio removido para permitir a criação de um Novo Lead
@@ -253,6 +292,34 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
+    };
+
+    const handleLeadAppointmentSuccess = () => {
+        fetchLeadAppointments();
+        if (onSuccess) onSuccess();
+    };
+
+    const formatAppointmentDate = (value) => {
+        if (!value) return "-";
+        return new Date(value).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    };
+
+    const getStatusLabel = (status) => {
+        const labels = {
+            scheduled: "Agendado",
+            confirmed: "Confirmado",
+            completed: "Concluído",
+            cancelled: "Cancelado",
+            no_show: "Não compareceu"
+        };
+
+        return labels[status] || status || "-";
     };
 
     const handleSaveActivity = async () => {
@@ -727,6 +794,77 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             >
                                 + Propor horários (Agenda)
                             </Button>
+
+                            <Box mt={3}>
+                                <Typography variant="subtitle2" style={{ fontWeight: 700, marginBottom: 12 }}>
+                                    Agendamentos deste lead
+                                </Typography>
+                                {loadingLeadAppointments ? (
+                                    <Box display="flex" alignItems="center" gridGap={8}>
+                                        <CircularProgress size={18} />
+                                        <Typography variant="body2" color="textSecondary">
+                                            Carregando agendamentos...
+                                        </Typography>
+                                    </Box>
+                                ) : !leadAppointmentPhone ? (
+                                    <Paper style={{ padding: 16, borderRadius: 8, border: "1px dashed #d1d5db", background: "#fafafa" }} elevation={0}>
+                                        <Typography variant="body2" color="textSecondary">
+                                            Este lead ainda não tem telefone cadastrado para localizar agendamentos.
+                                        </Typography>
+                                    </Paper>
+                                ) : leadAppointments.length === 0 ? (
+                                    <Paper style={{ padding: 16, borderRadius: 8, border: "1px dashed #d1d5db", background: "#fafafa" }} elevation={0}>
+                                        <Typography variant="body2" color="textSecondary">
+                                            Nenhum compromisso encontrado para este lead.
+                                        </Typography>
+                                    </Paper>
+                                ) : (
+                                    <Box display="flex" flexDirection="column" gridGap={12}>
+                                        {leadAppointments.map((appointment) => {
+                                            const meetLink = appointment.googleMeetLink || appointment.meetingLink;
+                                            return (
+                                                <Paper key={appointment.id} elevation={0} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 14 }}>
+                                                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" gridGap={12} flexWrap="wrap">
+                                                        <Box flex={1} minWidth={220}>
+                                                            <Typography variant="subtitle2" style={{ fontWeight: 800, color: "#111827" }}>
+                                                                {appointment.title || "Compromisso"}
+                                                            </Typography>
+                                                            <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                                                                {formatAppointmentDate(appointment.startDatetime)} • {appointment.durationMinutes || 60} min
+                                                            </Typography>
+                                                            <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                                                                Agenda: {appointment.schedule?.name || "-"}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Box display="flex" alignItems="center" gridGap={8} flexWrap="wrap">
+                                                            <Chip
+                                                                size="small"
+                                                                label={getStatusLabel(appointment.status)}
+                                                                style={{ fontWeight: 700, background: "#e0f2fe", color: "#075985" }}
+                                                            />
+                                                            {meetLink && (
+                                                                <Button
+                                                                    component="a"
+                                                                    href={meetLink}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    variant="contained"
+                                                                    color="primary"
+                                                                    size="small"
+                                                                    endIcon={<OpenInNewIcon fontSize="small" />}
+                                                                    style={{ textTransform: "none", fontWeight: 700 }}
+                                                                >
+                                                                    Google Meet
+                                                                </Button>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Box>
+                                )}
+                            </Box>
                         </TabPanel>
 
                         {/* E-mail */}
@@ -770,6 +908,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 open={leadAppointmentOpen}
                 onClose={() => setLeadAppointmentOpen(false)}
                 op={op}
+                onSuccess={handleLeadAppointmentSuccess}
             />
 
             <ConfirmationModal

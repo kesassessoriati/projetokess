@@ -8,7 +8,7 @@ import SyncGoogleCalendarService from "../services/AppointmentServices/SyncGoogl
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: userId, profile } = req.user;
-  const { scheduleId, status, startDate, endDate, pageNumber } = req.query as Record<string, string>;
+  const { scheduleId, status, startDate, endDate, pageNumber, leadPhone } = req.query as Record<string, string>;
 
   const result = await ListAppointmentsService({
     companyId: Number(companyId),
@@ -18,7 +18,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     status,
     startDate,
     endDate,
-    pageNumber
+    pageNumber,
+    leadPhone
   });
 
   return res.json(result);

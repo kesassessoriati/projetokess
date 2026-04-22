@@ -949,7 +949,6 @@ const LoggedInLayout = ({ children }) => {
   const {
     planActive,
     loading: planLoading,
-    gestor_financas,
     gestor_financeiro_ia,
     propostas,
     followUps,
@@ -1248,7 +1247,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
-      ...(gestor_financas && gestor_financeiro_ia ? [{
+      ...(gestor_financeiro_ia ? [{
         title: "Gestor Financeiro IA",
         path: "/gestor-financas/gestor-financeiro-ia",
         icon: <LocalAtmIcon />,
@@ -1289,7 +1288,7 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
     ],
-    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia, propostas, followUps]
+    [planActive, location.pathname, gestor_financeiro_ia, propostas, followUps]
   );
 
   const isAdmin = user?.profile === "admin";
