@@ -35,6 +35,7 @@ const ShowPlanCompanyService = async (id: string | number): Promise<Company> => 
                     "email",
                     "gestor_financas",
                     "gestor_financeiro_ia",
+                    "usePropostas",
                     "recurrence",
                     "trial",
                     "trialDays"

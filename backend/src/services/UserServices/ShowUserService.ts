@@ -70,7 +70,8 @@ const ShowUserService = async (id: string | number, companyId: string | number):
                 "whatsapp_whaleys",
                 "email",
                 "gestor_financas",
-                "gestor_financeiro_ia"
+                "gestor_financeiro_ia",
+                "usePropostas"
               ]
             },
           ]

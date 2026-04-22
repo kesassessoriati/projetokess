@@ -37,7 +37,8 @@ const APIShowEmailUserService = async (email: string): Promise<User> => {
                 "whatsapp_whaleys",
                 "email",
                 "gestor_financas",
-                "gestor_financeiro_ia"
+                "gestor_financeiro_ia",
+                "usePropostas"
               ]
             },
           ]

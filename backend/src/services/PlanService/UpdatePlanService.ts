@@ -30,6 +30,7 @@ interface PlanData {
   gestor_financas?: boolean;
   gestor_financeiro_ia?: boolean;
   isPublic?: boolean;
+  usePropostas?: boolean;
 }
 
 const UpdatePlanService = async (planData: PlanData): Promise<Plan> => {
