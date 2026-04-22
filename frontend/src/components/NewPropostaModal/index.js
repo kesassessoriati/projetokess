@@ -11,6 +11,7 @@ import {
 } from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
+import { buildProposalTitle, defaultProposalData } from "../../utils/proposalBuilder";
 
 const useStyles = makeStyles((theme) => ({
   field: {
@@ -22,25 +23,27 @@ const NewPropostaModal = ({ open, onClose, onSave }) => {
   const classes = useStyles();
   const [title, setTitle] = useState("");
   const [clientName, setClientName] = useState("");
+  const [city, setCity] = useState("Vitória da Conquista - BA");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !clientName.trim()) {
-      toast.warning("Preencha o título e o nome do cliente");
+    if (!clientName.trim()) {
+      toast.warning("Preencha o nome do cliente");
       return;
     }
     setLoading(true);
     try {
       const { data } = await api.post("/proposals", {
-        title: title.trim(),
+        title: title.trim() || buildProposalTitle(clientName.trim()),
         clientName: clientName.trim(),
         status: "rascunho",
-        data: {}
+        data: defaultProposalData(clientName.trim(), city.trim())
       });
       toast.success("Proposta criada com sucesso!");
       setTitle("");
       setClientName("");
+      setCity("Vitória da Conquista - BA");
       onSave(data);
     } catch (err) {
       toast.error("Erro ao criar proposta");
@@ -52,6 +55,7 @@ const NewPropostaModal = ({ open, onClose, onSave }) => {
   const handleClose = () => {
     setTitle("");
     setClientName("");
+    setCity("Vitória da Conquista - BA");
     onClose();
   };
 
@@ -80,6 +84,15 @@ const NewPropostaModal = ({ open, onClose, onSave }) => {
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
             placeholder="Ex: Empresa ABC Ltda"
+          />
+          <TextField
+            className={classes.field}
+            label="Cidade"
+            variant="outlined"
+            fullWidth
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Ex: Vitória da Conquista - BA"
           />
         </DialogContent>
         <DialogActions>

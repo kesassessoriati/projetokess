@@ -109,6 +109,7 @@ import Chips from "../pages/Chips";
 import Meetings from "../pages/Meetings";
 import PropostasPage from "../pages/Propostas";
 import PropostaEditorPage from "../pages/PropostaEditor";
+import PropostaPublica from "../pages/PropostaPublica";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -163,6 +164,7 @@ const Routes = () => {
                 <Route exact path="/forgetpsw" component={ForgetPassword} isPublic />
                 <Route exact path="/checkout/:token" component={PublicCheckout} isPublic />
                 <Route exact path="/public/checkout/:token" component={PublicCheckout} isPublic />
+                <Route exact path="/propostas/public/:slug" component={PropostaPublica} isPublic />
 
                 <WhatsAppsProvider>
                   <QueueSelectedProvider>
