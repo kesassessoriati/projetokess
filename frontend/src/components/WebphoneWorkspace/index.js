@@ -288,6 +288,18 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(3, 2),
     color: "#94a3b8",
   },
+  sequenceInput: {
+    "& input": {
+      cursor: "text",
+    },
+    "& input[type=number]": {
+      MozAppearance: "textfield",
+    },
+    "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": {
+      WebkitAppearance: "none",
+      margin: 0,
+    },
+  },
 }));
 
 const statusMap = {
@@ -350,6 +362,38 @@ const dtmfFrequencies = {
   "*": [941, 1209],
   "0": [941, 1336],
   "#": [941, 1477],
+};
+
+const selectMenuProps = {
+  style: {
+    zIndex: 2200,
+  },
+  getContentAnchorEl: null,
+  anchorOrigin: {
+    vertical: "bottom",
+    horizontal: "left",
+  },
+  transformOrigin: {
+    vertical: "top",
+    horizontal: "left",
+  },
+  PaperProps: {
+    style: {
+      zIndex: 2200,
+      maxHeight: 280,
+    },
+  },
+};
+
+const onlyDigits = (value) => String(value || "").replace(/\D/g, "");
+
+const normalizeNumberValue = (value, fallback, min, max) => {
+  const parsed = Number(onlyDigits(value));
+  if (!Number.isFinite(parsed) || parsed < min) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
 };
 
 const tabConfig = [
@@ -422,6 +466,24 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
 
     return [...selectedPipeline.stages].sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
   }, [selectedPipeline]);
+
+  const moveStageOptions = useMemo(
+    () => pipelineStages.filter((stage) => Number(stage.id) !== Number(selectedStageId)),
+    [pipelineStages, selectedStageId]
+  );
+
+  const defaultMoveStageId = useMemo(() => {
+    if (!moveStageOptions.length) {
+      return "";
+    }
+
+    const currentIndex = pipelineStages.findIndex((stage) => Number(stage.id) === Number(selectedStageId));
+    const nextStage = currentIndex >= 0
+      ? pipelineStages.slice(currentIndex + 1).find((stage) => Number(stage.id) !== Number(selectedStageId))
+      : null;
+
+    return String((nextStage || moveStageOptions[0]).id);
+  }, [moveStageOptions, pipelineStages, selectedStageId]);
 
   const currentLeadPipeline = useMemo(() => {
     const pipelineId = currentLead?.pipelineId || currentCallContext?.pipelineId;
@@ -511,6 +573,17 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   }, [currentLead?.stageId, pipelineStages, selectedStageId]);
 
   useEffect(() => {
+    if (onMaxAttempts !== "move_stage") {
+      return;
+    }
+
+    const hasValidMoveStage = moveStageOptions.some((stage) => String(stage.id) === String(moveStageId));
+    if (!hasValidMoveStage) {
+      setMoveStageId(defaultMoveStageId);
+    }
+  }, [defaultMoveStageId, moveStageId, moveStageOptions, onMaxAttempts]);
+
+  useEffect(() => {
     if (activeTab === "history") {
       loadHistory(currentLeadId ? { leadId: currentLeadId } : {});
     }
@@ -580,15 +653,18 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   const previewSequenceTargets = async () => {
     if (!selectedPipelineId || !selectedStageId) {
       toast.info("Selecione o funil e o estágio para carregar os leads.");
-      return;
+      return [];
     }
+
+    const quantity = normalizeNumberValue(sequenceQuantity, 10, 1, 200);
+    setSequenceQuantity(quantity);
 
     setPreviewLoading(true);
     try {
       const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, {
         params: {
           stageId: selectedStageId,
-          limit: Math.max(Number(sequenceQuantity || 0), 50),
+          limit: Math.max(quantity, 50),
         },
       });
 
@@ -607,9 +683,14 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
           };
         })
         .filter((target) => target.phone)
-        .slice(0, Number(sequenceQuantity || 0));
+        .slice(0, quantity);
 
       setPreviewTargets(availableTargets);
+      const nextTargets = availableTargets;
+      if (!availableTargets.length) {
+        toast.info("Nenhum lead com telefone encontrado nesse estÃ¡gio.");
+      }
+      return nextTargets;
     } catch (error) {
       console.error("[WebphoneWorkspace] Failed to preview sequence targets", error);
       toast.error("Não foi possível carregar os leads da sequência.");
@@ -619,19 +700,36 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   };
 
   const handleStartSequence = async () => {
-    if (!previewTargets.length) {
-      await previewSequenceTargets();
+    const quantity = normalizeNumberValue(sequenceQuantity, 10, 1, 200);
+    const attempts = normalizeNumberValue(sequenceAttempts, 3, 1, 10);
+    const interval = normalizeNumberValue(sequenceInterval, 30, 5, 3600);
+    const nextStageId = onMaxAttempts === "move_stage" ? moveStageId || defaultMoveStageId : "";
+
+    setSequenceQuantity(quantity);
+    setSequenceAttempts(attempts);
+    setSequenceInterval(interval);
+
+    if (onMaxAttempts === "move_stage" && !nextStageId) {
+      toast.info("Escolha o estÃ¡gio para mover quando o lead nÃ£o atender.");
+      return;
+    }
+
+    const targetsToDial = previewTargets.length
+      ? previewTargets.slice(0, quantity)
+      : ((await previewSequenceTargets()) || []).slice(0, quantity);
+
+    if (!targetsToDial.length) {
       return;
     }
 
     const sequence = await createSequence({
       pipelineId: Number(selectedPipelineId),
       stageId: Number(selectedStageId),
-      nextStageId: moveStageId ? Number(moveStageId) : null,
-      maxAttempts: Number(sequenceAttempts),
-      intervalSeconds: Number(sequenceInterval),
+      nextStageId: nextStageId ? Number(nextStageId) : null,
+      maxAttempts: attempts,
+      intervalSeconds: interval,
       onMaxAttempts,
-      targets: previewTargets,
+      targets: targetsToDial,
     });
 
     if (sequence?.id) {
@@ -901,6 +999,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <InputLabel>Pipeline</InputLabel>
                 <Select
                   label="Pipeline"
+                  MenuProps={selectMenuProps}
                   value={selectedPipelineId}
                   onChange={(event) => {
                     setSelectedPipelineId(event.target.value);
@@ -921,9 +1020,11 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <InputLabel>Estágio do funil</InputLabel>
                 <Select
                   label="Estágio do funil"
+                  MenuProps={selectMenuProps}
                   value={selectedStageId}
                   onChange={(event) => {
                     setSelectedStageId(event.target.value);
+                    setMoveStageId("");
                     setPreviewTargets([]);
                   }}
                 >
@@ -937,12 +1038,19 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
 
               <TextField
                 label="Quantidade de leads"
-                type="number"
+                type="text"
                 variant="outlined"
                 size="small"
                 fullWidth
+                className={classes.sequenceInput}
                 value={sequenceQuantity}
-                onChange={(event) => setSequenceQuantity(event.target.value)}
+                onFocus={(event) => event.target.select()}
+                onChange={(event) => {
+                  setSequenceQuantity(onlyDigits(event.target.value));
+                  setPreviewTargets([]);
+                }}
+                onBlur={() => setSequenceQuantity(normalizeNumberValue(sequenceQuantity, 10, 1, 200))}
+                inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               />
             </Box>
 
@@ -952,19 +1060,27 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
               <Box className={classes.row} style={{ marginBottom: 12 }}>
                 <TextField
                   label="Tentativas por lead"
-                  type="number"
+                  type="text"
                   variant="outlined"
                   size="small"
+                  className={classes.sequenceInput}
                   value={sequenceAttempts}
-                  onChange={(event) => setSequenceAttempts(event.target.value)}
+                  onFocus={(event) => event.target.select()}
+                  onChange={(event) => setSequenceAttempts(onlyDigits(event.target.value))}
+                  onBlur={() => setSequenceAttempts(normalizeNumberValue(sequenceAttempts, 3, 1, 10))}
+                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
                 />
                 <TextField
                   label="Intervalo (seg)"
-                  type="number"
+                  type="text"
                   variant="outlined"
                   size="small"
+                  className={classes.sequenceInput}
                   value={sequenceInterval}
-                  onChange={(event) => setSequenceInterval(event.target.value)}
+                  onFocus={(event) => event.target.select()}
+                  onChange={(event) => setSequenceInterval(onlyDigits(event.target.value))}
+                  onBlur={() => setSequenceInterval(normalizeNumberValue(sequenceInterval, 30, 5, 3600))}
+                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
                 />
               </Box>
 
@@ -972,8 +1088,14 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <InputLabel>Se não atender</InputLabel>
                 <Select
                   label="Se não atender"
+                  MenuProps={selectMenuProps}
                   value={onMaxAttempts}
-                  onChange={(event) => setOnMaxAttempts(event.target.value)}
+                  onChange={(event) => {
+                    setOnMaxAttempts(event.target.value);
+                    if (event.target.value === "move_stage" && !moveStageId) {
+                      setMoveStageId(defaultMoveStageId);
+                    }
+                  }}
                 >
                   <MenuItem value="move_stage">Mover para outro estágio</MenuItem>
                   <MenuItem value="keep_stage">Manter no estágio atual</MenuItem>
@@ -984,11 +1106,11 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <InputLabel>Mover para estágio</InputLabel>
                 <Select
                   label="Mover para estágio"
+                  MenuProps={selectMenuProps}
                   value={moveStageId}
                   onChange={(event) => setMoveStageId(event.target.value)}
                 >
-                  {pipelineStages
-                    .filter((stage) => Number(stage.id) !== Number(selectedStageId))
+                  {moveStageOptions
                     .map((stage) => (
                       <MenuItem key={stage.id} value={String(stage.id)}>
                         {stage.name}
@@ -1011,7 +1133,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
               <Button
                 className={`${classes.primaryButton} ${classes.callButton}`}
                 onClick={handleStartSequence}
-                disabled={sequenceLoading || !previewTargets.length}
+                disabled={sequenceLoading || previewLoading || pipelinesLoading || !selectedPipelineId || !selectedStageId}
                 fullWidth
                 startIcon={<PlayArrowIcon />}
               >
@@ -1275,6 +1397,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                     <InputLabel>Estágio</InputLabel>
                     <Select
                       label="Estágio"
+                      MenuProps={selectMenuProps}
                       value={String(currentLeadStageId || "")}
                       onChange={(event) => handleMoveOpportunity(event.target.value)}
                     >

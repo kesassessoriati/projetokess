@@ -135,12 +135,30 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError("Selecione ao menos um lead para iniciar a sequência.", 400);
   }
 
+  if ((onMaxAttempts || "move_stage") === "move_stage" && !nextStageId) {
+    throw new AppError("Informe o estagio de destino para mover leads sem atendimento.", 400);
+  }
+
+  if (nextStageId) {
+    const destinationStage = await PipelineStage.findOne({
+      where: {
+        id: Number(nextStageId),
+        pipelineId: Number(pipelineId),
+        companyId
+      }
+    });
+
+    if (!destinationStage || Number(destinationStage.id) === Number(stageId)) {
+      throw new AppError("Estagio de destino invalido para a sequencia.", 400);
+    }
+  }
+
   const sequence = await CallSequence.create({
     companyId,
     userId: Number(userId),
     pipelineId: Number(pipelineId),
     stageId: Number(stageId),
-    nextStageId: nextStageId ? Number(nextStageId) : null,
+    nextStageId: (onMaxAttempts || "move_stage") === "move_stage" && nextStageId ? Number(nextStageId) : null,
     name: name || `Sequência ${new Date().toLocaleString("pt-BR")}`,
     status: "ACTIVE",
     maxAttempts: Number(maxAttempts) || 3,
