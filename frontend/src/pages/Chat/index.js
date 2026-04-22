@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useHistory } from "react-router-dom";
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -185,6 +186,98 @@ const useStyles = makeStyles((theme) => ({
     color: "#475569",
     lineHeight: 1.6,
   },
+  searchResultPanel: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+    padding: "0 12px 14px",
+  },
+  searchResultHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    padding: "0 8px 12px",
+  },
+  searchResultTitle: {
+    fontSize: "0.82rem",
+    fontWeight: 800,
+    color: "#334155",
+  },
+  searchResultCount: {
+    minWidth: 28,
+    height: 28,
+    padding: "0 10px",
+    borderRadius: 999,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+    color: "#92400e",
+    fontSize: "0.78rem",
+    fontWeight: 900,
+  },
+  searchResultList: {
+    flex: 1,
+    overflowY: "auto",
+    ...theme.scrollbarStyles,
+    paddingRight: 4,
+  },
+  searchResultItem: {
+    width: "100%",
+    textAlign: "left",
+    border: "1px solid rgba(245,158,11,0.28)",
+    borderRadius: 16,
+    padding: "12px 13px",
+    marginBottom: 10,
+    cursor: "pointer",
+    background:
+      "linear-gradient(135deg, rgba(255,251,235,0.96) 0%, rgba(255,255,255,0.98) 100%)",
+    boxShadow: "0 12px 26px rgba(146,64,14,0.08)",
+    transition: "all 0.16s ease",
+    "&:hover": {
+      borderColor: "rgba(245,158,11,0.56)",
+      boxShadow: "0 16px 32px rgba(146,64,14,0.14)",
+      transform: "translateY(-1px)",
+    },
+  },
+  searchResultChat: {
+    fontSize: "0.86rem",
+    fontWeight: 900,
+    color: "#0f172a",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    marginBottom: 4,
+  },
+  searchResultMessage: {
+    fontSize: "0.8rem",
+    color: "#475569",
+    lineHeight: 1.35,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  searchResultMeta: {
+    marginTop: 8,
+    fontSize: "0.72rem",
+    color: "#92400e",
+    fontWeight: 800,
+  },
+  searchEmptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 180,
+    padding: "24px 18px",
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 1.5,
+  },
 }));
 
 const normalizeSearch = (value = "") =>
@@ -193,6 +286,18 @@ const normalizeSearch = (value = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+
+const stripHtml = (value = "") =>
+  String(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const formatSearchPreview = (message = "") => {
+  const text = stripHtml(message);
+  if (!text) return "Mensagem sem texto";
+  return text.length > 115 ? `${text.substring(0, 115)}...` : text;
+};
 
 export function ChatModal({
   open,
@@ -320,6 +425,9 @@ function Chat(props) {
   const [messagesPage, setMessagesPage] = useState(1);
   const [messagesPageInfo, setMessagesPageInfo] = useState({ hasMore: false });
   const [chatSearch, setChatSearch] = useState("");
+  const [messageSearchResults, setMessageSearchResults] = useState([]);
+  const [loadingMessageSearch, setLoadingMessageSearch] = useState(false);
+  const [searchTarget, setSearchTarget] = useState(null);
   const scrollToBottomRef = useRef(null);
   const isMounted = useRef(true);
 
@@ -338,10 +446,11 @@ function Chat(props) {
   } = useSafeApi("/chats", { manual: false });
 
   const { isReady, on } = useSocket();
+  const normalizedChatSearch = normalizeSearch(chatSearch);
 
   const filteredChats = useMemo(() => {
     const records = chatsData?.records || [];
-    const search = normalizeSearch(chatSearch);
+    const search = normalizedChatSearch;
 
     if (!search) return records;
 
@@ -359,7 +468,46 @@ function Chat(props) {
 
       return normalizeSearch(searchableText).includes(search);
     });
-  }, [chatsData?.records, chatSearch]);
+  }, [chatsData?.records, normalizedChatSearch]);
+
+  useEffect(() => {
+    const search = chatSearch.trim();
+
+    if (!search) {
+      setMessageSearchResults([]);
+      setLoadingMessageSearch(false);
+      setSearchTarget(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoadingMessageSearch(true);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const { data } = await api.get(
+          `/chats/messages/search?q=${encodeURIComponent(search)}`
+        );
+        if (!cancelled) {
+          setMessageSearchResults(data?.records || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setMessageSearchResults([]);
+          toastError(err);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingMessageSearch(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [chatSearch]);
 
   const upsertChatRecord = (records = [], chat) => {
     if (!chat?.id) return records;
@@ -480,14 +628,37 @@ function Chat(props) {
     setTab(1);
   };
 
+  const handleSelectSearchResult = (result) => {
+    if (!result?.chat) return;
+
+    setSearchTarget({
+      chatId: result.chat.id,
+      messageId: result.id,
+      message: result,
+    });
+    selectChat(result.chat);
+    history.push(`/chats/${result.chat.uuid}`);
+  };
+
   const fetchMessages = async (chatId, page) => {
     setLoadingMessages(true);
     try {
       const { data } = await api.get(`/chats/${chatId}/messages?pageNumber=${page}`);
       if (data && data.records) {
-        setMessages((prev) => (page === 1 ? data.records : [...data.records, ...prev]));
+        let nextRecords = data.records;
+        if (
+          page === 1 &&
+          searchTarget?.chatId === +chatId &&
+          searchTarget?.message &&
+          !nextRecords.some((message) => message.id === searchTarget.messageId)
+        ) {
+          nextRecords = [...nextRecords, searchTarget.message].sort((a, b) => a.id - b.id);
+        }
+        setMessages((prev) => (page === 1 ? nextRecords : [...nextRecords, ...prev]));
         setMessagesPageInfo(data);
-        if (page === 1) setTimeout(() => scrollToBottomRef.current?.(), 200);
+        if (page === 1 && searchTarget?.chatId !== +chatId) {
+          setTimeout(() => scrollToBottomRef.current?.(), 200);
+        }
       }
     } catch (err) {
       toastError(err);
@@ -587,7 +758,10 @@ function Chat(props) {
                   </Typography>
                   <TextField
                     value={chatSearch}
-                    onChange={(event) => setChatSearch(event.target.value)}
+                    onChange={(event) => {
+                      setChatSearch(event.target.value);
+                      setSearchTarget(null);
+                    }}
                     placeholder="Buscar chats internos"
                     variant="outlined"
                     size="small"
@@ -634,34 +808,80 @@ function Chat(props) {
                   </Tabs>
                 )}
 
-                <SafeComponent
-                  loading={loadingChats}
-                  error={errorChats}
-                  data={filteredChats}
-                  onRetry={findChats}
-                  emptyMessage={
-                    chatSearch
-                      ? "Nenhum chat interno encontrado para esta busca."
-                      : "Nenhum chat interno ativo."
-                  }
-                  renderData={(records) => (
-                    <ChatList
-                      chats={records}
-                      currentChat={currentChat}
-                      selectChat={(chat) => {
-                        selectChat(chat);
-                        history.push(`/chats/${chat.uuid}`);
-                      }}
-                      handleDeleteChat={handleDeleteChat}
-                      handleEditChat={(chat) => {
-                        if (chat) setCurrentChat(chat);
-                        setDialogType("edit");
-                        setShowDialog(true);
-                      }}
-                      user={user}
-                    />
-                  )}
-                />
+                {normalizedChatSearch ? (
+                  <div className={classes.searchResultPanel}>
+                    <div className={classes.searchResultHeader}>
+                      <Typography className={classes.searchResultTitle}>
+                        Resultados nas mensagens
+                      </Typography>
+                      <span className={classes.searchResultCount}>
+                        {messageSearchResults.length}
+                      </span>
+                    </div>
+
+                    <div className={classes.searchResultList}>
+                      {loadingMessageSearch ? (
+                        <div className={classes.searchEmptyState}>
+                          <CircularProgress size={28} />
+                          <Typography variant="body2" style={{ marginTop: 12 }}>
+                            Buscando nos chats internos...
+                          </Typography>
+                        </div>
+                      ) : messageSearchResults.length > 0 ? (
+                        messageSearchResults.map((result) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            className={classes.searchResultItem}
+                            onClick={() => handleSelectSearchResult(result)}
+                          >
+                            <div className={classes.searchResultChat}>
+                              {result.chat?.title || "Chat interno"}
+                            </div>
+                            <div className={classes.searchResultMessage}>
+                              {formatSearchPreview(result.message)}
+                            </div>
+                            <div className={classes.searchResultMeta}>
+                              Abrir e destacar mensagem
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className={classes.searchEmptyState}>
+                          <SearchIcon style={{ fontSize: 42, opacity: 0.45 }} />
+                          <Typography variant="body2" style={{ marginTop: 10 }}>
+                            Nenhuma mensagem encontrada nos chats internos.
+                          </Typography>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <SafeComponent
+                    loading={loadingChats}
+                    error={errorChats}
+                    data={filteredChats}
+                    onRetry={findChats}
+                    emptyMessage="Nenhum chat interno ativo."
+                    renderData={(records) => (
+                      <ChatList
+                        chats={records}
+                        currentChat={currentChat}
+                        selectChat={(chat) => {
+                          selectChat(chat);
+                          history.push(`/chats/${chat.uuid}`);
+                        }}
+                        handleDeleteChat={handleDeleteChat}
+                        handleEditChat={(chat) => {
+                          if (chat) setCurrentChat(chat);
+                          setDialogType("edit");
+                          setShowDialog(true);
+                        }}
+                        user={user}
+                      />
+                    )}
+                  />
+                )}
               </div>
             </Grid>
           )}
@@ -692,6 +912,7 @@ function Chat(props) {
                     scrollToBottomRef={scrollToBottomRef}
                     pageInfo={messagesPageInfo}
                     loading={loadingMessages}
+                    highlightedMessageId={searchTarget?.messageId}
                   />
                 ) : (
                   <div className={classes.emptyChat}>

@@ -11,6 +11,7 @@ const upload = multer({
 });
 
 routes.get("/chats", isAuth, ChatController.index);
+routes.get("/chats/messages/search", isAuth, ChatController.searchMessages);
 routes.get("/chats/:id", isAuth, ChatController.show);
 routes.get("/chats/:id/messages", isAuth, ChatController.messages);
 routes.post(

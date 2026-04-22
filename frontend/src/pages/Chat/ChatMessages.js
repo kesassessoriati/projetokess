@@ -234,6 +234,25 @@ const useStyles = makeStyles((theme) => ({
   messageRowMine: {
     flexDirection: "row-reverse",
   },
+  messageRowHighlighted: {
+    animation: "$messagePulse 1.4s ease-in-out 2",
+  },
+  highlightedMessageBox: {
+    borderColor: "#f59e0b !important",
+    boxShadow:
+      "0 0 0 3px rgba(245,158,11,0.24), 0 18px 38px rgba(245,158,11,0.18) !important",
+  },
+  "@keyframes messagePulse": {
+    "0%": {
+      transform: "translateY(0)",
+    },
+    "50%": {
+      transform: "translateY(-2px)",
+    },
+    "100%": {
+      transform: "translateY(0)",
+    },
+  },
   msgAvatar: {
     width: 32,
     height: 32,
@@ -491,7 +510,7 @@ const MediaContent = React.memo(({ mediaPath, mediaName, onImageClick }) => {
 });
 
 const MessageItem = React.memo(
-  ({ item, isMine, onImageClick, onOpenOptions }) => {
+  ({ item, isMine, isHighlighted, messageRef, onImageClick, onOpenOptions }) => {
   const classes = useStyles();
   const { datetimeToClient } = useDate();
 
@@ -505,14 +524,19 @@ const MessageItem = React.memo(
   const isEdited = wasEdited(item);
 
   return (
-    <div className={`${classes.messageRow} ${isMine ? classes.messageRowMine : ""}`}>
+    <div
+      ref={messageRef}
+      className={`${classes.messageRow} ${isMine ? classes.messageRowMine : ""} ${
+        isHighlighted ? classes.messageRowHighlighted : ""
+      }`}
+    >
       <Avatar className={classes.msgAvatar} style={{ backgroundColor: avatarColor }}>
         {initials}
       </Avatar>
       <div
         className={`${isMine ? classes.boxRight : classes.boxLeft} ${
           isMine ? classes.boxWithActions : ""
-        }`}
+        } ${isHighlighted ? classes.highlightedMessageBox : ""}`}
       >
         {isMine && (
           <Tooltip title="Opcoes da mensagem">
@@ -605,10 +629,12 @@ export default function ChatMessages({
   scrollToBottomRef,
   pageInfo,
   loading,
+  highlightedMessageId,
 }) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const baseRef = useRef();
+  const messageRefs = useRef({});
 
   const [contentMessage, setContentMessage] = useState("");
   const [medias, setMedias] = useState([]);
@@ -648,6 +674,17 @@ export default function ChatMessages({
     }
     scrollToBottomRef.current = scrollToBottom;
   }, [chat?.id]);
+
+  useEffect(() => {
+    if (!highlightedMessageId) return;
+
+    const messageNode = messageRefs.current[highlightedMessageId];
+    if (messageNode) {
+      setTimeout(() => {
+        messageNode.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 180);
+    }
+  }, [highlightedMessageId, messages]);
 
   const handleScroll = useCallback(
     (e) => {
@@ -794,6 +831,12 @@ export default function ChatMessages({
               key={item.id || key}
               item={item}
               isMine={item.senderId === user.id}
+              isHighlighted={item.id === highlightedMessageId}
+              messageRef={(node) => {
+                if (node) {
+                  messageRefs.current[item.id] = node;
+                }
+              }}
               onImageClick={handleImageClick}
               onOpenOptions={handleOpenMessageOptions}
             />

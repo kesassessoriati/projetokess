@@ -8,6 +8,7 @@ import ShowFromUuidService from "../services/ChatService/ShowFromUuidService";
 import DeleteService from "../services/ChatService/DeleteService";
 import FindMessages from "../services/ChatService/FindMessages";
 import UpdateService from "../services/ChatService/UpdateService";
+import SearchMessagesService from "../services/ChatService/SearchMessagesService";
 
 import Chat from "../models/Chat";
 import CreateMessageService from "../services/ChatService/CreateMessageService";
@@ -30,6 +31,10 @@ type StoreData = {
 type FindParams = {
   companyId: number;
   ownerId?: number;
+};
+
+type MessageSearchQuery = {
+  q?: string;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -241,6 +246,23 @@ export const messages = async (
   });
 
   return res.json({ records, count, hasMore });
+};
+
+export const searchMessages = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { q } = req.query as MessageSearchQuery;
+  const { companyId } = req.user;
+  const ownerId = +req.user.id;
+
+  const { records, count } = await SearchMessagesService({
+    ownerId,
+    companyId,
+    searchParam: q || ""
+  });
+
+  return res.json({ records, count });
 };
 
 export const updateMessage = async (
