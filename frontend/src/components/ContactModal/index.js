@@ -104,6 +104,7 @@ const isTempNumber = (value) =>
 const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
   const isMounted = useRef(true);
   const [gradient] = useState(getRandomGradient());
+  const drawerTopOffset = "112px";
 
   const initialState = {
     name: "",
@@ -239,11 +240,20 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
       TransitionComponent={Slide}
       transitionDuration={{ enter: 300, exit: 200 }}
       sx={{
+        '& .MuiBackdrop-root': {
+          top: { xs: 0, md: drawerTopOffset },
+        },
         '& .MuiDrawer-paper': {
-          width: '600px',
-          maxWidth: '90vw',
+          top: { xs: 0, md: drawerTopOffset },
+          height: { xs: "100dvh", md: `calc(100dvh - ${drawerTopOffset})` },
+          width: { xs: "100vw", sm: "440px", md: "420px" },
+          maxWidth: '100vw',
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
           backgroundColor: '#ffffff',
           boxShadow: '-4px 0px 20px rgba(0, 0, 0, 0.15)',
+          borderTopLeftRadius: { xs: 0, md: "14px" },
         },
       }}
     >
@@ -252,7 +262,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
         sx={{
           backgroundColor: 'var(--color-primary)',
           color: 'var(--btn-primary-text, #fff)',
-          padding: '20px 24px',
+          padding: '14px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -300,6 +310,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflow: 'auto',
           backgroundColor: '#f8fafc',
         }}
@@ -315,7 +326,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
         >
           {({ values, errors, touched, isSubmitting, setFieldValue }) => (
             <Form>
-              <Box sx={{ p: 3 }}>
+              <Box sx={{ p: 2 }}>
                 <Typography
                   variant="subtitle1"
                   gutterBottom
@@ -905,7 +916,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                   bottom: 0,
                   backgroundColor: '#ffffff',
                   borderTop: '1px solid #e0e0e0',
-                  padding: '16px 24px',
+                  padding: '12px 16px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   gap: 2,
