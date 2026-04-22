@@ -502,7 +502,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} md={3}>
+                  <Grid item xs={12} md={6}>
                     <Field
                       as={TextField}
                       type="date"
@@ -515,12 +515,16 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                         "& .MuiFilledInput-root": {
                           bgcolor: "rgba(233, 236, 239, 0.4)",
                           borderRadius: "8px",
+                          minHeight: 56,
+                        },
+                        "& input": {
+                          minWidth: 0,
                         },
                       }}
                     />
                   </Grid>
 
-                  <Grid item xs={12} md={3}>
+                  <Grid item xs={12} md={6}>
                     <Field
                       as={TextField}
                       type="date"
@@ -533,6 +537,10 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                         "& .MuiFilledInput-root": {
                           bgcolor: "rgba(233, 236, 239, 0.4)",
                           borderRadius: "8px",
+                          minHeight: 56,
+                        },
+                        "& input": {
+                          minWidth: 0,
                         },
                       }}
                     />
