@@ -18,7 +18,6 @@ interface CreateAppointmentData {
   contactId?: number;
   companyId: number;
   clientEmail?: string;
-  organizerEmail?: string;
   leadName?: string;
   leadPhone?: string;
   participantEmails?: string[];
@@ -181,7 +180,6 @@ const CreateAppointmentService = async (
 
         const attendees: any[] = [];
         if (data.clientEmail) attendees.push({ email: data.clientEmail });
-        if (data.organizerEmail) attendees.push({ email: data.organizerEmail });
         if (data.participantEmails && data.participantEmails.length > 0) {
           data.participantEmails.forEach(email => {
             if (!attendees.find(a => a.email === email)) {

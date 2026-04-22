@@ -22,7 +22,6 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("Reunião de negócios para consultoria e análise estratégica.");
     const [clientEmail, setClientEmail] = useState("");
-    const [organizerEmail, setOrganizerEmail] = useState("");
     const [startDatetime, setStartDatetime] = useState("");
     const [durationMinutes, setDurationMinutes] = useState("60");
     const [scheduleId, setScheduleId] = useState("");
@@ -44,15 +43,6 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
             resetForm();
         }
     }, [open, op, user]);
-
-    useEffect(() => {
-        if (scheduleId) {
-            const schedule = schedules.find(s => String(s.id) === String(scheduleId));
-            if (schedule && schedule.user && schedule.user.email) {
-                setOrganizerEmail(schedule.user.email);
-            }
-        }
-    }, [scheduleId, schedules]);
 
     const getCurrentLocalDatetime = () => {
         const now = new Date();
@@ -85,7 +75,6 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         setTitle(`Reunião: ${(op && op.title) || (op && op.name) || (op && op.lead && op.lead.name) || "Novo Lead"}`);
         setDescription("Reunião de negócios para consultoria e análise estratégica.");
         setClientEmail((op && op.contact && op.contact.email) || (op && op.lead && op.lead.email) || "");
-        setOrganizerEmail("");
         setStartDatetime(getCurrentLocalDatetime());
         setDurationMinutes("60");
         setScheduleId("");
@@ -139,17 +128,15 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
         try {
             let finalDescription = description.trim();
 
-            if (clientEmail || organizerEmail) {
+            if (clientEmail) {
                 finalDescription += "\n\n--- INFORMAÇÕES ADICIONAIS ---";
-                if (clientEmail) finalDescription += `\nE-mail do Cliente (Lead): ${clientEmail}`;
-                if (organizerEmail) finalDescription += `\nE-mail do Organizador: ${organizerEmail}`;
+                finalDescription += `\nE-mail do Cliente (Lead): ${clientEmail}`;
             }
 
             const payload = {
                 title: title.trim(),
                 description: finalDescription,
                 clientEmail: clientEmail ? clientEmail.trim() : null,
-                organizerEmail: organizerEmail ? organizerEmail.trim() : null,
                 startDatetime: startDatetime,
                 durationMinutes: parseInt(durationMinutes, 10) || 60,
                 status: "scheduled",
@@ -211,7 +198,7 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                     </Grid>
 
                     {/* Telefone WhatsApp do lead (pré-preenchido) */}
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                         <TextField
                             label="Telefone WhatsApp do lead"
                             fullWidth
@@ -233,18 +220,6 @@ const LeadAppointmentModal = ({ open, onClose, op, onSuccess }) => {
                             placeholder="cliente@email.com"
                         />
                     </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                        <TextField
-                            label="E-mail do organizador"
-                            fullWidth
-                            variant="outlined"
-                            value={organizerEmail}
-                            onChange={(e) => setOrganizerEmail(e.target.value)}
-                            placeholder="seu@email.com"
-                        />
-                    </Grid>
-
                     {/* Descrição do evento */}
                     <Grid item xs={12}>
                         <TextField
