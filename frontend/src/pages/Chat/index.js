@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useHistory } from "react-router-dom";
 import {
   Button,
@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  InputAdornment,
   makeStyles,
   Paper,
   Tab,
@@ -26,6 +27,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import AddIcon from "@mui/icons-material/Add";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ForumIcon from "@mui/icons-material/Forum";
+import SearchIcon from "@material-ui/icons/Search";
 import useSafeApi from "../../hooks/useSafeApi";
 import { useSocket } from "../../context/SocketContext";
 import SafeComponent from "../../components/SafeComponent";
@@ -83,11 +85,32 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 800,
     color: "#0f172a",
   },
-  sidebarSubtitle: {
-    fontSize: "0.84rem",
-    color: "#475569",
-    marginTop: 4,
-    lineHeight: 1.5,
+  chatSearch: {
+    marginTop: 14,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 14,
+      background: "rgba(255,255,255,0.92)",
+      boxShadow: "0 10px 24px rgba(15,23,42,0.05)",
+      "& fieldset": {
+        borderColor: "rgba(148,163,184,0.24)",
+      },
+      "&:hover fieldset": {
+        borderColor: "rgba(37,99,235,0.34)",
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: "#2563eb",
+        borderWidth: 1,
+      },
+    },
+    "& .MuiOutlinedInput-input": {
+      padding: "12px 12px 12px 0",
+      fontSize: "0.86rem",
+      fontWeight: 600,
+      color: "#0f172a",
+    },
+    "& .MuiInputAdornment-root": {
+      color: "#64748b",
+    },
   },
   addButton: {
     color: "#fff",
@@ -163,6 +186,13 @@ const useStyles = makeStyles((theme) => ({
     lineHeight: 1.6,
   },
 }));
+
+const normalizeSearch = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 export function ChatModal({
   open,
@@ -289,6 +319,7 @@ function Chat(props) {
   const [messages, setMessages] = useState([]);
   const [messagesPage, setMessagesPage] = useState(1);
   const [messagesPageInfo, setMessagesPageInfo] = useState({ hasMore: false });
+  const [chatSearch, setChatSearch] = useState("");
   const scrollToBottomRef = useRef(null);
   const isMounted = useRef(true);
 
@@ -307,6 +338,28 @@ function Chat(props) {
   } = useSafeApi("/chats", { manual: false });
 
   const { isReady, on } = useSocket();
+
+  const filteredChats = useMemo(() => {
+    const records = chatsData?.records || [];
+    const search = normalizeSearch(chatSearch);
+
+    if (!search) return records;
+
+    return records.filter((chat) => {
+      const users = Array.isArray(chat.users)
+        ? chat.users
+            .map((chatUser) => chatUser?.user?.name || chatUser?.name || "")
+            .join(" ")
+        : "";
+      const searchableText = [
+        chat.title,
+        chat.lastMessage,
+        users,
+      ].join(" ");
+
+      return normalizeSearch(searchableText).includes(search);
+    });
+  }, [chatsData?.records, chatSearch]);
 
   const upsertChatRecord = (records = [], chat) => {
     if (!chat?.id) return records;
@@ -532,10 +585,22 @@ function Chat(props) {
                   <Typography className={classes.sidebarTitle}>
                     Chat da equipe
                   </Typography>
-                  <Typography className={classes.sidebarSubtitle}>
-                    Centralize alinhamentos, destaque as conversas mais importantes
-                    e acompanhe novas mensagens com mais clareza.
-                  </Typography>
+                  <TextField
+                    value={chatSearch}
+                    onChange={(event) => setChatSearch(event.target.value)}
+                    placeholder="Buscar chats internos"
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    className={classes.chatSearch}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon style={{ fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
                 </div>
 
                 <div className={classes.btnContainer}>
@@ -572,9 +637,13 @@ function Chat(props) {
                 <SafeComponent
                   loading={loadingChats}
                   error={errorChats}
-                  data={chatsData?.records}
+                  data={filteredChats}
                   onRetry={findChats}
-                  emptyMessage="Nenhum chat interno ativo."
+                  emptyMessage={
+                    chatSearch
+                      ? "Nenhum chat interno encontrado para esta busca."
+                      : "Nenhum chat interno ativo."
+                  }
                   renderData={(records) => (
                     <ChatList
                       chats={records}
