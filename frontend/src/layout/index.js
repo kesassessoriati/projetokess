@@ -97,6 +97,7 @@ import LabelIcon from "@material-ui/icons/Label";
 import SearchIcon from "@material-ui/icons/Search";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 import AssignmentIcon from "@material-ui/icons/Assignment";
+import DescriptionIcon from "@material-ui/icons/Description";
 
 import { AuthContext } from "../context/Auth/AuthContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
@@ -950,6 +951,7 @@ const LoggedInLayout = ({ children }) => {
     loading: planLoading,
     gestor_financas,
     gestor_financeiro_ia,
+    propostas,
   } = usePlanPermissions();
   const { showAlert } = useSystemAlert();
 
@@ -1240,6 +1242,7 @@ const LoggedInLayout = ({ children }) => {
       { title: "Biblioteca de Mídia", path: "/media-drive", icon: <VideoLibraryIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Produtos", path: "/produtos", icon: <ExtensionIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Serviços", path: "/servicos", icon: <BuildOutlinedIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      ...(propostas ? [{ title: "Propostas", path: "/propostas", icon: <DescriptionIcon />, disabled: !planActive && location.pathname !== "/financeiro" }] : []),
       { title: "Agenda", path: "/user-schedules", icon: <CalendarMonthIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
@@ -1279,7 +1282,7 @@ const LoggedInLayout = ({ children }) => {
         ],
       },
     ],
-    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia]
+    [planActive, location.pathname, gestor_financas, gestor_financeiro_ia, propostas]
   );
 
   const isAdmin = user?.profile === "admin";
@@ -1338,7 +1341,7 @@ const LoggedInLayout = ({ children }) => {
         return filtered.length ? { ...visibleGroup, children: filtered } : null;
       })
       .filter(Boolean);
-  }, [isAdmin, isSuperAdmin, menuGroups, gestor_financas, gestor_financeiro_ia]);
+  }, [isAdmin, isSuperAdmin, menuGroups, gestor_financas, gestor_financeiro_ia, propostas]);
 
   const [openMenus, setOpenMenus] = useState({});
 

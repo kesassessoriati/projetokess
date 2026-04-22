@@ -182,6 +182,7 @@ import Notification from "../models/Notification";
 import CallSequence from "../models/CallSequence";
 import CallSequenceTarget from "../models/CallSequenceTarget";
 import Meeting from "../models/Meeting";
+import Proposal from "../models/Proposal";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -397,7 +398,8 @@ const models = [
   Chip,
   ChipActivityLog,
   Notification,
-  Meeting
+  Meeting,
+  Proposal
 ];
 
 sequelize.addModels(models);

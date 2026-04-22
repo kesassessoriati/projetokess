@@ -138,6 +138,7 @@ import notificationCenterRoutes from "./notificationCenterRoutes";
 import callSequenceRoutes from "./callSequenceRoutes";
 import meetingRoutes from "./meetingRoutes";
 import firecrawlRoutes from "./firecrawlRoutes";
+import proposalRoutes from "./proposalRoutes";
 
 const routes = Router();
 
@@ -306,5 +307,8 @@ routes.use(notificationCenterRoutes);
 
 // Gravação e Transcrição de Reuniões
 routes.use(meetingRoutes);
+
+// Módulo de Propostas
+routes.use(proposalRoutes);
 
 export default routes;

@@ -25,6 +25,7 @@ const defaultState = {
   gestor_financeiro_ia: false,
   meetings: false,
   firecrawl: false,
+  propostas: false,
 };
 
 const PlanPermissionsContext = createContext({
@@ -82,6 +83,7 @@ export const PlanPermissionsProvider = ({ children }) => {
             gestor_financeiro_ia: Boolean(plan.gestor_financeiro_ia),
             meetings: Boolean(plan.useMeetings),
             firecrawl: Boolean(plan.useFirecrawl),
+            propostas: Boolean(plan.usePropostas),
           });
         } else {
           setState((prev) => ({ ...defaultState, loading: false }));

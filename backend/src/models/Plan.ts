@@ -131,6 +131,10 @@ class Plan extends Model<Plan> {
   @Default(false)
   @Column
   useFirecrawl: boolean;
+
+  @Default(false)
+  @Column
+  usePropostas: boolean;
 }
 
 export default Plan;

@@ -107,6 +107,8 @@ import AquecimentoWhatsApp from "../pages/AquecimentoWhatsApp";
 import DisparoBotoes from "../pages/DisparoBotoes";
 import Chips from "../pages/Chips";
 import Meetings from "../pages/Meetings";
+import PropostasPage from "../pages/Propostas";
+import PropostaEditorPage from "../pages/PropostaEditor";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -306,6 +308,8 @@ const Routes = () => {
                         <Route exact path="/chamadas" component={CallHistory} isPrivate />
                         <Route exact path="/meetings" component={Meetings} isPrivate />
                         <Route exact path="/reunioes" component={Meetings} isPrivate />
+                        <Route exact path="/propostas" component={PropostasPage} isPrivate />
+                        <Route exact path="/propostas/:proposalId/editar" component={PropostaEditorPage} isPrivate />
                         <Route exact path="/admin/frontend-errors" component={FrontendErrors} isPrivate />
                         <Route exact path="/admin/backend-errors" component={BackendErrors} isPrivate />
                         <Route exact path="/admin/system-metrics" component={SystemMetrics} isPrivate />
