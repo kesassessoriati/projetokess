@@ -139,8 +139,13 @@ import callSequenceRoutes from "./callSequenceRoutes";
 import meetingRoutes from "./meetingRoutes";
 import firecrawlRoutes from "./firecrawlRoutes";
 import proposalRoutes from "./proposalRoutes";
+import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
+
+// Rota pública registrada antes das rotas autenticadas para liberar links enviados a clientes.
+routes.get("/proposals/public/:slug", ProposalController.showPublic);
+routes.get("/api/proposals/public/:slug", ProposalController.showPublic);
 
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);

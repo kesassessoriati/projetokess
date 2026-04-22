@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 
 import ListProposalsService from "../services/ProposalService/ListProposalsService";
 import CreateProposalService from "../services/ProposalService/CreateProposalService";
@@ -85,7 +86,14 @@ export const duplicate = async (req: Request, res: Response): Promise<Response> 
 export const showPublic = async (req: Request, res: Response): Promise<Response> => {
   const { slug } = req.params;
 
-  const proposal = await Proposal.findOne({ where: { slug, status: "enviada" } });
+  const proposal = await Proposal.findOne({
+    where: {
+      slug,
+      status: {
+        [Op.in]: ["enviada", "aceita"]
+      }
+    }
+  });
 
   if (!proposal) {
     return res.status(404).json({ error: "Proposta não encontrada ou não está disponível" });

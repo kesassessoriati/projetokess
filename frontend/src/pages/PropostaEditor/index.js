@@ -42,8 +42,8 @@ import {
 
 const useStyles = makeStyles((theme) => ({
   root: {
-    height: "calc(100vh - 78px)",
-    margin: theme.spacing(-2),
+    height: "calc(100vh - 112px)",
+    margin: theme.spacing(2, -2, -2),
     display: "grid",
     gridTemplateColumns: "420px minmax(0, 1fr)",
     background: "#080811",
