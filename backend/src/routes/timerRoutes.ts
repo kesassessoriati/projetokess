@@ -6,6 +6,7 @@ const timerRoutes = express.Router();
 
 timerRoutes.get("/timer-tasks", isAuth, TimerController.listTasks);
 timerRoutes.post("/timer-tasks", isAuth, TimerController.createTask);
+timerRoutes.patch("/timer-tasks/reorder", isAuth, TimerController.reorderTasks);
 timerRoutes.put("/timer-tasks/:taskId", isAuth, TimerController.updateTask);
 timerRoutes.delete("/timer-tasks/:taskId", isAuth, TimerController.deleteTask);
 

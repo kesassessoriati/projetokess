@@ -16,7 +16,11 @@ export const listTasks = async (req: Request, res: Response): Promise<Response> 
                 { visibility: "private", userId }
             ]
         },
-        order: [["name", "ASC"]]
+        order: [
+            ["visibility", "ASC"],
+            ["sortOrder", "ASC"],
+            ["name", "ASC"]
+        ]
     });
 
     return res.status(200).json(tasks);
@@ -24,13 +28,14 @@ export const listTasks = async (req: Request, res: Response): Promise<Response> 
 
 export const createTask = async (req: Request, res: Response): Promise<Response> => {
     const { companyId, id: userId } = req.user;
-    const { name, defaultTime, category, visibility } = req.body;
+    const { name, defaultTime, category, visibility, sortOrder } = req.body;
 
     const task = await TimerTask.create({
         name,
         defaultTime,
         category,
         visibility: visibility || "team",
+        sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
         companyId,
         userId
     });
@@ -41,7 +46,7 @@ export const createTask = async (req: Request, res: Response): Promise<Response>
 export const updateTask = async (req: Request, res: Response): Promise<Response> => {
     const { companyId, id: userId } = req.user;
     const { taskId } = req.params;
-    const { name, defaultTime, category, visibility } = req.body;
+    const { name, defaultTime, category, visibility, sortOrder } = req.body;
 
     const task = await TimerTask.findOne({ where: { id: taskId, companyId } });
     if (!task) return res.status(404).json({ error: "Task not found" });
@@ -50,8 +55,53 @@ export const updateTask = async (req: Request, res: Response): Promise<Response>
         return res.status(403).json({ error: "Access denied" });
     }
 
-    await task.update({ name, defaultTime, category, visibility });
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (defaultTime !== undefined) updateData.defaultTime = defaultTime;
+    if (category !== undefined) updateData.category = category;
+    if (visibility !== undefined) updateData.visibility = visibility;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+
+    await task.update(updateData);
     return res.status(200).json(task);
+};
+
+export const reorderTasks = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId, id: userId } = req.user;
+    const { visibility, taskIds } = req.body;
+
+    if (!["private", "team"].includes(visibility) || !Array.isArray(taskIds)) {
+        return res.status(400).json({ error: "Invalid reorder payload" });
+    }
+
+    const normalizedIds = taskIds.map(id => Number(id)).filter(Boolean);
+    const whereCondition: any = {
+        id: { [Op.in]: normalizedIds },
+        companyId,
+        visibility
+    };
+
+    if (visibility === "private") {
+        whereCondition.userId = userId;
+    }
+
+    const tasks = await TimerTask.findAll({ where: whereCondition });
+    const allowedIds = new Set(tasks.map(task => Number(task.id)));
+
+    if (allowedIds.size !== normalizedIds.length) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+
+    await Promise.all(
+        normalizedIds.map((id, index) =>
+            TimerTask.update(
+                { sortOrder: index },
+                { where: { id, companyId } }
+            )
+        )
+    );
+
+    return res.status(200).json({ message: "Tasks reordered" });
 };
 
 export const deleteTask = async (req: Request, res: Response): Promise<Response> => {

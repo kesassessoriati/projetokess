@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import {
     makeStyles,
     Typography,
@@ -30,6 +31,7 @@ import AddIcon from "@material-ui/icons/Add";
 import MinimizeIcon from "@material-ui/icons/Remove";
 import MaximizeIcon from "@material-ui/icons/OpenInBrowser";
 import CancelIcon from "@material-ui/icons/Cancel";
+import DragIndicatorIcon from "@material-ui/icons/DragIndicator";
 import api from "../services/api";
 import { toast } from "react-toastify";
 
@@ -164,6 +166,24 @@ const useStyles = makeStyles(() => ({
         padding: "3px 10px",
         fontWeight: "bold",
     },
+    dragHandle: {
+        color: "#9ca3af",
+        cursor: "grab",
+        display: "flex",
+        alignItems: "center",
+        marginRight: 8,
+        "&:active": {
+            cursor: "grabbing",
+        },
+    },
+    draggableTaskItem: {
+        borderRadius: 4,
+        transition: "background-color 0.15s ease, box-shadow 0.15s ease",
+    },
+    draggingTaskItem: {
+        backgroundColor: "#ffffff",
+        boxShadow: "0 8px 18px rgba(15,23,42,0.18)",
+    },
 }));
 
 const playBeep = (freq = 440, duration = 200, vol = 100) => {
@@ -186,6 +206,30 @@ const playBeep = (freq = 440, duration = 200, vol = 100) => {
 const LS_STATE = (uid) => `timer_state_${uid}`;
 const LS_MINI = "timer_minimized";
 const LS_PROGRESSION = "timer_progression_mode";
+const LS_TASK_SCOPE = "timer_task_scope";
+
+const getTaskVisibility = (task, userId) =>
+    task.visibility || (task.userId === userId ? "private" : "team");
+
+const sortTimerTasks = (taskList = []) =>
+    [...taskList].sort((a, b) => {
+        const visibilityOrder = getTaskVisibility(a) === "private" ? 0 : 1;
+        const otherVisibilityOrder = getTaskVisibility(b) === "private" ? 0 : 1;
+        if (visibilityOrder !== otherVisibilityOrder) return visibilityOrder - otherVisibilityOrder;
+
+        const orderA = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 0;
+        const orderB = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0;
+        if (orderA !== orderB) return orderA - orderB;
+
+        return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+const reorderList = (list, startIndex, endIndex) => {
+    const result = Array.from(list);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    return result;
+};
 
 const ProductivityTimer = ({ userId, collapsed }) => {
     const classes = useStyles();
@@ -213,15 +257,20 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const [progressionMode, setProgressionMode] = useState(
         () => localStorage.getItem(LS_PROGRESSION) || "manual"
     );
+    const [taskScope, setTaskScope] = useState(
+        () => localStorage.getItem(LS_TASK_SCOPE) || "private"
+    );
 
     const timerRef = useRef(null);
     const tasksRef = useRef(tasks);
     tasksRef.current = tasks;
+    const hydratedRef = useRef(false);
 
     // Wall-clock based timing: store when current run started and timeLeft at that point.
     // This makes the countdown immune to browser tab throttling.
     const runStartedAtRef = useRef(null);      // Date.now() when timer last started/resumed
     const timeLeftAtRunStartRef = useRef(null); // timeLeft value at that moment
+    const lastMinuteBeepAtRef = useRef(null);
 
     // Refs to access latest state inside event listeners without stale closures
     const isActiveRef = useRef(isActive);
@@ -230,12 +279,16 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const timeLeftRef = useRef(timeLeft);
     const selectedTaskIdRef = useRef(selectedTaskId);
     const progressionModeRef = useRef(progressionMode);
+    const taskScopeRef = useRef(taskScope);
+    const userIdRef = useRef(userId);
     isActiveRef.current = isActive;
     isPausedRef.current = isPaused;
     sessionIdRef.current = sessionId;
     timeLeftRef.current = timeLeft;
     selectedTaskIdRef.current = selectedTaskId;
     progressionModeRef.current = progressionMode;
+    taskScopeRef.current = taskScope;
+    userIdRef.current = userId;
 
     // Compute remaining seconds using wall clock (accurate even after tab throttling)
     const computeRemaining = useCallback(() => {
@@ -256,17 +309,23 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         localStorage.setItem(LS_PROGRESSION, progressionMode);
     }, [progressionMode]);
 
+    useEffect(() => {
+        localStorage.setItem(LS_TASK_SCOPE, taskScope);
+    }, [taskScope]);
+
     // ── Load timer state on mount ──────────────────────────────────
     useEffect(() => {
+        if (!userId) return;
+        hydratedRef.current = false;
         fetchTasks();
         loadState();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [userId]);
 
     const fetchTasks = async () => {
         try {
             const { data } = await api.get("/timer-tasks");
-            setTasks(data);
+            setTasks(sortTimerTasks(data));
         } catch (err) {
             console.error(err);
         }
@@ -274,10 +333,14 @@ const ProductivityTimer = ({ userId, collapsed }) => {
 
     const loadState = () => {
         const raw = localStorage.getItem(LS_STATE(userId));
-        if (!raw) return;
+        if (!raw) {
+            hydratedRef.current = true;
+            return;
+        }
         try {
             const state = JSON.parse(raw);
             setSelectedTaskId(state.selectedTaskId || "");
+            setTaskScope(state.taskScope || localStorage.getItem(LS_TASK_SCOPE) || "private");
             setIsActive(state.isActive || false);
             setIsPaused(state.isPaused || false);
             setSessionId(state.sessionId || null);
@@ -297,12 +360,19 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             }
         } catch (e) {
             console.error("Error loading timer state", e);
+        } finally {
+            window.setTimeout(() => {
+                hydratedRef.current = true;
+            }, 0);
         }
     };
 
     const saveState = useCallback(() => {
+        if (!userId || !hydratedRef.current) return;
+
         const state = {
             selectedTaskId,
+            taskScope,
             timeLeft,
             isActive,
             isPaused,
@@ -311,7 +381,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             timeLeftAtRunStart: timeLeftAtRunStartRef.current,
         };
         localStorage.setItem(LS_STATE(userId), JSON.stringify(state));
-    }, [selectedTaskId, timeLeft, isActive, isPaused, sessionId, userId]);
+    }, [selectedTaskId, taskScope, timeLeft, isActive, isPaused, sessionId, userId]);
 
     // Save on every state change
     useEffect(() => {
@@ -328,6 +398,16 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                     handleComplete(sessionIdRef.current);
                     setTimeLeft(0);
                     return;
+                }
+                const elapsedInCurrentRun = (timeLeftAtRunStartRef.current || 0) - remaining;
+                if (
+                    remaining > 30 &&
+                    elapsedInCurrentRun >= 60 &&
+                    elapsedInCurrentRun % 60 === 0 &&
+                    lastMinuteBeepAtRef.current !== elapsedInCurrentRun
+                ) {
+                    lastMinuteBeepAtRef.current = elapsedInCurrentRun;
+                    playBeep(660, 120, 45);
                 }
                 if (remaining === 30) playBeep(200, 100, 50);
                 if (remaining <= 10 && remaining > 0) playBeep(440, 150, 70);
@@ -391,6 +471,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         // Record wall-clock start point for accurate background countdown
         runStartedAtRef.current = Date.now();
         timeLeftAtRunStartRef.current = timeLeftRef.current;
+        lastMinuteBeepAtRef.current = null;
         setIsActive(true);
         setIsPaused(false);
     };
@@ -401,6 +482,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         setTimeLeft(remaining);
         runStartedAtRef.current = null;
         timeLeftAtRunStartRef.current = null;
+        lastMinuteBeepAtRef.current = null;
         setIsPaused(true);
         if (sessionId) {
             try {
@@ -417,6 +499,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     const handleReset = async () => {
         runStartedAtRef.current = null;
         timeLeftAtRunStartRef.current = null;
+        lastMinuteBeepAtRef.current = null;
         setIsActive(false);
         setIsPaused(false);
         if (sessionId) {
@@ -438,11 +521,14 @@ const ProductivityTimer = ({ userId, collapsed }) => {
     // ── Task completion: auto-select next task + handle progression mode ──
     const handleComplete = async (sid) => {
         const currentSelectedTaskId = selectedTaskIdRef.current;
-        const currentTasks = tasksRef.current;
+        const currentTasks = tasksRef.current.filter(
+            (task) => getTaskVisibility(task, userIdRef.current) === taskScopeRef.current
+        );
         const mode = progressionModeRef.current;
 
         runStartedAtRef.current = null;
         timeLeftAtRunStartRef.current = null;
+        lastMinuteBeepAtRef.current = null;
         setIsActive(false);
         setIsPaused(false);
         playBeep(880, 500, 100);
@@ -484,6 +570,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                     sessionIdRef.current = newSid;
                     runStartedAtRef.current = Date.now();
                     timeLeftAtRunStartRef.current = nextTask.defaultTime * 60;
+                    lastMinuteBeepAtRef.current = null;
                     timeLeftRef.current = nextTask.defaultTime * 60;
                     setIsActive(true);
                     setIsPaused(false);
@@ -513,6 +600,23 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         setTimeLeft(task ? task.defaultTime * 60 : defaultGlobalTime * 60);
     };
 
+    const handleTaskScopeChange = (e) => {
+        if (isActive && !isPaused) {
+            toast.warning("Pause o cronometro para trocar o quadro de tarefas.");
+            return;
+        }
+
+        const nextScope = e.target.value;
+        const nextTasks = tasksRef.current.filter(
+            (task) => getTaskVisibility(task, userIdRef.current) === nextScope
+        );
+        const nextTask = nextTasks[0] || null;
+
+        setTaskScope(nextScope);
+        setSelectedTaskId(nextTask ? nextTask.id : "");
+        setTimeLeft(nextTask ? nextTask.defaultTime * 60 : defaultGlobalTime * 60);
+    };
+
     const formatTime = (seconds) => {
         const m = Math.floor(seconds / 60).toString().padStart(2, "0");
         const s = (seconds % 60).toString().padStart(2, "0");
@@ -535,7 +639,12 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                 }
                 toast.success("Tarefa atualizada");
             } else {
-                await api.post("/timer-tasks", { name: newTaskName, defaultTime: newTaskTime, visibility: tabValue === 0 ? "private" : "team" });
+                await api.post("/timer-tasks", {
+                    name: newTaskName,
+                    defaultTime: newTaskTime,
+                    visibility: tabValue === 0 ? "private" : "team",
+                    sortOrder: displayedTasks.length
+                });
                 toast.success("Tarefa criada");
             }
             setNewTaskName("");
@@ -571,6 +680,32 @@ const ProductivityTimer = ({ userId, collapsed }) => {
         }
     };
 
+    const handleReorderTasks = async ({ source, destination }) => {
+        if (!destination || source.index === destination.index) return;
+
+        const visibility = tabValue === 0 ? "private" : "team";
+        const previousTasks = tasks;
+        const reordered = reorderList(displayedTasks, source.index, destination.index)
+            .map((task, index) => ({ ...task, sortOrder: index }));
+        const reorderedIds = new Set(reordered.map((task) => task.id));
+
+        setTasks(sortTimerTasks([
+            ...tasks.filter((task) => !reorderedIds.has(task.id)),
+            ...reordered
+        ]));
+
+        try {
+            await api.patch("/timer-tasks/reorder", {
+                visibility,
+                taskIds: reordered.map((task) => task.id)
+            });
+            toast.success("Sequencia de tarefas atualizada");
+        } catch (err) {
+            setTasks(previousTasks);
+            toast.error("Erro ao reordenar tarefas");
+        }
+    };
+
     const selectedTask = tasks.find((t) => t.id === selectedTaskId);
     const dotClass = isActive && !isPaused
         ? classes.miniDot
@@ -578,8 +713,9 @@ const ProductivityTimer = ({ userId, collapsed }) => {
             ? `${classes.miniDot} ${classes.miniDotPaused}`
             : `${classes.miniDot} ${classes.miniDotIdle}`;
 
-    const privateTasks = tasks.filter(t => t.visibility === "private" || (!t.visibility && t.userId === userId));
-    const teamTasks = tasks.filter(t => t.visibility === "team" || (!t.visibility && t.userId !== userId));
+    const privateTasks = sortTimerTasks(tasks.filter(t => getTaskVisibility(t, userId) === "private"));
+    const teamTasks = sortTimerTasks(tasks.filter(t => getTaskVisibility(t, userId) === "team"));
+    const scopedTasks = taskScope === "private" ? privateTasks : teamTasks;
     const displayedTasks = tabValue === 0 ? privateTasks : teamTasks;
 
     // ── Render ─────────────────────────────────────────────────────
@@ -634,7 +770,25 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                         </div>
 
                         <div className={classes.body}>
-                            {tasks.length > 0 ? (
+                            <FormControl className={classes.taskSelect} size="small">
+                                <Select
+                                    value={taskScope}
+                                    onChange={handleTaskScopeChange}
+                                    disableUnderline
+                                    style={{
+                                        color: "#fff",
+                                        fontSize: 12,
+                                        background: "rgba(255,255,255,0.07)",
+                                        borderRadius: 4,
+                                        padding: "2px 8px",
+                                    }}
+                                >
+                                    <SelectItem value="private">Minhas tarefas</SelectItem>
+                                    <SelectItem value="team">Tarefas da equipe</SelectItem>
+                                </Select>
+                            </FormControl>
+
+                            {scopedTasks.length > 0 ? (
                                 <FormControl className={classes.taskSelect} size="small">
                                     <Select
                                         value={selectedTaskId}
@@ -650,7 +804,7 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                                         }}
                                     >
                                         <SelectItem value="" disabled>Selecione uma tarefa</SelectItem>
-                                        {tasks.map((t) => (
+                                        {scopedTasks.map((t) => (
                                             <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                         ))}
                                     </Select>
@@ -759,47 +913,68 @@ const ProductivityTimer = ({ userId, collapsed }) => {
                     <Typography variant="subtitle2" gutterBottom>
                         {tabValue === 0 ? "Minhas Tarefas" : "Tarefas da Equipe"} ({displayedTasks.length})
                     </Typography>
-                    <List dense style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 220, overflow: "auto" }}>
-                        {displayedTasks.map((t) => (
-                            <ListItem
-                                key={t.id}
-                                style={{
-                                    backgroundColor: editingTaskId === t.id ? "#e3f2fd" : undefined,
-                                    borderRadius: 4,
-                                }}
-                            >
-                                <ListItemText
-                                    primary={t.name}
-                                    secondary={`${t.defaultTime} min`}
-                                />
-                                <ListItemSecondaryAction>
-                                    <Tooltip title="Editar">
-                                        <IconButton
-                                            edge="end"
-                                            size="small"
-                                            style={{ color: "#1976d2", marginRight: 2 }}
-                                            onClick={() => handleEditTask(t)}
-                                        >
-                                            <EditIcon fontSize="small" />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Excluir">
-                                        <IconButton
-                                            edge="end"
-                                            size="small"
-                                            style={{ color: "#ef4444" }}
-                                            onClick={() => handleDeleteTask(t.id)}
-                                        >
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                    </Tooltip>
-                                </ListItemSecondaryAction>
-                            </ListItem>
-                        ))}
-                        {displayedTasks.length === 0 && (
-                            <ListItem><ListItemText primary="Sem tarefas. Adicione uma acima." /></ListItem>
-                        )}
-                    </List>
+                    <DragDropContext onDragEnd={handleReorderTasks}>
+                        <Droppable droppableId={tabValue === 0 ? "private-timer-tasks" : "team-timer-tasks"}>
+                            {(provided) => (
+                                <List
+                                    dense
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    style={{ backgroundColor: "#f5f5f5", borderRadius: 4, maxHeight: 220, overflow: "auto" }}
+                                >
+                                    {displayedTasks.map((t, index) => (
+                                        <Draggable key={t.id} draggableId={`timer-task-${t.id}`} index={index}>
+                                            {(dragProvided, snapshot) => (
+                                                <ListItem
+                                                    ref={dragProvided.innerRef}
+                                                    {...dragProvided.draggableProps}
+                                                    className={`${classes.draggableTaskItem} ${snapshot.isDragging ? classes.draggingTaskItem : ""}`}
+                                                    style={{
+                                                        ...dragProvided.draggableProps.style,
+                                                        backgroundColor: editingTaskId === t.id ? "#e3f2fd" : undefined,
+                                                    }}
+                                                >
+                                                    <span className={classes.dragHandle} {...dragProvided.dragHandleProps}>
+                                                        <DragIndicatorIcon fontSize="small" />
+                                                    </span>
+                                                    <ListItemText
+                                                        primary={t.name}
+                                                        secondary={`${t.defaultTime} min`}
+                                                    />
+                                                    <ListItemSecondaryAction>
+                                                        <Tooltip title="Editar">
+                                                            <IconButton
+                                                                edge="end"
+                                                                size="small"
+                                                                style={{ color: "#1976d2", marginRight: 2 }}
+                                                                onClick={() => handleEditTask(t)}
+                                                            >
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Excluir">
+                                                            <IconButton
+                                                                edge="end"
+                                                                size="small"
+                                                                style={{ color: "#ef4444" }}
+                                                                onClick={() => handleDeleteTask(t.id)}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </ListItemSecondaryAction>
+                                                </ListItem>
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                    {displayedTasks.length === 0 && (
+                                        <ListItem><ListItemText primary="Sem tarefas. Adicione uma acima." /></ListItem>
+                                    )}
+                                </List>
+                            )}
+                        </Droppable>
+                    </DragDropContext>
 
                     {/* ── Progression mode ──────────────────────────────────── */}
                     <div style={{ marginTop: 20 }}>

@@ -31,6 +31,10 @@ class TimerTask extends Model<TimerTask> {
     @Column
     defaultTime: number;
 
+    @Default(0)
+    @Column
+    sortOrder: number;
+
     @Column
     category: string;
 
