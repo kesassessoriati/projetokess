@@ -16,6 +16,8 @@ const ShowAppointmentService = async (
       {
         model: UserSchedule,
         as: "schedule",
+        where: { companyId },
+        required: true,
         include: [
           {
             model: User,

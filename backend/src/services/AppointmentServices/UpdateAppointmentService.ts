@@ -54,9 +54,20 @@ const UpdateAppointmentService = async (
     throw new AppError("Compromisso não encontrado", 404);
   }
 
+  if (data.createdByUserId) {
+    const createdByUser = await User.findOne({
+      where: { id: data.createdByUserId, companyId: data.companyId },
+      attributes: ["id"]
+    });
+
+    if (!createdByUser) {
+      throw new AppError("Usuario responsavel nao encontrado nesta empresa", 404);
+    }
+  }
+
   if (data.startDatetime || data.durationMinutes) {
     const schedule = await UserSchedule.findOne({
-      where: { id: appointment.scheduleId },
+      where: { id: appointment.scheduleId, companyId: data.companyId },
       include: [{ model: User, as: "user" }]
     });
 
@@ -119,6 +130,7 @@ const UpdateAppointmentService = async (
 
       const existingAppointments = await Appointment.findAll({
         where: {
+          companyId: data.companyId,
           scheduleId: appointment.scheduleId,
           id: { [Op.ne]: appointment.id },
           status: { [Op.notIn]: ["cancelled", "no_show"] }
@@ -183,12 +195,15 @@ const UpdateAppointmentService = async (
       });
 
       const schedule = await UserSchedule.findOne({
-        where: { id: appointment.scheduleId }
+        where: { id: appointment.scheduleId, companyId: data.companyId }
       });
 
       if (schedule?.userGoogleCalendarIntegrationId) {
         const integration = await UserGoogleCalendarIntegration.findOne({
-          where: { id: schedule.userGoogleCalendarIntegrationId }
+          where: {
+            id: schedule.userGoogleCalendarIntegrationId,
+            companyId: data.companyId
+          }
         });
 
         if (integration && integration.accessToken) {

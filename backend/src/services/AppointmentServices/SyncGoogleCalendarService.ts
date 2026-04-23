@@ -45,7 +45,7 @@ const SyncGoogleCalendarService = async (
       model: UserGoogleCalendarIntegration,
       as: "googleCalendarIntegration",
       required: true,
-      where: { active: true }
+      where: { active: true, companyId }
     }
   ];
 

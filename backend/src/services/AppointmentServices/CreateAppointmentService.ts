@@ -61,6 +61,17 @@ const CreateAppointmentService = async (
     throw new AppError("Esta agenda não está ativa", 400);
   }
 
+  if (data.createdByUserId) {
+    const createdByUser = await User.findOne({
+      where: { id: data.createdByUserId, companyId: data.companyId },
+      attributes: ["id"]
+    });
+
+    if (!createdByUser) {
+      throw new AppError("Usuario responsavel nao encontrado nesta empresa", 404);
+    }
+  }
+
   const startDatetime = new Date(data.startDatetime);
   const endDatetime = new Date(startDatetime.getTime() + data.durationMinutes * 60000);
 
@@ -143,7 +154,10 @@ const CreateAppointmentService = async (
       console.log("DEBUG - Criando evento no Google Calendar para appointment:", appointment.id);
 
       const integration = await UserGoogleCalendarIntegration.findOne({
-        where: { id: schedule.userGoogleCalendarIntegrationId }
+        where: {
+          id: schedule.userGoogleCalendarIntegrationId,
+          companyId: data.companyId
+        }
       });
 
       if (integration && integration.accessToken) {

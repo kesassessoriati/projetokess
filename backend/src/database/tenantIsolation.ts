@@ -26,7 +26,11 @@ export const applyTenantIsolation = (sequelize: Sequelize) => {
         if (context?.companyId) {
             const model = instance.constructor;
             if (model && model.rawAttributes && model.rawAttributes.companyId) {
-                instance.set("companyId", context.companyId);
+                const currentCompanyId = instance.get("companyId");
+
+                if (currentCompanyId === undefined || currentCompanyId === null) {
+                    instance.set("companyId", context.companyId);
+                }
             }
         }
     });

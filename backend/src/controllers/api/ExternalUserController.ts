@@ -758,7 +758,10 @@ export const listAppointments = async (req: Request, res: Response): Promise<Res
     });
   }
 
-  const whereCondition: any = { scheduleId: schedule.id };
+  const whereCondition: any = {
+    companyId,
+    scheduleId: schedule.id
+  };
 
   if (status) {
     whereCondition.status = status;
@@ -933,7 +936,11 @@ export const updateAppointment = async (req: Request, res: Response): Promise<Re
   }
 
   const appointment = await Appointment.findOne({
-    where: { id: Number(appointmentId), scheduleId: schedule.id }
+    where: {
+      id: Number(appointmentId),
+      companyId: externalAuth.companyId,
+      scheduleId: schedule.id
+    }
   });
 
   if (!appointment) {
@@ -1011,7 +1018,11 @@ export const deleteAppointment = async (req: Request, res: Response): Promise<Re
   }
 
   const appointment = await Appointment.findOne({
-    where: { id: Number(appointmentId), scheduleId: schedule.id }
+    where: {
+      id: Number(appointmentId),
+      companyId: externalAuth.companyId,
+      scheduleId: schedule.id
+    }
   });
 
   if (!appointment) {
@@ -1061,7 +1072,11 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
   }
 
   const appointment = await Appointment.findOne({
-    where: { id: Number(appointmentId), scheduleId: schedule.id }
+    where: {
+      id: Number(appointmentId),
+      companyId: externalAuth.companyId,
+      scheduleId: schedule.id
+    }
   });
 
   if (!appointment) {

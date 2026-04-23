@@ -29,7 +29,7 @@ const DeleteAppointmentService = async (
       console.log("DEBUG - Excluindo evento no Google Calendar:", appointment.googleEventId);
       
       const schedule = await UserSchedule.findOne({
-        where: { id: appointment.scheduleId }
+        where: { id: appointment.scheduleId, companyId }
       });
 
       console.log("DEBUG - Schedule encontrada:", {
@@ -39,7 +39,10 @@ const DeleteAppointmentService = async (
 
       if (schedule?.userGoogleCalendarIntegrationId) {
         const integration = await UserGoogleCalendarIntegration.findOne({
-          where: { id: schedule.userGoogleCalendarIntegrationId }
+          where: {
+            id: schedule.userGoogleCalendarIntegrationId,
+            companyId
+          }
         });
 
         console.log("DEBUG - Integração encontrada:", {

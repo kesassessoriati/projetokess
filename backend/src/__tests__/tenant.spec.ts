@@ -56,4 +56,21 @@ describe("Multi-Tenant Structural Shielding", () => {
             expect(ticket.companyId).toBe(company3Id);
         });
     });
+
+    it("should preserve explicit companyId on creation", async () => {
+        const contextCompanyId = 3;
+        const explicitCompanyId = 4;
+
+        await runWithContext({ companyId: contextCompanyId }, async () => {
+            const ticket = Ticket.build({
+                status: "pending",
+                contactId: 1,
+                companyId: explicitCompanyId
+            });
+
+            (sequelize as any).runHooks("beforeCreate", ticket);
+
+            expect(ticket.companyId).toBe(explicitCompanyId);
+        });
+    });
 });
