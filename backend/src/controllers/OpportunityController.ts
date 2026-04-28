@@ -99,12 +99,17 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
 export const move = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
-    const { toStageId, reason, movedBy } = req.body;
+    const { toStageId, stageId, reason, movedBy } = req.body;
     const { companyId } = req.user;
+    const destinationStageId = Number(toStageId || stageId);
+
+    if (!destinationStageId) {
+        throw new AppError("Informe o estágio de destino.", 400);
+    }
 
     const opportunity = await MoveOpportunityService({
         opportunityId: Number(id),
-        toStageId,
+        toStageId: destinationStageId,
         companyId,
         movedBy: movedBy || "USER",
         reason

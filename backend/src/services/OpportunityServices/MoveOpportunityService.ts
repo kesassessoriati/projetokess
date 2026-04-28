@@ -38,7 +38,17 @@ const MoveOpportunityService = async ({
     }
 
     // Fetch destination stage upfront so linkedStatus is available inside the try block
-    const toStage = await PipelineStage.findOne({ where: { id: toStageId } });
+    const toStage = await PipelineStage.findOne({
+        where: {
+            id: toStageId,
+            companyId,
+            pipelineId: opportunity.pipelineId
+        }
+    });
+
+    if (!toStage) {
+        throw new AppError("Estágio de destino não encontrado neste funil.", 404);
+    }
 
     try {
         const updateData: any = {
@@ -104,6 +114,7 @@ const MoveOpportunityService = async ({
     }
 
     const movement = await OpportunityMovement.create({
+        companyId,
         opportunityId,
         fromStageId,
         toStageId,
@@ -129,7 +140,7 @@ const MoveOpportunityService = async ({
         opportunityId: opportunity.id,
         pipelineId: opportunity.pipelineId,
         fromStageId,
-        toStageId: opportunity.stageId,
+        toStageId,
         assignedUserId: opportunity.assignedUserId,
         companyId: opportunity.companyId,
         status: opportunity.status,

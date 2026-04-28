@@ -182,7 +182,7 @@ export function TagsKanbanContainer({ ticket, onStageChange, currentLeadValue })
 
                 // Mover oportunidade existente para novo estágio
                 await api.post(`/opportunities/${existingOpportunity.id}/move`, {
-                    stageId,
+                    toStageId: stageId,
                     pipelineId,
                 });
                 toast.success("Etapa do Kanban atualizada!");
