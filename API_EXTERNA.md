@@ -127,6 +127,29 @@ https://seu-dominio.com/api/external
 | POST | `/whatsapps/:id/restart` | Reiniciar conexão |
 | POST | `/whatsapps/:id/disconnect` | Desconectar |
 
+### GET /whatsapps
+
+Retorna as conexões WhatsApp da empresa. O campo `token` é o token da instância/conexão exibido no painel em **Token para integração externa**.
+
+```json
+{
+  "whatsapps": [
+    {
+      "id": 1,
+      "name": "Atendimento",
+      "token": "token-da-instancia",
+      "number": "5511999999999",
+      "status": "CONNECTED",
+      "channel": "whatsapp"
+    }
+  ]
+}
+```
+
+### GET /whatsapps/:id
+
+Retorna os detalhes de uma conexão específica, incluindo o campo `token` da instância/conexão.
+
 ---
 
 ## Filas

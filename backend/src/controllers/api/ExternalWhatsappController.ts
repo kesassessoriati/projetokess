@@ -18,6 +18,7 @@ const ensureExternalAuth = (req: Request) => {
 const serializeWhatsapp = (whatsapp: Whatsapp) => ({
   id: whatsapp.id,
   name: whatsapp.name,
+  token: whatsapp.token,
   number: whatsapp.number,
   status: whatsapp.status,
   channel: whatsapp.channel || "whatsapp",
