@@ -8,7 +8,7 @@ import Ticket from "../../models/Ticket";
 import { Op } from "sequelize";
 import { add } from "date-fns";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
-import { dataMessages, getWbot } from "../../libs/wbot";
+import { dataMessages, getWbot, importingWhatsappIds } from "../../libs/wbot";
 import { handleMessage } from "../WbotServices/wbotMessageListener";
 import fs from 'fs';
 import moment from "moment";
@@ -42,8 +42,14 @@ export const closeTicketsImported = async (whatsappId) => {
 
 
 
+const getMsgTimestampMs = (ts: any): number => {
+  if (ts == null) return 0;
+  if (typeof ts === "object" && "low" in ts) return ts.low;
+  return Number(ts);
+};
+
 function sortByMessageTimestamp(a, b) {
-  return b.messageTimestamp - a.messageTimestamp
+  return getMsgTimestampMs(b.messageTimestamp) - getMsgTimestampMs(a.messageTimestamp);
 }
 
 function cleaner(array) {
@@ -104,7 +110,7 @@ Mensagem ${i + 1} de ${qtd}
         await handleMessage(msg, wbot, whatsApp.companyId, true);
 
         if (i % 2 === 0) {
-          const timestampMsg = Math.floor(msg.messageTimestamp["low"] * 1000)
+          const timestampMsg = getMsgTimestampMs(msg.messageTimestamp) * 1000
           io.of(whatsApp.companyId.toString())
             .emit(`importMessages-${whatsApp.companyId}`, {
               action: "update",
@@ -116,6 +122,7 @@ Mensagem ${i + 1} de ${qtd}
 
         if (i + 1 === qtd) {
           dataMessages[whatsappId] = [];
+          importingWhatsappIds.delete(Number(whatsappId));
 
           if (whatsApp.closedTicketsPostImported) {
             await closeTicketsImported(whatsappId)
@@ -133,13 +140,19 @@ Mensagem ${i + 1} de ${qtd}
               action: "refresh",
             });
         }
-      } catch (error) { }
+      } catch (error) {
+        addLogs({
+          fileName: `processImportMessagesWppId${whatsappId}.txt`,
+          text: `ERRO ao processar mensagem ${i + 1}: ${error?.message || error}`
+        });
+      }
 
       i++
     }
 
 
   } catch (error) {
+    importingWhatsappIds.delete(Number(whatsappId));
     throw new AppError("ERR_NOT_MESSAGE_TO_IMPORT", 403);
   }
 

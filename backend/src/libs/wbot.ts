@@ -134,6 +134,8 @@ export const removeWbot = async (
 
 export var dataMessages: any = {};
 
+export const importingWhatsappIds = new Set<number>();
+
 export const msgDB = msg();
 
 export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> => {
@@ -269,7 +271,8 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> 
               let filteredMessages = messageSet.messages
               let filteredDateMessages = []
               filteredMessages.forEach(msg => {
-                const timestampMsg = Math.floor(msg.messageTimestamp["low"] * 1000)
+                const ts = msg.messageTimestamp;
+                const timestampMsg = Math.floor((typeof ts === "object" && ts !== null ? ts.low : Number(ts)) * 1000)
                 if (isValidMsg(msg) && dateOldLimit < timestampMsg && dateRecentLimit > timestampMsg) {
                   if (msg.key?.remoteJid.split("@")[1] != "g.us") {
                     addLogs({
@@ -345,8 +348,9 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> 
                     ).getTime();
                     const dataLimite = +add(ultimoStatus, { seconds: +45 }).getTime();
 
-                    if (dataLimite < new Date().getTime()) {
+                    if (dataLimite < new Date().getTime() && !importingWhatsappIds.has(wpp.id)) {
                       //console.log("Pronto para come?ar")
+                      importingWhatsappIds.add(wpp.id);
                       ImportWhatsAppMessageService(wpp.id)
                       wpp.update({
                         statusImportMessages: "Running"
