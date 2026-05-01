@@ -433,20 +433,14 @@ export const closeAll = async (req: Request, res: Response): Promise<Response> =
     where.queueId = { [Op.in]: selectedQueueIds };
   }
 
-  if (tabKey === "automation") {
-    where.userId = null;
-    where.queueId = null;
+  if (tabKey === "pending") {
     where.isGroup = false;
-  } else if (tabKey === "pending") {
-    where.isGroup = false;
-    where[Op.or] = [
-      { userId: { [Op.not]: null } },
-      { queueId: { [Op.not]: null } }
-    ];
+    // inclui todos os pending: com fila, sem fila, com usuário, sem usuário
     if (Array.isArray(selectedQueueIds) && selectedQueueIds.length > 0) {
       where[Op.or] = [
         { userId: { [Op.not]: null }, queueId: { [Op.in]: selectedQueueIds } },
-        { queueId: { [Op.in]: selectedQueueIds } }
+        { queueId: { [Op.in]: selectedQueueIds } },
+        { userId: null, queueId: null }
       ];
     }
   } else if (tabKey === "open") {

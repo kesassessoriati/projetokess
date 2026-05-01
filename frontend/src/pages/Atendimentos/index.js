@@ -743,7 +743,6 @@ const Atendimentos = () => {
 		pending: 0,
 		open: 0,
 		closed: 0,
-		automation: 0,
 		groups: 0
 	});
 	const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
@@ -1079,9 +1078,10 @@ const Atendimentos = () => {
 									// Atualiza contadores
 									loadUnreadCounts();
 
-									// **NOVO: Muda para aba "Atendendo" (tab 1) se não estiver lá**
-									if (tabIndex !== 1) {
-										setTabIndex(1);
+									// Muda para aba "Atendendo" pelo índice dinâmico do TAB_CONFIG
+									const openTabIdx = TAB_CONFIG.findIndex(t => t.key === "open");
+									if (openTabIdx !== -1 && tabIndex !== openTabIdx) {
+										setTabIndex(openTabIdx);
 									}
 
 								} catch (err) {
@@ -1648,8 +1648,11 @@ const Atendimentos = () => {
 				} else if (data.ticket?.userId === user?.id) {
 					// Ticket atribuído ao próprio usuário
 					canSeeTicket = true;
-				} else if (!data.ticket?.userId && data.ticket?.status === "pending") {
-					// Ticket pendente sem usuário atribuído - visível se pertence à fila
+				} else if (!data.ticket?.userId && !data.ticket?.queueId && data.ticket?.status === "pending") {
+					// Ticket pending sem fila e sem usuário (ex-automação) — só admin vê
+					canSeeTicket = user?.profile === "admin";
+				} else if (!data.ticket?.userId && data.ticket?.queueId && data.ticket?.status === "pending") {
+					// Ticket pending com fila mas sem usuário — visível se pertence à fila
 					canSeeTicket = belongsToUserQueue;
 				} else if (data.ticket?.userId && data.ticket?.userId !== user?.id) {
 					// Ticket atribuído a outro usuário - só vê com permissão
@@ -1869,23 +1872,12 @@ const Atendimentos = () => {
 		Boolean(ticket?.userId || ticket?.user?.id);
 	const hasQueue = (ticket) =>
 		Boolean(ticket?.queueId || ticket?.queue?.id);
-	const isAutomationTicket = (ticket) => {
-		if (!ticket) return false;
-		// Só é automação se não tem fila E não tem usuário
-		return ticket.status === "pending" && !hasAssignedUser(ticket) && !hasQueue(ticket);
-	};
-
 	// TAB_CONFIG dinâmico baseado no perfil do usuário
 	const TAB_CONFIG = React.useMemo(() => {
 		const tabs = [];
 
-		// Aba de Automação - apenas para admins
-		if (user?.profile === "admin") {
-			tabs.push({ key: "automation", status: "pending", filter: (ticket) => ticket.status === "pending" && !hasAssignedUser(ticket) && !hasQueue(ticket) && isPrivateConversation(ticket) });
-		}
-
-		// Aba Aguardando
-		tabs.push({ key: "pending", status: "pending", filter: (ticket) => ticket.status === "pending" && (hasAssignedUser(ticket) || hasQueue(ticket)) && isPrivateConversation(ticket) });
+		// Aba Aguardando — inclui todos os pending privados (com ou sem fila/usuário)
+		tabs.push({ key: "pending", status: "pending", filter: (ticket) => ticket.status === "pending" && isPrivateConversation(ticket) });
 
 		// Aba Atendendo
 		tabs.push({ key: "open", status: "open", filter: (ticket) => ticket.status === "open" && isPrivateConversation(ticket) });
@@ -1970,11 +1962,10 @@ const Atendimentos = () => {
 	const currentBulkCloseConfig = React.useMemo(() => {
 		const currentTab = TAB_CONFIG[tabIndex] || TAB_CONFIG[0];
 		const labelsByKey = {
-			automation: "automação",
 			pending: "aguardando",
 			open: "atendimento"
 		};
-		const canBulkClose = ["automation", "pending", "open"].includes(currentTab?.key);
+		const canBulkClose = ["pending", "open"].includes(currentTab?.key);
 
 		return {
 			tabKey: currentTab?.key || "open",
@@ -2103,6 +2094,7 @@ const Atendimentos = () => {
 
 	const handleSendMessage = useCallback(async () => {
 		if (!inputMessage.trim() || !selectedTicket) return;
+		if (selectedTicket.status === "pending") return;
 
 		try {
 			const senderLabel = privateMessage
@@ -3397,14 +3389,12 @@ const Atendimentos = () => {
 			const openTickets = openRes.data?.tickets || [];
 			const closedTickets = closedRes.data?.tickets || [];
 
-			const automationTickets = pendingTickets.filter(ticket => !hasAssignedUser(ticket) && !hasQueue(ticket) && isPrivateConversation(ticket));
-			const pendingWithQueueTickets = pendingTickets.filter(ticket => (hasAssignedUser(ticket) || hasQueue(ticket)) && isPrivateConversation(ticket));
+			const allPendingTickets = pendingTickets.filter(isPrivateConversation);
 
 			const counts = {
-				pending: countTickets(pendingWithQueueTickets),
+				pending: countTickets(allPendingTickets),
 				open: countTickets(openTickets),
 				closed: countTickets(closedTickets),
-				automation: countTickets(automationTickets),
 				groups: countTickets(groupTickets.filter(isGroupConversation))
 			};
 
@@ -3747,20 +3737,6 @@ const Atendimentos = () => {
 						textColor="primary"
 						variant="fullWidth"
 					>
-						{/* Aba de Automação - apenas para admins */}
-						{user?.profile === "admin" && (
-							<Tab
-								label={
-									<Badge
-										badgeContent={unreadCounts.automation}
-										color="error"
-										max={99}
-									>
-										<span style={{ fontSize: '0.75rem' }}>Automação</span>
-									</Badge>
-								}
-							/>
-						)}
 						<Tab
 							label={
 								<Badge
@@ -4515,6 +4491,23 @@ const Atendimentos = () => {
 									ticketId={selectedTicket.id}
 								/>
 							)}
+							{selectedTicket?.status === "pending" && (
+								<div style={{
+									backgroundColor: '#fff8e1',
+									borderTop: '1px solid #ffe082',
+									padding: '7px 16px',
+									textAlign: 'center',
+									fontSize: 12,
+									color: '#7a5800',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									gap: 6
+								}}>
+									<span>⚠️</span>
+									<span>Aceite o ticket para enviar mensagens</span>
+								</div>
+							)}
 							<div className={classes.chatInput}>
 								{!isMobile && showEmojiPicker && (
 									<div style={{
@@ -4655,12 +4648,17 @@ const Atendimentos = () => {
 								</Menu>
 								<InputBase
 									className={classes.inputField}
-									placeholder={privateMessage ? "Escreva uma nota privada..." : "Digite uma mensagem ou / para respostas rápidas"}
+									disabled={selectedTicket?.status === "pending"}
+									placeholder={
+										selectedTicket?.status === "pending"
+											? "Aceite o ticket para enviar mensagens"
+											: privateMessage ? "Escreva uma nota privada..." : "Digite uma mensagem ou / para respostas rápidas"
+									}
 									value={inputMessage}
 									inputRef={inputMessageRef}
 									style={{
-										backgroundColor: privateMessage ? '#f0e68c' : '#ffffff',
-										color: privateMessage ? '#5f4b00' : '#111b21',
+										backgroundColor: selectedTicket?.status === "pending" ? '#f5f5f5' : privateMessage ? '#f0e68c' : '#ffffff',
+										color: selectedTicket?.status === "pending" ? '#9e9e9e' : privateMessage ? '#5f4b00' : '#111b21',
 									}}
 									onChange={(e) => {
 										const value = e.target.value;
@@ -4759,6 +4757,7 @@ const Atendimentos = () => {
 									<IconButton
 										color="primary"
 										onClick={handleSendMessage}
+										disabled={selectedTicket?.status === "pending"}
 									>
 										<SendIcon />
 									</IconButton>

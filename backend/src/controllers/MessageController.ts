@@ -734,6 +734,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   const ticket = await ShowTicketService(ticketId, companyId);
 
+  // Bloquear envio de usuário humano em ticket ainda não aceito
+  if (ticket.status === "pending") {
+    throw new AppError("ERR_TICKET_PENDING_SEND_NOT_ALLOWED", 403);
+  }
+
   if ((!medias || !medias.length) && mediaFileIds.length) {
     const libraryFiles = await MediaFile.findAll({
       where: {
@@ -869,6 +874,26 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         });
       }
     }
+    // Auto-desativar bot quando agente envia mensagem manualmente
+    if (isPrivate !== "true" && !ticket.isGroup) {
+      const botUpdate: any = {};
+      if (ticket.useIntegration) {
+        botUpdate.useIntegration = false;
+        botUpdate.integrationId = null;
+      }
+      if (!ticket.webhookDisabled) {
+        botUpdate.webhookDisabled = true;
+      }
+      if (Object.keys(botUpdate).length > 0) {
+        await ticket.update(botUpdate);
+        const io = getIO();
+        io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
+          action: "update",
+          ticket: { ...ticket.toJSON(), ...botUpdate }
+        });
+      }
+    }
+
     return res.send();
   } catch (error) {
     console.log(error);
