@@ -2058,29 +2058,32 @@ async function handleProcessMeeting(job) {
 export async function startQueueProcess() {
   logger.info("Iniciando processamento de filas");
 
-  messageQueue.process("SendMessage", handleSendMessage);
+  const queueConcurrency = parseInt(process.env.QUEUE_CONCURRENCY) || 10;
+  const campaignConcurrency = parseInt(process.env.CAMPAIGN_CONCURRENCY) || 20;
 
-  scheduleMonitor.process("Verify", handleVerifySchedules);
+  messageQueue.process("SendMessage", queueConcurrency, handleSendMessage);
 
-  sendScheduledMessages.process("SendMessage", handleSendScheduledMessage);
+  scheduleMonitor.process("Verify", 3, handleVerifySchedules);
 
-  campaignQueue.process("VerifyCampaignsDaatabase", handleVerifyCampaigns);
+  sendScheduledMessages.process("SendMessage", 5, handleSendScheduledMessage);
 
-  campaignQueue.process("ProcessCampaign", handleProcessCampaign);
+  campaignQueue.process("VerifyCampaignsDaatabase", 2, handleVerifyCampaigns);
 
-  campaignQueue.process("PrepareContact", handlePrepareContact);
+  campaignQueue.process("ProcessCampaign", 5, handleProcessCampaign);
 
-  campaignQueue.process("DispatchCampaign", handleDispatchCampaign);
+  campaignQueue.process("PrepareContact", campaignConcurrency, handlePrepareContact);
 
-  campaignQueue.process("ProcessEmailCampaign", handleProcessEmailCampaign);
+  campaignQueue.process("DispatchCampaign", campaignConcurrency, handleDispatchCampaign);
 
-  campaignQueue.process("DispatchEmailCampaign", handleDispatchEmailCampaign);
+  campaignQueue.process("ProcessEmailCampaign", 10, handleProcessEmailCampaign);
 
-  userMonitor.process("VerifyLoginStatus", handleLoginStatus);
+  campaignQueue.process("DispatchEmailCampaign", 10, handleDispatchEmailCampaign);
 
-  queueMonitor.process("VerifyQueueStatus", handleVerifyQueue);
+  userMonitor.process("VerifyLoginStatus", 2, handleLoginStatus);
 
-  meetingQueue.process("ProcessMeeting", handleProcessMeeting);
+  queueMonitor.process("VerifyQueueStatus", 2, handleVerifyQueue);
+
+  meetingQueue.process("ProcessMeeting", 3, handleProcessMeeting);
 
   scheduleMonitor.add(
     "Verify",

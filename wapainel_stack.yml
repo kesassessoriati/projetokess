@@ -1,0 +1,228 @@
+## ============================================================================
+## ATENDZAPPY - Stack de Produção wapainel.com.br
+## ============================================================================
+## Domínios:
+##   Frontend: https://chat.wapainel.com.br
+##   Backend:  https://api.wapainel.com.br
+##   Whisper:  https://whisper.wapainel.com.br
+##
+## VPS: 6 CPUs / 12GB RAM
+## Distribuição de recursos:
+##   Backend  → 3.0 CPU / 5.5G  (principal — conexões WhatsApp + filas)
+##   Whisper  → 1.5 CPU / 2.0G  (transcrição de áudio)
+##   Redis    → 1.0 CPU / 1.0G  (filas Bull + cache)
+##   Frontend → 0.5 CPU / 512M  (nginx servindo arquivos estáticos)
+##   OS/Docker→ ~0.5 CPU / ~3G  (sobra para o sistema operacional)
+##
+## Rede: wapainelnet (externa, gerenciada pelo Traefik)
+## Banco: pgvector (externo, na mesma rede wapainelnet)
+## ============================================================================
+
+version: "3.7"
+services:
+
+## --------------------------- ATENDZAPPY BACKEND --------------------------- ##
+  atendzappy_backend:
+    image: williamwilmer10/atendzappy-backend:v1.9.474
+    volumes:
+      - atendzappy_public:/app/public
+      - atendzappy_logs:/app/logs
+    networks:
+      - wapainelnet
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - TZ=America/Sao_Paulo
+
+      ## 💬 URLs da aplicação
+      - APP_URL=https://api.wapainel.com.br
+      - BACKEND_URL=https://api.wapainel.com.br
+      - FRONTEND_URL=https://chat.wapainel.com.br
+      - CRM_CONTACT_EMAIL=wapainel@gmail.com
+
+      ## 🗄️ Dados do Postgres (pgvector)
+      - DB_DIALECT=postgres
+      - DB_HOST=pgvector_pgvector
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=23eaba748e272f2e5e0f2df82a04634d
+      - DB_NAME=atendzappy
+
+      ## ⚡ Pool de conexões com o banco
+      - DB_POOL_MAX=50
+      - DB_POOL_MIN=5
+      - DB_POOL_ACQUIRE=30000
+      - DB_POOL_IDLE=10000
+
+      - JWT_SECRET=a0bea4e753dbd5dd33b3468aede57a01670b05461c2715822e8fbbf49e8f3f48
+      - JWT_REFRESH_SECRET=3df4fe4bf56548f8bedd5a2d2fa76fbc33ee0c54ffca1abe40cda23e1fea53aff79287bb
+
+      ## 🧑‍💻 Redis
+      - REDIS_URI=redis://:atendzappy123@atendzappy_redis:6379
+      - REDIS_OPT_LIMITER_MAX=1000
+      - REDIS_OPT_LIMITER_DURATION=3000
+
+      ## 📊 Limites de plano
+      - USER_LIMIT=999
+      - CONNECTIONS_LIMIT=999
+      - CLOSED_SEND_BY_ME=true
+
+      ## ⚡ Performance de filas e threads
+      - QUEUE_CONCURRENCY=10
+      - CAMPAIGN_CONCURRENCY=20
+      - UV_THREADPOOL_SIZE=16
+
+      - VERIFY_TOKEN=crmticket
+      - FACEBOOK_APP_ID=1571747827195942
+      - FACEBOOK_APP_SECRET=ad6dbe14fe6e559ea8d4401b236b6547
+
+      - GOOGLE_CLIENT_ID=google_client_id
+      - GOOGLE_CLIENT_SECRET=google_client_secret
+      - GOOGLE_REDIRECT_URI=https://api.wapainel.com.br/google-calendar/oauth/callback
+
+      ## 🎙️ Whisper Transcription (interno via rede Docker)
+      - WHISPER_API_URL=http://whisper_api:8000
+      - WHISPER_MODEL=small
+
+    command: >
+      sh -c "npx sequelize db:migrate && node dist/server.js"
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "3.0"
+          memory: 5632M
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_backend.rule=Host(`api.wapainel.com.br`)
+        - traefik.http.routers.atendzappy_backend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_backend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_backend.priority=1
+        - traefik.http.routers.atendzappy_backend.service=atendzappy_backend
+        - traefik.http.services.atendzappy_backend.loadbalancer.server.port=8080
+        - traefik.http.services.atendzappy_backend.loadbalancer.passHostHeader=true
+        - traefik.http.middlewares.atendzappy_sslheader.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.atendzappy_backend.middlewares=atendzappy_sslheader
+
+## --------------------------- ATENDZAPPY FRONTEND --------------------------- ##
+  atendzappy_frontend:
+    image: williamwilmer10/atendzappy-frontend:v1.9.474
+    networks:
+      - wapainelnet
+    environment:
+      - REACT_APP_BACKEND_URL=https://api.wapainel.com.br
+      - NODE_ENV=production
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 64M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.wapainel.com.br`)
+        - traefik.http.routers.atendzappy_frontend.entrypoints=websecure
+        - traefik.http.routers.atendzappy_frontend.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_frontend.priority=1
+        - traefik.http.routers.atendzappy_frontend.service=atendzappy_frontend
+        - traefik.http.services.atendzappy_frontend.loadbalancer.server.port=80
+        - traefik.http.services.atendzappy_frontend.loadbalancer.passHostHeader=true
+
+## --------------------------- WHISPER TRANSCRIPTION SERVICE --------------------------- ##
+  whisper_api:
+    image: fedirz/faster-whisper-server:latest-cpu
+    environment:
+      - WHISPER__MODEL=small
+      - WHISPER__DEVICE=cpu
+      - WHISPER__LANGUAGE=pt
+    volumes:
+      - atendzappy_public:/app/public
+    networks:
+      - wapainelnet
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 2048M
+        reservations:
+          cpus: "0.2"
+          memory: 512M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.whisper_api.rule=Host(`whisper.wapainel.com.br`)
+        - traefik.http.routers.whisper_api.entrypoints=websecure
+        - traefik.http.routers.whisper_api.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.whisper_api.priority=1
+        - traefik.http.routers.whisper_api.service=whisper_api
+        - traefik.http.services.whisper_api.loadbalancer.server.port=8000
+        - traefik.http.services.whisper_api.loadbalancer.passHostHeader=true
+
+## --------------------------- ATENDZAPPY REDIS --------------------------- ##
+  atendzappy_redis:
+    image: redis:7-alpine
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--port"
+      - "6379"
+      - "--maxmemory"
+      - "896mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--requirepass"
+      - "atendzappy123"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "atendzappy123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - atendzappy_redis:/data
+    networks:
+      - wapainelnet
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+## --------------------------- VOLUMES --------------------------- ##
+volumes:
+  atendzappy_public:
+    external: true
+    name: atendzappy_public
+  atendzappy_logs:
+    external: true
+    name: atendzappy_logs
+  atendzappy_redis:
+    external: true
+    name: atendzappy_redis
+
+## --------------------------- NETWORK --------------------------- ##
+networks:
+  wapainelnet:
+    external: true
+    name: wapainelnet

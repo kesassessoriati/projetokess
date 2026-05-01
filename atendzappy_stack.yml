@@ -47,13 +47,22 @@ services:
 
       ## 🧑‍💻 Redis
       - REDIS_URI=redis://:atendzappy123@atendzappy_redis:6379
-      - REDIS_OPT_LIMITER_MAX=1
+      - REDIS_OPT_LIMITER_MAX=1000
       - REDIS_OPT_LIMITER_DURATION=3000
 
       ## 📊 Limites
       - USER_LIMIT=999
       - CONNECTIONS_LIMIT=999
       - CLOSED_SEND_BY_ME=true
+
+      ## ⚡ Performance / Pool de conexões
+      - DB_POOL_MAX=50
+      - DB_POOL_MIN=5
+      - DB_POOL_ACQUIRE=30000
+      - DB_POOL_IDLE=10000
+      - QUEUE_CONCURRENCY=10
+      - CAMPAIGN_CONCURRENCY=20
+      - UV_THREADPOOL_SIZE=16
 
       ## 🔑 Webhooks (ticket conforme informado no outro stack)
       - VERIFY_TOKEN=ticket
@@ -73,11 +82,11 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "1.0"
-          memory: 4G
+          cpus: "4.0"
+          memory: 8G
         reservations:
-          cpus: "0.2"
-          memory: 512M
+          cpus: "0.5"
+          memory: 1G
       labels:
         - traefik.enable=true
         - traefik.http.routers.atendzappy_backend.rule=Host(`apichat.kesassessoria.com`)
@@ -109,9 +118,9 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 1G
+          memory: 512M
         reservations:
-          memory: 128M
+          memory: 64M
       labels:
         - traefik.enable=true
         - traefik.http.routers.atendzappy_frontend.rule=Host(`chat.kesassessoria.com`)
@@ -133,7 +142,7 @@ services:
       - "--port"
       - "6379"
       - "--maxmemory"
-      - "512mb"
+      - "896mb"
       - "--maxmemory-policy"
       - "allkeys-lru"
       - "--requirepass"
@@ -153,8 +162,8 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          cpus: "1.0"
+          memory: 1G
 
 ## ========================= VOLUMES ========================= ##
 

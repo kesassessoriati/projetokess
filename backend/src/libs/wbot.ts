@@ -27,13 +27,13 @@ import { loadBaileys } from "../utils/loadBaileys";
 
 const msgRetryCounterCache = new NodeCache({
   stdTTL: 600,
-  maxKeys: 1000,
+  maxKeys: 5000,
   checkperiod: 300,
   useClones: false
 });
 const msgCache = new NodeCache({
   stdTTL: 60,
-  maxKeys: 1000,
+  maxKeys: 5000,
   checkperiod: 300,
   useClones: false
 });
