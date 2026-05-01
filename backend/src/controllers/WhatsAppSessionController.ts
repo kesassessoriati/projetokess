@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getWbot } from "../libs/wbot";
+import { getWbot, removeWbot } from "../libs/wbot";
 import { getWbotWhaileys, removeWbotWhaileys } from "../libs/wbotWhaileys";
 import AppError from "../errors/AppError";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
@@ -19,8 +19,10 @@ const store = async (req: Request, res: Response): Promise<Response> => {
   const whatsapp = await ShowWhatsAppService(whatsappId, companyId);
 
   if (whatsapp.channel === "whatsapp_whaileys") {
+    try { await removeWbotWhaileys(whatsapp.id, false); } catch (_) {}
     await StartWhaileysSession(whatsapp, companyId);
   } else {
+    try { await removeWbot(whatsapp.id, false); } catch (_) {}
     await StartWhatsAppSession(whatsapp, companyId);
   }
 
@@ -32,12 +34,16 @@ const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
 
   const whatsapp = await Whatsapp.findOne({ where: { id: whatsappId, companyId } });
+  if (!whatsapp) throw new AppError("ERR_NO_WHATSAPP_FOUND", 404);
 
   await whatsapp.update({ session: "" });
+  await DeleteBaileysService(whatsappId);
 
   if (whatsapp.channel === "whatsapp_whaileys") {
+    try { await removeWbotWhaileys(whatsapp.id, false); } catch (_) {}
     await StartWhaileysSession(whatsapp, companyId);
-  } else if (whatsapp.channel === "whatsapp") {
+  } else {
+    try { await removeWbot(whatsapp.id, false); } catch (_) {}
     await StartWhatsAppSession(whatsapp, companyId);
   }
 
