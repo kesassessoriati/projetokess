@@ -1719,7 +1719,15 @@ const Atendimentos = () => {
 					loadUnreadCounts();
 				}, 100);
 				if (selectedTicketRef.current && data.ticket.id === selectedTicketRef.current.id) {
-					setSelectedTicket(data.ticket);
+					// Preserva dados de relacionamento (contact, queue, user) que podem não vir
+					// no payload do socket, evitando que a conversa abra como "Sem nome"
+					setSelectedTicket(prev => ({
+						...prev,
+						...data.ticket,
+						contact: data.ticket.contact || prev?.contact,
+						queue: data.ticket.queue || prev?.queue,
+						user: data.ticket.user || prev?.user
+					}));
 				}
 			}
 			if (data.action === "delete") {
@@ -1762,7 +1770,10 @@ const Atendimentos = () => {
 								}
 							}
 						} else {
-							ticket.unreadMessages = 0;
+							// Não zerar badge em tickets pending (bot respondendo não deve marcar como lido)
+							if (ticket.status !== "pending") {
+								ticket.unreadMessages = 0;
+							}
 						}
 
 						updatedTickets[ticketIndex] = ticket;
