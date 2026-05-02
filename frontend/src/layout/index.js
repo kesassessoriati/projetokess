@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 import {
   makeStyles,
@@ -945,6 +945,8 @@ const LoggedInLayout = ({ children }) => {
   const location = useLocation();
 
   const { user, handleLogout, loading, isMobileSession } = useContext(AuthContext);
+  const isAdmin = user?.profile === "admin";
+  const isSuperAdmin = Boolean(user?.super) || (isAdmin && user?.companyId === 1);
   const { toggleColorMode, mode: colorMode } = useContext(ColorModeContext);
   const {
     planActive,
@@ -970,6 +972,8 @@ const LoggedInLayout = ({ children }) => {
   const [topMenuVisible, setTopMenuVisible] = useState(() => {
     return localStorage.getItem("topMenuVisible") !== "false";
   });
+  const showTopNavigation = !isSuperAdmin;
+  const effectiveTopMenuVisible = showTopNavigation && topMenuVisible;
 
   const classes = useStyles({
     theme,
@@ -978,7 +982,7 @@ const LoggedInLayout = ({ children }) => {
     isMobileSession,
     primaryColor: theme?.palette?.primary?.main || "#3b82f6",
     shouldHideLayout,
-    topMenuVisible,
+    topMenuVisible: effectiveTopMenuVisible,
   });
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -1291,8 +1295,40 @@ const LoggedInLayout = ({ children }) => {
     [planActive, location.pathname, gestor_financeiro_ia, propostas, followUps]
   );
 
-  const isAdmin = user?.profile === "admin";
-  const isSuperAdmin = isAdmin && user?.companyId === 1;
+  const superAdminMenuGroups = useMemo(
+    () => [
+      {
+        title: "AdministraÃ§Ã£o",
+        icon: <BusinessIcon />,
+        children: [
+          { title: "Empresas", path: "/settings?tab=companies", activePath: "/settings", activeSearch: "tab=companies" },
+          { title: "Planos", path: "/settings?tab=plans", activePath: "/settings", activeSearch: "tab=plans" },
+          { title: "Whitelabel", path: "/settings?tab=whitelabel", activePath: "/settings", activeSearch: "tab=whitelabel" },
+          { title: "Cadastro", path: "/settings?tab=cadastro", activePath: "/settings", activeSearch: "tab=cadastro" },
+        ],
+      },
+      {
+        title: "Sistema",
+        icon: <BuildIcon />,
+        children: [
+          { title: "ConfiguraÃ§Ãµes", path: "/settings?tab=options", activePath: "/settings", activeSearch: "tab=options" },
+          { title: "SMTP (E-mail)", path: "/smtp" },
+          { title: "SIP / Webphone", path: "/sip-settings" },
+          { title: "Banners", path: "/slider-banners" },
+          { title: "VÃ­deo Tutorial", path: "/tutorial-videos" },
+        ],
+      },
+      {
+        title: "Ferramentas",
+        icon: <SmartToyIcon />,
+        children: [
+          { title: "AutomaÃ§Ãµes", path: "/automations" },
+          { title: "DocumentaÃ§Ã£o", path: "/messages-api" },
+        ],
+      },
+    ],
+    []
+  );
 
   const filteredMenuGroups = useMemo(() => {
     const applyPlanVisibility = (group) => {
@@ -1305,8 +1341,11 @@ const LoggedInLayout = ({ children }) => {
       return group;
     };
 
+    if (isSuperAdmin) {
+      return superAdminMenuGroups;
+    }
+
     if (isAdmin) {
-      if (isSuperAdmin) return menuGroups.map(applyPlanVisibility).filter(Boolean);
       // Admin normal: ocultar itens superAdmin
       return menuGroups
         .filter(Boolean)
@@ -1331,7 +1370,7 @@ const LoggedInLayout = ({ children }) => {
         return filtered.length ? { ...visibleGroup, children: filtered } : null;
       })
       .filter(Boolean);
-  }, [isAdmin, isSuperAdmin, menuGroups]);
+  }, [isAdmin, isSuperAdmin, menuGroups, superAdminMenuGroups]);
 
   const [openMenus, setOpenMenus] = useState({});
 
@@ -1339,24 +1378,41 @@ const LoggedInLayout = ({ children }) => {
     setOpenMenus((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
+  const getMenuTarget = useCallback((item) => {
+    const [pathOnly, searchOnly = ""] = item.path.split("?");
+    return {
+      path: item.activePath || pathOnly,
+      search: item.activeSearch || searchOnly,
+    };
+  }, []);
+
+  const isMenuTargetActive = useCallback((item, exact = false) => {
+    const target = getMenuTarget(item);
+    const pathMatches = exact
+      ? location.pathname === target.path
+      : location.pathname === target.path || location.pathname.startsWith(target.path + "/");
+    const searchMatches = target.search
+      ? location.search.replace(/^\?/, "") === target.search
+      : true;
+    return pathMatches && searchMatches;
+  }, [getMenuTarget, location.pathname, location.search]);
+
   // Auto-expand the menu group that contains the current path
   useEffect(() => {
     filteredMenuGroups.forEach((group) => {
       if (group.children) {
-        const hasActivePath = group.children.some(
-          (child) => location.pathname === child.path || location.pathname.startsWith(child.path + "/")
-        );
+        const hasActivePath = group.children.some((child) => isMenuTargetActive(child, child.exact));
         if (hasActivePath) {
           setOpenMenus((prev) => ({ ...prev, [group.title]: true }));
         }
       }
     });
-  }, [location.pathname]);
+  }, [filteredMenuGroups, isMenuTargetActive]);
 
   const MenuItemWithTooltip = ({ path, icon, title, exact = false, disabled = false }) => {
-    const isActive = exact
-      ? location.pathname === path
-      : location.pathname === path || location.pathname.startsWith(path + "/");
+    const menuItem = { path };
+    const target = getMenuTarget(menuItem);
+    const isActive = isMenuTargetActive(menuItem, exact);
 
     const handleClick = (event) => {
       if (disabled) {
@@ -1382,7 +1438,7 @@ const LoggedInLayout = ({ children }) => {
         button
         disabled={disabled}
         onClick={handleClick}
-        className={`${classes.menuItem} ${path === "/kanban" ? classes.kanbanMenuItem : ""} ${isActive ? "active" : ""} ${path === "/kanban" && isActive ? classes.kanbanMenuItemActive : ""}`}
+        className={`${classes.menuItem} ${target.path === "/kanban" ? classes.kanbanMenuItem : ""} ${isActive ? "active" : ""} ${target.path === "/kanban" && isActive ? classes.kanbanMenuItemActive : ""}`}
       >
         <ListItemIcon className={classes.menuIcon}>{icon}</ListItemIcon>
         {showMenuLabels && (
@@ -1456,9 +1512,7 @@ const LoggedInLayout = ({ children }) => {
 
             // Item com submenu
             const isOpen = openMenus[group.title] || false;
-            const hasActivePath = group.children.some(
-              (child) => location.pathname === child.path || location.pathname.startsWith(child.path + "/")
-            );
+            const hasActivePath = group.children.some((child) => isMenuTargetActive(child, child.exact));
 
             const parentItem = (
               <ListItem
@@ -1507,9 +1561,7 @@ const LoggedInLayout = ({ children }) => {
                 <Collapse in={isOpen && showMenuLabels} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding className={classes.submenuList}>
                     {group.children.map((child) => {
-                      const isChildActive = child.exact
-                        ? location.pathname === child.path
-                        : location.pathname === child.path || location.pathname.startsWith(child.path + "/");
+                      const isChildActive = isMenuTargetActive(child, child.exact);
 
                       return (
                         <ListItem
@@ -1628,7 +1680,7 @@ const LoggedInLayout = ({ children }) => {
               )}
 
               {/* Top Menu Toggle Button - Desktop (mostra/oculta barra de navegação superior) */}
-              {!isFlowBuilderPage && !isMobile && (
+              {!isFlowBuilderPage && !isMobile && showTopNavigation && (
                 <Tooltip title={topMenuVisible ? "Ocultar menu superior" : "Exibir menu superior"}>
                   <IconButton
                     className={classes.topMenuToggleBtn}
@@ -1667,7 +1719,7 @@ const LoggedInLayout = ({ children }) => {
               </div>
 
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
-              {!isMobile && topMenuVisible && (
+              {!isMobile && effectiveTopMenuVisible && (
                 <div className={classes.quickNavRow}>
                   {renderQuickNavItems(primaryQuickNavItems)}
                 </div>
@@ -1766,8 +1818,8 @@ const LoggedInLayout = ({ children }) => {
           <div
             style={{
               overflow: "hidden",
-              maxHeight: topMenuVisible ? "56px" : "0",
-              opacity: topMenuVisible ? 1 : 0,
+              maxHeight: effectiveTopMenuVisible ? "56px" : "0",
+              opacity: effectiveTopMenuVisible ? 1 : 0,
               transition: "max-height 0.25s ease, opacity 0.2s ease",
             }}
           >

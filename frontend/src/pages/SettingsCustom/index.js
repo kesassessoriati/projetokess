@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { makeStyles, Tabs, Tab, Typography } from "@material-ui/core";
+import { useHistory, useLocation } from "react-router-dom";
 
 import TabPanel from "../../components/TabPanel";
 
@@ -75,7 +76,10 @@ const useStyles = makeStyles((theme) => ({
 
 const SettingsCustom = () => {
   const classes = useStyles();
-  const [tab, setTab] = useState("options");
+  const location = useLocation();
+  const history = useHistory();
+  const initialTab = new URLSearchParams(location.search).get("tab") || "options";
+  const [tab, setTab] = useState(initialTab);
   const [schedules, setSchedules] = useState([]);
   const [company, setCompany] = useState({});
   const [loading, setLoading] = useState(false);
@@ -126,8 +130,14 @@ const SettingsCustom = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const nextTab = new URLSearchParams(location.search).get("tab") || "options";
+    setTab(nextTab);
+  }, [location.search]);
+
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
+    history.replace(`/settings?tab=${newValue}`);
   };
 
   const handleSubmitSchedules = async (data) => {
