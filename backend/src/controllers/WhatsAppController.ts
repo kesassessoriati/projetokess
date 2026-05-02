@@ -328,7 +328,9 @@ export const storeFacebook = async (
 
       }
     }
-    return res.status(200);
+    return res.status(200).json({
+      message: "Facebook/Instagram connection processed successfully"
+    });
   } catch (error) {
     console.log(error);
     return res.status(400).json({

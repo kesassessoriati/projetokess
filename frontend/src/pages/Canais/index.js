@@ -51,7 +51,6 @@ import toastError from "../../errors/toastError";
 import useSafeApi from "../../hooks/useSafeApi";
 import { useSocket } from "../../context/SocketContext";
 import SafeComponent from "../../components/SafeComponent";
-import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import FacebookInstagramModal from "../../components/FacebookInstagramModal";
 import { getEnvVariable } from "../../config";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -452,6 +451,8 @@ const Connections = () => {
   const canUseWhaleys = Boolean(plan.whatsapp_whaleys);
   const canUseEmail = Boolean(plan.email);
   const canUseNotificaMehub = Boolean(plan.notifica_mehub);
+  const backendUrl = getEnvVariable("REACT_APP_BACKEND_URL");
+  const facebookAppId = getEnvVariable("REACT_APP_FACEBOOK_APP_ID");
 
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
@@ -481,41 +482,55 @@ const Connections = () => {
     handleLogout();
   }
 
-  const responseFacebook = (response) => {
-    if (response.status !== "unknown") {
-      const { accessToken, id } = response;
-
-      api
-        .post("/facebook", {
-          facebookUserId: id,
-          facebookUserToken: accessToken,
-        })
-        .then((response) => {
-          toast.success(i18n.t("connections.facebook.success"));
-        })
-        .catch((error) => {
-          toastError(error);
-        });
+  const openMetaOAuth = (channel) => {
+    if (!facebookAppId) {
+      toast.error("FACEBOOK_APP_ID não configurado no frontend.");
+      return;
     }
-  };
 
-  const responseInstagram = (response) => {
-    if (response.status !== "unknown") {
-      const { accessToken, id } = response;
-
-      api
-        .post("/facebook", {
-          addInstagram: true,
-          facebookUserId: id,
-          facebookUserToken: accessToken,
-        })
-        .then((response) => {
-          toast.success(i18n.t("connections.facebook.success"));
-        })
-        .catch((error) => {
-          toastError(error);
-        });
+    if (!backendUrl) {
+      toast.error("BACKEND_URL não configurado no frontend.");
+      return;
     }
+
+    const state = String(companyId);
+
+    if (channel === "instagram") {
+      const params = new URLSearchParams({
+        force_reauth: "true",
+        client_id: facebookAppId,
+        redirect_uri: `${backendUrl}/instagram-callback`,
+        response_type: "code",
+        scope: [
+          "instagram_business_basic",
+          "instagram_business_manage_messages",
+          "instagram_business_manage_comments",
+          "instagram_business_content_publish",
+          "instagram_business_manage_insights"
+        ].join(","),
+        state
+      });
+
+      window.open(`https://www.instagram.com/oauth/authorize?${params.toString()}`, "_blank", "width=720,height=720");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      client_id: facebookAppId,
+      redirect_uri: `${backendUrl}/facebook-callback`,
+      response_type: "code",
+      scope: [
+        "public_profile",
+        "pages_messaging",
+        "pages_show_list",
+        "pages_manage_metadata",
+        "pages_read_engagement",
+        "business_management"
+      ].join(","),
+      state
+    });
+
+    window.open(`https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`, "_blank", "width=720,height=720");
   };
 
   useEffect(() => {
@@ -1180,36 +1195,26 @@ const Connections = () => {
                           </MenuItem>
                         )}
                         {canUseFacebook && (
-                          <FacebookLogin
-                            appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                            autoLoad={false}
-                            fields="name,email,picture"
-                            version="13.0"
-                            scope="public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                            callback={responseFacebook}
-                            render={(renderProps) => (
-                              <MenuItem onClick={renderProps.onClick}>
-                                <Facebook fontSize="small" style={{ marginRight: 10, color: "#3b5998" }} />
-                                Facebook
-                              </MenuItem>
-                            )}
-                          />
+                          <MenuItem
+                            onClick={() => {
+                              openMetaOAuth("facebook");
+                              popupState.close();
+                            }}
+                          >
+                            <Facebook fontSize="small" style={{ marginRight: 10, color: "#3b5998" }} />
+                            Facebook
+                          </MenuItem>
                         )}
                         {canUseInstagram && (
-                          <FacebookLogin
-                            appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                            autoLoad={false}
-                            fields="name,email,picture"
-                            version="13.0"
-                            scope="public_profile,instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                            callback={responseInstagram}
-                            render={(renderProps) => (
-                              <MenuItem onClick={renderProps.onClick}>
-                                <Instagram fontSize="small" style={{ marginRight: 10, color: "#e1306c" }} />
-                                Instagram
-                              </MenuItem>
-                            )}
-                          />
+                          <MenuItem
+                            onClick={() => {
+                              openMetaOAuth("instagram");
+                              popupState.close();
+                            }}
+                          >
+                            <Instagram fontSize="small" style={{ marginRight: 10, color: "#e1306c" }} />
+                            Instagram
+                          </MenuItem>
                         )}
                       </Menu>
                     </>

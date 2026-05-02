@@ -39,7 +39,7 @@ export const facebookCallback = async (
     // Trocar code por access token
     const facebookAppId = process.env.FACEBOOK_APP_ID;
     const facebookAppSecret = process.env.FACEBOOK_APP_SECRET;
-    const redirectUri = `${process.env.FRONTEND_URL}/facebook-callback`;
+    const redirectUri = `${process.env.BACKEND_URL || process.env.APP_URL}/facebook-callback`;
 
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${facebookAppId}&client_secret=${facebookAppSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
@@ -166,7 +166,77 @@ export const instagramCallback = async (
     // Trocar code por access token
     const facebookAppId = process.env.FACEBOOK_APP_ID;
     const facebookAppSecret = process.env.FACEBOOK_APP_SECRET;
-    const redirectUri = `${process.env.FRONTEND_URL}/instagram-callback`;
+    const redirectUri = `${process.env.BACKEND_URL || process.env.APP_URL}/instagram-callback`;
+
+    const instagramTokenResponse = await fetch(
+      "https://api.instagram.com/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          client_id: facebookAppId,
+          client_secret: facebookAppSecret,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
+          code
+        } as Record<string, string>)
+      }
+    );
+
+    const instagramTokenData = await instagramTokenResponse.json();
+
+    if (instagramTokenData.access_token && instagramTokenData.user_id) {
+      let instagramAccessToken = instagramTokenData.access_token;
+
+      try {
+        const longLivedResponse = await fetch(
+          `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${facebookAppSecret}&access_token=${instagramAccessToken}`
+        );
+        const longLivedData = await longLivedResponse.json();
+        if (longLivedData.access_token) {
+          instagramAccessToken = longLivedData.access_token;
+        }
+      } catch (tokenError) {
+        console.error("Erro ao obter token long-lived do Instagram:", tokenError);
+      }
+
+      let profile: any = {};
+      try {
+        const profileResponse = await fetch(
+          `https://graph.instagram.com/me?fields=id,username,name,profile_picture_url&access_token=${instagramAccessToken}`
+        );
+        profile = await profileResponse.json();
+      } catch (profileError) {
+        console.error("Erro ao obter perfil do Instagram:", profileError);
+      }
+
+      const instagramConnection = await Whatsapp.create({
+        companyId,
+        name: `Insta ${profile.username || profile.name || instagramTokenData.user_id}`,
+        facebookUserId: String(instagramTokenData.user_id),
+        facebookPageUserId: String(profile.id || instagramTokenData.user_id),
+        facebookUserToken: instagramAccessToken,
+        tokenMeta: instagramAccessToken,
+        isDefault: false,
+        channel: "instagram",
+        status: "CONNECTED",
+        greetingMessage: "",
+        farewellMessage: "",
+        queueIds: [],
+        isMultidevice: false
+      });
+
+      const io = getIO();
+      io.to(`company-${companyId}`).emit("whatsapp", {
+        action: "update",
+        whatsapp: [instagramConnection]
+      });
+
+      res.redirect(`${process.env.FRONTEND_URL}/canais?success=instagram-connected`);
+      return;
+    }
 
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${facebookAppId}&client_secret=${facebookAppSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`

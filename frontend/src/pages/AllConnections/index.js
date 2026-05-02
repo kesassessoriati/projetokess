@@ -36,8 +36,6 @@ import {
   WhatsApp
 } from "@material-ui/icons";
 
-import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
-
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
@@ -157,11 +155,79 @@ const AllConnections = () => {
   const [confirmModalInfo, setConfirmModalInfo] = useState(
     confirmationModalInitialState
   );
+  const backendUrl = getEnvVariable("REACT_APP_BACKEND_URL");
+  const facebookAppId = getEnvVariable("REACT_APP_FACEBOOK_APP_ID");
+  const whatsappEmbeddedSignupUrl = getEnvVariable("REACT_APP_WHATSAPP_EMBEDDED_SIGNUP_URL");
 
   const history = useHistory();
   if (!user.super) {
     history.push("/tickets")
   }
+
+  const openMetaOAuth = (channel, targetCompanyId = user.companyId) => {
+    if (!facebookAppId) {
+      toast.error("FACEBOOK_APP_ID não configurado no frontend.");
+      return;
+    }
+
+    if (!backendUrl) {
+      toast.error("BACKEND_URL não configurado no frontend.");
+      return;
+    }
+
+    const state = String(targetCompanyId);
+
+    if (channel === "instagram") {
+      const params = new URLSearchParams({
+        force_reauth: "true",
+        client_id: facebookAppId,
+        redirect_uri: `${backendUrl}/instagram-callback`,
+        response_type: "code",
+        scope: [
+          "instagram_business_basic",
+          "instagram_business_manage_messages",
+          "instagram_business_manage_comments",
+          "instagram_business_content_publish",
+          "instagram_business_manage_insights"
+        ].join(","),
+        state
+      });
+
+      window.open(`https://www.instagram.com/oauth/authorize?${params.toString()}`, "_blank", "width=720,height=720");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      client_id: facebookAppId,
+      redirect_uri: `${backendUrl}/facebook-callback`,
+      response_type: "code",
+      scope: [
+        "public_profile",
+        "pages_messaging",
+        "pages_show_list",
+        "pages_manage_metadata",
+        "pages_read_engagement",
+        "business_management"
+      ].join(","),
+      state
+    });
+
+    window.open(`https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`, "_blank", "width=720,height=720");
+  };
+
+  const openWhatsAppEmbeddedSignup = targetCompanyId => {
+    if (!whatsappEmbeddedSignupUrl) {
+      toast.error("Configure REACT_APP_WHATSAPP_EMBEDDED_SIGNUP_URL para abrir o cadastro incorporado do WhatsApp.");
+      return;
+    }
+
+    const url = new URL(whatsappEmbeddedSignupUrl);
+    if (targetCompanyId) {
+      url.searchParams.set("state", String(targetCompanyId));
+    }
+
+    window.open(url.toString(), "_blank", "width=720,height=720");
+  };
 
 
   useEffect(() => {
@@ -179,23 +245,6 @@ const AllConnections = () => {
     fetchSession();
   }, []);
 
-  const responseFacebook = response => {
-    if (response.status !== "unknown") {
-      const { accessToken, id } = response;
-
-      api
-        .post("/facebook", {
-          facebookUserId: id,
-          facebookUserToken: accessToken
-        })
-        .then(response => {
-          toast.success(i18n.t("connections.facebook.success"));
-        })
-        .catch(error => {
-          toastError(error);
-        });
-    }
-  };
   useEffect(() => {
     loadCompanies();
   }, []);
@@ -209,25 +258,6 @@ const AllConnections = () => {
     }
     setLoadingComp(false);
   }
-
-  const responseInstagram = response => {
-    if (response.status !== "unknown") {
-      const { accessToken, id } = response;
-
-      api
-        .post("/facebook", {
-          addInstagram: true,
-          facebookUserId: id,
-          facebookUserToken: accessToken
-        })
-        .then(response => {
-          toast.success(i18n.t("connections.facebook.success"));
-        })
-        .catch(error => {
-          toastError(error);
-        });
-    }
-  };
 
   const handleStartWhatsAppSession = async whatsAppId => {
     try {
@@ -472,45 +502,49 @@ const AllConnections = () => {
                           />
                           WhatsApp
                         </MenuItem>
-                        <FacebookLogin
-                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                          autoLoad={false}
-                          fields="name,email,picture"
-                          version="13.0"
-                          scope="public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                          callback={responseFacebook}
-                          render={renderProps => (
-                            <MenuItem onClick={renderProps.onClick}>
-                              <Facebook
-                                fontSize="small"
-                                style={{
-                                  marginRight: "10px"
-                                }}
-                              />
-                              Facebook
-                            </MenuItem>
-                          )}
-                        />
+                        <MenuItem
+                          onClick={() => {
+                            openWhatsAppEmbeddedSignup();
+                            popupState.close();
+                          }}
+                        >
+                          <WhatsApp
+                            fontSize="small"
+                            style={{
+                              marginRight: "10px"
+                            }}
+                          />
+                          WhatsApp Oficial incorporado
+                        </MenuItem>
+                        <MenuItem
+                          onClick={() => {
+                            openMetaOAuth("facebook");
+                            popupState.close();
+                          }}
+                        >
+                          <Facebook
+                            fontSize="small"
+                            style={{
+                              marginRight: "10px"
+                            }}
+                          />
+                          Facebook
+                        </MenuItem>
 
-                        <FacebookLogin
-                          appId={getEnvVariable("REACT_APP_FACEBOOK_APP_ID")}
-                          autoLoad={false}
-                          fields="name,email,picture"
-                          version="13.0"
-                          scope="public_profile,instagram_basic,instagram_manage_messages,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,business_management"
-                          callback={responseInstagram}
-                          render={renderProps => (
-                            <MenuItem onClick={renderProps.onClick}>
-                              <Instagram
-                                fontSize="small"
-                                style={{
-                                  marginRight: "10px"
-                                }}
-                              />
-                              Instagram
-                            </MenuItem>
-                          )}
-                        />
+                        <MenuItem
+                          onClick={() => {
+                            openMetaOAuth("instagram");
+                            popupState.close();
+                          }}
+                        >
+                          <Instagram
+                            fontSize="small"
+                            style={{
+                              marginRight: "10px"
+                            }}
+                          />
+                          Instagram
+                        </MenuItem>
                       </Menu>
                     </React.Fragment>
                   )}
@@ -590,6 +624,60 @@ const AllConnections = () => {
                           </CardContent>
                           {user.profile === "admin" && (
                             <CardActions style={{ justifyContent: "flex-end", gap: "10px" }}>
+                              <Tooltip title="WhatsApp Oficial incorporado">
+                                <div
+                                  onClick={() => openWhatsAppEmbeddedSignup(company.id)}
+                                  style={{
+                                    backgroundColor: "#128C7E",
+                                    borderRadius: "10px",
+                                    width: "40px",
+                                    height: "40px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    transition: "0.3s",
+                                  }}
+                                >
+                                  <WhatsApp style={{ color: "#fff" }} />
+                                </div>
+                              </Tooltip>
+                              <Tooltip title="Conectar Facebook">
+                                <div
+                                  onClick={() => openMetaOAuth("facebook", company.id)}
+                                  style={{
+                                    backgroundColor: "#3b5998",
+                                    borderRadius: "10px",
+                                    width: "40px",
+                                    height: "40px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    transition: "0.3s",
+                                  }}
+                                >
+                                  <Facebook style={{ color: "#fff" }} />
+                                </div>
+                              </Tooltip>
+                              <Tooltip title="Conectar Instagram">
+                                <div
+                                  onClick={() => openMetaOAuth("instagram", company.id)}
+                                  style={{
+                                    backgroundColor: "#e1306c",
+                                    borderRadius: "10px",
+                                    width: "40px",
+                                    height: "40px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    transition: "0.3s",
+                                  }}
+                                >
+                                  <Instagram style={{ color: "#fff" }} />
+                                </div>
+                              </Tooltip>
                               <div
                                 onClick={() =>
                                   handleOpenWhatsAppModal(
