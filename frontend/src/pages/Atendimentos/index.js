@@ -1058,6 +1058,7 @@ const Atendimentos = () => {
 													...ticket,
 													status: "open",
 													userId: user?.id,
+													unreadMessages: 0,
 													updatedAt: new Date().toISOString()
 												};
 											}
@@ -1072,7 +1073,8 @@ const Atendimentos = () => {
 									setSelectedTicket(prev => ({
 										...prev,
 										status: "open",
-										userId: user?.id
+										userId: user?.id,
+										unreadMessages: 0
 									}));
 
 									// Atualiza contadores
@@ -2073,7 +2075,9 @@ const Atendimentos = () => {
 			setMobileView("chat");
 		}
 
-		if (ticket.unreadMessages > 0) {
+		// Só limpa mensagens não lidas ao clicar se o ticket já foi aceito (open/group)
+		// Para tickets pending, a limpeza só ocorre ao aceitar o atendimento
+		if (ticket.unreadMessages > 0 && ticket.status !== "pending") {
 			try {
 				await api.put(`/tickets/${ticket.id}`, {
 					unreadMessages: 0,
