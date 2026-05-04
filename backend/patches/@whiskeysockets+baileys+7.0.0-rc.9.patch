@@ -1,8 +1,8 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-index c4d324d..a139eb2 100644
+index 61c6372..baa0e10 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-@@ -1907,7 +1907,11 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -1847,7 +1847,11 @@ export const makeMessagesRecvSocket = (config) => {
                  // may create mappings via storeLIDPNMappings() without calling migrateSession()
                  // This leaves sessions under PN format while decrypt() expects LID format
                  // Skipping migration based on mapping existence causes "No session record" errors
@@ -15,7 +15,7 @@ index c4d324d..a139eb2 100644
              }
              else {
                  // Check if reverse mapping exists
-@@ -1921,7 +1925,11 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -1861,7 +1865,11 @@ export const makeMessagesRecvSocket = (config) => {
                  }
                  // CRITICAL: ALWAYS migrate session, even if mapping exists
                  // Same reasoning as above - mapping existence doesn't guarantee session migration
@@ -28,7 +28,7 @@ index c4d324d..a139eb2 100644
              }
          }
          if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
-@@ -2070,6 +2078,74 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -1993,6 +2001,74 @@ export const makeMessagesRecvSocket = (config) => {
                          }
                          return sendMessageAck(node);
                      }
@@ -104,7 +104,7 @@ index c4d324d..a139eb2 100644
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index d1c7d1a..216cce3 100644
+index c463fb8..d14eecc 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -1,6 +1,6 @@
@@ -224,7 +224,7 @@ index d1c7d1a..216cce3 100644
                          if (msg.senderKeyDistributionMessage) {
                              //eslint-disable-next-line max-depth
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
-index 21782ed..ddf21c5 100644
+index 21782ed..fbfa8ac 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
 @@ -373,6 +373,27 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
