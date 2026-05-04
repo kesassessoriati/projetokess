@@ -72,6 +72,7 @@ const ApiConexoesPage = () => {
 
   const getWhatsappsEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/whatsapps`;
   const getHttpChannelsEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/http-channels`;
+  const getOfficialMessagesEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/official/messages`;
 
   const postmanRequests = [
     {
@@ -189,6 +190,47 @@ const ApiConexoesPage = () => {
         ticketId: 10,
         body: "Mensagem enviada pelo CRM"
       }
+    },
+    {
+      name: "Enviar texto WhatsApp Oficial",
+      method: "POST",
+      url: `${getOfficialMessagesEndpoint()}/send`,
+      description: "Envia mensagem de texto por uma conexao WhatsApp Oficial usando whatsappId e numero.",
+      body: {
+        whatsappId: 1,
+        number: "5511999999999",
+        name: "Cliente Exemplo",
+        body: "Mensagem enviada pela API oficial",
+        queueId: 1
+      }
+    },
+    {
+      name: "Enviar template WhatsApp Oficial",
+      method: "POST",
+      url: `${getOfficialMessagesEndpoint()}/send-template`,
+      description: "Envia template aprovado pela Meta por uma conexao WhatsApp Oficial.",
+      body: {
+        whatsappId: 1,
+        number: "5511999999999",
+        name: "Cliente Exemplo",
+        templateName: "hello_world",
+        languageCode: "pt_BR",
+        components: []
+      }
+    },
+    {
+      name: "Enviar midia WhatsApp Oficial",
+      method: "POST",
+      url: `${getOfficialMessagesEndpoint()}/send`,
+      description: "Envia midia por uma conexao WhatsApp Oficial.",
+      bodyMode: "formdata",
+      formData: [
+        { key: "whatsappId", value: "1", type: "text" },
+        { key: "number", value: "5511999999999", type: "text" },
+        { key: "name", value: "Cliente Exemplo", type: "text" },
+        { key: "body", value: "Legenda da midia", type: "text" },
+        { key: "medias", type: "file", src: [] }
+      ]
     }
   ];
 
@@ -240,6 +282,43 @@ const ApiConexoesPage = () => {
       title: "Verificar status do canal HTTP",
       code: `curl -X GET "${getHttpChannelsEndpoint()}/1/status" \\
   -H "Authorization: Bearer SEU_TOKEN"`
+    },
+    {
+      title: "WhatsApp Oficial - enviar texto",
+      code: `curl -X POST "${getOfficialMessagesEndpoint()}/send" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "whatsappId": 1,
+    "number": "5511999999999",
+    "name": "Cliente Exemplo",
+    "body": "Mensagem enviada pela API oficial",
+    "queueId": 1
+  }'`
+    },
+    {
+      title: "WhatsApp Oficial - enviar template",
+      code: `curl -X POST "${getOfficialMessagesEndpoint()}/send-template" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "whatsappId": 1,
+    "number": "5511999999999",
+    "name": "Cliente Exemplo",
+    "templateName": "hello_world",
+    "languageCode": "pt_BR",
+    "components": []
+  }'`
+    },
+    {
+      title: "WhatsApp Oficial - enviar midia",
+      code: `curl -X POST "${getOfficialMessagesEndpoint()}/send" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -F "whatsappId=1" \\
+  -F "number=5511999999999" \\
+  -F "name=Cliente Exemplo" \\
+  -F "body=Legenda da midia" \\
+  -F "medias=@/caminho/arquivo.pdf"`
     }
   ];
 
@@ -881,6 +960,8 @@ const ApiConexoesPage = () => {
             <li><b>Canais HTTP:</b> GET/POST {getHttpChannelsEndpoint()}</li>
             <li><b>Receber mensagem HTTP:</b> POST {getHttpChannelsEndpoint()}/:id/messages/inbound</li>
             <li><b>Enviar pelo canal HTTP:</b> POST {getHttpChannelsEndpoint()}/:id/messages/send</li>
+            <li><b>Enviar texto oficial:</b> POST {getOfficialMessagesEndpoint()}/send</li>
+            <li><b>Enviar template oficial:</b> POST {getOfficialMessagesEndpoint()}/send-template</li>
           </ul>
           Sempre envie o header <code>Authorization: Bearer {"{token}"}</code>.
         </Typography>

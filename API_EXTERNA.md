@@ -220,6 +220,62 @@ Variaveis disponiveis no `bodyTemplate`: `${contact.externalId}`, `${contact.nam
 
 ---
 
+## WhatsApp Oficial via API
+
+Use estes endpoints para automacoes enviarem mensagens pela conexao WhatsApp Oficial. Todas as rotas usam o token da empresa no header `Authorization: Bearer SEU_TOKEN`.
+
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| POST | `/official/messages/send` | Enviar texto ou midia pela API oficial |
+| POST | `/official/messages/send-template` | Enviar template aprovado pela Meta |
+
+### Enviar texto oficial
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/official/messages/send" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "whatsappId": 1,
+    "number": "5511999999999",
+    "name": "Cliente Exemplo",
+    "body": "Mensagem enviada pela API oficial",
+    "queueId": 1
+  }'
+```
+
+### Enviar midia oficial
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/official/messages/send" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -F "whatsappId=1" \
+  -F "number=5511999999999" \
+  -F "name=Cliente Exemplo" \
+  -F "body=Legenda da midia" \
+  -F "medias=@/caminho/arquivo.pdf"
+```
+
+### Enviar template oficial
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/official/messages/send-template" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "whatsappId": 1,
+    "number": "5511999999999",
+    "name": "Cliente Exemplo",
+    "templateName": "hello_world",
+    "languageCode": "pt_BR",
+    "components": []
+  }'
+```
+
+Observacao: para iniciar conversas fora da janela permitida pela Meta, use `/official/messages/send-template` com um template aprovado.
+
+---
+
 ## Filas
 
 | Método | Rota | Descrição |

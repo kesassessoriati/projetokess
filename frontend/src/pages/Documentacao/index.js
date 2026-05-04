@@ -170,6 +170,12 @@ const DocumentacaoPage = () => {
       isNew: true
     },
     {
+      title: "API WhatsApp Oficial",
+      description: "Envie textos, midias e templates oficiais via automacoes externas com cURLs prontas.",
+      route: "/api-conexoes",
+      isNew: true
+    },
+    {
       title: "API de faturas",
       description: "Gerencie faturas via API externa. Suporta faturas normais e de projetos.",
       route: "/api-faturas"
