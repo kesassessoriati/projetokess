@@ -164,6 +164,12 @@ const DocumentacaoPage = () => {
       route: "/api-conexoes"
     },
     {
+      title: "API HTTP Request Universal",
+      description: "Crie canais HTTP, receba mensagens externas e copie cURLs prontas para n8n e webhooks.",
+      route: "/api-conexoes",
+      isNew: true
+    },
+    {
       title: "API de faturas",
       description: "Gerencie faturas via API externa. Suporta faturas normais e de projetos.",
       route: "/api-faturas"
