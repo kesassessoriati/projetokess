@@ -198,6 +198,9 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.TEXT)
   emailSyncError: string;
 
+  @Column(DataType.JSONB)
+  universalConfig: any;
+
   @Default(3)
   @Column
   maxUseBotQueues: number;

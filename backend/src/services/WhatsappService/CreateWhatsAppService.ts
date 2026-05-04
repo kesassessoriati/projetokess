@@ -53,6 +53,7 @@ interface Request {
   flowIdNotPhrase?: number;
   flowIdWelcome?: number;
   wavoip?: string;
+  universalConfig?: any;
 }
 
 interface Response {
@@ -105,7 +106,8 @@ const CreateWhatsAppService = async ({
   queueIdImportMessages,
   flowIdNotPhrase,
   flowIdWelcome,
-  wavoip
+  wavoip,
+  universalConfig
 }: Request): Promise<Response> => {
   const company = await Company.findOne({
     where: {
@@ -242,7 +244,8 @@ const CreateWhatsAppService = async ({
       collectiveVacationStart,
       queueIdImportMessages,
       flowIdNotPhrase,
-      flowIdWelcome
+      flowIdWelcome,
+      universalConfig
     },
     { include: ["queues"] }
   );

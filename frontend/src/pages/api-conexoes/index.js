@@ -71,6 +71,7 @@ const ApiConexoesPage = () => {
   }, []);
 
   const getWhatsappsEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/whatsapps`;
+  const getHttpChannelsEndpoint = () => `${process.env.REACT_APP_BACKEND_URL}/api/external/http-channels`;
 
   const postmanRequests = [
     {
@@ -140,6 +141,105 @@ const ApiConexoesPage = () => {
       method: "POST",
       url: `${getWhatsappsEndpoint()}/1/disconnect`,
       description: "Desconecta a sessão do WhatsApp."
+    },
+    {
+      name: "Listar canais HTTP Request",
+      method: "GET",
+      url: getHttpChannelsEndpoint(),
+      description: "Retorna os canais universais HTTP Request da empresa."
+    },
+    {
+      name: "Criar canal HTTP Request",
+      method: "POST",
+      url: getHttpChannelsEndpoint(),
+      description: "Cria uma conexao universal HTTP Request.",
+      body: {
+        name: "n8n HTTP",
+        universalConfig: {
+          baseUrl: "https://seu-webhook.n8n.cloud/webhook",
+          sendMethod: "POST",
+          sendPath: "/enviar-mensagem",
+          contentType: "application/json",
+          timeoutMs: 30000,
+          authType: "none",
+          headers: [{ key: "Content-Type", value: "application/json" }],
+          bodyTemplate: String.raw`{"to":"\${contact.externalId}","message":"\${message.body}","ticketId":"\${ticket.id}"}`,
+          responseIdPath: "id",
+          responseSuccessPath: "ok"
+        }
+      }
+    },
+    {
+      name: "Receber mensagem HTTP Request",
+      method: "POST",
+      url: `${getHttpChannelsEndpoint()}/1/messages/inbound`,
+      description: "Recebe mensagem de um sistema externo e abre/atualiza atendimento no CRM.",
+      body: {
+        externalContactId: "cliente-123",
+        contactName: "Cliente Exemplo",
+        body: "Mensagem recebida pelo n8n"
+      }
+    },
+    {
+      name: "Enviar pelo canal HTTP Request",
+      method: "POST",
+      url: `${getHttpChannelsEndpoint()}/1/messages/send`,
+      description: "Dispara mensagem usando a configuracao HTTP do canal.",
+      body: {
+        ticketId: 10,
+        body: "Mensagem enviada pelo CRM"
+      }
+    }
+  ];
+
+  const curlSnippets = [
+    {
+      title: "Criar canal HTTP Request",
+      code: `curl -X POST "${getHttpChannelsEndpoint()}" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "n8n HTTP",
+    "universalConfig": {
+      "baseUrl": "https://seu-webhook.n8n.cloud/webhook",
+      "sendMethod": "POST",
+      "sendPath": "/enviar-mensagem",
+      "contentType": "application/json",
+      "timeoutMs": 30000,
+      "authType": "none",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }],
+      "bodyTemplate": "{\\"to\\":\\"\${contact.externalId}\\",\\"message\\":\\"\${message.body}\\",\\"ticketId\\":\\"\${ticket.id}\\"}",
+      "responseIdPath": "id",
+      "responseSuccessPath": "ok"
+    }
+  }'`
+    },
+    {
+      title: "Receber mensagem no CRM",
+      code: `curl -X POST "${getHttpChannelsEndpoint()}/1/messages/inbound" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "externalContactId": "cliente-123",
+    "contactName": "Cliente Exemplo",
+    "body": "Ola, vim do n8n",
+    "externalMessageId": "msg-001"
+  }'`
+    },
+    {
+      title: "Enviar mensagem pelo canal",
+      code: `curl -X POST "${getHttpChannelsEndpoint()}/1/messages/send" \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "ticketId": 10,
+    "body": "Mensagem enviada pelo CRM"
+  }'`
+    },
+    {
+      title: "Verificar status do canal HTTP",
+      code: `curl -X GET "${getHttpChannelsEndpoint()}/1/status" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
     }
   ];
 
@@ -778,6 +878,9 @@ const ApiConexoesPage = () => {
             <li><b>Remover:</b> DELETE {getWhatsappsEndpoint()}/:id</li>
             <li><b>Reiniciar:</b> POST {getWhatsappsEndpoint()}/:id/restart</li>
             <li><b>Desconectar:</b> POST {getWhatsappsEndpoint()}/:id/disconnect</li>
+            <li><b>Canais HTTP:</b> GET/POST {getHttpChannelsEndpoint()}</li>
+            <li><b>Receber mensagem HTTP:</b> POST {getHttpChannelsEndpoint()}/:id/messages/inbound</li>
+            <li><b>Enviar pelo canal HTTP:</b> POST {getHttpChannelsEndpoint()}/:id/messages/send</li>
           </ul>
           Sempre envie o header <code>Authorization: Bearer {"{token}"}</code>.
         </Typography>
@@ -786,11 +889,28 @@ const ApiConexoesPage = () => {
       <Divider />
 
       <ApiPostmanDownload
-        collectionName="Whaticket - API de Conexões WhatsApp"
+        collectionName="Whaticket - API de Conexoes e HTTP Request"
         requests={postmanRequests}
         filename="whaticket-api-conexoes.json"
         helperText="Informe o token e clique em baixar para importar no Postman."
       />
+
+      <Box mt={4}>
+        <Typography variant="h6" color="primary">Biblioteca cURL para n8n e HTTP Request</Typography>
+        <Typography color="textSecondary">
+          Copie a cURL e cole no HTTP Request do n8n ou em qualquer cliente externo. Troque SEU_TOKEN e os IDs conforme sua conta.
+        </Typography>
+        <Grid container spacing={2} style={{ marginTop: 8 }}>
+          {curlSnippets.map(item => (
+            <Grid item xs={12} md={6} key={item.title}>
+              <Typography variant="subtitle2">{item.title}</Typography>
+              <Box component="pre" className={classes.resultBox}>
+                {item.code}
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       <Box mt={4}>
         <Typography variant="h6" color="primary">1. Consultar conexões</Typography>

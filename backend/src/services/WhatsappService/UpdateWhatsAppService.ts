@@ -47,6 +47,7 @@ interface WhatsappData {
   flowIdNotPhrase?: number;
   flowIdWelcome?: number;
   wavoip?: string;
+  universalConfig?: any;
 }
 
 interface Request {
@@ -111,7 +112,8 @@ const UpdateWhatsAppService = async ({
     queueIdImportMessages,
     flowIdNotPhrase,
     flowIdWelcome,
-	wavoip
+	wavoip,
+    universalConfig
   } = whatsappData;
 
   try {
@@ -181,7 +183,8 @@ const UpdateWhatsAppService = async ({
     queueIdImportMessages,
     flowIdNotPhrase,
     flowIdWelcome,
-	wavoip
+	wavoip,
+    universalConfig
   });
 
   if (!requestQR) {

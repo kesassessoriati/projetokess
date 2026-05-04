@@ -63,6 +63,7 @@ interface WhatsappData {
   queueIdImportMessages?: number;
   flowIdNotPhrase?: number;
   flowIdWelcome?: number;
+  universalConfig?: any;
   channel?: string;
 }
 
@@ -127,6 +128,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     queueIdImportMessages,
     flowIdNotPhrase,
     flowIdWelcome,
+    universalConfig,
     channel = "whatsapp"
   }: WhatsappData = req.body;
   const { companyId } = req.user;
@@ -183,10 +185,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     queueIdImportMessages,
     flowIdNotPhrase,
     flowIdWelcome,
+    universalConfig,
     channel
   });
 
-  StartWhatsAppSession(whatsapp, companyId);
+  if (["whatsapp", "whatsapp_whaileys", "whatsapp_whatsmeow"].includes(channel)) {
+    StartWhatsAppSession(whatsapp, companyId);
+  }
 
   const io = getIO();
   io.of(String(companyId))
@@ -460,6 +465,16 @@ export const remove = async (
         });
     }
 
+  }
+
+  if (whatsapp.channel === "http") {
+    await DeleteWhatsAppService(whatsappId);
+
+    io.of(String(companyId))
+      .emit(`company-${companyId}-whatsapp`, {
+        action: "delete",
+        whatsappId: +whatsappId
+      });
   }
 
   return res.status(200).json({ message: "Session disconnected." });

@@ -47,6 +47,7 @@ import SendEmailMessageService from "../services/EmailChannelServices/SendEmailM
 import { SendTextOfficialService } from "../services/WhatsAppOfficial/SendTextOfficialService";
 import { SendMediaOfficialService } from "../services/WhatsAppOfficial/SendMediaOfficialService";
 import MediaFile from "../models/MediaFile";
+import { sendUniversalMessage } from "../services/UniversalHttpChannel/UniversalHttpChannelService";
 
 type IndexQuery = {
   pageNumber: string;
@@ -815,6 +816,15 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
             });
           }
 
+          if (ticket.channel === "http") {
+            await sendUniversalMessage({
+              ticket,
+              body: Array.isArray(body) ? body[index] : body,
+              userId: req.user.id,
+              medias: [media]
+            });
+          }
+
           //limpar arquivo nao utilizado mais após envio
           const filePath = media.path || path.resolve("public", `company${companyId}`, media.filename);
           const fileExists = fs.existsSync(filePath);
@@ -870,6 +880,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           ticket,
           body,
           subject: req.body?.subject,
+          userId: req.user.id
+        });
+      } else if (ticket.channel === "http") {
+        await sendUniversalMessage({
+          ticket,
+          body,
           userId: req.user.id
         });
       }

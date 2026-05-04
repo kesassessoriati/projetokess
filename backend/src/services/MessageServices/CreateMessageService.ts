@@ -26,6 +26,14 @@ export interface MessageData {
   isForwarded?: boolean;
   fromAgent?: boolean;
   userId?: number;
+  externalMessageId?: string;
+  inReplyTo?: string;
+  threadId?: string;
+  emailFrom?: string;
+  emailTo?: string;
+  emailSubject?: string;
+  emailStatus?: string;
+  emailMeta?: any;
 }
 interface Request {
   messageData: MessageData;

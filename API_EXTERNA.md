@@ -152,6 +152,74 @@ Retorna os detalhes de uma conexão específica, incluindo o campo `token` da in
 
 ---
 
+## HTTP Request Universal
+
+Use estes endpoints para integrar canais que nao sao nativos, como n8n, ERPs, CRMs externos e webhooks proprios.
+
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| GET | `/http-channels` | Listar canais HTTP Request |
+| GET | `/http-channels/:id` | Detalhes do canal |
+| GET | `/http-channels/:id/status` | Verificar configuracao/conexao |
+| POST | `/http-channels` | Criar canal HTTP Request |
+| PUT | `/http-channels/:id` | Atualizar canal |
+| DELETE | `/http-channels/:id` | Remover canal |
+| POST | `/http-channels/:id/messages/inbound` | Receber mensagem externa no CRM |
+| POST | `/http-channels/:id/messages/send` | Enviar mensagem usando o canal configurado |
+
+### Criar canal HTTP Request
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/http-channels" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "n8n HTTP",
+    "universalConfig": {
+      "baseUrl": "https://seu-webhook.n8n.cloud/webhook",
+      "sendMethod": "POST",
+      "sendPath": "/enviar-mensagem",
+      "contentType": "application/json",
+      "timeoutMs": 30000,
+      "authType": "none",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }],
+      "bodyTemplate": "{\"to\":\"${contact.externalId}\",\"message\":\"${message.body}\",\"ticketId\":\"${ticket.id}\"}",
+      "responseIdPath": "id",
+      "responseSuccessPath": "ok"
+    }
+  }'
+```
+
+### Receber mensagem externa no CRM
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/http-channels/1/messages/inbound" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "externalContactId": "cliente-123",
+    "contactName": "Cliente Exemplo",
+    "body": "Ola, vim do n8n",
+    "externalMessageId": "msg-001"
+  }'
+```
+
+### Enviar pelo canal HTTP Request
+
+```bash
+curl -X POST "https://SEU_BACKEND/api/external/http-channels/1/messages/send" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticketId": 10,
+    "body": "Mensagem enviada pelo CRM"
+  }'
+```
+
+Variaveis disponiveis no `bodyTemplate`: `${contact.externalId}`, `${contact.name}`, `${message.body}`, `${ticket.id}` e `${credentials.nomeDaChave}`.
+
+---
+
 ## Filas
 
 | Método | Rota | Descrição |

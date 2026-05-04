@@ -37,6 +37,7 @@ import {
   Link as LinkIcon,
   Message as MessengerIcon,
   Email as EmailIcon,
+  Language as LanguageIcon,
   Add as AddIcon,
   Replay as RepeatIcon,
   PowerSettingsNew as PowerIcon,
@@ -61,6 +62,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import QrcodeModal from "../../components/QrcodeModal";
 import WhatsAppModal from "../../components/WhatsAppModal";
 import EmailChannelModal from "../../components/EmailChannelModal";
+import UniversalHttpChannelModal from "../../components/UniversalHttpChannelModal";
 import usePlans from "../../hooks/usePlans";
 import formatSerializedId from "../../utils/formatSerializedId";
 import notificame_logo from "../../assets/notificame_logo.png";
@@ -418,6 +420,8 @@ const IconChannel = (channel) => {
       return <WhatsApp style={{ color: "#00897B" }} />;
     case "email":
       return <EmailIcon style={{ color: "#2e7d32" }} />;
+    case "http":
+      return <LanguageIcon style={{ color: "#1976d2" }} />;
     default:
       return "error";
   }
@@ -436,7 +440,9 @@ const Connections = () => {
   const [hubChannelModalOpen, setHubChannelModalOpen] = useState(false);
   const [fbIgModalOpen, setFbIgModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [httpModalOpen, setHttpModalOpen] = useState(false);
   const [selectedEmailChannel, setSelectedEmailChannel] = useState(null);
+  const [selectedHttpChannel, setSelectedHttpChannel] = useState(null);
   const [searchParam, setSearchParam] = useState("");
   const { handleLogout, user } = useContext(AuthContext);
   const history = useHistory();
@@ -597,9 +603,19 @@ const Connections = () => {
     setEmailModalOpen(true);
   };
 
+  const handleOpenHttpModal = () => {
+    setSelectedHttpChannel(null);
+    setHttpModalOpen(true);
+  };
+
   const handleCloseEmailModal = () => {
     setEmailModalOpen(false);
     setSelectedEmailChannel(null);
+  };
+
+  const handleCloseHttpModal = () => {
+    setHttpModalOpen(false);
+    setSelectedHttpChannel(null);
   };
 
   const handleSyncEmailChannel = async (channelId) => {
@@ -631,6 +647,12 @@ const Connections = () => {
     if (whatsApp.channel === "email") {
       setSelectedEmailChannel(whatsApp);
       setEmailModalOpen(true);
+      return;
+    }
+
+    if (whatsApp.channel === "http") {
+      setSelectedHttpChannel(whatsApp);
+      setHttpModalOpen(true);
       return;
     }
 
@@ -1007,6 +1029,8 @@ const Connections = () => {
         return <Instagram style={{ color: "#e1306c", fontSize: 28 }} />;
       case "email":
         return <EmailIcon style={{ color: "#2e7d32", fontSize: 28 }} />;
+      case "http":
+        return <LanguageIcon style={{ color: "#1976d2", fontSize: 28 }} />;
       case "whatsapp_official":
         return <WhatsApp style={{ color: "#128C7E", fontSize: 28 }} />;
       case "whatsapp_whaileys":
@@ -1027,6 +1051,8 @@ const Connections = () => {
         return "#fce4ec";
       case "email":
         return "#e8f5e9";
+      case "http":
+        return "#e3f2fd";
       case "whatsapp_official":
         return "#e6f7f2";
       case "whatsapp_whaileys":
@@ -1075,6 +1101,11 @@ const Connections = () => {
         open={emailModalOpen}
         onClose={handleCloseEmailModal}
         emailChannelId={emailModalOpen && selectedEmailChannel?.id}
+      />
+      <UniversalHttpChannelModal
+        open={httpModalOpen}
+        onClose={handleCloseHttpModal}
+        channelId={httpModalOpen && selectedHttpChannel?.id}
       />
       <ChannelModal
         open={hubChannelModalOpen}
@@ -1188,6 +1219,15 @@ const Connections = () => {
                             E-mail
                           </MenuItem>
                         )}
+                        <MenuItem
+                          onClick={() => {
+                            handleOpenHttpModal();
+                            popupState.close();
+                          }}
+                        >
+                          <LanguageIcon fontSize="small" style={{ marginRight: 10, color: "#1976d2" }} />
+                          HTTP Request
+                        </MenuItem>
                         {canUseNotificaMehub && (
                           <MenuItem onClick={() => { setHubChannelModalOpen(true); popupState.close(); }}>
                             <img src={notificame_logo} alt="NotificaMe Hub" style={{ width: 16, height: 16, marginRight: 10, marginLeft: 2 }} />
@@ -1285,6 +1325,11 @@ const Connections = () => {
                             {whatsApp.channel === "email" && (
                               <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#2e7d32", fontWeight: 500 }}>
                                 <EmailIcon style={{ fontSize: 14, verticalAlign: "middle" }} /> E-mail
+                              </span>
+                            )}
+                            {whatsApp.channel === "http" && (
+                              <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "#1976d2", fontWeight: 500 }}>
+                                <LanguageIcon style={{ fontSize: 14, verticalAlign: "middle" }} /> HTTP Request
                               </span>
                             )}
                             {whatsApp.isDefault && (
