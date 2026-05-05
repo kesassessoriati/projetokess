@@ -491,12 +491,14 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
           setUserTicketOpen(otherTicket.data.user?.name || "Sem usuário");
           setQueueTicketOpen(otherTicket.data.queue?.name || "Sem fila");
         } else {
+          const acceptedTicket = otherTicket.data;
           setLoading(false);
-          setTabOpen(ticket.isGroup ? "group" : "open");
-          handleSelectTicket(otherTicket.data);
-          history.push(`/tickets/${otherTicket.uuid}`);
+          setTabOpen(acceptedTicket.isGroup ? "group" : "open");
+          handleSelectTicket(acceptedTicket);
+          history.push(`/tickets/${acceptedTicket.uuid}`);
         }
       } else {
+        const acceptedTicket = otherTicket.data;
         let setting;
         try {
           setting = await getSetting({ column: "sendGreetingAccepted" });
@@ -512,9 +514,9 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
         }
         if (isMounted.current) setLoading(false);
 
-        setTabOpen(ticket.isGroup ? "group" : "open");
-        handleSelectTicket(ticket);
-        history.push(`/tickets/${ticket.uuid}`);
+        setTabOpen(acceptedTicket.isGroup ? "group" : "open");
+        handleSelectTicket(acceptedTicket);
+        history.push(`/tickets/${acceptedTicket.uuid}`);
       }
     } catch (err) {
       setLoading(false);

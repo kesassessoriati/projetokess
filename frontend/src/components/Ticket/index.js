@@ -77,6 +77,7 @@ const Ticket = () => {
   const [dragDropFiles, setDragDropFiles] = useState([]);
   const { companyId } = user;
   const [notificameHub, setNotificameHub] = useState(false);
+  const pendingDeleteTimeoutRef = useRef(null);
 
   useEffect(() => {
     console.log("======== Ticket ===========")
@@ -114,7 +115,7 @@ const Ticket = () => {
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [ticketId, user, history]);
+  }, [ticketId, user, history, setTabOpen]);
 
   useEffect(() => {
     if (!isConnected || !user.companyId || !ticket?.id) {
@@ -130,13 +131,33 @@ const Ticket = () => {
     // Se já está conectado, entra na sala imediatamente
     onConnectTicket();
 
+    const clearPendingDelete = () => {
+      if (pendingDeleteTimeoutRef.current) {
+        clearTimeout(pendingDeleteTimeoutRef.current);
+        pendingDeleteTimeoutRef.current = null;
+      }
+    };
+
     const onCompanyTicket = (data) => {
-      if (data.action === "update" && data.ticket.id === ticket?.id) {
+      if (
+        (data.action === "update" || data.action === "accept") &&
+        data.ticket?.id === ticket?.id
+      ) {
+        clearPendingDelete();
         setTicket(data.ticket);
+        if (data.ticket.contact) {
+          setContact(data.ticket.contact);
+        }
+        if (["pending", "open", "group"].includes(data.ticket.status)) {
+          setTabOpen(data.ticket.status);
+        }
       }
 
       if (data.action === "delete" && data.ticketId === ticket?.id) {
-        history.push("/tickets");
+        clearPendingDelete();
+        pendingDeleteTimeoutRef.current = setTimeout(() => {
+          history.push("/tickets");
+        }, 800);
       }
     };
 
@@ -155,11 +176,12 @@ const Ticket = () => {
     const cleanupContact = on(`company-${companyId}-contact`, onCompanyContactTicket);
 
     return () => {
+      clearPendingDelete();
       emit("joinChatBoxLeave", `${ticket.id}`);
       cleanupTicket();
       cleanupContact();
     };
-  }, [isConnected, on, emit, ticketId, ticket?.id, history, user.companyId]);
+  }, [isConnected, on, emit, ticketId, ticket?.id, history, user.companyId, setTabOpen]);
 
   const handleDrawerOpen = useCallback(() => {
     setDrawerOpen(true);

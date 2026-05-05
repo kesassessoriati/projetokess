@@ -138,15 +138,17 @@ const handleUpdateTicketStatus = async (queueId) => {
 				setUserTicketOpen(otherTicket.data.user?.name || "Sem usuário")
 				setQueueTicketOpen(otherTicket.data.queue?.name || "Sem fila")
 			} else {
+				const acceptedTicket = otherTicket.data;
 				setLoading(false);
-				setTabOpen(otherTicket.isGroup ? "group" : "open");
-				history.push(`/tickets/${otherTicket.data.uuid}`);
+				setTabOpen(acceptedTicket.isGroup ? "group" : "open");
+				history.push(`/tickets/${acceptedTicket.uuid}`);
 			}
 		} else {
+			const acceptedTicket = otherTicket.data;
 			handleSendMessage(ticket.id)
 			setLoading(false);
-			setTabOpen(ticket.isGroup ? "group" : "open");
-			history.push(`/tickets/${ticket.uuid}`);
+			setTabOpen(acceptedTicket.isGroup ? "group" : "open");
+			history.push(`/tickets/${acceptedTicket.uuid}`);
 			handleClose();
 		}
 	} catch (err) {
