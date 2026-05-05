@@ -28,6 +28,59 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import MediaDrivePickerModal from "../../components/MediaDrivePickerModal";
 
+const INTERACTIVE_EXAMPLES = {
+  text: null,
+  buttons: {
+    text: "Escolha uma das opcoes abaixo:",
+    footer: "Atendimento automatico",
+    buttons: [
+      { type: "quick_reply", displayText: "Quero saber mais", id: "quero_saber_mais" },
+      { type: "cta_url", displayText: "Ver site", url: "https://seusite.com.br" },
+      { type: "cta_call", displayText: "Falar no WhatsApp", phoneNumber: "5511999999999" }
+    ]
+  },
+  list: {
+    title: "",
+    text: "Selecione uma das opcoes abaixo:",
+    buttonText: "Ver opcoes",
+    footer: "Escolha um departamento",
+    sections: [{
+      title: "Atendimento",
+      rows: [
+        { title: "Suporte tecnico", rowId: "suporte", description: "Ajuda com produto ou servico" },
+        { title: "Financeiro", rowId: "financeiro", description: "Pagamentos e boletos" },
+        { title: "Comercial", rowId: "comercial", description: "Orcamentos e propostas" }
+      ]
+    }]
+  },
+  carousel: {
+    cards: [{
+      header: { title: "Oferta Especial", imageUrl: "https://www.w3schools.com/w3css/img_lights.jpg", subtitle: "" },
+      body: "Aproveite nossas melhores ofertas com desconto exclusivo.",
+      footer: "Valido por tempo limitado",
+      buttons: [
+        { type: "cta_url", displayText: "Ver oferta", url: "https://seusite.com.br/oferta" },
+        { type: "quick_reply", displayText: "Tenho interesse", id: "interesse_oferta" }
+      ]
+    }]
+  },
+  poll: {
+    name: "Qual horario voce prefere para atendimento?",
+    options: ["Manha", "Tarde", "Noite"],
+    selectableCount: 1
+  }
+};
+
+const INTERACTIVE_TYPES = [
+  { value: "text", label: "Texto / Midia" },
+  { value: "buttons", label: "Botoes" },
+  { value: "list", label: "Lista" },
+  { value: "carousel", label: "Carrossel" },
+  { value: "poll", label: "Enquete" }
+];
+
+const stringifyConfig = (value) => JSON.stringify(value || {}, null, 2);
+
 const getMediaKind = (mimeType = "") => {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
@@ -53,6 +106,8 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
   const [shortcut, setShortcut] = useState("");
   const [message, setMessage] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [interactiveType, setInteractiveType] = useState("text");
+  const [interactiveConfig, setInteractiveConfig] = useState("");
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState(null);
   const [selectedLibraryMedia, setSelectedLibraryMedia] = useState(null);
@@ -64,6 +119,13 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
     setShortcut(reply?.shortcut || "");
     setMessage(reply?.message || "");
     setGroupId(reply?.groupId || defaultGroupId || "");
+    const nextType = reply?.interactiveType || "text";
+    setInteractiveType(nextType);
+    setInteractiveConfig(
+      nextType !== "text"
+        ? stringifyConfig(reply?.interactiveConfig || INTERACTIVE_EXAMPLES[nextType])
+        : ""
+    );
     setSelectedUploadFile(null);
     setSelectedLibraryMedia(null);
     setRemoveExistingMedia(false);
@@ -116,10 +178,23 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
 
   const handleSave = async () => {
     try {
+      let parsedInteractiveConfig = null;
+
+      if (interactiveType !== "text") {
+        try {
+          parsedInteractiveConfig = JSON.parse(interactiveConfig || "{}");
+        } catch (_) {
+          toast.error("Revise o JSON da mensagem premium antes de salvar.");
+          return;
+        }
+      }
+
       const payload = {
         shortcut: shortcut.trim(),
         message,
-        groupId: groupId || null
+        groupId: groupId || null,
+        interactiveType,
+        interactiveConfig: parsedInteractiveConfig
       };
 
       let savedReply;
@@ -182,6 +257,14 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
     }
   };
 
+  const handleInteractiveTypeChange = (nextType) => {
+    setInteractiveType(nextType);
+    setInteractiveConfig(nextType === "text" ? "" : stringifyConfig(INTERACTIVE_EXAMPLES[nextType]));
+    if (nextType !== "text" && !message) {
+      setMessage(INTERACTIVE_EXAMPLES[nextType]?.text || INTERACTIVE_EXAMPLES[nextType]?.name || "");
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -221,6 +304,36 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
                 onChange={(e) => setMessage(e.target.value)}
                 helperText="Variáveis dinâmicas suportadas: {firstName}, {name}, {date}, {time}"
               />
+
+              <Box mt={2}>
+                <FormControl variant="outlined" fullWidth style={{ marginBottom: 12 }}>
+                  <InputLabel>Recurso premium</InputLabel>
+                  <Select
+                    value={interactiveType}
+                    onChange={(e) => handleInteractiveTypeChange(e.target.value)}
+                    label="Recurso premium"
+                  >
+                    {INTERACTIVE_TYPES.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        {type.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {interactiveType !== "text" && (
+                  <TextField
+                    label="Configuração premium"
+                    fullWidth
+                    variant="outlined"
+                    multiline
+                    rows={10}
+                    value={interactiveConfig}
+                    onChange={(e) => setInteractiveConfig(e.target.value)}
+                    helperText="Exemplo pronto para editar. O chat reutiliza as rotas atuais de botões, lista, carrossel e enquete."
+                  />
+                )}
+              </Box>
             </Grid>
 
             <Grid item xs={12} md={5}>

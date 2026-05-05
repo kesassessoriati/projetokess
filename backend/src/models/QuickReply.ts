@@ -38,6 +38,12 @@ class QuickReply extends Model<QuickReply> {
   message: string;
 
   @Column
+  interactiveType: string;
+
+  @Column(DataType.JSON)
+  interactiveConfig: any;
+
+  @Column
   get mediaUrl(): string | null {
     const storedPath = this.getDataValue("mediaUrl");
 

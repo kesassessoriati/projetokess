@@ -385,6 +385,15 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
                           <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
                         )}
 
+                        {reply.interactiveType && reply.interactiveType !== "text" && (
+                          <Chip
+                            label={reply.interactiveType === "buttons" ? "Botões" : reply.interactiveType === "list" ? "Lista" : reply.interactiveType === "carousel" ? "Carrossel" : "Enquete"}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )}
+
                         <Box marginLeft="auto" display="flex" alignItems="center">
                           {reply.mediaUrl && (
                             <Tooltip title={reply.mediaName || "Contém mídia"}>
@@ -415,7 +424,9 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
                             ? "Biblioteca integrada"
                             : reply.mediaUrl
                               ? "Upload vinculado"
-                              : "Texto puro"}
+                              : reply.interactiveType && reply.interactiveType !== "text"
+                                ? "Recurso premium"
+                                : "Texto puro"}
                         </Typography>
                         <Typography variant="caption" color="primary">
                           Clique para enviar

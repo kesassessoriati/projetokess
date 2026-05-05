@@ -915,7 +915,43 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     setQuickMessagesDialogOpen(false);
   };
 
-  const handleSelectQuickMessage = (message, file, autoSend = true) => {
+  const sendInteractiveQuickReply = async (reply) => {
+    const config = reply?.interactiveConfig || {};
+
+    if (reply.interactiveType === "buttons") {
+      await api.post(`/messages/buttons/${ticketId}`, config);
+      return true;
+    }
+
+    if (reply.interactiveType === "list") {
+      await api.post(`/messages/lista/${ticketId}`, config);
+      return true;
+    }
+
+    if (reply.interactiveType === "carousel") {
+      await api.post(`/messages/carousel/${ticketId}`, config);
+      return true;
+    }
+
+    if (reply.interactiveType === "poll") {
+      await api.post(`/messages/poll/${ticketId}`, config);
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleSelectQuickMessage = async (message, file, autoSend = true, reply = null) => {
+    if (autoSend && reply?.interactiveType && reply.interactiveType !== "text") {
+      try {
+        await sendInteractiveQuickReply(reply);
+        handleCloseQuickMessagesDialog();
+      } catch (err) {
+        toastError(err);
+      }
+      return;
+    }
+
     if (file) {
       setMediasUpload([{ file, caption: message || "", type: file.type || "" }]);
       setShowModalMedias(true);

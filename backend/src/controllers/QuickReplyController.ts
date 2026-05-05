@@ -60,11 +60,31 @@ const deleteUploadedMediaIfNeeded = async (
   }
 };
 
-const buildQuickReplyPayload = (body: Request["body"]) => ({
-  shortcut: String(body?.shortcut || "").trim(),
-  message: String(body?.message || ""),
-  groupId: body?.groupId ? Number(body.groupId) : null
-});
+const parseInteractiveConfig = (value: unknown) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+
+  try {
+    return JSON.parse(String(value));
+  } catch (_) {
+    return null;
+  }
+};
+
+const buildQuickReplyPayload = (body: Request["body"]) => {
+  const interactiveType = String(body?.interactiveType || "text").trim();
+
+  return {
+    shortcut: String(body?.shortcut || "").trim(),
+    message: String(body?.message || ""),
+    groupId: body?.groupId ? Number(body.groupId) : null,
+    interactiveType,
+    interactiveConfig:
+      interactiveType && interactiveType !== "text"
+        ? parseInteractiveConfig(body?.interactiveConfig)
+        : null
+  };
+};
 
 const getNextReplySortOrder = async (
   companyId: number,
@@ -163,6 +183,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     mediaName: null,
     mediaSource: null,
     mediaFileId: null,
+    interactiveType: payload.interactiveType,
+    interactiveConfig: payload.interactiveConfig,
     sortOrder: await getNextReplySortOrder(companyId, payload.groupId)
   });
 
