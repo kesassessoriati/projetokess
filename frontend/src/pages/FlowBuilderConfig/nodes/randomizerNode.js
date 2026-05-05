@@ -1,17 +1,47 @@
 import {
+  Add,
   ArrowForwardIos,
   CallSplit,
   ContentCopy,
   Delete,
-  Message,
 } from "@mui/icons-material";
 import React, { memo, useState } from "react";
 import { Handle } from "react-flow-renderer";
 import { useNodeStorage } from "../../../stores/useNodeStorage";
 
+const BRANCH_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"];
+
+const getBranchLabel = index => String.fromCharCode(65 + index);
+
+const normalizeBranches = data => {
+  if (Array.isArray(data?.branches) && data.branches.length >= 2) {
+    return data.branches.map((branch, index) => ({
+      id: branch.id || getBranchLabel(index).toLowerCase(),
+      label: branch.label || getBranchLabel(index),
+      percent: Number(branch.percent) || 0,
+      color: branch.color || BRANCH_COLORS[index % BRANCH_COLORS.length],
+    }));
+  }
+
+  const percent = Number(data?.percent);
+  const percentA = Number.isFinite(percent) ? Math.min(Math.max(percent, 0), 100) : 50;
+
+  return [
+    { id: "a", label: "A", percent: percentA, color: BRANCH_COLORS[0] },
+    { id: "b", label: "B", percent: 100 - percentA, color: BRANCH_COLORS[1] },
+  ];
+};
+
 export default memo(({ data, isConnectable, id }) => {
   const storageItems = useNodeStorage();
   const [isHovered, setIsHovered] = useState(false);
+  const branches = normalizeBranches(data);
+
+  const openEditor = event => {
+    event.stopPropagation();
+    storageItems.setNodesStorage(id);
+    storageItems.setAct("edit");
+  };
 
   return (
     <div
@@ -19,64 +49,54 @@ export default memo(({ data, isConnectable, id }) => {
       onMouseLeave={() => setIsHovered(false)}
       style={{
         backgroundColor: "#ffffff",
-        padding: "20px",
-        borderRadius: "16px",
-        width: "280px",
-        minWidth: "280px",
-        maxWidth: "280px",
+        padding: "14px",
+        borderRadius: "8px",
+        width: "260px",
+        minWidth: "260px",
+        maxWidth: "260px",
         position: "relative",
         fontFamily: "'Inter', sans-serif",
-        border: "2px solid #e5e7eb",
-        boxShadow: isHovered 
-          ? "0 12px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(6, 182, 212, 0.1)"
-          : "0 4px 16px rgba(0, 0, 0, 0.06)",
-        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: isHovered ? "translateY(-2px)" : "translateY(0px)",
+        border: "1.5px solid #3b82f6",
+        boxShadow: isHovered
+          ? "0 14px 30px rgba(15, 23, 42, 0.14)"
+          : "0 8px 22px rgba(15, 23, 42, 0.08)",
+        transition: "all 0.18s ease",
+        transform: isHovered ? "translateY(-1px)" : "translateY(0px)",
         pointerEvents: "auto",
         userSelect: "none",
       }}
     >
-      {/* Target Handle */}
       <Handle
         type="target"
         position="left"
         style={{
-          background: "linear-gradient(135deg, #06b6d4, #0891b2)",
-          width: "16px",
-          height: "16px",
-          top: "24px",
-          left: "-10px",
-          cursor: 'pointer',
-          border: "3px solid #ffffff",
-          boxShadow: "0 2px 8px rgba(6, 182, 212, 0.3)",
-          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          background: "#38bdf8",
+          width: "12px",
+          height: "12px",
+          top: "54px",
+          left: "-7px",
+          cursor: "pointer",
+          border: "2px solid #ffffff",
+          boxShadow: "0 0 0 2px rgba(56, 189, 248, 0.18)",
         }}
-        onConnect={params => console.log("handle onConnect", params)}
         isConnectable={isConnectable}
-      >
-        <ArrowForwardIos
-          sx={{
-            color: "#ffffff",
-            width: "8px",
-            height: "8px",
-            marginLeft: "2.5px",
-            marginBottom: "0.5px",
-            pointerEvents: "none"
-          }}
-        />
-      </Handle>
+      />
 
-      {/* Action Buttons */}
       <div
         style={{
           display: "flex",
           position: "absolute",
-          right: "16px",
-          top: "16px",
+          right: "10px",
+          top: "-38px",
           cursor: "pointer",
           gap: "8px",
           opacity: isHovered ? 1 : 0,
-          transition: "opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "opacity 0.18s ease",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          padding: "6px",
+          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
         }}
       >
         <div
@@ -85,31 +105,16 @@ export default memo(({ data, isConnectable, id }) => {
             storageItems.setAct("duplicate");
           }}
           style={{
-            width: "28px",
-            height: "28px",
-            borderRadius: "8px",
-            backgroundColor: "#f3f4f6",
+            width: "24px",
+            height: "24px",
+            borderRadius: "6px",
+            backgroundColor: "#f8fafc",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = "#e5e7eb";
-            e.target.style.transform = "scale(1.1)";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = "#f3f4f6";
-            e.target.style.transform = "scale(1)";
           }}
         >
-          <ContentCopy
-            sx={{ 
-              width: "14px", 
-              height: "14px", 
-              color: "#6b7280"
-            }}
-          />
+          <ContentCopy sx={{ width: "14px", height: "14px", color: "#64748b" }} />
         </div>
         <div
           onClick={() => {
@@ -117,246 +122,135 @@ export default memo(({ data, isConnectable, id }) => {
             storageItems.setAct("delete");
           }}
           style={{
-            width: "28px",
-            height: "28px",
-            borderRadius: "8px",
+            width: "24px",
+            height: "24px",
+            borderRadius: "6px",
             backgroundColor: "#fef2f2",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = "#fee2e2";
-            e.target.style.transform = "scale(1.1)";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = "#fef2f2";
-            e.target.style.transform = "scale(1)";
           }}
         >
-          <Delete
-            sx={{ 
-              width: "14px", 
-              height: "14px", 
-              color: "#ef4444"
-            }}
-          />
+          <Delete sx={{ width: "14px", height: "14px", color: "#ef4444" }} />
         </div>
       </div>
 
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          marginBottom: "16px",
-          paddingBottom: "12px",
-          borderBottom: "1px solid #f3f4f6",
-        }}
-      >
+      <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", marginBottom: "12px" }}>
         <div
           style={{
-            width: "36px",
-            height: "36px",
-            borderRadius: "10px",
-            background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+            width: "34px",
+            height: "34px",
+            borderRadius: "8px",
+            background: "#06b6d4",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            marginRight: "12px",
-            boxShadow: "0 4px 12px rgba(6, 182, 212, 0.25)",
+            flex: "none",
           }}
         >
-          <CallSplit
-            sx={{
-              width: "18px",
-              height: "18px",
-              color: "#ffffff",
-            }}
-          />
+          <CallSplit sx={{ width: "17px", height: "17px", color: "#ffffff" }} />
         </div>
         <div>
-          <div 
-            style={{ 
-              color: "#111827", 
-              fontSize: "16px", 
-              fontWeight: "700",
-              lineHeight: "1.2",
-              marginBottom: "2px",
-            }}
-          >
+          <div style={{ color: "#0f172a", fontSize: "14px", fontWeight: 800, marginBottom: "3px" }}>
             Randomizador
           </div>
-          <div 
-            style={{ 
-              color: "#6b7280", 
-              fontSize: "12px", 
-              fontWeight: "500",
-            }}
-          >
-            Divisão por probabilidade
+          <div style={{ color: "#64748b", fontSize: "10px", lineHeight: 1.35 }}>
+            Divida o fluxo em ramificações aleatórias. Clique para editar.
           </div>
         </div>
       </div>
 
-      {/* Probability Content */}
-      <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          marginBottom: "16px",
-        }}
-      >
-        {/* First Path */}
-        <div
-          style={{
-            flex: 1,
-            backgroundColor: "#ecfdf5",
-            padding: "16px",
-            borderRadius: "12px",
-            border: "1px solid #a7f3d0",
-            textAlign: "center",
-            position: "relative",
-          }}
-        >
+      <div style={{ display: "grid", gap: "7px" }}>
+        {branches.map((branch, index) => (
           <div
+            key={branch.id}
             style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: "#059669",
-              marginBottom: "4px",
+              position: "relative",
+              minHeight: "32px",
+              border: "1px solid #e2e8f0",
+              borderRadius: "5px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 12px",
+              background: "#ffffff",
+              color: "#0f172a",
+              fontSize: "12px",
+              fontWeight: 700,
             }}
           >
-            {data.percent}%
-          </div>
-          <div
-            style={{
-              fontSize: "11px",
-              color: "#047857",
-              fontWeight: "500",
-            }}
-          >
-            Caminho A
-          </div>
-          
-          {/* Source Handle A */}
-          <Handle
-            type="source"
-            position="right"
-            id="a"
-            style={{
-              background: "linear-gradient(135deg, #10b981, #059669)",
-              width: "16px",
-              height: "16px",
-              right: "-35px",
-              top: "50%",
-              cursor: 'pointer',
-              border: "3px solid #ffffff",
-              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-            isConnectable={isConnectable}
-          >
-            <ArrowForwardIos
-              sx={{
-                color: "#ffffff",
-                width: "8px",
-                height: "8px",
-                marginLeft: "2px",
-                marginBottom: "0.5px",
-                pointerEvents: "none"
+            <span>{branch.label || getBranchLabel(index)}</span>
+            <span>{branch.percent}%</span>
+            <Handle
+              type="source"
+              position="right"
+              id={branch.id}
+              style={{
+                background: branch.color,
+                width: "10px",
+                height: "10px",
+                right: "-18px",
+                top: "50%",
+                cursor: "pointer",
+                border: "2px solid #ffffff",
+                boxShadow: `0 0 0 2px ${branch.color}33`,
               }}
-            />
-          </Handle>
-        </div>
-
-        {/* Second Path */}
-        <div
-          style={{
-            flex: 1,
-            backgroundColor: "#fef3c7",
-            padding: "16px",
-            borderRadius: "12px",
-            border: "1px solid #fed7aa",
-            textAlign: "center",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: "#d97706",
-              marginBottom: "4px",
-            }}
-          >
-            {100 - data.percent}%
+              isConnectable={isConnectable}
+            >
+              <ArrowForwardIos
+                sx={{
+                  color: "#ffffff",
+                  width: "6px",
+                  height: "6px",
+                  marginLeft: "1px",
+                  pointerEvents: "none",
+                }}
+              />
+            </Handle>
           </div>
-          <div
-            style={{
-              fontSize: "11px",
-              color: "#92400e",
-              fontWeight: "500",
-            }}
-          >
-            Caminho B
-          </div>
-
-          {/* Source Handle B */}
-          <Handle
-            type="source"
-            position="right"
-            id="b"
-            style={{
-              background: "linear-gradient(135deg, #f59e0b, #d97706)",
-              width: "16px",
-              height: "16px",
-              right: "-35px",
-              top: "50%",
-              cursor: 'pointer',
-              border: "3px solid #ffffff",
-              boxShadow: "0 2px 8px rgba(245, 158, 11, 0.3)",
-              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-            isConnectable={isConnectable}
-          >
-            <ArrowForwardIos
-              sx={{
-                color: "#ffffff",
-                width: "8px",
-                height: "8px",
-                marginLeft: "2px",
-                marginBottom: "0.5px",
-                pointerEvents: "none"
-              }}
-            />
-          </Handle>
-        </div>
+        ))}
       </div>
 
-      {/* Footer Info */}
-      <div
+      <button
+        type="button"
+        onClick={openEditor}
         style={{
-          paddingTop: "12px",
-          borderTop: "1px solid #f3f4f6",
+          width: "100%",
+          height: "34px",
+          border: "1px dashed #93c5fd",
+          borderRadius: "5px",
+          background: "#ffffff",
+          color: "#2563eb",
+          marginTop: "8px",
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          gap: "5px",
         }}
       >
-        <div
-          style={{
-            fontSize: "11px",
-            color: "#9ca3af",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <CallSplit sx={{ width: "12px", height: "12px", marginRight: "4px" }} />
-          Componente Randomizador
-        </div>
+        <Add sx={{ width: "15px", height: "15px" }} />
+        Adicionar ramificação
+      </button>
+
+      <div
+        style={{
+          borderTop: "1px solid #e2e8f0",
+          marginTop: "12px",
+          paddingTop: "10px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          textAlign: "center",
+          color: "#2563eb",
+          fontSize: "9px",
+          gap: "6px",
+        }}
+      >
+        <span><strong>0</strong><br />Sucessos</span>
+        <span><strong>0</strong><br />Alertas</span>
+        <span><strong>0</strong><br />Erros</span>
       </div>
     </div>
   );

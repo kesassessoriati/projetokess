@@ -2540,22 +2540,26 @@ export const ActionsWebhookService = async (
 
       let isRandomizer: boolean;
       if (nodeSelected.type === "randomizer") {
+        const randomizerBranches = Array.isArray(nodeSelected.data?.branches)
+          ? nodeSelected.data.branches
+          : [];
         const selectedRandom = randomizarCaminho(
-          nodeSelected.data.percent / 100
+          nodeSelected.data.percent / 100,
+          randomizerBranches
         );
 
         const resultConnect = connects.filter(
           connect => connect.source === nodeSelected.id
         );
-        if (selectedRandom === "A") {
-          next = resultConnect.filter(item => item.sourceHandle === "a")[0]
-            .target;
-          noAlterNext = true;
-        } else {
-          next = resultConnect.filter(item => item.sourceHandle === "b")[0]
-            .target;
-          noAlterNext = true;
-        }
+        const selectedHandle = randomizerBranches.length > 0
+          ? String(selectedRandom).toLowerCase()
+          : selectedRandom === "A" ? "a" : "b";
+        const selectedConnection = resultConnect.find(
+          item => item.sourceHandle === selectedHandle
+        );
+
+        next = selectedConnection?.target || "";
+        noAlterNext = true;
         isRandomizer = true;
       }
 

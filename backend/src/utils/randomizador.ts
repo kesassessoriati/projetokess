@@ -1,13 +1,43 @@
-export function randomizarCaminho(chance: number) {
-    const chanceA = chance; // 20% de chance para o caminho A
-    const max = 1
-    const min = 0
-    const numeroAleatorio = Math.random() * (max - min) + min; // Gere um número aleatório entre 0 e 1
-  
-    if (numeroAleatorio < chanceA) {
-      return "A";
-    } else {
-      return "B";
+type RandomizerBranch = {
+  id?: string;
+  label?: string;
+  percent?: number;
+};
+
+export function randomizarCaminho(
+  chance: number,
+  branches?: RandomizerBranch[]
+) {
+  const validBranches = Array.isArray(branches)
+    ? branches
+        .map((branch, index) => ({
+          id: branch.id || String.fromCharCode(97 + index),
+          percent: Number(branch.percent) || 0
+        }))
+        .filter(branch => branch.percent > 0)
+    : [];
+
+  if (validBranches.length > 0) {
+    const total = validBranches.reduce((sum, branch) => sum + branch.percent, 0);
+    const sortedNumber = Math.random() * total;
+    let accumulated = 0;
+
+    for (const branch of validBranches) {
+      accumulated += branch.percent;
+      if (sortedNumber <= accumulated) {
+        return branch.id;
+      }
     }
+
+    return validBranches[validBranches.length - 1].id;
   }
-  
+
+  const chanceA = chance;
+  const numeroAleatorio = Math.random();
+
+  if (numeroAleatorio < chanceA) {
+    return "A";
+  }
+
+  return "B";
+}

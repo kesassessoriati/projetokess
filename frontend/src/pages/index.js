@@ -650,7 +650,7 @@ export const FlowBuilderConfig = () => {
           {
             id: geraStringAleatoria(30),
             position: { x: posX, y: posY },
-            data: withTitleData("randomizer", { percent: data.percent }),
+            data: withTitleData("randomizer", { ...data }),
             type: "randomizer",
           },
         ];
@@ -978,6 +978,15 @@ export const FlowBuilderConfig = () => {
         style: { backgroundColor: "#555555", padding: 0, borderRadius: 8 },
       };
       setNodes((old) => [...old, nodeNew]);
+      storageItems.setNodesStorage("");
+      storageItems.setAct("idle");
+    }
+    if (storageItems.action === "edit") {
+      const nodeToEdit = nodes.find((item) => item.id === storageItems.node);
+      if (nodeToEdit?.type === "randomizer") {
+        setDataNode(nodeToEdit);
+        setModalAddRandomizer("edit");
+      }
       storageItems.setNodesStorage("");
       storageItems.setAct("idle");
     }
