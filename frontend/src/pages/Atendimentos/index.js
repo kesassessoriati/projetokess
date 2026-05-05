@@ -812,6 +812,7 @@ const Atendimentos = () => {
 	const fileInputRef = useRef(null);
 	const documentInputRef = useRef(null);
 	const selectedTicketRef = useRef(null);
+	const pendingTicketDeleteTimeoutRef = useRef(null);
 	const { list: listQuickMessages } = useQuickMessages();
 
 	const resetQuickReplyState = useCallback(() => {
@@ -1045,10 +1046,15 @@ const Atendimentos = () => {
 							size="small"
 							onClick={async () => {
 								try {
-									await api.put(`/tickets/${selectedTicket.id}`, {
+									const { data: acceptedTicket } = await api.put(`/tickets/${selectedTicket.id}`, {
 										status: "open",
 										userId: user?.id,
 									});
+
+									if (pendingTicketDeleteTimeoutRef.current) {
+										clearTimeout(pendingTicketDeleteTimeoutRef.current);
+										pendingTicketDeleteTimeoutRef.current = null;
+									}
 
 									// **NOVO: Atualização instantânea sem F5**
 									setTickets(prevTickets => {
@@ -1056,10 +1062,12 @@ const Atendimentos = () => {
 											if (ticket.id === selectedTicket.id) {
 												return {
 													...ticket,
-													status: "open",
-													userId: user?.id,
+													...acceptedTicket,
+													contact: acceptedTicket.contact || ticket.contact,
+													queue: acceptedTicket.queue || ticket.queue,
+													user: acceptedTicket.user || ticket.user,
 													unreadMessages: 0,
-													updatedAt: new Date().toISOString()
+													updatedAt: acceptedTicket.updatedAt || new Date().toISOString()
 												};
 											}
 											return ticket;
@@ -1070,12 +1078,18 @@ const Atendimentos = () => {
 									});
 
 									// Atualiza o ticket selecionado
-									setSelectedTicket(prev => ({
-										...prev,
-										status: "open",
-										userId: user?.id,
+									const hydratedAcceptedTicket = {
+										...selectedTicket,
+										...acceptedTicket,
+										contact: acceptedTicket.contact || selectedTicket.contact,
+										queue: acceptedTicket.queue || selectedTicket.queue,
+										user: acceptedTicket.user || selectedTicket.user,
 										unreadMessages: 0
-									}));
+									};
+									setSelectedTicket(hydratedAcceptedTicket);
+									selectedTicketRef.current = hydratedAcceptedTicket;
+									history.replace(`/atendimentos/${acceptedTicket.id}`);
+									loadMessages(acceptedTicket.id);
 
 									// Atualiza contadores
 									loadUnreadCounts();
@@ -1719,6 +1733,10 @@ const Atendimentos = () => {
 					loadUnreadCounts();
 				}, 100);
 				if (selectedTicketRef.current && data.ticket.id === selectedTicketRef.current.id) {
+					if (pendingTicketDeleteTimeoutRef.current) {
+						clearTimeout(pendingTicketDeleteTimeoutRef.current);
+						pendingTicketDeleteTimeoutRef.current = null;
+					}
 					// Preserva dados de relacionamento (contact, queue, user) que podem não vir
 					// no payload do socket, evitando que a conversa abra como "Sem nome"
 					setSelectedTicket(prev => ({
@@ -1730,12 +1748,39 @@ const Atendimentos = () => {
 					}));
 				}
 			}
+			if (data.action === "accept") {
+				if (selectedTicketRef.current && data.ticket?.id === selectedTicketRef.current.id) {
+					if (pendingTicketDeleteTimeoutRef.current) {
+						clearTimeout(pendingTicketDeleteTimeoutRef.current);
+						pendingTicketDeleteTimeoutRef.current = null;
+					}
+					setSelectedTicket(prev => ({
+						...prev,
+						...data.ticket,
+						contact: data.ticket.contact || prev?.contact,
+						queue: data.ticket.queue || prev?.queue,
+						user: data.ticket.user || prev?.user,
+						unreadMessages: 0
+					}));
+					history.replace(`/atendimentos/${data.ticket.id}`);
+					loadMessages(data.ticket.id);
+				}
+			}
 			if (data.action === "delete") {
 				setTickets((prevTickets) => prevTickets.filter(t => t.id !== data.ticketId));
 				loadUnreadCounts();
 				if (selectedTicketRef.current && data.ticketId === selectedTicketRef.current.id) {
-					setSelectedTicket(null);
-					history.push("/atendimentos");
+					if (pendingTicketDeleteTimeoutRef.current) {
+						clearTimeout(pendingTicketDeleteTimeoutRef.current);
+					}
+					pendingTicketDeleteTimeoutRef.current = setTimeout(() => {
+						const currentTicket = selectedTicketRef.current;
+						if (currentTicket && data.ticketId === currentTicket.id && currentTicket.status === "pending") {
+							setSelectedTicket(null);
+							history.push("/atendimentos");
+						}
+						pendingTicketDeleteTimeoutRef.current = null;
+					}, 900);
 				}
 			}
 		});
@@ -1874,6 +1919,10 @@ const Atendimentos = () => {
 		});
 
 		return () => {
+			if (pendingTicketDeleteTimeoutRef.current) {
+				clearTimeout(pendingTicketDeleteTimeoutRef.current);
+				pendingTicketDeleteTimeoutRef.current = null;
+			}
 			cleanupTicket();
 			cleanupAppMessage();
 			cleanupTyping();
