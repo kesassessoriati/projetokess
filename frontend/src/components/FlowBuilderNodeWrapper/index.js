@@ -69,6 +69,46 @@ const useStyles = makeStyles(() => ({
       backgroundColor: "#374151",
     },
   },
+  statsBar: {
+    position: "absolute",
+    left: "50%",
+    bottom: -48,
+    transform: "translateX(-50%)",
+    width: "calc(100% - 16px)",
+    minWidth: 180,
+    height: 40,
+    borderRadius: 8,
+    border: "1px solid #dbeafe",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    overflow: "hidden",
+    pointerEvents: "auto",
+    zIndex: 4,
+  },
+  statButton: {
+    border: 0,
+    borderRight: "1px solid #e2e8f0",
+    background: "#ffffff",
+    cursor: "pointer",
+    color: "#2563eb",
+    fontSize: 9,
+    lineHeight: 1.1,
+    fontWeight: 600,
+    "&:last-child": {
+      borderRight: 0,
+    },
+    "& strong": {
+      display: "block",
+      color: "#0f172a",
+      fontSize: 13,
+      marginBottom: 2,
+    },
+    "&:hover": {
+      background: "#eff6ff",
+    },
+  },
 }));
 
 const withNodeTitle = (NodeComponent, defaultTitle) => {
@@ -79,6 +119,14 @@ const withNodeTitle = (NodeComponent, defaultTitle) => {
     const groupLabel = props.data?.groupLabel;
     const groupColor = props.data?.groupColor;
     const isPreview = Boolean(props.data?.groupPreview);
+    const stats = props.data?.flowLogStats || { success: 0, warning: 0, error: 0 };
+
+    const handleOpenLogs = (status) => (event) => {
+      event.stopPropagation();
+      window.dispatchEvent(new CustomEvent("flowbuilder:open-node-logs", {
+        detail: { nodeId: props.id, status },
+      }));
+    };
 
     const handleRename = (event) => {
       event.stopPropagation();
@@ -111,6 +159,22 @@ const withNodeTitle = (NodeComponent, defaultTitle) => {
           </div>
         )}
         <NodeComponent {...props} />
+        {!props.data?.hideWrapperStats && (
+          <div className={classes.statsBar}>
+            <button type="button" className={classes.statButton} onClick={handleOpenLogs("success")}>
+              <strong>{stats.success || 0}</strong>
+              Sucessos
+            </button>
+            <button type="button" className={classes.statButton} onClick={handleOpenLogs("warning")}>
+              <strong>{stats.warning || 0}</strong>
+              Alertas
+            </button>
+            <button type="button" className={classes.statButton} onClick={handleOpenLogs("error")}>
+              <strong>{stats.error || 0}</strong>
+              Erros
+            </button>
+          </div>
+        )}
       </div>
     );
   };

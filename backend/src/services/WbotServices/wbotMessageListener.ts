@@ -4296,7 +4296,8 @@ const flowbuilderIntegration = async (
       null,
       ticket.id,
       mountDataContact,
-      msg || null
+      msg || null,
+      execution?.id
     );
       if (execution) await execution.update({ status: "completed", durationMs: Date.now() - execStart }).catch(() => null);
     } catch (err) {

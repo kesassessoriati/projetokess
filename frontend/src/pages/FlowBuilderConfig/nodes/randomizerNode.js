@@ -235,23 +235,6 @@ export default memo(({ data, isConnectable, id }) => {
         Adicionar ramificação
       </button>
 
-      <div
-        style={{
-          borderTop: "1px solid #e2e8f0",
-          marginTop: "12px",
-          paddingTop: "10px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          textAlign: "center",
-          color: "#2563eb",
-          fontSize: "9px",
-          gap: "6px",
-        }}
-      >
-        <span><strong>0</strong><br />Sucessos</span>
-        <span><strong>0</strong><br />Alertas</span>
-        <span><strong>0</strong><br />Erros</span>
-      </div>
     </div>
   );
 });

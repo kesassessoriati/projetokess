@@ -71,6 +71,10 @@ class FlowExecution extends Model<FlowExecution> {
   nodesExecuted: number;
 
   @AllowNull(true)
+  @Column(DataType.JSON)
+  nodePath: any[];
+
+  @AllowNull(true)
   @Column
   durationMs: number;
 

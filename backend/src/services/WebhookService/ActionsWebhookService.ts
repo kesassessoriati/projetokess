@@ -66,6 +66,7 @@ import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import CrmLead from "../../models/CrmLead";
 import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
+import FlowExecution from "../../models/FlowExecution";
 
 // Função para extrair valores de objetos JSON usando path
 const getNestedValue = (obj: any, path: string): any => {
@@ -122,7 +123,8 @@ export const ActionsWebhookService = async (
   pressKey?: string,
   idTicket?: number,
   numberPhrase: "" | { number: string; name: string; email: string } = "",
-  msg?: proto.IWebMessageInfo
+  msg?: proto.IWebMessageInfo,
+  executionId?: number
 ): Promise<string> => {
   try {
     const io = getIO();
@@ -271,6 +273,45 @@ export const ActionsWebhookService = async (
 
     let noAlterNext = false;
 
+    const recordFlowNode = async (
+      node: any,
+      status: "success" | "warning" | "error" = "success",
+      message?: string
+    ) => {
+      if (!executionId || !node?.id) return;
+
+      try {
+        const execution = await FlowExecution.findByPk(executionId);
+        if (!execution) return;
+
+        const currentPath = Array.isArray(execution.nodePath)
+          ? execution.nodePath
+          : [];
+        const nextPath = [
+          ...currentPath,
+          {
+            nodeId: node.id,
+            nodeType: node.type,
+            nodeTitle: node.data?.title || node.data?.label || node.type,
+            status,
+            message: message || "Bloco executado com sucesso",
+            executedAt: new Date().toISOString()
+          }
+        ];
+
+        await execution.update({
+          nodePath: nextPath,
+          lastNodeId: node.id,
+          lastNodeType: node.type,
+          nodesExecuted: nextPath.length
+        });
+      } catch (error) {
+        logger.warn(
+          `[FlowExecution] Falha ao registrar log do bloco ${node?.id}: ${error?.message}`
+        );
+      }
+    };
+
     for (var i = 0; i < lengthLoop; i++) {
       let nodeSelected: any;
       let ticketInit: Ticket;
@@ -339,6 +380,12 @@ export const ActionsWebhookService = async (
           );
         }
       }
+
+      if (!nodeSelected) {
+        break;
+      }
+
+      await recordFlowNode(nodeSelected);
 
       if (nodeSelected.type === "message") {
         let msg;

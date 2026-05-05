@@ -5,6 +5,7 @@ import React, {
   useContext,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import { MdSmartToy } from "react-icons/md";
 import typebotIcon from "../../assets/typebot-ico.png";
@@ -352,6 +353,101 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "16px",
     fontWeight: "500",
   },
+  logsPanel: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: 360,
+    height: "100%",
+    zIndex: 1200,
+    background: "#0f172a",
+    color: "#e5e7eb",
+    boxShadow: "-18px 0 40px rgba(15,23,42,0.22)",
+    borderLeft: "1px solid rgba(148,163,184,0.28)",
+    display: "flex",
+    flexDirection: "column",
+  },
+  logsHeader: {
+    padding: "14px 16px 10px",
+    borderBottom: "1px solid rgba(148,163,184,0.22)",
+  },
+  logsTitle: {
+    fontSize: 14,
+    fontWeight: 800,
+    color: "#f8fafc",
+    marginBottom: 4,
+  },
+  logsSubtitle: {
+    fontSize: 11,
+    color: "#94a3b8",
+  },
+  logsTabs: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 6,
+    padding: "10px 12px",
+    borderBottom: "1px solid rgba(148,163,184,0.18)",
+  },
+  logsTab: {
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(15,23,42,0.5)",
+    color: "#cbd5e1",
+    borderRadius: 8,
+    height: 30,
+    cursor: "pointer",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  logsTabActive: {
+    background: "rgba(37,99,235,0.22)",
+    color: "#93c5fd",
+    borderColor: "#3b82f6",
+  },
+  logsList: {
+    padding: 12,
+    overflowY: "auto",
+    display: "grid",
+    gap: 10,
+  },
+  logCard: {
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "#1e293b",
+    borderRadius: 10,
+    padding: 12,
+    textAlign: "left",
+    cursor: "pointer",
+    color: "#e2e8f0",
+    boxShadow: "0 8px 22px rgba(0,0,0,0.16)",
+  },
+  logCardActive: {
+    borderColor: "#60a5fa",
+    boxShadow: "0 0 0 2px rgba(96,165,250,0.22)",
+  },
+  logMeta: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 8,
+    color: "#94a3b8",
+    fontSize: 10,
+    marginBottom: 8,
+  },
+  logMessage: {
+    fontSize: 12,
+    color: "#f8fafc",
+    fontWeight: 700,
+    marginBottom: 8,
+  },
+  logPath: {
+    fontSize: 10,
+    color: "#93c5fd",
+    lineHeight: 1.4,
+  },
+  logsEmpty: {
+    color: "#94a3b8",
+    fontSize: 12,
+    padding: 16,
+    textAlign: "center",
+  },
 }));
 
 function geraStringAleatoria(tamanho) {
@@ -504,6 +600,27 @@ const initialNodes = [
 
 const initialEdges = [];
 
+const LOG_STATUS_LABELS = {
+  success: "Sucessos",
+  warning: "Alertas",
+  error: "Erros",
+};
+
+const stripRuntimeNodeData = (node) => {
+  const {
+    flowLogStats,
+    groupPreview,
+    groupLabel,
+    groupColor,
+    ...cleanData
+  } = node.data || {};
+
+  return {
+    ...node,
+    data: cleanData,
+  };
+};
+
 export const FlowBuilderConfig = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -526,6 +643,13 @@ export const FlowBuilderConfig = () => {
   const [modalAddImg, setModalAddImg] = useState(null);
   const [modalAddAudio, setModalAddAudio] = useState(null);
   const [modalAddRandomizer, setModalAddRandomizer] = useState(null);
+  const [flowExecutions, setFlowExecutions] = useState([]);
+  const [logsPanel, setLogsPanel] = useState({
+    open: false,
+    nodeId: null,
+    status: "success",
+  });
+  const [selectedExecutionId, setSelectedExecutionId] = useState(null);
   const [modalAddVideo, setModalAddVideo] = useState(null);
   const [modalAddSingleBlock, setModalAddSingleBlock] = useState(null);
   const [contentModalType, setContentModalType] = useState(null);
@@ -1091,6 +1215,38 @@ export const FlowBuilderConfig = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [id]);
 
+  const fetchFlowExecutions = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      const { data } = await api.get("/flowbuilder/executions", {
+        params: { flowId: id, pageNumber: 1 },
+      });
+      setFlowExecutions(data.executions || []);
+    } catch (error) {
+      console.log("Erro ao buscar logs do fluxo", error);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchFlowExecutions();
+  }, [fetchFlowExecutions]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      setLogsPanel({
+        open: true,
+        nodeId: event.detail?.nodeId,
+        status: event.detail?.status || "success",
+      });
+      setSelectedExecutionId(null);
+      fetchFlowExecutions();
+    };
+
+    window.addEventListener("flowbuilder:open-node-logs", handler);
+    return () => window.removeEventListener("flowbuilder:open-node-logs", handler);
+  }, [fetchFlowExecutions]);
+
   useEffect(() => {
     if (storageItems.action === "delete") {
       setNodes((old) => old.filter((item) => item.id !== storageItems.node));
@@ -1159,6 +1315,85 @@ export const FlowBuilderConfig = () => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  const flowLogStatsByNode = useMemo(() => {
+    const stats = {};
+
+    flowExecutions.forEach((execution) => {
+      const path = Array.isArray(execution.nodePath) ? execution.nodePath : [];
+
+      path.forEach((item) => {
+        if (!item?.nodeId) return;
+        if (!stats[item.nodeId]) {
+          stats[item.nodeId] = { success: 0, warning: 0, error: 0 };
+        }
+        const status = item.status === "error" ? "error" : item.status === "warning" ? "warning" : "success";
+        stats[item.nodeId][status] += 1;
+      });
+
+      if (path.length === 0 && execution.lastNodeId) {
+        if (!stats[execution.lastNodeId]) {
+          stats[execution.lastNodeId] = { success: 0, warning: 0, error: 0 };
+        }
+        stats[execution.lastNodeId][execution.status === "error" ? "error" : "success"] += 1;
+      }
+    });
+
+    return stats;
+  }, [flowExecutions]);
+
+  const selectedExecution = useMemo(
+    () => flowExecutions.find((execution) => execution.id === selectedExecutionId),
+    [flowExecutions, selectedExecutionId]
+  );
+
+  const selectedExecutionPathIds = useMemo(() => {
+    if (!selectedExecution || !Array.isArray(selectedExecution.nodePath)) return [];
+    return selectedExecution.nodePath.map((item) => item.nodeId).filter(Boolean);
+  }, [selectedExecution]);
+
+  const nodesWithRuntimeData = useMemo(() => {
+    return nodes.map((node) => {
+      const previewIndex = selectedExecutionPathIds.indexOf(node.id);
+      return {
+        ...node,
+        data: {
+          ...(node.data || {}),
+          flowLogStats: flowLogStatsByNode[node.id] || { success: 0, warning: 0, error: 0 },
+          groupPreview: previewIndex >= 0,
+          groupLabel: previewIndex >= 0 ? `${previewIndex + 1}º bloco executado` : node.data?.groupLabel,
+        },
+      };
+    });
+  }, [nodes, flowLogStatsByNode, selectedExecutionPathIds]);
+
+  const currentNodeLogs = useMemo(() => {
+    if (!logsPanel.nodeId) return [];
+
+    return flowExecutions
+      .map((execution) => {
+        const path = Array.isArray(execution.nodePath) ? execution.nodePath : [];
+        const nodeLog = path.find((item) => item.nodeId === logsPanel.nodeId);
+        const fallbackLog = path.length === 0 && execution.lastNodeId === logsPanel.nodeId
+          ? {
+            nodeId: execution.lastNodeId,
+            nodeType: execution.lastNodeType,
+            nodeTitle: execution.lastNodeType || "Bloco",
+            status: execution.status === "error" ? "error" : "success",
+            message: execution.errorMessage || "Execução registrada",
+            executedAt: execution.updatedAt,
+          }
+          : null;
+        const log = nodeLog || fallbackLog;
+        if (!log) return null;
+
+        const status = log.status === "error" ? "error" : log.status === "warning" ? "warning" : "success";
+        if (status !== logsPanel.status) return null;
+
+        return { execution, log, path };
+      })
+      .filter(Boolean);
+  }, [flowExecutions, logsPanel.nodeId, logsPanel.status]);
 
   // Edge deletion via custom event dispatched by RemoveEdge component
   useEffect(() => {
@@ -1307,7 +1542,7 @@ export const FlowBuilderConfig = () => {
   );
 
   const saveFlow = async () => {
-    const nodesWithTitles = applyTitlesToNodes(nodes);
+    const nodesWithTitles = applyTitlesToNodes(nodes).map(stripRuntimeNodeData);
     setNodes(nodesWithTitles);
     await api.post("/flowbuilder/flow", {
       idFlow: id,
@@ -1945,7 +2180,7 @@ export const FlowBuilderConfig = () => {
           {/* Flow Container */}
           <Stack className={classes.flowContainer} sx={{ paddingLeft: "260px" }}>
             <ReactFlow
-              nodes={nodes}
+              nodes={nodesWithRuntimeData}
               edges={edges}
               deleteKeyCode={["Backspace", "Delete"]}
               onNodesChange={onNodesChange}
@@ -2005,6 +2240,90 @@ export const FlowBuilderConfig = () => {
               />
             </ReactFlow>
           </Stack>
+
+          {logsPanel.open && (
+            <aside className={classes.logsPanel}>
+              <div className={classes.logsHeader}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div className={classes.logsTitle}>Logs do bloco</div>
+                    <div className={classes.logsSubtitle}>
+                      Selecione um registro para destacar o caminho executado.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogsPanel({ open: false, nodeId: null, status: "success" });
+                      setSelectedExecutionId(null);
+                    }}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: "1px solid rgba(148,163,184,0.28)",
+                      background: "rgba(15,23,42,0.7)",
+                      color: "#cbd5e1",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              <div className={classes.logsTabs}>
+                {Object.entries(LOG_STATUS_LABELS).map(([status, label]) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={`${classes.logsTab} ${logsPanel.status === status ? classes.logsTabActive : ""}`}
+                    onClick={() => {
+                      setLogsPanel((prev) => ({ ...prev, status }));
+                      setSelectedExecutionId(null);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={classes.logsList}>
+                {currentNodeLogs.length === 0 && (
+                  <div className={classes.logsEmpty}>
+                    Nenhum log encontrado para este bloco nesta categoria.
+                  </div>
+                )}
+
+                {currentNodeLogs.map(({ execution, log, path }) => {
+                  const pathLabels = path
+                    .map((item, index) => `${index + 1}. ${item.nodeTitle || item.nodeType || item.nodeId}`)
+                    .join("  →  ");
+
+                  return (
+                    <button
+                      key={`${execution.id}-${log.nodeId}-${log.executedAt}`}
+                      type="button"
+                      className={`${classes.logCard} ${selectedExecutionId === execution.id ? classes.logCardActive : ""}`}
+                      onClick={() => setSelectedExecutionId(execution.id)}
+                    >
+                      <div className={classes.logMeta}>
+                        <span>{new Date(log.executedAt || execution.createdAt).toLocaleString("pt-BR")}</span>
+                        <span>{execution.durationMs ? `${execution.durationMs}ms` : execution.status}</span>
+                      </div>
+                      <div className={classes.logMessage}>{log.message || "Bloco executado"}</div>
+                      <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
+                        Contato: {execution.contactNumber || "sem contato"} · Gatilho: {execution.trigger || "manual"}
+                      </div>
+                      <div className={classes.logPath}>
+                        {pathLabels || "Caminho não disponível para execução antiga"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+          )}
         </Paper>
       )}
 
