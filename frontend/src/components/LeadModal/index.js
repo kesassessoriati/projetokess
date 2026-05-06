@@ -494,6 +494,18 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Endereço"
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  placeholder="Rua, avenida, bairro, complemento..."
+                />
+              </Grid>
 
               {/* ── PRODUTO VINCULADO ── */}
               <Grid item xs={12}>
@@ -861,26 +873,6 @@ const LeadModal = ({
                   className={classes.formField}
                   multiline
                   rows={3}
-                />
-              </Grid>
-
-              {/* ── ENDEREÇO ── */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" className={classes.sectionTitle}>
-                  Endereço
-                </Typography>
-                <Divider />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Endereço"
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  variant="outlined"
-                  fullWidth
-                  className={classes.formField}
-                  placeholder="Rua, avenida, bairro, complemento..."
                 />
               </Grid>
 
