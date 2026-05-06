@@ -637,6 +637,7 @@ const LEAD_STATUS_COLORS = {
 
 const IntelligentCard = ({ op, onClick, highlight }) => {
   const { makeCall } = useWebphone();
+  const { webphone: canUseWebphone } = usePlanPermissions();
   const riskColor =
     op.prediction && op.prediction.riskLevel === "HIGH"
       ? "#ef4444"
@@ -676,42 +677,44 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
             (op.lead && op.lead.name) ||
             "Sem contato"}
         </Typography>
-        <Tooltip title="Chamar agora">
-          <IconButton
-            size="small"
-            style={{ marginLeft: "auto", color: "#22a45d" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              const phone =
-                (op.contact && op.contact.number) || (op.lead && op.lead.phone);
-              if (phone) {
-                makeCall(
-                  phone,
-                  {
-                    id: op.lead?.id || op.contact?.id,
-                    name:
-                      (op.lead && op.lead.name) ||
-                      (op.contact && op.contact.name) ||
-                      phone,
+        {canUseWebphone && (
+          <Tooltip title="Chamar agora">
+            <IconButton
+              size="small"
+              style={{ marginLeft: "auto", color: "#22a45d" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const phone =
+                  (op.contact && op.contact.number) || (op.lead && op.lead.phone);
+                if (phone) {
+                  makeCall(
                     phone,
-                  },
-                  {
-                    contactId: op.contact?.id || op.lead?.contactId || null,
-                    leadId: op.lead?.id || op.leadId || null,
-                    opportunityId: op.id,
-                    pipelineId: op.pipelineId || op.stage?.pipelineId || null,
-                    stageId: op.stageId || null,
-                    ticketId: op.ticketId || null,
-                  },
-                );
-              } else {
-                toast.info("Lead sem telefone cadastrado.");
-              }
-            }}
-          >
-            <CallIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+                    {
+                      id: op.lead?.id || op.contact?.id,
+                      name:
+                        (op.lead && op.lead.name) ||
+                        (op.contact && op.contact.name) ||
+                        phone,
+                      phone,
+                    },
+                    {
+                      contactId: op.contact?.id || op.lead?.contactId || null,
+                      leadId: op.lead?.id || op.leadId || null,
+                      opportunityId: op.id,
+                      pipelineId: op.pipelineId || op.stage?.pipelineId || null,
+                      stageId: op.stageId || null,
+                      ticketId: op.ticketId || null,
+                    },
+                  );
+                } else {
+                  toast.info("Lead sem telefone cadastrado.");
+                }
+              }}
+            >
+              <CallIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {op.lead && op.lead.companyName && (

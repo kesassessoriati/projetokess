@@ -57,6 +57,7 @@ type StorePlanData = {
   gestor_financas?: boolean;
   gestor_financeiro_ia?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 };
 
 type UpdatePlanData = {
@@ -89,6 +90,7 @@ type UpdatePlanData = {
   gestor_financas?: boolean;
   gestor_financeiro_ia?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -139,7 +141,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     email: Yup.boolean(),
     gestor_financas: Yup.boolean(),
     gestor_financeiro_ia: Yup.boolean(),
-    useFollowUps: Yup.boolean()
+    useFollowUps: Yup.boolean(),
+    useWebphone: Yup.boolean()
   });
 
   try {
@@ -196,7 +199,8 @@ export const update = async (
     email: Yup.boolean(),
     gestor_financas: Yup.boolean(),
     gestor_financeiro_ia: Yup.boolean(),
-    useFollowUps: Yup.boolean()
+    useFollowUps: Yup.boolean(),
+    useWebphone: Yup.boolean()
   });
 
   try {
@@ -230,7 +234,8 @@ export const update = async (
     email,
     gestor_financas,
     gestor_financeiro_ia,
-    useFollowUps
+    useFollowUps,
+    useWebphone
   } = planData;
 
   const plan = await UpdatePlanService({
@@ -256,7 +261,8 @@ export const update = async (
     email,
     gestor_financas,
     gestor_financeiro_ia,
-    useFollowUps
+    useFollowUps,
+    useWebphone
   });
   return res.status(200).json(plan);
 };

@@ -148,8 +148,8 @@ const Routes = () => {
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
+          <PlanPermissionsProvider>
           <WebphoneProvider>
-            <PlanPermissionsProvider>
             <TicketsContextProvider>
               <Switch>
                 <Route exact path="/" component={Login} isPublic />
@@ -222,7 +222,7 @@ const Routes = () => {
                         <Route exact path="/relatorios" component={Reports} isPrivate />
                         <Route exact path="/sistema" component={Sistema} isPrivate />
                         <Route exact path="/smtp" component={Smtp} isPrivate />
-                        <Route exact path="/sip-settings" component={Sip} isPrivate adminOnly />
+                        <Route exact path="/sip-settings" component={Sip} isPrivate adminOnly featureKey="webphone" />
                         <Route exact path="/ferramentas" component={FerramentasPage} isPrivate />
                         <Route exact path="/queue-integration" component={QueueIntegration} isPrivate />
                         <Route exact path="/integracao" component={QueueIntegration} isPrivate />
@@ -306,8 +306,8 @@ const Routes = () => {
                         />
                         <Route exact path="/contact-settings" component={ContactSettings} isPrivate />
                         <Route exact path="/contact-analytics" component={ContactAnalytics} isPrivate />
-                        <Route exact path="/call-history" component={CallHistory} isPrivate />
-                        <Route exact path="/chamadas" component={CallHistory} isPrivate />
+                        <Route exact path="/call-history" component={CallHistory} isPrivate featureKey="webphone" />
+                        <Route exact path="/chamadas" component={CallHistory} isPrivate featureKey="webphone" />
                         <Route exact path="/meetings" component={Meetings} isPrivate />
                         <Route exact path="/reunioes" component={Meetings} isPrivate />
                         <Route exact path="/propostas" component={PropostasPage} isPrivate />
@@ -340,8 +340,8 @@ const Routes = () => {
               </Switch>
               <ToastContainer position="top-center" autoClose={3000} />
             </TicketsContextProvider>
-            </PlanPermissionsProvider>
           </WebphoneProvider>
+          </PlanPermissionsProvider>
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>

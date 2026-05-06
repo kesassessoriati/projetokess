@@ -954,6 +954,7 @@ const LoggedInLayout = ({ children }) => {
     gestor_financeiro_ia,
     propostas,
     followUps,
+    webphone,
   } = usePlanPermissions();
   const { showAlert } = useSystemAlert();
 
@@ -1229,7 +1230,7 @@ const LoggedInLayout = ({ children }) => {
         disabled: !planActive && location.pathname !== "/financeiro",
         children: [
           { title: "Conversas", path: "/atendimentos" },
-          { title: "Chamadas", path: "/chamadas" },
+          ...(webphone ? [{ title: "Chamadas", path: "/chamadas", featureKey: "webphone" }] : []),
         ],
       },
       // ── Itens absolutos ──────────────────────────────────────────────
@@ -1286,13 +1287,13 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Configurações", path: "/settings" },
           { title: "SMTP (E-mail)", path: "/smtp" },
-          { title: "SIP / Webphone", path: "/sip-settings" },
+          { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
         ],
       },
     ],
-    [planActive, location.pathname, gestor_financeiro_ia, propostas, followUps]
+    [planActive, location.pathname, gestor_financeiro_ia, propostas, followUps, webphone]
   );
 
   const superAdminMenuGroups = useMemo(
@@ -1313,7 +1314,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "ConfiguraÃ§Ãµes", path: "/settings?tab=options", activePath: "/settings", activeSearch: "tab=options" },
           { title: "SMTP (E-mail)", path: "/smtp" },
-          { title: "SIP / Webphone", path: "/sip-settings" },
+          { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners" },
           { title: "VÃ­deo Tutorial", path: "/tutorial-videos" },
         ],
@@ -1336,6 +1337,16 @@ const LoggedInLayout = ({ children }) => {
 
       if (group.title === "Gestor Finanças") {
         return null;
+      }
+
+      if (group.featureKey === "webphone" && !webphone) {
+        return null;
+      }
+
+      if (group.children) {
+        const children = group.children.filter((child) => child && !(child.featureKey === "webphone" && !webphone));
+        if (!children.length) return null;
+        return { ...group, children };
       }
 
       return group;
@@ -1370,7 +1381,7 @@ const LoggedInLayout = ({ children }) => {
         return filtered.length ? { ...visibleGroup, children: filtered } : null;
       })
       .filter(Boolean);
-  }, [isAdmin, isSuperAdmin, menuGroups, superAdminMenuGroups]);
+  }, [isAdmin, isSuperAdmin, menuGroups, superAdminMenuGroups, webphone]);
 
   const [openMenus, setOpenMenus] = useState({});
 

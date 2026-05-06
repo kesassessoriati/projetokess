@@ -34,6 +34,7 @@ interface PlanData {
   isPublic?: boolean;
   usePropostas?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 }
 
 const CreatePlanService = async (planData: PlanData): Promise<Plan> => {

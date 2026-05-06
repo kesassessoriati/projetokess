@@ -139,6 +139,10 @@ class Plan extends Model<Plan> {
   @Default(false)
   @Column
   useFollowUps: boolean;
+
+  @Default(false)
+  @Column
+  useWebphone: boolean;
 }
 
 export default Plan;

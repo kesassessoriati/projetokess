@@ -27,6 +27,7 @@ const defaultState = {
   firecrawl: false,
   propostas: false,
   followUps: false,
+  webphone: false,
 };
 
 const PlanPermissionsContext = createContext({
@@ -86,6 +87,7 @@ export const PlanPermissionsProvider = ({ children }) => {
             firecrawl: Boolean(plan.useFirecrawl),
             propostas: Boolean(plan.usePropostas),
             followUps: Boolean(plan.useFollowUps),
+            webphone: Boolean(plan.useWebphone),
           });
         } else {
           setState((prev) => ({ ...defaultState, loading: false }));

@@ -39,7 +39,8 @@ const APIShowEmailUserService = async (email: string): Promise<User> => {
                 "gestor_financas",
                 "gestor_financeiro_ia",
                 "usePropostas",
-                "useFollowUps"
+                "useFollowUps",
+                "useWebphone"
               ]
             },
           ]

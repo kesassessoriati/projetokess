@@ -32,6 +32,7 @@ interface PlanData {
   isPublic?: boolean;
   usePropostas?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 }
 
 const UpdatePlanService = async (planData: PlanData): Promise<Plan> => {

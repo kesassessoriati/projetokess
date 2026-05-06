@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { makeStyles, IconButton, Tooltip } from "@material-ui/core";
 import { Phone as PhoneIcon } from "@material-ui/icons";
 import { useWebphone } from "../../context/WebphoneContext";
+import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 import WebphoneWorkspace from "../WebphoneWorkspace";
 
 const PANEL_WIDTH = 380;
@@ -74,6 +75,7 @@ const useStyles = makeStyles(() => ({
 
 const WebphoneSidePanel = () => {
   const classes = useStyles();
+  const { webphone: canUseWebphone } = usePlanPermissions();
   const { panelOpen, panelMinimized, leadModalOpen, setPanelOpen, minimizePanel, restorePanel } = useWebphone();
   const [position, setPosition] = useState(getInitialPosition);
   const positionRef = useRef(position);
@@ -131,7 +133,7 @@ const WebphoneSidePanel = () => {
     };
   }, []);
 
-  if (!panelOpen) return null;
+  if (!canUseWebphone || !panelOpen) return null;
 
   return ReactDOM.createPortal(
     <>

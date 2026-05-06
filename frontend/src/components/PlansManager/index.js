@@ -165,6 +165,7 @@ const defaultPlanValues = {
     useFirecrawl: false,
     usePropostas: false,
     useFollowUps: false,
+    useWebphone: false,
     recurrence: "MENSAL",
     isPublic: true,
     aiCredits: 0,
@@ -656,6 +657,25 @@ export function PlanManagerForm(props) {
       </Field>
     </FormControl>
   </Box>
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="use-webphone-selection" style={{ fontWeight: "bold" }}>
+        Webphone SIP
+      </InputLabel>
+      <Field as={Select} id="use-webphone-selection" name="useWebphone" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>NÃ£o</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
 </div>
 
 <Divider />
@@ -871,6 +891,7 @@ export default function PlansManager() {
         useFirecrawl: false,
         usePropostas: false,
         useFollowUps: false,
+        useWebphone: false,
         recurrence: "MENSAL",
         isPublic: true,
         aiCredits: 0,
@@ -962,6 +983,7 @@ export default function PlansManager() {
             useFirecrawl: false,
             usePropostas: false,
             useFollowUps: false,
+            useWebphone: false,
             recurrence: "MENSAL",
             isPublic: true,
             aiCredits: 0,
@@ -993,6 +1015,7 @@ export default function PlansManager() {
         let useFirecrawl = Boolean(data.useFirecrawl)
         let usePropostas = Boolean(data.usePropostas)
         let useFollowUps = Boolean(data.useFollowUps)
+        let useWebphone = Boolean(data.useWebphone)
 
         setRecord({
             id: data.id,
@@ -1023,6 +1046,7 @@ export default function PlansManager() {
             useFirecrawl,
             usePropostas,
             useFollowUps,
+            useWebphone,
             recurrence: data.recurrence || "MENSAL",
             isPublic: data.isPublic,
             aiCredits: data.aiDailyCredits || data.aiCredits || 0,

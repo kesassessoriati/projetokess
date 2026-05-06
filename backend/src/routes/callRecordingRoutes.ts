@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import isAuth from "../middleware/isAuth";
+import requireWebphonePlan from "../middleware/requireWebphonePlan";
 import uploadConfig from "../config/upload";
 import * as CallRecordingController from "../controllers/CallRecordingController";
 
@@ -28,9 +29,9 @@ const uploadCallRecording = multer({
   })
 });
 
-callRecordingRoutes.get("/call-recordings", isAuth, CallRecordingController.index);
-callRecordingRoutes.post("/call-recordings", isAuth, CallRecordingController.store);
-callRecordingRoutes.post("/call-recordings/upload", isAuth, uploadCallRecording.single("file"), CallRecordingController.upload);
-callRecordingRoutes.delete("/call-recordings/:id", isAuth, CallRecordingController.remove);
+callRecordingRoutes.get("/call-recordings", isAuth, requireWebphonePlan, CallRecordingController.index);
+callRecordingRoutes.post("/call-recordings", isAuth, requireWebphonePlan, CallRecordingController.store);
+callRecordingRoutes.post("/call-recordings/upload", isAuth, requireWebphonePlan, uploadCallRecording.single("file"), CallRecordingController.upload);
+callRecordingRoutes.delete("/call-recordings/:id", isAuth, requireWebphonePlan, CallRecordingController.remove);
 
 export default callRecordingRoutes;

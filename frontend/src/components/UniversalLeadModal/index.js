@@ -155,7 +155,7 @@ function TabPanel(props) {
 
 const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
-    const { meetings: canUseMeetings } = usePlanPermissions();
+    const { meetings: canUseMeetings, webphone: canUseWebphone } = usePlanPermissions();
     const { syncLeadModalState } = useWebphone();
     const opportunityValue =
         op && Number(op.value || 0) === 0 && op.lead?.purchaseValue != null
@@ -206,6 +206,12 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     useEffect(() => {
         syncLeadModalStateRef.current = syncLeadModalState;
     }, [syncLeadModalState]);
+
+    useEffect(() => {
+        if (!canUseWebphone) {
+            setShowRecordings(false);
+        }
+    }, [canUseWebphone]);
 
     useEffect(() => {
         syncLeadModalStateRef.current(open);
@@ -554,9 +560,11 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         </Box>
                     </Box>
 
-                    <Box className={classes.miniWebphoneWrap}>
-                        <WebphoneWorkspace compact />
-                    </Box>
+                    {canUseWebphone && (
+                        <Box className={classes.miniWebphoneWrap}>
+                            <WebphoneWorkspace compact />
+                        </Box>
+                    )}
                 </Box>
 
 
@@ -581,6 +589,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             <Tab icon={<AttachFileIcon fontSize="small" />} label="Arquivos" style={{ minWidth: 100 }} />
                         </Tabs>
                         <Box className={classes.secondaryMenu}>
+                            {canUseWebphone && (
                             <Button
                                 className={`${classes.secondaryMenuButton} ${showRecordings ? classes.secondaryMenuButtonActive : ""}`}
                                 startIcon={<FiberManualRecordIcon fontSize="small" />}
@@ -588,6 +597,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                             >
                                 Gravacoes
                             </Button>
+                            )}
                             {canUseMeetings && (
                             <Button
                                 className={`${classes.secondaryMenuButton} ${showMeetings ? classes.secondaryMenuButtonActive : ""}`}
@@ -606,7 +616,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 leadId={resolvedLeadId}
                                 opportunityId={resolvedOpportunityId}
                             />
-                        ) : showRecordings ? (
+                        ) : showRecordings && canUseWebphone ? (
                             <LeadCallRecordingsTab
                                 leadId={resolvedLeadId}
                                 opportunityId={resolvedOpportunityId}

@@ -11,6 +11,7 @@ import JsSIP from "jssip";
 import { toast } from "react-toastify";
 import api from "../services/api";
 import { AuthContext } from "./Auth/AuthContext";
+import { usePlanPermissions } from "./PlanPermissionsContext";
 
 const WebphoneContext = createContext();
 
@@ -30,6 +31,7 @@ const sortSequenceTargets = (targets = []) =>
 
 export const WebphoneProvider = ({ children }) => {
   const { user, isAuth } = useContext(AuthContext);
+  const { loading: planLoading, webphone: canUseWebphone } = usePlanPermissions();
 
   const [ua, setUa] = useState(null);
   const [session, setSession] = useState(null);
@@ -615,6 +617,11 @@ export const WebphoneProvider = ({ children }) => {
         return null;
       }
 
+      if (!canUseWebphone) {
+        toast.error("Webphone SIP nao esta disponivel no plano desta empresa.");
+        return null;
+      }
+
       if (!uaRef.current || status === "disconnected" || status === "disabled") {
         toast.error("Webphone SIP não está conectado.");
         return null;
@@ -675,6 +682,7 @@ export const WebphoneProvider = ({ children }) => {
       status,
       updateSequenceTarget,
       leadModalOpen,
+      canUseWebphone,
     ]
   );
 
@@ -768,6 +776,12 @@ export const WebphoneProvider = ({ children }) => {
   );
 
   const loadSipSettings = useCallback(async () => {
+    if (!canUseWebphone) {
+      setSipSettings(null);
+      setStatus("disabled");
+      return null;
+    }
+
     setSipLoading(true);
     try {
       const { data } = await api.get("/sip-settings/runtime");
@@ -784,7 +798,7 @@ export const WebphoneProvider = ({ children }) => {
     } finally {
       setSipLoading(false);
     }
-  }, []);
+  }, [canUseWebphone]);
 
   const startUA = useCallback(
     (runtimeConfig) => {
@@ -984,10 +998,13 @@ export const WebphoneProvider = ({ children }) => {
   }, [leadModalOpen]);
 
   useEffect(() => {
-    if (!isAuth || !user) {
+    if (!isAuth || !user || planLoading || !canUseWebphone) {
       stopUA();
       setActiveSequence(null);
       setRecentCalls([]);
+      setSipSettings(null);
+      setStatus("disabled");
+      setPanelOpen(false);
       clearLeadContext();
       return;
     }
@@ -1010,7 +1027,7 @@ export const WebphoneProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [clearLeadContext, isAuth, loadHistory, loadSequences, loadSipSettings, startUA, stopUA, user]);
+  }, [canUseWebphone, clearLeadContext, isAuth, loadHistory, loadSequences, loadSipSettings, planLoading, startUA, stopUA, user]);
 
   useEffect(() => {
     if (status !== "in-call" && status !== "calling") {
@@ -1064,6 +1081,7 @@ export const WebphoneProvider = ({ children }) => {
       session,
       status,
       sipSettings,
+      canUseWebphone,
       sipLoading,
       currentLead,
       currentCallContext,
@@ -1145,6 +1163,7 @@ export const WebphoneProvider = ({ children }) => {
       setPanelVisibility,
       sipLoading,
       sipSettings,
+      canUseWebphone,
       startRecording,
       status,
       stopRecording,

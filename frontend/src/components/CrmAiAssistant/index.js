@@ -788,26 +788,28 @@ export const CrmAiFab = ({ onNewLead, pipelineId }) => {
                   </Typography>
                 </div>
               </div>
-              <div
-                className={classes.fabMenuItem}
-                onClick={() => {
-                  setMenuOpen(false);
-                  setActiveTab("dialer");
-                  setPanelOpen(true);
-                }}
-              >
-                <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
-                  <PhoneIcon style={{ color: "#fff", fontSize: 20 }} />
+              {permissions.webphone && (
+                <div
+                  className={classes.fabMenuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setActiveTab("dialer");
+                    setPanelOpen(true);
+                  }}
+                >
+                  <div className={classes.fabMenuIcon} style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
+                    <PhoneIcon style={{ color: "#fff", fontSize: 20 }} />
+                  </div>
+                  <div>
+                    <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                      Webphone
+                    </Typography>
+                    <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                      Discador e chamadas
+                    </Typography>
+                  </div>
                 </div>
-                <div>
-                  <Typography style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
-                    Webphone
-                  </Typography>
-                  <Typography style={{ fontSize: "0.72rem", color: "#64748b" }}>
-                    Discador e chamadas
-                  </Typography>
-                </div>
-              </div>
+              )}
               {onNewLead && (
                 <div
                   className={classes.fabMenuItem}

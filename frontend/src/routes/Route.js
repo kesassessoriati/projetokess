@@ -2,10 +2,12 @@ import React, { useContext } from "react";
 import { Route as RouterRoute, Redirect } from "react-router-dom";
 
 import { AuthContext } from "../context/Auth/AuthContext";
+import { usePlanPermissions } from "../context/PlanPermissionsContext";
 import BackdropLoading from "../components/BackdropLoading";
 
-const Route = ({ component: Component, isPrivate = false, isPublic = false, adminOnly = false, ...rest }) => {
+const Route = ({ component: Component, isPrivate = false, isPublic = false, adminOnly = false, featureKey = null, ...rest }) => {
   const { isAuth, loading, user } = useContext(AuthContext);
+  const permissions = usePlanPermissions();
 
   // Rotas públicas (landing, login, cadastro, etc) - carrega instantaneamente sem loading
   if (isPublic) {
@@ -33,6 +35,15 @@ const Route = ({ component: Component, isPrivate = false, isPublic = false, admi
 
   if (adminOnly && user?.profile !== "admin" && user?.profile !== "super") {
     return <Redirect to={{ pathname: "/atendimentos", state: { from: rest.location } }} />;
+  }
+
+  if (featureKey && user?.profile !== "super") {
+    if (permissions.loading) {
+      return <BackdropLoading />;
+    }
+    if (!permissions.canAccess(featureKey)) {
+      return <Redirect to={{ pathname: "/atendimentos", state: { from: rest.location } }} />;
+    }
   }
 
   return <RouterRoute {...rest} component={Component} />;

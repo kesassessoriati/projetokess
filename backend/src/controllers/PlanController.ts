@@ -60,6 +60,7 @@ type StorePlanData = {
   isPublic?: boolean;
   usePropostas?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 };
 
 type UpdatePlanData = {
@@ -92,6 +93,7 @@ type UpdatePlanData = {
   isPublic?: boolean;
   usePropostas?: boolean;
   useFollowUps?: boolean;
+  useWebphone?: boolean;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -167,7 +169,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     gestor_financas: Yup.boolean(),
     gestor_financeiro_ia: Yup.boolean(),
     usePropostas: Yup.boolean(),
-    useFollowUps: Yup.boolean()
+    useFollowUps: Yup.boolean(),
+    useWebphone: Yup.boolean()
   });
 
   try {
@@ -241,7 +244,8 @@ export const update = async (
     gestor_financas: Yup.boolean(),
     gestor_financeiro_ia: Yup.boolean(),
     usePropostas: Yup.boolean(),
-    useFollowUps: Yup.boolean()
+    useFollowUps: Yup.boolean(),
+    useWebphone: Yup.boolean()
   });
 
   try {

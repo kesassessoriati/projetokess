@@ -32,7 +32,8 @@ const ListCompaniesPlanService = async (): Promise<Company[]> => {
           "gestor_financas",
           "gestor_financeiro_ia",
           "usePropostas",
-          "useFollowUps"
+          "useFollowUps",
+          "useWebphone"
         ]
       },
     ]
