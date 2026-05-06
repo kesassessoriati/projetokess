@@ -134,6 +134,40 @@ const buildLeadScope = ({
     return where;
 };
 
+const applyBoardFilters = (where: any, filter?: Request["filter"]) => {
+    if (!filter) return where;
+
+    if (filter.onlyAI) {
+        where.lastMovedBy = "AI";
+    }
+    if (filter.onlyExpired) {
+        where.slaDeadline = { [Op.lt]: new Date() };
+    }
+
+    return where;
+};
+
+const buildPredictionInclude = (filter?: Request["filter"], attributes: string[] = []) => {
+    const predictionInclude: any = {
+        model: OpportunityPrediction,
+        as: "prediction",
+        attributes,
+        required: Boolean(filter?.riskLevel || filter?.minProbability)
+    };
+
+    if (filter?.riskLevel || filter?.minProbability) {
+        predictionInclude.where = {};
+        if (filter.riskLevel) {
+            predictionInclude.where.riskLevel = filter.riskLevel;
+        }
+        if (filter.minProbability) {
+            predictionInclude.where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
+        }
+    }
+
+    return predictionInclude;
+};
+
 const ListPipelineBoardService = async ({
     pipelineId,
     companyId,
@@ -174,6 +208,7 @@ const ListPipelineBoardService = async ({
         ownerUserId,
         viewMode
     });
+    const scopedStatsWhere = applyBoardFilters({ ...scopedOpportunityWhere }, filter);
 
     const stats = await Opportunity.findAll({
         attributes: [
@@ -187,15 +222,13 @@ const ListPipelineBoardService = async ({
             {
                 model: CrmLead,
                 as: "lead",
-                attributes: []
+                attributes: [],
+                where: { companyId },
+                required: false
             },
-            {
-                model: OpportunityPrediction,
-                as: "prediction",
-                attributes: []
-            }
+            buildPredictionInclude(filter)
         ],
-        where: scopedOpportunityWhere,
+        where: scopedStatsWhere,
         group: ["stageId"],
         raw: true
     }) as any[];
@@ -215,40 +248,24 @@ const ListPipelineBoardService = async ({
             ...scopedOpportunityWhere,
             stageId: sId
         };
-
-        if (filter) {
-            if (filter.onlyAI) {
-                where.lastMovedBy = "AI";
-            }
-            if (filter.onlyExpired) {
-                where.slaDeadline = { [Op.lt]: new Date() };
-            }
-        }
+        applyBoardFilters(where, filter);
 
         const include: any[] = [
             {
                 model: Contact,
                 as: "contact",
-                attributes: ["id", "name"]
+                attributes: ["id", "name", "number"],
+                where: { companyId },
+                required: false
             },
             {
                 model: CrmLead,
-                as: "lead"
+                as: "lead",
+                where: { companyId },
+                required: false
             },
-            {
-                model: OpportunityPrediction,
-                as: "prediction",
-                attributes: ["predictedCloseProbability", "riskLevel", "explanation"]
-            }
+            buildPredictionInclude(filter, ["predictedCloseProbability", "riskLevel", "explanation"])
         ];
-
-        if (filter?.riskLevel) {
-            include[2].where = { riskLevel: filter.riskLevel };
-        }
-        if (filter?.minProbability) {
-            if (!include[2].where) include[2].where = {};
-            include[2].where.predictedCloseProbability = { [Op.gte]: filter.minProbability };
-        }
 
         let order: any[] = [["createdAt", "DESC"], ["id", "DESC"]];
         if (sort === "AI_PRIORITY") {

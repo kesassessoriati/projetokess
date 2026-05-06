@@ -784,6 +784,7 @@ const PipelineBoard = () => {
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
   const [board, setBoard] = useState({ stages: [] });
   const [loading, setLoading] = useState(false);
+  const [loadingStageIds, setLoadingStageIds] = useState([]);
   const [sort, setSort] = useState("CREATED_AT");
 
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -940,17 +941,7 @@ const PipelineBoard = () => {
   const fetchBoard = async () => {
     setLoading(true);
     try {
-      const params = { riskLevel: riskFilter, onlyAI, onlyExpired, sort };
-
-      if (isAdmin) {
-        if (viewMode === "personal") {
-          params.viewMode = "personal";
-        } else if (selectedOwnerUserId) {
-          params.ownerUserId = selectedOwnerUserId;
-        } else {
-          params.viewMode = "team";
-        }
-      }
+      const params = buildBoardParams();
 
       const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, {
         params,
@@ -981,6 +972,72 @@ const PipelineBoard = () => {
       toast.error("Impossível conectar ao serviço de inteligência");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const buildBoardParams = (extraParams = {}) => {
+    const params = { riskLevel: riskFilter, onlyAI, onlyExpired, sort, ...extraParams };
+
+    if (isAdmin) {
+      if (viewMode === "personal") {
+        params.viewMode = "personal";
+      } else if (selectedOwnerUserId) {
+        params.ownerUserId = selectedOwnerUserId;
+      } else {
+        params.viewMode = "team";
+      }
+    }
+
+    return params;
+  };
+
+  const mergeUniqueOpportunities = (current = [], incoming = []) => {
+    return Array.from(
+      new Map([...current, ...incoming].map((opportunity) => [opportunity.id, opportunity])).values(),
+    );
+  };
+
+  const handleLoadMoreStage = async (stage) => {
+    if (!stage?.hasMore || !stage.nextCursor || loadingStageIds.includes(stage.id)) return;
+
+    setLoadingStageIds((prev) => [...prev, stage.id]);
+
+    try {
+      const { data } = await api.get(`/pipelines/${selectedPipelineId}/board`, {
+        params: buildBoardParams({
+          stageId: stage.id,
+          cursor: stage.nextCursor,
+        }),
+      });
+
+      const loadedStage = (data?.stages || []).find((item) => item.id === stage.id);
+      if (!loadedStage) return;
+
+      setBoard((prevBoard) => ({
+        ...prevBoard,
+        pipeline: data?.pipeline || prevBoard.pipeline,
+        stages: (prevBoard.stages || []).map((currentStage) => {
+          if (currentStage.id !== stage.id) return currentStage;
+
+          return {
+            ...currentStage,
+            totalValue: loadedStage.totalValue,
+            forecastValue: loadedStage.forecastValue,
+            opportunitiesCount: loadedStage.opportunitiesCount,
+            highRiskCount: loadedStage.highRiskCount,
+            opportunities: mergeUniqueOpportunities(
+              currentStage.opportunities,
+              loadedStage.opportunities,
+            ),
+            hasMore: loadedStage.hasMore,
+            nextCursor: loadedStage.nextCursor,
+          };
+        }),
+      }));
+    } catch (err) {
+      toast.error("Nao foi possivel carregar mais oportunidades desta etapa.");
+    } finally {
+      setLoadingStageIds((prev) => prev.filter((id) => id !== stage.id));
     }
   };
 
@@ -1823,8 +1880,13 @@ const PipelineBoard = () => {
                                   ))}
                                   {provided.placeholder}
                                   {stage.hasMore && !searchText && (
-                                    <Typography className={classes.loadMore}>
-                                      Carregar mais...
+                                    <Typography
+                                      className={classes.loadMore}
+                                      onClick={() => handleLoadMoreStage(stage)}
+                                    >
+                                      {loadingStageIds.includes(stage.id)
+                                        ? "Carregando..."
+                                        : "Carregar mais..."}
                                     </Typography>
                                   )}
                                 </div>
