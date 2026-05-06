@@ -91,8 +91,8 @@ const EmbeddedLink = () => {
                     src={url}
                     className={classes.iframe}
                     title="Embedded Link"
-                    allow="camera; microphone; fullscreen; display-capture; autoplay; encrypted-media; geolocation"
-                    sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-downloads"
+                    allow="camera; microphone; fullscreen; display-capture; autoplay; encrypted-media; geolocation; clipboard-read; clipboard-write"
+                    sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-presentation"
                 />
             </div>
         </div>
