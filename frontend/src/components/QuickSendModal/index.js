@@ -1383,9 +1383,11 @@ export default function QuickSendModal({
                 className={classes.card}
                 style={{
                   display: recipientMode === "single" ? "block" : "none",
+                  border: "1.5px solid #1e88e5",
+                  borderRadius: 10,
                 }}
               >
-                <Typography className={classes.sectionLabel}>
+                <Typography className={classes.sectionLabel} style={{ color: "#1565c0", fontWeight: 700 }}>
                   <PhoneIcon style={{ fontSize: 13 }} />
                   Número de destino
                 </Typography>
@@ -1403,10 +1405,10 @@ export default function QuickSendModal({
                       : "Digite com DDI+DDD (ex: 5511999998888)"
                   }
                   InputProps={{
-                    style: { borderRadius: 8, fontSize: 15 },
+                    style: { borderRadius: 8, fontSize: 15, fontWeight: 500 },
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PhoneIcon style={{ color: "#54656f", fontSize: 18 }} />
+                        <PhoneIcon style={{ color: "#1565c0", fontSize: 18 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1482,30 +1484,11 @@ export default function QuickSendModal({
                     </Box>
                   </Box>
                 )}
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  placeholder="Nome do contato (opcional — usado ao criar)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={{ marginTop: 8 }}
-                  InputProps={{
-                    style: { borderRadius: 8, fontSize: 13 },
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonAddIcon
-                          style={{ color: "#54656f", fontSize: 16 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
               </Box>
 
               {/* Conexão WhatsApp */}
-              <Box className={classes.card}>
-                <Typography className={classes.sectionLabel}>
+              <Box className={classes.card} style={{ border: "1.5px solid #25d366", borderRadius: 10 }}>
+                <Typography className={classes.sectionLabel} style={{ color: "#128c7e", fontWeight: 700 }}>
                   <WifiIcon style={{ fontSize: 13 }} />
                   Conexão WhatsApp
                 </Typography>
@@ -1514,7 +1497,7 @@ export default function QuickSendModal({
                     value={whatsappId}
                     onChange={(e) => setWhatsappId(e.target.value)}
                     displayEmpty
-                    style={{ borderRadius: 8 }}
+                    style={{ borderRadius: 8, fontWeight: 600 }}
                   >
                     <MenuItem value="" disabled>
                       <em>Selecione uma conexão...</em>
@@ -1541,43 +1524,6 @@ export default function QuickSendModal({
                             </Typography>
                           </Box>
                           <ConnectionStatusChip status={conn.status} />
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  style={{ marginTop: 8 }}
-                >
-                  <Select
-                    value={queueId}
-                    onChange={(e) => setQueueId(e.target.value)}
-                    displayEmpty
-                    style={{ borderRadius: 8 }}
-                  >
-                    <MenuItem value="">
-                      <em>Sem fila (opcional)</em>
-                    </MenuItem>
-                    {queues.map((q) => (
-                      <MenuItem key={q.id} value={q.id}>
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          style={{ gap: 8 }}
-                        >
-                          <Box
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              backgroundColor: q.color || "#54656f",
-                              flexShrink: 0,
-                            }}
-                          />
-                          {q.name}
                         </Box>
                       </MenuItem>
                     ))}
