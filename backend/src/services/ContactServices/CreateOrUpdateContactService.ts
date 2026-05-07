@@ -21,6 +21,7 @@ import {
   extractGroupId,
   getBrazilianPhoneVariants
 } from "../../helpers/normalizeContactNumber";
+import lookupWhatsAppContactName from "../../helpers/lookupWhatsAppContactName";
 import { FindDuplicateContact, MergeContacts } from "./ContactDeduplicationService";
 import { CalculatePotentialScore, UpdateContactScore } from "./ContactScoringService";
 
@@ -280,6 +281,19 @@ const CreateOrUpdateContactService = async ({
     const io = getIO();
     const jidToSanitize = remoteJidAlt || remoteJid;
     const sanitizedRemoteJid = sanitizeRemoteJid(jidToSanitize, number, isGroup);
+    const resolvedCachedName = !isGroup && !incomingNameIsMeaningful
+      ? await lookupWhatsAppContactName({
+        whatsappId,
+        wbot,
+        number,
+        remoteJid,
+        remoteJidAlt
+      })
+      : "";
+    const bestIncomingName = incomingNameIsMeaningful
+      ? sanitizedIncomingName
+      : sanitizeName(resolvedCachedName);
+    const hasBestIncomingName = hasMeaningfulName(bestIncomingName, number, lid);
 
     // Se o remoteJid é um LID (pelo sufixo ou pelo número), verifica se já existe contato com esse LID no banco
     const remoteJidDigits = remoteJid ? remoteJid.replace(/\D/g, "") : "";
@@ -379,8 +393,8 @@ const CreateOrUpdateContactService = async ({
           duplicateContact.profilePicUrl = profilePicUrl;
         }
 
-        if (name && name !== number && name !== duplicateContact.name) {
-          duplicateContact.name = name;
+        if (hasBestIncomingName && bestIncomingName !== duplicateContact.name) {
+          duplicateContact.name = bestIncomingName;
         }
 
         if (addressingMode && !duplicateContact.addressingMode) {
@@ -430,8 +444,8 @@ const CreateOrUpdateContactService = async ({
         contact.profilePicUrl = profilePicUrl;
       }
 
-      if (incomingNameIsMeaningful && sanitizedIncomingName !== contact.name) {
-        contact.name = sanitizedIncomingName;
+      if (hasBestIncomingName && bestIncomingName !== contact.name) {
+        contact.name = bestIncomingName;
       }
 
       // Prioriza remoteJidAlt (número real) para o remoteJid salvo
@@ -478,7 +492,7 @@ const CreateOrUpdateContactService = async ({
       // Salva o LID original para referência futura
       const lidToSave = isLidJid ? remoteJidDigits : lid;
 
-      const initialName = incomingNameIsMeaningful ? sanitizedIncomingName : DEFAULT_FALLBACK_NAME;
+      const initialName = hasBestIncomingName ? bestIncomingName : DEFAULT_FALLBACK_NAME;
 
       logger.info("Creating new contact:", { name: initialName, number, newRemoteJid, lid: lidToSave, addressingMode });
 

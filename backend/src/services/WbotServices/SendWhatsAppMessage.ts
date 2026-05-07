@@ -15,6 +15,7 @@ import {
 } from "../../helpers/normalizeContactNumber";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 import logger from "../../utils/logger";
+import EnsureWhatsAppContactNameService from "../ContactServices/EnsureWhatsAppContactNameService";
 
 interface Request {
   body: string;
@@ -38,6 +39,12 @@ const SendWhatsAppMessage = async ({
   const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
   const provider = ProviderFactory.createProvider(whatsapp, wbot, ticket.companyId);
   const contactNumber = await Contact.findByPk(ticket.contactId);
+
+  await EnsureWhatsAppContactNameService({
+    contact: contactNumber,
+    whatsappId: whatsapp?.id || ticket.whatsappId,
+    wbot
+  });
 
   let number: string;
 

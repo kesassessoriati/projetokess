@@ -16,6 +16,7 @@ import {
   sanitizeRemoteJid,
   stripCompanionDeviceSuffix
 } from "../../helpers/normalizeContactNumber";
+import EnsureWhatsAppContactNameService from "../ContactServices/EnsureWhatsAppContactNameService";
 interface Request {
   media: Express.Multer.File;
   ticket: Ticket;
@@ -284,6 +285,12 @@ const SendWhatsAppMedia = async ({
     }
 
     const contactNumber = await Contact.findByPk(ticket.contactId)
+
+    await EnsureWhatsAppContactNameService({
+      contact: contactNumber,
+      whatsappId: ticket.whatsappId,
+      wbot
+    });
 
     if (isPrivate === true) {
       const messageData = {

@@ -5,7 +5,6 @@ import {
   Contact as BContact,
   isJidBroadcast,
   isJidStatusBroadcast,
-  isLidUser,
 } from "@whiskeysockets/baileys";
 import * as Sentry from "@sentry/node";
 import fs from "fs";
@@ -224,7 +223,7 @@ const wbotMonitor = async (
             if (
               !isJidBroadcast(contact.id) &&
               !isJidStatusBroadcast(contact.id) &&
-              !!isLidUser(contact.id)
+              !contact.id.includes("@g.us")
             ) {
               const resolvedName = resolveWhatsAppContactName(contact, contact.id);
 
