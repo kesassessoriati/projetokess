@@ -132,6 +132,7 @@ import FrontendErrors from "../pages/FrontendErrors";
 import BackendErrors from "../pages/BackendErrors";
 import SystemMetrics from "../pages/SystemMetrics";
 import Performance from "../pages/Performance";
+import GlobalAISettings from "../pages/GlobalAISettings";
 import { embeddedLinks } from "../config/embedded_links";
 
 const Routes = () => {
@@ -316,6 +317,7 @@ const Routes = () => {
                         <Route exact path="/admin/backend-errors" component={BackendErrors} isPrivate />
                         <Route exact path="/admin/system-metrics" component={SystemMetrics} isPrivate />
                         <Route exact path="/admin/performance" component={Performance} isPrivate />
+                        <Route exact path="/admin/ai-settings" component={GlobalAISettings} isPrivate adminOnly />
                         {showCampaigns && (
                           <>
                             <Route exact path="/contact-lists" component={ContactLists} isPrivate />

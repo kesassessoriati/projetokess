@@ -18,6 +18,11 @@ import GfReceita from "../models/GfReceita";
 import GfTipoManutencao from "../models/GfTipoManutencao";
 import GfTransacao from "../models/GfTransacao";
 import GfVeiculo from "../models/GfVeiculo";
+import {
+  finalizeAIUsage,
+  resolveAIProviderConfig
+} from "../services/AIProviderService/AIProviderService";
+import { getStoredProviderModels } from "../services/AIProviderService/AIModelCatalogService";
 
 const resources: Record<string, any> = {
   profiles: GfProfile,
@@ -193,4 +198,124 @@ export const me = async (req: Request, res: Response): Promise<Response> => {
     },
     error: null
   });
+};
+
+const extractJson = (content: string) => {
+  const clean = String(content || "").replace(/```json\s*|\s*```/g, "").trim();
+  return JSON.parse(clean);
+};
+
+export const analyzeReceipt = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { fileName, mimeType, base64, provider, model } = req.body || {};
+
+  if (!base64 || !mimeType) {
+    throw new AppError("Arquivo inválido para análise.", 400);
+  }
+
+  const resolved = await resolveAIProviderConfig({
+    companyId,
+    provider,
+    requestType: "agent",
+    model
+  });
+
+  const prompt = `Analise este comprovante financeiro e extraia as informações em JSON:
+{
+  "tipo": "receita" ou "despesa",
+  "descricao": "descrição clara da transação",
+  "valor": número,
+  "categoria": "categoria apropriada",
+  "data": "YYYY-MM-DD",
+  "confianca": número de 0 a 100
+}
+Responda apenas com JSON válido.`;
+
+  let content = "";
+  const fallbackModels = await getStoredProviderModels(resolved.provider as any);
+  const defaultModel =
+    model ||
+    fallbackModels[0]?.id ||
+    (resolved.provider === "gemini"
+      ? "gemini-2.5-flash"
+      : resolved.provider === "openrouter"
+        ? "deepseek/deepseek-chat-v3.1:free"
+        : "gpt-4o-mini");
+
+  try {
+    if (resolved.provider === "gemini") {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(resolved.apiKey);
+      const genModel = genAI.getGenerativeModel({ model: defaultModel });
+      const result = await genModel.generateContent([
+        { text: prompt },
+        { inlineData: { data: base64, mimeType } }
+      ]);
+      content = result.response.text();
+    } else {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({
+        apiKey: resolved.apiKey,
+        baseURL: resolved.provider === "openrouter" ? "https://openrouter.ai/api/v1" : undefined,
+        defaultHeaders: resolved.provider === "openrouter" ? {
+          "HTTP-Referer": process.env.FRONTEND_URL || "https://atendzappy.com",
+          "X-Title": "AtendZappy CRM"
+        } : undefined
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: defaultModel,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64}` }
+            }
+          ] as any
+        }],
+        temperature: 0.1,
+        max_tokens: 500
+      });
+      content = completion.choices[0]?.message?.content || "";
+    }
+
+    const analysis = extractJson(content);
+    const data = {
+      file_name: fileName || "comprovante",
+      tipo: analysis.tipo,
+      descricao: analysis.descricao,
+      valor: parseFloat(String(analysis.valor).replace(",", ".")),
+      categoria: analysis.categoria,
+      data: analysis.data,
+      confianca: Number(analysis.confianca || 0),
+      status: "pending"
+    };
+
+    const creditInfo = await finalizeAIUsage({
+      companyId,
+      provider: resolved.provider,
+      usageMode: resolved.usageMode,
+      requestType: "gestor_financeiro_ia",
+      model: defaultModel,
+      status: "success",
+      metadata: { fileName, mimeType }
+    });
+
+    return res.status(200).json({ data, creditInfo });
+  } catch (err: any) {
+    await finalizeAIUsage({
+      companyId,
+      provider: resolved.provider,
+      usageMode: resolved.usageMode,
+      requestType: "gestor_financeiro_ia",
+      model: defaultModel,
+      status: "error",
+      errorCode: err?.status ? String(err.status) : "provider_error",
+      metadata: { fileName, message: err?.message }
+    }).catch(() => undefined);
+
+    throw err;
+  }
 };

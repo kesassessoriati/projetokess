@@ -6,12 +6,14 @@ import {
   getCompanyAiSettings,
   upsertCompanyAiSetting
 } from "../services/AIProviderService/AIProviderService";
+import { getStoredProviderModels } from "../services/AIProviderService/AIModelCatalogService";
 
 const updateSchema = Yup.object().shape({
   aiUsageMode: Yup.string().oneOf(["system", "own"]).optional(),
-  aiPreferredProvider: Yup.string().oneOf(["openai", "gemini"]).optional(),
+  aiPreferredProvider: Yup.string().oneOf(["openai", "gemini", "openrouter"]).optional(),
   openaiApiKey: Yup.string().nullable().optional(),
-  geminiApiKey: Yup.string().nullable().optional()
+  geminiApiKey: Yup.string().nullable().optional(),
+  openrouterApiKey: Yup.string().nullable().optional()
 });
 
 const ensureOwnership = async (requestCompanyId: number, targetCompanyId: number) => {
@@ -20,6 +22,12 @@ const ensureOwnership = async (requestCompanyId: number, targetCompanyId: number
   }
 };
 
+const getGlobalModels = async () => ({
+  openai: await getStoredProviderModels("openai"),
+  gemini: await getStoredProviderModels("gemini"),
+  openrouter: await getStoredProviderModels("openrouter")
+});
+
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const requestCompanyId = Number(req.user.companyId);
   const targetCompanyId = Number(req.params.companyId || requestCompanyId);
@@ -27,6 +35,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   await ensureOwnership(requestCompanyId, targetCompanyId);
 
   const data = await getCompanyAiSettings(targetCompanyId);
+  const globalModels = await getGlobalModels();
 
   return res.status(200).json({
     usageMode: data.usageMode,
@@ -34,10 +43,12 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     maskedKeys: data.maskedKeys,
     hasOwnKeys: {
       openai: Boolean(data.ownKeys.openai),
-      gemini: Boolean(data.ownKeys.gemini)
+      gemini: Boolean(data.ownKeys.gemini),
+      openrouter: Boolean(data.ownKeys.openrouter)
     },
     creditInfo: data.creditInfo,
-    planInfo: data.planInfo
+    planInfo: data.planInfo,
+    globalModels
   });
 };
 
@@ -70,7 +81,12 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     await upsertCompanyAiSetting(targetCompanyId, "geminiApiKey", payload.geminiApiKey);
   }
 
+  if (typeof payload.openrouterApiKey === "string") {
+    await upsertCompanyAiSetting(targetCompanyId, "openrouterApiKey", payload.openrouterApiKey);
+  }
+
   const data = await getCompanyAiSettings(targetCompanyId);
+  const globalModels = await getGlobalModels();
 
   return res.status(200).json({
     usageMode: data.usageMode,
@@ -78,9 +94,11 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     maskedKeys: data.maskedKeys,
     hasOwnKeys: {
       openai: Boolean(data.ownKeys.openai),
-      gemini: Boolean(data.ownKeys.gemini)
+      gemini: Boolean(data.ownKeys.gemini),
+      openrouter: Boolean(data.ownKeys.openrouter)
     },
     creditInfo: data.creditInfo,
-    planInfo: data.planInfo
+    planInfo: data.planInfo,
+    globalModels
   });
 };

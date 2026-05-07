@@ -1036,6 +1036,8 @@ export default function Whitelabel(props) {
                 </FormControl>
               </Grid>
 
+              {false && (
+              <>
               {/* Configurações de API Keys para IA */}
               <Grid xs={12} item style={{ marginTop: 32 }}>
                 <Typography variant="subtitle1" style={{ fontWeight: 600, marginBottom: 8 }}>
@@ -1182,6 +1184,9 @@ export default function Whitelabel(props) {
                   />
                 </FormControl>
               </Grid>
+
+              </>
+              )}
 
               {/* Configurações de Integrações */}
               <Grid xs={12} item style={{ marginTop: 32 }}>

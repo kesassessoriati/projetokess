@@ -57,6 +57,8 @@ const request = async (path: string, options: RequestInit = {}) => {
   return body;
 };
 
+export const gestorFinancasApiRequest = request;
+
 class QueryBuilder {
   private action: "select" | "insert" | "update" | "delete" = "select";
   private filters: QueryFilter[] = [];

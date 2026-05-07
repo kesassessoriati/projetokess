@@ -1,20 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Upload, Key, Brain, FileText, Settings, Check, AlertCircle, X, FileUp, Edit, Trash2 } from "lucide-react";
+import { Upload, Brain, FileText, Check, AlertCircle, X, FileUp, Trash2 } from "lucide-react";
 import { EditarResultadoIAModal } from "@/components/EditarResultadoIAModal";
 import { useToast } from "@/hooks/use-toast";
-import { useIAConfiguracoes } from "@/hooks/useIAConfiguracoes";
 import { useIAAnalysis, type AnalysisResult } from "@/hooks/useIAAnalysis";
 import { useCategorias } from "@/hooks/useCategorias";
-import { supabase } from "@/integrations/supabase/client";
-import { AIConfigPanel } from "@/components/ia/AIConfigPanel";
+import { gestorFinancasApiRequest, supabase } from "@/integrations/supabase/client";
 
 interface UploadedFile {
   id: string;
@@ -27,29 +23,11 @@ interface UploadedFile {
 
 const IA = () => {
   const { toast } = useToast();
-  const { configuracao, isLoading: configLoading, salvarConfiguracao, isConfigured } = useIAConfiguracoes();
   const { results: analysisResults, atualizarStatus, atualizarCategoria, editarResultado, excluirResultado, salvarResultado } = useIAAnalysis();
   const { categoriasDespesa, categoriasReceita } = useCategorias();
-  const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
-
-  // Atualizar campos quando configuração carrega
-  useEffect(() => {
-    if (configuracao) {
-      setApiKey(configuracao.api_key);
-      setSelectedModel(configuracao.modelo);
-    }
-  }, [configuracao]);
-
-  const openaiModels = [
-    { value: 'gpt-4o', label: 'GPT-4o (Recomendado para visão)' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Mais rápido)' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'gpt-4', label: 'GPT-4' }
-  ];
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -57,19 +35,6 @@ const IA = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const handleSaveConfig = async () => {
-    if (!apiKey.trim()) {
-      toast({
-        title: "Erro",
-        description: "Por favor, insira uma chave API válida.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    await salvarConfiguracao(apiKey, selectedModel);
   };
 
   const processFiles = (files: FileList) => {
@@ -166,72 +131,24 @@ const IA = () => {
     });
   };
 
-  const analyzeWithOpenAI = async (file: File): Promise<void> => {
+  const analyzeWithAI = async (file: File): Promise<void> => {
     try {
       const base64Image = await convertFileToBase64(file);
 
-      const prompt = `Analise este comprovante financeiro e extraia as seguintes informações em formato JSON:
-
-{
-  "tipo": "receita" ou "despesa",
-  "descricao": "descrição clara da transação",
-  "valor": número (apenas o valor numérico, sem símbolos),
-  "categoria": "categoria apropriada (ex: Alimentação, Transporte, Saúde, Salário, etc.)",
-  "data": "data no formato YYYY-MM-DD",
-  "confianca": número de 0 a 100 indicando a confiança na análise
-}
-
-Regras importantes:
-- Se for uma nota fiscal de compra/pagamento = "despesa"
-- Se for um comprovante de pagamento recebido/depósito = "receita"
-- Para o valor, extraia apenas números (ex: se vê "R$ 150,50", retorne 150.5)
-- Para categoria, use termos como: Alimentação, Transporte, Saúde, Educação, Lazer, Moradia, Salário, Freelance, Vendas
-- Para data, tente extrair a data da transação, não a data de emissão
-- Seja preciso na classificação entre receita e despesa
-
-Responda APENAS com o JSON, sem explicações adicionais.`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await gestorFinancasApiRequest('/gestor-financas-ia/analyze-receipt', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: prompt
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${file.type};base64,${base64Image}`,
-                    detail: 'high'
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 500,
-          temperature: 0.1
+          fileName: file.name,
+          mimeType: file.type,
+          base64: base64Image
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+      if (response.error) {
+        throw response.error;
       }
 
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-
-      // Remove markdown code blocks if present and parse JSON response
-      const cleanContent = content.replace(/```json\s*|\s*```/g, '').trim();
-      const analysisData = JSON.parse(cleanContent);
+      const analysisData = response.data;
 
       const resultado: Omit<AnalysisResult, 'id'> = {
         file_name: file.name,
@@ -246,7 +163,7 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
 
       await salvarResultado(resultado);
     } catch (error) {
-      console.error('Erro na análise OpenAI:', error);
+      console.error('Erro na análise de IA:', error);
       throw error;
     }
   };
@@ -261,15 +178,6 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
       return;
     }
 
-    if (!isConfigured) {
-      toast({
-        title: "Configuração necessária",
-        description: "Configure sua chave API OpenAI primeiro.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsAnalyzing(true);
 
     try {
@@ -278,7 +186,7 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
       for (const uploadedFile of uploadedFiles) {
         if (uploadedFile.type === 'image') {
           try {
-            await analyzeWithOpenAI(uploadedFile.file);
+            await analyzeWithAI(uploadedFile.file);
             results.push({} as any); // Placeholder para contagem
           } catch (error) {
             console.error('Erro na análise de arquivo:', error);
@@ -303,7 +211,7 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
       console.error('Erro na análise:', error);
       toast({
         title: "Erro na análise",
-        description: "Verifique sua chave API e tente novamente.",
+        description: "Verifique a configuração global de IA no Superadmin e tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -381,68 +289,8 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
         <Tabs defaultValue="upload" className="space-y-6">
           <TabsList>
             <TabsTrigger value="upload">Upload & Análise</TabsTrigger>
-            <TabsTrigger value="config">Configurações</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="config" className="space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center space-x-3 mb-6">
-                <Settings className="w-5 h-5 text-gray-600" />
-                <h2 className="text-xl font-bold text-gray-900">Configurações OpenAI</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="api-key" className="flex items-center space-x-2">
-                    <Key className="w-4 h-4" />
-                    <span>Chave API OpenAI</span>
-                  </Label>
-                  <Input
-                    id="api-key"
-                    type="password"
-                    placeholder="sk-..."
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="mt-2"
-                    disabled={configLoading}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Sua chave API será armazenada com segurança no banco de dados
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="model-select">Modelo OpenAI</Label>
-                  <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Selecione um modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {openaiModels.map((model) => (
-                        <SelectItem key={model.value} value={model.value}>
-                          {model.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button onClick={handleSaveConfig} className="w-full bg-wa-green hover:bg-wa-green-dark" disabled={configLoading}>
-                  {isConfigured ? 'Atualizar Configuração' : 'Salvar Configuração'}
-                </Button>
-
-                {isConfigured && (
-                  <div className="flex items-center space-x-2 text-green-600">
-                    <Check className="w-4 h-4" />
-                    <span className="text-sm">API configurada e pronta para uso</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            <AIConfigPanel />
-          </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">
             <Card className="p-6">
@@ -450,17 +298,6 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
                 <FileUp className="w-5 h-5 text-gray-600" />
                 <h2 className="text-xl font-bold text-gray-900">Upload de Comprovantes</h2>
               </div>
-
-              {!isConfigured && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="w-5 h-5 text-yellow-600" />
-                    <p className="text-yellow-800">
-                      Configure sua chave API OpenAI na aba Configurações antes de fazer upload.
-                    </p>
-                  </div>
-                </div>
-              )}
 
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragOver
@@ -526,10 +363,10 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
 
                   <Button
                     onClick={analyzeFiles}
-                    disabled={isAnalyzing || !isConfigured}
+                    disabled={isAnalyzing}
                     className="w-full bg-wa-green hover:bg-wa-green-dark"
                   >
-                    {isAnalyzing ? 'Analisando com OpenAI...' : `Analisar ${uploadedFiles.length} arquivo(s) com IA`}
+                    {isAnalyzing ? 'Analisando com IA...' : `Analisar ${uploadedFiles.length} arquivo(s) com IA`}
                   </Button>
                 </div>
               )}
@@ -537,7 +374,7 @@ Responda APENAS com o JSON, sem explicações adicionais.`;
 
             {analysisResults.length > 0 && (
               <Card className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Resultados da Análise OpenAI</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Resultados da Análise IA</h3>
                 <div className="space-y-4">
                   {analysisResults.map((result) => (
                     <div key={result.id} className="border rounded-lg p-4">

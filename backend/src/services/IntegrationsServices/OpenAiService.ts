@@ -524,6 +524,15 @@ const callOpenAI = async (
   return chat.choices[0].message?.content;
 };
 
+const createOpenAICompatibleClient = (apiKey: string, provider?: string) => new OpenAI({
+  apiKey,
+  baseURL: provider === "openrouter" ? "https://openrouter.ai/api/v1" : undefined,
+  defaultHeaders: provider === "openrouter" ? {
+    "HTTP-Referer": process.env.FRONTEND_URL || "https://atendzappy.com",
+    "X-Title": "AtendZappy CRM"
+  } : undefined
+});
+
 const runAgentPrompt = async (
   pergunta: string,
   agentPrompt: Prompt,
@@ -554,7 +563,7 @@ const runAgentPrompt = async (
     return response.text() || "";
   }
 
-  const openaiClient = new OpenAI({ apiKey });
+  const openaiClient = createOpenAICompatibleClient(apiKey, provider);
   const messages: any[] = [];
   if (systemPrompt) {
     messages.push({ role: "system", content: systemPrompt });
@@ -888,10 +897,8 @@ export const handleOpenAi = async (
     const openAiIndex = sessionsOpenAi.findIndex(s => s.id === ticket.id);
 
     if (openAiIndex === -1) {
-      console.log("Initializing OpenAI Service", openAiSettings.apiKey?.substring(0, 10) + "...");
-      aiClient = new OpenAI({
-        apiKey: openAiSettings.apiKey
-      });
+      console.log(`Initializing ${provider} Service`, openAiSettings.apiKey?.substring(0, 10) + "...");
+      aiClient = createOpenAICompatibleClient(openAiSettings.apiKey, provider);
       aiClient.id = ticket.id;
       sessionsOpenAi.push(aiClient);
     } else {
@@ -1018,7 +1025,7 @@ ${openAiSettings.prompt}
 
     try {
       // Chamar o provedor correto
-      if (provider === "openai") {
+      if (provider !== "gemini") {
         // Chamada com tools para automações
         const filteredTools = filterOpenAiToolsByAllowed(allowedTools);
         const chat = await aiClient.chat.completions.create({

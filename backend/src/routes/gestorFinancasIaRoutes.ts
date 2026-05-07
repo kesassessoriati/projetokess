@@ -13,6 +13,13 @@ gestorFinancasIaRoutes.get(
 );
 
 gestorFinancasIaRoutes.post(
+  "/gestor-financas-ia/analyze-receipt",
+  isAuth,
+  requireGestorFinancasIaPlan,
+  GestorFinancasIaController.analyzeReceipt
+);
+
+gestorFinancasIaRoutes.post(
   "/gestor-financas-ia/:resource/query",
   isAuth,
   requireGestorFinancasIaPlan,

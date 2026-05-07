@@ -12,7 +12,7 @@ import {
 
 export type AIUsageMode = "system" | "own";
 export type PromptUsageMode = "company_default" | AIUsageMode;
-export type AIProviderName = "openai" | "gemini";
+export type AIProviderName = "openai" | "gemini" | "openrouter";
 
 type CompanyWithPlan = Company & { plan?: Plan };
 
@@ -50,7 +50,8 @@ export interface ResolvedAIConfig {
 
 const AI_KEY_SETTING_MAP: Record<AIProviderName, string> = {
   openai: "openaiApiKey",
-  gemini: "geminiApiKey"
+  gemini: "geminiApiKey",
+  openrouter: "openrouterApiKey"
 };
 
 const DEFAULT_SYSTEM_PROVIDER: AIProviderName = "openai";
@@ -79,7 +80,14 @@ const getProviderSetting = async (
 };
 
 const normalizeProvider = (provider?: string | null): AIProviderName => {
-  return provider === "gemini" ? "gemini" : "openai";
+  if (provider === "gemini" || provider === "openrouter") return provider;
+  return "openai";
+};
+
+export const getProviderDisplayName = (provider?: string | null): string => {
+  if (provider === "gemini") return "Google Gemini";
+  if (provider === "openrouter") return "OpenRouter";
+  return "OpenAI";
 };
 
 const resolveCompanyUsageMode = (company: Company): AIUsageMode => {
@@ -140,6 +148,7 @@ export const getCompanyAiSettings = async (companyId: number) => {
 
   const ownOpenAiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.openai);
   const ownGeminiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.gemini);
+  const ownOpenRouterKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.openrouter);
   const creditInfo = await getCreditInfo(companyId);
 
   return {
@@ -152,11 +161,13 @@ export const getCompanyAiSettings = async (companyId: number) => {
     ),
     ownKeys: {
       openai: ownOpenAiKey,
-      gemini: ownGeminiKey
+      gemini: ownGeminiKey,
+      openrouter: ownOpenRouterKey
     },
     maskedKeys: {
       openai: getMaskedSecret(ownOpenAiKey),
-      gemini: getMaskedSecret(ownGeminiKey)
+      gemini: getMaskedSecret(ownGeminiKey),
+      openrouter: getMaskedSecret(ownOpenRouterKey)
     },
     creditInfo,
     planInfo: getPlanAiSnapshot(company.plan)
@@ -213,7 +224,7 @@ export const resolveAIProviderConfig = async ({
     const ownKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP[selectedProvider]);
     if (!ownKey) {
       throw new AppError(
-        `Nenhuma chave ${selectedProvider === "gemini" ? "Google Gemini" : "OpenAI"} foi configurada para esta empresa.`,
+        `Nenhuma chave ${getProviderDisplayName(selectedProvider)} foi configurada para esta empresa.`,
         503
       );
     }
@@ -231,7 +242,11 @@ export const resolveAIProviderConfig = async ({
 
   const systemKey =
     (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[selectedProvider])) ||
-    (selectedProvider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY);
+    (selectedProvider === "gemini"
+      ? process.env.GEMINI_API_KEY
+      : selectedProvider === "openrouter"
+        ? process.env.OPENROUTER_API_KEY
+        : process.env.OPENAI_API_KEY);
 
   if (systemKey) {
     return {
@@ -263,7 +278,7 @@ export const resolveAIProviderConfig = async ({
   }
 
   throw new AppError(
-    `Nenhuma chave de sistema ${selectedProvider === "gemini" ? "Google Gemini" : "OpenAI"} foi configurada.`,
+    `Nenhuma chave de sistema ${getProviderDisplayName(selectedProvider)} foi configurada.`,
     503
   );
 };

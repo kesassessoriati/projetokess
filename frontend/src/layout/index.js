@@ -1304,6 +1304,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Empresas", path: "/settings?tab=companies", activePath: "/settings", activeSearch: "tab=companies" },
           { title: "Planos", path: "/settings?tab=plans", activePath: "/settings", activeSearch: "tab=plans" },
+          { title: "IA e APIs", path: "/admin/ai-settings" },
           { title: "Whitelabel", path: "/settings?tab=whitelabel", activePath: "/settings", activeSearch: "tab=whitelabel" },
           { title: "Cadastro", path: "/settings?tab=cadastro", activePath: "/settings", activeSearch: "tab=cadastro" },
         ],

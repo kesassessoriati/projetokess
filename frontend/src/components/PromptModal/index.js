@@ -517,6 +517,30 @@ const geminiModels = [
     { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", free: false }
 ];
 
+const openrouterModels = [
+    { value: "deepseek/deepseek-chat-v3.1:free", label: "DeepSeek Chat V3.1 (OpenRouter)", free: true },
+    { value: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek Chat V3 0324 (OpenRouter)", free: true },
+    { value: "google/gemini-2.0-flash-exp:free", label: "Gemini 2.0 Flash Experimental (OpenRouter)", free: true }
+];
+
+const providerFallbackModels = {
+    openai: openaiModels,
+    gemini: geminiModels,
+    openrouter: openrouterModels
+};
+
+const providerLabels = {
+    openai: "OpenAI",
+    gemini: "Google Gemini",
+    openrouter: "OpenRouter"
+};
+
+const providerKeyPayloadFields = {
+    openai: "openaiApiKey",
+    gemini: "geminiApiKey",
+    openrouter: "openrouterApiKey"
+};
+
 const PromptModal = ({ open, onClose, promptId }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
@@ -530,7 +554,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [knowledgeUploading, setKnowledgeUploading] = useState(false);
     const [companyAiConfig, setCompanyAiConfig] = useState(null);
     const [aiTemplates, setAiTemplates] = useState([]);
-    const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "" });
+    const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "" });
     const imageInputRef = useRef(null);
     const [linkForm, setLinkForm] = useState({ title: "", url: "" });
 
@@ -778,8 +802,9 @@ const PromptModal = ({ open, onClose, promptId }) => {
                 if (!promptId) {
                     const preferredProvider = companyConfig?.preferredProvider || "openai";
                     setSelectedProvider(preferredProvider);
+                    const syncedModels = companyConfig?.globalModels?.[preferredProvider] || [];
                     setSelectedModel(
-                        (preferredProvider === "gemini" ? geminiModels : openaiModels)[0]?.value || ""
+                        syncedModels[0]?.id || providerFallbackModels[preferredProvider]?.[0]?.value || ""
                     );
                 }
             } catch (err) {
@@ -811,7 +836,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
         setSelectedModel("");
         setActiveTab(0);
         setSelectedSavedPrompt("");
-        setCompanyApiKeyInput({ openai: "", gemini: "" });
+        setCompanyApiKeyInput({ openai: "", gemini: "", openrouter: "" });
         onClose();
     };
 
@@ -826,7 +851,15 @@ const PromptModal = ({ open, onClose, promptId }) => {
     };
 
     const getCurrentModels = () => {
-        return selectedProvider === "openai" ? openaiModels : geminiModels;
+        const syncedModels = companyAiConfig?.globalModels?.[selectedProvider] || [];
+        if (syncedModels.length > 0) {
+            return syncedModels.map(model => ({
+                value: model.id,
+                label: model.name || model.id,
+                free: /:free$/i.test(model.id)
+            }));
+        }
+        return providerFallbackModels[selectedProvider] || openaiModels;
     };
 
     const getCreditsLabel = useCallback(() => {
@@ -858,7 +891,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     }, []);
 
     const handleSavePrompt = async values => {
-        const providerKeyField = selectedProvider === "gemini" ? "gemini" : "openai";
+        const providerKeyField = selectedProvider || "openai";
         const nextUsageMode = values.aiUsageMode || "system";
         const ownKeyInput = (companyApiKeyInput[providerKeyField] || "").trim();
 
@@ -896,7 +929,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
             };
 
             if (nextUsageMode === "own" && ownKeyInput) {
-                aiConfigPayload[providerKeyField === "openai" ? "openaiApiKey" : "geminiApiKey"] = ownKeyInput;
+                aiConfigPayload[providerKeyPayloadFields[providerKeyField] || "openaiApiKey"] = ownKeyInput;
             }
 
             await updateCompanyAiConfig(user.companyId, aiConfigPayload);
@@ -1131,6 +1164,9 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                     <MenuItem value="gemini">
                                                         Google Gemini
                                                     </MenuItem>
+                                                    <MenuItem value="openrouter">
+                                                        OpenRouter
+                                                    </MenuItem>
                                                 </Select>
                                             </FormControl>
 
@@ -1195,11 +1231,11 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                     A chave fica armazenada no backend e não é devolvida ao frontend.
                                                 </Typography>
                                                 <TextField
-                                                    label={selectedProvider === "gemini" ? "Gemini API Key da empresa" : "OpenAI API Key da empresa"}
-                                                    value={companyApiKeyInput[selectedProvider === "gemini" ? "gemini" : "openai"]}
+                                                    label={`${providerLabels[selectedProvider] || "IA"} API Key da empresa`}
+                                                    value={companyApiKeyInput[selectedProvider] || ""}
                                                     onChange={event =>
                                                         handleCompanyKeyInputChange(
-                                                            selectedProvider === "gemini" ? "gemini" : "openai",
+                                                            selectedProvider,
                                                             event.target.value
                                                         )
                                                     }
@@ -1209,8 +1245,8 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                     fullWidth
                                                     className={classes.formControl}
                                                     helperText={
-                                                        companyAiConfig?.hasOwnKeys?.[selectedProvider === "gemini" ? "gemini" : "openai"]
-                                                            ? `Já existe uma chave salva: ${companyAiConfig?.maskedKeys?.[selectedProvider === "gemini" ? "gemini" : "openai"]}`
+                                                        companyAiConfig?.hasOwnKeys?.[selectedProvider === "openrouter" ? "openrouter" : selectedProvider === "gemini" ? "gemini" : "openai"]
+                                                            ? `Já existe uma chave salva: ${companyAiConfig?.maskedKeys?.[selectedProvider === "openrouter" ? "openrouter" : selectedProvider === "gemini" ? "gemini" : "openai"]}`
                                                             : "Nenhuma chave salva ainda para este provedor."
                                                     }
                                                     InputProps={{

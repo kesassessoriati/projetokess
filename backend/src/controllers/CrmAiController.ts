@@ -8,6 +8,7 @@ import PipelineStage from "../models/PipelineStage";
 import {
   finalizeAIUsage,
   getCompanyAiSettings,
+  getProviderDisplayName,
   resolveAIProviderConfig
 } from "../services/AIProviderService/AIProviderService";
 import UpdateCrmLeadService from "../services/CrmLeadService/UpdateCrmLeadService";
@@ -269,12 +270,19 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
       }
     } else {
       const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey: resolvedConfig.apiKey });
+      const openai = new OpenAI({
+        apiKey: resolvedConfig.apiKey,
+        baseURL: resolvedConfig.provider === "openrouter" ? "https://openrouter.ai/api/v1" : undefined,
+        defaultHeaders: resolvedConfig.provider === "openrouter" ? {
+          "HTTP-Referer": process.env.FRONTEND_URL || "https://atendzappy.com",
+          "X-Title": "AtendZappy CRM"
+        } : undefined
+      });
 
       const historyMessages = buildOpenAiHistory(history || []);
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: resolvedConfig.provider === "openrouter" ? "deepseek/deepseek-chat-v3.1:free" : "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           ...historyMessages,
@@ -291,7 +299,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
       provider: resolvedConfig.provider,
       usageMode: resolvedConfig.usageMode,
       requestType: "crm_assistant",
-      model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini",
+      model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : resolvedConfig.provider === "openrouter" ? "deepseek/deepseek-chat-v3.1:free" : "gpt-4o-mini",
       status: "success",
       metadata: { messageLength: message.length, hasPipelineId: !!parsedPipelineId, historyLength: (history || []).length }
     });
@@ -307,7 +315,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
         provider: resolvedConfig.provider,
         usageMode: resolvedConfig.usageMode,
         requestType: "crm_assistant",
-        model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini",
+        model: resolvedConfig.provider === "gemini" ? "gemini-2.5-flash" : resolvedConfig.provider === "openrouter" ? "deepseek/deepseek-chat-v3.1:free" : "gpt-4o-mini",
         status: "error",
         errorCode: apiStatus ? String(apiStatus) : "provider_error",
         metadata: { messageLength: message.length, apiMessage }
@@ -325,7 +333,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
     if (apiStatus === 429 || apiMessage.includes("429") || apiMessage.includes("quota") || apiMessage.includes("exceeded")) {
       return res.status(429).json({
         error: "QUOTA_EXCEEDED",
-        message: `Cota esgotada ou limite de taxa atingido na API (${companyAiSettings.preferredProvider === "gemini" ? "Google Gemini" : "OpenAI"}). Verifique seu saldo/plano na plataforma da IA.`
+        message: `Cota esgotada ou limite de taxa atingido na API (${getProviderDisplayName(companyAiSettings.preferredProvider)}). Verifique seu saldo/plano na plataforma da IA.`
       });
     }
 
