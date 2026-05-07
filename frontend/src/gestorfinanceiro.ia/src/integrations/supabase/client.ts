@@ -147,7 +147,12 @@ const getCurrentUser = async () => {
     return { data: { user: null }, error };
   }
 
-  return data;
+  return {
+    data: {
+      user: data?.user || null,
+    },
+    error: null,
+  };
 };
 
 const readAsDataUrl = (file: File) =>
