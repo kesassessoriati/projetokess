@@ -49,7 +49,7 @@ const GestorFinancasIA = () => {
         <div className={classes.root}>
             <div className={classes.iframeContainer}>
                 <iframe
-                    src="/modules/gestor-financas-ia/index.html"
+                    src="/modules/gestor-financas-ia/index.html?v=20260507-ai-global"
                     className={classes.iframe}
                     title="Gestor Financeiro IA"
                     allow="camera; microphone; fullscreen; display-capture; autoplay; encrypted-media; geolocation"

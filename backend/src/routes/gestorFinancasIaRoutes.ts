@@ -20,6 +20,13 @@ gestorFinancasIaRoutes.post(
 );
 
 gestorFinancasIaRoutes.post(
+  "/gestor-financas-ia/chat",
+  isAuth,
+  requireGestorFinancasIaPlan,
+  GestorFinancasIaController.chat
+);
+
+gestorFinancasIaRoutes.post(
   "/gestor-financas-ia/:resource/query",
   isAuth,
   requireGestorFinancasIaPlan,

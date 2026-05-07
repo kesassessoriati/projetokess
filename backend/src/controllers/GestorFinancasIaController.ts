@@ -205,6 +205,17 @@ const extractJson = (content: string) => {
   return JSON.parse(clean);
 };
 
+const getDefaultModel = async (provider: string, requestedModel?: string | null) => {
+  const fallbackModels = await getStoredProviderModels(provider as any);
+  return requestedModel ||
+    fallbackModels[0]?.id ||
+    (provider === "gemini"
+      ? "gemini-2.5-flash"
+      : provider === "openrouter"
+        ? "deepseek/deepseek-chat-v3.1:free"
+        : "gpt-4o-mini");
+};
+
 export const analyzeReceipt = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { fileName, mimeType, base64, provider, model } = req.body || {};
@@ -232,15 +243,7 @@ export const analyzeReceipt = async (req: Request, res: Response): Promise<Respo
 Responda apenas com JSON válido.`;
 
   let content = "";
-  const fallbackModels = await getStoredProviderModels(resolved.provider as any);
-  const defaultModel =
-    model ||
-    fallbackModels[0]?.id ||
-    (resolved.provider === "gemini"
-      ? "gemini-2.5-flash"
-      : resolved.provider === "openrouter"
-        ? "deepseek/deepseek-chat-v3.1:free"
-        : "gpt-4o-mini");
+  const defaultModel = await getDefaultModel(resolved.provider, model);
 
   try {
     if (resolved.provider === "gemini") {
@@ -314,6 +317,101 @@ Responda apenas com JSON válido.`;
       status: "error",
       errorCode: err?.status ? String(err.status) : "provider_error",
       metadata: { fileName, message: err?.message }
+    }).catch(() => undefined);
+
+    throw err;
+  }
+};
+
+export const chat = async (req: Request, res: Response): Promise<Response> => {
+  const companyId = Number(req.user.companyId);
+  const { message, messages = [], systemPrompt, model, provider } = req.body || {};
+
+  if (!message || typeof message !== "string") {
+    throw new AppError("Mensagem inválida para o assistente financeiro.", 400);
+  }
+
+  const resolved = await resolveAIProviderConfig({
+    companyId,
+    provider,
+    requestType: "agent",
+    model
+  });
+  const selectedModel = await getDefaultModel(resolved.provider, model);
+  const basePrompt = systemPrompt || "Você é o WA Gestor Financeiro IA, um assistente financeiro do CRM. Ajude com orçamento, receitas, despesas, metas, dívidas, organização financeira e decisões práticas. Responda em português do Brasil, de forma objetiva e segura. Não prometa retornos financeiros.";
+
+  try {
+    let content = "";
+
+    if (resolved.provider === "gemini") {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(resolved.apiKey);
+      const genModel = genAI.getGenerativeModel({ model: selectedModel });
+      const history = Array.isArray(messages)
+        ? messages
+          .slice(-12)
+          .map((item: any) => `${item.role === "assistant" ? "Assistente" : "Usuário"}: ${item.content}`)
+          .join("\n")
+        : "";
+      const result = await genModel.generateContent(`${basePrompt}\n\n${history}\nUsuário: ${message}`);
+      content = result.response.text() || "";
+    } else {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({
+        apiKey: resolved.apiKey,
+        baseURL: resolved.provider === "openrouter" ? "https://openrouter.ai/api/v1" : undefined,
+        defaultHeaders: resolved.provider === "openrouter" ? {
+          "HTTP-Referer": process.env.FRONTEND_URL || "https://atendzappy.com",
+          "X-Title": "AtendZappy CRM"
+        } : undefined
+      });
+
+      const chatMessages: any[] = [
+        { role: "system", content: basePrompt },
+        ...(Array.isArray(messages) ? messages.slice(-12).map((item: any) => ({
+          role: item.role === "assistant" ? "assistant" : "user",
+          content: String(item.content || "")
+        })) : []),
+        { role: "user", content: message }
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: selectedModel,
+        messages: chatMessages,
+        temperature: 0.3,
+        max_tokens: 700
+      });
+      content = completion.choices[0]?.message?.content || "";
+    }
+
+    const creditInfo = await finalizeAIUsage({
+      companyId,
+      provider: resolved.provider,
+      usageMode: resolved.usageMode,
+      requestType: "gestor_financeiro_ia_chat",
+      model: selectedModel,
+      status: "success",
+      metadata: { source: "financial_assistant" }
+    });
+
+    return res.status(200).json({
+      data: {
+        content: content || "Não consegui gerar uma resposta agora.",
+        provider: resolved.provider,
+        model: selectedModel
+      },
+      creditInfo
+    });
+  } catch (err: any) {
+    await finalizeAIUsage({
+      companyId,
+      provider: resolved.provider,
+      usageMode: resolved.usageMode,
+      requestType: "gestor_financeiro_ia_chat",
+      model: selectedModel,
+      status: "error",
+      errorCode: err?.status ? String(err.status) : "provider_error",
+      metadata: { message: err?.message }
     }).catch(() => undefined);
 
     throw err;
