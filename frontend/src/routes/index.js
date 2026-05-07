@@ -228,7 +228,7 @@ const Routes = () => {
                         <Route exact path="/integracao" component={QueueIntegration} isPrivate />
                         <Route exact path="/announcements" component={Annoucements} isPrivate />
                         <Route exact path="/faturas" component={Faturas} isPrivate />
-                        <Route exact path="/gestor-financas/gestor-financeiro-ia" component={GestorFinancasIA} isPrivate />
+                        <Route exact path="/gestor-financas/gestor-financeiro-ia" component={GestorFinancasIA} isPrivate featureKey="gestor_financeiro_ia" />
                         {/* [DEPRECATED] Funil Legado - rotas desativadas, migradas para Board Inteligente */}
                         {/* <Route exact path="/documentacao" component={Funil} isPrivate /> */}
                         {/* <Route exact path="/funil" component={Funil} isPrivate /> */}

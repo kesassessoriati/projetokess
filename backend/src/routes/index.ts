@@ -141,6 +141,7 @@ import callSequenceRoutes from "./callSequenceRoutes";
 import meetingRoutes from "./meetingRoutes";
 import firecrawlRoutes from "./firecrawlRoutes";
 import proposalRoutes from "./proposalRoutes";
+import gestorFinancasIaRoutes from "./gestorFinancasIaRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -307,6 +308,7 @@ routes.use(chipRoutes);
 routes.use(companyAiConfigRoutes);
 routes.use(firecrawlRoutes);
 routes.use(aiAgentTemplateRoutes);
+routes.use(gestorFinancasIaRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);
