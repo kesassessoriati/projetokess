@@ -44,10 +44,7 @@ export const useOrcamentosMercado = () => {
     try {
       const { data, error } = await supabase
         .from('orcamentos_mercado')
-        .insert([{
-          ...orcamento,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([orcamento])
         .select()
         .single();
 

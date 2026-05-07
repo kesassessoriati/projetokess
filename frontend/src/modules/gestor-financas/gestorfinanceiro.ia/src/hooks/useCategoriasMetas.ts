@@ -42,10 +42,7 @@ export const useCategoriasMetas = () => {
     try {
       const { data, error } = await supabase
         .from('categorias_metas')
-        .insert([{
-          ...categoria,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([categoria])
         .select()
         .single();
 

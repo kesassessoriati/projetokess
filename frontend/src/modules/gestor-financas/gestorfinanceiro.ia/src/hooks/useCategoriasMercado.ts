@@ -42,10 +42,7 @@ export const useCategoriasMercado = () => {
     try {
       const { data, error } = await supabase
         .from('categorias_mercado')
-        .insert([{
-          ...categoria,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([categoria])
         .select()
         .single();
 

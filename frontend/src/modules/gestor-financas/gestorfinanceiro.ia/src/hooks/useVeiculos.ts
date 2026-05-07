@@ -54,22 +54,9 @@ export const useVeiculos = () => {
 
   const adicionarVeiculo = async (novoVeiculo: Omit<Veiculo, 'id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Usuário não autenticado",
-          variant: "destructive"
-        });
-        return;
-      }
-
       const { data, error } = await supabase
         .from('veiculos')
-        .insert([{
-          ...novoVeiculo,
-          user_id: user.id
-        }])
+        .insert([novoVeiculo])
         .select()
         .single();
 

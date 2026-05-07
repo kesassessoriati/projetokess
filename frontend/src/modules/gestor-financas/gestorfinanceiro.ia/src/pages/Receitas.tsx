@@ -76,7 +76,6 @@ const Receitas = () => {
     if (
       !novaReceita.descricao ||
       !novaReceita.valor ||
-      !novaReceita.categoria ||
       !novaReceita.data
     ) {
       toast({

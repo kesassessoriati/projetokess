@@ -73,10 +73,7 @@ export const useDespesas = () => {
     try {
       const { data, error } = await supabase
         .from('despesas')
-        .insert([{
-          ...despesa,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([despesa])
         .select(`
           *,
           categorias (nome, cor, icone)

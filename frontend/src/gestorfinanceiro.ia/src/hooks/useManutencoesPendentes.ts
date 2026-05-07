@@ -115,16 +115,6 @@ export const useManutencoesPendentes = (veiculos: Veiculo[], tiposManutencao: Ti
 
   const realizarManutencao = async (manutencaoPendente: ManutencaoPendente) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Usuário não autenticado",
-          variant: "destructive"
-        });
-        return;
-      }
-
       const veiculo = manutencaoPendente.veiculo;
       if (!veiculo) return;
 
@@ -132,7 +122,6 @@ export const useManutencoesPendentes = (veiculos: Veiculo[], tiposManutencao: Ti
       const { error } = await supabase
         .from('manutencoes')
         .insert([{
-          user_id: user.id,
           veiculo_id: manutencaoPendente.veiculo_id,
           tipo_manutencao_id: manutencaoPendente.tipo_manutencao_id,
           quilometragem_realizada: veiculo.quilometragem,

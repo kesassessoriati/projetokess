@@ -56,10 +56,7 @@ export const useDividas = () => {
     try {
       const { data, error } = await supabase
         .from('dividas')
-        .insert([{
-          ...divida,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([divida])
         .select(`
           *,
           categorias (nome, cor, icone)

@@ -76,7 +76,6 @@ const Despesas = () => {
     if (
       !novaDespesa.descricao ||
       !novaDespesa.valor ||
-      !novaDespesa.categoria ||
       !novaDespesa.data
     ) {
       toast({

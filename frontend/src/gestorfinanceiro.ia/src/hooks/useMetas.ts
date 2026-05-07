@@ -62,12 +62,7 @@ export const useMetas = () => {
     try {
       const { data, error } = await supabase
         .from("metas")
-        .insert([
-          {
-            ...meta,
-            user_id: (await supabase.auth.getUser()).data.user?.id,
-          },
-        ])
+        .insert([meta])
         .select(
           `
           *,

@@ -53,10 +53,7 @@ export const useItensMercado = () => {
     try {
       const { data, error } = await supabase
         .from('itens_mercado')
-        .insert([{
-          ...item,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
+        .insert([item])
         .select()
         .single();
 

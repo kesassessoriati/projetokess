@@ -28,7 +28,7 @@ export const NovaReceitaModal = ({ isOpen, onClose }: NovaReceitaModalProps) => 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.descricao || !formData.valor || !formData.categoria || !formData.data) {
+        if (!formData.descricao || !formData.valor || !formData.data) {
             toast({
                 title: "Erro",
                 description: "Preencha todos os campos obrigatórios",

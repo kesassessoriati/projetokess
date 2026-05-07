@@ -50,22 +50,9 @@ export const useTiposManutencao = () => {
 
   const adicionarTipo = async (novoTipo: Omit<TipoManutencao, 'id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Usuário não autenticado",
-          variant: "destructive"
-        });
-        return;
-      }
-
       const { data, error } = await supabase
         .from('tipos_manutencao')
-        .insert([{
-          ...novoTipo,
-          user_id: user.id
-        }])
+        .insert([novoTipo])
         .select()
         .single();
 
