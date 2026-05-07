@@ -77,6 +77,10 @@ const defaultKeys = {
   openrouter: ""
 };
 
+const isSuperAdminUser = user => {
+  return Boolean(user?.super) || user?.profile === "super" || (user?.profile === "admin" && Number(user?.companyId) === 1);
+};
+
 const GlobalAISettings = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
@@ -107,7 +111,7 @@ const GlobalAISettings = () => {
     load();
   }, []);
 
-  if (user && user.profile !== "super") {
+  if (user && !isSuperAdminUser(user)) {
     return <ForbiddenPage />;
   }
 

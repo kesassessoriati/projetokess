@@ -11,7 +11,10 @@ import {
 const providers: AIProviderName[] = ["openai", "gemini", "openrouter"];
 
 const ensureSuperAdmin = (req: Request) => {
-  if (req.user.profile !== "super") {
+  const isSuperAdmin = req.user.profile === "super" ||
+    (req.user.profile === "admin" && Number(req.user.companyId) === 1);
+
+  if (!isSuperAdmin) {
     throw new AppError("Apenas o superadmin pode gerenciar a configuração global de IA.", 403);
   }
 };
