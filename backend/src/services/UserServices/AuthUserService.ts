@@ -10,6 +10,8 @@ import Company from "../../models/Company";
 import Setting from "../../models/Setting";
 import CompaniesSettings from "../../models/CompaniesSettings";
 import moment from "moment";
+import { Op } from "sequelize";
+import { normalizeEmail, normalizePhone, normalizeUsername } from "../../helpers/userIdentity";
 
 interface SerializedUser {
   id: number;
@@ -44,13 +46,41 @@ const AuthUserService = async ({
   email,
   password
 }: Request): Promise<Response> => {
-  const user = await User.findOne({
-    where: { email },
+  const identifier = String(email || "").trim();
+  const normalizedEmail = normalizeEmail(identifier);
+  const normalizedPhone = normalizePhone(identifier);
+  const normalizedUsername = normalizeUsername(identifier);
+  const identifierConditions: any[] = [];
+
+  if (normalizedEmail.includes("@")) {
+    identifierConditions.push({ email: normalizedEmail });
+  } else {
+    if (normalizedUsername) {
+      identifierConditions.push({ username: normalizedUsername });
+    }
+
+    if (normalizedPhone) {
+      identifierConditions.push({ phone: normalizedPhone });
+    }
+
+    identifierConditions.push({ email: normalizedEmail });
+  }
+
+  const users = await User.findAll({
+    where: {
+      [Op.or]: identifierConditions
+    },
     include: ["queues", { model: Company, include: [{ model: CompaniesSettings }] }]
   });
 
-  if (!user) {
+  if (!users.length) {
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);
+  }
+
+  const user = users.length === 1 ? users[0] : users.find(item => item.email === normalizedEmail);
+
+  if (!user) {
+    throw new AppError("ERR_LOGIN_IDENTIFIER_AMBIGUOUS", 401);
   }
 
   const Hr = new Date();

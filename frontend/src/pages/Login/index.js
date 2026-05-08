@@ -35,6 +35,8 @@ import useSettings from "../../hooks/useSettings";
 import pkg from "../../../package.json";
 import { i18n } from "../../translate/i18n";
 import { getBackendUrl } from "../../config";
+import ReCaptchaBox, { isRecaptchaEnabled } from "../../components/ReCaptchaBox";
+import { toast } from "react-toastify";
 import wallfundo from "../../assets/f002.png";
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 const { versionSystem, nomeEmpresa } = pkg;
@@ -262,6 +264,8 @@ const Login = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [recaptchaToken, setRecaptchaToken] = useState("");
+  const [recaptchaResetSignal, setRecaptchaResetSignal] = useState(0);
   const { getPublicSetting } = useSettings();
   const { handleLogin, handleSetLoginOrigin } = useContext(AuthContext);
   const [allowSignup, setAllowSignup] = useState(false);
@@ -293,9 +297,18 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    handleLogin(user);
+
+    if (isRecaptchaEnabled && !recaptchaToken) {
+      toast.warning("Confirme a verificacao de seguranca para acessar.");
+      return;
+    }
+
+    const token = recaptchaToken;
+    setRecaptchaToken("");
+    setRecaptchaResetSignal((current) => current + 1);
+    await handleLogin({ ...user, recaptchaToken: token });
   };
 
   // Efeito para verificar configurações e carregar dados salvos
@@ -382,7 +395,7 @@ const Login = () => {
             Olá, Seja Bem-vindo! 👋
           </Typography>
           <Typography variant="body1" className={classes.formSubtitle}>
-            Digite seu e-mail e senha para acessar
+            Digite seu e-mail, telefone ou usuário para acessar
           </Typography>
         </div>
 
@@ -391,9 +404,9 @@ const Login = () => {
             variant="outlined"
             fullWidth
             id="email"
-            label="E-mail"
+            label="E-mail, telefone ou usuário"
             name="email"
-            autoComplete="email"
+            autoComplete="username"
             value={user.email}
             onChange={(e) => handleChangeInput('email', e.target.value)}
             className={classes.textField}
@@ -470,6 +483,11 @@ const Login = () => {
               Esqueceu a senha?
             </Link>
           </Box>
+
+          <ReCaptchaBox
+            onChange={setRecaptchaToken}
+            resetSignal={recaptchaResetSignal}
+          />
 
           <Button
             type="submit"

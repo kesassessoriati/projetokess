@@ -7,6 +7,8 @@ interface SerializedUser {
   id: number;
   name: string;
   email: string;
+  username?: string;
+  phone?: string;
   profile: string;
   companyId: number;
   company: Company | null;
@@ -42,6 +44,8 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     id: user.id,
     name: user.name,
     email: user.email,
+    username: user.username,
+    phone: user.phone,
     profile: user.profile,
     companyId: user.companyId,
     company: user.company,

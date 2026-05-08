@@ -49,6 +49,8 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import wallfundo from "../../assets/f002.png";
 import api from "../../services/api";
+import ReCaptchaBox, { isRecaptchaEnabled } from "../../components/ReCaptchaBox";
+import { passwordPolicyMessage, strongPasswordRegex } from "../../utils/passwordPolicy";
 
 // Função para validar CPF
 const isValidCPF = (cpf) => {
@@ -440,7 +442,10 @@ const SignUpSchema = Yup.object().shape({
     .email("E-mail inválido")
     .required("E-mail é obrigatório"),
   password: Yup.string()
-    .min(6, "Senha deve ter no mínimo 6 caracteres")
+    .matches(strongPasswordRegex, {
+      message: passwordPolicyMessage,
+      excludeEmptyString: true
+    })
     .required("Senha é obrigatória"),
   confirmPassword: Yup.string()
     .oneOf([Yup.ref("password"), null], "Senhas não coincidem")
@@ -692,14 +697,20 @@ const QuizForm = ({ values, errors, touched, setFieldValue, setFieldTouched, nex
                   A senha deve conter:
                 </Typography>
                 <Box display="flex" flexDirection="column" mt={0.5} gap={0.25}>
-                  <Typography variant="caption" style={{ color: values.password?.length >= 6 ? "#10b981" : "#ef4444" }}>
-                    {values.password?.length >= 6 ? "✓" : "✗"} Mínimo 6 caracteres
+                  <Typography variant="caption" style={{ color: values.password?.length >= 8 ? "#10b981" : "#ef4444" }}>
+                    {values.password?.length >= 8 ? "✓" : "✗"} Mínimo 8 caracteres
                   </Typography>
                   <Typography variant="caption" style={{ color: /[A-Z]/.test(values.password || "") ? "#10b981" : "#ef4444" }}>
                     {/[A-Z]/.test(values.password || "") ? "✓" : "✗"} Ao menos 1 letra maiúscula
                   </Typography>
                   <Typography variant="caption" style={{ color: /[a-z]/.test(values.password || "") ? "#10b981" : "#ef4444" }}>
                     {/[a-z]/.test(values.password || "") ? "✓" : "✗"} Ao menos 1 letra minúscula
+                  </Typography>
+                  <Typography variant="caption" style={{ color: /\d/.test(values.password || "") ? "#10b981" : "#ef4444" }}>
+                    {/\d/.test(values.password || "") ? "✓" : "✗"} Ao menos 1 número
+                  </Typography>
+                  <Typography variant="caption" style={{ color: /[^A-Za-z0-9]/.test(values.password || "") ? "#10b981" : "#ef4444" }}>
+                    {/[^A-Za-z0-9]/.test(values.password || "") ? "✓" : "✗"} Ao menos 1 caractere especial, ex: @
                   </Typography>
                 </Box>
               </Box>
@@ -967,6 +978,8 @@ const SignUp = () => {
   
   const [currentStep, setCurrentStep] = useState(0);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState("");
+  const [recaptchaResetSignal, setRecaptchaResetSignal] = useState(0);
   const [processingModalOpen, setProcessingModalOpen] = useState(false);
   const [processingText, setProcessingText] = useState("Realizando cadastro...");
   const { getPlanList } = usePlans();
@@ -1151,6 +1164,15 @@ const SignUp = () => {
       return;
     }
 
+    if (isRecaptchaEnabled && !recaptchaToken) {
+      showAlert({
+        type: "warning",
+        title: "Verificacao obrigatoria",
+        message: "Confirme a verificacao de seguranca para finalizar o cadastro.",
+      });
+      return;
+    }
+
     setProcessingModalOpen(true);
     setProcessingText("Validando dados...");
     
@@ -1172,7 +1194,8 @@ const SignUp = () => {
       recurrence: "MENSAL",
       dueDate: dueDate,
       status: "t",
-      campaignsEnabled: true
+      campaignsEnabled: true,
+      recaptchaToken
     };
     
     try {
@@ -1213,6 +1236,8 @@ const SignUp = () => {
         
       } catch (err) {
         setProcessingModalOpen(false);
+        setRecaptchaToken("");
+        setRecaptchaResetSignal((current) => current + 1);
         toastError(err);
       }
   };
@@ -1301,7 +1326,12 @@ const SignUp = () => {
                     />
 
                     {currentStep === steps.length - 1 && (
-                      <FormControlLabel
+                      <>
+                        <ReCaptchaBox
+                        onChange={setRecaptchaToken}
+                        resetSignal={recaptchaResetSignal}
+                        />
+                        <FormControlLabel
                         className={classes.termsCheckbox}
                         control={
                           <Checkbox
@@ -1322,7 +1352,8 @@ const SignUp = () => {
                             </span>
                           </span>
                         }
-                      />
+                        />
+                      </>
                     )}
                   </Form>
                 )}

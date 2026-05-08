@@ -5,9 +5,20 @@ import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
 import Plan from "../../models/Plan";
 import Company from "../../models/Company";
+import strongPasswordRegex, { passwordPolicyMessage } from "../../helpers/passwordPolicy";
+import {
+  ensureUserIdentifierIsAvailable,
+  isValidUsername,
+  makeInternalEmail,
+  normalizeEmail,
+  normalizePhone,
+  normalizeUsername
+} from "../../helpers/userIdentity";
 
 interface Request {
-  email: string;
+  email?: string;
+  username?: string;
+  phone?: string;
   password: string;
   name: string;
   queueIds?: number[];
@@ -36,6 +47,8 @@ interface Request {
 
 interface Response {
   email: string;
+  username?: string;
+  phone?: string;
   name: string;
   id: number;
   profile: string;
@@ -43,6 +56,8 @@ interface Response {
 
 const CreateUserService = async ({
   email,
+  username,
+  phone,
   password,
   name,
   queueIds = [],
@@ -68,6 +83,22 @@ const CreateUserService = async ({
   lunchStart,
   lunchEnd
 }: Request): Promise<Response> => {
+  const normalizedUsername = normalizeUsername(username);
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedEmail = normalizeEmail(email) || makeInternalEmail({
+    username: normalizedUsername,
+    phone: normalizedPhone,
+    companyId
+  });
+
+  if (!normalizeEmail(email) && !normalizedUsername && !normalizedPhone) {
+    throw new AppError("Informe e-mail, telefone ou usuario para login.");
+  }
+
+  if (!isValidUsername(normalizedUsername)) {
+    throw new AppError("Usuario deve ter 3 a 40 caracteres e usar apenas letras, numeros, ponto, hifen ou underline.");
+  }
+
   if (companyId !== undefined) {
     const company = await Company.findOne({
       where: {
@@ -97,29 +128,29 @@ const CreateUserService = async ({
     email: Yup.string()
       .email()
       .required()
-      .test(
-        "Check-email",
-        "An user with this email already exists.",
-        async value => {
-          if (!value) return false;
-          const emailExists = await User.findOne({
-            where: { email: value }
-          });
-          return !emailExists;
-        }
-      ),
-    password: Yup.string().required().min(5)
+      .test("Check-email", "An user with this email already exists.", async value => Boolean(value)),
+    password: Yup.string()
+      .required(passwordPolicyMessage)
+      .matches(strongPasswordRegex, passwordPolicyMessage)
   });
 
   try {
-    await schema.validate({ email, password, name });
+    await schema.validate({ email: normalizedEmail, password, name });
+    await ensureUserIdentifierIsAvailable({
+      email: normalizedEmail,
+      username: normalizedUsername,
+      phone: normalizedPhone,
+      companyId
+    });
   } catch (err) {
     throw new AppError(err.message);
   }
 
   const user = await User.create(
     {
-      email,
+      email: normalizedEmail,
+      username: normalizedUsername || null,
+      phone: normalizedPhone || null,
       password,
       name,
       companyId,

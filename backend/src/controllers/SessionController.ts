@@ -7,9 +7,15 @@ import { SendRefreshToken } from "../helpers/SendRefreshToken";
 import { RefreshTokenService } from "../services/AuthServices/RefreshTokenService";
 import FindUserFromToken from "../services/AuthServices/FindUserFromToken";
 import User from "../models/User";
+import VerifyRecaptchaService from "../services/AuthServices/VerifyRecaptchaService";
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { email, password } = req.body;
+  const { email, password, recaptchaToken } = req.body;
+
+  await VerifyRecaptchaService({
+    token: recaptchaToken,
+    remoteIp: req.ip
+  });
 
   const { token, serializedUser, refreshToken } = await AuthUserService({
     email,

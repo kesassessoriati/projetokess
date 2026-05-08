@@ -1728,6 +1728,20 @@ const messages = {
           "Não foi possível baixar mídia do WhatsApp. Verifique a página de conexões.",
         ERR_INVALID_CREDENTIALS:
           "Erro de autenticação. Por favor, tente novamente.",
+        ERR_LOGIN_IDENTIFIER_AMBIGUOUS:
+          "Este usuário ou telefone existe em mais de uma empresa. Acesse com e-mail.",
+        ERR_USER_EMAIL_ALREADY_EXISTS:
+          "Já existe um usuário com este e-mail.",
+        ERR_USER_USERNAME_ALREADY_EXISTS:
+          "Já existe um usuário com este login nesta empresa.",
+        ERR_USER_PHONE_ALREADY_EXISTS:
+          "Já existe um usuário com este telefone nesta empresa.",
+        ERR_RECAPTCHA_REQUIRED:
+          "Confirme a verificacao de seguranca antes de continuar.",
+        ERR_RECAPTCHA_INVALID:
+          "Verificacao de seguranca invalida. Tente novamente.",
+        ERR_RECAPTCHA_UNAVAILABLE:
+          "Nao foi possivel validar a verificacao de seguranca. Tente novamente em instantes.",
         ERR_SENDING_WAPP_MSG:
           "Erro ao enviar mensagem do WhatsApp. Verifique a página de conexões.",
         ERR_DELETE_WAPP_MSG: "Não foi possível excluir a mensagem do WhatsApp.",

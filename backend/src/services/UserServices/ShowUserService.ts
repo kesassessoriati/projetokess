@@ -16,6 +16,8 @@ const ShowUserService = async (id: string | number, companyId: string | number):
         "id",
         "name",
         "email",
+        "username",
+        "phone",
         "profile",
         "profileImage",
         "super",

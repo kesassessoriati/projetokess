@@ -33,7 +33,9 @@ const ListUsersService = async ({
           `%${searchParam.toLowerCase()}%`
         )
       },
-      { email: { [Op.like]: `%${searchParam.toLowerCase()}%` } }
+      { email: { [Op.like]: `%${searchParam.toLowerCase()}%` } },
+      { username: { [Op.like]: `%${searchParam.toLowerCase()}%` } },
+      { phone: { [Op.like]: `%${searchParam.replace(/\D/g, "")}%` } }
     ],
     companyId: {
       [Op.eq]: companyId
@@ -49,6 +51,8 @@ const ListUsersService = async ({
       "name",
       "id",
       "email",
+      "username",
+      "phone",
       "companyId",
       "profile",
       "online",

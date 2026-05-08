@@ -25,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import WorkIcon from '@mui/icons-material/Work';
 import MessageIcon from '@mui/icons-material/Message';
@@ -65,8 +66,11 @@ import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import IconButton from "@material-ui/core/IconButton";
 import Chip from "@material-ui/core/Chip";
+import { passwordPolicyMessage, strongPasswordRegex } from "../../utils/passwordPolicy";
 
 const backendUrl = getBackendUrl();
+
+const internalEmailDomain = "@internal.atendzappy.local";
 
 
 const useStyles = makeStyles(theme => ({
@@ -299,6 +303,8 @@ const UserModal = ({ open, onClose, userId }) => {
   const initialState = {
     name: "",
     email: "",
+    username: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     profile: "user",
@@ -372,7 +378,13 @@ const UserModal = ({ open, onClose, userId }) => {
       try {
         const { data } = await api.get(`/users/${userId}`);
         setUser(prevState => {
-          return { ...prevState, ...data, password: "", confirmPassword: "" };
+          return {
+            ...prevState,
+            ...data,
+            email: data.email?.endsWith(internalEmailDomain) ? "" : data.email,
+            password: "",
+            confirmPassword: ""
+          };
         });
 
         const { profileImage } = data;
@@ -608,9 +620,19 @@ const UserModal = ({ open, onClose, userId }) => {
       localStorage.setItem("profileImage", data.user.profileImage);
     };
 
-    const userData = userId && !values.password 
+    const normalizedValues = {
+      ...values,
+      username: values.username?.trim().toLowerCase(),
+      phone: values.phone?.replace(/\D/g, "")
+    };
+
+    if (userId && !normalizedValues.email?.trim()) {
+      delete normalizedValues.email;
+    }
+
+    const userData = userId && !normalizedValues.password
       ? {
-          ...values,
+          ...normalizedValues,
           whatsappId,
           queueIds: selectedQueueIds,
           serviceIds: selectedServiceIds,
@@ -618,7 +640,7 @@ const UserModal = ({ open, onClose, userId }) => {
           confirmPassword: undefined
         }
       : {
-          ...values,
+          ...normalizedValues,
           whatsappId,
           queueIds: selectedQueueIds,
           serviceIds: selectedServiceIds
@@ -650,6 +672,12 @@ const UserModal = ({ open, onClose, userId }) => {
   };
 
   const getValidationSchema = () => {
+    const hasLoginIdentifier = values => Boolean(
+      values?.email?.trim() ||
+      values?.phone?.replace(/\D/g, "") ||
+      values?.username?.trim()
+    );
+
     const baseSchema = {
       name: Yup.string()
         .min(2, "Curto!")
@@ -657,24 +685,39 @@ const UserModal = ({ open, onClose, userId }) => {
         .required("Obrigatório"),
       email: Yup.string()
         .email("Email Inválido")
-        .required("Obrigatório"),
+        .nullable(),
+      username: Yup.string()
+        .trim()
+        .matches(/^[a-zA-Z0-9._-]{3,40}$/, {
+          message: "Use 3 a 40 caracteres: letras, números, ponto, hífen ou underline",
+          excludeEmptyString: true
+        })
+        .nullable(),
+      phone: Yup.string()
+        .nullable(),
     };
 
     if (!userId) {
       return Yup.object().shape({
         ...baseSchema,
         password: Yup.string()
-          .min(5, "Senha muito curta")
+          .matches(strongPasswordRegex, {
+            message: passwordPolicyMessage,
+            excludeEmptyString: true
+          })
           .required("Senha é Obrigatório"),
         confirmPassword: Yup.string()
           .oneOf([Yup.ref('password'), null], "As senhas não correspondem")
           .required("Confirme sua senha"),
-      });
+      }).test("login-identifier", "Informe e-mail, telefone ou usuário para login", hasLoginIdentifier);
     } else {
       return Yup.object().shape({
         ...baseSchema,
         password: Yup.string()
-          .min(5, "Senha muito curta")
+          .matches(strongPasswordRegex, {
+            message: passwordPolicyMessage,
+            excludeEmptyString: true
+          })
           .nullable()
           .notRequired(),
         confirmPassword: Yup.string()
@@ -684,7 +727,7 @@ const UserModal = ({ open, onClose, userId }) => {
             then: Yup.string().required('Confirme sua senha'),
             otherwise: Yup.string().notRequired()
           }),
-      });
+      }).test("login-identifier", "Informe e-mail, telefone ou usuário para login", hasLoginIdentifier);
     }
   };
 
@@ -809,6 +852,46 @@ const UserModal = ({ open, onClose, userId }) => {
                             startAdornment: (
                               <InputAdornment position="start">
                                 <EmailIcon className={classes.inputIcon} />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Field
+                          as={TextField}
+                          label="Usuário"
+                          name="username"
+                          error={touched.username && Boolean(errors.username)}
+                          helperText={touched.username && errors.username}
+                          variant="outlined"
+                          margin="dense"
+                          fullWidth
+                          className={classes.inputField}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <PersonIcon className={classes.inputIcon} />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Field
+                          as={TextField}
+                          label="Telefone"
+                          name="phone"
+                          error={touched.phone && Boolean(errors.phone)}
+                          helperText={touched.phone && errors.phone}
+                          variant="outlined"
+                          margin="dense"
+                          fullWidth
+                          className={classes.inputField}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <PhoneIcon className={classes.inputIcon} />
                               </InputAdornment>
                             ),
                           }}

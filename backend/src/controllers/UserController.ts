@@ -21,6 +21,8 @@ import ShowCompanyService from "../services/CompanyService/ShowCompanyService";
 import { getWbot } from "../libs/wbot";
 import FindCompaniesWhatsappService from "../services/CompanyService/FindCompaniesWhatsappService";
 import User from "../models/User";
+import VerifyRecaptchaService from "../services/AuthServices/VerifyRecaptchaService";
+import strongPasswordRegex, { passwordPolicyMessage } from "../helpers/passwordPolicy";
 
 import { head } from "lodash";
 import ToggleChangeWidthService from "../services/UserServices/ToggleChangeWidthService";
@@ -36,7 +38,7 @@ const publicSignupSchema = Yup.object().shape({
     .email("ERR_INVALID_EMAIL")
     .required("ERR_INVALID_EMAIL"),
   password: Yup.string()
-    .min(6, "ERR_INVALID_PASSWORD")
+    .matches(strongPasswordRegex, passwordPolicyMessage)
     .required("ERR_INVALID_PASSWORD"),
 });
 
@@ -81,6 +83,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const {
     email,
+    username,
     password,
     name,
     companyName,
@@ -110,12 +113,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     campaignsEnabled,
     document,
     type,
-    segment
+    segment,
+    recaptchaToken
   } = req.body;
   let userCompanyId: number | null = null;
 
   const normalizedEmail = (email || "").trim().toLowerCase();
-  if (!normalizedEmail) {
+  if (req.url === "/signup" && !normalizedEmail) {
     throw new AppError("ERR_EMAIL_REQUIRED", 400);
   }
 
@@ -126,6 +130,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const sanitizedPhone = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
 
   if (req.url === "/signup") {
+    await VerifyRecaptchaService({
+      token: recaptchaToken,
+      remoteIp: req.ip
+    });
+
     try {
       await publicSignupSchema.validate(
         { companyName, email: normalizedEmail, password },
@@ -135,7 +144,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       const errMap: Record<string, string> = {
         "ERR_COMPANY_INVALID_NAME": "Nome da empresa inválido (mínimo 2 caracteres).",
         "ERR_INVALID_EMAIL": "E-mail inválido.",
-        "ERR_INVALID_PASSWORD": "Senha inválida (mínimo 6 caracteres).",
+        "ERR_INVALID_PASSWORD": passwordPolicyMessage,
       };
       throw new AppError(errMap[error.errors?.[0]] || "ERR_INVALID_SIGNUP_DATA");
     }
@@ -375,6 +384,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   if (companyUser) {
     const user = await CreateUserService({
       email,
+      username,
+      phone,
       password,
       name,
       profile,

@@ -4,9 +4,19 @@ import AppError from "../../errors/AppError";
 import ShowUserService from "./ShowUserService";
 import Company from "../../models/Company";
 import User from "../../models/User";
+import strongPasswordRegex, { passwordPolicyMessage } from "../../helpers/passwordPolicy";
+import {
+  ensureUserIdentifierIsAvailable,
+  isValidUsername,
+  normalizeEmail,
+  normalizePhone,
+  normalizeUsername
+} from "../../helpers/userIdentity";
 
 interface UserData {
   email?: string;
+  username?: string;
+  phone?: string;
   password?: string;
   name?: string;
   profile?: string;
@@ -46,6 +56,8 @@ interface Response {
   id: number;
   name: string;
   email: string;
+  username?: string;
+  phone?: string;
   profile: string;
 }
 
@@ -67,14 +79,24 @@ const UpdateUserService = async ({
     name: Yup.string().min(2),
     allHistoric: Yup.string(),
     email: Yup.string().email(),
+    username: Yup.string().nullable(),
+    phone: Yup.string().nullable(),
     profile: Yup.string(),
     password: Yup.string()
+      .nullable()
+      .notRequired()
+      .test("strong-password", passwordPolicyMessage, value => {
+        if (!value) return true;
+        return strongPasswordRegex.test(value);
+      })
   });
 
   const oldUserEmail = user.email;
   
   const {
     email,
+    username,
+    phone,
     password,
     profile,
     name,
@@ -102,14 +124,28 @@ const UpdateUserService = async ({
     lunchEnd
   } = userData;
 
+  const normalizedEmail = email !== undefined ? normalizeEmail(email) : undefined;
+  const normalizedUsername = username !== undefined ? normalizeUsername(username) : undefined;
+  const normalizedPhone = phone !== undefined ? normalizePhone(phone) : undefined;
+
+  if (!isValidUsername(normalizedUsername)) {
+    throw new AppError("Usuario deve ter 3 a 40 caracteres e usar apenas letras, numeros, ponto, hifen ou underline.");
+  }
+
   try {
-    await schema.validate({ email, password, profile, name });
+    await schema.validate({ email: normalizedEmail, username: normalizedUsername, phone: normalizedPhone, password, profile, name });
+    await ensureUserIdentifierIsAvailable({
+      email: normalizedEmail,
+      username: normalizedUsername,
+      phone: normalizedPhone,
+      companyId: user.companyId,
+      exceptUserId: user.id
+    });
   } catch (err: any) {
     throw new AppError(err.message);
   }
 
-  await user.update({
-    email,
+  const updatePayload: any = {
     password,
     profile,
     name,
@@ -133,7 +169,21 @@ const UpdateUserService = async ({
     workDays,
     lunchStart: lunchStart || null,
     lunchEnd: lunchEnd || null
-  });
+  };
+
+  if (normalizedEmail) {
+    updatePayload.email = normalizedEmail;
+  }
+
+  if (username !== undefined) {
+    updatePayload.username = normalizedUsername || null;
+  }
+
+  if (phone !== undefined) {
+    updatePayload.phone = normalizedPhone || null;
+  }
+
+  await user.update(updatePayload);
 
   await user.$set("queues", queueIds);
 
@@ -148,7 +198,7 @@ const UpdateUserService = async ({
 
   if (company.email === oldUserEmail) {
     await company.update({
-      email,
+      email: user.email,
       password
     })
   }
@@ -157,6 +207,8 @@ const UpdateUserService = async ({
     id: user.id,
     name: user.name,
     email: user.email,
+    username: user.username,
+    phone: user.phone,
     profile: user.profile,
     companyId: user.companyId,
     company,
