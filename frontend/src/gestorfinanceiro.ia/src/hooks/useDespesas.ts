@@ -46,10 +46,10 @@ export const useDespesas = () => {
 
       if (transacoesError) throw transacoesError;
 
-      // Combinar os dados
+      // Combinar os dados (converter valor para Number para evitar concatenação de strings)
       const allDespesas = [
-        ...(despesasData || []),
-        ...(transacoesData || [])
+        ...(despesasData || []).map(d => ({ ...d, valor: Number(d.valor) })),
+        ...(transacoesData || []).map(t => ({ ...t, valor: Number(t.valor) })),
       ];
 
       // Ordenar por data

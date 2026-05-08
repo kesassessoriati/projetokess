@@ -46,10 +46,10 @@ export const useReceitas = () => {
 
       if (transacoesError) throw transacoesError;
 
-      // Combinar os dados
+      // Combinar os dados (converter valor para Number para evitar concatenação de strings)
       const allReceitas = [
-        ...(receitasData || []),
-        ...(transacoesData || [])
+        ...(receitasData || []).map(r => ({ ...r, valor: Number(r.valor) })),
+        ...(transacoesData || []).map(t => ({ ...t, valor: Number(t.valor) })),
       ];
 
       // Ordenar por data

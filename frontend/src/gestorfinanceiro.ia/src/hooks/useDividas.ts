@@ -40,7 +40,15 @@ export const useDividas = () => {
         .order('data_vencimento', { ascending: true });
 
       if (error) throw error;
-      setDividas((data || []) as Divida[]);
+      // Converter campos numéricos para Number para evitar concatenação de strings
+      setDividas((data || []).map(d => ({
+        ...d,
+        valor_total: Number(d.valor_total),
+        valor_pago: Number(d.valor_pago),
+        valor_restante: Number(d.valor_restante),
+        parcelas: Number(d.parcelas),
+        parcelas_pagas: Number(d.parcelas_pagas),
+      })) as Divida[]);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar dívidas",

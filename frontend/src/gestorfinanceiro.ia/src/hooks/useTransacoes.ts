@@ -56,11 +56,11 @@ export const useTransacoes = () => {
 
       if (despesasError) throw despesasError;
 
-      // Combinar todos os dados
+      // Combinar todos os dados (converter valor para Number para evitar concatenação de strings)
       const allTransacoes = [
-        ...(transacoesData || []).map(t => ({ ...t, tipo: t.tipo })),
-        ...(receitasData || []).map(r => ({ ...r, tipo: 'receita' as const })),
-        ...(despesasData || []).map(d => ({ ...d, tipo: 'despesa' as const }))
+        ...(transacoesData || []).map(t => ({ ...t, tipo: t.tipo, valor: Number(t.valor) })),
+        ...(receitasData || []).map(r => ({ ...r, tipo: 'receita' as const, valor: Number(r.valor) })),
+        ...(despesasData || []).map(d => ({ ...d, tipo: 'despesa' as const, valor: Number(d.valor) })),
       ];
 
       // Ordenar por data
