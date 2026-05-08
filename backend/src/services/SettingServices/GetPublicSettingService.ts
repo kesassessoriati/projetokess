@@ -14,6 +14,15 @@ const publicSettingsKeys = [
   "appName",
   "termsImage",
   "termsText",
+  "loginHeroPreset",
+  "loginHeroTitle",
+  "loginHeroSubtitle",
+  "loginHeroCardColor",
+  "loginHeroIconColor",
+  "loginHeroTextColor",
+  "loginHeroIconSet",
+  "loginWelcomeTitle",
+  "loginWelcomeSubtitle",
   "trialDays"
 ]
 

@@ -156,6 +156,9 @@ export default function Whitelabel(props) {
   const [primaryColorLightModalOpen, setPrimaryColorLightModalOpen] = useState(false);
   const [primaryColorDarkModalOpen, setPrimaryColorDarkModalOpen] = useState(false);
   const [buttonColorLightModalOpen, setButtonColorLightModalOpen] = useState(false);
+  const [loginHeroCardColorModalOpen, setLoginHeroCardColorModalOpen] = useState(false);
+  const [loginHeroIconColorModalOpen, setLoginHeroIconColorModalOpen] = useState(false);
+  const [loginHeroTextColorModalOpen, setLoginHeroTextColorModalOpen] = useState(false);
 
   const logoLightInput = useRef(null);
   const logoDarkInput = useRef(null);
@@ -165,6 +168,10 @@ export default function Whitelabel(props) {
   const loadingImageInput = useRef(null);
   const [appName, setAppName] = useState(settingsLoaded.appName || "");
   const [termsText, setTermsText] = useState(settingsLoaded.termsText || "");
+  const [loginHeroTitle, setLoginHeroTitle] = useState(settingsLoaded.loginHeroTitle || "");
+  const [loginHeroSubtitle, setLoginHeroSubtitle] = useState(settingsLoaded.loginHeroSubtitle || "");
+  const [loginWelcomeTitle, setLoginWelcomeTitle] = useState(settingsLoaded.loginWelcomeTitle || "");
+  const [loginWelcomeSubtitle, setLoginWelcomeSubtitle] = useState(settingsLoaded.loginWelcomeSubtitle || "");
   const [trialDays, setTrialDays] = useState(settingsLoaded.trialDays || "7");
   const [welcomeEmailText, setWelcomeEmailText] = useState(settingsLoaded.welcomeEmailText || "");
   const [welcomeWhatsappText, setWelcomeWhatsappText] = useState(settingsLoaded.welcomeWhatsappText || "");
@@ -225,6 +232,15 @@ export default function Whitelabel(props) {
       const appName = settings.find((s) => s.key === "appName")?.value;
       const termsImage = settings.find((s) => s.key === "termsImage")?.value;
       const termsText = settings.find((s) => s.key === "termsText")?.value;
+      const loginHeroPreset = settings.find((s) => s.key === "loginHeroPreset")?.value;
+      const loginHeroTitle = settings.find((s) => s.key === "loginHeroTitle")?.value;
+      const loginHeroSubtitle = settings.find((s) => s.key === "loginHeroSubtitle")?.value;
+      const loginHeroCardColor = settings.find((s) => s.key === "loginHeroCardColor")?.value;
+      const loginHeroIconColor = settings.find((s) => s.key === "loginHeroIconColor")?.value;
+      const loginHeroTextColor = settings.find((s) => s.key === "loginHeroTextColor")?.value;
+      const loginHeroIconSet = settings.find((s) => s.key === "loginHeroIconSet")?.value;
+      const loginWelcomeTitle = settings.find((s) => s.key === "loginWelcomeTitle")?.value;
+      const loginWelcomeSubtitle = settings.find((s) => s.key === "loginWelcomeSubtitle")?.value;
       const trialDays = settings.find((s) => s.key === "trialDays")?.value;
       const welcomeEmailText = settings.find((s) => s.key === "welcomeEmailText")?.value;
       const welcomeWhatsappText = settings.find((s) => s.key === "welcomeWhatsappText")?.value;
@@ -248,6 +264,10 @@ export default function Whitelabel(props) {
 
       setAppName(appName || "");
       setTermsText(termsText || "");
+      setLoginHeroTitle(loginHeroTitle || "");
+      setLoginHeroSubtitle(loginHeroSubtitle || "");
+      setLoginWelcomeTitle(loginWelcomeTitle || "");
+      setLoginWelcomeSubtitle(loginWelcomeSubtitle || "");
       setTrialDays(trialDays || "7");
       setWelcomeEmailText(welcomeEmailText || "");
       setWelcomeWhatsappText(welcomeWhatsappText || "");
@@ -266,7 +286,7 @@ export default function Whitelabel(props) {
       setGoogleClientId(googleClientId || "");
       setGoogleClientSecret(googleClientSecret || "");
       setGoogleRedirectUri(googleRedirectUri || "");
-      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
+      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, loginHeroPreset, loginHeroTitle, loginHeroSubtitle, loginHeroCardColor, loginHeroIconColor, loginHeroTextColor, loginHeroIconSet, loginWelcomeTitle, loginWelcomeSubtitle, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -278,6 +298,53 @@ export default function Whitelabel(props) {
     });
     updateSettingsLoaded(key, value);
     toast.success("Operação atualizada com sucesso.");
+  }
+
+  async function handleApplyLoginPreset(preset) {
+    const presets = {
+      default: {
+        loginHeroPreset: "default",
+        loginHeroTitle: "Melhore o Desempenho do Seu Negócio",
+        loginHeroSubtitle: "Soluções completas para atendimento ao cliente",
+        loginHeroCardColor: "",
+        loginHeroIconColor: "",
+        loginHeroTextColor: "#ffffff",
+        loginHeroIconSet: "social",
+        loginWelcomeTitle: "Olá, Seja Bem-vindo! 👋",
+        loginWelcomeSubtitle: "Digite seu e-mail, telefone ou usuário para acessar",
+      },
+      clean: {
+        loginHeroPreset: "clean",
+        loginHeroTitle: "Atendimento em um só lugar",
+        loginHeroSubtitle: "Organize conversas, equipe e resultados com mais clareza.",
+        loginHeroCardColor: "rgba(15, 23, 42, 0.72)",
+        loginHeroIconColor: "#111827",
+        loginHeroTextColor: "#ffffff",
+        loginHeroIconSet: "whatsapp",
+        loginWelcomeTitle: "Acesse sua central",
+        loginWelcomeSubtitle: "Entre com e-mail, telefone ou usuário.",
+      },
+      minimal: {
+        loginHeroPreset: "minimal",
+        loginHeroTitle: "Bem-vindo",
+        loginHeroSubtitle: "Acesse o painel para continuar.",
+        loginHeroCardColor: "rgba(255, 255, 255, 0.16)",
+        loginHeroIconColor: "#0f172a",
+        loginHeroTextColor: "#ffffff",
+        loginHeroIconSet: "none",
+        loginWelcomeTitle: "Entrar",
+        loginWelcomeSubtitle: "Informe seus dados de acesso.",
+      }
+    };
+
+    const next = presets[preset] || presets.default;
+    await Promise.all(Object.entries(next).map(([key, value]) => update({ key, value })));
+    setLoginHeroTitle(next.loginHeroTitle);
+    setLoginHeroSubtitle(next.loginHeroSubtitle);
+    setLoginWelcomeTitle(next.loginWelcomeTitle);
+    setLoginWelcomeSubtitle(next.loginWelcomeSubtitle);
+    setSettingsLoaded({ ...settingsLoaded, ...next });
+    toast.success("Padrão da página de login aplicado com sucesso.");
   }
 
   const uploadLogo = async (e, mode) => {
@@ -734,6 +801,202 @@ export default function Whitelabel(props) {
               </Grid>
 
               <Grid xs={12} sm={6} md={4} item>
+              </Grid>
+
+              {/* Personalização da Página de Login */}
+              <Grid xs={12} item style={{ marginTop: 24 }}>
+                <Typography variant="subtitle1" style={{ fontWeight: 600, marginBottom: 8 }}>
+                  Página de Login
+                </Typography>
+                <Typography variant="body2" style={{ color: "#666", marginBottom: 16 }}>
+                  Ajuste textos, cores e ícones do card lateral sem alterar a estrutura segura do login.
+                </Typography>
+                <Box display="flex" flexWrap="wrap" style={{ gap: 8, marginBottom: 16 }}>
+                  <Button variant="outlined" size="small" onClick={() => handleApplyLoginPreset("default")}>
+                    Padrão atual
+                  </Button>
+                  <Button variant="outlined" size="small" onClick={() => handleApplyLoginPreset("clean")}>
+                    Consultivo
+                  </Button>
+                  <Button variant="outlined" size="small" onClick={() => handleApplyLoginPreset("minimal")}>
+                    Minimalista
+                  </Button>
+                </Box>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Título do card"
+                    variant="standard"
+                    value={loginHeroTitle}
+                    onChange={(e) => setLoginHeroTitle(e.target.value)}
+                    onBlur={() => {
+                      if (loginHeroTitle !== settingsLoaded.loginHeroTitle) {
+                        handleSaveSetting("loginHeroTitle", loginHeroTitle);
+                      }
+                    }}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  />
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Subtítulo do card"
+                    variant="standard"
+                    value={loginHeroSubtitle}
+                    onChange={(e) => setLoginHeroSubtitle(e.target.value)}
+                    onBlur={() => {
+                      if (loginHeroSubtitle !== settingsLoaded.loginHeroSubtitle) {
+                        handleSaveSetting("loginHeroSubtitle", loginHeroSubtitle);
+                      }
+                    }}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  />
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Ícones do card"
+                    variant="standard"
+                    select
+                    value={settingsLoaded.loginHeroIconSet || "social"}
+                    onChange={(e) => handleSaveSetting("loginHeroIconSet", e.target.value)}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  >
+                    <MenuItem value="social">WhatsApp, Facebook e Instagram</MenuItem>
+                    <MenuItem value="whatsapp">Somente WhatsApp</MenuItem>
+                    <MenuItem value="none">Sem ícones</MenuItem>
+                  </TextField>
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Título do login"
+                    variant="standard"
+                    value={loginWelcomeTitle}
+                    onChange={(e) => setLoginWelcomeTitle(e.target.value)}
+                    onBlur={() => {
+                      if (loginWelcomeTitle !== settingsLoaded.loginWelcomeTitle) {
+                        handleSaveSetting("loginWelcomeTitle", loginWelcomeTitle);
+                      }
+                    }}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  />
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Subtítulo do login"
+                    variant="standard"
+                    value={loginWelcomeSubtitle}
+                    onChange={(e) => setLoginWelcomeSubtitle(e.target.value)}
+                    onBlur={() => {
+                      if (loginWelcomeSubtitle !== settingsLoaded.loginWelcomeSubtitle) {
+                        handleSaveSetting("loginWelcomeSubtitle", loginWelcomeSubtitle);
+                      }
+                    }}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  />
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Cor do card"
+                    variant="standard"
+                    value={settingsLoaded.loginHeroCardColor || ""}
+                    onClick={() => setLoginHeroCardColorModalOpen(true)}
+                    InputProps={{
+                      style: { backgroundColor: "#ffffff" },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <div style={{ backgroundColor: settingsLoaded.loginHeroCardColor || "rgba(255,255,255,0.1)" }} className={classes.colorAdorment}></div>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <IconButton size="small" color="default" onClick={() => setLoginHeroCardColorModalOpen(true)}>
+                          <Colorize />
+                        </IconButton>
+                      ),
+                    }}
+                  />
+                </FormControl>
+                <ColorBoxModal
+                  open={loginHeroCardColorModalOpen}
+                  handleClose={() => setLoginHeroCardColorModalOpen(false)}
+                  onChange={(color) => handleSaveSetting("loginHeroCardColor", `#${color.hex}`)}
+                  currentColor={settingsLoaded.loginHeroCardColor?.startsWith("#") ? settingsLoaded.loginHeroCardColor : "#1f2937"}
+                />
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Cor dos ícones"
+                    variant="standard"
+                    value={settingsLoaded.loginHeroIconColor || ""}
+                    onClick={() => setLoginHeroIconColorModalOpen(true)}
+                    InputProps={{
+                      style: { backgroundColor: "#ffffff" },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <div style={{ backgroundColor: settingsLoaded.loginHeroIconColor || settingsLoaded.primaryColorLight }} className={classes.colorAdorment}></div>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <IconButton size="small" color="default" onClick={() => setLoginHeroIconColorModalOpen(true)}>
+                          <Colorize />
+                        </IconButton>
+                      ),
+                    }}
+                  />
+                </FormControl>
+                <ColorBoxModal
+                  open={loginHeroIconColorModalOpen}
+                  handleClose={() => setLoginHeroIconColorModalOpen(false)}
+                  onChange={(color) => handleSaveSetting("loginHeroIconColor", `#${color.hex}`)}
+                  currentColor={settingsLoaded.loginHeroIconColor || settingsLoaded.primaryColorLight}
+                />
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Cor do texto do card"
+                    variant="standard"
+                    value={settingsLoaded.loginHeroTextColor || ""}
+                    onClick={() => setLoginHeroTextColorModalOpen(true)}
+                    InputProps={{
+                      style: { backgroundColor: "#ffffff" },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <div style={{ backgroundColor: settingsLoaded.loginHeroTextColor || "#ffffff" }} className={classes.colorAdorment}></div>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <IconButton size="small" color="default" onClick={() => setLoginHeroTextColorModalOpen(true)}>
+                          <Colorize />
+                        </IconButton>
+                      ),
+                    }}
+                  />
+                </FormControl>
+                <ColorBoxModal
+                  open={loginHeroTextColorModalOpen}
+                  handleClose={() => setLoginHeroTextColorModalOpen(false)}
+                  onChange={(color) => handleSaveSetting("loginHeroTextColor", `#${color.hex}`)}
+                  currentColor={settingsLoaded.loginHeroTextColor || "#ffffff"}
+                />
               </Grid>
 
               {/* Texto de Termos */}

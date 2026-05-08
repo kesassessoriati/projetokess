@@ -45,6 +45,17 @@ const handleRedirect = () => {
   window.open(`#`, "_blank");
 };
 
+const defaultLoginSettings = {
+  loginHeroTitle: "Melhore o Desempenho do Seu Negócio",
+  loginHeroSubtitle: "Soluções completas para atendimento ao cliente",
+  loginHeroCardColor: "rgba(255, 255, 255, 0.1)",
+  loginHeroIconColor: "",
+  loginHeroTextColor: "#ffffff",
+  loginHeroIconSet: "social",
+  loginWelcomeTitle: "Olá, Seja Bem-vindo! 👋",
+  loginWelcomeSubtitle: "Digite seu e-mail, telefone ou usuário para acessar",
+};
+
 // Componente de Copyright
 function Copyright() {
   return (
@@ -115,28 +126,28 @@ const useStyles = makeStyles((theme) => ({
       fontSize: '1.5rem',
     },
   },
-  card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  card: (props) => ({
+    backgroundColor: props.loginHeroCardColor || defaultLoginSettings.loginHeroCardColor,
     backdropFilter: 'blur(10px)',
     borderRadius: '16px',
     padding: theme.spacing(6, 5),
     maxWidth: '500px',
     width: '100%',
-    color: 'white',
+    color: props.loginHeroTextColor || defaultLoginSettings.loginHeroTextColor,
     textAlign: 'left',
     position: 'relative',
     zIndex: 1,
     border: `1px solid ${theme.palette.primary.main}`,
     boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-  },
+  }),
 
   cardIcons: {
     display: 'flex',
     gap: theme.spacing(2),
     marginBottom: theme.spacing(4),
   },
-  cardIcon: {
-    backgroundColor: theme.palette.primary.main,
+  cardIcon: (props) => ({
+    backgroundColor: props.loginHeroIconColor || theme.palette.primary.main,
     borderRadius: '12px',
     width: '56px',
     height: '56px',
@@ -147,7 +158,7 @@ const useStyles = makeStyles((theme) => ({
       fontSize: '28px',
       color: 'white',
     },
-  },
+  }),
   title: {
     fontWeight: 700,
     marginBottom: theme.spacing(2),
@@ -249,7 +260,8 @@ const Login = () => {
   const { toggleColorMode, appLogoFavicon, appName: contextAppName } = useContext(ColorModeContext);
   const [appName, setAppName] = useState(contextAppName || "TendZap");
   const [backgroundImage, setBackgroundImage] = useState(wallfundo);
-  const classes = useStyles({ backgroundImage });
+  const [loginSettings, setLoginSettings] = useState(defaultLoginSettings);
+  const classes = useStyles({ backgroundImage, ...loginSettings });
 
   useEffect(() => {
     if (contextAppName) {
@@ -334,6 +346,22 @@ const Login = () => {
       .catch((error) => {
         console.log("Error reading termsImage setting", error);
       });
+
+    Promise.all(
+      Object.keys(defaultLoginSettings).map((key) =>
+        getPublicSetting(key)
+          .then((value) => [key, value])
+          .catch(() => [key, undefined])
+      )
+    ).then((entries) => {
+      const nextSettings = { ...defaultLoginSettings };
+      entries.forEach(([key, value]) => {
+        if (value) {
+          nextSettings[key] = value;
+        }
+      });
+      setLoginSettings(nextSettings);
+    });
   }, [getPublicSetting, handleSetLoginOrigin]);
 
   // Funções auxiliares
@@ -367,22 +395,28 @@ const Login = () => {
           }}
         >
           <div className={classes.card}>
-            <div className={classes.cardIcons}>
-              <div className={classes.cardIcon}>
-                <WhatsAppIcon />
+            {loginSettings.loginHeroIconSet !== "none" && (
+              <div className={classes.cardIcons}>
+                <div className={classes.cardIcon}>
+                  <WhatsAppIcon />
+                </div>
+                {loginSettings.loginHeroIconSet === "social" && (
+                  <>
+                    <div className={classes.cardIcon}>
+                      <FacebookIcon />
+                    </div>
+                    <div className={classes.cardIcon}>
+                      <InstagramIcon />
+                    </div>
+                  </>
+                )}
               </div>
-              <div className={classes.cardIcon}>
-                <FacebookIcon />
-              </div>
-              <div className={classes.cardIcon}>
-                <InstagramIcon />
-              </div>
-            </div>
+            )}
             <Typography variant="h3" className={classes.title}>
-              {leftPanelContent.title}
+              {loginSettings.loginHeroTitle}
             </Typography>
             <Typography variant="body1" className={classes.subtitle}>
-              {leftPanelContent.subtitle}
+              {loginSettings.loginHeroSubtitle}
             </Typography>
           </div>
         </div>
@@ -392,10 +426,10 @@ const Login = () => {
       <div className={classes.rightPanel}>
         <div className={classes.welcome}>
           <Typography variant="h4" className={classes.formTitle}>
-            Olá, Seja Bem-vindo! 👋
+            {loginSettings.loginWelcomeTitle}
           </Typography>
           <Typography variant="body1" className={classes.formSubtitle}>
-            Digite seu e-mail, telefone ou usuário para acessar
+            {loginSettings.loginWelcomeSubtitle}
           </Typography>
         </div>
 
