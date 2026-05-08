@@ -54,15 +54,16 @@ const defaultLoginSettings = {
   loginHeroIconSet: "social",
   loginWelcomeTitle: "Olá, Seja Bem-vindo! 👋",
   loginWelcomeSubtitle: "Digite seu e-mail, telefone ou usuário para acessar",
+  loginCopyrightName: nomeEmpresa,
 };
 
 // Componente de Copyright
-function Copyright() {
+function Copyright({ companyName }) {
   return (
     <Typography variant="body2" color="textSecondary" align="center">
       {"Copyright © "}
       <Link color="inherit" href="#">
-        {nomeEmpresa}
+        {companyName || nomeEmpresa}
       </Link>{" "}
       {new Date().getFullYear()}
       {"."}
@@ -552,7 +553,7 @@ const Login = () => {
         </form>
 
         <Box mt={8}>
-          <Copyright />
+          <Copyright companyName={loginSettings.loginCopyrightName} />
         </Box>
       </div>
     </div>

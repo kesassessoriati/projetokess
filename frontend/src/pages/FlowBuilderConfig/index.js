@@ -153,7 +153,7 @@ const useStyles = makeStyles((theme) => ({
     flex: 1,
     padding: 0,
     position: "relative",
-    backgroundColor: "#fafbfc",
+    backgroundColor: "#272A2C",
     overflowY: "scroll",
     ...theme.scrollbarStyles,
     border: "none",
@@ -2199,7 +2199,7 @@ export const FlowBuilderConfig = () => {
               fitView
               connectionLineStyle={connectionLineStyle}
               style={{
-                backgroundColor: "#fafbfc",
+                backgroundColor: "#272A2C",
               }}
               defaultEdgeOptions={{
                 style: { 
@@ -2235,8 +2235,8 @@ export const FlowBuilderConfig = () => {
                 variant="dots" 
                 gap={16} 
                 size={1.5} 
-                color="#d4d4d8"
-                style={{ backgroundColor: "#fafafa" }}
+                color="#3a3f43"
+                style={{ backgroundColor: "#272A2C" }}
               />
             </ReactFlow>
           </Stack>

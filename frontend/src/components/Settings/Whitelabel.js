@@ -172,6 +172,7 @@ export default function Whitelabel(props) {
   const [loginHeroSubtitle, setLoginHeroSubtitle] = useState(settingsLoaded.loginHeroSubtitle || "");
   const [loginWelcomeTitle, setLoginWelcomeTitle] = useState(settingsLoaded.loginWelcomeTitle || "");
   const [loginWelcomeSubtitle, setLoginWelcomeSubtitle] = useState(settingsLoaded.loginWelcomeSubtitle || "");
+  const [loginCopyrightName, setLoginCopyrightName] = useState(settingsLoaded.loginCopyrightName || "");
   const [trialDays, setTrialDays] = useState(settingsLoaded.trialDays || "7");
   const [welcomeEmailText, setWelcomeEmailText] = useState(settingsLoaded.welcomeEmailText || "");
   const [welcomeWhatsappText, setWelcomeWhatsappText] = useState(settingsLoaded.welcomeWhatsappText || "");
@@ -241,6 +242,7 @@ export default function Whitelabel(props) {
       const loginHeroIconSet = settings.find((s) => s.key === "loginHeroIconSet")?.value;
       const loginWelcomeTitle = settings.find((s) => s.key === "loginWelcomeTitle")?.value;
       const loginWelcomeSubtitle = settings.find((s) => s.key === "loginWelcomeSubtitle")?.value;
+      const loginCopyrightName = settings.find((s) => s.key === "loginCopyrightName")?.value;
       const trialDays = settings.find((s) => s.key === "trialDays")?.value;
       const welcomeEmailText = settings.find((s) => s.key === "welcomeEmailText")?.value;
       const welcomeWhatsappText = settings.find((s) => s.key === "welcomeWhatsappText")?.value;
@@ -268,6 +270,7 @@ export default function Whitelabel(props) {
       setLoginHeroSubtitle(loginHeroSubtitle || "");
       setLoginWelcomeTitle(loginWelcomeTitle || "");
       setLoginWelcomeSubtitle(loginWelcomeSubtitle || "");
+      setLoginCopyrightName(loginCopyrightName || "");
       setTrialDays(trialDays || "7");
       setWelcomeEmailText(welcomeEmailText || "");
       setWelcomeWhatsappText(welcomeWhatsappText || "");
@@ -286,7 +289,7 @@ export default function Whitelabel(props) {
       setGoogleClientId(googleClientId || "");
       setGoogleClientSecret(googleClientSecret || "");
       setGoogleRedirectUri(googleRedirectUri || "");
-      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, loginHeroPreset, loginHeroTitle, loginHeroSubtitle, loginHeroCardColor, loginHeroIconColor, loginHeroTextColor, loginHeroIconSet, loginWelcomeTitle, loginWelcomeSubtitle, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
+      setSettingsLoaded({ ...settingsLoaded, primaryColorLight, primaryColorDark, buttonColorLight, buttonColorDark, appLogoLight, appLogoDark, appLogoFavicon, appLogoLoading, appName, termsImage, termsText, loginHeroPreset, loginHeroTitle, loginHeroSubtitle, loginHeroCardColor, loginHeroIconColor, loginHeroTextColor, loginHeroIconSet, loginWelcomeTitle, loginWelcomeSubtitle, loginCopyrightName, trialDays, welcomeEmailText, welcomeWhatsappText, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, openaiApiKey, geminiApiKey, aiProvider, crmAiSystemPrompt, verifyToken, facebookAppId, facebookAppSecret, googleClientId, googleClientSecret, googleRedirectUri });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -312,6 +315,7 @@ export default function Whitelabel(props) {
         loginHeroIconSet: "social",
         loginWelcomeTitle: "Olá, Seja Bem-vindo! 👋",
         loginWelcomeSubtitle: "Digite seu e-mail, telefone ou usuário para acessar",
+        loginCopyrightName: "CopyRight Todos os direitos reservados",
       },
       clean: {
         loginHeroPreset: "clean",
@@ -323,6 +327,7 @@ export default function Whitelabel(props) {
         loginHeroIconSet: "whatsapp",
         loginWelcomeTitle: "Acesse sua central",
         loginWelcomeSubtitle: "Entre com e-mail, telefone ou usuário.",
+        loginCopyrightName: "CopyRight Todos os direitos reservados",
       },
       minimal: {
         loginHeroPreset: "minimal",
@@ -334,6 +339,7 @@ export default function Whitelabel(props) {
         loginHeroIconSet: "none",
         loginWelcomeTitle: "Entrar",
         loginWelcomeSubtitle: "Informe seus dados de acesso.",
+        loginCopyrightName: "CopyRight Todos os direitos reservados",
       }
     };
 
@@ -343,6 +349,7 @@ export default function Whitelabel(props) {
     setLoginHeroSubtitle(next.loginHeroSubtitle);
     setLoginWelcomeTitle(next.loginWelcomeTitle);
     setLoginWelcomeSubtitle(next.loginWelcomeSubtitle);
+    setLoginCopyrightName(next.loginCopyrightName);
     setSettingsLoaded({ ...settingsLoaded, ...next });
     toast.success("Padrão da página de login aplicado com sucesso.");
   }
@@ -905,6 +912,24 @@ export default function Whitelabel(props) {
                       }
                     }}
                     InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                  />
+                </FormControl>
+              </Grid>
+
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    label="Nome no copyright"
+                    variant="standard"
+                    value={loginCopyrightName}
+                    onChange={(e) => setLoginCopyrightName(e.target.value)}
+                    onBlur={() => {
+                      if (loginCopyrightName !== settingsLoaded.loginCopyrightName) {
+                        handleSaveSetting("loginCopyrightName", loginCopyrightName);
+                      }
+                    }}
+                    InputProps={{ style: { backgroundColor: "#ffffff" } }}
+                    placeholder="Nome da empresa"
                   />
                 </FormControl>
               </Grid>

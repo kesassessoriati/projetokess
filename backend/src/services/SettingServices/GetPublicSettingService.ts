@@ -23,6 +23,7 @@ const publicSettingsKeys = [
   "loginHeroIconSet",
   "loginWelcomeTitle",
   "loginWelcomeSubtitle",
+  "loginCopyrightName",
   "trialDays"
 ]
 
