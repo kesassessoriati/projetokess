@@ -50,8 +50,20 @@ export const runtime = async (req: Request, res: Response): Promise<Response> =>
   }
 
   const payload = setting.toJSON() as any;
-  payload.websocketUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
+  const directWsUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
+  payload.websocketUrl = directWsUrl;
   payload.userUri = `sip:${payload.username}@${payload.sipDomain || payload.host}`;
+
+  // Se o servidor SIP usa WS simples (porta 80 / ws://), fornece a URL do proxy
+  // interno do backend (wss://) para evitar bloqueio de mixed content no navegador.
+  const sipUsesPlainWs = (payload.websocketProtocol || "wss") === "ws";
+  if (sipUsesPlainWs) {
+    const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "");
+    const proxyBase = backendUrl.startsWith("http://")
+      ? backendUrl.replace("http://", "wss://")
+      : backendUrl.replace("https://", "wss://");
+    payload.proxyWebsocketUrl = `${proxyBase}/sip-ws?companyId=${companyId}`;
+  }
 
   return res.json(payload);
 };

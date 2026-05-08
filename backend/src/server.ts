@@ -6,6 +6,7 @@ import path from 'path';
 import app from "./app";
 import cron from "node-cron";
 import { initIO } from "./libs/socket";
+import { initSipWsProxy } from "./libs/sipWsProxy";
 import logger from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";
@@ -68,6 +69,7 @@ if (process.env.CERTIFICADOS == "true") {
   });
 
   initIO(server);
+  initSipWsProxy(server);
   gracefulShutdown(server);
 
 } else {
@@ -117,6 +119,7 @@ if (process.env.CERTIFICADOS == "true") {
   });
 
   initIO(server);
+  initSipWsProxy(server);
   gracefulShutdown(server);
 
 }

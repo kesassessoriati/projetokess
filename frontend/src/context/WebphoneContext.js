@@ -811,7 +811,10 @@ export const WebphoneProvider = ({ children }) => {
         stopUA();
       }
 
-      const socket = new JsSIP.WebSocketInterface(runtimeConfig.websocketUrl);
+      // Usa proxy interno (wss://) quando o servidor SIP só oferece ws:// (porta 80)
+      // para evitar bloqueio de mixed content no navegador.
+      const wsUrl = runtimeConfig.proxyWebsocketUrl || runtimeConfig.websocketUrl;
+      const socket = new JsSIP.WebSocketInterface(wsUrl);
       const configuration = {
         sockets: [socket],
         uri: runtimeConfig.userUri || `sip:${runtimeConfig.username}@${runtimeConfig.sipDomain || runtimeConfig.host}`,
