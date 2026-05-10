@@ -3,6 +3,7 @@ import FlashOnIcon from "@material-ui/icons/FlashOn";
 import ButtonModal from "../ButtonModal";
 import CameraModal from "../CameraModal";
 import ContactSendModal from "../ContactSendModal";
+import LeadTaskCreateModal from "../LeadTaskCreateModal";
 import MenuIcon from '@material-ui/icons/Menu';
 import MessageUploadMedias from "../MessageUploadMedias";
 import MicRecorder from "mic-recorder-to-mp3";
@@ -15,7 +16,7 @@ import clsx from "clsx";
 import toastError from "../../errors/toastError";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import QuickRepliesModal from "../QuickRepliesModal";
-import { AttachFile, CheckCircleOutline, Clear, Comment, Create, Description, Folder, HighlightOff, Mic, Mood, MoreVert, Send, PermMedia, Person, Reply, Duo, Timer, } from "@material-ui/icons";
+import { Assignment, AttachFile, CheckCircleOutline, Clear, Comment, Create, Description, Folder, HighlightOff, Mic, Mood, MoreVert, Send, PermMedia, Person, Reply, Duo, Timer, } from "@material-ui/icons";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { CameraAlt } from "@material-ui/icons";
 import { CircularProgress, ClickAwayListener, IconButton, InputBase, makeStyles, Paper, Hidden, Menu, MenuItem, Tooltip, Fab, Dialog, DialogTitle, DialogContent, Button, Grid, } from "@material-ui/core";
@@ -350,7 +351,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketChannel, notificameHub }) => {
+const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketChannel, notificameHub, ticket }) => {
   const classes = useStyles();
   const theme = useTheme();
   const [mediasUpload, setMediasUpload] = useState([]);
@@ -379,6 +380,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const [showModalMedias, setShowModalMedias] = useState(false);
   const [mediaDriveOpen, setMediaDriveOpen] = useState(false);
   const [quickMessagesDialogOpen, setQuickMessagesDialogOpen] = useState(false);
+  const [leadTaskModalOpen, setLeadTaskModalOpen] = useState(false);
 
   const {
     selectedMessages,
@@ -490,6 +492,11 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const handleButtonModalOpen = () => {
     handleMenuItemClick();
     setButtonModalOpen(true);
+  };
+
+  const handleLeadTaskModalOpen = () => {
+    handleMenuItemClick();
+    setLeadTaskModalOpen(true);
   };
 
   const handleQuickAnswersClick = (value) => {
@@ -1002,6 +1009,12 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
           onSelect={handleSelectFromMediaDrive}
           title="Selecionar do Mídia Drive"
         />
+        <LeadTaskCreateModal
+          open={leadTaskModalOpen}
+          onClose={() => setLeadTaskModalOpen(false)}
+          ticket={ticket}
+          ticketId={ticketId}
+        />
         {senVcardModalOpen && (
           <ContactSendModal
             modalOpen={senVcardModalOpen}
@@ -1138,6 +1151,12 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                   </Fab>
                   Botões
                 </MenuItem>
+                <MenuItem onClick={handleLeadTaskModalOpen}>
+                  <Fab className={classes.invertedFabMenuCont}>
+                    <Assignment />
+                  </Fab>
+                  Adicionar tarefa
+                </MenuItem>
               </Menu>
               {signMessagePar && (
                 <Tooltip title={i18n.t("messageInput.tooltip.signature")}>
@@ -1250,6 +1269,12 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                     )}
                   </IconButton>
                 </Tooltip>
+                <MenuItem onClick={handleLeadTaskModalOpen}>
+                  <IconButton component="span" disabled={disableOption()}>
+                    <Assignment className={classes.sendMessageIcons} />
+                  </IconButton>
+                  Adicionar tarefa
+                </MenuItem>
               </Menu>
             </Hidden>
             <div className={classes.flexContainer}>

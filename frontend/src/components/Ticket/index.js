@@ -209,6 +209,7 @@ const Ticket = () => {
           notificameHub={notificameHub}
           droppedFiles={dragDropFiles}
           contactId={contact.id}
+          ticket={ticket}
         />
       </>
     );

@@ -26,7 +26,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import { makeStyles } from "@material-ui/core/styles";
-import { openApi } from "../../services/api";
+import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import moment from "moment";
 
@@ -151,14 +151,16 @@ const SignUp = () => {
     const handleSignUp = async (values) => {
         setShowProgress(true);
         const payload = {
-            ...values,
+            name: values.companyName,
+            email: values.email,
+            password: values.password,
             recurrence: "MENSAL",
             dueDate,
-            status: "t",
+            status: true,
             campaignsEnabled: true,
         };
         try {
-            await openApi.post("/auth/signup", payload);
+            await api.post("/companies", payload);
             setShowProgress(false);
             setOpenModal(true);
         } catch (err) {

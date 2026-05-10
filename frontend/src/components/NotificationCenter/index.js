@@ -426,7 +426,7 @@ const NotificationCenter = () => {
               <Typography className={classes.settingsSectionTitle}>Tipos de notificação</Typography>
               <Divider />
               {[
-                { key: "taskDue",     label: "Tarefa próxima do prazo",  sub: "Aviso quando uma tarefa vence em até 24h" },
+                { key: "taskDue",     label: "Tarefa próxima do prazo",  sub: "Aviso quando uma tarefa vence em 2 dias" },
                 { key: "taskOverdue", label: "Tarefa atrasada",           sub: "Aviso quando o prazo de uma tarefa passou" },
                 { key: "taskCreated", label: "Nova tarefa atribuída",     sub: "Quando uma tarefa for criada para você" },
                 { key: "message",     label: "Mensagens",                 sub: "Notificações de novas mensagens" },

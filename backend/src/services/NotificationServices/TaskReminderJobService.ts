@@ -9,20 +9,20 @@ import CreateNotificationService from "./CreateNotificationService";
 import logger from "../../utils/logger";
 
 /**
- * Runs every hour. Sends reminders for tasks due on the next day
+ * Runs every hour. Sends reminders for tasks due in two days
  * and overdue notifications for tasks past their dueDate.
  * Avoids duplicate notifications by checking metadata.taskId + type.
  */
 const runTaskReminderJob = async (): Promise<void> => {
   try {
     const now = new Date();
-    const tomorrowStart = startOfDay(addDays(now, 1));
-    const tomorrowEnd = endOfDay(addDays(now, 1));
+    const twoDaysStart = startOfDay(addDays(now, 2));
+    const twoDaysEnd = endOfDay(addDays(now, 2));
 
-    // Tasks approaching due date (due tomorrow)
+    // Tasks approaching due date (due in two days)
     const upcomingTasks = await Task.findAll({
       where: {
-        dueDate: { [Op.between]: [tomorrowStart, tomorrowEnd] as any },
+        dueDate: { [Op.between]: [twoDaysStart, twoDaysEnd] as any },
         responsibleId: { [Op.not]: null },
         [Op.or]: [{ status: null }, { status: "active" }],
       },
@@ -60,8 +60,8 @@ const runTaskReminderJob = async (): Promise<void> => {
         userId: task.responsibleId,
         companyId,
         type: "task_due",
-        title: `Tarefa vence amanha: ${task.title}`,
-        body: task.description || "Sua tarefa vence amanha. Vale revisar antes do prazo.",
+        title: `Tarefa vence em 2 dias: ${task.title}`,
+        body: task.description || "Sua tarefa vence em 2 dias. Vale revisar antes do prazo.",
         channel: "in_app",
         metadata: { taskId: task.id, leadId: task.leadId || null, dueDate: task.dueDate },
         sendEmail: true,

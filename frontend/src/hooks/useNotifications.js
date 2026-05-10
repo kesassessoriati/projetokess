@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useContext } from "react";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { AuthContext } from "../context/Auth/AuthContext";
+import alertSound from "../assets/sound.mp3";
 
 const useNotifications = () => {
   const { user } = useContext(AuthContext);
@@ -13,6 +14,16 @@ const useNotifications = () => {
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const LIMIT = 30;
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const volume = Number(localStorage.getItem("volume") || 1);
+      if (!volume) return;
+      const audio = new Audio(alertSound);
+      audio.volume = Math.max(0, Math.min(1, volume));
+      audio.play().catch(() => {});
+    } catch (_) {}
+  }, []);
 
   const fetchNotifications = useCallback(async (reset = false) => {
     if (!user) return;
@@ -52,6 +63,7 @@ const useNotifications = () => {
         if (data.notification?.userId === user.id) {
           setNotifications((prev) => [data.notification, ...prev]);
           setUnreadCount((prev) => prev + 1);
+          playNotificationSound();
         }
       } else if (data.action === "markRead") {
         if (data.notificationId) {
@@ -88,7 +100,7 @@ const useNotifications = () => {
     return () => {
       if (typeof cleanup === "function") cleanup();
     };
-  }, [user, on]);
+  }, [user, on, playNotificationSound]);
 
   const markRead = useCallback(async (notificationId) => {
     try {

@@ -424,6 +424,7 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
                                         notificameHub={false}
                                         droppedFiles={dragDropFiles}
                                         contactId={activeTicket.contactId}
+                                        ticket={activeTicket}
                                     />
                                 </EditMessageProvider>
                             </ForwardMessageProvider>

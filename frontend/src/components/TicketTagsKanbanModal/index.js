@@ -29,6 +29,7 @@ import AddCircleOutlineIcon from "@material-ui/icons/AddCircleOutline";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import { TagsContainer } from "../TagsContainer";
 import { TagsKanbanContainer } from "../TagsKanbanContainer";
+import LeadTasksTab from "../LeadTasksTab";
 import { ContactNotes } from "../ContactNotes";
 import PrivateNoteInput from "../PrivateNoteInput";
 import api from "../../services/api";
@@ -728,6 +729,12 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   };
 
   const linkedClient = resolvedTicket?.crmClient || resolvedContact?.crmClient;
+  const resolvedLeadId =
+    resolvedTicket?.crmLeadId ||
+    resolvedTicket?.crmLead?.id ||
+    ticket?.crmLeadId ||
+    ticket?.crmLead?.id ||
+    null;
 
   const isN8nPaused = useMemo(() => {
     const pausedUntil = resolvedTicket?.webhookPausedUntil;
@@ -1267,6 +1274,17 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
           <TagsKanbanContainer
             ticket={resolvedTicket}
             onStageChange={handleKanbanUpdated}
+          />
+        </Box>
+
+        <Box className={classes.section}>
+          <LeadTasksTab
+            leadId={resolvedLeadId}
+            op={{
+              leadId: resolvedLeadId,
+              contact: resolvedContact,
+              title: resolvedContact?.name || resolvedContact?.number || "Lead",
+            }}
           />
         </Box>
 
