@@ -85,6 +85,22 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(6),
     textAlign: "center",
   },
+  didRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr auto auto",
+    gap: theme.spacing(1),
+    alignItems: "center",
+    marginBottom: theme.spacing(1),
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  didBox: {
+    border: "1px solid #dbe7df",
+    borderRadius: 12,
+    padding: theme.spacing(2),
+    backgroundColor: "#fff",
+  },
 }));
 
 const initialState = {
@@ -102,6 +118,9 @@ const initialState = {
   stunServer: "",
   registerOnStartup: true,
   enabled: false,
+  metadata: {
+    dids: [],
+  },
 };
 
 const Sip = () => {
@@ -111,6 +130,7 @@ const Sip = () => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [settings, setSettings] = useState(initialState);
+  const [newDid, setNewDid] = useState({ label: "", number: "" });
 
   useEffect(() => {
     let mounted = true;
@@ -123,6 +143,10 @@ const Sip = () => {
           setSettings((previous) => ({
             ...previous,
             ...data,
+            metadata: {
+              ...(data.metadata || {}),
+              dids: Array.isArray(data.dids) ? data.dids : data.metadata?.dids || [],
+            },
             password: "",
           }));
         }
@@ -165,6 +189,52 @@ const Sip = () => {
       ...previous,
       [name]: type === "checkbox" ? checked : name === "port" ? Number(value) || 0 : value,
     }));
+  };
+
+  const dids = Array.isArray(settings.metadata?.dids) ? settings.metadata.dids : [];
+
+  const setDids = (nextDids) => {
+    setSettings((previous) => ({
+      ...previous,
+      metadata: {
+        ...(previous.metadata || {}),
+        dids: nextDids,
+      },
+    }));
+  };
+
+  const handleAddDid = () => {
+    const number = String(newDid.number || "").replace(/\D/g, "");
+    if (!number) {
+      toast.info("Informe o numero DID.");
+      return;
+    }
+
+    if (dids.some((did) => did.number === number)) {
+      toast.info("Este DID ja foi adicionado.");
+      return;
+    }
+
+    setDids([
+      ...dids,
+      {
+        number,
+        label: newDid.label.trim() || number,
+        default: dids.length === 0,
+      },
+    ]);
+    setNewDid({ label: "", number: "" });
+  };
+
+  const handleRemoveDid = (number) => {
+    const nextDids = dids
+      .filter((did) => did.number !== number)
+      .map((did, index) => ({ ...did, default: index === 0 }));
+    setDids(nextDids);
+  };
+
+  const handleDefaultDid = (number) => {
+    setDids(dids.map((did) => ({ ...did, default: did.number === number })));
   };
 
   const handleSave = async (event) => {
@@ -272,6 +342,69 @@ const Sip = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField fullWidth label="STUN Server" name="stunServer" variant="outlined" value={settings.stunServer} onChange={handleChange} />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Box className={classes.didBox}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: 12 }}>
+                  DIDs / Numeros de saida
+                </Typography>
+
+                {dids.map((did) => (
+                  <div className={classes.didRow} key={did.number}>
+                    <TextField
+                      label="Nome"
+                      variant="outlined"
+                      size="small"
+                      value={did.label || ""}
+                      onChange={(event) =>
+                        setDids(dids.map((item) => item.number === did.number ? { ...item, label: event.target.value } : item))
+                      }
+                    />
+                    <TextField
+                      label="Numero DID"
+                      variant="outlined"
+                      size="small"
+                      value={did.number}
+                      onChange={(event) => {
+                        const nextNumber = event.target.value.replace(/\D/g, "");
+                        setDids(dids.map((item) => item.number === did.number ? { ...item, number: nextNumber } : item));
+                      }}
+                    />
+                    <Button
+                      variant={did.default ? "contained" : "outlined"}
+                      color="primary"
+                      onClick={() => handleDefaultDid(did.number)}
+                    >
+                      {did.default ? "Padrao" : "Usar padrao"}
+                    </Button>
+                    <Button variant="outlined" color="secondary" onClick={() => handleRemoveDid(did.number)}>
+                      Remover
+                    </Button>
+                  </div>
+                ))}
+
+                <div className={classes.didRow}>
+                  <TextField
+                    label="Nome do DID"
+                    variant="outlined"
+                    size="small"
+                    value={newDid.label}
+                    onChange={(event) => setNewDid((previous) => ({ ...previous, label: event.target.value }))}
+                  />
+                  <TextField
+                    label="Numero DID"
+                    variant="outlined"
+                    size="small"
+                    value={newDid.number}
+                    onChange={(event) => setNewDid((previous) => ({ ...previous, number: event.target.value }))}
+                    placeholder="Ex: 1231970516"
+                  />
+                  <Button variant="outlined" color="primary" onClick={handleAddDid}>
+                    Adicionar DID
+                  </Button>
+                </div>
+              </Box>
             </Grid>
 
             <Grid item xs={12}>

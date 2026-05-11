@@ -415,6 +415,8 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
     currentCallContext,
     callDuration,
     dialNumber,
+    selectedDid,
+    setSelectedDid,
     setDialNumber,
     appendDialDigit,
     backspaceDialDigit,
@@ -470,6 +472,11 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   const moveStageOptions = useMemo(
     () => pipelineStages.filter((stage) => Number(stage.id) !== Number(selectedStageId)),
     [pipelineStages, selectedStageId]
+  );
+
+  const didOptions = useMemo(
+    () => (Array.isArray(sipSettings?.dids) ? sipSettings.dids : []),
+    [sipSettings?.dids]
   );
 
   const defaultMoveStageId = useMemo(() => {
@@ -909,6 +916,24 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                       : "Aguardando configuração"}
               </Typography>
             </Box>
+
+            {didOptions.length > 1 && (
+              <FormControl fullWidth variant="outlined" size="small">
+                <InputLabel>Numero de saida</InputLabel>
+                <Select
+                  value={selectedDid || didOptions[0]?.number || ""}
+                  onChange={(event) => setSelectedDid(event.target.value)}
+                  label="Numero de saida"
+                  disabled={isActiveCall}
+                >
+                  {didOptions.map((did) => (
+                    <MenuItem key={did.number} value={did.number}>
+                      {did.label || did.number} - {did.number}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             <TextField
               className={classes.dialInput}

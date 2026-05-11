@@ -54,6 +54,7 @@ export const WebphoneProvider = ({ children }) => {
   const [activeCallRecord, setActiveCallRecord] = useState(null);
   const [recordingState, setRecordingState] = useState("idle");
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [selectedDid, setSelectedDid] = useState("");
 
   const uaRef = useRef(null);
   const sessionRef = useRef(null);
@@ -604,6 +605,7 @@ export const WebphoneProvider = ({ children }) => {
   const createCallRecord = useCallback(async (number, callMetadata = {}, options = {}) => {
     const payload = {
       toNumber: number,
+      fromNumber: options.fromNumber || callMetadata.fromNumber || "",
       contactId: callMetadata.contactId || null,
       ticketId: callMetadata.ticketId || null,
       whatsappId: callMetadata.whatsappId || null,
@@ -650,6 +652,13 @@ export const WebphoneProvider = ({ children }) => {
   const makeCall = useCallback(
     async (number = dialNumber, leadContext = currentLead, callMetadata = currentCallContext, options = {}) => {
       const sanitizedNumber = normalizePhone(number);
+      const didOptions = Array.isArray(sipSettings?.dids) ? sipSettings.dids : [];
+      const selectedDidConfig =
+        didOptions.find((did) => did.number === (options.fromNumber || selectedDid)) ||
+        didOptions.find((did) => did.default) ||
+        didOptions[0] ||
+        null;
+      const selectedFromNumber = options.fromNumber || selectedDidConfig?.number || "";
 
       if (!sanitizedNumber) {
         toast.info("Informe um número para ligar.");
@@ -673,7 +682,14 @@ export const WebphoneProvider = ({ children }) => {
       callMediaStreamRef.current = mediaStream;
 
       try {
-        const callRecord = await createCallRecord(sanitizedNumber, callMetadata || {}, options);
+        const callRecord = await createCallRecord(sanitizedNumber, callMetadata || {}, {
+          ...options,
+          fromNumber: selectedFromNumber,
+          metadata: {
+            ...(options.metadata || {}),
+            selectedDid: selectedDidConfig || null,
+          },
+        });
 
         if (options.sequenceId && options.sequenceTargetId) {
           currentSequenceTargetRef.current = {
@@ -703,6 +719,10 @@ export const WebphoneProvider = ({ children }) => {
           mediaConstraints: { audio: true, video: false },
           mediaStream,
           rtcOfferConstraints: { offerToReceiveAudio: 1, offerToReceiveVideo: 0 },
+          extraHeaders: selectedFromNumber ? [
+            `X-AtendZappy-DID: ${selectedFromNumber}`,
+            `P-Preferred-Identity: <sip:${selectedFromNumber}@${destinationDomain}>`
+          ] : [],
         };
 
         uaRef.current.call(`sip:${sanitizedNumber}@${destinationDomain}`, optionsUa);
@@ -725,6 +745,7 @@ export const WebphoneProvider = ({ children }) => {
       persistCallUpdate,
       requestCallMediaStream,
       resetCallState,
+      selectedDid,
       sipSettings,
       status,
       updateSequenceTarget,
@@ -1031,6 +1052,18 @@ export const WebphoneProvider = ({ children }) => {
     setDialNumber((previous) => `${previous}${digit}`);
   }, []);
 
+  useEffect(() => {
+    const dids = Array.isArray(sipSettings?.dids) ? sipSettings.dids : [];
+    if (!dids.length) {
+      setSelectedDid("");
+      return;
+    }
+
+    if (!selectedDid || !dids.some((did) => did.number === selectedDid)) {
+      setSelectedDid((dids.find((did) => did.default) || dids[0]).number);
+    }
+  }, [selectedDid, sipSettings?.dids]);
+
   const backspaceDialDigit = useCallback(() => {
     setDialNumber((previous) => previous.slice(0, -1));
   }, []);
@@ -1151,6 +1184,8 @@ export const WebphoneProvider = ({ children }) => {
       recordingState,
       recordingDuration,
       dialNumber,
+      selectedDid,
+      setSelectedDid,
       recentCalls,
       historyLoading,
       activeTab,
@@ -1197,6 +1232,7 @@ export const WebphoneProvider = ({ children }) => {
       currentCallContext,
       currentLead,
       dialNumber,
+      selectedDid,
       hangup,
       historyLoading,
       hydrateLeadContext,
