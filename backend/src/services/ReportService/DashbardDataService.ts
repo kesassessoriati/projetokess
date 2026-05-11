@@ -50,14 +50,17 @@ export default async function DashboardDataService(
                          counters
                            as (select (select avg("supportTime") from traking where "supportTime" > 0) "avgSupportTime",
                                       (select avg("waitTime") from traking where "waitTime" > 0)       "avgWaitTime",
-                                      (select count(distinct "id")
+                                      (select count(distinct t."id")
                                        from "Tickets" t
-                                       where status like 'open'
-                                         and t."companyId" = ?)                                        "supportHappening",
+                                       where t.status like 'open'
+                                         and t."companyId" = ? --filterHappening
+                                      )                                                                "supportHappening",
 
-                                      (select count(distinct "id")
+                                      (select count(distinct t."id")
                                        from "Tickets" t
-                                       where status like 'pending' and t."companyId" = ?)              "supportPending",
+                                       where t.status like 'pending'
+                                         and t."companyId" = ? --filterPending
+                                      )                                                                "supportPending",
                                       (select count(id) from traking where finished)                   "supportFinished",
                                       (select count(leads.id)
                                        from (select ct1.id, count(tt1.id) total
@@ -141,7 +144,9 @@ export default async function DashboardDataService(
                            (select coalesce(json_agg(a.*), '[]') ::jsonb from attedants a) attendants; `;
 
        let where = "where tt.\"companyId\" = ?";
-       const replacements = [companyId];
+       const replacements: any[] = [companyId];
+       let ticketDateFilter = "";
+
        if (_.has(params, "days")) {
               where += " and tt.\"createdAt\" >= (now() - '? days'::interval)";
               replacements.push(parseInt(("" + params.days).replace(/\D/g, ""), 10));
@@ -149,16 +154,31 @@ export default async function DashboardDataService(
        if (_.has(params, "date_from")) {
               where += " and tt.\"createdAt\" >= ?";
               replacements.push(params.date_from + " 00:00:00");
+              ticketDateFilter += " and t.\"updatedAt\" >= ?";
        }
        if (_.has(params, "date_to")) {
               where += " and tt.\"createdAt\" <= ?";
               replacements.push(params.date_to + " 23:59:59");
+              ticketDateFilter += " and t.\"updatedAt\" <= ?";
        }
+
+       // supportHappening: companyId + optional date range
        replacements.push(companyId);
+       if (_.has(params, "date_from")) replacements.push(params.date_from + " 00:00:00");
+       if (_.has(params, "date_to")) replacements.push(params.date_to + " 23:59:59");
+
+       // supportPending: companyId + optional date range
        replacements.push(companyId);
+       if (_.has(params, "date_from")) replacements.push(params.date_from + " 00:00:00");
+       if (_.has(params, "date_to")) replacements.push(params.date_to + " 23:59:59");
+
+       // attedants: companyId
        replacements.push(companyId);
 
-       const finalQuery = query.replace("--filterPeriod", where);
+       const finalQuery = query
+              .replace("--filterPeriod", where)
+              .replace("--filterHappening", ticketDateFilter)
+              .replace("--filterPending", ticketDateFilter);
 
        const responseData: DashboardData = await sequelize.query(finalQuery, {
               replacements,
