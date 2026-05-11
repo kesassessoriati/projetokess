@@ -1,0 +1,57 @@
+version: "3.7"
+
+services:
+  asterisk:
+    image: andrius/asterisk:20
+    networks:
+      - wapainelnet
+    volumes:
+      - /opt/atendzappy-asterisk/config/http.conf:/etc/asterisk/http.conf
+      - /opt/atendzappy-asterisk/config/rtp.conf:/etc/asterisk/rtp.conf
+      - /opt/atendzappy-asterisk/config/pjsip.conf:/etc/asterisk/pjsip.conf
+      - /opt/atendzappy-asterisk/config/extensions.conf:/etc/asterisk/extensions.conf
+      - /opt/atendzappy-asterisk/config/modules.conf:/etc/asterisk/modules.conf
+      - asterisk_spool:/var/spool/asterisk
+      - asterisk_lib:/var/lib/asterisk
+      - asterisk_logs:/var/log/asterisk
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+        reservations:
+          memory: 128M
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=wapainelnet
+        - traefik.http.routers.atendzappy_asterisk.rule=Host(`sip.wapainel.com.br`)
+        - traefik.http.routers.atendzappy_asterisk.entrypoints=websecure
+        - traefik.http.routers.atendzappy_asterisk.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.atendzappy_asterisk.priority=50
+        - traefik.http.routers.atendzappy_asterisk.service=atendzappy_asterisk
+        - traefik.http.services.atendzappy_asterisk.loadbalancer.server.port=8088
+        - traefik.http.services.atendzappy_asterisk.loadbalancer.passHostHeader=true
+
+volumes:
+  asterisk_spool:
+    external: true
+    name: asterisk_spool
+  asterisk_lib:
+    external: true
+    name: asterisk_lib
+  asterisk_logs:
+    external: true
+    name: asterisk_logs
+
+networks:
+  wapainelnet:
+    external: true
+    name: wapainelnet

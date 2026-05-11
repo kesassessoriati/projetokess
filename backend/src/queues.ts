@@ -1929,12 +1929,14 @@ async function handleWhatsapp() {
 async function handleInvoiceCreate() {
   logger.info("GERANDO RECEITA...");
   const job = new CronJob('*/30 * * * * *', async () => {
-    const companies = await Company.findAll();
-    companies.map(async c => {
+    try {
+      const companies = await Company.findAll();
+      for (const c of companies) {
+        try {
 
       // Empresas com plano ilimitado nunca expiram — pular processamento de faturamento
       if (c.billing_cycle === "unlimited" || ["Ilimitado", "ILIMITADO", "unlimited"].includes(c.recurrence)) {
-        return;
+        continue;
       }
 
       const status = c.status;
@@ -1942,7 +1944,7 @@ async function handleInvoiceCreate() {
 
       // Se dueDate estiver vazio ou inválido, não há como calcular vencimento — pular
       if (!dueDate) {
-        return;
+        continue;
       }
 
       const date = moment(dueDate).format();
@@ -1983,13 +1985,17 @@ async function handleInvoiceCreate() {
 
           } catch (error) {
             // Lidar com erros, se houver
-            console.error('Erro ao buscar os IDs de WhatsApp:', error);
-            throw error;
+            logger.error(`Erro ao buscar os IDs de WhatsApp da empresa ${c.id}: ${error}`);
           }
 
         } else { // ELSE if(dias <= -3){
 
           const plan = await Plan.findByPk(c.planId);
+
+          if (!plan || !plan.amount || !plan.name) {
+            logger.warn(`[Invoice Job] Empresa ${c.id} ignorada: plano ausente ou incompleto (planId=${c.planId || "null"})`);
+            continue;
+          }
 
           const sql = `SELECT * FROM "Invoices" WHERE "companyId" = ${c.id} AND "status" = 'open';`
           const openInvoices = await sequelize.query(sql, { type: QueryTypes.SELECT }) as { id: number, dueDate: Date }[];
@@ -2009,7 +2015,7 @@ async function handleInvoiceCreate() {
             const valuePlan = plan.amount.replace(",", ".");
             const sql = `INSERT INTO "Invoices" ("companyId", "dueDate", detail, status, value, users, connections, queues, "updatedAt", "createdAt")
             VALUES (${c.id}, '${date}', '${plan.name}', 'open', ${valuePlan}, ${plan.users}, ${plan.connections}, ${plan.queues}, '${timestamp}', '${timestamp}');`
-            const invoiceInsert = await sequelize.query(sql, { type: QueryTypes.INSERT });
+            await sequelize.query(sql, { type: QueryTypes.INSERT });
 
             logger.info(`Fatura Gerada para o cliente: ${c.id}`);
             // Rest of the code for sending email
@@ -2026,8 +2032,13 @@ async function handleInvoiceCreate() {
 
       }
 
-
-    });
+        } catch (error) {
+          logger.error(`[Invoice Job] Erro ao processar empresa ${c.id}: ${error}`);
+        }
+      }
+    } catch (error) {
+      logger.error(`[Invoice Job] Erro ao carregar empresas: ${error}`);
+    }
   });
   job.start();
 }
