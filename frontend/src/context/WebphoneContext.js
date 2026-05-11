@@ -70,6 +70,7 @@ export const WebphoneProvider = ({ children }) => {
   const recordingStopResolverRef = useRef(null);
   const recordingStartedAtRef = useRef(null);
   const recordingIntervalRef = useRef(null);
+  const callMediaStreamRef = useRef(null);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -78,7 +79,22 @@ export const WebphoneProvider = ({ children }) => {
     }
   }, []);
 
+  const releaseCallMediaStream = useCallback(() => {
+    if (!callMediaStreamRef.current) {
+      return;
+    }
+
+    try {
+      callMediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    } catch (error) {
+      console.error("[Webphone] Failed to release call media stream", error);
+    }
+
+    callMediaStreamRef.current = null;
+  }, []);
+
   const resetCallState = useCallback(() => {
+    releaseCallMediaStream();
     setSession(null);
     setMuted(false);
     setCallDuration(0);
@@ -87,7 +103,7 @@ export const WebphoneProvider = ({ children }) => {
     activeCallRecordIdRef.current = null;
     callStartedAtRef.current = null;
     callAnsweredRef.current = false;
-  }, []);
+  }, [releaseCallMediaStream]);
 
   const closePanel = useCallback(() => {
     setPanelOpen(false);
@@ -608,6 +624,29 @@ export const WebphoneProvider = ({ children }) => {
     return data;
   }, []);
 
+  const requestCallMediaStream = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Este navegador nao permite acesso ao microfone.");
+      return null;
+    }
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (error) {
+      console.error("[Webphone] Microphone access failed", error);
+
+      if (["NotAllowedError", "PermissionDeniedError", "SecurityError"].includes(error?.name)) {
+        toast.error("Permita o acesso ao microfone no navegador para usar o Webphone.");
+      } else if (["NotFoundError", "DevicesNotFoundError"].includes(error?.name)) {
+        toast.error("Nenhum microfone foi encontrado neste dispositivo.");
+      } else {
+        toast.error("Nao foi possivel acessar o microfone.");
+      }
+
+      return null;
+    }
+  }, []);
+
   const makeCall = useCallback(
     async (number = dialNumber, leadContext = currentLead, callMetadata = currentCallContext, options = {}) => {
       const sanitizedNumber = normalizePhone(number);
@@ -626,6 +665,12 @@ export const WebphoneProvider = ({ children }) => {
         toast.error("Webphone SIP não está conectado.");
         return null;
       }
+
+      const mediaStream = await requestCallMediaStream();
+      if (!mediaStream) {
+        return null;
+      }
+      callMediaStreamRef.current = mediaStream;
 
       try {
         const callRecord = await createCallRecord(sanitizedNumber, callMetadata || {}, options);
@@ -656,6 +701,7 @@ export const WebphoneProvider = ({ children }) => {
         const destinationDomain = sipSettings?.sipDomain || sipSettings?.host;
         const optionsUa = {
           mediaConstraints: { audio: true, video: false },
+          mediaStream,
           rtcOfferConstraints: { offerToReceiveAudio: 1, offerToReceiveVideo: 0 },
         };
 
@@ -677,6 +723,7 @@ export const WebphoneProvider = ({ children }) => {
       currentLead,
       dialNumber,
       persistCallUpdate,
+      requestCallMediaStream,
       resetCallState,
       sipSettings,
       status,
@@ -965,13 +1012,20 @@ export const WebphoneProvider = ({ children }) => {
     setMuted(true);
   }, [muted]);
 
-  const answer = useCallback(() => {
+  const answer = useCallback(async () => {
     if (sessionRef.current && status === "incoming") {
+      const mediaStream = await requestCallMediaStream();
+      if (!mediaStream) {
+        return;
+      }
+      callMediaStreamRef.current = mediaStream;
+
       sessionRef.current.answer({
         mediaConstraints: { audio: true, video: false },
+        mediaStream,
       });
     }
-  }, [status]);
+  }, [requestCallMediaStream, status]);
 
   const appendDialDigit = useCallback((digit) => {
     setDialNumber((previous) => `${previous}${digit}`);
