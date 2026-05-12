@@ -2,72 +2,26 @@
 ## ============================================================================
 ## ATENDZAPPY - Script de Build e Push das Imagens Docker
 ## ============================================================================
-## Executar no servidor que contém Docker instalado
+## Executar no servidor que contem Docker instalado
 ## Uso: bash build_and_push.sh
 ## ============================================================================
 
-set -e
+set -euo pipefail
 
-## ========================= CONFIGURAÇÕES ========================= ##
+## ========================= CONFIGURACOES ========================= ##
 
 DOCKER_USER="${DOCKER_USERNAME:-williamwilmer10}"
-BACKEND_IMAGE="${DOCKER_USER}/atendzappy-backend"
-FRONTEND_IMAGE="${DOCKER_USER}/atendzappy-frontend"
+BACKEND_REPOSITORY="atendzappy-backend"
+FRONTEND_REPOSITORY="atendzappy-frontend"
+BACKEND_IMAGE="${DOCKER_USER}/${BACKEND_REPOSITORY}"
+FRONTEND_IMAGE="${DOCKER_USER}/${FRONTEND_REPOSITORY}"
 MIN_VERSION="1.9.200"
-
-version_max() {
-    printf "%s\n" "$@" | sed '/^$/d' | sed 's/^v//' | sort -V | tail -1
-}
-
-fetch_latest_remote_version() {
-    local repository="$1"
-    local api_url="https://hub.docker.com/v2/namespaces/${DOCKER_USER}/repositories/${repository}/tags?page_size=100"
-
-    if ! command -v curl >/dev/null 2>&1; then
-        return 0
-    fi
-
-    curl -fsSL "$api_url" 2>/dev/null \
-        | tr -d '\r\n' \
-        | grep -oE '"name":"v[0-9]+\.[0-9]+\.[0-9]+"' \
-        | sed -E 's/.*"v([^"]+)"/\1/' \
-        | sort -V \
-        | tail -1
-}
-
-## Gerenciamento de Versão
 VERSION_FILE=".docker_version"
-if [ -f "$VERSION_FILE" ]; then
-    LOCAL_VERSION=$(cat "$VERSION_FILE")
-else
-    LOCAL_VERSION=""
-fi
-
-REMOTE_BACKEND_VERSION=$(fetch_latest_remote_version "atendzappy-backend")
-REMOTE_FRONTEND_VERSION=$(fetch_latest_remote_version "atendzappy-frontend")
-
-CURRENT_VERSION=$(version_max "$MIN_VERSION" "$LOCAL_VERSION" "$REMOTE_BACKEND_VERSION" "$REMOTE_FRONTEND_VERSION")
-
-IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
-NEXT_PATCH=$((patch + 1))
-NEXT_VERSION="$major.$minor.$NEXT_PATCH"
-
-echo -e "\033[1;33m[!] Última versão encontrada: v$CURRENT_VERSION\033[0m"
-if [ -n "$REMOTE_BACKEND_VERSION" ] || [ -n "$REMOTE_FRONTEND_VERSION" ]; then
-    echo -e "\033[1;33m[!] Docker Hub backend: ${REMOTE_BACKEND_VERSION:-não encontrada} | frontend: ${REMOTE_FRONTEND_VERSION:-não encontrada}\033[0m"
-else
-    echo -e "\033[1;33m[!] Docker Hub indisponível, usando fallback local em ${VERSION_FILE}\033[0m"
-fi
-TAG="v$NEXT_VERSION"
-
-# Salva a nova versão sem o 'v'
-echo "${TAG#v}" > "$VERSION_FILE"
-
-echo -e "\033[0;32m✓ Preparando build para a TAG: ${TAG}\033[0m"
-echo ""
+DOCKER_HUB_PAGE_SIZE="${DOCKER_HUB_PAGE_SIZE:-100}"
+DOCKER_HUB_MAX_PAGES="${DOCKER_HUB_MAX_PAGES:-50}"
 
 ## URL do backend para build do frontend (fallback embutido na imagem)
-REACT_APP_BACKEND_URL="https://apichat.kesassessoria.com"
+REACT_APP_BACKEND_URL="${REACT_APP_BACKEND_URL:-https://apichat.kesassessoria.com}"
 
 ## ========================= CORES PARA OUTPUT ========================= ##
 
@@ -77,34 +31,175 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+## ========================= FUNCOES ========================= ##
+
+version_max() {
+    printf "%s\n" "$@" \
+        | sed '/^$/d' \
+        | sed 's/^v//' \
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V \
+        | tail -1 || true
+}
+
+increment_patch_version() {
+    local version="$1"
+    local major minor patch
+
+    IFS='.' read -r major minor patch <<< "$version"
+    echo "${major}.${minor}.$((patch + 1))"
+}
+
+fetch_dockerhub_versions() {
+    local repository="$1"
+    local page=1
+    local payload names
+
+    if ! command -v curl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    while [ "$page" -le "$DOCKER_HUB_MAX_PAGES" ]; do
+        payload=$(
+            curl -fsSL \
+                "https://hub.docker.com/v2/namespaces/${DOCKER_USER}/repositories/${repository}/tags?page_size=${DOCKER_HUB_PAGE_SIZE}&page=${page}" \
+                2>/dev/null
+        ) || return 0
+
+        names=$(
+            printf "%s" "$payload" \
+                | tr -d '\r\n' \
+                | grep -oE '"name"[[:space:]]*:[[:space:]]*"v[0-9]+\.[0-9]+\.[0-9]+"' \
+                | sed -E 's/.*"v([^"]+)".*/\1/' || true
+        )
+
+        [ -n "$names" ] || break
+        printf "%s\n" "$names"
+
+        page=$((page + 1))
+    done
+}
+
+fetch_latest_remote_version() {
+    local repository="$1"
+    version_max "$(fetch_dockerhub_versions "$repository")"
+}
+
+dockerhub_tag_exists() {
+    local repository="$1"
+    local tag="$2"
+    local http_code
+
+    if ! command -v curl >/dev/null 2>&1; then
+        return 1
+    fi
+
+    http_code=$(
+        curl -fsS -o /dev/null -w "%{http_code}" \
+            "https://hub.docker.com/v2/namespaces/${DOCKER_USER}/repositories/${repository}/tags/${tag}" \
+            2>/dev/null || true
+    )
+
+    [ "$http_code" = "200" ]
+}
+
+fetch_running_image_versions() {
+    local image="$1"
+
+    docker ps --format '{{.Image}}' 2>/dev/null \
+        | grep -E "^${image}:v[0-9]+\.[0-9]+\.[0-9]+$" \
+        | sed -E 's/^.*:v//' || true
+}
+
+read_local_version() {
+    if [ -f "$VERSION_FILE" ]; then
+        sed 's/^v//' "$VERSION_FILE" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true
+    fi
+}
+
+resolve_current_version() {
+    local local_version running_version remote_backend_version remote_frontend_version remote_version fallback_version
+
+    remote_backend_version=$(fetch_latest_remote_version "$BACKEND_REPOSITORY")
+    remote_frontend_version=$(fetch_latest_remote_version "$FRONTEND_REPOSITORY")
+    remote_version=$(version_max "$remote_backend_version" "$remote_frontend_version")
+
+    if [ -n "$remote_version" ]; then
+        echo -e "${YELLOW}[!] Docker Hub backend: ${remote_backend_version:-nao encontrada} | frontend: ${remote_frontend_version:-nao encontrada}${NC}" >&2
+        echo -e "${YELLOW}[!] Usando Docker Hub como referencia principal.${NC}" >&2
+        version_max "$MIN_VERSION" "$remote_version"
+        return
+    fi
+
+    running_version=$(version_max "$(fetch_running_image_versions "$BACKEND_IMAGE")" "$(fetch_running_image_versions "$FRONTEND_IMAGE")")
+    local_version=$(read_local_version)
+    fallback_version=$(version_max "$MIN_VERSION" "$running_version" "$local_version")
+
+    echo -e "${YELLOW}[!] Docker Hub indisponivel ou sem tags validas. Usando fallback local.${NC}" >&2
+    echo -e "${YELLOW}[!] Versao em execucao: ${running_version:-nao encontrada} | ${VERSION_FILE}: ${local_version:-nao encontrada}${NC}" >&2
+
+    if [ -z "$fallback_version" ]; then
+        echo -e "${RED}ERRO: Nao foi possivel determinar uma versao base para o build.${NC}" >&2
+        exit 1
+    fi
+
+    version_max "$MIN_VERSION" "$fallback_version"
+}
+
+ensure_tag_is_new() {
+    local tag="$1"
+
+    if dockerhub_tag_exists "$BACKEND_REPOSITORY" "$tag" || dockerhub_tag_exists "$FRONTEND_REPOSITORY" "$tag"; then
+        echo -e "${RED}ERRO: A tag ${tag} ja existe no Docker Hub. Rode o script novamente para calcular a proxima versao.${NC}"
+        exit 1
+    fi
+}
+
+## ========================= INICIO ========================= ##
+
 echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}  ATENDZAPPY - Build & Push Docker Images   ${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 
-## ========================= PRÉ-REQUISITOS ========================= ##
+## ========================= PRE-REQUISITOS ========================= ##
 
-echo -e "${YELLOW}[1/6] Verificando pré-requisitos...${NC}"
+echo -e "${YELLOW}[1/7] Verificando pre-requisitos...${NC}"
 
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}ERRO: Docker não encontrado. Instale o Docker primeiro.${NC}"
+    echo -e "${RED}ERRO: Docker nao encontrado. Instale o Docker primeiro.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Docker encontrado${NC}"
+echo -e "${GREEN}OK: Docker encontrado${NC}"
 
 ## Verificar login no Docker Hub
 if ! docker info 2>/dev/null | grep -q "Username"; then
-    echo -e "${RED}ERRO: Você não está logado no Docker Hub. Execute 'docker login' primeiro.${NC}"
+    echo -e "${RED}ERRO: Voce nao esta logado no Docker Hub. Execute 'docker login' primeiro.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Docker Hub autenticado${NC}"
+echo -e "${GREEN}OK: Docker Hub autenticado${NC}"
+echo ""
+
+## ========================= VERSIONAMENTO ========================= ##
+
+echo -e "${YELLOW}[2/7] Calculando proxima versao...${NC}"
+
+CURRENT_VERSION=$(resolve_current_version)
+NEXT_VERSION=$(increment_patch_version "$CURRENT_VERSION")
+TAG="v$NEXT_VERSION"
+
+echo -e "${YELLOW}[!] Ultima versao encontrada: v${CURRENT_VERSION}${NC}"
+echo -e "${GREEN}OK: Preparando build para a TAG: ${TAG}${NC}"
+
+ensure_tag_is_new "$TAG"
+
 echo ""
 
 ## ========================= BUILD BACKEND ========================= ##
 
-echo -e "${YELLOW}[2/6] Construindo imagem do BACKEND...${NC}"
+echo -e "${YELLOW}[3/7] Construindo imagem do BACKEND...${NC}"
 echo -e "       Imagem: ${BACKEND_IMAGE}:${TAG}"
 echo ""
 
@@ -115,12 +210,12 @@ docker build \
     ./backend
 
 echo ""
-echo -e "${GREEN}✓ Backend construído com sucesso!${NC}"
+echo -e "${GREEN}OK: Backend construido com sucesso!${NC}"
 echo ""
 
 ## ========================= BUILD FRONTEND ========================= ##
 
-echo -e "${YELLOW}[3/6] Construindo imagem do FRONTEND...${NC}"
+echo -e "${YELLOW}[4/7] Construindo imagem do FRONTEND...${NC}"
 echo -e "       Imagem: ${FRONTEND_IMAGE}:${TAG}"
 echo -e "       REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}"
 echo ""
@@ -133,38 +228,44 @@ docker build \
     ./frontend
 
 echo ""
-echo -e "${GREEN}✓ Frontend construído com sucesso!${NC}"
+echo -e "${GREEN}OK: Frontend construido com sucesso!${NC}"
 echo ""
+
+## Revalida antes do push para reduzir risco de sobrescrever tag criada por outro servidor.
+ensure_tag_is_new "$TAG"
 
 ## ========================= PUSH BACKEND ========================= ##
 
-echo -e "${YELLOW}[4/6] Enviando imagem do BACKEND para Docker Hub...${NC}"
+echo -e "${YELLOW}[5/7] Enviando imagem do BACKEND para Docker Hub...${NC}"
 
 docker push "${BACKEND_IMAGE}:${TAG}"
 docker push "${BACKEND_IMAGE}:latest"
 
-echo -e "${GREEN}✓ Backend enviado!${NC}"
+echo -e "${GREEN}OK: Backend enviado!${NC}"
 echo ""
 
 ## ========================= PUSH FRONTEND ========================= ##
 
-echo -e "${YELLOW}[5/6] Enviando imagem do FRONTEND para Docker Hub...${NC}"
+echo -e "${YELLOW}[6/7] Enviando imagem do FRONTEND para Docker Hub...${NC}"
 
 docker push "${FRONTEND_IMAGE}:${TAG}"
 docker push "${FRONTEND_IMAGE}:latest"
 
-echo -e "${GREEN}✓ Frontend enviado!${NC}"
+echo -e "${GREEN}OK: Frontend enviado!${NC}"
 echo ""
+
+## Persistir somente depois que tudo foi publicado com sucesso.
+echo "$NEXT_VERSION" > "$VERSION_FILE"
 
 ## ========================= RESUMO ========================= ##
 
-echo -e "${YELLOW}[6/6] Resumo${NC}"
+echo -e "${YELLOW}[7/7] Resumo${NC}"
 echo -e "${BLUE}============================================${NC}"
-echo -e "${GREEN}✅ Imagens construídas e publicadas:${NC}"
-echo -e "   • ${BACKEND_IMAGE}:${TAG}"
-echo -e "   • ${FRONTEND_IMAGE}:${TAG}"
+echo -e "${GREEN}Imagens construidas e publicadas:${NC}"
+echo -e "   - ${BACKEND_IMAGE}:${TAG}"
+echo -e "   - ${FRONTEND_IMAGE}:${TAG}"
 echo ""
-echo -e "${BLUE}Próximos passos:${NC}"
+echo -e "${BLUE}Proximos passos:${NC}"
 echo -e "   1. No Portainer, crie/atualize a stack com o arquivo ${YELLOW}atendzappy_stack.yml${NC}"
 echo -e "   2. Crie os volumes externos antes do deploy:"
 echo -e "      ${YELLOW}docker volume create atendzappy_public${NC}"
@@ -172,9 +273,9 @@ echo -e "      ${YELLOW}docker volume create atendzappy_logs${NC}"
 echo -e "      ${YELLOW}docker volume create atendzappy_redis${NC}"
 echo -e "   3. Verifique que a rede ${YELLOW}kesnet${NC} existe:"
 echo -e "      ${YELLOW}docker network ls | grep kesnet${NC}"
-echo -e "   4. Verifique que o banco ${YELLOW}pgvector${NC} está acessível na rede ${YELLOW}kesnet${NC}"
-echo -e "   5. Deploy via Portainer: Cole o conteúdo de ${YELLOW}atendzappy_stack.yml${NC}"
+echo -e "   4. Verifique que o banco ${YELLOW}pgvector${NC} esta acessivel na rede ${YELLOW}kesnet${NC}"
+echo -e "   5. Deploy via Portainer: cole o conteudo de ${YELLOW}atendzappy_stack.yml${NC}"
 echo ""
 echo -e "${BLUE}============================================${NC}"
-echo -e "${GREEN}  Build finalizado com sucesso! 🚀${NC}"
+echo -e "${GREEN}  Build finalizado com sucesso!${NC}"
 echo -e "${BLUE}============================================${NC}"
