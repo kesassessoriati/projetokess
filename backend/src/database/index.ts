@@ -181,6 +181,7 @@ import AIUsageLog from "../models/AIUsageLog";
 import AiExternalAgentConfig from "../models/AiExternalAgentConfig";
 import AiExternalPromptVersion from "../models/AiExternalPromptVersion";
 import AiExternalAgentEvent from "../models/AiExternalAgentEvent";
+import AiExternalAppointment from "../models/AiExternalAppointment";
 import Notification from "../models/Notification";
 import CallSequence from "../models/CallSequence";
 import CallSequenceTarget from "../models/CallSequenceTarget";
@@ -273,6 +274,7 @@ const models = [
   AiExternalAgentConfig,
   AiExternalPromptVersion,
   AiExternalAgentEvent,
+  AiExternalAppointment,
   Partner,
   ContactWallet,
   ScheduledMessages,
