@@ -42,6 +42,7 @@ export const serializeCrmLead = (lead: any) => {
     website: normalizeString(plainLead.website),
     instagram: normalizeString(plainLead.instagram),
     linkedin: normalizeString(plainLead.linkedin),
+    sessionid: normalizeString(plainLead.sessionid),
     source: normalizeString(plainLead.source),
     campaign: normalizeString(plainLead.campaign),
     medium: normalizeString(plainLead.medium),

@@ -66,6 +66,7 @@ const normalizeLeadForm = (lead = {}) => {
     status: lead.status || lead.leadStatus || "novo",
     tags: Array.isArray(lead.tags) ? lead.tags : [],
     cardColor: lead.cardColor || lead.card_color || "#FFFFFF",
+    sessionid: lead.sessionid || "",
   };
 };
 
@@ -164,6 +165,7 @@ const defaultForm = {
   website: "",
   instagram: "",
   linkedin: "",
+  sessionid: "",
   birthDate: "",
   clientSince: "",
   expirationDate: "",
@@ -329,6 +331,7 @@ const LeadModal = ({
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
         cardColor: cardColor || form.cardColor,
       };
+      delete payload.sessionid;
 
       if (leadId) {
         await api.put(`/crm/leads/${leadId}`, payload);
@@ -873,6 +876,18 @@ const LeadModal = ({
                   className={classes.formField}
                   multiline
                   rows={3}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Acesso ID"
+                  name="sessionid"
+                  value={form.sessionid}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputProps={{ readOnly: true }}
+                  helperText="Preenchido por automação."
                 />
               </Grid>
 

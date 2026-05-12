@@ -30,7 +30,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const data = req.body;
+  const data = { ...req.body };
+  delete data.sessionid;
 
   // Capturar UTMs da requisição (query params)
   const utmSource = req.query.utm_source as string;
@@ -84,7 +85,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { leadId } = req.params;
-  const data = req.body;
+  const data = { ...req.body };
+  delete data.sessionid;
 
   const lead = await UpdateCrmLeadService({
     id: Number(leadId),

@@ -112,6 +112,9 @@ class CrmLead extends Model<CrmLead> {
   linkedin: string;
 
   @Column
+  sessionid: string;
+
+  @Column
   source: string;
 
   @Column

@@ -495,15 +495,6 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: "50%",
     flexShrink: 0,
   },
-  laneCountBadge: {
-    backgroundColor: "#e4f2e9",
-    border: "1px solid #bcd8c7",
-    color: "#1a5f35",
-    borderRadius: 999,
-    fontSize: "0.72rem",
-    fontWeight: 800,
-    padding: "2px 8px",
-  },
   laneStats: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -1745,19 +1736,6 @@ const PipelineBoard = () => {
                                         >
                                           ID {stage.id}
                                         </span>
-                                        <span
-                                          className={classes.laneCountBadge}
-                                          style={{
-                                            backgroundColor:
-                                              "rgba(255,255,255,0.2)",
-                                            color: textColor,
-                                            border:
-                                              "1px solid rgba(255,255,255,0.35)",
-                                          }}
-                                        >
-                                          {stage.visibleOpportunitiesCount ??
-                                            stage.opportunities.length}
-                                        </span>
                                       </div>
                                     </div>
                                     <Tooltip title="Opções da etapa">
@@ -1785,7 +1763,10 @@ const PipelineBoard = () => {
                                         fontWeight: 800,
                                       }}
                                     >
-                                      Forecast: {fCurrency(stage.forecastValue)}
+                                      Total cards:{" "}
+                                      {stage.opportunitiesCount ??
+                                        stage.visibleOpportunitiesCount ??
+                                        stage.opportunities.length}
                                     </span>
                                   </div>
                                   {stage.highRiskCount > 0 && (

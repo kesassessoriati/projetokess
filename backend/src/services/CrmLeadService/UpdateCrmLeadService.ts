@@ -32,6 +32,7 @@ interface Request {
   website?: string;
   instagram?: string;
   linkedin?: string;
+  sessionid?: string;
   source?: string;
   campaign?: string;
   medium?: string;
