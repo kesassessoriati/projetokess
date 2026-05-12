@@ -178,6 +178,9 @@ import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
 import Chip from "../models/Chip";
 import ChipActivityLog from "../models/ChipActivityLog";
 import AIUsageLog from "../models/AIUsageLog";
+import AiExternalAgentConfig from "../models/AiExternalAgentConfig";
+import AiExternalPromptVersion from "../models/AiExternalPromptVersion";
+import AiExternalAgentEvent from "../models/AiExternalAgentEvent";
 import Notification from "../models/Notification";
 import CallSequence from "../models/CallSequence";
 import CallSequenceTarget from "../models/CallSequenceTarget";
@@ -267,6 +270,9 @@ const models = [
   Prompt,
   PromptToolSetting,
   AIUsageLog,
+  AiExternalAgentConfig,
+  AiExternalPromptVersion,
+  AiExternalAgentEvent,
   Partner,
   ContactWallet,
   ScheduledMessages,
