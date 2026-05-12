@@ -11,6 +11,7 @@ import {
   Button,
   Switch,
   FormControlLabel,
+  Divider,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -555,6 +556,30 @@ const Prompts = () => {
   const [externalChangeNote, setExternalChangeNote] = useState("");
   const [externalVersions, setExternalVersions] = useState([]);
   const [externalEvents, setExternalEvents] = useState([]);
+  const [aiAppointments, setAiAppointments] = useState([]);
+  const [aiReminders, setAiReminders] = useState([]);
+  const [ragDocuments, setRagDocuments] = useState([]);
+  const [ragBase, setRagBase] = useState("empresa");
+  const [ragContent, setRagContent] = useState("");
+  const [ragClienteId, setRagClienteId] = useState("");
+  const [ragQuery, setRagQuery] = useState("");
+  const [ragResults, setRagResults] = useState([]);
+  const [appointmentForm, setAppointmentForm] = useState({
+    title: "",
+    leadName: "",
+    leadPhone: "",
+    leadEmail: "",
+    scheduleId: "",
+    startDatetime: "",
+    durationMinutes: 60,
+    reminderEnabled: true,
+  });
+  const [reminderForm, setReminderForm] = useState({
+    leadName: "",
+    leadPhone: "",
+    scheduledAt: "",
+    message: "",
+  });
 
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
@@ -580,20 +605,44 @@ const Prompts = () => {
   const loadExternalAgent = async () => {
     setExternalLoading(true);
     try {
-      const [configResponse, versionsResponse, eventsResponse] = await Promise.all([
+      const [
+        configResponse,
+        versionsResponse,
+        eventsResponse,
+        appointmentsResponse,
+        remindersResponse,
+        ragResponse,
+      ] = await Promise.all([
         api.get("/ai-agents/external/config"),
         api.get("/ai-agents/external/prompt/versions"),
         api.get("/ai-agents/external/events", { params: { pageNumber: 1 } }),
+        api.get("/ai-agents/external/appointments", { params: { pageNumber: 1 } }),
+        api.get("/ai-agents/external/reminders", { params: { pageNumber: 1 } }),
+        api.get(`/ai-agents/external/rag/${ragBase}`, { params: { pageNumber: 1 } }),
       ]);
 
       setExternalConfig(configResponse.data);
       setExternalPrompt(configResponse.data?.systemPrompt || "");
       setExternalVersions(versionsResponse.data?.versions || []);
       setExternalEvents(eventsResponse.data?.events || []);
+      setAiAppointments(appointmentsResponse.data?.appointments || []);
+      setAiReminders(remindersResponse.data?.reminders || []);
+      setRagDocuments(ragResponse.data?.documents || []);
     } catch (err) {
       toastError(err);
     } finally {
       setExternalLoading(false);
+    }
+  };
+
+  const loadRagDocuments = async (base = ragBase) => {
+    try {
+      const { data } = await api.get(`/ai-agents/external/rag/${base}`, {
+        params: { pageNumber: 1 },
+      });
+      setRagDocuments(data?.documents || []);
+    } catch (err) {
+      toastError(err);
     }
   };
 
@@ -652,6 +701,96 @@ const Prompts = () => {
     }
   };
 
+  const handleCreateAiAppointment = async () => {
+    setExternalSaving(true);
+    try {
+      await api.post("/ai-agents/external/appointments", {
+        ...appointmentForm,
+        scheduleId: Number(appointmentForm.scheduleId),
+        durationMinutes: Number(appointmentForm.durationMinutes || 60),
+      });
+      setAppointmentForm({
+        title: "",
+        leadName: "",
+        leadPhone: "",
+        leadEmail: "",
+        scheduleId: "",
+        startDatetime: "",
+        durationMinutes: 60,
+        reminderEnabled: true,
+      });
+      await loadExternalAgent();
+      toast.success("Agendamento IA criado e sincronizado com compromissos.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleCreateReminder = async () => {
+    setExternalSaving(true);
+    try {
+      await api.post("/ai-agents/external/reminders", reminderForm);
+      setReminderForm({ leadName: "", leadPhone: "", scheduledAt: "", message: "" });
+      await loadExternalAgent();
+      toast.success("Lembrete criado.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleCreateRagDocument = async () => {
+    setExternalSaving(true);
+    try {
+      await api.post(`/ai-agents/external/rag/${ragBase}`, {
+        content: ragContent,
+        metadata: {
+          cliente_id: ragClienteId || undefined,
+          origem: "crm",
+        },
+      });
+      setRagContent("");
+      setRagClienteId("");
+      await loadRagDocuments();
+      toast.success("Documento enviado para a base RAG.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleSearchRag = async () => {
+    setExternalSaving(true);
+    try {
+      const { data } = await api.post(`/ai-agents/external/rag/${ragBase}/search`, {
+        query: ragQuery,
+        matchCount: 5,
+      });
+      setRagResults(data?.results || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleDeleteRagDocument = async (documentId) => {
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/rag/${ragBase}/${documentId}`);
+      await loadRagDocuments();
+      toast.success("Documento removido da base RAG.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const formatDateTime = (value) => {
     if (!value) return "-";
     try {
@@ -683,6 +822,9 @@ const Prompts = () => {
     sentEvents: externalEvents.filter(event => event.status === "sent").length,
     failedEvents: externalEvents.filter(event => event.status === "failed").length,
     skippedEvents: externalEvents.filter(event => event.status === "skipped").length,
+    appointments: aiAppointments.length,
+    reminders: aiReminders.length,
+    ragDocuments: ragDocuments.length,
   };
 
   const renderExternalEvents = () => (
@@ -856,20 +998,20 @@ const Prompts = () => {
     <>
       <Box className={classes.dashboardGrid}>
         <Box className={classes.metricBox}>
-          <Typography className={classes.metricLabel}>Versoes de prompt</Typography>
-          <Typography className={classes.metricValue}>{externalStats.promptVersions}</Typography>
+          <Typography className={classes.metricLabel}>Agendamentos IA</Typography>
+          <Typography className={classes.metricValue}>{externalStats.appointments}</Typography>
         </Box>
         <Box className={classes.metricBox}>
-          <Typography className={classes.metricLabel}>Eventos enviados</Typography>
-          <Typography className={classes.metricValue}>{externalStats.sentEvents}</Typography>
+          <Typography className={classes.metricLabel}>Lembretes</Typography>
+          <Typography className={classes.metricValue}>{externalStats.reminders}</Typography>
+        </Box>
+        <Box className={classes.metricBox}>
+          <Typography className={classes.metricLabel}>Docs RAG</Typography>
+          <Typography className={classes.metricValue}>{externalStats.ragDocuments}</Typography>
         </Box>
         <Box className={classes.metricBox}>
           <Typography className={classes.metricLabel}>Falhas N8N</Typography>
           <Typography className={classes.metricValue}>{externalStats.failedEvents}</Typography>
-        </Box>
-        <Box className={classes.metricBox}>
-          <Typography className={classes.metricLabel}>Sem webhook</Typography>
-          <Typography className={classes.metricValue}>{externalStats.skippedEvents}</Typography>
         </Box>
       </Box>
       <Box className={classes.placeholderGrid}>
@@ -880,16 +1022,16 @@ const Prompts = () => {
           </Typography>
           <Box className={classes.placeholderList}>
             <Box className={classes.placeholderRow}>
-              <Typography>Agendamentos criados pela IA</Typography>
-              <span className={classes.mutedPill}>proxima etapa</span>
+              <Typography>Versoes de prompt</Typography>
+              <span className={classes.mutedPill}>{externalStats.promptVersions}</span>
             </Box>
             <Box className={classes.placeholderRow}>
-              <Typography>Lembretes de comparecimento</Typography>
-              <span className={classes.mutedPill}>proxima etapa</span>
+              <Typography>Eventos enviados</Typography>
+              <span className={classes.mutedPill}>{externalStats.sentEvents}</span>
             </Box>
             <Box className={classes.placeholderRow}>
-              <Typography>Documentos na base RAG da empresa</Typography>
-              <span className={classes.mutedPill}>proxima etapa</span>
+              <Typography>Eventos sem webhook</Typography>
+              <span className={classes.mutedPill}>{externalStats.skippedEvents}</span>
             </Box>
           </Box>
         </Box>
@@ -924,44 +1066,156 @@ const Prompts = () => {
     </Box>
   );
 
+  const renderAppointments = () => (
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Agendamentos IA</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Crie e acompanhe agendamentos da IA sincronizados com Compromissos do CRM.
+        </Typography>
+        <Box className={classes.fieldStack}>
+          <TextField label="Titulo" variant="outlined" size="small" value={appointmentForm.title} onChange={(e) => setAppointmentForm({ ...appointmentForm, title: e.target.value })} />
+          <TextField label="Nome do lead" variant="outlined" size="small" value={appointmentForm.leadName} onChange={(e) => setAppointmentForm({ ...appointmentForm, leadName: e.target.value })} />
+          <TextField label="Telefone" variant="outlined" size="small" value={appointmentForm.leadPhone} onChange={(e) => setAppointmentForm({ ...appointmentForm, leadPhone: e.target.value })} />
+          <TextField label="Email" variant="outlined" size="small" value={appointmentForm.leadEmail} onChange={(e) => setAppointmentForm({ ...appointmentForm, leadEmail: e.target.value })} />
+          <TextField label="ID da agenda" variant="outlined" size="small" value={appointmentForm.scheduleId} onChange={(e) => setAppointmentForm({ ...appointmentForm, scheduleId: e.target.value })} />
+          <TextField label="Data e hora" type="datetime-local" variant="outlined" size="small" InputLabelProps={{ shrink: true }} value={appointmentForm.startDatetime} onChange={(e) => setAppointmentForm({ ...appointmentForm, startDatetime: e.target.value })} />
+          <TextField label="Duracao em minutos" type="number" variant="outlined" size="small" value={appointmentForm.durationMinutes} onChange={(e) => setAppointmentForm({ ...appointmentForm, durationMinutes: e.target.value })} />
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button variant="contained" color="primary" disabled={externalSaving || !appointmentForm.title || !appointmentForm.scheduleId || !appointmentForm.startDatetime} onClick={handleCreateAiAppointment}>
+            Criar agendamento
+          </Button>
+        </Box>
+      </Box>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Lista de agendamentos</Typography>
+        <Typography className={classes.panelSubtitle}>{aiAppointments.length} registro(s) da IA.</Typography>
+        <Box className={classes.placeholderList}>
+          {aiAppointments.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhum agendamento IA criado ainda.</Typography>
+          ) : aiAppointments.map((item) => (
+            <Box key={item.id} className={classes.placeholderRow}>
+              <Box>
+                <Typography className={classes.versionTitle}>{item.title}</Typography>
+                <Typography className={classes.versionMeta}>
+                  {item.leadName || item.leadPhone || "Sem lead"} - {formatDateTime(item.startDatetime)}
+                </Typography>
+              </Box>
+              <span className={classes.mutedPill}>{item.status}</span>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+
+  const renderReminders = () => (
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Lembretes</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Crie lembretes e pause a IA por 30 minutos para proteger a cadencia.
+        </Typography>
+        <Box className={classes.fieldStack}>
+          <TextField label="Nome do lead" variant="outlined" size="small" value={reminderForm.leadName} onChange={(e) => setReminderForm({ ...reminderForm, leadName: e.target.value })} />
+          <TextField label="Telefone" variant="outlined" size="small" value={reminderForm.leadPhone} onChange={(e) => setReminderForm({ ...reminderForm, leadPhone: e.target.value })} />
+          <TextField label="Quando lembrar" type="datetime-local" variant="outlined" size="small" InputLabelProps={{ shrink: true }} value={reminderForm.scheduledAt} onChange={(e) => setReminderForm({ ...reminderForm, scheduledAt: e.target.value })} />
+          <TextField label="Mensagem" variant="outlined" size="small" multiline minRows={4} value={reminderForm.message} onChange={(e) => setReminderForm({ ...reminderForm, message: e.target.value })} />
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button variant="contained" color="primary" disabled={externalSaving || !reminderForm.scheduledAt} onClick={handleCreateReminder}>
+            Criar lembrete
+          </Button>
+        </Box>
+      </Box>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Lembretes ativos</Typography>
+        <Typography className={classes.panelSubtitle}>{aiReminders.length} registro(s).</Typography>
+        <Box className={classes.placeholderList}>
+          {aiReminders.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhum lembrete criado ainda.</Typography>
+          ) : aiReminders.map((item) => (
+            <Box key={item.id} className={classes.placeholderRow}>
+              <Box>
+                <Typography className={classes.versionTitle}>{item.leadName || item.leadPhone || "Lead"}</Typography>
+                <Typography className={classes.versionMeta}>{formatDateTime(item.scheduledAt)}</Typography>
+              </Box>
+              <span className={classes.mutedPill}>{item.status}</span>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+
+  const renderRag = () => (
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Base RAG</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Envie, consulte e exclua informacoes da base vetorial por empresa.
+        </Typography>
+        <Box className={classes.fieldStack}>
+          <TextField select SelectProps={{ native: true }} label="Base" variant="outlined" size="small" value={ragBase} onChange={(e) => { setRagBase(e.target.value); setRagResults([]); loadRagDocuments(e.target.value); }}>
+            <option value="empresa">Empresa</option>
+            <option value="produtos">Produtos / Servicos</option>
+            <option value="suporte">Suporte / FAQ</option>
+            <option value="comercial">Comercial / Vendas</option>
+          </TextField>
+          <TextField label="Cliente ID opcional" variant="outlined" size="small" value={ragClienteId} onChange={(e) => setRagClienteId(e.target.value)} />
+          <TextField label="Conteudo" variant="outlined" multiline minRows={7} value={ragContent} onChange={(e) => setRagContent(e.target.value)} />
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button variant="contained" color="primary" disabled={externalSaving || !ragContent.trim()} onClick={handleCreateRagDocument}>
+            Enviar para RAG
+          </Button>
+        </Box>
+        <Divider style={{ margin: "16px 0" }} />
+        <Box className={classes.fieldStack}>
+          <TextField label="Consultar RAG" variant="outlined" size="small" value={ragQuery} onChange={(e) => setRagQuery(e.target.value)} />
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button variant="outlined" color="primary" disabled={externalSaving || !ragQuery.trim()} onClick={handleSearchRag}>
+            Consultar
+          </Button>
+        </Box>
+        {ragResults.length > 0 && (
+          <Box className={classes.placeholderList}>
+            {ragResults.map((result) => (
+              <Box key={`result-${result.id}`} className={classes.placeholderRow}>
+                <Typography className={classes.versionPreview}>{result.content}</Typography>
+                <span className={classes.mutedPill}>{Number(result.similarity || 0).toFixed(2)}</span>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Documentos</Typography>
+        <Typography className={classes.panelSubtitle}>{ragDocuments.length} documento(s) em {ragBase}.</Typography>
+        <Box className={classes.placeholderList}>
+          {ragDocuments.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhum documento nesta base.</Typography>
+          ) : ragDocuments.map((doc) => (
+            <Box key={doc.id} className={classes.placeholderRow}>
+              <Typography className={classes.versionPreview}>{(doc.content || "").slice(0, 130)}</Typography>
+              <Button size="small" color="secondary" onClick={() => handleDeleteRagDocument(doc.id)}>Excluir</Button>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+
   const renderExternalSection = () => {
     if (externalSection === "dashboard") return renderExternalDashboard();
     if (externalSection === "prompt") return renderExternalPrompt();
     if (externalSection === "settings") return renderExternalSettings();
     if (externalSection === "events") return renderExternalEvents();
-    if (externalSection === "appointments") {
-      return renderExternalPlaceholder({
-        title: "Agendamentos IA",
-        subtitle: "Gestao dos agendamentos criados pela IA e sincronizados com os compromissos do CRM.",
-        rows: [
-          { title: "Criar tabela de agendamentos IA", description: "Fonte de gestao do comportamento do agente.", status: "pendente" },
-          { title: "Sincronizar com compromissos", description: "Criar, remarcar e excluir tambem em appointments.", status: "pendente" },
-          { title: "Vincular lead ao Kanban", description: "Mostrar funil, etapa e acoes de vinculo.", status: "pendente" },
-        ],
-      });
-    }
-    if (externalSection === "reminders") {
-      return renderExternalPlaceholder({
-        title: "Lembretes",
-        subtitle: "Acompanhamento dos lembretes de agendamento e pausa da IA apos disparos sensiveis.",
-        rows: [
-          { title: "Pausar IA por 30 minutos", description: "Evita respostas fora de contexto apos confirmacao ou lembrete.", status: "pendente" },
-          { title: "Listar lembretes ativos", description: "Visualizar clientes em cadencia e status dos disparos.", status: "pendente" },
-          { title: "Eventos globais de lembrete", description: "Preparar payload para fluxo global no N8N.", status: "pendente" },
-        ],
-      });
-    }
-    if (externalSection === "rag") {
-      return renderExternalPlaceholder({
-        title: "Base RAG",
-        subtitle: "Pagina da empresa para enviar, consultar e excluir informacoes da base vetorial.",
-        rows: [
-          { title: "RAG Empresa", description: "Regras operacionais e informacoes institucionais.", status: "pendente" },
-          { title: "RAG Produtos/Servicos", description: "Catalogo usado pelo agente externo.", status: "pendente" },
-          { title: "RAG Suporte e Comercial", description: "FAQ, vendas e materiais comerciais por company_id.", status: "pendente" },
-        ],
-      });
-    }
+    if (externalSection === "appointments") return renderAppointments();
+    if (externalSection === "reminders") return renderReminders();
+    if (externalSection === "rag") return renderRag();
     return null;
   };
 
