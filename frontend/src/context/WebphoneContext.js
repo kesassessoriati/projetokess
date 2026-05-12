@@ -15,7 +15,40 @@ import { usePlanPermissions } from "./PlanPermissionsContext";
 
 const WebphoneContext = createContext();
 
-const normalizePhone = (value = "") => String(value).replace(/[^\d*#()+-]/g, "");
+const normalizeBrazilianNumber = (value = "") => {
+  let number = String(value || "").replace(/\D/g, "");
+
+  if (number.startsWith("00")) {
+    number = number.slice(2);
+  }
+
+  if (number.startsWith("0") && number.length >= 11) {
+    number = number.slice(1);
+  }
+
+  if (!number.startsWith("55") && (number.length === 10 || number.length === 11)) {
+    number = `55${number}`;
+  }
+
+  if (number.startsWith("55") && number.length === 12) {
+    const subscriber = number.slice(4);
+    if (/^[6-9]/.test(subscriber)) {
+      number = `${number.slice(0, 4)}9${subscriber}`;
+    }
+  }
+
+  return number;
+};
+
+const normalizePhone = (value = "") => {
+  const cleaned = String(value || "").replace(/[^\d*#]/g, "");
+
+  if (!cleaned || /[*#]/.test(cleaned)) {
+    return cleaned;
+  }
+
+  return normalizeBrazilianNumber(cleaned);
+};
 
 const sortSequenceTargets = (targets = []) =>
   [...targets].sort((left, right) => {
@@ -72,6 +105,8 @@ export const WebphoneProvider = ({ children }) => {
   const recordingStartedAtRef = useRef(null);
   const recordingIntervalRef = useRef(null);
   const callMediaStreamRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const shouldAutoReconnectRef = useRef(false);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -79,6 +114,54 @@ export const WebphoneProvider = ({ children }) => {
       sequenceTimerRef.current = null;
     }
   }, []);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const getRegisteredStatus = useCallback(() => {
+    const currentUa = uaRef.current;
+
+    if (!currentUa) {
+      return "disconnected";
+    }
+
+    return currentUa.isRegistered?.() ? "connected" : "connecting";
+  }, []);
+
+  const scheduleSipReconnect = useCallback(() => {
+    if (!shouldAutoReconnectRef.current) {
+      return;
+    }
+
+    clearReconnectTimer();
+    setStatus("connecting");
+
+    reconnectTimerRef.current = window.setTimeout(() => {
+      const currentUa = uaRef.current;
+
+      if (!currentUa || !shouldAutoReconnectRef.current) {
+        return;
+      }
+
+      try {
+        if (currentUa.isConnected?.() === false) {
+          currentUa.start();
+          return;
+        }
+
+        if (!currentUa.isRegistered?.()) {
+          currentUa.register();
+        }
+      } catch (error) {
+        console.error("[Webphone] SIP reconnect failed", error);
+        setStatus("disconnected");
+      }
+    }, 1500);
+  }, [clearReconnectTimer]);
 
   const releaseCallMediaStream = useCallback(() => {
     if (!callMediaStreamRef.current) {
@@ -444,7 +527,9 @@ export const WebphoneProvider = ({ children }) => {
 
   const stopUA = useCallback(() => {
     clearSequenceTimer();
+    clearReconnectTimer();
     cleanupRecordingResources();
+    shouldAutoReconnectRef.current = false;
     if (uaRef.current) {
       try {
         uaRef.current.stop();
@@ -459,7 +544,7 @@ export const WebphoneProvider = ({ children }) => {
     setStatus("disconnected");
     closePanel();
     resetCallState();
-  }, [cleanupRecordingResources, clearSequenceTimer, closePanel, resetCallState]);
+  }, [cleanupRecordingResources, clearReconnectTimer, clearSequenceTimer, closePanel, resetCallState]);
 
   const persistCallUpdate = useCallback(async (payload) => {
     if (!activeCallRecordIdRef.current) {
@@ -557,8 +642,8 @@ export const WebphoneProvider = ({ children }) => {
         await loadHistory();
       }
 
-      setStatus(uaRef.current ? "connected" : "disconnected");
       resetCallState();
+      setStatus(getRegisteredStatus());
     },
     [
       callDuration,
@@ -569,6 +654,7 @@ export const WebphoneProvider = ({ children }) => {
       resetCallState,
       recordingState,
       stopRecording,
+      getRegisteredStatus,
     ]
   );
 
@@ -879,6 +965,8 @@ export const WebphoneProvider = ({ children }) => {
         stopUA();
       }
 
+      shouldAutoReconnectRef.current = true;
+
       // Usa proxy interno (wss://) quando o servidor SIP só oferece ws:// (porta 80)
       // para evitar bloqueio de mixed content no navegador.
       const wsUrl = runtimeConfig.proxyWebsocketUrl || runtimeConfig.websocketUrl;
@@ -895,14 +983,39 @@ export const WebphoneProvider = ({ children }) => {
 
       const nextUa = new JsSIP.UA(configuration);
 
-      nextUa.on("connecting", () => setStatus("connecting"));
-      nextUa.on("connected", () => setStatus("connecting"));
-      nextUa.on("registered", () => setStatus("connected"));
-      nextUa.on("unregistered", () => setStatus("disconnected"));
-      nextUa.on("disconnected", () => setStatus("disconnected"));
+      nextUa.on("connecting", () => {
+        if (uaRef.current === nextUa) {
+          setStatus("connecting");
+        }
+      });
+      nextUa.on("connected", () => {
+        if (uaRef.current === nextUa) {
+          setStatus(nextUa.isRegistered?.() ? "connected" : "connecting");
+        }
+      });
+      nextUa.on("registered", () => {
+        if (uaRef.current !== nextUa) {
+          return;
+        }
+
+        clearReconnectTimer();
+        setStatus("connected");
+      });
+      nextUa.on("unregistered", () => {
+        if (uaRef.current === nextUa) {
+          scheduleSipReconnect();
+        }
+      });
+      nextUa.on("disconnected", () => {
+        if (uaRef.current === nextUa) {
+          scheduleSipReconnect();
+        }
+      });
       nextUa.on("registrationFailed", (error) => {
         console.error("[Webphone] SIP registration failed", error);
-        setStatus("disconnected");
+        if (uaRef.current === nextUa) {
+          scheduleSipReconnect();
+        }
       });
 
       nextUa.on("newRTCSession", ({ session: nextSession }) => {
@@ -969,7 +1082,7 @@ export const WebphoneProvider = ({ children }) => {
       uaRef.current = nextUa;
       setUa(nextUa);
     },
-    [currentLead, finalizeCall, leadModalOpen, persistCallUpdate, stopUA, user?.name]
+    [clearReconnectTimer, currentLead, finalizeCall, leadModalOpen, persistCallUpdate, scheduleSipReconnect, stopUA, user?.name]
   );
 
   const createSequence = useCallback(async (payload) => {
