@@ -956,7 +956,11 @@ const PipelineBoard = () => {
           const uniqueCards = Array.from(
             new Map((stage.opportunities || []).map((c) => [c.id, c])).values(),
           );
-          return { ...stage, opportunities: uniqueCards };
+          return {
+            ...stage,
+            opportunities: uniqueCards,
+            visibleOpportunitiesCount: uniqueCards.length,
+          };
         });
       }
 
@@ -1021,17 +1025,19 @@ const PipelineBoard = () => {
         pipeline: data?.pipeline || prevBoard.pipeline,
         stages: (prevBoard.stages || []).map((currentStage) => {
           if (currentStage.id !== stage.id) return currentStage;
+          const mergedOpportunities = mergeUniqueOpportunities(
+            currentStage.opportunities,
+            loadedStage.opportunities,
+          );
 
           return {
             ...currentStage,
             totalValue: loadedStage.totalValue,
             forecastValue: loadedStage.forecastValue,
             opportunitiesCount: loadedStage.opportunitiesCount,
+            visibleOpportunitiesCount: mergedOpportunities.length,
             highRiskCount: loadedStage.highRiskCount,
-            opportunities: mergeUniqueOpportunities(
-              currentStage.opportunities,
-              loadedStage.opportunities,
-            ),
+            opportunities: mergedOpportunities,
             hasMore: loadedStage.hasMore,
             nextCursor: loadedStage.nextCursor,
           };
@@ -1749,9 +1755,8 @@ const PipelineBoard = () => {
                                               "1px solid rgba(255,255,255,0.35)",
                                           }}
                                         >
-                                          {searchText
-                                            ? stage.opportunities.length
-                                            : stage.opportunitiesCount}
+                                          {stage.visibleOpportunitiesCount ??
+                                            stage.opportunities.length}
                                         </span>
                                       </div>
                                     </div>
