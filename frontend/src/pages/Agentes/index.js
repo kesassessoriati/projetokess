@@ -8,6 +8,10 @@ import {
   Chip,
   Tooltip,
   CircularProgress,
+  Button,
+  Switch,
+  FormControlLabel,
+  Divider,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -19,6 +23,9 @@ import EditIcon from "@material-ui/icons/Edit";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import SearchIcon from "@material-ui/icons/Search";
 import PsychologyIcon from "@material-ui/icons/EmojiObjects";
+import SaveIcon from "@material-ui/icons/Save";
+import RestoreIcon from "@material-ui/icons/Restore";
+import HistoryIcon from "@material-ui/icons/History";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -229,6 +236,157 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     padding: "24px",
   },
+  agentTabs: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "12px 24px 0",
+    backgroundColor: "#f5f5f5",
+    flexWrap: "wrap",
+  },
+  agentTab: {
+    border: "1px solid #e0e0e0",
+    backgroundColor: "#fff",
+    color: "#5f6b7a",
+    borderRadius: 8,
+    padding: "10px 16px",
+    fontWeight: 700,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    "&:hover": {
+      borderColor: "#1976d2",
+      color: "#1976d2",
+    },
+  },
+  agentTabActive: {
+    backgroundColor: "#1f5eea",
+    borderColor: "#1f5eea",
+    color: "#fff",
+    "&:hover": {
+      backgroundColor: "#174fc7",
+      color: "#fff",
+    },
+  },
+  externalGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.4fr) minmax(320px, 0.8fr)",
+    gap: 16,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  externalPanel: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
+    padding: 16,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+  },
+  panelTitle: {
+    fontSize: "1rem",
+    fontWeight: 700,
+    color: "#111827",
+    marginBottom: 4,
+  },
+  panelSubtitle: {
+    fontSize: "0.82rem",
+    color: "#6b7280",
+    marginBottom: 16,
+  },
+  fieldStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  promptEditor: {
+    "& .MuiOutlinedInput-root": {
+      alignItems: "flex-start",
+      fontFamily: "monospace",
+      fontSize: "0.88rem",
+      lineHeight: 1.55,
+    },
+  },
+  actionRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+  },
+  versionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    maxHeight: 420,
+    overflowY: "auto",
+    ...theme.scrollbarStyles,
+  },
+  versionItem: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: "#fff",
+  },
+  activeVersionItem: {
+    borderColor: "#1f5eea",
+    backgroundColor: "#eff6ff",
+  },
+  versionHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+  versionTitle: {
+    fontWeight: 700,
+    color: "#111827",
+  },
+  versionMeta: {
+    color: "#6b7280",
+    fontSize: "0.75rem",
+  },
+  versionPreview: {
+    color: "#4b5563",
+    fontSize: "0.8rem",
+    lineHeight: 1.4,
+    marginBottom: 8,
+    whiteSpace: "pre-wrap",
+  },
+  eventsPanel: {
+    marginTop: 16,
+  },
+  eventItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "10px 0",
+    borderBottom: "1px solid #f0f0f0",
+  },
+  eventStatus: {
+    borderRadius: 999,
+    padding: "4px 8px",
+    fontWeight: 700,
+    fontSize: "0.68rem",
+    textTransform: "uppercase",
+  },
+  statusSent: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  statusFailed: {
+    backgroundColor: "#fee2e2",
+    color: "#991b1b",
+  },
+  statusSkipped: {
+    backgroundColor: "#fef3c7",
+    color: "#92400e",
+  },
+  statusPending: {
+    backgroundColor: "#e0f2fe",
+    color: "#075985",
+  },
 }));
 
 const reducer = (state, action) => {
@@ -277,9 +435,17 @@ const reducer = (state, action) => {
 const Prompts = () => {
   const classes = useStyles();
 
+  const [activeAgentTab, setActiveAgentTab] = useState("internal");
   const [prompts, dispatch] = useReducer(reducer, []);
   const [loading, setLoading] = useState(false);
   const [searchParam, setSearchParam] = useState("");
+  const [externalLoading, setExternalLoading] = useState(false);
+  const [externalSaving, setExternalSaving] = useState(false);
+  const [externalConfig, setExternalConfig] = useState(null);
+  const [externalPrompt, setExternalPrompt] = useState("");
+  const [externalChangeNote, setExternalChangeNote] = useState("");
+  const [externalVersions, setExternalVersions] = useState([]);
+  const [externalEvents, setExternalEvents] = useState([]);
 
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
@@ -300,6 +466,97 @@ const Prompts = () => {
 
   const reloadPage = () => {
     window.location.reload();
+  };
+
+  const loadExternalAgent = async () => {
+    setExternalLoading(true);
+    try {
+      const [configResponse, versionsResponse, eventsResponse] = await Promise.all([
+        api.get("/ai-agents/external/config"),
+        api.get("/ai-agents/external/prompt/versions"),
+        api.get("/ai-agents/external/events", { params: { pageNumber: 1 } }),
+      ]);
+
+      setExternalConfig(configResponse.data);
+      setExternalPrompt(configResponse.data?.systemPrompt || "");
+      setExternalVersions(versionsResponse.data?.versions || []);
+      setExternalEvents(eventsResponse.data?.events || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalLoading(false);
+    }
+  };
+
+  const handleExternalConfigChange = (field, value) => {
+    setExternalConfig(prev => ({
+      ...(prev || {}),
+      [field]: value,
+    }));
+  };
+
+  const handleSaveExternalConfig = async () => {
+    setExternalSaving(true);
+    try {
+      const { data } = await api.put("/ai-agents/external/config", {
+        name: externalConfig?.name || "Agente Externo N8N",
+        n8nWebhookUrl: externalConfig?.n8nWebhookUrl || null,
+        webhookEnabled: Boolean(externalConfig?.webhookEnabled),
+        metadata: externalConfig?.metadata || {},
+      });
+      setExternalConfig(data);
+      toast.success("Configuracao do agente externo salva.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleSaveExternalPrompt = async () => {
+    setExternalSaving(true);
+    try {
+      await api.post("/ai-agents/external/prompt/versions", {
+        content: externalPrompt,
+        changeNote: externalChangeNote || null,
+      });
+      setExternalChangeNote("");
+      await loadExternalAgent();
+      toast.success("System Prompt salvo e evento enviado para o N8N.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleRestoreExternalVersion = async (versionId) => {
+    setExternalSaving(true);
+    try {
+      await api.post(`/ai-agents/external/prompt/versions/${versionId}/restore`);
+      await loadExternalAgent();
+      toast.success("Versao restaurada e enviada para o N8N.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return "-";
+    try {
+      return new Date(value).toLocaleString("pt-BR");
+    } catch {
+      return value;
+    }
+  };
+
+  const getEventStatusClass = (status) => {
+    if (status === "sent") return classes.statusSent;
+    if (status === "failed") return classes.statusFailed;
+    if (status === "skipped") return classes.statusSkipped;
+    return classes.statusPending;
   };
 
   useEffect(() => {
@@ -338,6 +595,13 @@ const Prompts = () => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (activeAgentTab === "external" && !externalConfig && !externalLoading) {
+      loadExternalAgent();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAgentTab]);
 
   useEffect(() => {
     if (!isConnected || !user.companyId) return;
@@ -420,6 +684,23 @@ const Prompts = () => {
         promptId={selectedPrompt?.id}
       />
 
+      <Box className={classes.agentTabs}>
+        <button
+          type="button"
+          className={`${classes.agentTab} ${activeAgentTab === "internal" ? classes.agentTabActive : ""}`}
+          onClick={() => setActiveAgentTab("internal")}
+        >
+          Agente Interno
+        </button>
+        <button
+          type="button"
+          className={`${classes.agentTab} ${activeAgentTab === "external" ? classes.agentTabActive : ""}`}
+          onClick={() => setActiveAgentTab("external")}
+        >
+          Agente Externo N8N
+        </button>
+      </Box>
+
       {/* Header */}
       <Box className={classes.header}>
         <Box className={classes.headerLeft}>
@@ -429,38 +710,211 @@ const Prompts = () => {
           <Box>
             <Typography className={classes.headerTitle}>Agentes de IA</Typography>
             <Typography className={classes.headerSubtitle}>
-              {prompts.length} {prompts.length === 1 ? "prompt configurado" : "prompts configurados"}
+              {activeAgentTab === "internal"
+                ? `${prompts.length} ${prompts.length === 1 ? "prompt configurado" : "prompts configurados"}`
+                : "System Prompt versionado e integrado ao N8N"}
             </Typography>
           </Box>
         </Box>
 
-        <Box className={classes.headerRight}>
-          <TextField
-            placeholder="Buscar prompt..."
-            variant="outlined"
-            size="small"
-            value={searchParam}
-            onChange={(e) => setSearchParam(e.target.value)}
-            className={classes.searchField}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon style={{ color: "#999" }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Tooltip title={i18n.t("prompts.buttons.add")}>
-            <button className={classes.addButton} onClick={handleOpenPromptModal}>
-              <AddIcon style={{ fontSize: 24 }} />
-            </button>
-          </Tooltip>
-        </Box>
+        {activeAgentTab === "internal" && (
+          <Box className={classes.headerRight}>
+            <TextField
+              placeholder="Buscar prompt..."
+              variant="outlined"
+              size="small"
+              value={searchParam}
+              onChange={(e) => setSearchParam(e.target.value)}
+              className={classes.searchField}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon style={{ color: "#999" }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title={i18n.t("prompts.buttons.add")}>
+              <button className={classes.addButton} onClick={handleOpenPromptModal}>
+                <AddIcon style={{ fontSize: 24 }} />
+              </button>
+            </Tooltip>
+          </Box>
+        )}
       </Box>
 
       {/* Content */}
       <Box className={classes.content}>
-        {loading ? (
+        {activeAgentTab === "external" ? (
+          externalLoading ? (
+            <Box className={classes.loadingContainer}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            <>
+              <Box className={classes.externalGrid}>
+                <Box className={classes.externalPanel}>
+                  <Typography className={classes.panelTitle}>Agente Externo N8N</Typography>
+                  <Typography className={classes.panelSubtitle}>
+                    Configure o webhook da empresa e mantenha o System Prompt versionado para o fluxo principal do N8N.
+                  </Typography>
+
+                  <Box className={classes.fieldStack}>
+                    <TextField
+                      label="Nome do agente"
+                      variant="outlined"
+                      size="small"
+                      value={externalConfig?.name || ""}
+                      onChange={(event) => handleExternalConfigChange("name", event.target.value)}
+                    />
+                    <TextField
+                      label="Webhook N8N da empresa"
+                      variant="outlined"
+                      size="small"
+                      value={externalConfig?.n8nWebhookUrl || ""}
+                      onChange={(event) => handleExternalConfigChange("n8nWebhookUrl", event.target.value)}
+                      placeholder="https://n8n.seudominio.com/webhook/empresa"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          color="primary"
+                          checked={Boolean(externalConfig?.webhookEnabled)}
+                          onChange={(event) => handleExternalConfigChange("webhookEnabled", event.target.checked)}
+                        />
+                      }
+                      label="Enviar eventos para o N8N"
+                    />
+                  </Box>
+
+                  <Box className={classes.actionRow}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<SaveIcon />}
+                      disabled={externalSaving}
+                      onClick={handleSaveExternalConfig}
+                    >
+                      Salvar configuracao
+                    </Button>
+                  </Box>
+
+                  <Divider style={{ margin: "18px 0" }} />
+
+                  <Typography className={classes.panelTitle}>System Prompt</Typography>
+                  <Typography className={classes.panelSubtitle}>
+                    Cada salvamento cria uma nova versao e dispara o evento para o N8N.
+                  </Typography>
+                  <TextField
+                    className={classes.promptEditor}
+                    label="Prompt do agente externo"
+                    variant="outlined"
+                    fullWidth
+                    multiline
+                    minRows={12}
+                    value={externalPrompt}
+                    onChange={(event) => setExternalPrompt(event.target.value)}
+                  />
+                  <TextField
+                    label="Nota da alteracao"
+                    variant="outlined"
+                    fullWidth
+                    size="small"
+                    value={externalChangeNote}
+                    onChange={(event) => setExternalChangeNote(event.target.value)}
+                    style={{ marginTop: 12 }}
+                  />
+                  <Box className={classes.actionRow}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<SaveIcon />}
+                      disabled={externalSaving || !externalPrompt.trim()}
+                      onClick={handleSaveExternalPrompt}
+                    >
+                      Salvar prompt
+                    </Button>
+                  </Box>
+                </Box>
+
+                <Box className={classes.externalPanel}>
+                  <Typography className={classes.panelTitle}>Versoes do Prompt</Typography>
+                  <Typography className={classes.panelSubtitle}>
+                    Restaure uma versao anterior quando precisar voltar o comportamento do agente.
+                  </Typography>
+
+                  <Box className={classes.versionList}>
+                    {externalVersions.length === 0 ? (
+                      <Typography className={classes.toolsEmpty}>Nenhuma versao salva ainda.</Typography>
+                    ) : (
+                      externalVersions.map((version) => (
+                        <Box
+                          key={version.id}
+                          className={`${classes.versionItem} ${version.isActive ? classes.activeVersionItem : ""}`}
+                        >
+                          <Box className={classes.versionHeader}>
+                            <Box>
+                              <Typography className={classes.versionTitle}>
+                                Versao {version.version} {version.isActive ? "(ativa)" : ""}
+                              </Typography>
+                              <Typography className={classes.versionMeta}>
+                                {formatDateTime(version.createdAt)}
+                              </Typography>
+                            </Box>
+                            <HistoryIcon style={{ color: version.isActive ? "#1f5eea" : "#9ca3af" }} />
+                          </Box>
+                          {version.changeNote && (
+                            <Typography className={classes.versionMeta}>
+                              {version.changeNote}
+                            </Typography>
+                          )}
+                          <Typography className={classes.versionPreview}>
+                            {(version.content || "").slice(0, 180)}
+                            {(version.content || "").length > 180 ? "..." : ""}
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<RestoreIcon />}
+                            disabled={externalSaving || version.isActive}
+                            onClick={() => handleRestoreExternalVersion(version.id)}
+                          >
+                            Restaurar
+                          </Button>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box className={`${classes.externalPanel} ${classes.eventsPanel}`}>
+                <Typography className={classes.panelTitle}>Eventos enviados ao N8N</Typography>
+                <Typography className={classes.panelSubtitle}>
+                  Historico recente dos disparos feitos pelo agente externo.
+                </Typography>
+                {externalEvents.length === 0 ? (
+                  <Typography className={classes.toolsEmpty}>Nenhum evento registrado ainda.</Typography>
+                ) : (
+                  externalEvents.map((event) => (
+                    <Box key={event.id} className={classes.eventItem}>
+                      <Box>
+                        <Typography className={classes.versionTitle}>{event.eventType}</Typography>
+                        <Typography className={classes.versionMeta}>
+                          {formatDateTime(event.createdAt)}
+                          {event.errorMessage ? ` - ${event.errorMessage}` : ""}
+                        </Typography>
+                      </Box>
+                      <span className={`${classes.eventStatus} ${getEventStatusClass(event.status)}`}>
+                        {event.status}
+                      </span>
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </>
+          )
+        ) : loading ? (
           <Box className={classes.loadingContainer}>
             <CircularProgress size={32} />
           </Box>
