@@ -5,6 +5,64 @@ import AiExternalAppointment from "../../models/AiExternalAppointment";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
 
+const DEFAULT_REMINDER_TEXT =
+  "CONFIRMACAO DE CONSULTA\n\nOla, *{{leadName}}*! Tudo bem?\n\nEstamos passando para confirmar seu compromisso conosco:\n\nData: {{appointmentDate}}\n\nVoce podera comparecer neste horario?\n\nResponda com uma das opcoes:";
+
+export const DEFAULT_REMINDER_BUTTONS = [
+  { buttonId: "1", buttonText: { displayText: "Confirmar" } },
+  { buttonId: "2", buttonText: { displayText: "Remarcar" } },
+  { buttonId: "3", buttonText: { displayText: "Cancelar" } }
+];
+
+const formatAppointmentDate = (value?: Date | string) => {
+  if (!value) return "";
+  return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+};
+
+const renderTemplate = (template: string, params: Record<string, string>) =>
+  Object.entries(params).reduce(
+    (text, [key, value]) => text.replace(new RegExp(`{{\\s*${key}\\s*}}`, "g"), value || ""),
+    template
+  );
+
+export const getReminderSettings = (metadata?: Record<string, any>) => {
+  const settings = metadata?.autoReminder || {};
+  return {
+    enabled: settings.enabled !== false,
+    hoursBefore: Number(settings.hoursBefore || 4),
+    text: settings.text || DEFAULT_REMINDER_TEXT,
+    footer: settings.footer || "",
+    buttons: Array.isArray(settings.buttons) && settings.buttons.length
+      ? settings.buttons.slice(0, 3)
+      : DEFAULT_REMINDER_BUTTONS
+  };
+};
+
+export const buildReminderPayload = ({
+  settings,
+  leadName,
+  leadPhone,
+  appointmentDate
+}: {
+  settings: ReturnType<typeof getReminderSettings>;
+  leadName?: string;
+  leadPhone?: string;
+  appointmentDate?: Date | string;
+}) => {
+  const text = renderTemplate(settings.text, {
+    leadName: leadName || "cliente",
+    leadPhone: leadPhone || "",
+    appointmentDate: formatAppointmentDate(appointmentDate)
+  });
+
+  return {
+    number: leadPhone || "",
+    text,
+    footer: settings.footer || "",
+    buttons: settings.buttons
+  };
+};
+
 export const listReminders = async ({
   companyId,
   pageNumber = 1,
@@ -45,6 +103,17 @@ export const createReminder = async (data: {
 }) => {
   if (!data.scheduledAt) throw new AppError("Data do lembrete obrigatoria.", 400);
 
+  const config = await GetOrCreateExternalAgentConfigService({
+    companyId: data.companyId,
+    userId: data.userId
+  });
+  const settings = getReminderSettings(config.metadata);
+  const payload = data.metadata?.interactivePayload || buildReminderPayload({
+    settings,
+    leadName: data.leadName,
+    leadPhone: data.leadPhone,
+    appointmentDate: data.scheduledAt
+  });
   const aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000);
   const reminder = await AiExternalReminder.create({
     companyId: data.companyId,
@@ -53,25 +122,34 @@ export const createReminder = async (data: {
     ticketId: data.ticketId || null,
     leadName: data.leadName || null,
     leadPhone: data.leadPhone || null,
-    message: data.message || null,
+    message: data.message || payload.text || null,
     scheduledAt: new Date(data.scheduledAt),
     status: "pending",
     aiPausedUntil,
     n8nSessionId: data.n8nSessionId || null,
-    metadata: data.metadata || {},
+    metadata: {
+      ...(data.metadata || {}),
+      channel: "buttons",
+      interactivePayload: payload
+    },
     createdByUserId: data.userId || null
   } as any);
 
-  const config = await GetOrCreateExternalAgentConfigService({
-    companyId: data.companyId,
-    userId: data.userId
-  });
   await DispatchExternalAgentEventService({
     eventType: "external_agent.reminder.created",
     companyId: data.companyId,
     config,
     userId: data.userId,
-    data: { reminderId: reminder.id, aiPausedUntil }
+    data: {
+      reminderId: reminder.id,
+      aiAppointmentId: reminder.aiAppointmentId,
+      scheduledAt: reminder.scheduledAt,
+      leadName: reminder.leadName,
+      leadPhone: reminder.leadPhone,
+      channel: "buttons",
+      interactivePayload: payload,
+      aiPausedUntil
+    }
   });
 
   return reminder.reload();

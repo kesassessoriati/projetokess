@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import {
   listRagDocuments,
   createRagDocument,
+  createRagDocumentFromUpload,
   deleteRagDocument,
   searchRagDocuments
 } from "../services/AiExternalRagServices/AiExternalRagServices";
@@ -27,6 +28,27 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     base,
     content: req.body.content,
     metadata: req.body.metadata
+  }));
+};
+
+export const upload = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId, userId } = scope(req);
+  const { base } = req.params;
+  let metadata = {};
+  if (req.body.metadata) {
+    try {
+      metadata = JSON.parse(req.body.metadata);
+    } catch {
+      metadata = {};
+    }
+  }
+
+  return res.status(201).json(await createRagDocumentFromUpload({
+    companyId,
+    userId,
+    base,
+    file: req.file,
+    metadata
   }));
 };
 

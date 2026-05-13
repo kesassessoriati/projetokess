@@ -4,6 +4,11 @@ import AiExternalAppointment from "../../models/AiExternalAppointment";
 import CreateAppointmentService from "../AppointmentServices/CreateAppointmentService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
+import {
+  buildReminderPayload,
+  createReminder,
+  getReminderSettings
+} from "../AiExternalReminderServices/AiExternalReminderServices";
 
 interface Request {
   companyId: number;
@@ -97,6 +102,39 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     metadata: data.metadata || {},
     createdByUserId: data.userId || null
   } as any);
+
+  const reminderSettings = getReminderSettings(config.metadata);
+  if (reminderSettings.enabled) {
+    const startDatetime = new Date(data.startDatetime);
+    const scheduledAt = new Date(startDatetime.getTime() - reminderSettings.hoursBefore * 60 * 60 * 1000);
+    const safeScheduledAt = scheduledAt.getTime() > Date.now() ? scheduledAt : new Date();
+    const interactivePayload = buildReminderPayload({
+      settings: reminderSettings,
+      leadName: data.leadName,
+      leadPhone: data.leadPhone,
+      appointmentDate: startDatetime
+    });
+
+    await createReminder({
+      companyId: data.companyId,
+      userId: data.userId,
+      aiAppointmentId: aiAppointment.id,
+      contactId: data.contactId,
+      ticketId: data.ticketId,
+      leadName: data.leadName,
+      leadPhone: data.leadPhone,
+      message: interactivePayload.text,
+      scheduledAt: safeScheduledAt,
+      n8nSessionId: data.n8nSessionId,
+      metadata: {
+        automatic: true,
+        appointmentId: appointment.id,
+        aiAppointmentId: aiAppointment.id,
+        hoursBefore: reminderSettings.hoursBefore,
+        interactivePayload
+      }
+    });
+  }
 
   await DispatchExternalAgentEventService({
     eventType: "external_agent.appointment.created",

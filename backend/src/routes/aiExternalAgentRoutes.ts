@@ -40,4 +40,10 @@ aiExternalAgentRoutes.get(
   AiExternalAgentController.listEvents
 );
 
+aiExternalAgentRoutes.delete(
+  "/ai-agents/external/events/:eventId",
+  isAuth,
+  AiExternalAgentController.deleteEvent
+);
+
 export default aiExternalAgentRoutes;

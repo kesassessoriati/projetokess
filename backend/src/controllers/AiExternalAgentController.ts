@@ -5,6 +5,7 @@ import CreateExternalPromptVersionService from "../services/AiExternalAgentServi
 import RestoreExternalPromptVersionService from "../services/AiExternalAgentServices/RestoreExternalPromptVersionService";
 import ListExternalPromptVersionsService from "../services/AiExternalAgentServices/ListExternalPromptVersionsService";
 import ListExternalAgentEventsService from "../services/AiExternalAgentServices/ListExternalAgentEventsService";
+import DeleteExternalAgentEventService from "../services/AiExternalAgentServices/DeleteExternalAgentEventService";
 
 const getScope = (req: Request) => ({
   companyId: Number(req.user.companyId),
@@ -89,4 +90,16 @@ export const listEvents = async (req: Request, res: Response): Promise<Response>
   });
 
   return res.json(result);
+};
+
+export const deleteEvent = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = getScope(req);
+  const { eventId } = req.params;
+
+  await DeleteExternalAgentEventService({
+    id: Number(eventId),
+    companyId
+  });
+
+  return res.status(200).json({ message: "Log do agente externo excluido com sucesso." });
 };

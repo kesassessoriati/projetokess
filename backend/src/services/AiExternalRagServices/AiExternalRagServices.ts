@@ -5,11 +5,15 @@ import sequelize from "../../database";
 import { resolveAIProviderConfig } from "../AIProviderService/AIProviderService";
 
 const RAG_TABLES: Record<string, string> = {
-  empresa: "rag_empresa",
-  produtos: "rag_produtos",
-  suporte: "rag_suporte",
-  comercial: "rag_comercial"
+  empresa: "ai_external_rag_empresa",
+  produtos: "ai_external_rag_produtos",
+  suporte: "ai_external_rag_suporte",
+  comercial: "ai_external_rag_comercial"
 };
+
+const pdfParse = require("pdf-parse");
+const Tesseract = require("tesseract.js");
+const Jimp = require("jimp");
 
 const getTable = (base: string): string => {
   const table = RAG_TABLES[base];
@@ -98,6 +102,74 @@ export const createRagDocument = async ({
     }
   );
   return rows[0];
+};
+
+const normalizeText = (value?: string): string =>
+  (value || "").replace(/\r/g, " ").replace(/\t/g, " ").replace(/\s{2,}/g, " ").trim();
+
+const extractUploadText = async (file: Express.Multer.File): Promise<string> => {
+  const mime = file.mimetype || "";
+
+  if (mime.includes("pdf") || /\.pdf$/i.test(file.originalname)) {
+    const parsed = await pdfParse(file.buffer);
+    return normalizeText(parsed?.text || "");
+  }
+
+  if (mime.startsWith("image/")) {
+    const image = await Jimp.read(file.buffer);
+    const prepared = await image
+      .resize(Math.min(image.bitmap.width, 1400), Jimp.AUTO)
+      .greyscale()
+      .contrast(0.5)
+      .normalize()
+      .getBufferAsync(Jimp.MIME_PNG);
+    const result = await Tesseract.recognize(prepared, process.env.AI_KNOWLEDGE_BASE_OCR_LANGS || "por+eng");
+    return normalizeText(result?.data?.text || "");
+  }
+
+  if (
+    mime.startsWith("text/") ||
+    mime.includes("json") ||
+    mime.includes("csv") ||
+    /\.(txt|csv|json|md)$/i.test(file.originalname)
+  ) {
+    return normalizeText(file.buffer.toString("utf8"));
+  }
+
+  throw new AppError("Formato de arquivo RAG nao suportado. Envie PDF, imagem ou documento de texto.", 400);
+};
+
+export const createRagDocumentFromUpload = async ({
+  companyId,
+  userId,
+  base,
+  file,
+  metadata = {}
+}: {
+  companyId: number;
+  userId?: number;
+  base: string;
+  file?: Express.Multer.File;
+  metadata?: Record<string, any>;
+}) => {
+  if (!file) throw new AppError("Arquivo RAG obrigatorio.", 400);
+
+  const content = await extractUploadText(file);
+  if (!content) throw new AppError("Nao foi possivel extrair texto do arquivo enviado.", 400);
+
+  return createRagDocument({
+    companyId,
+    userId,
+    base,
+    content,
+    metadata: {
+      ...metadata,
+      source: "upload",
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size
+    }
+  });
 };
 
 export const deleteRagDocument = async ({

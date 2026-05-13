@@ -480,6 +480,11 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "0.68rem",
     textTransform: "uppercase",
   },
+  inlineActions: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  },
   statusSent: {
     backgroundColor: "#dcfce7",
     color: "#166534",
@@ -561,7 +566,7 @@ const Prompts = () => {
   const [ragDocuments, setRagDocuments] = useState([]);
   const [ragBase, setRagBase] = useState("empresa");
   const [ragContent, setRagContent] = useState("");
-  const [ragClienteId, setRagClienteId] = useState("");
+  const [ragFile, setRagFile] = useState(null);
   const [ragQuery, setRagQuery] = useState("");
   const [ragResults, setRagResults] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({
@@ -580,6 +585,18 @@ const Prompts = () => {
     scheduledAt: "",
     message: "",
   });
+
+  const defaultReminderSettings = {
+    enabled: true,
+    hoursBefore: 4,
+    text: "CONFIRMACAO DE CONSULTA\n\nOla, *{{leadName}}*! Tudo bem?\n\nEstamos passando para confirmar seu compromisso conosco:\n\nData: {{appointmentDate}}\n\nVoce podera comparecer neste horario?\n\nResponda com uma das opcoes:",
+    footer: "",
+    buttons: [
+      { buttonId: "1", buttonText: { displayText: "Confirmar" } },
+      { buttonId: "2", buttonText: { displayText: "Remarcar" } },
+      { buttonId: "3", buttonText: { displayText: "Cancelar" } },
+    ],
+  };
 
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
@@ -651,6 +668,41 @@ const Prompts = () => {
       ...(prev || {}),
       [field]: value,
     }));
+  };
+
+  const getExternalReminderSettings = () => ({
+    ...defaultReminderSettings,
+    ...(externalConfig?.metadata?.autoReminder || {}),
+    buttons: externalConfig?.metadata?.autoReminder?.buttons || defaultReminderSettings.buttons,
+  });
+
+  const handleReminderSettingChange = (field, value) => {
+    setExternalConfig(prev => {
+      const current = prev || {};
+      const previousSettings = current.metadata?.autoReminder || {};
+      return {
+        ...current,
+        metadata: {
+          ...(current.metadata || {}),
+          autoReminder: {
+            ...defaultReminderSettings,
+            ...previousSettings,
+            buttons: previousSettings.buttons || defaultReminderSettings.buttons,
+            [field]: value,
+          },
+        },
+      };
+    });
+  };
+
+  const handleReminderButtonChange = (index, value) => {
+    const settings = getExternalReminderSettings();
+    const buttons = settings.buttons.map((button, buttonIndex) => (
+      buttonIndex === index
+        ? { ...button, buttonText: { displayText: value }, buttonId: String(index + 1) }
+        : button
+    ));
+    handleReminderSettingChange("buttons", buttons);
   };
 
   const handleSaveExternalConfig = async () => {
@@ -731,7 +783,19 @@ const Prompts = () => {
   const handleCreateReminder = async () => {
     setExternalSaving(true);
     try {
-      await api.post("/ai-agents/external/reminders", reminderForm);
+      const settings = getExternalReminderSettings();
+      await api.post("/ai-agents/external/reminders", {
+        ...reminderForm,
+        metadata: {
+          manual: true,
+          interactivePayload: {
+            number: reminderForm.leadPhone,
+            text: reminderForm.message || settings.text,
+            footer: settings.footer,
+            buttons: settings.buttons,
+          },
+        },
+      });
       setReminderForm({ leadName: "", leadPhone: "", scheduledAt: "", message: "" });
       await loadExternalAgent();
       toast.success("Lembrete criado.");
@@ -745,15 +809,22 @@ const Prompts = () => {
   const handleCreateRagDocument = async () => {
     setExternalSaving(true);
     try {
-      await api.post(`/ai-agents/external/rag/${ragBase}`, {
-        content: ragContent,
-        metadata: {
-          cliente_id: ragClienteId || undefined,
-          origem: "crm",
-        },
-      });
+      if (ragFile) {
+        const formData = new FormData();
+        formData.append("file", ragFile);
+        formData.append("metadata", JSON.stringify({ origem: "crm", base: ragBase }));
+        await api.post(`/ai-agents/external/rag/${ragBase}/upload`, formData);
+      } else {
+        await api.post(`/ai-agents/external/rag/${ragBase}`, {
+          content: ragContent,
+          metadata: {
+            origem: "crm",
+            base: ragBase,
+          },
+        });
+      }
       setRagContent("");
-      setRagClienteId("");
+      setRagFile(null);
       await loadRagDocuments();
       toast.success("Documento enviado para a base RAG.");
     } catch (err) {
@@ -791,6 +862,19 @@ const Prompts = () => {
     }
   };
 
+  const handleDeleteExternalEvent = async (eventId) => {
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/events/${eventId}`);
+      await loadExternalAgent();
+      toast.success("Log removido.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const formatDateTime = (value) => {
     if (!value) return "-";
     try {
@@ -813,7 +897,7 @@ const Prompts = () => {
     { key: "appointments", label: "Agendamentos IA", icon: <EventNoteIcon /> },
     { key: "reminders", label: "Lembretes", icon: <NotificationsActiveIcon /> },
     { key: "rag", label: "Base RAG", icon: <StorageIcon /> },
-    { key: "events", label: "Eventos", icon: <ListAltIcon /> },
+    { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
     { key: "settings", label: "Configuracoes", icon: <SettingsIcon /> },
   ];
 
@@ -845,9 +929,16 @@ const Prompts = () => {
                 {event.errorMessage ? ` - ${event.errorMessage}` : ""}
               </Typography>
             </Box>
-            <span className={`${classes.eventStatus} ${getEventStatusClass(event.status)}`}>
-              {event.status}
-            </span>
+            <Box className={classes.inlineActions}>
+              <span className={`${classes.eventStatus} ${getEventStatusClass(event.status)}`}>
+                {event.status}
+              </span>
+              <Tooltip title="Excluir log">
+                <IconButton size="small" onClick={() => handleDeleteExternalEvent(event.id)} disabled={externalSaving}>
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         ))
       )}
@@ -946,50 +1037,115 @@ const Prompts = () => {
   );
 
   const renderExternalSettings = () => (
-    <Box className={classes.externalPanel}>
-      <Typography className={classes.panelTitle}>Configuracoes do Agente Externo N8N</Typography>
-      <Typography className={classes.panelSubtitle}>
-        Configure o webhook da empresa para receber eventos do CRM neste agente externo.
-      </Typography>
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Configuracoes do Agente Externo N8N</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Configure o webhook da empresa para receber eventos do CRM neste agente externo.
+        </Typography>
 
-      <Box className={classes.fieldStack}>
-        <TextField
-          label="Nome do agente"
-          variant="outlined"
-          size="small"
-          value={externalConfig?.name || ""}
-          onChange={(event) => handleExternalConfigChange("name", event.target.value)}
-        />
-        <TextField
-          label="Webhook N8N da empresa"
-          variant="outlined"
-          size="small"
-          value={externalConfig?.n8nWebhookUrl || ""}
-          onChange={(event) => handleExternalConfigChange("n8nWebhookUrl", event.target.value)}
-          placeholder="https://n8n.seudominio.com/webhook/empresa"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              color="primary"
-              checked={Boolean(externalConfig?.webhookEnabled)}
-              onChange={(event) => handleExternalConfigChange("webhookEnabled", event.target.checked)}
-            />
-          }
-          label="Enviar eventos para o N8N"
-        />
+        <Box className={classes.fieldStack}>
+          <TextField
+            label="Nome do agente"
+            variant="outlined"
+            size="small"
+            value={externalConfig?.name || ""}
+            onChange={(event) => handleExternalConfigChange("name", event.target.value)}
+          />
+          <TextField
+            label="Webhook N8N da empresa"
+            variant="outlined"
+            size="small"
+            value={externalConfig?.n8nWebhookUrl || ""}
+            onChange={(event) => handleExternalConfigChange("n8nWebhookUrl", event.target.value)}
+            placeholder="https://n8n.seudominio.com/webhook/empresa"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                color="primary"
+                checked={Boolean(externalConfig?.webhookEnabled)}
+                onChange={(event) => handleExternalConfigChange("webhookEnabled", event.target.checked)}
+              />
+            }
+            label="Enviar eventos para o N8N"
+          />
+        </Box>
+
+        <Box className={classes.actionRow}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            disabled={externalSaving}
+            onClick={handleSaveExternalConfig}
+          >
+            Salvar configuracao
+          </Button>
+        </Box>
       </Box>
 
-      <Box className={classes.actionRow}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<SaveIcon />}
-          disabled={externalSaving}
-          onClick={handleSaveExternalConfig}
-        >
-          Salvar configuracao
-        </Button>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Lembretes automaticos</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Template usado quando o agente externo criar um agendamento.
+        </Typography>
+        <Box className={classes.fieldStack}>
+          <FormControlLabel
+            control={
+              <Switch
+                color="primary"
+                checked={getExternalReminderSettings().enabled}
+                onChange={(event) => handleReminderSettingChange("enabled", event.target.checked)}
+              />
+            }
+            label="Criar lembrete automaticamente"
+          />
+          <TextField
+            label="Horas antes do compromisso"
+            type="number"
+            variant="outlined"
+            size="small"
+            value={getExternalReminderSettings().hoursBefore}
+            onChange={(event) => handleReminderSettingChange("hoursBefore", Number(event.target.value || 4))}
+          />
+          <TextField
+            label="Texto do lembrete"
+            variant="outlined"
+            multiline
+            minRows={6}
+            value={getExternalReminderSettings().text}
+            onChange={(event) => handleReminderSettingChange("text", event.target.value)}
+          />
+          <TextField
+            label="Rodape"
+            variant="outlined"
+            size="small"
+            value={getExternalReminderSettings().footer}
+            onChange={(event) => handleReminderSettingChange("footer", event.target.value)}
+          />
+          {getExternalReminderSettings().buttons.map((button, index) => (
+            <TextField
+              key={`auto-reminder-button-${index}`}
+              label={`Botao ${index + 1}`}
+              variant="outlined"
+              size="small"
+              value={button?.buttonText?.displayText || ""}
+              onChange={(event) => handleReminderButtonChange(index, event.target.value)}
+            />
+          ))}
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            disabled={externalSaving}
+            onClick={handleSaveExternalConfig}
+          >
+            Salvar lembretes
+          </Button>
+        </Box>
       </Box>
     </Box>
   );
@@ -1121,7 +1277,23 @@ const Prompts = () => {
           <TextField label="Nome do lead" variant="outlined" size="small" value={reminderForm.leadName} onChange={(e) => setReminderForm({ ...reminderForm, leadName: e.target.value })} />
           <TextField label="Telefone" variant="outlined" size="small" value={reminderForm.leadPhone} onChange={(e) => setReminderForm({ ...reminderForm, leadPhone: e.target.value })} />
           <TextField label="Quando lembrar" type="datetime-local" variant="outlined" size="small" InputLabelProps={{ shrink: true }} value={reminderForm.scheduledAt} onChange={(e) => setReminderForm({ ...reminderForm, scheduledAt: e.target.value })} />
-          <TextField label="Mensagem" variant="outlined" size="small" multiline minRows={4} value={reminderForm.message} onChange={(e) => setReminderForm({ ...reminderForm, message: e.target.value })} />
+          <TextField
+            label="Mensagem em botoes"
+            variant="outlined"
+            size="small"
+            multiline
+            minRows={4}
+            value={reminderForm.message}
+            onChange={(e) => setReminderForm({ ...reminderForm, message: e.target.value })}
+            placeholder={getExternalReminderSettings().text}
+          />
+          <Box className={classes.inlineActions}>
+            {getExternalReminderSettings().buttons.map((button, index) => (
+              <span key={`reminder-preview-${index}`} className={classes.mutedPill}>
+                {button?.buttonText?.displayText || `Botao ${index + 1}`}
+              </span>
+            ))}
+          </Box>
         </Box>
         <Box className={classes.actionRow}>
           <Button variant="contained" color="primary" disabled={externalSaving || !reminderForm.scheduledAt} onClick={handleCreateReminder}>
@@ -1163,11 +1335,19 @@ const Prompts = () => {
             <option value="suporte">Suporte / FAQ</option>
             <option value="comercial">Comercial / Vendas</option>
           </TextField>
-          <TextField label="Cliente ID opcional" variant="outlined" size="small" value={ragClienteId} onChange={(e) => setRagClienteId(e.target.value)} />
           <TextField label="Conteudo" variant="outlined" multiline minRows={7} value={ragContent} onChange={(e) => setRagContent(e.target.value)} />
+          <Button variant="outlined" component="label">
+            {ragFile ? ragFile.name : "Anexar PDF, imagem ou documento"}
+            <input
+              type="file"
+              hidden
+              accept=".pdf,.txt,.csv,.json,.md,image/*"
+              onChange={(event) => setRagFile(event.target.files?.[0] || null)}
+            />
+          </Button>
         </Box>
         <Box className={classes.actionRow}>
-          <Button variant="contained" color="primary" disabled={externalSaving || !ragContent.trim()} onClick={handleCreateRagDocument}>
+          <Button variant="contained" color="primary" disabled={externalSaving || (!ragContent.trim() && !ragFile)} onClick={handleCreateRagDocument}>
             Enviar para RAG
           </Button>
         </Box>
