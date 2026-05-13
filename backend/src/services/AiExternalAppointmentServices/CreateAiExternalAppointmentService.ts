@@ -9,6 +9,7 @@ import {
   createReminder,
   getReminderSettings
 } from "../AiExternalReminderServices/AiExternalReminderServices";
+import UpdateCrmLeadService from "../CrmLeadService/UpdateCrmLeadService";
 
 interface Request {
   companyId: number;
@@ -102,6 +103,15 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     metadata: data.metadata || {},
     createdByUserId: data.userId || null
   } as any);
+
+  if (data.crmLeadId) {
+    await UpdateCrmLeadService({
+      id: data.crmLeadId,
+      companyId: data.companyId,
+      status: "reuniao_agendada",
+      leadStatus: "reuniao_agendada"
+    }).catch(() => undefined);
+  }
 
   const reminderSettings = getReminderSettings(config.metadata);
   if (reminderSettings.enabled) {

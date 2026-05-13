@@ -6,6 +6,7 @@ import ShowCrmLeadService from "../../services/CrmLeadService/ShowCrmLeadService
 import UpdateCrmLeadService from "../../services/CrmLeadService/UpdateCrmLeadService";
 import ConvertCrmLeadService from "../../services/CrmLeadService/ConvertCrmLeadService";
 import triggerExternalWebhook from "../../services/ExternalWebhook/triggerExternalWebhook";
+import { markLeadForAiExternalFollowUp } from "../../services/AiExternalFollowUpServices/AiExternalFollowUpService";
 
 const ensureExternalAuth = (req: Request) => {
   if (!req.externalAuth) {
@@ -116,6 +117,49 @@ export const convert = async (req: Request, res: Response): Promise<Response> =>
     url: externalAuth.webhookUrl,
     secret: externalAuth.webhookSecret,
     event: "lead.converted",
+    data: { apiKeyId: externalAuth.apiKeyId, ...result }
+  });
+
+  return res.json(result);
+};
+
+// POST /api/external/crm-leads/:id/follow-up
+export const markFollowUp = async (req: Request, res: Response): Promise<Response> => {
+  const externalAuth = ensureExternalAuth(req);
+  const { id } = req.params;
+
+  const result = await markLeadForAiExternalFollowUp({
+    companyId: externalAuth.companyId,
+    leadId: Number(id),
+    accessId: req.body.accessId,
+    phone: req.body.phone
+  });
+
+  await triggerExternalWebhook({
+    url: externalAuth.webhookUrl,
+    secret: externalAuth.webhookSecret,
+    event: "lead.follow_up_marked",
+    data: { apiKeyId: externalAuth.apiKeyId, ...result }
+  });
+
+  return res.json(result);
+};
+
+// POST /api/external/crm-leads/follow-up/mark
+export const markFollowUpByLookup = async (req: Request, res: Response): Promise<Response> => {
+  const externalAuth = ensureExternalAuth(req);
+
+  const result = await markLeadForAiExternalFollowUp({
+    companyId: externalAuth.companyId,
+    leadId: req.body.leadId ? Number(req.body.leadId) : undefined,
+    accessId: req.body.accessId,
+    phone: req.body.phone
+  });
+
+  await triggerExternalWebhook({
+    url: externalAuth.webhookUrl,
+    secret: externalAuth.webhookSecret,
+    event: "lead.follow_up_marked",
     data: { apiKeyId: externalAuth.apiKeyId, ...result }
   });
 

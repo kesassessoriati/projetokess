@@ -90,7 +90,7 @@ const UpdateCrmLeadService = async ({
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
     status: Yup.string()
-      .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido"])
+      .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido", "follow_up", "follow_up_enviado"])
       .nullable(),
     leadStatus: Yup.string().nullable(),
     score: Yup.number().min(0).nullable(),

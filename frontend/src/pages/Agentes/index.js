@@ -563,6 +563,7 @@ const Prompts = () => {
   const [externalEvents, setExternalEvents] = useState([]);
   const [aiAppointments, setAiAppointments] = useState([]);
   const [aiReminders, setAiReminders] = useState([]);
+  const [aiFollowUps, setAiFollowUps] = useState([]);
   const [ragDocuments, setRagDocuments] = useState([]);
   const [ragBase, setRagBase] = useState("empresa");
   const [ragContent, setRagContent] = useState("");
@@ -628,6 +629,7 @@ const Prompts = () => {
         eventsResponse,
         appointmentsResponse,
         remindersResponse,
+        followUpsResponse,
         ragResponse,
       ] = await Promise.all([
         api.get("/ai-agents/external/config"),
@@ -635,6 +637,7 @@ const Prompts = () => {
         api.get("/ai-agents/external/events", { params: { pageNumber: 1 } }),
         api.get("/ai-agents/external/appointments", { params: { pageNumber: 1 } }),
         api.get("/ai-agents/external/reminders", { params: { pageNumber: 1 } }),
+        api.get("/ai-agents/external/follow-ups", { params: { pageNumber: 1 } }),
         api.get(`/ai-agents/external/rag/${ragBase}`, { params: { pageNumber: 1 } }),
       ]);
 
@@ -644,6 +647,7 @@ const Prompts = () => {
       setExternalEvents(eventsResponse.data?.events || []);
       setAiAppointments(appointmentsResponse.data?.appointments || []);
       setAiReminders(remindersResponse.data?.reminders || []);
+      setAiFollowUps(followUpsResponse.data?.leads || []);
       setRagDocuments(ragResponse.data?.documents || []);
     } catch (err) {
       toastError(err);
@@ -888,6 +892,19 @@ const Prompts = () => {
     }
   };
 
+  const handleProcessAiFollowUps = async () => {
+    setExternalSaving(true);
+    try {
+      const { data } = await api.post("/ai-agents/external/follow-ups/process");
+      await loadExternalAgent();
+      toast.success(`${data?.processed || 0} follow-up(s) processado(s).`);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const formatDateTime = (value) => {
     if (!value) return "-";
     try {
@@ -909,6 +926,7 @@ const Prompts = () => {
     { key: "prompt", label: "System Prompt", icon: <PsychologyIcon /> },
     { key: "appointments", label: "Agendamentos IA", icon: <EventNoteIcon /> },
     { key: "reminders", label: "Lembretes", icon: <NotificationsActiveIcon /> },
+    { key: "followups", label: "Follow-up", icon: <NotificationsActiveIcon /> },
     { key: "rag", label: "Base RAG", icon: <StorageIcon /> },
     { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
     { key: "settings", label: "Configuracoes", icon: <SettingsIcon /> },
@@ -921,6 +939,8 @@ const Prompts = () => {
     skippedEvents: externalEvents.filter(event => event.status === "skipped").length,
     appointments: aiAppointments.length,
     reminders: aiReminders.length,
+    followUps: aiFollowUps.filter(lead => lead.status === "follow_up" || lead.leadStatus === "follow_up").length,
+    followUpsSent: aiFollowUps.filter(lead => lead.status === "follow_up_enviado" || lead.leadStatus === "follow_up_enviado").length,
     ragDocuments: ragDocuments.length,
   };
 
@@ -1348,6 +1368,53 @@ const Prompts = () => {
     </Box>
   );
 
+  const renderFollowUps = () => (
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Follow-up automatico</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Leads em Follow-up sao processados automaticamente a cada 2 horas com base no historico do N8N.
+        </Typography>
+        <Box className={classes.placeholderList}>
+          <Box className={classes.placeholderRow}>
+            <Typography>Aguardando follow-up</Typography>
+            <span className={classes.mutedPill}>{externalStats.followUps}</span>
+          </Box>
+          <Box className={classes.placeholderRow}>
+            <Typography>Follow-up enviado</Typography>
+            <span className={classes.mutedPill}>{externalStats.followUpsSent}</span>
+          </Box>
+          <Box className={classes.placeholderRow}>
+            <Typography>Status usados</Typography>
+            <span className={classes.mutedPill}>follow_up</span>
+          </Box>
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button variant="contained" color="primary" disabled={externalSaving} onClick={handleProcessAiFollowUps}>
+            Processar agora
+          </Button>
+        </Box>
+      </Box>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Leads em Follow-up</Typography>
+        <Typography className={classes.panelSubtitle}>{aiFollowUps.length} registro(s).</Typography>
+        <Box className={classes.placeholderList}>
+          {aiFollowUps.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhum lead em follow-up.</Typography>
+          ) : aiFollowUps.map((lead) => (
+            <Box key={lead.id} className={classes.placeholderRow}>
+              <Box>
+                <Typography className={classes.versionTitle}>{lead.name || lead.phone || `Lead ${lead.id}`}</Typography>
+                <Typography className={classes.versionMeta}>{lead.phone || "Sem telefone"} - {formatDateTime(lead.updatedAt)}</Typography>
+              </Box>
+              <span className={classes.mutedPill}>{lead.status || lead.leadStatus}</span>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+
   const renderRag = () => (
     <Box className={classes.placeholderGrid}>
       <Box className={classes.externalPanel}>
@@ -1422,6 +1489,7 @@ const Prompts = () => {
     if (externalSection === "events") return renderExternalEvents();
     if (externalSection === "appointments") return renderAppointments();
     if (externalSection === "reminders") return renderReminders();
+    if (externalSection === "followups") return renderFollowUps();
     if (externalSection === "rag") return renderRag();
     return null;
   };
