@@ -105,6 +105,7 @@ const historyToContext = (history: Record<string, any> | null): string => {
   const preferred = [
     "context",
     "conversation_context",
+    "message",
     "messages",
     "history",
     "chat_history",
