@@ -24,7 +24,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const AppointmentModal = (props) => {
-  const { open, onClose, appointment, onSave, initialScheduleId, userServices, userConfig, existingAppointments, leadContext } = props;
+  const { open, onClose, appointment, onSave, initialScheduleId, userServices, userConfig, leadContext } = props;
 
   const { user } = useContext(AuthContext);
 
@@ -184,31 +184,6 @@ const AppointmentModal = (props) => {
 
         if (overlapsLunch) {
           return `Conflito com horário de almoço (${userConfig.lunchStart} - ${userConfig.lunchEnd})`;
-        }
-      }
-    }
-
-    // Validar conflito com compromissos existentes
-    if (existingAppointments && existingAppointments.length > 0) {
-      const newStart = start.getTime();
-      const newEnd = end.getTime();
-
-      for (const existing of existingAppointments) {
-        // Ignorar o próprio compromisso em edição
-        if (appointment && existing.id === appointment.id) continue;
-        // Ignorar cancelados
-        if (existing.status === "cancelled" || existing.status === "no_show") continue;
-
-        const existingStart = new Date(existing.startDatetime).getTime();
-        const existingEnd = existingStart + existing.durationMinutes * 60000;
-
-        if (
-          (newStart >= existingStart && newStart < existingEnd) ||
-          (newEnd > existingStart && newEnd <= existingEnd) ||
-          (newStart <= existingStart && newEnd >= existingEnd)
-        ) {
-          const existingTime = new Date(existing.startDatetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-          return `Conflito com "${existing.title}" às ${existingTime}`;
         }
       }
     }

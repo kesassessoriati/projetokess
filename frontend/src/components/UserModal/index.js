@@ -1695,7 +1695,6 @@ const UserModal = ({ open, onClose, userId }) => {
           lunchStart: user.lunchStart || null,
           lunchEnd: user.lunchEnd || null
         }}
-        existingAppointments={appointments}
       />
     </div>
   );

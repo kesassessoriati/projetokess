@@ -5,7 +5,6 @@ import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
 import { updateGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
-import { Op } from "sequelize";
 
 interface UpdateAppointmentData {
   id: string | number;
@@ -128,29 +127,6 @@ const UpdateAppointmentService = async (
         }
       }
 
-      const existingAppointments = await Appointment.findAll({
-        where: {
-          companyId: data.companyId,
-          scheduleId: appointment.scheduleId,
-          id: { [Op.ne]: appointment.id },
-          status: { [Op.notIn]: ["cancelled", "no_show"] }
-        }
-      });
-
-      for (const existing of existingAppointments) {
-        const existingStart = new Date(existing.startDatetime).getTime();
-        const existingEnd = existingStart + existing.durationMinutes * 60000;
-        const newStart = startDatetime.getTime();
-        const newEnd = endDatetime.getTime();
-
-        if (
-          (newStart >= existingStart && newStart < existingEnd) ||
-          (newEnd > existingStart && newEnd <= existingEnd) ||
-          (newStart <= existingStart && newEnd >= existingEnd)
-        ) {
-          throw new AppError("Já existe um compromisso neste horário", 400);
-        }
-      }
     }
   }
 
