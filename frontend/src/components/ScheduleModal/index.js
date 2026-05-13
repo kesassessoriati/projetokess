@@ -15,7 +15,7 @@ import CircularProgress from "@material-ui/core/CircularProgress";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import { Chip, FormControl, FormControlLabel, Grid, IconButton, InputLabel, MenuItem, Select, Switch, Typography } from "@material-ui/core";
+import { Collapse, FormControl, FormControlLabel, Grid, IconButton, InputLabel, MenuItem, Select, Switch, Typography } from "@material-ui/core";
 import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
 import moment from "moment";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -47,6 +47,8 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon';
 import MessageIcon from '@mui/icons-material/Message';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -156,6 +158,19 @@ const useStyles = makeStyles((theme) => ({
     display: 'flex',
     gap: theme.spacing(2),
     marginLeft: theme.spacing(2),
+  },
+  recurrenceHeader: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 0,
+    color: theme.palette.primary.main,
+    textTransform: "none",
+    fontWeight: 600,
+    "&:hover": {
+      backgroundColor: "transparent",
+    },
   }
 }));
 
@@ -167,7 +182,7 @@ const ScheduleSchema = Yup.object().shape({
   sendAt: Yup.string().required("Obrigatório"),
 });
 
-const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload }) => {
+const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload, message = "" }) => {
   const classes = useStyles();
   const history = useHistory();
   const { user } = useContext(AuthContext);
@@ -207,7 +222,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const messageInputRef = useRef();
   const [channelFilter, setChannelFilter] = useState("whatsapp");
   const [whatsapps, setWhatsapps] = useState([]);
-  const [selectedWhatsapps, setSelectedWhatsapps] = useState([]);
+  const [selectedWhatsapps, setSelectedWhatsapps] = useState("");
   const [loading, setLoading] = useState(false);
   const [queues, setQueues] = useState([]);
   const [allQueues, setAllQueues] = useState([]);
@@ -218,6 +233,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const [searchParam, setSearchParam] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiData, setEmojiData] = useState(null);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -255,6 +271,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   }, []);
 
   useEffect(() => {
+    if (open && !scheduleId && !selectedQueue && user?.queues?.length) {
+      setSelectedQueue(user.queues[0].id);
+    }
+  }, [open, scheduleId, selectedQueue, user]);
+
+  useEffect(() => {
     if (searchParam.length < 3) {
       setLoading(false);
       setSelectedQueue("");
@@ -286,8 +308,11 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
           selected: false,
         }));
         setWhatsapps(mappedWhatsapps);
-        if (mappedWhatsapps.length && mappedWhatsapps?.length === 1) {
-          setSelectedWhatsapps(mappedWhatsapps[0].id);
+        if (!scheduleId) {
+          setSelectedWhatsapps((current) => {
+            const currentStillAvailable = mappedWhatsapps.some((whatsapp) => Number(whatsapp.id) === Number(current));
+            return currentStillAvailable ? current : getPreferredWhatsappId(mappedWhatsapps);
+          });
         }
       });
   }, [currentContact, channelFilter]);
@@ -305,14 +330,19 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
     const { companyId } = user;
     if (open) {
       try {
+        if (!scheduleId) {
+          setSchedule((prevState) => ({
+            ...prevState,
+            contactId: contactId || prevState.contactId,
+            body: message || prevState.body,
+          }));
+        }
+
         (async () => {
           const { data: contactList } = await api.get('/contacts/list', { params: { companyId: companyId } });
           let customList = contactList.map((c) => ({ id: c.id, name: c.name, channel: c.channel }));
           if (isArray(customList)) {
             setContacts([{ id: "", name: "", channel: "" }, ...customList]);
-          }
-          if (contactId) {
-            setSchedule((prevState) => ({ ...prevState, contactId }));
           }
 
           if (!scheduleId) return;
@@ -321,9 +351,6 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
           setSchedule((prevState) => ({ ...prevState, ...data, sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm') }));
           if (data.whatsapp) {
             setSelectedWhatsapps(data.whatsapp.id);
-          }
-          if (data.ticketUser) {
-            setSelectedUser(data.ticketUser);
           }
           if (data.queueId) {
             setSelectedQueue(data.queueId);
@@ -349,7 +376,13 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const handleClose = () => {
     onClose();
     setAttachment(null);
+    if (attachmentFile.current) {
+      attachmentFile.current.value = null;
+    }
     setSchedule(initialState);
+    setSelectedWhatsapps("");
+    setSelectedQueue(null);
+    setRecurrenceOpen(false);
   };
 
   const handleAttachmentFile = (e) => {
@@ -357,6 +390,25 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
     if (file) {
       setAttachment(file);
     }
+  };
+
+  const getPreferredWhatsappId = (mappedWhatsapps) => {
+    if (!mappedWhatsapps.length) return "";
+
+    const userQueueIds = (user?.queues || []).map((queue) => Number(queue.id));
+    const queueLinkedWhatsapp = mappedWhatsapps.find((whatsapp) =>
+      Array.isArray(whatsapp.queues) &&
+      whatsapp.queues.some((queue) => userQueueIds.includes(Number(queue.id)))
+    );
+
+    if (queueLinkedWhatsapp) return queueLinkedWhatsapp.id;
+
+    if (user?.whatsappId) {
+      const userWhatsapp = mappedWhatsapps.find((whatsapp) => Number(whatsapp.id) === Number(user.whatsappId));
+      if (userWhatsapp) return userWhatsapp.id;
+    }
+
+    return mappedWhatsapps[0].id;
   };
 
   const IconChannel = (channel) => {
@@ -392,7 +444,6 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
       ...values,
       userId: user.id,
       whatsappId: selectedWhatsapps,
-      ticketUserId: selectedUser?.id || null,
       queueId: selectedQueue || null,
       intervalo: intervalo || 1,
       tipoDias: tipoDias || 4,
@@ -524,7 +575,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
         <div style={{ display: "none" }}>
           <input
             type="file"
-            accept=".png,.jpg,.jpeg"
+            accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar,.7z,.xml,.json"
             ref={attachmentFile}
             onChange={(e) => handleAttachmentFile(e)}
           />
@@ -561,8 +612,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                               value={currentContact}
                               options={contacts}
                               onChange={(e, contact) => {
-                                const contactId = contact ? contact.id : '';
-                                setSchedule({ ...schedule, contactId });
+                                const nextContactId = contact ? contact.id : '';
+                                setFieldValue("contactId", nextContactId);
                                 setCurrentContact(contact ? contact : initialContact);
                                 setChannelFilter(contact ? contact.channel : "whatsapp");
                               }}
@@ -672,31 +723,45 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                       
                       <Grid item xs={12} md={6}>
                         <div className={classes.inputWithIcon}>
-                          <TicketIcon className={classes.fieldIcon} />
-                          <FormControl variant="outlined" margin="dense" fullWidth>
-                            <InputLabel id="openTicket-selection-label">
-                              Criar Ticket
-                            </InputLabel>
-                            <Field
-                              as={Select}
-                              label="Criar Ticket"
-                              placeholder="Criar Ticket"
-                              labelId="openTicket-selection-label"
-                              id="openTicket"
-                              name="openTicket"
-                              error={touched.openTicket && Boolean(errors.openTicket)}
-                            >
-                              <MenuItem value={"enabled"}>Ativar</MenuItem>
-                              <MenuItem value={"disabled"}>Desativar</MenuItem>
-                            </Field>
-                          </FormControl>
+                          <CalendarTodayIcon className={classes.fieldIcon} />
+                          <Field
+                            as={TextField}
+                            label={i18n.t("scheduleModal.form.sendAt")}
+                            type="datetime-local"
+                            name="sendAt"
+                            error={touched.sendAt && Boolean(errors.sendAt)}
+                            helperText={touched.sendAt && errors.sendAt}
+                            variant="outlined"
+                            margin="dense"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                          />
                         </div>
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Field
+                              as={Switch}
+                              color="primary"
+                              name="assinar"
+                              checked={values.assinar}
+                            />
+                          }
+                          label="Assinar mensagem"
+                        />
                       </Grid>
                     </Grid>
                   </Grid>
 
-                  {/* Seção de Atribuição */}
-                  {values.openTicket === "enabled" && (
+                  {/* Campos de ticket ficam ocultos para manter o fluxo simples do agendamento. */}
+                  <div style={{ display: "none" }}>
+                    <Field type="hidden" name="openTicket" />
+                    <Field type="hidden" name="statusTicket" />
+                  </div>
+
+                  {false && (
                     <Grid item xs={12}>
                       <Typography variant="subtitle1" style={{ marginBottom: '16px', color: '#555' }}>
                         Configurações do Ticket
@@ -838,11 +903,19 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 
                   {/* Seção de Recorrência */}
                   <Grid item xs={12} className={classes.recurrenceSection}>
-                    <Typography variant="h6" className={classes.sectionTitle}>
-                      <RepeatIcon />
-                      Configurações de Recorrência
-                    </Typography>
-                    <Typography variant="body2" paragraph style={{ color: '#666' }}>
+                    <Button
+                      type="button"
+                      className={classes.recurrenceHeader}
+                      onClick={() => setRecurrenceOpen((prev) => !prev)}
+                      endIcon={recurrenceOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    >
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <RepeatIcon style={{ marginRight: 8 }} />
+                        Recorrência
+                      </span>
+                    </Button>
+                    <Collapse in={recurrenceOpen}>
+                    <Typography variant="body2" paragraph style={{ color: '#666', marginTop: 16 }}>
                       Defina como a mensagem será enviada de forma recorrente. Deixe em branco para envio único.
                     </Typography>
                     
@@ -915,6 +988,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                         </div>
                       </Grid>
                     </Grid>
+                    </Collapse>
                   </Grid>
 
                   {/* Anexos */}
