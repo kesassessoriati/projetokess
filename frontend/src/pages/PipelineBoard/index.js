@@ -1051,9 +1051,8 @@ const PipelineBoard = () => {
     const q = searchText.toLowerCase().trim();
     return {
       ...board,
-      stages: (board.stages || []).map((stage) => ({
-        ...stage,
-        opportunities: (stage.opportunities || []).filter((op) => {
+      stages: (board.stages || []).map((stage) => {
+        const filteredOpportunities = (stage.opportunities || []).filter((op) => {
           const title = (op.title || "").toLowerCase();
           const leadName = (op.lead?.name || "").toLowerCase();
           const contactName = (op.contact?.name || "").toLowerCase();
@@ -1066,8 +1065,14 @@ const PipelineBoard = () => {
             companyName.includes(q) ||
             cnpj.includes(q)
           );
-        }),
-      })),
+        });
+
+        return {
+          ...stage,
+          opportunities: filteredOpportunities,
+          visibleOpportunitiesCount: filteredOpportunities.length,
+        };
+      }),
     };
   }, [board, searchText]);
 
@@ -1682,6 +1687,7 @@ const PipelineBoard = () => {
                 (filteredBoard.stages || []).map((stage, stageIndex) => {
                   const stageColor = stage.color || "#1f9d55";
                   const textColor = "#fff";
+                  const visibleCardsCount = (stage.opportunities || []).length;
                   return (
                     <Draggable
                       key={stage.id}
@@ -1768,9 +1774,7 @@ const PipelineBoard = () => {
                                       }}
                                     >
                                       Total cards:{" "}
-                                      {stage.opportunitiesCount ??
-                                        stage.visibleOpportunitiesCount ??
-                                        stage.opportunities.length}
+                                      {visibleCardsCount}
                                     </span>
                                   </div>
                                   {stage.highRiskCount > 0 && (
