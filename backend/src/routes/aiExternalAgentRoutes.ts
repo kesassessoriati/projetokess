@@ -34,6 +34,12 @@ aiExternalAgentRoutes.post(
   AiExternalAgentController.restorePromptVersion
 );
 
+aiExternalAgentRoutes.delete(
+  "/ai-agents/external/prompt/versions/:versionId",
+  isAuth,
+  AiExternalAgentController.deletePromptVersion
+);
+
 aiExternalAgentRoutes.get(
   "/ai-agents/external/events",
   isAuth,

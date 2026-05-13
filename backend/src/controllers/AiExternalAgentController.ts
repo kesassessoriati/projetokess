@@ -6,6 +6,7 @@ import RestoreExternalPromptVersionService from "../services/AiExternalAgentServ
 import ListExternalPromptVersionsService from "../services/AiExternalAgentServices/ListExternalPromptVersionsService";
 import ListExternalAgentEventsService from "../services/AiExternalAgentServices/ListExternalAgentEventsService";
 import DeleteExternalAgentEventService from "../services/AiExternalAgentServices/DeleteExternalAgentEventService";
+import DeleteExternalPromptVersionService from "../services/AiExternalAgentServices/DeleteExternalPromptVersionService";
 
 const getScope = (req: Request) => ({
   companyId: Number(req.user.companyId),
@@ -76,6 +77,21 @@ export const restorePromptVersion = async (
   });
 
   return res.status(201).json(result);
+};
+
+export const deletePromptVersion = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = getScope(req);
+  const { versionId } = req.params;
+
+  await DeleteExternalPromptVersionService({
+    companyId,
+    versionId: Number(versionId)
+  });
+
+  return res.status(200).json({ message: "Versao do prompt excluida com sucesso." });
 };
 
 export const listEvents = async (req: Request, res: Response): Promise<Response> => {

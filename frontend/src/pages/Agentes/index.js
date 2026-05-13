@@ -753,6 +753,19 @@ const Prompts = () => {
     }
   };
 
+  const handleDeleteExternalVersion = async (versionId) => {
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/prompt/versions/${versionId}`);
+      await loadExternalAgent();
+      toast.success("Versao do prompt excluida.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const handleCreateAiAppointment = async () => {
     setExternalSaving(true);
     try {
@@ -1019,15 +1032,29 @@ const Prompts = () => {
                   {(version.content || "").slice(0, 180)}
                   {(version.content || "").length > 180 ? "..." : ""}
                 </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<RestoreIcon />}
-                  disabled={externalSaving || version.isActive}
-                  onClick={() => handleRestoreExternalVersion(version.id)}
-                >
-                  Restaurar
-                </Button>
+                <Box className={classes.inlineActions}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RestoreIcon />}
+                    disabled={externalSaving || version.isActive}
+                    onClick={() => handleRestoreExternalVersion(version.id)}
+                  >
+                    Restaurar
+                  </Button>
+                  <Tooltip title={version.isActive ? "A versao ativa nao pode ser excluida" : "Excluir versao"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        disabled={externalSaving || version.isActive}
+                        onClick={() => handleDeleteExternalVersion(version.id)}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Box>
             ))
           )}
