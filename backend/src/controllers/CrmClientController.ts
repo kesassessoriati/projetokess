@@ -25,6 +25,7 @@ export const index = async (
     type,
     product,
     clientSinceYear,
+    expirationFilter,
     ownerUserId,
     pageNumber,
     limit
@@ -38,6 +39,7 @@ export const index = async (
     status,
     type,
     product,
+    expirationFilter,
     clientSinceYear:
       Number.isInteger(parsedClientSinceYear) && parsedClientSinceYear > 0
         ? parsedClientSinceYear

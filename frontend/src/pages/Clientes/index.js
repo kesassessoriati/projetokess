@@ -115,6 +115,18 @@ const TYPE_LABEL = {
   pj: "Pessoa Jurídica",
 };
 
+const EXPIRATION_OPTIONS = [
+  { label: "Todos", value: "" },
+  { label: "Vencidos", value: "expired" },
+  { label: "Vencem hoje", value: "today" },
+  { label: "Proximos 7 dias", value: "next_7" },
+  { label: "Proximos 15 dias", value: "next_15" },
+  { label: "Proximos 30 dias", value: "next_30" },
+  { label: "Proximos 60 dias", value: "next_60" },
+  { label: "Proximos 90 dias", value: "next_90" },
+  { label: "Sem vencimento", value: "no_expiration" },
+];
+
 const reducer = (state, action) => {
   switch (action.type) {
     case "RESET":
@@ -361,6 +373,7 @@ const Clients = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [productFilter, setProductFilter] = useState("");
+  const [expirationFilter, setExpirationFilter] = useState("");
   const [clientSinceYearFilter, setClientSinceYearFilter] = useState("");
   const [totalCount, setTotalCount] = useState(null);
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -406,7 +419,14 @@ const Clients = () => {
     setPageNumber(1);
     setTotalCount(null);
     setRefreshToken((prev) => prev + 1);
-  }, [searchParam, statusFilter, typeFilter, productFilter, clientSinceYearFilter]);
+  }, [
+    searchParam,
+    statusFilter,
+    typeFilter,
+    productFilter,
+    expirationFilter,
+    clientSinceYearFilter,
+  ]);
 
   useEffect(() => {
     const fetchAuxiliaryData = async () => {
@@ -458,6 +478,7 @@ const Clients = () => {
         statusFilter,
         typeFilter,
         productFilter,
+        expirationFilter,
         clientSinceYearFilter,
         pageNumber,
       });
@@ -468,6 +489,7 @@ const Clients = () => {
             status: statusFilter,
             type: typeFilter,
             product: productFilter || undefined,
+            expirationFilter: expirationFilter || undefined,
             clientSinceYear:
               clientSinceYearFilter.length === 4
                 ? clientSinceYearFilter
@@ -510,6 +532,7 @@ const Clients = () => {
     statusFilter,
     typeFilter,
     productFilter,
+    expirationFilter,
     clientSinceYearFilter,
     pageNumber,
     refreshToken,
@@ -705,6 +728,7 @@ const Clients = () => {
           status: statusFilter,
           type: typeFilter,
           product: productFilter || undefined,
+          expirationFilter: expirationFilter || undefined,
           clientSinceYear:
             clientSinceYearFilter.length === 4
               ? clientSinceYearFilter
@@ -1221,6 +1245,22 @@ const Clients = () => {
                   </MenuItem>
                 );
               })}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Vencimento"
+              variant="outlined"
+              value={expirationFilter}
+              onChange={(event) => setExpirationFilter(event.target.value)}
+              className={classes.selectField}
+            >
+              {EXPIRATION_OPTIONS.map((option) => (
+                <MenuItem key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </TextField>
 
             <TextField

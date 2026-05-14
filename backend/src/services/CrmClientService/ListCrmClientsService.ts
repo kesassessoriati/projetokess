@@ -9,6 +9,7 @@ interface Request {
   type?: "pf" | "pj";
   product?: string;
   clientSinceYear?: number;
+  expirationFilter?: string;
   ownerUserId?: number;
   pageNumber?: number;
   limit?: number;
@@ -21,6 +22,7 @@ const ListCrmClientsService = async ({
   type,
   product,
   clientSinceYear,
+  expirationFilter,
   ownerUserId,
   pageNumber = 1,
   limit = 20
@@ -42,6 +44,34 @@ const ListCrmClientsService = async ({
       [Op.gte]: `${clientSinceYear}-01-01`,
       [Op.lt]: `${clientSinceYear + 1}-01-01`
     };
+  }
+
+  if (expirationFilter) {
+    const formatDateOnly = (date: Date) => date.toISOString().split("T")[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDate = formatDateOnly(today);
+    const addDays = (days: number) => {
+      const nextDate = new Date(today);
+      nextDate.setDate(nextDate.getDate() + days);
+      return formatDateOnly(nextDate);
+    };
+
+    if (expirationFilter === "expired") {
+      (where as any).expirationDate = { [Op.lt]: todayDate };
+    } else if (expirationFilter === "today") {
+      (where as any).expirationDate = todayDate;
+    } else if (expirationFilter === "no_expiration") {
+      (where as any).expirationDate = { [Op.is]: null };
+    } else if (expirationFilter.startsWith("next_")) {
+      const days = Number(expirationFilter.replace("next_", ""));
+      if (Number.isFinite(days) && days > 0) {
+        (where as any).expirationDate = {
+          [Op.gte]: todayDate,
+          [Op.lte]: addDays(days)
+        };
+      }
+    }
   }
 
   if (ownerUserId) {
