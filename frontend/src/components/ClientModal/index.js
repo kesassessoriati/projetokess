@@ -19,6 +19,7 @@ import Autocomplete, {
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import DigitalPresenceLinkAdornment from "../DigitalPresenceLinkAdornment";
 
 const filter = createFilterOptions();
 
@@ -92,6 +93,7 @@ const defaultForm = {
   phone: "",
   decisorName: "",
   decisorPhone: "",
+  gmn: "",
   site: "",
   instagram: "",
   linkedin: "",
@@ -181,6 +183,7 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
         phone: data.phone || "",
         decisorName: data.decisorName || "",
         decisorPhone: data.decisorPhone || "",
+        gmn: data.gmn || "",
         site: data.site || "",
         instagram: data.instagram || "",
         linkedin: data.linkedin || "",
@@ -490,7 +493,26 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  label="GMN"
+                  name="gmn"
+                  value={form.gmn}
+                  onChange={handleChange}
+                  variant="outlined"
+                  fullWidth
+                  className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.gmn}
+                        label="Abrir Google Meu Negócio"
+                      />
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={3}>
                 <TextField
                   label="Site"
                   name="site"
@@ -499,9 +521,17 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.site}
+                        label="Abrir site"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <TextField
                   label="Instagram"
                   name="instagram"
@@ -510,9 +540,17 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.instagram}
+                        label="Abrir Instagram"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <TextField
                   label="LinkedIn"
                   name="linkedin"
@@ -521,6 +559,14 @@ const ClientModal = ({ open, onClose, clientId, onSuccess }) => {
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.linkedin}
+                        label="Abrir LinkedIn"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
 

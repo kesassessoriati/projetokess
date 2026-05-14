@@ -37,6 +37,7 @@ export interface CreateCrmClientRequest {
   notes?: string;
   decisorName?: string;
   decisorPhone?: string;
+  gmn?: string;
   site?: string;
   instagram?: string;
   linkedin?: string;
@@ -127,7 +128,11 @@ const CreateCrmClientService = async (
     purchaseType: data.purchaseType || undefined,
     purchaseValue: data.purchaseValue != null ? Number(data.purchaseValue) : undefined,
     acquisitionDate: data.acquisitionDate || null,
-    expirationDate: data.expirationDate || null
+    expirationDate: data.expirationDate || null,
+    gmn: data.gmn || undefined,
+    site: data.site || undefined,
+    instagram: data.instagram || undefined,
+    linkedin: data.linkedin || undefined
   };
 
   const client = await CrmClient.create(clientData);

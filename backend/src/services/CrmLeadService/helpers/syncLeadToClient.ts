@@ -105,6 +105,7 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       notes: lead.notes,
       decisorName: lead.decisionMakerName,
       decisorPhone: lead.decisionMakerPhone,
+      gmn: lead.gmn,
       site: lead.website,
       instagram: lead.instagram,
       linkedin: lead.linkedin,
@@ -176,6 +177,9 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     }
     if (lead.decisionMakerPhone && lead.decisionMakerPhone !== client.decisorPhone) {
       updates.decisorPhone = lead.decisionMakerPhone;
+    }
+    if (lead.gmn && lead.gmn !== client.gmn) {
+      updates.gmn = lead.gmn;
     }
     if (lead.website && lead.website !== client.site) {
       updates.site = lead.website;

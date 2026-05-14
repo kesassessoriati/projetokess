@@ -103,6 +103,22 @@ const syncClientToLead = async ({
       updates.acquisitionDate = client.acquisitionDate;
     }
 
+    if (client.gmn && client.gmn !== lead.gmn) {
+      updates.gmn = client.gmn;
+    }
+
+    if (client.site && client.site !== lead.website) {
+      updates.website = client.site;
+    }
+
+    if (client.instagram && client.instagram !== lead.instagram) {
+      updates.instagram = client.instagram;
+    }
+
+    if (client.linkedin && client.linkedin !== lead.linkedin) {
+      updates.linkedin = client.linkedin;
+    }
+
     if (normalizedDocument && normalizedDocument !== lead.document) {
       updates.document = normalizedDocument;
     }

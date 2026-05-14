@@ -39,6 +39,7 @@ interface Request {
   notes?: string;
   decisorName?: string;
   decisorPhone?: string;
+  gmn?: string;
   site?: string;
   instagram?: string;
   linkedin?: string;
@@ -132,7 +133,11 @@ const UpdateCrmClientService = async ({
     purchaseType: data.purchaseType,
     purchaseValue: data.purchaseValue != null ? Number(data.purchaseValue) : data.purchaseValue,
     acquisitionDate: data.acquisitionDate || null,
-    expirationDate: data.expirationDate || null
+    expirationDate: data.expirationDate || null,
+    gmn: data.gmn,
+    site: data.site,
+    instagram: data.instagram,
+    linkedin: data.linkedin
   };
 
   await client.update(updateData);

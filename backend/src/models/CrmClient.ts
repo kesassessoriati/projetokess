@@ -126,6 +126,9 @@ class CrmClient extends Model<CrmClient> {
   decisorPhone: string;
 
   @Column(DataType.STRING)
+  gmn: string;
+
+  @Column(DataType.STRING)
   site: string;
 
   @Column(DataType.STRING)

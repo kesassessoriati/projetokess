@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   TextField,
   Button,
   Grid,
@@ -20,6 +19,7 @@ import { LEAD_STATUS } from "../../constants/leadStatus";
 import Autocomplete, {
   createFilterOptions,
 } from "@material-ui/lab/Autocomplete";
+import DigitalPresenceLinkAdornment from "../DigitalPresenceLinkAdornment";
 
 const filter = createFilterOptions();
 
@@ -708,6 +708,14 @@ const LeadModal = ({
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.gmn}
+                        label="Abrir Google Meu Negócio"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -719,6 +727,14 @@ const LeadModal = ({
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.website}
+                        label="Abrir site"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -730,6 +746,14 @@ const LeadModal = ({
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.instagram}
+                        label="Abrir Instagram"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -741,6 +765,14 @@ const LeadModal = ({
                   variant="outlined"
                   fullWidth
                   className={classes.formField}
+                  InputProps={{
+                    endAdornment: (
+                      <DigitalPresenceLinkAdornment
+                        value={form.linkedin}
+                        label="Abrir LinkedIn"
+                      />
+                    ),
+                  }}
                 />
               </Grid>
 
