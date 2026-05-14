@@ -395,11 +395,18 @@ const useStyles = makeStyles((theme) => ({
     overflowY: "hidden",
     backgroundColor: "#f5faf7",
     borderBottom: "1px solid #d8e7df",
-    height: 12,
-    "&::-webkit-scrollbar": { height: 8 },
+    height: 18,
+    scrollbarColor: "#8b8f96 #e5e7eb",
+    scrollbarWidth: "auto",
+    "&::-webkit-scrollbar": { height: 14 },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "#e5e7eb",
+      borderRadius: 999,
+    },
     "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#a8c8b6",
-      borderRadius: 4,
+      backgroundColor: "#8b8f96",
+      borderRadius: 999,
+      border: "3px solid #e5e7eb",
     },
   },
   topScrollContent: {
@@ -412,10 +419,17 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(2),
     gap: theme.spacing(2),
     alignItems: "flex-start",
-    "&::-webkit-scrollbar": { height: 10 },
+    scrollbarColor: "#8b8f96 #e5e7eb",
+    scrollbarWidth: "auto",
+    "&::-webkit-scrollbar": { height: 16 },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "#e5e7eb",
+      borderRadius: 999,
+    },
     "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#a8c8b6",
-      borderRadius: 6,
+      backgroundColor: "#8b8f96",
+      borderRadius: 999,
+      border: "3px solid #e5e7eb",
     },
   },
   lane: {
