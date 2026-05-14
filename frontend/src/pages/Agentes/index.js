@@ -603,6 +603,8 @@ const Prompts = () => {
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [deletingAiAppointment, setDeletingAiAppointment] = useState(null);
+  const [editingReminderId, setEditingReminderId] = useState(null);
+  const [deletingReminder, setDeletingReminder] = useState(null);
   const { user } = useContext(AuthContext);
   const { isConnected, on } = useSocket();
 
@@ -818,10 +820,11 @@ const Prompts = () => {
     setExternalSaving(true);
     try {
       const settings = getExternalReminderSettings();
-      await api.post("/ai-agents/external/reminders", {
+      const payload = {
         ...reminderForm,
         metadata: {
-          manual: true,
+          manual: !editingReminderId,
+          editedFromPanel: Boolean(editingReminderId),
           interactivePayload: {
             number: reminderForm.leadPhone,
             text: reminderForm.message || settings.text,
@@ -829,10 +832,60 @@ const Prompts = () => {
             buttons: settings.buttons,
           },
         },
-      });
+      };
+
+      if (editingReminderId) {
+        await api.put(`/ai-agents/external/reminders/${editingReminderId}`, payload);
+      } else {
+        await api.post("/ai-agents/external/reminders", payload);
+      }
+
       setReminderForm({ leadName: "", leadPhone: "", scheduledAt: "", message: "" });
+      setEditingReminderId(null);
       await loadExternalAgent();
-      toast.success("Lembrete criado.");
+      toast.success(editingReminderId ? "Lembrete atualizado." : "Lembrete criado.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const toDateTimeLocal = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 16);
+  };
+
+  const handleEditReminder = (reminder) => {
+    setEditingReminderId(reminder.id);
+    setReminderForm({
+      leadName: reminder.leadName || "",
+      leadPhone: reminder.leadPhone || "",
+      scheduledAt: toDateTimeLocal(reminder.scheduledAt),
+      message: reminder.message || reminder.metadata?.interactivePayload?.text || "",
+    });
+  };
+
+  const handleCancelEditReminder = () => {
+    setEditingReminderId(null);
+    setReminderForm({ leadName: "", leadPhone: "", scheduledAt: "", message: "" });
+  };
+
+  const handleDeleteReminder = async () => {
+    if (!deletingReminder) return;
+
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/reminders/${deletingReminder.id}`);
+      setDeletingReminder(null);
+      if (editingReminderId === deletingReminder.id) {
+        handleCancelEditReminder();
+      }
+      await loadExternalAgent();
+      toast.success("Lembrete excluido.");
     } catch (err) {
       toastError(err);
     } finally {
@@ -1373,8 +1426,13 @@ const Prompts = () => {
         </Box>
         <Box className={classes.actionRow}>
           <Button variant="contained" color="primary" disabled={externalSaving || !reminderForm.scheduledAt} onClick={handleCreateReminder}>
-            Criar lembrete
+            {editingReminderId ? "Salvar lembrete" : "Criar lembrete"}
           </Button>
+          {editingReminderId && (
+            <Button variant="outlined" disabled={externalSaving} onClick={handleCancelEditReminder}>
+              Cancelar edicao
+            </Button>
+          )}
         </Box>
       </Box>
       <Box className={classes.externalPanel}>
@@ -1387,9 +1445,33 @@ const Prompts = () => {
             <Box key={item.id} className={classes.placeholderRow}>
               <Box>
                 <Typography className={classes.versionTitle}>{item.leadName || item.leadPhone || "Lead"}</Typography>
-                <Typography className={classes.versionMeta}>{formatDateTime(item.scheduledAt)}</Typography>
+                <Typography className={classes.versionMeta}>
+                  {formatDateTime(item.scheduledAt)}
+                  {item.aiAppointment?.title ? ` - ${item.aiAppointment.title}` : ""}
+                </Typography>
               </Box>
-              <span className={classes.mutedPill}>{item.status}</span>
+              <Box className={classes.inlineActions}>
+                <span className={classes.mutedPill}>{item.status}</span>
+                <Tooltip title="Editar lembrete">
+                  <IconButton
+                    size="small"
+                    disabled={externalSaving}
+                    onClick={() => handleEditReminder(item)}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Excluir lembrete">
+                  <IconButton
+                    size="small"
+                    color="secondary"
+                    disabled={externalSaving}
+                    onClick={() => setDeletingReminder(item)}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
           ))}
         </Box>
@@ -1654,6 +1736,19 @@ const Prompts = () => {
       >
         Este agendamento sera removido do painel da IA e tambem da base de
         Compromissos, quando houver compromisso vinculado.
+      </ConfirmationModal>
+      <ConfirmationModal
+        title={
+          deletingReminder
+            ? `Excluir lembrete de "${deletingReminder.leadName || deletingReminder.leadPhone || "Lead"}"?`
+            : "Excluir lembrete?"
+        }
+        open={Boolean(deletingReminder)}
+        onClose={() => setDeletingReminder(null)}
+        onConfirm={handleDeleteReminder}
+      >
+        Este lembrete sera removido da lista de lembretes ativos e da base de
+        dados.
       </ConfirmationModal>
       <PromptModal
         open={promptModalOpen}

@@ -1,8 +1,15 @@
 import { Op } from "sequelize";
 import AiExternalAppointment from "../../models/AiExternalAppointment";
+import AiExternalReminder from "../../models/AiExternalReminder";
 import Appointment from "../../models/Appointment";
 import CreateAppointmentService from "../AppointmentServices/CreateAppointmentService";
 import DeleteAppointmentService from "../AppointmentServices/DeleteAppointmentService";
+import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
+import {
+  buildReminderPayload,
+  createReminder,
+  getReminderSettings
+} from "../AiExternalReminderServices/AiExternalReminderServices";
 import logger from "../../utils/logger";
 
 interface Request {
@@ -108,6 +115,65 @@ const ensureCrmAppointment = async ({
   });
 };
 
+const ensureAutomaticReminder = async ({
+  aiAppointment,
+  companyId,
+  userId
+}: {
+  aiAppointment: AiExternalAppointment;
+  companyId: number;
+  userId?: number;
+}): Promise<void> => {
+  if (!aiAppointment.startDatetime) return;
+
+  const existingReminder = await AiExternalReminder.findOne({
+    where: {
+      companyId,
+      aiAppointmentId: aiAppointment.id,
+      status: { [Op.ne]: "cancelled" }
+    }
+  });
+
+  if (existingReminder) return;
+
+  const config = await GetOrCreateExternalAgentConfigService({ companyId, userId });
+  const settings = getReminderSettings(config.metadata);
+  if (!settings.enabled) return;
+
+  const startDatetime = new Date(aiAppointment.startDatetime);
+  const scheduledAt = new Date(
+    startDatetime.getTime() - settings.hoursBefore * 60 * 60 * 1000
+  );
+  const safeScheduledAt =
+    scheduledAt.getTime() > Date.now() ? scheduledAt : new Date();
+  const interactivePayload = buildReminderPayload({
+    settings,
+    leadName: aiAppointment.leadName,
+    leadPhone: aiAppointment.leadPhone,
+    appointmentDate: startDatetime
+  });
+
+  await createReminder({
+    companyId,
+    userId,
+    aiAppointmentId: aiAppointment.id,
+    contactId: aiAppointment.contactId || undefined,
+    ticketId: aiAppointment.ticketId || undefined,
+    leadName: aiAppointment.leadName || undefined,
+    leadPhone: aiAppointment.leadPhone || undefined,
+    message: interactivePayload.text,
+    scheduledAt: safeScheduledAt,
+    n8nSessionId: aiAppointment.n8nSessionId || undefined,
+    metadata: {
+      automatic: true,
+      appointmentId: aiAppointment.appointmentId,
+      aiAppointmentId: aiAppointment.id,
+      hoursBefore: settings.hoursBefore,
+      interactivePayload
+    }
+  });
+};
+
 const removeDuplicateAiAppointment = async ({
   duplicate,
   keepAppointmentId,
@@ -160,6 +226,7 @@ const SyncAiExternalAppointmentsService = async ({
     try {
       await ensureCrmAppointment({ aiAppointment: keeper, companyId, userId });
       await keeper.reload();
+      await ensureAutomaticReminder({ aiAppointment: keeper, companyId, userId });
     } catch (error) {
       logger.warn(
         `[AI External Appointments] Falha ao sincronizar agendamento IA ${keeper.id}: ${error?.message || error}`

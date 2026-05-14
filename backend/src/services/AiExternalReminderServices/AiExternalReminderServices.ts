@@ -173,7 +173,17 @@ export const updateReminder = async (data: {
     sentAt: data.sentAt ? new Date(data.sentAt) : reminder.sentAt,
     message: data.message !== undefined ? data.message : reminder.message,
     scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : reminder.scheduledAt,
-    metadata: data.metadata !== undefined ? data.metadata : reminder.metadata
+    metadata: data.metadata !== undefined
+      ? data.metadata
+      : data.message !== undefined
+        ? {
+            ...(reminder.metadata || {}),
+            interactivePayload: {
+              ...((reminder.metadata || {}).interactivePayload || {}),
+              text: data.message
+            }
+          }
+        : reminder.metadata
   });
 
   const config = await GetOrCreateExternalAgentConfigService({ companyId: data.companyId, userId: data.userId });
