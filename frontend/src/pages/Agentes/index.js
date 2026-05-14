@@ -602,6 +602,7 @@ const Prompts = () => {
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [deletingAiAppointment, setDeletingAiAppointment] = useState(null);
   const { user } = useContext(AuthContext);
   const { isConnected, on } = useSocket();
 
@@ -790,6 +791,22 @@ const Prompts = () => {
       });
       await loadExternalAgent();
       toast.success("Agendamento IA criado e sincronizado com compromissos.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleDeleteAiAppointment = async () => {
+    if (!deletingAiAppointment) return;
+
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/appointments/${deletingAiAppointment.id}`);
+      setDeletingAiAppointment(null);
+      await loadExternalAgent();
+      toast.success("Agendamento IA excluido.");
     } catch (err) {
       toastError(err);
     } finally {
@@ -1305,7 +1322,19 @@ const Prompts = () => {
                   {item.leadName || item.leadPhone || "Sem lead"} - {formatDateTime(item.startDatetime)}
                 </Typography>
               </Box>
-              <span className={classes.mutedPill}>{item.status}</span>
+              <Box className={classes.inlineActions}>
+                <span className={classes.mutedPill}>{item.status}</span>
+                <Tooltip title="Excluir agendamento">
+                  <IconButton
+                    size="small"
+                    color="secondary"
+                    disabled={externalSaving}
+                    onClick={() => setDeletingAiAppointment(item)}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
           ))}
         </Box>
@@ -1612,6 +1641,19 @@ const Prompts = () => {
         onConfirm={() => handleDeletePrompt(selectedPrompt.id)}
       >
         {i18n.t("prompts.confirmationModal.deleteMessage")}
+      </ConfirmationModal>
+      <ConfirmationModal
+        title={
+          deletingAiAppointment
+            ? `Excluir agendamento "${deletingAiAppointment.title}"?`
+            : "Excluir agendamento?"
+        }
+        open={Boolean(deletingAiAppointment)}
+        onClose={() => setDeletingAiAppointment(null)}
+        onConfirm={handleDeleteAiAppointment}
+      >
+        Este agendamento sera removido do painel da IA e tambem da base de
+        Compromissos, quando houver compromisso vinculado.
       </ConfirmationModal>
       <PromptModal
         open={promptModalOpen}

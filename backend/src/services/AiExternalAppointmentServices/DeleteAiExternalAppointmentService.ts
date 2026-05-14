@@ -3,6 +3,7 @@ import AiExternalAppointment from "../../models/AiExternalAppointment";
 import DeleteAppointmentService from "../AppointmentServices/DeleteAppointmentService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
+import logger from "../../utils/logger";
 
 interface Request {
   id: number;
@@ -26,7 +27,11 @@ const DeleteAiExternalAppointmentService = async ({
   const appointmentId = aiAppointment.appointmentId;
 
   if (appointmentId) {
-    await DeleteAppointmentService(appointmentId, companyId);
+    await DeleteAppointmentService(appointmentId, companyId).catch(error => {
+      logger.warn(
+        `[AI External Appointments] Nao foi possivel excluir compromisso vinculado ${appointmentId}: ${error?.message || error}`
+      );
+    });
   }
 
   await aiAppointment.destroy();

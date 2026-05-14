@@ -3,6 +3,7 @@ import ListAiExternalAppointmentsService from "../services/AiExternalAppointment
 import CreateAiExternalAppointmentService from "../services/AiExternalAppointmentServices/CreateAiExternalAppointmentService";
 import UpdateAiExternalAppointmentService from "../services/AiExternalAppointmentServices/UpdateAiExternalAppointmentService";
 import DeleteAiExternalAppointmentService from "../services/AiExternalAppointmentServices/DeleteAiExternalAppointmentService";
+import SyncAiExternalAppointmentsService from "../services/AiExternalAppointmentServices/SyncAiExternalAppointmentsService";
 
 const getScope = (req: Request) => ({
   companyId: Number(req.user.companyId),
@@ -10,8 +11,10 @@ const getScope = (req: Request) => ({
 });
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = getScope(req);
+  const { companyId, userId } = getScope(req);
   const { pageNumber, status, leadPhone, startDate, endDate } = req.query as Record<string, string>;
+
+  await SyncAiExternalAppointmentsService({ companyId, userId });
 
   const result = await ListAiExternalAppointmentsService({
     companyId,
