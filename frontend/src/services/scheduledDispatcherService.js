@@ -12,6 +12,11 @@ export const eventTypeOptions = [
     description: "Dispara lembretes antes do vencimento da fatura."
   },
   {
+    value: "client_expiration",
+    label: "Vencimento",
+    description: "Dispara mensagens para clientes com data de vencimento preenchida no cadastro."
+  },
+  {
     value: "invoice_overdue",
     label: "Cobrança de Fatura em Atraso",
     description: "Aciona mensagens após o atraso da fatura."

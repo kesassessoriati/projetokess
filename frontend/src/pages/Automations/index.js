@@ -275,6 +275,11 @@ const Automations = () => {
         icon: <ReceiptIcon />,
         background: theme.palette.info.main
       },
+      client_expiration: {
+        label: "Vencimento",
+        icon: <EventIcon />,
+        background: theme.palette.warning.main
+      },
       invoice_overdue: {
         label: "Cobrança atrasada",
         icon: <WarningIcon />,
@@ -287,6 +292,9 @@ const Automations = () => {
   const renderRulesDescription = dispatcher => {
     if (dispatcher.eventType === "invoice_reminder") {
       return `Dispara ${dispatcher.daysBeforeDue || 0} dia(s) antes do vencimento`;
+    }
+    if (dispatcher.eventType === "client_expiration") {
+      return `Dispara ${dispatcher.daysBeforeDue || 0} dia(s) antes do vencimento do cliente`;
     }
     if (dispatcher.eventType === "invoice_overdue") {
       return `Dispara ${dispatcher.daysAfterDue || 0} dia(s) após o atraso`;

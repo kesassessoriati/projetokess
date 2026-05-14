@@ -7,7 +7,7 @@ export interface UpdateScheduledDispatcherDTO {
   dispatcherId: number;
   title?: string;
   messageTemplate?: string | null;
-  eventType?: "birthday" | "invoice_reminder" | "invoice_overdue";
+  eventType?: "birthday" | "invoice_reminder" | "invoice_overdue" | "client_expiration";
   whatsappId?: number | null;
   dispatchMode?: "fixed" | "round_robin";
   chipIds?: number[];
@@ -21,7 +21,7 @@ export interface UpdateScheduledDispatcherDTO {
   mediaCaption?: string | null;
 }
 
-const allowedEvents = ["birthday", "invoice_reminder", "invoice_overdue"];
+const allowedEvents = ["birthday", "invoice_reminder", "invoice_overdue", "client_expiration"];
 
 const UpdateScheduledDispatcherService = async (
   payload: UpdateScheduledDispatcherDTO
@@ -70,7 +70,7 @@ const UpdateScheduledDispatcherService = async (
 
   if (updates.eventType || payload.daysBeforeDue !== undefined || payload.daysAfterDue !== undefined) {
     const event = updates.eventType || dispatcher.eventType;
-    if (event === "invoice_reminder") {
+    if (event === "invoice_reminder" || event === "client_expiration") {
       updates.daysBeforeDue =
         payload.daysBeforeDue !== undefined ? payload.daysBeforeDue : dispatcher.daysBeforeDue ?? 0;
       updates.daysAfterDue = null;

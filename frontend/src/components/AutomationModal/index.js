@@ -170,6 +170,18 @@ const defaultForm = {
   mediaCaption: ""
 };
 
+const scheduledDispatcherVariables = [
+  { token: "{{ms}}", label: "Saudação" },
+  { token: "{{firstName}}", label: "Primeiro nome" },
+  { token: "{{contactName}}", label: "Nome completo" },
+  { token: "{{contactNumber}}", label: "Número" },
+  { token: "{{contactEmail}}", label: "E-mail" },
+  { token: "{{invoiceDueDate}}", label: "Data de vencimento" },
+  { token: "{{invoiceValue}}", label: "Valor da fatura" },
+  { token: "{{clientProduct}}", label: "Produto" },
+  { token: "{{connection}}", label: "Conexão" }
+];
+
 const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const classes = useStyles();
   const { whatsApps } = useWhatsApps();
@@ -356,7 +368,9 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       startTime: form.startTime,
       sendIntervalSeconds: Number(form.sendIntervalSeconds),
       daysBeforeDue:
-        form.eventType === "invoice_reminder" ? Number(form.daysBeforeDue || 0) : null,
+        form.eventType === "invoice_reminder" || form.eventType === "client_expiration"
+          ? Number(form.daysBeforeDue || 0)
+          : null,
       daysAfterDue:
         form.eventType === "invoice_overdue" ? Number(form.daysAfterDue || 0) : null,
       active: form.active,
@@ -408,7 +422,9 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
       startTime: form.startTime,
       sendIntervalSeconds: Number(form.sendIntervalSeconds),
       daysBeforeDue:
-        form.eventType === "invoice_reminder" ? Number(form.daysBeforeDue || 0) : null,
+        form.eventType === "invoice_reminder" || form.eventType === "client_expiration"
+          ? Number(form.daysBeforeDue || 0)
+          : null,
       daysAfterDue:
         form.eventType === "invoice_overdue" ? Number(form.daysAfterDue || 0) : null,
       mediaCaption: hasMedia ? form.mediaCaption : null,
@@ -429,7 +445,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   };
 
   const eventMeta = eventTypeOptions.find(item => item.value === form.eventType);
-  const showDaysBefore = form.eventType === "invoice_reminder";
+  const showDaysBefore = form.eventType === "invoice_reminder" || form.eventType === "client_expiration";
   const showDaysAfter = form.eventType === "invoice_overdue";
 
   const existingMediaFullUrl = existingMediaUrl
@@ -632,25 +648,18 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
               />
               <Typography className={classes.templateHint}>
                 Dica: use variáveis como {"{{firstName}}"}, {"{{contactName}}"},
-                {" {{invoiceDueDate}}"} para personalizar a mensagem.
+                {" {{invoiceDueDate}}"} para personalizar a mensagem. Clique nas variaveis abaixo para inserir.
               </Typography>
               <Box className={classes.chipGroup}>
-                {[
-                  "{{ms}}",
-                  "{{firstName}}",
-                  "{{contactName}}",
-                  "{{invoiceDueDate}}",
-                  "{{invoiceValue}}",
-                  "{{connection}}"
-                ].map(token => (
+                {scheduledDispatcherVariables.map(variable => (
                   <Chip
-                    key={token}
-                    label={token}
+                    key={variable.token}
+                    label={variable.label}
                     size="small"
                     onClick={() =>
                       setForm(prev => ({
                         ...prev,
-                        messageTemplate: prev.messageTemplate + ` ${token}`
+                        messageTemplate: prev.messageTemplate + ` ${variable.token}`
                       }))
                     }
                   />

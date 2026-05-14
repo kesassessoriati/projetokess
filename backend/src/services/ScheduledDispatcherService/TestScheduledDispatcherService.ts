@@ -53,6 +53,10 @@ const findContextInvoice = async ({
     status: { [Op.in]: OPEN_INVOICE_STATUS }
   };
 
+  if (eventType === "client_expiration") {
+    return null;
+  }
+
   if (eventType === "invoice_reminder") {
     where.dataVencimento = now
       .clone()

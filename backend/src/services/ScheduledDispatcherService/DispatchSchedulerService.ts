@@ -113,6 +113,39 @@ const collectReminderTargets = async (
     .filter(Boolean) as DispatchTarget[];
 };
 
+const collectClientExpirationTargets = async (
+  dispatcher: ScheduledDispatcher,
+  now: moment.Moment
+): Promise<DispatchTarget[]> => {
+  const daysBefore = dispatcher.daysBeforeDue ?? 0;
+  const targetDate = now
+    .clone()
+    .add(daysBefore, "days")
+    .format("YYYY-MM-DD");
+
+  const clients = await CrmClient.findAll({
+    where: {
+      companyId: dispatcher.companyId,
+      expirationDate: targetDate,
+      status: "active"
+    },
+    include: [
+      {
+        model: Contact,
+        as: "contact"
+      }
+    ]
+  });
+
+  return clients
+    .map(client => {
+      const contact = client.contact;
+      if (!contact?.id || !contact.number) return null;
+      return { contact, client };
+    })
+    .filter(Boolean) as DispatchTarget[];
+};
+
 const collectOverdueTargets = async (
   dispatcher: ScheduledDispatcher,
   now: moment.Moment
@@ -180,6 +213,24 @@ export const buildVariables = (
     variables.clientName = client.name || client.companyName;
     variables.clientType = client.type;
     variables.clientStatus = client.status;
+    variables.clientProduct = client.acquiredProduct || "";
+    variables.acquiredProduct = client.acquiredProduct || "";
+    variables.clientPurchaseValue = client.purchaseValue
+      ? formatCurrencyPtBr(client.purchaseValue)
+      : "";
+    if (client.expirationDate) {
+      const expirationMoment = moment.tz(
+        String(client.expirationDate).substring(0, 10),
+        "YYYY-MM-DD",
+        TZ
+      );
+      variables.clientExpirationDate = expirationMoment.format("DD/MM/YYYY");
+      variables.clientExpirationDateISO = expirationMoment.format("YYYY-MM-DD");
+      if (!extra?.invoice) {
+        variables.invoiceDueDate = variables.clientExpirationDate;
+        variables.invoiceDueDateISO = variables.clientExpirationDateISO;
+      }
+    }
     if (client.birthDate) {
       variables.clientBirthday = moment(client.birthDate).format("YYYY-MM-DD");
     }
@@ -217,6 +268,8 @@ const loadTargets = async (
       return collectBirthdayTargets(dispatcher, now);
     case "invoice_reminder":
       return collectReminderTargets(dispatcher, now);
+    case "client_expiration":
+      return collectClientExpirationTargets(dispatcher, now);
     case "invoice_overdue":
       return collectOverdueTargets(dispatcher, now);
     default:
