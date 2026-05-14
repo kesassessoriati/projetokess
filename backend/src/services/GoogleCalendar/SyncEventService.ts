@@ -9,7 +9,7 @@ interface SyncEventRequest {
 const SyncEventService = async ({ schedule }: SyncEventRequest): Promise<void> => {
   const companyId = schedule.companyId;
   console.log(
-    "SyncEventService - iniciando sincronização com Google Calendar",
+    "SyncEventService - iniciando sincronizacao com Google Calendar",
     "scheduleId:",
     (schedule as any).id,
     "companyId:",
@@ -20,39 +20,36 @@ const SyncEventService = async ({ schedule }: SyncEventRequest): Promise<void> =
 
   if (!integration) {
     console.log(
-      "SyncEventService - nenhuma integração Google Calendar encontrada para companyId",
+      "SyncEventService - nenhuma integracao Google Calendar encontrada para companyId",
       companyId
     );
     return;
   }
 
-  const { accessToken, refreshToken, expiryDate, calendarId } = integration;
-
-  const tokens: any = {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    expiry_date: expiryDate ? expiryDate.getTime() : undefined
-  };
-
-  const calendar = await buildCalendarClient(tokens);
-
-  const calendarIdToUse = calendarId || "primary";
-
-  // Aqui vai a lógica real de montar o evento a partir do Schedule.
-  // Por enquanto deixamos o esqueleto pronto para não quebrar nada.
-  const event: any = {
-    summary: schedule.body || "Compromisso",
-    start: {
-      dateTime: schedule.sendAt,
-      timeZone: "America/Sao_Paulo"
-    },
-    end: {
-      dateTime: schedule.sendAt,
-      timeZone: "America/Sao_Paulo"
-    }
-  };
-
   try {
+    const { accessToken, refreshToken, expiryDate, calendarId } = integration;
+
+    const tokens: any = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expiry_date: expiryDate ? expiryDate.getTime() : undefined
+    };
+
+    const calendar = await buildCalendarClient(tokens);
+    const calendarIdToUse = calendarId || "primary";
+
+    const event: any = {
+      summary: schedule.body || "Compromisso",
+      start: {
+        dateTime: schedule.sendAt,
+        timeZone: "America/Sao_Paulo"
+      },
+      end: {
+        dateTime: schedule.sendAt,
+        timeZone: "America/Sao_Paulo"
+      }
+    };
+
     const googleEventId = (schedule as any).googleEventId;
 
     console.log(
@@ -94,7 +91,6 @@ const SyncEventService = async ({ schedule }: SyncEventRequest): Promise<void> =
       }
     }
   } catch (err) {
-    // Em caso de erro na integração, não quebra o fluxo principal.
     console.error("Erro ao sincronizar evento com Google Calendar", err);
   }
 };

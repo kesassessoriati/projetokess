@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef, useMemo } from "react";
 import * as Yup from "yup";
 import { Formik, Form, Field, FieldArray } from "formik";
 import { toast } from "react-toastify";
@@ -189,7 +189,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const isMounted = useRef(true);
   const { companyId } = user;
 
-  const initialState = {
+  const initialState = useMemo(() => ({
     body: "",
     contactId: "",
     sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
@@ -203,7 +203,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
     enviarQuantasVezes: 1,
     tipoDias: 4,
     assinar: false,
-  };
+  }), [open]);
 
   const initialContact = {
     id: "",
@@ -235,6 +235,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const [emojiData, setEmojiData] = useState(null);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const formikRef = useRef(null);
+  const hydratedScheduleKeyRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -329,7 +330,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 
   useEffect(() => {
     const { companyId } = user;
-    if (!open) return;
+    if (!open) {
+      hydratedScheduleKeyRef.current = null;
+      return;
+    }
+
+    const hydrateKey = scheduleId ? `edit:${scheduleId}` : `new:${contactId || ""}`;
+    if (hydratedScheduleKeyRef.current === hydrateKey) return;
+    hydratedScheduleKeyRef.current = hydrateKey;
 
     (async () => {
       try {
@@ -375,7 +383,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
         toastError(err);
       }
     })();
-  }, [scheduleId, contactId, open, user]);
+  }, [scheduleId, contactId, open, companyId, initialState, message, user]);
 
   const filterOptions = createFilterOptions({
     trim: true,
@@ -451,6 +459,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
     const scheduleData = {
       ...values,
       userId: user.id,
+      ticketUserId: values.ticketUserId || null,
       whatsappId: selectedWhatsapps,
       queueId: selectedQueue || null,
       intervalo: intervalo || 1,

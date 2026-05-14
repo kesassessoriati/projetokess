@@ -32,6 +32,16 @@ interface Request {
   companyId: number;
 }
 
+const normalizeNullableNumber = (
+  value: number | string | undefined | null
+): number | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const UpdateUserService = async ({
   scheduleData,
   id,
@@ -76,14 +86,14 @@ const UpdateUserService = async ({
     body,
     sendAt,
     sentAt,
-    contactId,
+    contactId: normalizeNullableNumber(contactId),
     ticketId,
-    userId,
-    ticketUserId,
-    queueId,
+    userId: normalizeNullableNumber(userId),
+    ticketUserId: normalizeNullableNumber(ticketUserId),
+    queueId: normalizeNullableNumber(queueId),
     openTicket,
     statusTicket,
-    whatsappId,
+    whatsappId: normalizeNullableNumber(whatsappId),
     intervalo,
     valorIntervalo,
     enviarQuantasVezes,

@@ -23,6 +23,13 @@ interface Request {
   assinar?: boolean;
 }
 
+const normalizeNullableNumber = (value: number | string | undefined | null): number | null => {
+  if (value === undefined || value === null || value === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const CreateService = async ({
   body,
   sendAt,
@@ -56,15 +63,15 @@ const CreateService = async ({
     {
       body,
       sendAt,
-      contactId,
-      companyId,
-      userId,
+      contactId: normalizeNullableNumber(contactId),
+      companyId: normalizeNullableNumber(companyId),
+      userId: normalizeNullableNumber(userId),
       status: 'PENDENTE',
-      ticketUserId,
-      queueId,
+      ticketUserId: normalizeNullableNumber(ticketUserId),
+      queueId: normalizeNullableNumber(queueId),
       openTicket,
       statusTicket,
-      whatsappId,
+      whatsappId: normalizeNullableNumber(whatsappId),
       intervalo,
       valorIntervalo,
       enviarQuantasVezes,
