@@ -360,6 +360,7 @@ const Clients = () => {
   const [searchParam, setSearchParam] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [productFilter, setProductFilter] = useState("");
   const [clientSinceYearFilter, setClientSinceYearFilter] = useState("");
   const [totalCount, setTotalCount] = useState(null);
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -377,6 +378,13 @@ const Clients = () => {
   const [bulkAssignModalOpen, setBulkAssignModalOpen] = useState(false);
   const [selectedUserToAssign, setSelectedUserToAssign] = useState("");
   const [users, setUsers] = useState([]);
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [pipelines, setPipelines] = useState([]);
+  const [bulkPipelineModalOpen, setBulkPipelineModalOpen] = useState(false);
+  const [selectedPipelineId, setSelectedPipelineId] = useState("");
+  const [selectedStageId, setSelectedStageId] = useState("");
+  const [selectedPipelineUserId, setSelectedPipelineUserId] = useState("");
+  const [bulkPipelineLoading, setBulkPipelineLoading] = useState(false);
 
   // Bulk tags state
   const [bulkTagsModalOpen, setBulkTagsModalOpen] = useState(false);
@@ -398,18 +406,45 @@ const Clients = () => {
     setPageNumber(1);
     setTotalCount(null);
     setRefreshToken((prev) => prev + 1);
-  }, [searchParam, statusFilter, typeFilter, clientSinceYearFilter]);
+  }, [searchParam, statusFilter, typeFilter, productFilter, clientSinceYearFilter]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchAuxiliaryData = async () => {
       try {
-        const { data } = await api.get("/users/");
-        setUsers(data.users || []);
+        const [usersResponse, productsResponse, pipelinesResponse] =
+          await Promise.allSettled([
+          api.get("/users/"),
+          api.get("/produtos", { params: { limit: 100 } }),
+          api.get("/pipelines"),
+        ]);
+
+        if (usersResponse.status === "fulfilled") {
+          setUsers(usersResponse.value.data.users || []);
+        }
+
+        if (productsResponse.status === "fulfilled") {
+          const productsData = productsResponse.value.data;
+          setAvailableProducts(
+            Array.isArray(productsData?.produtos)
+              ? productsData.produtos
+              : Array.isArray(productsData)
+                ? productsData
+              : [],
+          );
+        }
+
+        if (pipelinesResponse.status === "fulfilled") {
+          setPipelines(
+            Array.isArray(pipelinesResponse.value.data)
+              ? pipelinesResponse.value.data
+              : [],
+          );
+        }
       } catch (err) {
         toastError(err);
       }
     };
-    fetchUsers();
+    fetchAuxiliaryData();
   }, []);
 
   useEffect(() => {
@@ -422,6 +457,7 @@ const Clients = () => {
         searchParam,
         statusFilter,
         typeFilter,
+        productFilter,
         clientSinceYearFilter,
         pageNumber,
       });
@@ -431,6 +467,7 @@ const Clients = () => {
             searchParam,
             status: statusFilter,
             type: typeFilter,
+            product: productFilter || undefined,
             clientSinceYear:
               clientSinceYearFilter.length === 4
                 ? clientSinceYearFilter
@@ -472,6 +509,7 @@ const Clients = () => {
     searchParam,
     statusFilter,
     typeFilter,
+    productFilter,
     clientSinceYearFilter,
     pageNumber,
     refreshToken,
@@ -547,6 +585,37 @@ const Clients = () => {
       setRefreshToken((prev) => prev + 1);
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const handleBulkAssignPipeline = async () => {
+    if (!selectedPipelineId || !selectedStageId) return;
+
+    setBulkPipelineLoading(true);
+    try {
+      await api.post("/crm/clients/bulk-pipeline", {
+        clientIds: selectedClients,
+        pipelineId: Number(selectedPipelineId),
+        stageId: Number(selectedStageId),
+        ownerUserId:
+          selectedPipelineUserId === "" ? null : Number(selectedPipelineUserId),
+      });
+
+      toast.success(
+        `${selectedClients.length} cliente(s) enviado(s) para o funil.`,
+      );
+      setBulkPipelineModalOpen(false);
+      setSelectedPipelineId("");
+      setSelectedStageId("");
+      setSelectedPipelineUserId("");
+      setSelectedClients([]);
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBulkPipelineLoading(false);
     }
   };
 
@@ -635,6 +704,7 @@ const Clients = () => {
           searchParam,
           status: statusFilter,
           type: typeFilter,
+          product: productFilter || undefined,
           clientSinceYear:
             clientSinceYearFilter.length === 4
               ? clientSinceYearFilter
@@ -738,6 +808,14 @@ const Clients = () => {
     setClientSinceYearFilter(digitsOnly);
   };
 
+  const getProductName = (product) =>
+    product?.nome || product?.name || product?.titulo || "";
+
+  const selectedPipeline = pipelines.find(
+    (pipeline) => String(pipeline.id) === String(selectedPipelineId),
+  );
+  const selectedPipelineStages = selectedPipeline?.stages || [];
+
   return (
     <Box className={classes.root} onScroll={handleScroll}>
       <FaturaModal
@@ -837,6 +915,92 @@ const Clients = () => {
             variant="contained"
           >
             Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={bulkPipelineModalOpen}
+        onClose={() => setBulkPipelineModalOpen(false)}
+      >
+        <DialogTitle>Enviar para Funil</DialogTitle>
+        <DialogContent dividers style={{ minWidth: 360 }}>
+          <Typography
+            variant="body2"
+            style={{ marginBottom: 12, color: "#6b7280" }}
+          >
+            Selecione o funil, a etapa e, se quiser, um responsavel para os{" "}
+            {selectedClients.length} cliente(s) selecionado(s).
+          </Typography>
+
+          <FormControl variant="outlined" fullWidth style={{ marginBottom: 12 }}>
+            <InputLabel>Funil</InputLabel>
+            <Select
+              value={selectedPipelineId}
+              onChange={(e) => {
+                setSelectedPipelineId(e.target.value);
+                setSelectedStageId("");
+              }}
+              label="Funil"
+            >
+              <MenuItem value="">Selecione um funil</MenuItem>
+              {pipelines.map((pipeline) => (
+                <MenuItem key={pipeline.id} value={pipeline.id}>
+                  {pipeline.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl variant="outlined" fullWidth style={{ marginBottom: 12 }}>
+            <InputLabel>Etapa</InputLabel>
+            <Select
+              value={selectedStageId}
+              onChange={(e) => setSelectedStageId(e.target.value)}
+              label="Etapa"
+              disabled={!selectedPipelineId}
+            >
+              <MenuItem value="">Selecione uma etapa</MenuItem>
+              {selectedPipelineStages.map((stage) => (
+                <MenuItem key={stage.id} value={stage.id}>
+                  {stage.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel>Responsavel</InputLabel>
+            <Select
+              value={selectedPipelineUserId}
+              onChange={(e) => setSelectedPipelineUserId(e.target.value)}
+              label="Responsavel"
+            >
+              <MenuItem value="">Manter sem responsavel</MenuItem>
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>
+                  {user.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkPipelineModalOpen(false)}
+            disabled={bulkPipelineLoading}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleBulkAssignPipeline}
+            color="primary"
+            variant="contained"
+            disabled={
+              !selectedPipelineId || !selectedStageId || bulkPipelineLoading
+            }
+          >
+            {bulkPipelineLoading ? "Salvando..." : "Enviar"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1039,6 +1203,27 @@ const Clients = () => {
             </TextField>
 
             <TextField
+              select
+              size="small"
+              label="Produto"
+              variant="outlined"
+              value={productFilter}
+              onChange={(event) => setProductFilter(event.target.value)}
+              className={classes.selectField}
+            >
+              <MenuItem value="">Todos</MenuItem>
+              {availableProducts.map((product) => {
+                const productName = getProductName(product);
+                if (!productName) return null;
+                return (
+                  <MenuItem key={product.id || productName} value={productName}>
+                    {productName}
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+
+            <TextField
               size="small"
               label="Ano (desde)"
               variant="outlined"
@@ -1144,6 +1329,13 @@ const Clients = () => {
                 onClick={() => setBulkAssignModalOpen(true)}
               >
                 Atribuir selecionados
+              </Button>
+              <Button
+                size="small"
+                color="primary"
+                onClick={() => setBulkPipelineModalOpen(true)}
+              >
+                Enviar para funil
               </Button>
               <Button
                 size="small"

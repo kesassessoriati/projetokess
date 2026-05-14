@@ -8,6 +8,7 @@ interface Request {
   companyId: number;
   searchParam?: string;
   status?: string;
+  product?: string;
   ownerUserId?: number;
   profile: string;
   userId: number;
@@ -17,6 +18,7 @@ const ExportCrmLeadsService = async ({
   companyId,
   searchParam,
   status,
+  product,
   ownerUserId,
   profile,
   userId
@@ -33,6 +35,12 @@ const ExportCrmLeadsService = async ({
 
   if (status) {
     conditions.push({ status });
+  }
+
+  if (product) {
+    conditions.push({
+      product: { [Op.iLike]: `%${product.trim()}%` }
+    });
   }
 
   if (searchParam) {

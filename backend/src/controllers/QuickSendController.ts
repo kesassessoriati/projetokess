@@ -8,6 +8,7 @@ import Whatsapp from "../models/Whatsapp";
 import Contact from "../models/Contact";
 import Ticket from "../models/Ticket";
 import CrmLead from "../models/CrmLead";
+import CrmClient from "../models/CrmClient";
 import Opportunity from "../models/Opportunity";
 import CompaniesSettings from "../models/CompaniesSettings";
 import Campaign from "../models/Campaign";
@@ -65,9 +66,10 @@ interface QuickSendBody {
 
 interface QuickSendCampaignBody extends QuickSendBody {
   campaignName?: string;
-  recipientMode?: "single" | "tags" | "contactList" | "upload" | "crmStage";
+  recipientMode?: "single" | "tags" | "contactList" | "upload" | "crmStage" | "product";
   contactListId?: string | number;
   tagIds?: string | number[] | number[];
+  product?: string;
   stageId?: string | number;
   ownerUserId?: string | number;
   viewMode?: "team" | "personal";
@@ -891,6 +893,7 @@ export const createCampaign = async (
     name,
     contactListId,
     tagIds: tagIdsRaw,
+    product,
     stageId,
     ownerUserId,
     viewMode,
@@ -1014,6 +1017,92 @@ export const createCampaign = async (
       resolvedContactsCount = await ContactListItem.count({
         where: { companyId, contactListId: record.id }
       });
+    } else if (recipientMode === "product") {
+      const normalizedProduct = String(product || "").trim();
+
+      if (!normalizedProduct) {
+        throw new AppError("Selecione ou informe um produto para o disparo.", 400);
+      }
+
+      const clients = await CrmClient.findAll({
+        where: {
+          companyId,
+          status: { [Op.ne]: "blocked" },
+          acquiredProduct: { [Op.iLike]: `%${normalizedProduct}%` }
+        },
+        include: [
+          {
+            model: Contact,
+            as: "contacts",
+            attributes: ["id", "name", "number", "email", "isGroup"],
+            through: { attributes: [] },
+            required: false
+          }
+        ]
+      });
+
+      const leads = await CrmLead.findAll({
+        where: {
+          companyId,
+          product: { [Op.iLike]: `%${normalizedProduct}%` }
+        },
+        attributes: ["id", "name", "phone", "email", "companyName"]
+      });
+
+      const contacts = [
+        ...clients
+        .flatMap(client => {
+          const linkedContacts = Array.isArray((client as any).contacts)
+            ? (client as any).contacts
+            : [];
+
+          if (linkedContacts.length > 0) {
+            return linkedContacts.map((contact: Contact) => ({
+              name: contact.name || client.name,
+              number: contact.number,
+              email: contact.email || client.email,
+              isGroup: contact.isGroup
+            }));
+          }
+
+          return [{
+            name: client.name,
+            number: client.phone,
+            email: client.email,
+            isGroup: false
+          }];
+        }),
+        ...leads.map(lead => ({
+          name: lead.name || lead.companyName || lead.phone,
+          number: lead.phone,
+          email: lead.email,
+          isGroup: false
+        }))
+      ]
+        .map(contact => ({
+          ...contact,
+          number: normalizeNumber(String(contact.number || ""), String(contact.number || ""))
+        }))
+        .filter(contact => contact.number) as Array<{
+        name: string;
+        number: string;
+        email?: string;
+        isGroup?: boolean;
+      }>;
+
+      if (!contacts.length) {
+        throw new AppError("Nenhum cliente com telefone válido foi encontrado para este produto.", 400);
+      }
+
+      const { record, contactsCount } = await createContactListFromContacts({
+        companyId,
+        name: getQuickSendCampaignName(campaignName, `Produto ${normalizedProduct}`),
+        contacts
+      });
+
+      createdContactList = record;
+      resolvedContactListId = record.id;
+      resolvedContactsCount = contactsCount;
     } else if (recipientMode === "crmStage") {
       const normalizedStageId = Number(stageId);
 

@@ -7,8 +7,12 @@ import DeleteCrmClientService from "../services/CrmClientService/DeleteCrmClient
 import ImportCrmClientsService from "../services/CrmClientService/ImportCrmClientsService";
 import AppError from "../errors/AppError";
 import CrmClient from "../models/CrmClient";
+import CrmLead from "../models/CrmLead";
 import CrmClientTag from "../models/CrmClientTag";
 import Tag from "../models/Tag";
+import Opportunity from "../models/Opportunity";
+import PipelineStage from "../models/PipelineStage";
+import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
 
 export const index = async (
   req: Request,
@@ -19,6 +23,7 @@ export const index = async (
     searchParam,
     status,
     type,
+    product,
     clientSinceYear,
     ownerUserId,
     pageNumber,
@@ -32,6 +37,7 @@ export const index = async (
     searchParam,
     status,
     type,
+    product,
     clientSinceYear:
       Number.isInteger(parsedClientSinceYear) && parsedClientSinceYear > 0
         ? parsedClientSinceYear
@@ -191,6 +197,149 @@ export const bulkRemoveTags = async (
   });
 
   return res.status(200).json({ success: true, updated: validClientIds.length });
+};
+
+export const bulkAssignPipeline = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { clientIds, pipelineId, stageId, ownerUserId } = req.body as {
+    clientIds: number[];
+    pipelineId: number;
+    stageId: number;
+    ownerUserId?: number | string | null;
+  };
+
+  if (!Array.isArray(clientIds) || clientIds.length === 0) {
+    throw new AppError("clientIds deve ser um array nÃ£o vazio.");
+  }
+
+  const normalizedPipelineId = Number(pipelineId);
+  const normalizedStageId = Number(stageId);
+
+  if (!normalizedPipelineId || !normalizedStageId) {
+    throw new AppError("Informe o funil e a etapa para atribuir os clientes.");
+  }
+
+  const stage = await PipelineStage.findOne({
+    where: {
+      id: normalizedStageId,
+      pipelineId: normalizedPipelineId,
+      companyId
+    }
+  });
+
+  if (!stage) {
+    throw new AppError("Etapa do funil nÃ£o encontrada.");
+  }
+
+  const clients = await CrmClient.findAll({
+    where: { id: clientIds, companyId }
+  });
+
+  if (clients.length === 0) {
+    throw new AppError("Nenhum cliente encontrado.");
+  }
+
+  const validClientIds = clients.map(client => client.id);
+  const assignedUserId =
+    ownerUserId === null || ownerUserId === undefined || ownerUserId === ""
+      ? null
+      : Number(ownerUserId);
+
+  const existingLeads = await CrmLead.findAll({
+    where: {
+      companyId,
+      convertedClientId: validClientIds
+    }
+  });
+
+  const leadsByClientId = new Map(
+    existingLeads.map(lead => [lead.convertedClientId, lead])
+  );
+
+  const leads: CrmLead[] = [];
+
+  for (const client of clients) {
+    let lead = leadsByClientId.get(client.id);
+
+    if (!lead) {
+      lead = await CrmLead.create({
+        companyId,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        document: client.document,
+        companyName: client.companyName,
+        address: client.address,
+        product: client.acquiredProduct,
+        paymentType: client.paymentType,
+        purchaseType: client.purchaseType,
+        purchaseValue: client.purchaseValue,
+        acquisitionDate: client.acquisitionDate,
+        expirationDate: client.expirationDate,
+        clientSince: client.clientSince,
+        ownerUserId: assignedUserId || client.ownerUserId,
+        pipelineId: normalizedPipelineId,
+        stageId: normalizedStageId,
+        convertedClientId: client.id,
+        convertedAt: new Date(),
+        status: "cliente",
+        leadStatus: "cliente",
+        source: "Cliente"
+      });
+    }
+
+    leads.push(lead);
+  }
+
+  let opportunitiesCreated = 0;
+  let opportunitiesUpdated = 0;
+
+  for (const lead of leads) {
+    await lead.update({
+      pipelineId: normalizedPipelineId,
+      stageId: normalizedStageId,
+      ownerUserId: assignedUserId
+    });
+
+    const opportunity = await Opportunity.findOne({
+      where: {
+        companyId,
+        leadId: lead.id,
+        status: "OPEN"
+      }
+    });
+
+    if (opportunity) {
+      await opportunity.update({
+        pipelineId: normalizedPipelineId,
+        stageId: normalizedStageId,
+        assignedUserId
+      });
+      opportunitiesUpdated += 1;
+    } else {
+      await CreateOpportunityService({
+        companyId,
+        pipelineId: normalizedPipelineId,
+        stageId: normalizedStageId,
+        leadId: lead.id,
+        title: lead.name || lead.companyName || `Lead ${lead.id}`,
+        assignedUserId: assignedUserId || undefined
+      });
+      opportunitiesCreated += 1;
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    clients: validClientIds.length,
+    leads: leads.length,
+    opportunitiesCreated,
+    opportunitiesUpdated,
+    skipped: validClientIds.length - leads.length
+  });
 };
 
 export const importClients = async (req: Request, res: Response): Promise<Response> => {

@@ -7,6 +7,7 @@ interface Request {
   searchParam?: string;
   status?: "active" | "inactive" | "blocked";
   type?: "pf" | "pj";
+  product?: string;
   clientSinceYear?: number;
   ownerUserId?: number;
   pageNumber?: number;
@@ -18,6 +19,7 @@ const ListCrmClientsService = async ({
   searchParam,
   status,
   type,
+  product,
   clientSinceYear,
   ownerUserId,
   pageNumber = 1,
@@ -44,6 +46,12 @@ const ListCrmClientsService = async ({
 
   if (ownerUserId) {
     where.ownerUserId = ownerUserId;
+  }
+
+  if (product) {
+    (where as any).acquiredProduct = {
+      [Op.iLike]: `%${product.trim()}%`
+    };
   }
 
   if (searchParam) {

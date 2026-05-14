@@ -7,6 +7,7 @@ interface Request {
   companyId: number;
   searchParam?: string;
   status?: string;
+  product?: string;
   ownerUserId?: number;
   pageNumber?: number;
   limit?: number;
@@ -18,6 +19,7 @@ const ListCrmLeadsService = async ({
   companyId,
   searchParam,
   status,
+  product,
   ownerUserId,
   pageNumber = 1,
   limit = 20,
@@ -37,6 +39,12 @@ const ListCrmLeadsService = async ({
 
   if (status) {
     conditions.push({ status });
+  }
+
+  if (product) {
+    conditions.push({
+      product: { [Op.iLike]: `%${product.trim()}%` }
+    });
   }
 
   if (searchParam) {

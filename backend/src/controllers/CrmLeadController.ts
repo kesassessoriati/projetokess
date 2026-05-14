@@ -12,12 +12,13 @@ import serializeCrmLead from "../services/CrmLeadService/helpers/serializeCrmLea
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile, id: userId } = req.user;
-  const { searchParam, status, ownerUserId, pageNumber, limit } = req.query as any;
+  const { searchParam, status, product, ownerUserId, pageNumber, limit } = req.query as any;
 
   const result = await ListCrmLeadsService({
     companyId,
     searchParam,
     status,
+    product,
     ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
     pageNumber: pageNumber ? Number(pageNumber) : undefined,
     limit: limit ? Number(limit) : undefined,
@@ -99,12 +100,13 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
 export const exportLeads = async (req: Request, res: Response): Promise<void> => {
   const { companyId, profile, id: userId } = req.user;
-  const { searchParam, status, ownerUserId } = req.query as any;
+  const { searchParam, status, product, ownerUserId } = req.query as any;
 
   const buffer = await ExportCrmLeadsService({
     companyId,
     searchParam,
     status,
+    product,
     ownerUserId: ownerUserId ? Number(ownerUserId) : undefined,
     profile,
     userId: Number(userId)

@@ -24,7 +24,6 @@ import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import ErrorIcon from "@material-ui/icons/Error";
 import WifiIcon from "@material-ui/icons/Wifi";
 import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import PersonAddIcon from "@material-ui/icons/PersonAdd";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import HighlightOffIcon from "@material-ui/icons/HighlightOff";
 import AddIcon from "@material-ui/icons/Add";
@@ -389,6 +388,9 @@ export default function QuickSendModal({
   const [campaignName, setCampaignName] = useState("");
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productInput, setProductInput] = useState("");
   const [contactLists, setContactLists] = useState([]);
   const [selectedContactListId, setSelectedContactListId] = useState("");
   const [contactsFile, setContactsFile] = useState(null);
@@ -396,7 +398,6 @@ export default function QuickSendModal({
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connections, setConnections] = useState([]);
-  const [queues, setQueues] = useState([]);
   const [result, setResult] = useState(null);
   const [numberValidation, setNumberValidation] = useState({
     status: "idle",
@@ -474,6 +475,15 @@ export default function QuickSendModal({
 
     return `${safeCurrent}${safeCurrent.endsWith("\n") ? "\n" : "\n\n"}${safeNext}`;
   };
+
+  const getProductLabel = (product) => {
+    if (!product) return "";
+    if (typeof product === "string") return product;
+    return product.nome || product.name || product.titulo || "";
+  };
+
+  const getSelectedProductName = () =>
+    String(productInput || getProductLabel(selectedProduct)).trim();
 
   const handleQuickReplySelect = (replyMessage, file) => {
     const normalizedMessage = String(replyMessage || "");
@@ -590,6 +600,8 @@ export default function QuickSendModal({
     setScheduledAt("");
     setCampaignName("");
     setSelectedTags([]);
+    setSelectedProduct(null);
+    setProductInput("");
     setSelectedContactListId("");
     setContactsFile(null);
     setMedias([]);
@@ -630,22 +642,18 @@ export default function QuickSendModal({
     if (initialName) setName(initialName);
     const load = async () => {
       try {
-        const [connRes, queueRes, tagRes, contactListRes] =
+        const [connRes, tagRes, contactListRes, productRes] =
           await Promise.allSettled([
             api.get("/quick-send/connections"),
-            api.get("/queue"),
             api.get("/tags/list", { params: { kanban: 0 } }),
             api.get("/contact-lists/list", {
               params: { companyId: user.companyId },
             }),
+            api.get("/produtos", { params: { limit: 100 } }),
           ]);
         const availableConnections =
           connRes.status === "fulfilled" && Array.isArray(connRes.value.data)
             ? connRes.value.data
-            : [];
-        const availableQueues =
-          queueRes.status === "fulfilled" && Array.isArray(queueRes.value.data)
-            ? queueRes.value.data
             : [];
         const availableTags =
           tagRes.status === "fulfilled" && Array.isArray(tagRes.value.data)
@@ -656,10 +664,18 @@ export default function QuickSendModal({
           Array.isArray(contactListRes.value.data)
             ? contactListRes.value.data
             : [];
+        const availableProducts =
+          productRes.status === "fulfilled"
+            ? Array.isArray(productRes.value.data?.produtos)
+              ? productRes.value.data.produtos
+              : Array.isArray(productRes.value.data)
+                ? productRes.value.data
+                : []
+            : [];
         setConnections(availableConnections);
-        setQueues(availableQueues);
         setTags(availableTags);
         setContactLists(availableContactLists);
+        setProducts(availableProducts);
         const firstConnected = availableConnections.find(
           (c) => c.status === "CONNECTED",
         );
@@ -932,6 +948,7 @@ export default function QuickSendModal({
   const recipientsValid = (() => {
     if (recipientMode === "single") return isNumberValid;
     if (recipientMode === "tags") return selectedTags.length > 0;
+    if (recipientMode === "product") return Boolean(getSelectedProductName());
     if (recipientMode === "contactList") return Boolean(selectedContactListId);
     if (recipientMode === "upload") return Boolean(contactsFile);
     return false;
@@ -1051,6 +1068,8 @@ export default function QuickSendModal({
         );
       } else if (recipientMode === "contactList") {
         formData.append("contactListId", String(selectedContactListId));
+      } else if (recipientMode === "product") {
+        formData.append("product", getSelectedProductName());
       } else if (recipientMode === "upload" && contactsFile) {
         formData.append("contactsFile", contactsFile);
       }
@@ -1192,6 +1211,7 @@ export default function QuickSendModal({
                   {[
                     { value: "single", label: "Numero unico" },
                     { value: "tags", label: "Por etiquetas" },
+                    { value: "product", label: "Por produto" },
                     { value: "contactList", label: "Lista cadastrada" },
                     { value: "upload", label: "Subir lista" },
                   ].map((mode) => (
@@ -1241,6 +1261,34 @@ export default function QuickSendModal({
                       <Typography style={{ fontSize: 11, color: "#15803d" }}>
                         As etiquetas escolhidas serao transformadas em publico
                         do disparo no backend.
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                {recipientMode === "product" && (
+                  <>
+                    <Autocomplete
+                      freeSolo
+                      options={products}
+                      value={selectedProduct}
+                      inputValue={productInput}
+                      onChange={(_, value) => setSelectedProduct(value)}
+                      onInputChange={(_, value) => setProductInput(value)}
+                      getOptionLabel={(option) => getProductLabel(option)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Selecione ou digite o produto"
+                        />
+                      )}
+                    />
+                    <Box className={classes.infoBox}>
+                      <Typography style={{ fontSize: 11, color: "#15803d" }}>
+                        O disparo vai montar uma lista com clientes e leads que
+                        adquiriram esse produto.
                       </Typography>
                     </Box>
                   </>

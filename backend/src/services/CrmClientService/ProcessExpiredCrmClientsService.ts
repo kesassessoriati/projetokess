@@ -1,5 +1,8 @@
 import { Op } from "sequelize";
 import CrmClient from "../../models/CrmClient";
+import User from "../../models/User";
+import Notification from "../../models/Notification";
+import CreateNotificationService from "../NotificationServices/CreateNotificationService";
 import logger from "../../utils/logger";
 
 const INACTIVE_TAG = "cliente inativo";
@@ -43,6 +46,12 @@ const ProcessExpiredCrmClientsService = async (): Promise<void> => {
       continue;
     }
 
+    const notificationMetadata = {
+      clientId: client.id,
+      product: client.acquiredProduct,
+      expirationDate: client.expirationDate
+    };
+
     await client.update({
       status: "inactive",
       tags: nextTags
@@ -51,6 +60,39 @@ const ProcessExpiredCrmClientsService = async (): Promise<void> => {
     logger.info(
       `[CRM Clients] Cliente ${client.id} marcado como inativo por vencimento em ${client.expirationDate}`
     );
+
+    const usersToNotify = await User.findAll({
+      where: {
+        companyId: client.companyId,
+        [Op.or]: [
+          { profile: "admin" },
+          ...(client.ownerUserId ? [{ id: client.ownerUserId }] : [])
+        ]
+      },
+      attributes: ["id"]
+    });
+
+    for (const user of usersToNotify) {
+      const alreadySent = await Notification.findOne({
+        where: {
+          companyId: client.companyId,
+          userId: user.id,
+          type: "crm_client_expired",
+          metadata: notificationMetadata
+        }
+      });
+
+      if (alreadySent) continue;
+
+      await CreateNotificationService({
+        companyId: client.companyId,
+        userId: user.id,
+        type: "crm_client_expired",
+        title: "Produto de cliente vencido",
+        body: `${client.name || "Cliente"}${client.acquiredProduct ? ` - ${client.acquiredProduct}` : ""} venceu em ${client.expirationDate}.`,
+        metadata: notificationMetadata
+      });
+    }
   }
 };
 
