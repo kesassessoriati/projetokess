@@ -116,7 +116,7 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(2),
     borderTop: `1px solid ${theme.palette.divider}`,
     display: 'flex',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
   },
   fieldIcon: {
     color: theme.palette.text.secondary,
@@ -234,6 +234,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiData, setEmojiData] = useState(null);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const formikRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -328,45 +329,52 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 
   useEffect(() => {
     const { companyId } = user;
-    if (open) {
+    if (!open) return;
+
+    (async () => {
       try {
-        if (!scheduleId) {
-          setSchedule((prevState) => ({
-            ...prevState,
-            contactId: contactId || prevState.contactId,
-            body: message || prevState.body,
-          }));
+        const { data: contactList } = await api.get('/contacts/list', { params: { companyId: companyId } });
+        let customList = contactList.map((c) => ({ id: c.id, name: c.name, channel: c.channel }));
+        if (isArray(customList)) {
+          setContacts([{ id: "", name: "", channel: "" }, ...customList]);
         }
 
-        (async () => {
-          const { data: contactList } = await api.get('/contacts/list', { params: { companyId: companyId } });
-          let customList = contactList.map((c) => ({ id: c.id, name: c.name, channel: c.channel }));
-          if (isArray(customList)) {
-            setContacts([{ id: "", name: "", channel: "" }, ...customList]);
-          }
+        if (!scheduleId) {
+          const newValues = {
+            ...initialState,
+            contactId: contactId || "",
+            body: message || "",
+          };
+          setSchedule(newValues);
+          formikRef.current?.resetForm({ values: newValues });
+          return;
+        }
 
-          if (!scheduleId) return;
-
-          const { data } = await api.get(`/schedules/${scheduleId}`);
-          setSchedule((prevState) => ({ ...prevState, ...data, sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm') }));
-          if (data.whatsapp) {
-            setSelectedWhatsapps(data.whatsapp.id);
-          }
-          if (data.queueId) {
-            setSelectedQueue(data.queueId);
-          }
-          if (data.intervalo) {
-            setIntervalo(data.intervalo);
-          }
-          if (data.tipoDias) {
-            setTipoDias(data.tipoDias);
-          }
-          setCurrentContact(data.contact);
-        })();
+        const { data } = await api.get(`/schedules/${scheduleId}`);
+        const scheduleData = {
+          ...initialState,
+          ...data,
+          sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm'),
+        };
+        setSchedule(scheduleData);
+        formikRef.current?.resetForm({ values: scheduleData });
+        if (data.whatsapp) {
+          setSelectedWhatsapps(data.whatsapp.id);
+        }
+        if (data.queueId) {
+          setSelectedQueue(data.queueId);
+        }
+        if (data.intervalo) {
+          setIntervalo(data.intervalo);
+        }
+        if (data.tipoDias) {
+          setTipoDias(data.tipoDias);
+        }
+        setCurrentContact(data.contact);
       } catch (err) {
         toastError(err);
       }
-    }
+    })();
   }, [scheduleId, contactId, open, user]);
 
   const filterOptions = createFilterOptions({
@@ -581,8 +589,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
           />
         </div>
         <Formik
+          innerRef={formikRef}
           initialValues={schedule}
-          enableReinitialize={true}
           validationSchema={ScheduleSchema}
           onSubmit={(values, actions) => {
             setTimeout(() => {
@@ -675,6 +683,42 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                         </div>
                       </Grid>
                       
+                      <Grid item xs={12}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {!attachment && !schedule.mediaPath && (
+                            <Button
+                              startIcon={<AttachFileIcon />}
+                              onClick={() => attachmentFile.current.click()}
+                              disabled={isSubmitting}
+                              variant="outlined"
+                              size="small"
+                              style={{
+                                borderRadius: '5px',
+                                fontSize: '12px',
+                                textTransform: 'none',
+                              }}
+                            >
+                              {i18n.t("quickMessages.buttons.attach")}
+                            </Button>
+                          )}
+                          {(schedule.mediaPath || attachment) && (
+                            <div className={classes.attachmentPreview} style={{ flexGrow: 1 }}>
+                              <AttachFile style={{ marginRight: '8px' }} />
+                              <Typography variant="body2" style={{ flexGrow: 1 }}>
+                                {attachment ? attachment.name : schedule.mediaName}
+                              </Typography>
+                              <IconButton
+                                onClick={() => setConfirmationOpen(true)}
+                                size="small"
+                                style={{ color: red[500] }}
+                              >
+                                <DeleteOutline />
+                              </IconButton>
+                            </div>
+                          )}
+                        </div>
+                      </Grid>
+
                       <Grid item xs={12}>
                         <MessageVariablesPicker
                           disabled={isSubmitting}
@@ -991,48 +1035,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                     </Collapse>
                   </Grid>
 
-                  {/* Anexos */}
-                  {(schedule.mediaPath || attachment) && (
-                    <Grid item xs={12}>
-                      <div className={classes.attachmentPreview}>
-                        <AttachFile style={{ marginRight: '8px' }} />
-                        <Typography variant="body2" style={{ flexGrow: 1 }}>
-                          {attachment ? attachment.name : schedule.mediaName}
-                        </Typography>
-                        <IconButton
-                          onClick={() => setConfirmationOpen(true)}
-                          size="small"
-                          style={{ color: red[500] }}
-                        >
-                          <DeleteOutline />
-                        </IconButton>
-                      </div>
-                    </Grid>
-                  )}
                 </Grid>
               </DialogContent>
               
               <DialogActions className={classes.dialogActions}>
-                <div>
-                  {!attachment && !schedule.mediaPath && (
-                    <Button
-                      startIcon={<AttachFileIcon />}
-                      onClick={() => attachmentFile.current.click()}
-                      disabled={isSubmitting}
-                      variant="contained"
-                      style={{
-                        color: "var(--btn-primary-text, #fff)",
-                        backgroundColor: "var(--btn-primary-bg, var(--color-primary))",
-                        boxShadow: "none",
-                        borderRadius: "5px",
-                        fontSize: "12px",
-                      }}
-                    >
-                      {i18n.t("quickMessages.buttons.attach")}
-                    </Button>
-                  )}
-                </div>
-                
                 <div className={classes.actionButtonsContainer}>
                   <Button
                     onClick={handleClose}
