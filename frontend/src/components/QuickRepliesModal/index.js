@@ -28,13 +28,17 @@ const useStyles = makeStyles((theme) => ({
     width: "min(960px, 96vw)",
     maxWidth: "96vw",
     height: "78vh",
-    maxHeight: 760
+    maxHeight: 760,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden"
   },
   sidebar: {
     width: 370,
     minWidth: 340,
     maxWidth: 400,
-    height: "100%",
+    height: "80vh",
+    maxHeight: "80vh",
     backgroundColor: "#f8fafc",
     borderLeft: "1px solid #dbe4ee",
     boxShadow: "-10px 0 24px rgba(15, 23, 42, 0.08)",
@@ -46,11 +50,12 @@ const useStyles = makeStyles((theme) => ({
   header: {
     padding: theme.spacing(1.5, 2),
     borderBottom: "1px solid #dbe4ee",
-    background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(29,78,216,0.96))",
+    background: "linear-gradient(135deg, #075E54 0%, #128C7E 60%, #25D366 100%)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1)
+    gap: theme.spacing(1),
+    flexShrink: 0
   },
   content: {
     padding: theme.spacing(2),
@@ -58,7 +63,8 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     gap: theme.spacing(1.5),
     overflow: "hidden",
-    height: "100%"
+    height: "100%",
+    minHeight: 0
   },
   searchField: {
     backgroundColor: "#fff",
@@ -75,7 +81,9 @@ const useStyles = makeStyles((theme) => ({
   },
   sectionsWrap: {
     flex: 1,
+    minHeight: 0,
     overflowY: "auto",
+    overscrollBehavior: "contain",
     paddingRight: theme.spacing(0.5)
   },
   section: {
@@ -460,7 +468,7 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
       <DialogTitle disableTypography style={{ padding: 0 }}>
         {headerContent}
       </DialogTitle>
-      <DialogContent dividers style={{ padding: 0 }}>
+      <DialogContent dividers style={{ padding: 0, flex: 1, minHeight: 0, overflow: "hidden" }}>
         {bodyContent}
       </DialogContent>
     </Dialog>
