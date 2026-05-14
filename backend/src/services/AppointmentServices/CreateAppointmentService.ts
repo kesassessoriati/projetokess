@@ -5,6 +5,7 @@ import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
 import { createGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
+import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
 
 interface CreateAppointmentData {
   title: string;
@@ -261,6 +262,12 @@ const CreateAppointmentService = async (
       // Não falhar a criação do appointment se falhar a sincronização
     }
   }
+
+  notifyAiExternalGroup({
+    companyId: data.companyId,
+    eventType: "appointmentCreated",
+    appointment
+  }).catch(() => undefined);
 
   return appointment;
 };

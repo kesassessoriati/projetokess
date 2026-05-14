@@ -5,6 +5,7 @@ import UserSchedule from "../../models/UserSchedule";
 import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
 import { updateGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
+import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
 
 interface UpdateAppointmentData {
   id: string | number;
@@ -130,6 +131,7 @@ const UpdateAppointmentService = async (
     }
   }
 
+  const previousStatus = appointment.status;
   const oldStartDatetime = new Date(appointment.startDatetime);
   const oldEndDatetime = new Date(oldStartDatetime.getTime() + appointment.durationMinutes * 60000);
 
@@ -252,6 +254,15 @@ const UpdateAppointmentService = async (
       console.error("ERROR - Falha ao atualizar evento no Google Calendar:", error);
       // Não falhar a atualização do appointment se falhar no Google Calendar
     }
+  }
+
+  if (previousStatus !== "cancelled" && appointment.status === "cancelled") {
+    notifyAiExternalGroup({
+      companyId: data.companyId,
+      eventType: "appointmentCancelled",
+      appointment,
+      cancellationReason: data.operationalNote || null
+    }).catch(() => undefined);
   }
 
   return appointment;

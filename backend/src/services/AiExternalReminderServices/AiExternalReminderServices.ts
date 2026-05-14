@@ -14,9 +14,23 @@ export const DEFAULT_REMINDER_BUTTONS = [
   { buttonId: "3", buttonText: { displayText: "Cancelar" } }
 ];
 
-const formatAppointmentDate = (value?: Date | string) => {
+const formatAppointmentDateTime = (value?: Date | string) => {
   if (!value) return "";
   return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+};
+
+const formatAppointmentDate = (value?: Date | string) => {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+};
+
+const formatAppointmentTime = (value?: Date | string) => {
+  if (!value) return "";
+  return new Date(value).toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 };
 
 const renderTemplate = (template: string, params: Record<string, string>) =>
@@ -52,7 +66,9 @@ export const buildReminderPayload = ({
   const text = renderTemplate(settings.text, {
     leadName: leadName || "cliente",
     leadPhone: leadPhone || "",
-    appointmentDate: formatAppointmentDate(appointmentDate)
+    appointmentDate: formatAppointmentDate(appointmentDate),
+    appointmentTime: formatAppointmentTime(appointmentDate),
+    appointmentDateTime: formatAppointmentDateTime(appointmentDate)
   });
 
   return {

@@ -3,6 +3,7 @@ import AiExternalAppointment from "../../models/AiExternalAppointment";
 import UpdateAppointmentService from "../AppointmentServices/UpdateAppointmentService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
+import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
 
 interface Request {
   id: number;
@@ -36,6 +37,8 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
   if (!aiAppointment) {
     throw new AppError("Agendamento IA nao encontrado.", 404);
   }
+
+  const previousStatus = aiAppointment.status;
 
   if (aiAppointment.appointmentId) {
     await UpdateAppointmentService({
@@ -76,6 +79,15 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     cancellationReason: data.cancellationReason !== undefined ? data.cancellationReason : aiAppointment.cancellationReason,
     metadata: data.metadata !== undefined ? data.metadata : aiAppointment.metadata
   });
+
+  if (!aiAppointment.appointmentId && previousStatus !== "cancelled" && aiAppointment.status === "cancelled") {
+    notifyAiExternalGroup({
+      companyId: data.companyId,
+      eventType: "appointmentCancelled",
+      aiAppointment,
+      cancellationReason: data.cancellationReason || null
+    }).catch(() => undefined);
+  }
 
   const config = await GetOrCreateExternalAgentConfigService({
     companyId: data.companyId,

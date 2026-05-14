@@ -12,6 +12,7 @@ import {
   Switch,
   FormControlLabel,
   Divider,
+  MenuItem,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -564,6 +565,7 @@ const Prompts = () => {
   const [aiAppointments, setAiAppointments] = useState([]);
   const [aiReminders, setAiReminders] = useState([]);
   const [aiFollowUps, setAiFollowUps] = useState([]);
+  const [whatsappOptions, setWhatsappOptions] = useState([]);
   const [ragDocuments, setRagDocuments] = useState([]);
   const [ragBase, setRagBase] = useState("empresa");
   const [ragContent, setRagContent] = useState("");
@@ -589,6 +591,7 @@ const Prompts = () => {
 
   const defaultReminderSettings = {
     enabled: true,
+    whatsappId: "",
     hoursBefore: 4,
     text: "CONFIRMACAO DE CONSULTA\n\nOla, *{{leadName}}*! Tudo bem?\n\nEstamos passando para confirmar seu compromisso conosco:\n\nData: {{appointmentDate}}\n\nVoce podera comparecer neste horario?\n\nResponda com uma das opcoes:",
     footer: "",
@@ -598,6 +601,39 @@ const Prompts = () => {
       { buttonId: "3", buttonText: { displayText: "Cancelar" } },
     ],
   };
+
+  const defaultGroupNotifications = {
+    appointmentCreated: {
+      enabled: false,
+      name: "Agendamento criado",
+      whatsappId: "",
+      groupNumber: "",
+      message: "Novo agendamento criado.\n\nLead: {{leadName}}\nTelefone: {{leadPhone}}\nData: {{appointmentDate}}\nHorario: {{appointmentTime}}\nEmpresa: {{companyName}}",
+    },
+    reminderSent: {
+      enabled: false,
+      name: "Lembrete enviado",
+      whatsappId: "",
+      groupNumber: "",
+      message: "Lembrete enviado ao cliente.\n\nLead: {{leadName}}\nTelefone: {{leadPhone}}\nCompromisso: {{appointmentDate}} as {{appointmentTime}}\nEmpresa: {{companyName}}",
+    },
+    appointmentCancelled: {
+      enabled: false,
+      name: "Agendamento cancelado",
+      whatsappId: "",
+      groupNumber: "",
+      message: "Agendamento cancelado.\n\nLead: {{leadName}}\nTelefone: {{leadPhone}}\nData: {{appointmentDate}}\nHorario: {{appointmentTime}}\nMotivo: {{cancellationReason}}\nEmpresa: {{companyName}}",
+    },
+  };
+
+  const dynamicVariables = [
+    { token: "{{leadName}}", label: "Nome do lead" },
+    { token: "{{leadPhone}}", label: "Telefone" },
+    { token: "{{appointmentDate}}", label: "Data" },
+    { token: "{{appointmentTime}}", label: "Hora" },
+    { token: "{{appointmentDateTime}}", label: "Data e hora" },
+    { token: "{{companyName}}", label: "Empresa" },
+  ];
 
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
@@ -634,6 +670,7 @@ const Prompts = () => {
         remindersResponse,
         followUpsResponse,
         ragResponse,
+        whatsappsResponse,
       ] = await Promise.all([
         api.get("/ai-agents/external/config"),
         api.get("/ai-agents/external/prompt/versions"),
@@ -642,6 +679,7 @@ const Prompts = () => {
         api.get("/ai-agents/external/reminders", { params: { pageNumber: 1 } }),
         api.get("/ai-agents/external/follow-ups", { params: { pageNumber: 1 } }),
         api.get(`/ai-agents/external/rag/${ragBase}`, { params: { pageNumber: 1 } }),
+        api.get("/whatsapp/filter", { params: { session: 0, channel: "whatsapp" } }),
       ]);
 
       setExternalConfig(configResponse.data);
@@ -652,6 +690,7 @@ const Prompts = () => {
       setAiReminders(remindersResponse.data?.reminders || []);
       setAiFollowUps(followUpsResponse.data?.leads || []);
       setRagDocuments(ragResponse.data?.documents || []);
+      setWhatsappOptions(whatsappsResponse.data || []);
     } catch (err) {
       toastError(err);
     } finally {
@@ -683,6 +722,17 @@ const Prompts = () => {
     buttons: externalConfig?.metadata?.autoReminder?.buttons || defaultReminderSettings.buttons,
   });
 
+  const getExternalGroupNotifications = () => {
+    const saved = externalConfig?.metadata?.groupNotifications || {};
+    return Object.keys(defaultGroupNotifications).reduce((acc, key) => {
+      acc[key] = {
+        ...defaultGroupNotifications[key],
+        ...(saved[key] || {}),
+      };
+      return acc;
+    }, {});
+  };
+
   const handleReminderSettingChange = (field, value) => {
     setExternalConfig(prev => {
       const current = prev || {};
@@ -710,6 +760,38 @@ const Prompts = () => {
         : button
     ));
     handleReminderSettingChange("buttons", buttons);
+  };
+
+  const handleGroupNotificationChange = (key, field, value) => {
+    setExternalConfig(prev => {
+      const current = prev || {};
+      const previousGroups = current.metadata?.groupNotifications || {};
+      return {
+        ...current,
+        metadata: {
+          ...(current.metadata || {}),
+          groupNotifications: {
+            ...previousGroups,
+            [key]: {
+              ...defaultGroupNotifications[key],
+              ...(previousGroups[key] || {}),
+              [field]: value,
+            },
+          },
+        },
+      };
+    });
+  };
+
+  const insertReminderVariable = (token) => {
+    const currentText = getExternalReminderSettings().text || "";
+    handleReminderSettingChange("text", `${currentText}${currentText ? " " : ""}${token}`);
+  };
+
+  const insertGroupVariable = (key, token) => {
+    const settings = getExternalGroupNotifications()[key];
+    const currentText = settings.message || "";
+    handleGroupNotificationChange(key, "message", `${currentText}${currentText ? " " : ""}${token}`);
   };
 
   const handleSaveExternalConfig = async () => {
@@ -1153,6 +1235,125 @@ const Prompts = () => {
     </Box>
   );
 
+  const renderVariableChips = (onInsert, extraVariables = []) => (
+    <Box display="flex" flexWrap="wrap" style={{ gap: 6 }}>
+      {[...dynamicVariables, ...extraVariables].map(variable => (
+        <Chip
+          key={variable.token}
+          size="small"
+          label={variable.label}
+          onClick={() => onInsert(variable.token)}
+          style={{ fontWeight: 700 }}
+        />
+      ))}
+    </Box>
+  );
+
+  const renderWhatsappSelect = (label, value, onChange) => (
+    <TextField
+      select
+      label={label}
+      variant="outlined"
+      size="small"
+      value={value || ""}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <MenuItem value="">Selecionar conexao</MenuItem>
+      {whatsappOptions.map((whatsapp) => (
+        <MenuItem key={whatsapp.id} value={whatsapp.id}>
+          {whatsapp.name || `Conexao #${whatsapp.id}`}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+
+  const renderGroupNotificationSettings = () => {
+    const groups = getExternalGroupNotifications();
+    const items = [
+      {
+        key: "appointmentCreated",
+        title: "Envio para grupo - agendamento criado",
+        description: "Notifica o grupo quando um compromisso for criado.",
+      },
+      {
+        key: "reminderSent",
+        title: "Envio para grupo - lembrete enviado",
+        description: "Notifica o grupo quando o lembrete automatico for enviado ao cliente.",
+      },
+      {
+        key: "appointmentCancelled",
+        title: "Envio para grupo - cancelamento",
+        description: "Notifica o grupo quando um compromisso for cancelado.",
+      },
+    ];
+
+    return (
+      <Box className={classes.fieldStack} style={{ marginTop: 18 }}>
+        <Divider />
+        <Typography className={classes.panelTitle}>Notificacoes para grupo da empresa</Typography>
+        <Typography className={classes.panelSubtitle}>
+          Configure mensagens automaticas para o grupo operacional da empresa.
+        </Typography>
+
+        {items.map(item => {
+          const settings = groups[item.key];
+          return (
+            <Box key={item.key} className={classes.externalPanel} style={{ boxShadow: "none" }}>
+              <Typography className={classes.panelTitle}>{item.title}</Typography>
+              <Typography className={classes.panelSubtitle}>{item.description}</Typography>
+              <Box className={classes.fieldStack}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      color="primary"
+                      checked={Boolean(settings.enabled)}
+                      onChange={(event) => handleGroupNotificationChange(item.key, "enabled", event.target.checked)}
+                    />
+                  }
+                  label="Ativar envio para grupo"
+                />
+                {renderWhatsappSelect(
+                  "Instancia/conexao de envio",
+                  settings.whatsappId,
+                  (value) => handleGroupNotificationChange(item.key, "whatsappId", value)
+                )}
+                <TextField
+                  label="Nome da configuracao"
+                  variant="outlined"
+                  size="small"
+                  value={settings.name || ""}
+                  onChange={(event) => handleGroupNotificationChange(item.key, "name", event.target.value)}
+                />
+                <TextField
+                  label="Numero/ID do grupo"
+                  variant="outlined"
+                  size="small"
+                  value={settings.groupNumber || ""}
+                  onChange={(event) => handleGroupNotificationChange(item.key, "groupNumber", event.target.value)}
+                  placeholder="Ex.: 120363000000000000@g.us"
+                />
+                <TextField
+                  label="Mensagem personalizada"
+                  variant="outlined"
+                  multiline
+                  minRows={4}
+                  value={settings.message || ""}
+                  onChange={(event) => handleGroupNotificationChange(item.key, "message", event.target.value)}
+                />
+                {renderVariableChips(
+                  (token) => insertGroupVariable(item.key, token),
+                  item.key === "appointmentCancelled"
+                    ? [{ token: "{{cancellationReason}}", label: "Motivo cancelamento" }]
+                    : []
+                )}
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  };
+
   const renderExternalSettings = () => (
     <Box className={classes.placeholderGrid}>
       <Box className={classes.externalPanel}>
@@ -1200,6 +1401,8 @@ const Prompts = () => {
             Salvar configuracao
           </Button>
         </Box>
+
+        {renderGroupNotificationSettings()}
       </Box>
 
       <Box className={classes.externalPanel}>
@@ -1219,6 +1422,21 @@ const Prompts = () => {
             label="Criar lembrete automaticamente"
           />
           <TextField
+            select
+            label="Conexao de envio"
+            variant="outlined"
+            size="small"
+            value={getExternalReminderSettings().whatsappId || ""}
+            onChange={(event) => handleReminderSettingChange("whatsappId", event.target.value)}
+          >
+            <MenuItem value="">Selecionar conexao</MenuItem>
+            {whatsappOptions.map((whatsapp) => (
+              <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                {whatsapp.name || `Conexao #${whatsapp.id}`}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
             label="Horas antes do compromisso"
             type="number"
             variant="outlined"
@@ -1234,6 +1452,7 @@ const Prompts = () => {
             value={getExternalReminderSettings().text}
             onChange={(event) => handleReminderSettingChange("text", event.target.value)}
           />
+          {renderVariableChips(insertReminderVariable)}
           <TextField
             label="Rodape"
             variant="outlined"

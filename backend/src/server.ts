@@ -133,6 +133,7 @@ import SyncGoogleCalendarService from "./services/AppointmentServices/SyncGoogle
 import ProcessExpiredCrmClientsService from "./services/CrmClientService/ProcessExpiredCrmClientsService";
 import ClearExpiredWebhookPausesService from "./services/TicketServices/ClearExpiredWebhookPausesService";
 import { processAiExternalFollowUps } from "./services/AiExternalFollowUpServices/AiExternalFollowUpService";
+import { processAiExternalReminders } from "./services/AiExternalAgentServices/AiExternalNotificationService";
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -159,6 +160,11 @@ cron.schedule("*/5 * * * *", () => {
 // Process AI External follow-ups every 2 hours.
 cron.schedule("0 */2 * * *", () => {
   processAiExternalFollowUps().catch(() => {});
+});
+
+// Process due AI External reminders every minute.
+cron.schedule("* * * * *", () => {
+  processAiExternalReminders().catch(() => {});
 });
 
 // Sync e-mail channels (IMAP inbox) every 2 minutes
