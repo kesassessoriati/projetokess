@@ -234,24 +234,31 @@ echo ""
 ## Revalida antes do push para reduzir risco de sobrescrever tag criada por outro servidor.
 ensure_tag_is_new "$TAG"
 
-## ========================= PUSH BACKEND ========================= ##
+## ========================= PUSH TAGS VERSIONADAS ========================= ##
 
-echo -e "${YELLOW}[5/7] Enviando imagem do BACKEND para Docker Hub...${NC}"
-
-docker push "${BACKEND_IMAGE}:${TAG}"
-docker push "${BACKEND_IMAGE}:latest"
-
-echo -e "${GREEN}OK: Backend enviado!${NC}"
-echo ""
-
-## ========================= PUSH FRONTEND ========================= ##
-
-echo -e "${YELLOW}[6/7] Enviando imagem do FRONTEND para Docker Hub...${NC}"
+echo -e "${YELLOW}[5/7] Enviando tags versionadas para Docker Hub...${NC}"
+echo -e "${YELLOW}[!] Publicando frontend primeiro para evitar tag de backend sem par correspondente.${NC}"
 
 docker push "${FRONTEND_IMAGE}:${TAG}"
-docker push "${FRONTEND_IMAGE}:latest"
+docker push "${BACKEND_IMAGE}:${TAG}"
 
-echo -e "${GREEN}OK: Frontend enviado!${NC}"
+if ! dockerhub_tag_exists "$FRONTEND_REPOSITORY" "$TAG" || ! dockerhub_tag_exists "$BACKEND_REPOSITORY" "$TAG"; then
+    echo -e "${RED}ERRO: Tag ${TAG} nao ficou disponivel nos dois repositorios Docker Hub.${NC}"
+    echo -e "${RED}ERRO: Nao atualizaremos latest nem ${VERSION_FILE}. Rode novamente apos verificar o Docker Hub.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}OK: Tags versionadas enviadas para backend e frontend!${NC}"
+echo ""
+
+## ========================= PUSH LATEST ========================= ##
+
+echo -e "${YELLOW}[6/7] Atualizando tags latest no Docker Hub...${NC}"
+
+docker push "${FRONTEND_IMAGE}:latest"
+docker push "${BACKEND_IMAGE}:latest"
+
+echo -e "${GREEN}OK: Tags latest atualizadas!${NC}"
 echo ""
 
 ## Persistir somente depois que tudo foi publicado com sucesso.
