@@ -4,6 +4,7 @@ import AiExternalAppointment from "../../models/AiExternalAppointment";
 import CreateAppointmentService from "../AppointmentServices/CreateAppointmentService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
+import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
 import {
   buildReminderPayload,
   createReminder,
@@ -71,7 +72,8 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     leadPhone: data.leadPhone,
     participantEmails: data.leadEmail ? [data.leadEmail] : undefined,
     operationalNote: "Criado pelo Agente Externo N8N",
-    createdByUserId: data.userId
+    createdByUserId: data.userId,
+    skipAiExternalGroupNotification: true
   });
 
   const aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000);
@@ -142,6 +144,22 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
         aiAppointmentId: aiAppointment.id,
         hoursBefore: reminderSettings.hoursBefore,
         interactivePayload
+      }
+    });
+  }
+
+  const groupNotified = await notifyAiExternalGroup({
+    companyId: data.companyId,
+    eventType: "appointmentCreated",
+    appointment,
+    aiAppointment
+  });
+
+  if (groupNotified) {
+    await aiAppointment.update({
+      metadata: {
+        ...(aiAppointment.metadata || {}),
+        appointmentCreatedGroupNotifiedAt: new Date().toISOString()
       }
     });
   }

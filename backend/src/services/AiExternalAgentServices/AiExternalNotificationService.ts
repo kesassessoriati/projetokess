@@ -161,10 +161,10 @@ export const notifyAiExternalGroup = async ({
   aiAppointment?: AiExternalAppointment | null;
   reminder?: AiExternalReminder | null;
   cancellationReason?: string | null;
-}) => {
+}): Promise<boolean> => {
   const config = await GetOrCreateExternalAgentConfigService({ companyId });
   const settings = getGroupSettings(config, eventType);
-  if (!settings.enabled || !settings.whatsappId || !settings.groupNumber || !settings.message) return;
+  if (!settings.enabled || !settings.whatsappId || !settings.groupNumber || !settings.message) return false;
 
   try {
     const whatsapp = await Whatsapp.findOne({ where: { id: settings.whatsappId, companyId } });
@@ -180,11 +180,13 @@ export const notifyAiExternalGroup = async ({
       cancellationReason
     });
     const text = renderAiExternalTemplate(settings.message, variables);
-    if (!text.trim()) return;
+    if (!text.trim()) return false;
 
     await provider.sendGroupMessage(normalizeGroupJid(settings.groupNumber), { text });
+    return true;
   } catch (error: any) {
     logger.warn(`[AiExternalAgent] Falha ao notificar grupo (${eventType}): ${error?.message || error}`);
+    return false;
   }
 };
 

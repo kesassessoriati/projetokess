@@ -25,6 +25,7 @@ interface CreateAppointmentData {
   meetingLink?: string;
   operationalNote?: string;
   createdByUserId?: number;
+  skipAiExternalGroupNotification?: boolean;
 }
 
 const CreateAppointmentService = async (
@@ -263,11 +264,13 @@ const CreateAppointmentService = async (
     }
   }
 
-  notifyAiExternalGroup({
-    companyId: data.companyId,
-    eventType: "appointmentCreated",
-    appointment
-  }).catch(() => undefined);
+  if (!data.skipAiExternalGroupNotification) {
+    notifyAiExternalGroup({
+      companyId: data.companyId,
+      eventType: "appointmentCreated",
+      appointment
+    }).catch(() => undefined);
+  }
 
   return appointment;
 };

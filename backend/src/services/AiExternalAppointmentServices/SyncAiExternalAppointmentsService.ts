@@ -5,6 +5,7 @@ import Appointment from "../../models/Appointment";
 import CreateAppointmentService from "../AppointmentServices/CreateAppointmentService";
 import DeleteAppointmentService from "../AppointmentServices/DeleteAppointmentService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
+import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
 import {
   buildReminderPayload,
   createReminder,
@@ -72,19 +73,19 @@ const ensureCrmAppointment = async ({
   aiAppointment: AiExternalAppointment;
   companyId: number;
   userId?: number;
-}): Promise<void> => {
+}): Promise<{ appointment: Appointment | null; created: boolean }> => {
   if (aiAppointment.appointmentId) {
     const linkedAppointment = await Appointment.findOne({
       where: { id: aiAppointment.appointmentId, companyId }
     });
 
-    if (linkedAppointment) return;
+    if (linkedAppointment) return { appointment: linkedAppointment, created: false };
   }
 
   const existingAppointment = await findExistingAppointment(aiAppointment, companyId);
   if (existingAppointment) {
     await aiAppointment.update({ appointmentId: existingAppointment.id });
-    return;
+    return { appointment: existingAppointment, created: false };
   }
 
   const createdAppointment = await CreateAppointmentService({
@@ -102,7 +103,8 @@ const ensureCrmAppointment = async ({
     leadPhone: aiAppointment.leadPhone || undefined,
     participantEmails: aiAppointment.leadEmail ? [aiAppointment.leadEmail] : undefined,
     operationalNote: "Sincronizado automaticamente pelo Agente IA",
-    createdByUserId: aiAppointment.createdByUserId || userId
+    createdByUserId: aiAppointment.createdByUserId || userId,
+    skipAiExternalGroupNotification: true
   });
 
   await aiAppointment.update({
@@ -113,6 +115,8 @@ const ensureCrmAppointment = async ({
       syncedAt: new Date().toISOString()
     }
   });
+
+  return { appointment: createdAppointment, created: true };
 };
 
 const ensureAutomaticReminder = async ({
@@ -224,9 +228,30 @@ const SyncAiExternalAppointmentsService = async ({
     const keeper = sorted[0];
 
     try {
-      await ensureCrmAppointment({ aiAppointment: keeper, companyId, userId });
+      const syncResult = await ensureCrmAppointment({ aiAppointment: keeper, companyId, userId });
       await keeper.reload();
       await ensureAutomaticReminder({ aiAppointment: keeper, companyId, userId });
+
+      if (
+        syncResult.created &&
+        !(keeper.metadata || {}).appointmentCreatedGroupNotifiedAt
+      ) {
+        const groupNotified = await notifyAiExternalGroup({
+          companyId,
+          eventType: "appointmentCreated",
+          appointment: syncResult.appointment,
+          aiAppointment: keeper
+        });
+
+        if (groupNotified) {
+          await keeper.update({
+            metadata: {
+              ...(keeper.metadata || {}),
+              appointmentCreatedGroupNotifiedAt: new Date().toISOString()
+            }
+          });
+        }
+      }
     } catch (error) {
       logger.warn(
         `[AI External Appointments] Falha ao sincronizar agendamento IA ${keeper.id}: ${error?.message || error}`

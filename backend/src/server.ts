@@ -134,6 +134,9 @@ import ProcessExpiredCrmClientsService from "./services/CrmClientService/Process
 import ClearExpiredWebhookPausesService from "./services/TicketServices/ClearExpiredWebhookPausesService";
 import { processAiExternalFollowUps } from "./services/AiExternalFollowUpServices/AiExternalFollowUpService";
 import { processAiExternalReminders } from "./services/AiExternalAgentServices/AiExternalNotificationService";
+import SyncAiExternalAppointmentsService from "./services/AiExternalAppointmentServices/SyncAiExternalAppointmentsService";
+
+let syncingAiExternalAppointments = false;
 
 // Check warmups every 5 minutes
 cron.schedule("*/5 * * * *", () => {
@@ -160,6 +163,33 @@ cron.schedule("*/5 * * * *", () => {
 // Process AI External follow-ups every 2 hours.
 cron.schedule("0 */2 * * *", () => {
   processAiExternalFollowUps().catch(() => {});
+});
+
+// Sync AI External appointments into CRM appointments and automatic reminders every minute.
+cron.schedule("* * * * *", async () => {
+  if (syncingAiExternalAppointments) return;
+  syncingAiExternalAppointments = true;
+
+  try {
+    const companies = await Company.findAll({
+      where: { status: true },
+      attributes: ["id"]
+    });
+
+    for (const company of companies) {
+      await SyncAiExternalAppointmentsService({ companyId: company.id }).catch(error => {
+        logger.warn(
+          `[AI External Appointments] Falha ao sincronizar empresa ${company.id}: ${error?.message || error}`
+        );
+      });
+    }
+  } catch (error: any) {
+    logger.warn(
+      `[AI External Appointments] Falha na rotina de sincronizacao: ${error?.message || error}`
+    );
+  } finally {
+    syncingAiExternalAppointments = false;
+  }
 });
 
 // Process due AI External reminders every minute.
