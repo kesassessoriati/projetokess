@@ -4,6 +4,10 @@ import CreateAiExternalAppointmentService from "../services/AiExternalAppointmen
 import UpdateAiExternalAppointmentService from "../services/AiExternalAppointmentServices/UpdateAiExternalAppointmentService";
 import DeleteAiExternalAppointmentService from "../services/AiExternalAppointmentServices/DeleteAiExternalAppointmentService";
 import SyncAiExternalAppointmentsService from "../services/AiExternalAppointmentServices/SyncAiExternalAppointmentsService";
+import AppError from "../errors/AppError";
+import AiExternalAppointment from "../models/AiExternalAppointment";
+import Appointment from "../models/Appointment";
+import { notifyAiExternalGroup } from "../services/AiExternalAgentServices/AiExternalNotificationService";
 
 const getScope = (req: Request) => ({
   companyId: Number(req.user.companyId),
@@ -65,4 +69,32 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   });
 
   return res.status(200).json({ message: "Agendamento IA excluido com sucesso." });
+};
+
+export const sendGroup = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = getScope(req);
+  const { id } = req.params;
+
+  const aiAppointment = await AiExternalAppointment.findOne({
+    where: { id: Number(id), companyId }
+  });
+
+  if (!aiAppointment) throw new AppError("Agendamento IA nao encontrado.", 404);
+
+  const appointment = aiAppointment.appointmentId
+    ? await Appointment.findOne({ where: { id: aiAppointment.appointmentId, companyId } })
+    : null;
+
+  const sent = await notifyAiExternalGroup({
+    companyId,
+    eventType: "appointmentCreated",
+    appointment,
+    aiAppointment
+  });
+
+  if (!sent) {
+    throw new AppError("Notificacao de grupo nao enviada. Verifique a configuracao do grupo.", 400);
+  }
+
+  return res.json({ message: "Notificacao enviada ao grupo com sucesso." });
 };

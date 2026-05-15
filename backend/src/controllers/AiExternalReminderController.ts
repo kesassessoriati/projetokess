@@ -5,6 +5,13 @@ import {
   updateReminder,
   deleteReminder
 } from "../services/AiExternalReminderServices/AiExternalReminderServices";
+import AppError from "../errors/AppError";
+import AiExternalReminder from "../models/AiExternalReminder";
+import AiExternalAppointment from "../models/AiExternalAppointment";
+import {
+  notifyAiExternalGroup,
+  sendAiExternalReminderNow
+} from "../services/AiExternalAgentServices/AiExternalNotificationService";
 
 const scope = (req: Request) => ({
   companyId: Number(req.user.companyId),
@@ -31,4 +38,41 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   const { companyId } = scope(req);
   await deleteReminder({ id: Number(req.params.id), companyId });
   return res.status(200).json({ message: "Lembrete excluido com sucesso." });
+};
+
+export const sendNow = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const reminder = await AiExternalReminder.findOne({
+    where: { id: Number(req.params.id), companyId },
+    include: [{ model: AiExternalAppointment, as: "aiAppointment", required: false }]
+  });
+
+  if (!reminder) throw new AppError("Lembrete nao encontrado.", 404);
+
+  const sentReminder = await sendAiExternalReminderNow(reminder);
+
+  return res.json({ message: "Lembrete enviado com sucesso.", reminder: sentReminder });
+};
+
+export const sendGroup = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const reminder = await AiExternalReminder.findOne({
+    where: { id: Number(req.params.id), companyId },
+    include: [{ model: AiExternalAppointment, as: "aiAppointment", required: false }]
+  });
+
+  if (!reminder) throw new AppError("Lembrete nao encontrado.", 404);
+
+  const sent = await notifyAiExternalGroup({
+    companyId,
+    eventType: "reminderSent",
+    aiAppointment: (reminder as any).aiAppointment || null,
+    reminder
+  });
+
+  if (!sent) {
+    throw new AppError("Notificacao de grupo nao enviada. Verifique a configuracao do grupo.", 400);
+  }
+
+  return res.json({ message: "Notificacao enviada ao grupo com sucesso." });
 };

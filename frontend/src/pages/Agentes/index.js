@@ -33,6 +33,8 @@ import NotificationsActiveIcon from "@material-ui/icons/NotificationsActive";
 import StorageIcon from "@material-ui/icons/Storage";
 import SettingsIcon from "@material-ui/icons/Settings";
 import ListAltIcon from "@material-ui/icons/ListAlt";
+import SendIcon from "@material-ui/icons/Send";
+import GroupIcon from "@material-ui/icons/Group";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -898,6 +900,18 @@ const Prompts = () => {
     }
   };
 
+  const handleSendAppointmentGroup = async (appointmentId) => {
+    setExternalSaving(true);
+    try {
+      await api.post(`/ai-agents/external/appointments/${appointmentId}/send-group`);
+      toast.success("Notificacao enviada ao grupo.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const handleCreateReminder = async () => {
     setExternalSaving(true);
     try {
@@ -926,6 +940,31 @@ const Prompts = () => {
       setEditingReminderId(null);
       await loadExternalAgent();
       toast.success(editingReminderId ? "Lembrete atualizado." : "Lembrete criado.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleSendReminderNow = async (reminderId) => {
+    setExternalSaving(true);
+    try {
+      await api.post(`/ai-agents/external/reminders/${reminderId}/send-now`);
+      await loadExternalAgent();
+      toast.success("Lembrete enviado ao lead.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleSendReminderGroup = async (reminderId) => {
+    setExternalSaving(true);
+    try {
+      await api.post(`/ai-agents/external/reminders/${reminderId}/send-group`);
+      toast.success("Notificacao de lembrete enviada ao grupo.");
     } catch (err) {
       toastError(err);
     } finally {
@@ -1596,6 +1635,15 @@ const Prompts = () => {
               </Box>
               <Box className={classes.inlineActions}>
                 <span className={classes.mutedPill}>{item.status}</span>
+                <Tooltip title="Enviar notificacao ao grupo">
+                  <IconButton
+                    size="small"
+                    disabled={externalSaving}
+                    onClick={() => handleSendAppointmentGroup(item.id)}
+                  >
+                    <GroupIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Excluir agendamento">
                   <IconButton
                     size="small"
@@ -1671,6 +1719,24 @@ const Prompts = () => {
               </Box>
               <Box className={classes.inlineActions}>
                 <span className={classes.mutedPill}>{item.status}</span>
+                <Tooltip title="Enviar lembrete privado agora">
+                  <IconButton
+                    size="small"
+                    disabled={externalSaving || !(item.leadPhone || item.aiAppointment?.leadPhone)}
+                    onClick={() => handleSendReminderNow(item.id)}
+                  >
+                    <SendIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Enviar notificacao ao grupo">
+                  <IconButton
+                    size="small"
+                    disabled={externalSaving}
+                    onClick={() => handleSendReminderGroup(item.id)}
+                  >
+                    <GroupIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Editar lembrete">
                   <IconButton
                     size="small"

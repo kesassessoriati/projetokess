@@ -190,6 +190,49 @@ export const notifyAiExternalGroup = async ({
   }
 };
 
+export const sendAiExternalReminderNow = async (
+  reminder: AiExternalReminder
+): Promise<AiExternalReminder> => {
+  const config = await GetOrCreateExternalAgentConfigService({ companyId: reminder.companyId });
+  const settings = getReminderSettings(config);
+  if (!settings.enabled || !settings.whatsappId) {
+    throw new Error("Conexao de envio do lembrete nao configurada.");
+  }
+
+  const aiAppointment =
+    (reminder as any).aiAppointment ||
+    (reminder.aiAppointmentId
+      ? await AiExternalAppointment.findOne({
+          where: { id: reminder.aiAppointmentId, companyId: reminder.companyId }
+        })
+      : null);
+  const variables = await buildVariables({
+    companyId: reminder.companyId,
+    aiAppointment,
+    reminder
+  });
+  const message = renderAiExternalTemplate(
+    reminder.message || reminder.metadata?.interactivePayload?.text || "",
+    variables
+  );
+  const targetJid = normalizeContactJid(reminder.leadPhone || aiAppointment?.leadPhone);
+  if (!targetJid) throw new Error("Telefone do lead nao informado.");
+  if (!message.trim()) throw new Error("Mensagem do lembrete vazia.");
+
+  await sendTextWithConnection({
+    companyId: reminder.companyId,
+    whatsappId: settings.whatsappId,
+    to: targetJid,
+    text: message,
+    footer: settings.footer,
+    buttons: settings.buttons
+  });
+
+  await reminder.update({ status: "sent", sentAt: new Date(), message });
+
+  return reminder.reload();
+};
+
 export const processAiExternalReminders = async ({ companyId }: { companyId?: number } = {}) => {
   const where: Record<string, any> = {
     status: "pending",
@@ -212,36 +255,8 @@ export const processAiExternalReminders = async ({ companyId }: { companyId?: nu
     if (!locked) continue;
 
     try {
-      const config = await GetOrCreateExternalAgentConfigService({ companyId: reminder.companyId });
-      const settings = getReminderSettings(config);
-      if (!settings.enabled || !settings.whatsappId) {
-        throw new Error("Conexao de envio do lembrete nao configurada.");
-      }
-
       const aiAppointment = reminder.aiAppointment;
-      const variables = await buildVariables({
-        companyId: reminder.companyId,
-        aiAppointment,
-        reminder
-      });
-      const message = renderAiExternalTemplate(
-        reminder.message || reminder.metadata?.interactivePayload?.text || "",
-        variables
-      );
-      const targetJid = normalizeContactJid(reminder.leadPhone || aiAppointment?.leadPhone);
-      if (!targetJid) throw new Error("Telefone do lead nao informado.");
-      if (!message.trim()) throw new Error("Mensagem do lembrete vazia.");
-
-      await sendTextWithConnection({
-        companyId: reminder.companyId,
-        whatsappId: settings.whatsappId,
-        to: targetJid,
-        text: message,
-        footer: settings.footer,
-        buttons: settings.buttons
-      });
-
-      await reminder.update({ status: "sent", sentAt: new Date(), message });
+      await sendAiExternalReminderNow(reminder);
       await notifyAiExternalGroup({
         companyId: reminder.companyId,
         eventType: "reminderSent",

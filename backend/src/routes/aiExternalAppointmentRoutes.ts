@@ -16,6 +16,12 @@ aiExternalAppointmentRoutes.post(
   AiExternalAppointmentController.store
 );
 
+aiExternalAppointmentRoutes.post(
+  "/ai-agents/external/appointments/:id/send-group",
+  isAuth,
+  AiExternalAppointmentController.sendGroup
+);
+
 aiExternalAppointmentRoutes.put(
   "/ai-agents/external/appointments/:id",
   isAuth,
