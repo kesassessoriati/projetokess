@@ -41,6 +41,9 @@ crmLeadRoutes.put("/crm/leads/:leadId", isAuth, CrmLeadController.update);
 crmLeadRoutes.post("/crm/leads/:leadId/convert", isAuth, CrmLeadController.convert);
 crmLeadRoutes.delete("/crm/leads/:leadId", isAuth, CrmLeadController.remove);
 
+crmLeadRoutes.get("/crm/leads/:leadId/events", isAuth, CrmLeadController.listEvents);
+crmLeadRoutes.post("/crm/leads/:leadId/events", isAuth, CrmLeadController.createEvent);
+
 crmLeadRoutes.get("/crm/leads/:leadId/messages", isAuth, CrmLeadController.listMessages);
 crmLeadRoutes.post("/crm/leads/:leadId/messages", isAuth, CrmLeadController.createMessage);
 

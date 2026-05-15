@@ -245,21 +245,27 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     };
 
     const fetchActivities = useCallback(async () => {
-        if (!resolvedOpportunityId) {
+        const eventsPath = resolvedOpportunityId
+            ? `/opportunities/${resolvedOpportunityId}/events`
+            : resolvedLeadId
+                ? `/crm/leads/${resolvedLeadId}/events`
+                : null;
+
+        if (!eventsPath) {
             setActivities([]);
             return;
         }
 
         try {
             setLoadingActivities(true);
-            const { data } = await api.get(`/opportunities/${resolvedOpportunityId}/events`);
+            const { data } = await api.get(eventsPath);
             setActivities(data);
         } catch (err) {
             toast.error("Erro ao carregar atividades");
         } finally {
             setLoadingActivities(false);
         }
-    }, [resolvedOpportunityId]);
+    }, [resolvedLeadId, resolvedOpportunityId]);
 
     const fetchLeadAppointments = useCallback(async () => {
         if (!leadAppointmentPhone) {
@@ -281,10 +287,10 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     }, [leadAppointmentPhone]);
 
     useEffect(() => {
-        if (open && resolvedOpportunityId && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
+        if (open && (resolvedOpportunityId || resolvedLeadId) && (tabValue === 1 || tabValue === 3 || tabValue === 5)) {
             fetchActivities();
         }
-    }, [fetchActivities, open, resolvedOpportunityId, tabValue]);
+    }, [fetchActivities, open, resolvedLeadId, resolvedOpportunityId, tabValue]);
 
     useEffect(() => {
         if (open && tabValue === 4) {
@@ -330,7 +336,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
     const handleSaveActivity = async () => {
         if (!activityText.trim()) return;
-        if (!op || !op.id) {
+        const createEventPath = op && op.id
+            ? `/opportunities/${op.id}/events`
+            : resolvedLeadId
+                ? `/crm/leads/${resolvedLeadId}/events`
+                : null;
+
+        if (!editingActivity && !createEventPath) {
             toast.error("Salve a oportunidade primeiro para registrar atividades.");
             return;
         }
@@ -343,7 +355,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 toast.success("Atividade atualizada");
                 setEditingActivity(null);
             } else {
-                await api.post(`/opportunities/${op.id}/events`, {
+                await api.post(createEventPath, {
                     type: activityType,
                     metadata: { text: activityText }
                 });
@@ -368,7 +380,13 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
     const handleSaveNote = async () => {
         if (!noteText.trim()) return;
-        if (!op || !op.id) {
+        const createEventPath = op && op.id
+            ? `/opportunities/${op.id}/events`
+            : resolvedLeadId
+                ? `/crm/leads/${resolvedLeadId}/events`
+                : null;
+
+        if (!editingNote && !createEventPath) {
             toast.error("Salve a oportunidade primeiro para adicionar anotações.");
             return;
         }
@@ -381,7 +399,7 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 toast.success("Anotação atualizada");
                 setEditingNote(null);
             } else {
-                await api.post(`/opportunities/${op.id}/events`, {
+                await api.post(createEventPath, {
                     type: "ANOTACAO",
                     metadata: { text: noteText }
                 });

@@ -9,6 +9,11 @@ import ImportCrmLeadsService from "../services/CrmLeadService/ImportCrmLeadsServ
 import ExportCrmLeadsService from "../services/CrmLeadService/ExportCrmLeadsService";
 import AppError from "../errors/AppError";
 import serializeCrmLead from "../services/CrmLeadService/helpers/serializeCrmLead";
+import CrmLead from "../models/CrmLead";
+import Opportunity from "../models/Opportunity";
+import OpportunityEvent from "../models/OpportunityEvent";
+import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import EventBus from "../libs/EventBus";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile, id: userId } = req.user;
@@ -174,6 +179,89 @@ export const createMessage = async (req: Request, res: Response): Promise<Respon
   });
 
   return res.status(201).json(msg);
+};
+
+const findLeadOpportunities = async (leadId: number, companyId: number): Promise<Opportunity[]> => {
+  const lead = await CrmLead.findOne({
+    where: { id: leadId, companyId },
+    attributes: ["id"]
+  });
+
+  if (!lead) {
+    throw new AppError("Lead nÃ£o encontrado.", 404);
+  }
+
+  return Opportunity.findAll({
+    where: { leadId, companyId },
+    attributes: ["id", "pipelineId", "stageId", "assignedUserId", "status", "value"],
+    order: [["updatedAt", "DESC"]]
+  });
+};
+
+export const listEvents = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+  const leadIdNumber = Number(leadId);
+
+  const opportunities = await findLeadOpportunities(leadIdNumber, companyId);
+  const opportunityIds = opportunities.map(opportunity => opportunity.id);
+
+  if (opportunityIds.length === 0) {
+    return res.status(200).json([]);
+  }
+
+  const events = await OpportunityEvent.findAll({
+    where: {
+      companyId,
+      opportunityId: opportunityIds
+    },
+    order: [["createdAt", "DESC"]]
+  });
+
+  return res.status(200).json(events);
+};
+
+export const createEvent = async (req: Request, res: Response): Promise<Response> => {
+  const { leadId } = req.params;
+  const { companyId } = req.user;
+  const { type, metadata } = req.body;
+  const leadIdNumber = Number(leadId);
+
+  const opportunities = await findLeadOpportunities(leadIdNumber, companyId);
+  const opportunity = opportunities[0];
+
+  if (!opportunity) {
+    throw new AppError("Este lead ainda nÃ£o possui oportunidade vinculada para registrar histÃ³rico.", 400);
+  }
+
+  const event = await CreateOpportunityEventService({
+    opportunityId: opportunity.id,
+    companyId,
+    type,
+    metadata
+  });
+
+  await EventBus.publish("OPPORTUNITY_UPDATED", {
+    opportunityId: opportunity.id,
+    pipelineId: opportunity.pipelineId,
+    stageId: opportunity.stageId,
+    changes: {
+      manualEvent: {
+        before: null,
+        after: {
+          type,
+          metadata
+        }
+      }
+    },
+    assignedUserId: opportunity.assignedUserId,
+    status: opportunity.status,
+    value: opportunity.value,
+    updatedAt: event.createdAt,
+    version: `lead-manual:${event.id}`
+  }, companyId);
+
+  return res.status(201).json(event);
 };
 
 export const listAttachments = async (req: Request, res: Response): Promise<Response> => {

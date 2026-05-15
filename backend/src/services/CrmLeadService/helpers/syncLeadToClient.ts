@@ -3,6 +3,8 @@ import CrmLead from "../../../models/CrmLead";
 import CrmClient from "../../../models/CrmClient";
 import CrmClientContact from "../../../models/CrmClientContact";
 import Contact from "../../../models/Contact";
+import Opportunity from "../../../models/Opportunity";
+import OpportunityEvent from "../../../models/OpportunityEvent";
 import { syncCrmClientTags } from "../../CrmClientService/helpers/syncCrmClientTags";
 
 const sanitizeDigits = (value?: string | null): string | null => {
@@ -19,6 +21,73 @@ const resolvePhoneCandidates = (phone?: string | null): string[] => {
     variants.push(digits.slice(2));
   }
   return [...new Set(variants)];
+};
+
+const historyStartMarker = (leadId: number): string =>
+  `[Historico do Kanban herdado do Lead #${leadId}]`;
+
+const historyEndMarker = "[Fim do historico do Kanban herdado]";
+
+const removeInheritedHistoryBlock = (notes: string, leadId: number): string => {
+  const start = historyStartMarker(leadId);
+  const startIndex = notes.indexOf(start);
+
+  if (startIndex === -1) {
+    return notes.trim();
+  }
+
+  const endIndex = notes.indexOf(historyEndMarker, startIndex);
+
+  if (endIndex === -1) {
+    return notes.trim();
+  }
+
+  return `${notes.slice(0, startIndex)}${notes.slice(endIndex + historyEndMarker.length)}`.trim();
+};
+
+const buildClientNotesWithLeadHistory = async (lead: CrmLead): Promise<string | null> => {
+  const baseNotes = removeInheritedHistoryBlock(lead.notes || "", lead.id);
+  const opportunities = await Opportunity.findAll({
+    where: { leadId: lead.id, companyId: lead.companyId },
+    attributes: ["id"]
+  });
+  const opportunityIds = opportunities.map(opportunity => opportunity.id);
+
+  if (opportunityIds.length === 0) {
+    return baseNotes || null;
+  }
+
+  const events = await OpportunityEvent.findAll({
+    where: {
+      companyId: lead.companyId,
+      opportunityId: opportunityIds
+    },
+    order: [["createdAt", "ASC"]]
+  });
+
+  const historyLines = events
+    .map(event => {
+      const text = event.metadata?.text || (event.type === "MOVED" ? "Estagio alterado no funil" : "");
+      if (!text) return null;
+
+      const when = event.createdAt
+        ? new Date(event.createdAt).toLocaleString("pt-BR")
+        : "";
+
+      return `- ${when} | ${event.type}: ${text}`;
+    })
+    .filter(Boolean);
+
+  if (historyLines.length === 0) {
+    return baseNotes || null;
+  }
+
+  return [
+    baseNotes,
+    historyStartMarker(lead.id),
+    ...historyLines,
+    historyEndMarker
+  ].filter(Boolean).join("\n");
 };
 
 const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
@@ -52,6 +121,7 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
 
   const email = lead.email || contact?.email || null;
   const name = lead.name || contact?.name || normalizedPhone || "Cliente";
+  const notesWithHistory = await buildClientNotesWithLeadHistory(lead);
 
   const orConditions: any[] = [];
 
@@ -102,7 +172,7 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
       purchaseValue: lead.purchaseValue != null ? lead.purchaseValue : null,
       acquisitionDate: lead.acquisitionDate || null,
       ownerUserId: lead.ownerUserId,
-      notes: lead.notes,
+      notes: notesWithHistory,
       decisorName: lead.decisionMakerName,
       decisorPhone: lead.decisionMakerPhone,
       gmn: lead.gmn,
@@ -205,8 +275,8 @@ const syncLeadToClient = async (lead: CrmLead): Promise<CrmClient | null> => {
     if (lead.score !== undefined && lead.score !== client.score) {
       updates.score = lead.score;
     }
-    if (lead.notes && lead.notes !== client.notes) {
-      updates.notes = lead.notes;
+    if (notesWithHistory && notesWithHistory !== client.notes) {
+      updates.notes = notesWithHistory;
     }
     if (tagsStr && tagsStr !== client.tags) {
       updates.tags = tagsStr;
