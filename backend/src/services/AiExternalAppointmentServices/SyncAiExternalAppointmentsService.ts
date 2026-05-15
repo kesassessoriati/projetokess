@@ -104,7 +104,8 @@ const ensureCrmAppointment = async ({
     participantEmails: aiAppointment.leadEmail ? [aiAppointment.leadEmail] : undefined,
     operationalNote: "Sincronizado automaticamente pelo Agente IA",
     createdByUserId: aiAppointment.createdByUserId || userId,
-    skipAiExternalGroupNotification: true
+    skipAiExternalGroupNotification: true,
+    skipAvailabilityValidation: true
   });
 
   await aiAppointment.update({

@@ -26,6 +26,7 @@ interface CreateAppointmentData {
   operationalNote?: string;
   createdByUserId?: number;
   skipAiExternalGroupNotification?: boolean;
+  skipAvailabilityValidation?: boolean;
 }
 
 const CreateAppointmentService = async (
@@ -88,7 +89,7 @@ const CreateAppointmentService = async (
   const dayOfWeek = startDatetime.getDay(); // 0 = Domingo, 6 = Sábado
   const workDaysArray = userWorkDays.split(",").map(d => parseInt(d.trim(), 10));
 
-  if (!workDaysArray.includes(dayOfWeek)) {
+  if (!data.skipAvailabilityValidation && !workDaysArray.includes(dayOfWeek)) {
     const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     throw new AppError(
       `O profissional não trabalha neste dia (${dayNames[dayOfWeek]}). Dias de trabalho: ${workDaysArray.map(d => dayNames[d]).join(", ")}`,
@@ -100,7 +101,7 @@ const CreateAppointmentService = async (
   const startTime = startDatetime.toTimeString().substring(0, 5);
   const endTime = endDatetime.toTimeString().substring(0, 5);
 
-  if (startTime < userStartWork || endTime > userEndWork) {
+  if (!data.skipAvailabilityValidation && (startTime < userStartWork || endTime > userEndWork)) {
     throw new AppError(
       `O compromisso deve estar dentro do horário de trabalho do profissional (${userStartWork} - ${userEndWork})`,
       400
@@ -108,7 +109,7 @@ const CreateAppointmentService = async (
   }
 
   // Validar horário de almoço
-  if (userLunchStart && userLunchEnd) {
+  if (!data.skipAvailabilityValidation && userLunchStart && userLunchEnd) {
     // Verificar se o compromisso conflita com o horário de almoço
     const lunchStartMinutes = parseInt(userLunchStart.split(":")[0], 10) * 60 + parseInt(userLunchStart.split(":")[1], 10);
     const lunchEndMinutes = parseInt(userLunchEnd.split(":")[0], 10) * 60 + parseInt(userLunchEnd.split(":")[1], 10);

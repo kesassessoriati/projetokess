@@ -57,6 +57,8 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     userId: data.userId
   });
 
+  const reminderSettings = getReminderSettings(config.metadata);
+
   const appointment = await CreateAppointmentService({
     title: data.title,
     description: data.description,
@@ -73,7 +75,8 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     participantEmails: data.leadEmail ? [data.leadEmail] : undefined,
     operationalNote: "Criado pelo Agente Externo N8N",
     createdByUserId: data.userId,
-    skipAiExternalGroupNotification: true
+    skipAiExternalGroupNotification: true,
+    skipAvailabilityValidation: true
   });
 
   const aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000);
@@ -98,7 +101,9 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     startDatetime: new Date(data.startDatetime),
     durationMinutes: data.durationMinutes || 60,
     status: data.status || "scheduled",
-    reminderEnabled: Boolean(data.reminderEnabled),
+    reminderEnabled: data.reminderEnabled !== undefined
+      ? Boolean(data.reminderEnabled)
+      : reminderSettings.enabled,
     aiPausedUntil,
     n8nSessionId: data.n8nSessionId || null,
     source: data.source || "crm",
@@ -115,7 +120,6 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     }).catch(() => undefined);
   }
 
-  const reminderSettings = getReminderSettings(config.metadata);
   if (reminderSettings.enabled) {
     const startDatetime = new Date(data.startDatetime);
     const scheduledAt = new Date(startDatetime.getTime() - reminderSettings.hoursBefore * 60 * 60 * 1000);
