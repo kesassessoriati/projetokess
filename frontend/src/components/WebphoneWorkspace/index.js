@@ -46,24 +46,41 @@ import { useWebphone } from "../../context/WebphoneContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
-    height: "100%",
     display: "flex",
     flexDirection: "column",
-    background: "linear-gradient(180deg, #ffffff 0%, #f7faf8 100%)",
+    position: "relative",
+    padding: "18px 12px 12px",
+    borderRadius: 34,
+    background: "linear-gradient(145deg, #0f172a 0%, #111827 54%, #030712 100%)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+    "&::before": {
+      content: '""',
+      position: "absolute",
+      top: 8,
+      left: "50%",
+      width: 48,
+      height: 4,
+      borderRadius: 999,
+      transform: "translateX(-50%)",
+      backgroundColor: "rgba(148, 163, 184, 0.45)",
+    },
   },
   rootCompact: {
-    borderRadius: 18,
-    border: "1px solid #d7e5dc",
-    boxShadow: "0 18px 32px rgba(15, 23, 42, 0.08)",
+    borderRadius: 30,
+    border: "1px solid rgba(148, 163, 184, 0.35)",
+    boxShadow: "0 18px 32px rgba(15, 23, 42, 0.18)",
     overflow: "hidden",
   },
   header: {
-    padding: theme.spacing(1.5, 2),
-    background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
+    padding: theme.spacing(1.5, 1.5, 1.25),
+    borderRadius: "24px 24px 0 0",
+    background: "linear-gradient(135deg, #111827 0%, #182235 100%)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
     gap: 12,
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderBottom: "none",
   },
   headerCompact: {
     padding: theme.spacing(1.25, 1.5),
@@ -86,15 +103,26 @@ const useStyles = makeStyles((theme) => ({
     marginTop: 2,
   },
   tabs: {
-    minHeight: 46,
+    minHeight: 48,
+    borderLeft: "1px solid rgba(15, 23, 42, 0.08)",
+    borderRight: "1px solid rgba(15, 23, 42, 0.08)",
     borderBottom: "1px solid #e5e7eb",
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
+    "& .MuiTabs-indicator": {
+      height: 3,
+      borderRadius: 999,
+      backgroundColor: "#22c55e",
+    },
     "& .MuiTab-root": {
-      minHeight: 46,
+      minHeight: 48,
       textTransform: "none",
       fontSize: "0.76rem",
       fontWeight: 700,
       minWidth: 0,
+      color: "#64748b",
+    },
+    "& .MuiTab-root.Mui-selected": {
+      color: "#16a34a",
     },
   },
   body: {
@@ -104,6 +132,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     gap: 16,
+    borderRadius: "0 0 24px 24px",
+    border: "1px solid rgba(15, 23, 42, 0.08)",
+    borderTop: "none",
+    background: "linear-gradient(180deg, #f8fafc 0%, #eef7f1 100%)",
   },
   bodyCompact: {
     padding: theme.spacing(1.5),
@@ -114,6 +146,17 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+  },
+  dialDisplayCard: {
+    borderRadius: 24,
+    padding: theme.spacing(1.5),
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.96) 100%)",
+    border: "1px solid rgba(34, 197, 94, 0.18)",
+    boxShadow: "0 16px 32px rgba(15, 23, 42, 0.08)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   },
   statusBadge: {
     display: "inline-flex",
@@ -133,38 +176,60 @@ const useStyles = makeStyles((theme) => ({
   },
   dialInput: {
     "& .MuiOutlinedInput-root": {
-      borderRadius: 14,
+      borderRadius: 18,
       fontSize: "1.6rem",
       fontWeight: 800,
       letterSpacing: 1,
       backgroundColor: "#fff",
+      color: "#0f172a",
+      boxShadow: "inset 0 1px 0 rgba(15,23,42,0.04)",
     },
     "& .MuiOutlinedInput-input": {
       textAlign: "center",
-      paddingTop: 16,
-      paddingBottom: 16,
+      paddingTop: 14,
+      paddingBottom: 14,
     },
   },
   keypad: {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 12,
+    gap: "14px 18px",
+    justifyItems: "center",
+    padding: theme.spacing(0.5, 1),
   },
   keyButton: {
-    height: 54,
-    borderRadius: 14,
-    border: "1px solid #dbe5dd",
-    backgroundColor: "#ffffff",
+    width: 66,
+    height: 66,
+    minWidth: 66,
+    borderRadius: "50%",
+    border: "1px solid rgba(148, 163, 184, 0.28)",
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
     color: "#0f172a",
-    fontSize: "1.25rem",
-    fontWeight: 800,
+    boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
+    display: "flex",
+    flexDirection: "column",
+    lineHeight: 1,
     "&:hover": {
-      backgroundColor: "#f1f5f9",
+      background: "linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)",
+      borderColor: "rgba(34, 197, 94, 0.38)",
+      boxShadow: "0 10px 20px rgba(22, 163, 74, 0.14)",
     },
+  },
+  keyDigit: {
+    fontSize: "1.35rem",
+    fontWeight: 900,
+  },
+  keyLetters: {
+    minHeight: 12,
+    marginTop: 4,
+    fontSize: "0.58rem",
+    fontWeight: 800,
+    color: "#94a3b8",
+    letterSpacing: ".08em",
   },
   primaryButton: {
     height: 44,
-    borderRadius: 12,
+    borderRadius: 999,
     textTransform: "none",
     fontWeight: 800,
     fontSize: "0.92rem",
@@ -189,9 +254,10 @@ const useStyles = makeStyles((theme) => ({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    border: "1px solid #d8e4db",
+    borderRadius: "50%",
+    border: "1px solid rgba(148, 163, 184, 0.32)",
     backgroundColor: "#fff",
+    boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
   },
   sectionCard: {
     borderRadius: 16,
@@ -401,6 +467,21 @@ const tabConfig = [
   { value: "sequence", label: "Sequência", icon: <TimelineIcon fontSize="small" /> },
   { value: "history", label: "Histórico", icon: <HistoryIcon fontSize="small" /> },
   { value: "lead", label: "Lead", icon: <PersonIcon fontSize="small" /> },
+];
+
+const keypadKeys = [
+  { digit: "1", letters: "" },
+  { digit: "2", letters: "ABC" },
+  { digit: "3", letters: "DEF" },
+  { digit: "4", letters: "GHI" },
+  { digit: "5", letters: "JKL" },
+  { digit: "6", letters: "MNO" },
+  { digit: "7", letters: "PQRS" },
+  { digit: "8", letters: "TUV" },
+  { digit: "9", letters: "WXYZ" },
+  { digit: "*", letters: "" },
+  { digit: "0", letters: "+" },
+  { digit: "#", letters: "" },
 ];
 
 const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = false, onMinimize, onClose }) => {
@@ -897,6 +978,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       <Box className={`${classes.body} ${compact ? classes.bodyCompact : ""}`}>
         {activeTab === "dialer" && (
           <>
+            <Box className={classes.dialDisplayCard}>
             <Box className={classes.statusLine}>
               <span
                 className={classes.statusBadge}
@@ -912,7 +994,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                   : sipLoading
                     ? "Carregando SIP..."
                     : sipSettings?.enabled
-                      ? "Discador ativo"
+                      ? "Softphone ativo"
                       : "Aguardando configuração"}
               </Typography>
             </Box>
@@ -943,15 +1025,17 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
               onChange={(event) => setDialNumber(event.target.value)}
               placeholder="(11) 98765-4321"
             />
+            </Box>
 
             <Box className={classes.keypad}>
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
+              {keypadKeys.map(({ digit, letters }) => (
                 <Button
                   key={digit}
                   className={classes.keyButton}
                   onClick={() => handleDialDigit(digit)}
                 >
-                  {digit}
+                  <span className={classes.keyDigit}>{digit}</span>
+                  <span className={classes.keyLetters}>{letters}</span>
                 </Button>
               ))}
             </Box>

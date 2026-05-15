@@ -6,7 +6,7 @@ import { useWebphone } from "../../context/WebphoneContext";
 import { usePlanPermissions } from "../../context/PlanPermissionsContext";
 import WebphoneWorkspace from "../WebphoneWorkspace";
 
-const PANEL_WIDTH = 380;
+const PANEL_WIDTH = 370;
 
 const getInitialPosition = () => {
   try {
@@ -31,16 +31,16 @@ const useStyles = makeStyles(() => ({
     width: PANEL_WIDTH,
     maxWidth: "calc(100vw - 16px)",
     zIndex: 1400,
-    borderRadius: 16,
+    borderRadius: 34,
     boxShadow:
-      "0 24px 48px rgba(15, 23, 42, 0.22), 0 8px 16px rgba(15, 23, 42, 0.12)",
+      "0 30px 60px rgba(15, 23, 42, 0.28), 0 10px 22px rgba(15, 23, 42, 0.16)",
     overflow: "hidden",
-    border: "1px solid #d8e4db",
-    backgroundColor: "#fff",
+    border: "1px solid rgba(148, 163, 184, 0.32)",
+    backgroundColor: "#0f172a",
   },
   dragHandle: {
-    height: 10,
-    background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
+    height: 18,
+    background: "linear-gradient(145deg, #0f172a 0%, #111827 100%)",
     cursor: "grab",
     display: "flex",
     alignItems: "center",
