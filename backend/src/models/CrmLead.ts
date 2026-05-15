@@ -114,6 +114,14 @@ class CrmLead extends Model<CrmLead> {
   @Column
   sessionid: string;
 
+  @Default("false")
+  @Column({ field: "follow_up", type: DataType.TEXT })
+  followUp: string;
+
+  @Default("false")
+  @Column({ field: "follow_up2", type: DataType.TEXT })
+  followUp2: string;
+
   @Column
   source: string;
 

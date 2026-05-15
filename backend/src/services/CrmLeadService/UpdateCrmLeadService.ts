@@ -33,6 +33,10 @@ interface Request {
   instagram?: string;
   linkedin?: string;
   sessionid?: string;
+  followUp?: string;
+  followUp2?: string;
+  follow_up?: string;
+  follow_up2?: string;
   source?: string;
   campaign?: string;
   medium?: string;
@@ -108,6 +112,11 @@ const UpdateCrmLeadService = async ({
   if (data.leadStatus === "new") data.leadStatus = "novo";
   if (data.leadStatus === "won") data.leadStatus = "convertido";
   if (data.leadStatus === "lost") data.leadStatus = "perdido";
+
+  data.followUp = data.followUp ?? data.follow_up;
+  data.followUp2 = data.followUp2 ?? data.follow_up2;
+  delete data.follow_up;
+  delete data.follow_up2;
 
   if (data.document !== undefined || data.cnpj !== undefined) {
     data.document = sanitizeDigits(data.document || data.cnpj);
