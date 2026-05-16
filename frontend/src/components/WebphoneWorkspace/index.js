@@ -33,6 +33,7 @@ import {
   Pause as PauseIcon,
   PlayArrow as PlayArrowIcon,
   Stop as StopIcon,
+  DeleteOutline as DeleteOutlineIcon,
   EventAvailable as EventAvailableIcon,
   AssignmentTurnedIn as AssignmentTurnedInIcon,
   NoteAdd as NoteAddIcon,
@@ -340,6 +341,36 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 800,
     textAlign: "right",
   },
+  removePreviewButton: {
+    color: "#dc2626",
+    backgroundColor: "#fee2e2",
+    width: 32,
+    height: 32,
+    "&:hover": {
+      backgroundColor: "#fecaca",
+    },
+  },
+  sequenceControlCard: {
+    borderRadius: 16,
+    border: "1px solid #fecaca",
+    backgroundColor: "#fff7f7",
+    padding: theme.spacing(1.25),
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  sequenceControlTitle: {
+    fontSize: "0.82rem",
+    color: "#991b1b",
+    fontWeight: 900,
+    lineHeight: 1.15,
+  },
+  sequenceControlMeta: {
+    fontSize: "0.7rem",
+    color: "#7f1d1d",
+    marginTop: 2,
+  },
   leadPill: {
     fontSize: "0.68rem",
     fontWeight: 800,
@@ -460,6 +491,45 @@ const normalizeNumberValue = (value, fallback, min, max) => {
   }
 
   return Math.min(parsed, max);
+};
+
+const getSequenceTargetKey = (target) => {
+  const phone = onlyDigits(target?.phone);
+  if (phone) {
+    return `phone:${phone}`;
+  }
+
+  if (target?.opportunityId) {
+    return `opportunity:${target.opportunityId}`;
+  }
+
+  if (target?.leadId) {
+    return `lead:${target.leadId}`;
+  }
+
+  if (target?.contactId) {
+    return `contact:${target.contactId}`;
+  }
+  return "";
+};
+
+const uniqueSequenceTargets = (targets = []) => {
+  const seen = new Set();
+
+  return targets.filter((target) => {
+    const phone = onlyDigits(target?.phone);
+    if (!phone) {
+      return false;
+    }
+
+    const key = getSequenceTargetKey({ ...target, phone });
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 };
 
 const tabConfig = [
@@ -620,6 +690,10 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       })[0] || null;
   }, [activeSequence]);
 
+  const hasControllableSequence = Boolean(
+    activeSequence?.id && ["ACTIVE", "PAUSED"].includes(activeSequence.status)
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -757,7 +831,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       });
 
       const stage = (data?.stages || []).find((item) => Number(item.id) === Number(selectedStageId));
-      const availableTargets = (stage?.opportunities || [])
+      const availableTargets = uniqueSequenceTargets((stage?.opportunities || [])
         .map((opportunity) => {
           const phone = opportunity?.lead?.phone || opportunity?.contact?.number || "";
           return {
@@ -770,7 +844,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
             stageId: opportunity?.stageId || Number(selectedStageId),
           };
         })
-        .filter((target) => target.phone)
+        .filter((target) => target.phone))
         .slice(0, quantity);
 
       setPreviewTargets(availableTargets);
@@ -802,9 +876,11 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       return;
     }
 
-    const targetsToDial = previewTargets.length
-      ? previewTargets.slice(0, quantity)
-      : ((await previewSequenceTargets()) || []).slice(0, quantity);
+    const targetsToDial = uniqueSequenceTargets(
+      previewTargets.length
+        ? previewTargets
+        : ((await previewSequenceTargets()) || [])
+    ).slice(0, quantity);
 
     if (!targetsToDial.length) {
       return;
@@ -824,6 +900,22 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       await loadSequenceById(sequence.id);
     }
   };
+
+  const handleStopSequence = useCallback(async () => {
+    if (!activeSequence?.id || sequenceLoading) {
+      return;
+    }
+
+    await controlSequence(activeSequence.id, "cancel");
+  }, [activeSequence?.id, controlSequence, sequenceLoading]);
+
+  const handleRemovePreviewTarget = useCallback((targetToRemove) => {
+    const targetKey = getSequenceTargetKey(targetToRemove);
+
+    setPreviewTargets((currentTargets) =>
+      currentTargets.filter((target) => getSequenceTargetKey(target) !== targetKey)
+    );
+  }, []);
 
   const handleLeadNoteSave = async () => {
     if (!leadNote.trim() || !currentLeadOpportunityId) {
@@ -976,6 +1068,28 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
       </Tabs>
 
       <Box className={`${classes.body} ${compact ? classes.bodyCompact : ""}`}>
+        {hasControllableSequence && activeTab !== "sequence" && (
+          <Box className={classes.sequenceControlCard}>
+            <Box minWidth={0}>
+              <Typography className={classes.sequenceControlTitle} noWrap>
+                Sequência em andamento
+              </Typography>
+              <Typography className={classes.sequenceControlMeta} noWrap>
+                {activeSequence.completedTargets || 0}/{activeSequence.totalTargets || 0} concluídos
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              className={`${classes.primaryButton} ${classes.hangupButton}`}
+              onClick={handleStopSequence}
+              disabled={sequenceLoading}
+              startIcon={<StopIcon />}
+            >
+              Parar
+            </Button>
+          </Box>
+        )}
+
         {activeTab === "dialer" && (
           <>
             <Box className={classes.dialDisplayCard}>
@@ -1240,13 +1354,16 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 {previewLoading ? <CircularProgress size={18} /> : "Carregar leads"}
               </Button>
               <Button
-                className={`${classes.primaryButton} ${classes.callButton}`}
-                onClick={handleStartSequence}
-                disabled={sequenceLoading || previewLoading || pipelinesLoading || !selectedPipelineId || !selectedStageId}
+                className={`${classes.primaryButton} ${hasControllableSequence ? classes.hangupButton : classes.callButton}`}
+                onClick={hasControllableSequence ? handleStopSequence : handleStartSequence}
+                disabled={
+                  sequenceLoading ||
+                  (!hasControllableSequence && (previewLoading || pipelinesLoading || !selectedPipelineId || !selectedStageId))
+                }
                 fullWidth
-                startIcon={<PlayArrowIcon />}
+                startIcon={hasControllableSequence ? <StopIcon /> : <PlayArrowIcon />}
               >
-                Iniciar sequência
+                {hasControllableSequence ? "Parar sequência" : "Iniciar sequência"}
               </Button>
             </Box>
 
@@ -1256,7 +1373,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                   Prévia da sequência ({previewTargets.length})
                 </Typography>
                 {previewTargets.slice(0, compact ? 4 : 6).map((target) => (
-                  <Box key={`${target.opportunityId}-${target.leadId}`} className={classes.historyItem}>
+                  <Box key={getSequenceTargetKey(target)} className={classes.historyItem}>
                     <div className={classes.historyDot} style={{ backgroundColor: "#22c55e" }}>
                       {String(target.name || "L").slice(0, 1).toUpperCase()}
                     </div>
@@ -1264,6 +1381,15 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                       <Typography className={classes.historyName} noWrap>{target.name}</Typography>
                       <Typography className={classes.historyMeta} noWrap>{target.phone}</Typography>
                     </Box>
+                    <Tooltip title="Remover da sequência">
+                      <IconButton
+                        size="small"
+                        className={classes.removePreviewButton}
+                        onClick={() => handleRemovePreviewTarget(target)}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
                 ))}
               </Box>
@@ -1339,11 +1465,12 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
 
                   <Button
                     className={`${classes.primaryButton} ${classes.hangupButton}`}
-                    onClick={() => controlSequence(activeSequence.id, "cancel")}
+                    onClick={handleStopSequence}
+                    disabled={sequenceLoading}
                     startIcon={<StopIcon />}
                     fullWidth
                   >
-                    Cancelar
+                    Parar sequência
                   </Button>
                 </Box>
               </Box>

@@ -76,6 +76,48 @@ const recalculateSequence = async (sequenceId: number) => {
   );
 };
 
+const normalizePhone = (value: any): string => String(value || "").replace(/\D/g, "");
+
+const getTargetKey = (target: any): string => {
+  const phone = normalizePhone(target?.phone);
+  if (phone) {
+    return `phone:${phone}`;
+  }
+
+  if (target?.opportunityId) {
+    return `opportunity:${target.opportunityId}`;
+  }
+
+  if (target?.leadId) {
+    return `lead:${target.leadId}`;
+  }
+
+  if (target?.contactId) {
+    return `contact:${target.contactId}`;
+  }
+  return "";
+};
+
+const sanitizeTargets = (targets: any[] = []): any[] => {
+  const seen = new Set<string>();
+
+  return targets.reduce((validTargets: any[], target: any) => {
+    const phone = normalizePhone(target?.phone);
+    if (!phone) {
+      return validTargets;
+    }
+
+    const key = getTargetKey({ ...target, phone });
+    if (!key || seen.has(key)) {
+      return validTargets;
+    }
+
+    seen.add(key);
+    validTargets.push({ ...target, phone });
+    return validTargets;
+  }, []);
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { status, userId } = req.query as { status?: string; userId?: string };
 
@@ -131,7 +173,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError("Funil e estágio são obrigatórios para iniciar a sequência.", 400);
   }
 
-  if (!Array.isArray(targets) || targets.length === 0) {
+  const uniqueTargets = Array.isArray(targets) ? sanitizeTargets(targets) : [];
+
+  if (!uniqueTargets.length) {
     throw new AppError("Selecione ao menos um lead para iniciar a sequência.", 400);
   }
 
@@ -171,7 +215,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   });
 
   await CallSequenceTarget.bulkCreate(
-    targets.map((target: any, index: number) => ({
+    uniqueTargets.map((target: any, index: number) => ({
       sequenceId: sequence.id,
       leadId: target.leadId || null,
       opportunityId: target.opportunityId || null,
