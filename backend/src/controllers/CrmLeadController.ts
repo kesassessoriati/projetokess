@@ -346,7 +346,7 @@ export const importLeads = async (req: Request, res: Response): Promise<Response
     throw new AppError("O arquivo é obrigatório");
   }
 
-  const { ownerUserId, pipelineId, stageId, source, autoTag, mapping, selectedRows } = req.body;
+  const { ownerUserId, pipelineId, stageId, source, autoTag, mapping, selectedRows, hasHeaderRow } = req.body;
 
   let parsedMapping;
   if (mapping) {
@@ -374,6 +374,7 @@ export const importLeads = async (req: Request, res: Response): Promise<Response
     autoTag,
     mapping: parsedMapping,
     selectedRows: parsedSelectedRows,
+    hasHeaderRow: hasHeaderRow === undefined ? true : hasHeaderRow === "true",
   });
 
   return res.status(200).json(result);

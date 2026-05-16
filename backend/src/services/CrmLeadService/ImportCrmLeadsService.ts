@@ -45,6 +45,7 @@ interface Request {
     autoTag?: string;
     mapping?: Record<string, string>;
     selectedRows?: string[];
+    hasHeaderRow?: boolean;
 }
 
 const ensureImportedLeadInPipeline = async ({
@@ -183,7 +184,8 @@ const ImportCrmLeadsService = async ({
     source,
     autoTag,
     mapping,
-    selectedRows
+    selectedRows,
+    hasHeaderRow = true
 }: Request): Promise<{ total: number; imported: number; errors: any[] }> => {
     try {
         // Para CSV: ler como texto com raw:true para preservar strings de data (dd/mm/yyyy)
@@ -219,7 +221,7 @@ const ImportCrmLeadsService = async ({
             }
         }
 
-        const startIndex = useMapping ? 1 : 0;
+        const startIndex = useMapping && hasHeaderRow ? 1 : 0;
 
         for (let index = startIndex; index < xlData.length; index++) {
             try {

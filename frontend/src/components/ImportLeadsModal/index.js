@@ -134,6 +134,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
     const [rows, setRows] = useState(null);
     const [columns, setColumns] = useState(null);
+    const [hasHeaderRow, setHasHeaderRow] = useState(true);
     const [columnValue, setColumnValue] = useState({});
     const [selectedFields, setSelectedFields] = useState({});
     const [selectedRows, setSelectedRows] = useState({});
@@ -151,6 +152,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         setFile(null);
         setRows(null);
         setColumns(null);
+        setHasHeaderRow(true);
         setColumnValue({});
         setSelectedFields({});
         setSelectedRows({});
@@ -285,11 +287,30 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
             });
         }
 
+        const detectedHeader = Object.keys(newSelectedFields).length > 0;
+        setHasHeaderRow(detectedHeader);
+
+        if (!detectedHeader && columns.length > 0) {
+            const firstColumn = columns[0]?.key;
+            const secondColumn = columns[1]?.key;
+
+            if (firstColumn !== undefined) {
+                newColumnValue[firstColumn] = "name";
+                newSelectedFields.name = firstColumn;
+            }
+
+            if (secondColumn !== undefined) {
+                newColumnValue[secondColumn] = "phone";
+                newSelectedFields.phone = secondColumn;
+            }
+        }
+
         setColumnValue(newColumnValue);
         setSelectedFields(newSelectedFields);
 
         const newSelectedRows = {};
-        for (let i = 1; i < rows.length; i++) {
+        const firstDataRowIndex = detectedHeader ? 1 : 0;
+        for (let i = firstDataRowIndex; i < rows.length; i++) {
             newSelectedRows[i] = true;
         }
         setSelectedRows(newSelectedRows);
@@ -390,6 +411,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
             // Adiciona mapeamento (apenas usando isso enviaremos o mapping para o backend e a validação flexível fará efeito)
             formData.append("mapping", JSON.stringify(columnValue));
             formData.append("selectedRows", JSON.stringify(selectedRowIndexes));
+            formData.append("hasHeaderRow", hasHeaderRow ? "true" : "false");
 
             const { data } = await api.post("/crm/leads/import", formData, {
                 headers: {
@@ -424,12 +446,16 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                             <TableCell padding="checkbox">
                                 <input
                                     type="checkbox"
-                                    checked={Object.keys(selectedRows).length > 0 && Object.keys(selectedRows).length === rows.length - 1}
+                                    checked={
+                                        Object.keys(selectedRows).length > 0 &&
+                                        Object.keys(selectedRows).length === rows.length - (hasHeaderRow ? 1 : 0)
+                                    }
                                     onChange={(event) => {
                                         const isChecked = event.target.checked;
                                         const newSelectedRows = {};
                                         if (isChecked) {
-                                            for (let i = 1; i < rows.length; i++) {
+                                            const firstDataRowIndex = hasHeaderRow ? 1 : 0;
+                                            for (let i = firstDataRowIndex; i < rows.length; i++) {
                                                 newSelectedRows[i] = true;
                                             }
                                         }
@@ -464,7 +490,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                     </TableHead>
                     <TableBody>
                         {rows.map((row, rowIndex) => {
-                            if (rowIndex === 0) return null; // Pular cabeçalho
+                            if (hasHeaderRow && rowIndex === 0) return null; // Pular cabeçalho
                             return (
                                 <TableRow key={rowIndex}>
                                     <TableCell padding="checkbox">
