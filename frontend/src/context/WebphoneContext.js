@@ -1222,7 +1222,7 @@ export const WebphoneProvider = ({ children }) => {
 
     const boot = async () => {
       const runtimeConfig = await loadSipSettings();
-      if (!cancelled && runtimeConfig?.enabled) {
+      if (!cancelled && runtimeConfig?.enabled && !uaRef.current) {
         startUA(runtimeConfig);
       }
       if (!cancelled) {
