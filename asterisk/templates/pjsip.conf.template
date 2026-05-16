@@ -53,9 +53,9 @@ type=endpoint
 transport=transport-ws
 context=from-webrtc
 disallow=all
-allow=opus
 allow=ulaw
 allow=alaw
+allow=opus
 auth=${WEBRTC_EXTENSION}-auth
 aors=${WEBRTC_EXTENSION}
 webrtc=yes
@@ -81,4 +81,3 @@ password=${WEBRTC_PASSWORD}
 type=aor
 max_contacts=5
 remove_existing=yes
-
