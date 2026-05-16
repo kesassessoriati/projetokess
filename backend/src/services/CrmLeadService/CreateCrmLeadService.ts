@@ -82,6 +82,16 @@ const normalizeNumber = (phone?: string): string | null => {
 };
 
 const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
+const validTemperatures = ["frio", "morno", "quente"];
+
+const normalizeLeadTemperature = (value?: string | null): string | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = String(value || "").trim().toLowerCase();
+  return validTemperatures.includes(normalized) ? normalized : null;
+};
 
 const resolveContactId = async (
   companyId: number,
@@ -231,6 +241,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   data.address = data.address?.trim();
   data.product = data.product?.trim();
   data.cnpj = data.document && data.document.length === 14 ? data.document : "";
+  data.temperature = normalizeLeadTemperature(data.temperature);
 
   await schema.validate(data);
 
