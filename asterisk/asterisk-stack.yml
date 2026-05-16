@@ -3,14 +3,34 @@ version: "3.7"
 services:
   asterisk:
     image: andrius/asterisk:20
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - |
+        set -eu
+        export ASTERISK_TEMPLATE_VARS='$$ASTERISK_PUBLIC_IP $$ASTERISK_HTTP_PORT $$ASTERISK_RTP_START $$ASTERISK_RTP_END $$ASTERISK_STUN_SERVER $$WEBRTC_EXTENSION $$WEBRTC_PASSWORD $$WEBRTC_DEFAULT_DID $$SIP_TRUNK_HOST $$SIP_TRUNK_PORT $$SIP_TRUNK_USERNAME $$SIP_TRUNK_PASSWORD'
+        envsubst "$$ASTERISK_TEMPLATE_VARS" < /opt/atendzappy-asterisk/templates/http.conf.template > /etc/asterisk/http.conf
+        envsubst "$$ASTERISK_TEMPLATE_VARS" < /opt/atendzappy-asterisk/templates/rtp.conf.template > /etc/asterisk/rtp.conf
+        envsubst "$$ASTERISK_TEMPLATE_VARS" < /opt/atendzappy-asterisk/templates/pjsip.conf.template > /etc/asterisk/pjsip.conf
+        envsubst "$$ASTERISK_TEMPLATE_VARS" < /opt/atendzappy-asterisk/templates/extensions.conf.template > /etc/asterisk/extensions.conf
+        envsubst "$$ASTERISK_TEMPLATE_VARS" < /opt/atendzappy-asterisk/templates/modules.conf.template > /etc/asterisk/modules.conf
+        exec /usr/local/bin/entrypoint.sh /usr/sbin/asterisk -vvvdddf -T -W -U asterisk -p
     networks:
       - wapainelnet
+    environment:
+      ASTERISK_PUBLIC_IP: ${ASTERISK_PUBLIC_IP}
+      ASTERISK_HTTP_PORT: ${ASTERISK_HTTP_PORT:-8088}
+      ASTERISK_RTP_START: ${ASTERISK_RTP_START:-10000}
+      ASTERISK_RTP_END: ${ASTERISK_RTP_END:-10100}
+      ASTERISK_STUN_SERVER: ${ASTERISK_STUN_SERVER:-stun.l.google.com:19302}
+      WEBRTC_EXTENSION: ${WEBRTC_EXTENSION:-7001}
+      WEBRTC_PASSWORD: ${WEBRTC_PASSWORD}
+      WEBRTC_DEFAULT_DID: ${WEBRTC_DEFAULT_DID}
+      SIP_TRUNK_HOST: ${SIP_TRUNK_HOST:-sip1.sipserver.com.br}
+      SIP_TRUNK_PORT: ${SIP_TRUNK_PORT:-5060}
+      SIP_TRUNK_USERNAME: ${SIP_TRUNK_USERNAME}
+      SIP_TRUNK_PASSWORD: ${SIP_TRUNK_PASSWORD}
     volumes:
-      - /opt/atendzappy-asterisk/config/http.conf:/etc/asterisk/http.conf
-      - /opt/atendzappy-asterisk/config/rtp.conf:/etc/asterisk/rtp.conf
-      - /opt/atendzappy-asterisk/config/pjsip.conf:/etc/asterisk/pjsip.conf
-      - /opt/atendzappy-asterisk/config/extensions.conf:/etc/asterisk/extensions.conf
-      - /opt/atendzappy-asterisk/config/modules.conf:/etc/asterisk/modules.conf
+      - /opt/atendzappy-asterisk/templates:/opt/atendzappy-asterisk/templates:ro
       - asterisk_spool:/var/spool/asterisk
       - asterisk_lib:/var/lib/asterisk
       - asterisk_logs:/var/log/asterisk

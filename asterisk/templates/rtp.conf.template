@@ -1,0 +1,6 @@
+[general]
+rtpstart=${ASTERISK_RTP_START}
+rtpend=${ASTERISK_RTP_END}
+icesupport=yes
+stunaddr=${ASTERISK_STUN_SERVER}
+

@@ -4,12 +4,13 @@ writeprotect=no
 clearglobalvars=no
 
 [globals]
-WEBRTC_RING_GROUP=PJSIP/7001
+WEBRTC_RING_GROUP=PJSIP/${WEBRTC_EXTENSION}
+SIP_TRUNK_HOST=${SIP_TRUNK_HOST}
 
 [from-webrtc]
 exten => _+X.,1,NoOp(Outbound WebRTC call to ${EXTEN})
  same => n,Set(SELECTED_DID=${FILTER(0-9,${PJSIP_HEADER(read,X-AtendZappy-DID)})})
- same => n,ExecIf($["${SELECTED_DID}" = ""]?Set(SELECTED_DID=5420182118))
+ same => n,ExecIf($["${SELECTED_DID}" = ""]?Set(SELECTED_DID=${WEBRTC_DEFAULT_DID}))
  same => n,Set(OUTBOUND_NUMBER=${EXTEN:1})
  same => n,Gosub(normalize-outbound-number,s,1(${OUTBOUND_NUMBER}))
  same => n,Set(CALLERID(num)=${SELECTED_DID})
@@ -18,7 +19,7 @@ exten => _+X.,1,NoOp(Outbound WebRTC call to ${EXTEN})
 
 exten => _X.,1,NoOp(Outbound WebRTC call to ${EXTEN})
  same => n,Set(SELECTED_DID=${FILTER(0-9,${PJSIP_HEADER(read,X-AtendZappy-DID)})})
- same => n,ExecIf($["${SELECTED_DID}" = ""]?Set(SELECTED_DID=5420182118))
+ same => n,ExecIf($["${SELECTED_DID}" = ""]?Set(SELECTED_DID=${WEBRTC_DEFAULT_DID}))
  same => n,Set(OUTBOUND_NUMBER=${EXTEN})
  same => n,Gosub(normalize-outbound-number,s,1(${OUTBOUND_NUMBER}))
  same => n,Set(CALLERID(num)=${SELECTED_DID})
@@ -27,8 +28,8 @@ exten => _X.,1,NoOp(Outbound WebRTC call to ${EXTEN})
 
 [add-outbound-headers]
 exten => s,1,NoOp(Add outbound SIP identity headers for DID ${ARG1})
- same => n,Set(PJSIP_HEADER(add,P-Preferred-Identity)=<sip:${ARG1}@sip1.sipserver.com.br>)
- same => n,Set(PJSIP_HEADER(add,P-Asserted-Identity)=<sip:${ARG1}@sip1.sipserver.com.br>)
+ same => n,Set(PJSIP_HEADER(add,P-Preferred-Identity)=<sip:${ARG1}@${SIP_TRUNK_HOST}>)
+ same => n,Set(PJSIP_HEADER(add,P-Asserted-Identity)=<sip:${ARG1}@${SIP_TRUNK_HOST}>)
  same => n,Return()
 
 [normalize-outbound-number]
@@ -42,10 +43,11 @@ exten => s,1,Set(OUTBOUND_NUMBER=${FILTER(0-9,${ARG1})})
  same => n,Return()
 
 [from-sipserver]
-exten => 5420182118,1,NoOp(Inbound SIPServer DID ${EXTEN})
+exten => ${WEBRTC_DEFAULT_DID},1,NoOp(Inbound SIPServer DID ${EXTEN})
  same => n,Dial(${WEBRTC_RING_GROUP},45)
  same => n,Hangup()
 
 exten => _X.,1,NoOp(Inbound SIPServer fallback DID ${EXTEN})
  same => n,Dial(${WEBRTC_RING_GROUP},45)
  same => n,Hangup()
+

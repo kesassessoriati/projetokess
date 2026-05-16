@@ -628,6 +628,7 @@ export const WebphoneProvider = ({ children }) => {
         duration,
         callEndedAt: new Date().toISOString(),
         answeredAt: callAnsweredRef.current ? new Date().toISOString() : undefined,
+        metadata: failureCause ? { failureCause } : undefined,
       });
 
       await finalizeSequenceAttempt({
@@ -807,7 +808,6 @@ export const WebphoneProvider = ({ children }) => {
           rtcOfferConstraints: { offerToReceiveAudio: 1, offerToReceiveVideo: 0 },
           extraHeaders: selectedFromNumber ? [
             `X-AtendZappy-DID: ${selectedFromNumber}`,
-            `P-Preferred-Identity: <sip:${selectedFromNumber}@${destinationDomain}>`
           ] : [],
         };
 
@@ -815,7 +815,13 @@ export const WebphoneProvider = ({ children }) => {
         return callRecord;
       } catch (error) {
         console.error("[Webphone] Failed to initiate SIP call", error);
-        await persistCallUpdate({ status: "failed", duration: 0 });
+        await persistCallUpdate({
+          status: "failed",
+          duration: 0,
+          metadata: {
+            failureCause: error?.message || error?.name || "call-init-error",
+          },
+        });
         currentSequenceTargetRef.current = null;
         setStatus("connected");
         resetCallState();
