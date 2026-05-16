@@ -163,6 +163,12 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             : Number((op && op.value) || 0);
     const resolvedLeadId = leadId || (op && (op.leadId || op.lead?.id)) || null;
     const resolvedOpportunityId = (op && op.id) || null;
+    const displayName =
+        (op && op.contact && op.contact.name) ||
+        (op && op.lead && op.lead.name) ||
+        (op && op.title) ||
+        (op && op.name) ||
+        "Novo Lead";
     const [tabValue, setTabValue] = useState(0);
     const [showRecordings, setShowRecordings] = useState(false);
     const [showMeetings, setShowMeetings] = useState(false);
@@ -455,14 +461,14 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 <Box width={{ xs: "100%", md: "30%" }} className={classes.leftPanel}>
                     <Box display="flex" alignItems="center" mb={3}>
                         <Avatar style={{ width: 48, height: 48, marginRight: 16, backgroundColor: "#10b981" }}>
-                            {(op && op.contact && op.contact.name && op.contact.name[0]) || (op && op.lead && op.lead.name && op.lead.name[0]) || "L"}
+                            {displayName[0] || "L"}
                         </Avatar>
                         <Box>
                             <Typography variant="h6" style={{ fontWeight: 800, lineHeight: 1.1 }}>
-                                {(op && op.title) || (op && op.name) || (op && op.lead && op.lead.name) || "Novo Lead"}
+                                {displayName}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                                {(op && op.contact && op.contact.name) || (op && op.lead && op.lead.name) || "Sem contato associado"}
+                                {resolvedLeadId ? `Lead #${resolvedLeadId}` : "Sem lead vinculado"}
                             </Typography>
                         </Box>
                     </Box>
@@ -656,7 +662,16 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 leadData={
                                     (op && op.lead)
                                         ? { ...op.lead, pipelineId: op.pipelineId, stageId: op.stageId }
-                                        : null
+                                        : resolvedLeadId
+                                            ? { id: resolvedLeadId, pipelineId: op?.pipelineId, stageId: op?.stageId }
+                                            : op
+                                                ? {
+                                                    name: displayName,
+                                                    phone: op.contact?.number || "",
+                                                    pipelineId: op.pipelineId,
+                                                    stageId: op.stageId
+                                                }
+                                                : null
                                 }
                             />
                         </TabPanel>

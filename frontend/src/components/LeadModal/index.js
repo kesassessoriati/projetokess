@@ -43,30 +43,46 @@ const formatDocument = (value = "") => {
 };
 
 const normalizeLeadForm = (lead = {}) => {
-  const rawDocument = lead.document || lead.cnpj || "";
+  const sourceLead = lead.lead || lead;
+  const sourceContact = lead.contact || {};
+  const rawDocument = sourceLead.document || sourceLead.cnpj || lead.document || lead.cnpj || "";
 
   return {
     ...defaultForm,
-    ...lead,
+    ...sourceLead,
+    name:
+      sourceLead.name ||
+      lead.contactName ||
+      sourceContact.name ||
+      lead.title ||
+      "",
+    companyName: sourceLead.companyName || lead.companyName || "",
+    email: sourceLead.email || lead.email || sourceContact.email || "",
+    phone:
+      sourceLead.phone ||
+      lead.phone ||
+      sourceContact.number ||
+      sourceContact.phone ||
+      "",
     document: formatDocument(rawDocument),
-    address: lead.address || "",
-    product: lead.product || "",
-    paymentType: lead.paymentType || "",
-    purchaseType: lead.purchaseType || "",
-    purchaseValue: lead.purchaseValue != null ? lead.purchaseValue : "",
-    birthDate: lead.birthDate ? lead.birthDate.substring(0, 10) : "",
-    clientSince: lead.clientSince ? lead.clientSince.substring(0, 10) : "",
-    acquisitionDate: lead.acquisitionDate
-      ? lead.acquisitionDate.substring(0, 10)
+    address: sourceLead.address || "",
+    product: sourceLead.product || "",
+    paymentType: sourceLead.paymentType || "",
+    purchaseType: sourceLead.purchaseType || "",
+    purchaseValue: sourceLead.purchaseValue != null ? sourceLead.purchaseValue : "",
+    birthDate: sourceLead.birthDate ? sourceLead.birthDate.substring(0, 10) : "",
+    clientSince: sourceLead.clientSince ? sourceLead.clientSince.substring(0, 10) : "",
+    acquisitionDate: sourceLead.acquisitionDate
+      ? sourceLead.acquisitionDate.substring(0, 10)
       : "",
-    expirationDate: lead.expirationDate
-      ? lead.expirationDate.substring(0, 10)
+    expirationDate: sourceLead.expirationDate
+      ? sourceLead.expirationDate.substring(0, 10)
       : "",
-    score: lead.score || 0,
-    status: lead.status || lead.leadStatus || "novo",
-    tags: Array.isArray(lead.tags) ? lead.tags : [],
-    cardColor: lead.cardColor || lead.card_color || "#FFFFFF",
-    sessionid: lead.sessionid || "",
+    score: sourceLead.score || 0,
+    status: sourceLead.status || sourceLead.leadStatus || "novo",
+    tags: Array.isArray(sourceLead.tags) ? sourceLead.tags : [],
+    cardColor: sourceLead.cardColor || sourceLead.card_color || "#FFFFFF",
+    sessionid: sourceLead.sessionid || "",
   };
 };
 
@@ -190,6 +206,7 @@ const LeadModal = ({
   onSuccess,
   isEmbedded = false,
   leadData = null,
+  contactId = null,
   cardColor,
 }) => {
   const classes = useStyles();
@@ -201,6 +218,7 @@ const LeadModal = ({
   const [stages, setStages] = useState([]);
   const [tags, setTags] = useState([]);
   const [products, setProducts] = useState([]);
+  const resolvedLeadId = leadId || leadData?.id || leadData?.leadId || leadData?.lead?.id || null;
 
   useEffect(() => {
     if (!open) return;
@@ -237,9 +255,11 @@ const LeadModal = ({
 
     if (leadData) {
       setForm(normalizeLeadForm(leadData));
-    } else if (leadId) {
-      loadLead();
-    } else {
+    }
+
+    if (resolvedLeadId) {
+      loadLead(resolvedLeadId);
+    } else if (!leadData) {
       // Para novos leads, preencher automaticamente com UTMs da URL
       const utmData = getUTMParameters();
 
@@ -250,7 +270,7 @@ const LeadModal = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId, leadData, open]);
+  }, [resolvedLeadId, leadData, open]);
 
   useEffect(() => {
     if (form.pipelineId && pipelines.length > 0) {
@@ -265,10 +285,10 @@ const LeadModal = ({
     }
   }, [form.pipelineId, pipelines]);
 
-  const loadLead = async () => {
+  const loadLead = async (id = resolvedLeadId) => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/crm/leads/${leadId}`);
+      const { data } = await api.get(`/crm/leads/${id}`);
       setForm(normalizeLeadForm(data));
     } catch (err) {
       toastError(err);
@@ -324,6 +344,7 @@ const LeadModal = ({
         score: Number(form.score) || 0,
         ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
         temperature: form.temperature || null,
+        contactId: form.contactId || contactId || null,
         birthDate: form.birthDate || undefined,
         clientSince: form.clientSince || undefined,
         acquisitionDate: form.acquisitionDate || undefined,
@@ -333,8 +354,8 @@ const LeadModal = ({
       };
       delete payload.sessionid;
 
-      if (leadId) {
-        await api.put(`/crm/leads/${leadId}`, payload);
+      if (resolvedLeadId) {
+        await api.put(`/crm/leads/${resolvedLeadId}`, payload);
         toast.success("Lead atualizado com sucesso!");
       } else {
         await api.post("/crm/leads", payload);
@@ -962,7 +983,7 @@ const LeadModal = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle className={classes.dialogTitle}>
-        {leadId ? "Editar Lead" : "Novo Lead"}
+        {resolvedLeadId ? "Editar Lead" : "Novo Lead"}
       </DialogTitle>
       <DialogContent dividers>{content}</DialogContent>
     </Dialog>
