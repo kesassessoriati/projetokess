@@ -180,11 +180,13 @@ const UpdateCrmLeadService = async ({
     data.acquisitionDate = conversionDate;
   }
 
+  const resolvedLeadStatus = data.leadStatus ?? data.status ?? lead.leadStatus;
+
   await lead.update({
     ...data,
     contactId,
     primaryTicketId,
-    leadStatus: data.leadStatus ?? lead.leadStatus,
+    leadStatus: resolvedLeadStatus,
     lastActivityAt: data.lastActivityAt || lead.lastActivityAt,
     meetingScheduledAt
   });
@@ -208,7 +210,18 @@ const UpdateCrmLeadService = async ({
 
   // Update existing Opportunity if pipeline or owner changed
   const Opportunity = (await import("../../models/Opportunity")).default;
-  const opp = await Opportunity.findOne({ where: { leadId: lead.id, companyId } });
+  const opp = await Opportunity.findOne({
+    where: { leadId: lead.id, companyId },
+    order: [["updatedAt", "DESC"]]
+  });
+
+  const targetPipelineId = data.pipelineId !== undefined ? data.pipelineId : lead.pipelineId;
+  const targetStageId = data.stageId !== undefined ? data.stageId : lead.stageId;
+  const isReactivatingLead =
+    (previousStatus === "convertido" || previousStatus === "perdido" || previousLeadStatus === "convertido" || previousLeadStatus === "perdido") &&
+    ((lead.status !== "convertido" && lead.status !== "perdido") || (lead.leadStatus !== "convertido" && lead.leadStatus !== "perdido")) &&
+    targetPipelineId &&
+    targetStageId;
 
   if (opp) {
     const oppUpdates: any = {};
@@ -226,6 +239,9 @@ const UpdateCrmLeadService = async ({
     if (data.name !== undefined && data.name !== null && String(data.name).trim() !== "") {
       oppUpdates.title = String(data.name).trim();
     }
+    if (isReactivatingLead || ((data.pipelineId !== undefined || data.stageId !== undefined) && opp.status !== "OPEN")) {
+      oppUpdates.status = "OPEN";
+    }
 
     if (Object.keys(oppUpdates).length > 0) {
       await opp.update(oppUpdates);
@@ -235,12 +251,12 @@ const UpdateCrmLeadService = async ({
       });
     }
   } else {
-    // If no Opportunity exists but pipeline and stage are provided, create one
-    if (data.pipelineId && data.stageId) {
+    // If no Opportunity exists but pipeline and stage are available, create one
+    if (targetPipelineId && targetStageId) {
       const oppData: any = {
         companyId: companyId,
-        pipelineId: data.pipelineId,
-        stageId: data.stageId,
+        pipelineId: targetPipelineId,
+        stageId: targetStageId,
         title: data.name || lead.name,
         value:
           data.purchaseValue === null || data.purchaseValue === undefined

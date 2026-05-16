@@ -13,6 +13,7 @@ import Tag from "../models/Tag";
 import Opportunity from "../models/Opportunity";
 import PipelineStage from "../models/PipelineStage";
 import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
+import { getIO } from "../libs/socket";
 
 export const index = async (
   req: Request,
@@ -245,10 +246,9 @@ export const bulkAssignPipeline = async (
   }
 
   const validClientIds = clients.map(client => client.id);
-  const assignedUserId =
-    ownerUserId === null || ownerUserId === undefined || ownerUserId === ""
-      ? null
-      : Number(ownerUserId);
+  const hasExplicitOwner =
+    ownerUserId !== null && ownerUserId !== undefined && ownerUserId !== "";
+  const explicitOwnerUserId = hasExplicitOwner ? Number(ownerUserId) : null;
 
   const existingLeads = await CrmLead.findAll({
     where: {
@@ -265,6 +265,9 @@ export const bulkAssignPipeline = async (
 
   for (const client of clients) {
     let lead = leadsByClientId.get(client.id);
+    const targetOwnerUserId = hasExplicitOwner
+      ? explicitOwnerUserId
+      : client.ownerUserId || lead?.ownerUserId || null;
 
     if (!lead) {
       lead = await CrmLead.create({
@@ -282,43 +285,60 @@ export const bulkAssignPipeline = async (
         acquisitionDate: client.acquisitionDate,
         expirationDate: client.expirationDate,
         clientSince: client.clientSince,
-        ownerUserId: assignedUserId || client.ownerUserId,
+        ownerUserId: targetOwnerUserId,
         pipelineId: normalizedPipelineId,
         stageId: normalizedStageId,
         convertedClientId: client.id,
         convertedAt: new Date(),
-        status: "cliente",
-        leadStatus: "cliente",
+        status: "convertido",
+        leadStatus: "convertido",
         source: "Cliente"
       });
     }
 
     leads.push(lead);
+
+    if (hasExplicitOwner && Number(client.ownerUserId || 0) !== Number(explicitOwnerUserId || 0)) {
+      await client.update({ ownerUserId: explicitOwnerUserId });
+    }
   }
 
   let opportunitiesCreated = 0;
   let opportunitiesUpdated = 0;
 
   for (const lead of leads) {
+    const client = clients.find(item => item.id === lead.convertedClientId);
+    const targetOwnerUserId = hasExplicitOwner
+      ? explicitOwnerUserId
+      : lead.ownerUserId || client?.ownerUserId || null;
+
     await lead.update({
       pipelineId: normalizedPipelineId,
       stageId: normalizedStageId,
-      ownerUserId: assignedUserId
+      ownerUserId: targetOwnerUserId,
+      status: "convertido",
+      leadStatus: "convertido"
     });
 
     const opportunity = await Opportunity.findOne({
       where: {
         companyId,
-        leadId: lead.id,
-        status: "OPEN"
-      }
+        leadId: lead.id
+      },
+      order: [["updatedAt", "DESC"]]
     });
 
     if (opportunity) {
       await opportunity.update({
         pipelineId: normalizedPipelineId,
         stageId: normalizedStageId,
-        assignedUserId
+        assignedUserId: targetOwnerUserId,
+        status: "OPEN"
+      });
+      const io = getIO();
+      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "update",
+        opportunity
       });
       opportunitiesUpdated += 1;
     } else {
@@ -328,10 +348,19 @@ export const bulkAssignPipeline = async (
         stageId: normalizedStageId,
         leadId: lead.id,
         title: lead.name || lead.companyName || `Lead ${lead.id}`,
-        assignedUserId: assignedUserId || undefined
+        value: lead.purchaseValue != null ? Number(lead.purchaseValue) : 0,
+        assignedUserId: targetOwnerUserId || undefined
       });
       opportunitiesCreated += 1;
     }
+  }
+
+  const io = getIO();
+  for (const lead of leads) {
+    io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+      action: "update",
+      lead
+    });
   }
 
   return res.status(200).json({

@@ -611,6 +611,22 @@ const Clients = () => {
     }
   };
 
+  const handleOpenPipelineModal = (clientIds = selectedClients) => {
+    const ids = Array.isArray(clientIds) ? clientIds : [clientIds];
+    setSelectedClients(ids.filter(Boolean));
+    setSelectedPipelineId("");
+    setSelectedStageId("");
+    setSelectedPipelineUserId("");
+    setBulkPipelineModalOpen(true);
+  };
+
+  const handleClosePipelineModal = () => {
+    setBulkPipelineModalOpen(false);
+    setSelectedPipelineId("");
+    setSelectedStageId("");
+    setSelectedPipelineUserId("");
+  };
+
   const handleBulkAssignPipeline = async () => {
     if (!selectedPipelineId || !selectedStageId) return;
 
@@ -945,7 +961,7 @@ const Clients = () => {
 
       <Dialog
         open={bulkPipelineModalOpen}
-        onClose={() => setBulkPipelineModalOpen(false)}
+        onClose={handleClosePipelineModal}
       >
         <DialogTitle>Enviar para Funil</DialogTitle>
         <DialogContent dividers style={{ minWidth: 360 }}>
@@ -1011,7 +1027,7 @@ const Clients = () => {
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setBulkPipelineModalOpen(false)}
+            onClick={handleClosePipelineModal}
             disabled={bulkPipelineLoading}
           >
             Cancelar
@@ -1373,7 +1389,7 @@ const Clients = () => {
               <Button
                 size="small"
                 color="primary"
-                onClick={() => setBulkPipelineModalOpen(true)}
+                onClick={() => handleOpenPipelineModal()}
               >
                 Enviar para funil
               </Button>
@@ -1514,6 +1530,15 @@ const Clients = () => {
                           onClick={() => handleOpenFaturaModal(client)}
                         >
                           <ReceiptIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Enviar para funil">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleOpenPipelineModal([client.id])}
+                        >
+                          <BusinessCenterIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Ver detalhes">
