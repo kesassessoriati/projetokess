@@ -55,11 +55,15 @@ const ConvertCrmLeadService = async ({
     currentPrimaryTicketId: lead.primaryTicketId
   });
 
+  const conversionDate = new Date();
+
   await lead.update({
     contactId: resolvedContactId,
     primaryTicketId: resolvedTicketId,
-    status: "converted",
-    leadStatus: "convertido"
+    status: "convertido",
+    leadStatus: "convertido",
+    clientSince: conversionDate,
+    acquisitionDate: conversionDate
   });
 
   const client = await syncLeadToClient(lead);

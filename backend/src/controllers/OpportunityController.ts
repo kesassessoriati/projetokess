@@ -282,8 +282,11 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         const leadStatusUpdate: any = {};
 
         if (status === "WON") {
+            const conversionDate = new Date();
             leadStatusUpdate.status = "convertido";
             leadStatusUpdate.leadStatus = "convertido";
+            leadStatusUpdate.clientSince = conversionDate;
+            leadStatusUpdate.acquisitionDate = conversionDate;
         } else if (status === "LOST") {
             leadStatusUpdate.status = "perdido";
             leadStatusUpdate.leadStatus = "perdido";

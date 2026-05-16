@@ -170,6 +170,16 @@ const UpdateCrmLeadService = async ({
     meetingScheduledAt = new Date();
   }
 
+  const isConvertingToClient =
+    (data.status === "convertido" && previousStatus !== "convertido") ||
+    (data.leadStatus === "convertido" && previousLeadStatus !== "convertido");
+
+  if (isConvertingToClient) {
+    const conversionDate = new Date();
+    data.clientSince = conversionDate;
+    data.acquisitionDate = conversionDate;
+  }
+
   await lead.update({
     ...data,
     contactId,
