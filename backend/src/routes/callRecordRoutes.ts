@@ -10,5 +10,6 @@ callRecordRoutes.get("/call-records/summary", isAuth, requireWebphonePlan, CallR
 callRecordRoutes.get("/call-records/:id", isAuth, requireWebphonePlan, CallRecordController.show);
 callRecordRoutes.post("/call-records", isAuth, requireWebphonePlan, CallRecordController.store);
 callRecordRoutes.put("/call-records/:id", isAuth, requireWebphonePlan, CallRecordController.update);
+callRecordRoutes.delete("/call-records/:id", isAuth, requireWebphonePlan, CallRecordController.destroy);
 
 export default callRecordRoutes;

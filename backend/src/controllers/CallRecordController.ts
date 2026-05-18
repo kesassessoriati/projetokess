@@ -308,6 +308,30 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   return res.json(record);
 };
 
+export const destroy = async (req: Request, res: Response): Promise<Response> => {
+  const { id } = req.params;
+  const { companyId, profile } = req.user;
+
+  if (profile !== "super") {
+    return res.status(403).json({ error: "Apenas Super Admin pode excluir registros do histórico de chamadas." });
+  }
+
+  const record = await CallRecord.findOne({ where: { id, companyId } });
+  if (!record) {
+    return res.status(404).json({ error: "Registro não encontrado." });
+  }
+
+  await record.destroy();
+
+  const io = getIO();
+  io.to(String(companyId)).emit(`company-${companyId}-call`, {
+    action: "deleted",
+    recordId: Number(id)
+  });
+
+  return res.status(200).json({ message: "Registro excluído com sucesso." });
+};
+
 export const summary = async (req: Request, res: Response): Promise<Response> => {
   const query = req.query as IndexQuery;
   const where = buildScopedWhere(req, query);
@@ -334,7 +358,7 @@ export const summary = async (req: Request, res: Response): Promise<Response> =>
       include: [{ model: User, as: "user", attributes: ["id", "name"], required: false }],
       group: ["CallRecord.userId", "user.id"],
       order: [[literal("\"totalCalls\""), "DESC"]],
-      limit: 5
+      limit: 50
     });
   }
 

@@ -6,6 +6,10 @@ import {
   Card,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
   IconButton,
@@ -22,6 +26,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@material-ui/core";
 import {
@@ -29,11 +34,14 @@ import {
   CallMade as CallMadeIcon,
   CallReceived as CallReceivedIcon,
   CallEnd as CallEndIcon,
+  Delete as DeleteIcon,
+  EmojiEvents as EmojiEventsIcon,
   Phone as PhoneIcon,
   PhoneCallback as PhoneCallbackIcon,
   PhoneDisabled as PhoneDisabledIcon,
   PhoneMissed as PhoneMissedIcon,
   Refresh as RefreshIcon,
+  Warning as WarningIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -144,6 +152,148 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 800,
     fontSize: "0.74rem",
   },
+
+  // ─── Ranking panel ───────────────────────────────────────────────────────────
+  rankingPanel: {
+    borderRadius: 18,
+    overflow: "hidden",
+    border: "1px solid #dbe7df",
+    boxShadow: "0 18px 30px rgba(15, 23, 42, 0.05)",
+    background: "#fff",
+  },
+  rankingHeader: {
+    padding: theme.spacing(2, 2.5),
+    background: "linear-gradient(135deg, #0f2544 0%, #1e3f6f 60%, #1d4ed8 100%)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+  },
+  rankingTop3Grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(2.5),
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  rankingCard: {
+    borderRadius: 16,
+    padding: theme.spacing(2.5, 2),
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: theme.spacing(0.75),
+    textAlign: "center",
+    border: "1px solid transparent",
+    transition: "transform 0.18s ease, box-shadow 0.18s ease",
+    "&:hover": {
+      transform: "translateY(-3px)",
+      boxShadow: "0 12px 28px rgba(15, 23, 42, 0.1)",
+    },
+  },
+  rankingCardGold: {
+    background: "linear-gradient(145deg, #fffbeb 0%, #fde68a 100%)",
+    borderColor: "#f59e0b",
+    boxShadow: "0 6px 18px rgba(245,158,11,0.18)",
+  },
+  rankingCardSilver: {
+    background: "linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%)",
+    borderColor: "#94a3b8",
+    boxShadow: "0 6px 18px rgba(100,116,139,0.12)",
+  },
+  rankingCardBronze: {
+    background: "linear-gradient(145deg, #fff8f0 0%, #fed7aa 100%)",
+    borderColor: "#f97316",
+    boxShadow: "0 6px 18px rgba(249,115,22,0.16)",
+  },
+  rankingCardEmoji: {
+    fontSize: "2rem",
+    lineHeight: 1,
+  },
+  rankingCardName: {
+    fontWeight: 900,
+    color: "#0f172a",
+    fontSize: "0.9rem",
+    lineHeight: 1.3,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  rankingCardCalls: {
+    fontWeight: 800,
+    fontSize: "1.4rem",
+    lineHeight: 1.1,
+  },
+  rankingCardCallsLabel: {
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: ".04em",
+    opacity: 0.65,
+  },
+  rankingList: {
+    borderTop: "1px solid #f1f5f9",
+  },
+  rankingListItem: {
+    display: "flex",
+    alignItems: "center",
+    padding: theme.spacing(1.25, 2.5),
+    borderBottom: "1px solid #f8fafc",
+    gap: theme.spacing(1.5),
+    "&:last-child": {
+      borderBottom: "none",
+    },
+  },
+  rankingListRank: {
+    width: 30,
+    height: 30,
+    borderRadius: "50%",
+    backgroundColor: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: "0.78rem",
+    color: "#475569",
+    flexShrink: 0,
+  },
+  rankingListName: {
+    flex: 1,
+    fontWeight: 700,
+    fontSize: "0.86rem",
+    color: "#0f172a",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  rankingProgressWrap: {
+    flex: 1,
+    maxWidth: 140,
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: "#e2e8f0",
+    overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      display: "none",
+    },
+  },
+  rankingProgressBar: {
+    height: "100%",
+    borderRadius: 4,
+    background: "linear-gradient(90deg, #2563eb, #60a5fa)",
+    transition: "width 0.6s ease",
+  },
+  rankingListCalls: {
+    fontWeight: 900,
+    fontSize: "0.84rem",
+    color: "#2563eb",
+    minWidth: 64,
+    textAlign: "right",
+    flexShrink: 0,
+  },
 }));
 
 const statusConfig = {
@@ -155,22 +305,20 @@ const statusConfig = {
   ringing: { label: "Chamando", color: "#2563eb", bgColor: "#dbeafe", icon: PhoneIcon },
 };
 
+const MEDALS = ["🥇", "🥈", "🥉"];
+const MEDAL_COLORS = ["#f59e0b", "#94a3b8", "#f97316"];
+const CARD_STYLE_KEYS = ["rankingCardGold", "rankingCardSilver", "rankingCardBronze"];
+
 const formatDuration = (seconds) => {
   const total = Number(seconds || 0);
-  if (!total) {
-    return "0s";
-  }
-
+  if (!total) return "0s";
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return mins ? `${mins}m ${secs}s` : `${secs}s`;
 };
 
 const formatDateTime = (value) => {
-  if (!value) {
-    return "-";
-  }
-
+  if (!value) return "-";
   try {
     const date = typeof value === "string" ? parseISO(value) : new Date(value);
     return format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
@@ -186,6 +334,7 @@ const CallHistory = () => {
   const { hydrateLeadContext, setActiveTab, setPanelOpen } = useWebphone();
 
   const isAdmin = user?.profile === "admin" || user?.profile === "super";
+  const isSuper = user?.profile === "super";
 
   const [records, setRecords] = useState([]);
   const [count, setCount] = useState(0);
@@ -201,6 +350,7 @@ const CallHistory = () => {
     rejected: 0,
     totalDuration: 0,
     averageDuration: 0,
+    userBreakdown: [],
   });
   const [users, setUsers] = useState([]);
   const [pipelines, setPipelines] = useState([]);
@@ -216,11 +366,12 @@ const CallHistory = () => {
     source: "",
   });
 
-  useEffect(() => {
-    if (!isAdmin) {
-      return;
-    }
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, contactName }
+  const [deleting, setDeleting] = useState(false);
 
+  useEffect(() => {
+    if (!isAdmin) return;
     api.get("/users/list")
       .then(({ data }) => setUsers(Array.isArray(data) ? data : []))
       .catch(() => setUsers([]));
@@ -237,21 +388,16 @@ const CallHistory = () => {
       setStages([]);
       return;
     }
-
     const pipeline = pipelines.find((item) => Number(item.id) === Number(filters.pipelineId));
-    const nextStages = [...(pipeline?.stages || [])].sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+    const nextStages = [...(pipeline?.stages || [])].sort((l, r) => Number(l.order || 0) - Number(r.order || 0));
     setStages(nextStages);
   }, [filters.pipelineId, pipelines]);
 
   const requestParams = useMemo(() => {
     const params = { pageNumber: page + 1 };
-
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        params[key] = value;
-      }
+      if (value) params[key] = value;
     });
-
     return params;
   }, [filters, page]);
 
@@ -273,11 +419,8 @@ const CallHistory = () => {
     try {
       const summaryParams = { ...requestParams };
       delete summaryParams.pageNumber;
-
-      const { data } = await api.get("/call-records/summary", {
-        params: summaryParams,
-      });
-      setSummary(data || {});
+      const { data } = await api.get("/call-records/summary", { params: summaryParams });
+      setSummary({ ...data, userBreakdown: data.userBreakdown || [] });
     } catch (error) {
       console.error("[CallHistory] Failed to load summary", error);
     } finally {
@@ -285,31 +428,28 @@ const CallHistory = () => {
     }
   }, [requestParams]);
 
-  useEffect(() => {
-    fetchRecords();
-  }, [fetchRecords]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
   useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
-
-  useEffect(() => {
-    if (!isConnected || !user?.companyId) {
-      return;
-    }
-
-    const cleanup = on(`company-${user.companyId}-call`, () => {
-      fetchRecords();
-      fetchSummary();
+    if (!isConnected || !user?.companyId) return;
+    const cleanup = on(`company-${user.companyId}-call`, (payload) => {
+      if (payload?.action === "deleted") {
+        setRecords((prev) => prev.filter((r) => r.id !== payload.recordId));
+        setCount((prev) => Math.max(0, prev - 1));
+        fetchSummary();
+      } else {
+        fetchRecords();
+        fetchSummary();
+      }
     });
-
     return () => cleanup();
   }, [fetchRecords, fetchSummary, isConnected, on, user?.companyId]);
 
   const handleFilterChange = (field) => (event) => {
     setPage(0);
-    setFilters((previous) => ({
-      ...previous,
+    setFilters((prev) => ({
+      ...prev,
       [field]: event.target.value,
       ...(field === "pipelineId" ? { stageId: "" } : {}),
     }));
@@ -317,10 +457,7 @@ const CallHistory = () => {
 
   const openCallAgain = (record) => {
     const phone = record.toNumber || record.lead?.phone || record.contact?.number || record.fromNumber;
-    if (!phone) {
-      return;
-    }
-
+    if (!phone) return;
     hydrateLeadContext(
       {
         id: record.lead?.id || record.leadId || null,
@@ -345,6 +482,28 @@ const CallHistory = () => {
     setPanelOpen(true);
   };
 
+  const handleDeleteRecord = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/call-records/${deleteTarget.id}`);
+      setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setCount((prev) => Math.max(0, prev - 1));
+      fetchSummary();
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("[CallHistory] Failed to delete record", err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ─── Ranking data ─────────────────────────────────────────────────────────────
+  const userBreakdown = Array.isArray(summary?.userBreakdown) ? summary.userBreakdown : [];
+  const top3 = userBreakdown.slice(0, 3);
+  const restUsers = userBreakdown.slice(3);
+  const maxCalls = Number(top3[0]?.totalCalls || 1);
+
   const metricCards = [
     { label: "Total", value: summary.total || 0, color: "#2563eb" },
     { label: "Atendidas", value: summary.answered || 0, color: "#16a34a" },
@@ -354,6 +513,7 @@ const CallHistory = () => {
 
   return (
     <div className={classes.root}>
+      {/* ─── Toolbar ─────────────────────────────────────────────────────────── */}
       <Box className={classes.toolbarRow}>
         <Title>Histórico de Chamadas</Title>
         <Box className={classes.quickSummary}>
@@ -369,6 +529,7 @@ const CallHistory = () => {
         </Box>
       </Box>
 
+      {/* ─── Metric cards ─────────────────────────────────────────────────────── */}
       <div className={classes.metricsGrid}>
         {metricCards.map((metric) => (
           <Card key={metric.label} className={classes.metricCard}>
@@ -382,6 +543,81 @@ const CallHistory = () => {
         ))}
       </div>
 
+      {/* ─── Ranking panel (admins only, when data exists) ─────────────────── */}
+      {isAdmin && userBreakdown.length > 0 && (
+        <Paper className={classes.rankingPanel} elevation={0}>
+          {/* Header */}
+          <Box className={classes.rankingHeader}>
+            <EmojiEventsIcon style={{ fontSize: 28 }} />
+            <Box>
+              <Typography variant="subtitle1" style={{ fontWeight: 900, lineHeight: 1.2 }}>
+                Ranking de Ligações
+              </Typography>
+              <Typography variant="caption" style={{ opacity: 0.82 }}>
+                Desempenho da equipe por chamadas realizadas
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Top 3 podium cards */}
+          {top3.length > 0 && (
+            <div className={classes.rankingTop3Grid}>
+              {top3.map((entry, index) => {
+                const calls = Number(entry.totalCalls || 0);
+                const name = entry.user?.name || "Usuário";
+                const cardClass = classes[CARD_STYLE_KEYS[index]];
+                const avatarBg = MEDAL_COLORS[index];
+
+                return (
+                  <Box key={entry.userId} className={`${classes.rankingCard} ${cardClass}`}>
+                    <Typography className={classes.rankingCardEmoji}>{MEDALS[index]}</Typography>
+                    <Avatar style={{ width: 48, height: 48, fontWeight: 900, backgroundColor: avatarBg, color: "#fff", fontSize: "1.1rem" }}>
+                      {name.slice(0, 1).toUpperCase()}
+                    </Avatar>
+                    <Typography className={classes.rankingCardName}>{name}</Typography>
+                    <Typography className={classes.rankingCardCalls} style={{ color: avatarBg }}>
+                      {calls}
+                    </Typography>
+                    <Typography className={classes.rankingCardCallsLabel}>
+                      {calls === 1 ? "ligação" : "ligações"}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Positions 4+ */}
+          {restUsers.length > 0 && (
+            <Box className={classes.rankingList}>
+              {restUsers.map((entry, index) => {
+                const rank = index + 4;
+                const calls = Number(entry.totalCalls || 0);
+                const name = entry.user?.name || "Usuário";
+                const pct = maxCalls > 0 ? Math.round((calls / maxCalls) * 100) : 0;
+
+                return (
+                  <Box key={entry.userId} className={classes.rankingListItem}>
+                    <Box className={classes.rankingListRank}>{rank}º</Box>
+                    <Avatar style={{ width: 32, height: 32, fontSize: "0.8rem", fontWeight: 900, backgroundColor: "#cbd5e1", color: "#475569" }}>
+                      {name.slice(0, 1).toUpperCase()}
+                    </Avatar>
+                    <Typography className={classes.rankingListName}>{name}</Typography>
+                    <Box className={classes.rankingProgressWrap}>
+                      <Box className={classes.rankingProgressBar} style={{ width: `${pct}%` }} />
+                    </Box>
+                    <Typography className={classes.rankingListCalls}>
+                      {calls} {calls === 1 ? "lig." : "ligs."}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Paper>
+      )}
+
+      {/* ─── Filters ──────────────────────────────────────────────────────────── */}
       <Paper className={classes.filterPanel}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}>
@@ -489,16 +725,7 @@ const CallHistory = () => {
               style={{ height: 40, textTransform: "none", fontWeight: 800 }}
               onClick={() => {
                 setPage(0);
-                setFilters({
-                  search: "",
-                  status: "",
-                  dateStart: "",
-                  dateEnd: "",
-                  userId: "",
-                  pipelineId: "",
-                  stageId: "",
-                  source: "",
-                });
+                setFilters({ search: "", status: "", dateStart: "", dateEnd: "", userId: "", pipelineId: "", stageId: "", source: "" });
               }}
             >
               Limpar filtros
@@ -507,6 +734,7 @@ const CallHistory = () => {
         </Grid>
       </Paper>
 
+      {/* ─── History table ────────────────────────────────────────────────────── */}
       <Paper className={classes.tablePaper}>
         {loading ? (
           <Box display="flex" justifyContent="center" p={4}>
@@ -562,9 +790,7 @@ const CallHistory = () => {
                               <Typography className={classes.contactName}>
                                 {record.contact?.name || record.lead?.name || phone}
                               </Typography>
-                              <Typography className={classes.contactMeta}>
-                                {phone}
-                              </Typography>
+                              <Typography className={classes.contactMeta}>{phone}</Typography>
                             </div>
                           </div>
                         </TableCell>
@@ -597,19 +823,37 @@ const CallHistory = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{formatDateTime(record.callStartedAt || record.createdAt)}</Typography>
+                          <Typography variant="body2">
+                            {formatDateTime(record.callStartedAt || record.createdAt)}
+                          </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            style={{ textTransform: "none", fontWeight: 800 }}
-                            onClick={() => openCallAgain(record)}
-                            startIcon={record.status === "answered" ? <PhoneCallbackIcon /> : <CallEndIcon />}
-                            disabled={!phone}
-                          >
-                            Ligar
-                          </Button>
+                          <Box display="flex" alignItems="center" justifyContent="flex-end" gridGap={4}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              style={{ textTransform: "none", fontWeight: 800 }}
+                              onClick={() => openCallAgain(record)}
+                              startIcon={record.status === "answered" ? <PhoneCallbackIcon /> : <CallEndIcon />}
+                              disabled={!phone}
+                            >
+                              Ligar
+                            </Button>
+                            {isSuper && (
+                              <Tooltip title="Excluir registro (Super Admin)">
+                                <IconButton
+                                  size="small"
+                                  style={{ color: "#dc2626" }}
+                                  onClick={() => setDeleteTarget({
+                                    id: record.id,
+                                    contactName: record.contact?.name || record.lead?.name || phone || `#${record.id}`,
+                                  })}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     );
@@ -630,6 +874,46 @@ const CallHistory = () => {
           </>
         )}
       </Paper>
+
+      {/* ─── Delete confirmation dialog ───────────────────────────────────────── */}
+      <Dialog open={!!deleteTarget} onClose={() => !deleting && setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle disableTypography>
+          <Box display="flex" alignItems="center" gridGap={10}>
+            <WarningIcon style={{ color: "#dc2626", fontSize: 26 }} />
+            <Typography variant="h6" style={{ fontWeight: 900 }}>
+              Excluir registro de chamada
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" style={{ color: "#475569" }}>
+            Você está prestes a excluir o registro da chamada de{" "}
+            <strong style={{ color: "#0f172a" }}>{deleteTarget?.contactName}</strong>.
+          </Typography>
+          <Typography variant="body2" style={{ marginTop: 8, color: "#dc2626", fontWeight: 700 }}>
+            Esta ação é irreversível e não pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions style={{ padding: "12px 24px 16px" }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleting}
+            style={{ textTransform: "none", fontWeight: 800 }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDeleteRecord}
+            disabled={deleting}
+            style={{ textTransform: "none", fontWeight: 900, backgroundColor: "#dc2626", color: "#fff" }}
+            startIcon={deleting ? <CircularProgress size={16} style={{ color: "#fff" }} /> : <DeleteIcon />}
+          >
+            {deleting ? "Excluindo..." : "Excluir"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
