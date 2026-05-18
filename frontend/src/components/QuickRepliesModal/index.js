@@ -63,17 +63,24 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
     gap: theme.spacing(1.5),
     overflow: "hidden",
-    height: "100%",
+    flex: 1,
     minHeight: 0
   },
   searchField: {
     backgroundColor: "#fff",
-    borderRadius: 14
+    borderRadius: 14,
+    flexShrink: 0
   },
   filterRow: {
     display: "flex",
     gap: theme.spacing(1),
-    flexWrap: "wrap"
+    flexWrap: "nowrap",
+    overflowX: "auto",
+    flexShrink: 0,
+    paddingBottom: theme.spacing(0.5),
+    "&::-webkit-scrollbar": { height: 4 },
+    "&::-webkit-scrollbar-track": { background: "transparent" },
+    "&::-webkit-scrollbar-thumb": { background: "#dbe4ee", borderRadius: 4 }
   },
   filterChip: {
     borderRadius: 999,
