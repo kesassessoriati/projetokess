@@ -107,6 +107,7 @@ export const WebphoneProvider = ({ children }) => {
   const callMediaStreamRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const shouldAutoReconnectRef = useRef(false);
+  const startRecordingRef = useRef(null);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -468,6 +469,10 @@ export const WebphoneProvider = ({ children }) => {
     status,
     uploadRecording,
   ]);
+
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
 
   const loadHistory = useCallback(async (filters = {}) => {
     setHistoryLoading(true);
@@ -1063,6 +1068,11 @@ export const WebphoneProvider = ({ children }) => {
             duration: 0,
             answeredAt: new Date().toISOString(),
           });
+          setTimeout(() => {
+            startRecordingRef.current?.().catch((err) => {
+              console.error("[Webphone] Auto-recording failed:", err);
+            });
+          }, 1500);
         };
 
         nextSession.on("accepted", markAnswered);

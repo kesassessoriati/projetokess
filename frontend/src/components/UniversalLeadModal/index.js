@@ -153,6 +153,34 @@ function TabPanel(props) {
     );
 }
 
+const ACTIVITY_LABELS = {
+  MOVED: { label: "Estágio alterado no funil", icon: "🔀" },
+  CALL_STARTED: { label: "Ligação iniciada", icon: "📞" },
+  CALL_ENDED: { label: "Ligação encerrada", icon: "📵" },
+  RECORDING_SAVED: { label: "Gravação da chamada salva", icon: "🎙️" },
+  UPDATED: { label: "Informações atualizadas", icon: "✏️" },
+  NOTE_CREATED: { label: "Anotação adicionada", icon: "📝" },
+  TASK_CREATED: { label: "Tarefa criada", icon: "✅" },
+  TASK_COMPLETED: { label: "Tarefa concluída", icon: "✔️" },
+  EMAIL_SENT: { label: "E-mail enviado", icon: "📧" },
+  MESSAGE_SENT: { label: "Mensagem enviada", icon: "💬" },
+  APPOINTMENT_CREATED: { label: "Agendamento criado", icon: "📅" },
+  FILE_ATTACHED: { label: "Arquivo anexado", icon: "📎" },
+  CONVERTED: { label: "Lead convertido", icon: "🏆" },
+  LOST: { label: "Marcado como perdido", icon: "❌" },
+};
+
+const getActivityLabel = (act) => {
+  if (act.metadata?.text) return act.metadata.text;
+  const entry = ACTIVITY_LABELS[act.type];
+  return entry ? entry.label : act.type;
+};
+
+const getActivityIcon = (act) => {
+  const entry = ACTIVITY_LABELS[act.type];
+  return entry ? entry.icon : "•";
+};
+
 const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
     const { meetings: canUseMeetings, webphone: canUseWebphone } = usePlanPermissions();
@@ -719,28 +747,39 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 {loadingActivities ? (
                                     <Typography variant="body2" color="textSecondary">Carregando atividades...</Typography>
                                 ) : activities.filter(a => a.type !== "ANOTACAO").length > 0 ? (
-                                    activities.filter(a => a.type !== "ANOTACAO").map(act => (
-                                        <Box key={act.id} mb={2} display="flex" justifyContent="space-between" alignItems="flex-start">
-                                            <Box>
-                                                <Typography variant="caption" color="textSecondary">
-                                                    {new Date(act.createdAt).toLocaleString()} • {act.type}
-                                                </Typography>
-                                                <Typography variant="body2" style={{ fontWeight: 500, marginTop: 4 }}>
-                                                    {act.metadata?.text ? act.metadata.text : act.type === "MOVED" ? "Estágio alterado no funil" : "-"}
-                                                </Typography>
-                                            </Box>
-                                            {act.type !== "MOVED" && (
-                                                <Box display="flex">
-                                                    <IconButton size="small" onClick={() => handleEditActivity(act)}>
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                    <IconButton size="small" onClick={() => { setActivityToDelete(act); setConfirmDeleteOpen(true); }}>
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
+                                    activities.filter(a => a.type !== "ANOTACAO").map(act => {
+                                        const isSystemEvent = ["MOVED", "CALL_STARTED", "CALL_ENDED", "RECORDING_SAVED", "UPDATED", "CONVERTED", "LOST"].includes(act.type);
+                                        return (
+                                            <Box key={act.id} mb={2} display="flex" justifyContent="space-between" alignItems="flex-start">
+                                                <Box display="flex" alignItems="flex-start" style={{ gap: 8, minWidth: 0 }}>
+                                                    <Typography style={{ fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>{getActivityIcon(act)}</Typography>
+                                                    <Box>
+                                                        <Typography variant="caption" color="textSecondary">
+                                                            {new Date(act.createdAt).toLocaleString()}
+                                                        </Typography>
+                                                        <Typography variant="body2" style={{ fontWeight: 500, marginTop: 2 }}>
+                                                            {getActivityLabel(act)}
+                                                        </Typography>
+                                                        {act.metadata?.status && act.type === "CALL_ENDED" && (
+                                                            <Typography variant="caption" color="textSecondary">
+                                                                {act.metadata.duration ? `Duração: ${act.metadata.duration}s` : ""}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
                                                 </Box>
-                                            )}
-                                        </Box>
-                                    ))
+                                                {!isSystemEvent && (
+                                                    <Box display="flex" style={{ flexShrink: 0 }}>
+                                                        <IconButton size="small" onClick={() => handleEditActivity(act)}>
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <IconButton size="small" onClick={() => { setActivityToDelete(act); setConfirmDeleteOpen(true); }}>
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        );
+                                    })
                                 ) : (
                                     <Typography variant="body2" style={{ fontWeight: 600 }}>Nenhuma atividade registrada ainda.</Typography>
                                 )}

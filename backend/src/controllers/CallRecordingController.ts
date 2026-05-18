@@ -10,6 +10,7 @@ import PipelineStage from "../models/PipelineStage";
 import User from "../models/User";
 import AppError from "../errors/AppError";
 import uploadConfig from "../config/upload";
+import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 
 const buildScope = (req: Request, query: any = {}) => {
   const { companyId, id: authUserId, profile } = req.user;
@@ -170,6 +171,24 @@ export const upload = async (req: Request, res: Response): Promise<Response> => 
           recordingId: recording.id
         }
       });
+    }
+  }
+
+  if (opportunityId) {
+    try {
+      await CreateOpportunityEventService({
+        opportunityId: Number(opportunityId),
+        companyId,
+        type: "RECORDING_SAVED",
+        metadata: {
+          text: "Gravação da chamada salva",
+          recordingId: recording.id,
+          duration: Number(duration || 0),
+          filename: file.originalname
+        }
+      });
+    } catch (e) {
+      console.error("[CallRecordingController] RECORDING_SAVED event error:", e);
     }
   }
 

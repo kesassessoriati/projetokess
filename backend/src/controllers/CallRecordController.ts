@@ -9,6 +9,7 @@ import Opportunity from "../models/Opportunity";
 import Pipeline from "../models/Pipeline";
 import PipelineStage from "../models/PipelineStage";
 import { getIO } from "../libs/socket";
+import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 
 type IndexQuery = {
   pageNumber?: string;
@@ -189,6 +190,25 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
     const fullRecord = await CallRecord.findByPk(callRecord.id, { include: callRecordIncludes });
 
+    if (opportunityId) {
+      try {
+        await CreateOpportunityEventService({
+          opportunityId: Number(opportunityId),
+          companyId,
+          type: "CALL_STARTED",
+          metadata: {
+            text: "Ligação iniciada",
+            callRecordId: callRecord.id,
+            toNumber: toNumber || "",
+            fromNumber: fromNumber || "",
+            direction: type || "outgoing"
+          }
+        });
+      } catch (e) {
+        console.error("[CallRecordController] CALL_STARTED event error:", e);
+      }
+    }
+
     const io = getIO();
     io.to(String(companyId)).emit(`company-${companyId}-call`, {
       action: "created",
@@ -247,6 +267,31 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     });
 
     const fullRecord = await CallRecord.findByPk(record.id, { include: callRecordIncludes });
+
+    if (isTerminalStatus && record.opportunityId) {
+      const statusLabels: Record<string, string> = {
+        answered: "Ligação atendida",
+        missed: "Ligação não atendida",
+        busy: "Ligação ocupado",
+        rejected: "Ligação rejeitada",
+        failed: "Ligação falhou"
+      };
+      try {
+        await CreateOpportunityEventService({
+          opportunityId: Number(record.opportunityId),
+          companyId,
+          type: "CALL_ENDED",
+          metadata: {
+            text: statusLabels[nextStatus] || "Ligação encerrada",
+            callRecordId: record.id,
+            status: nextStatus,
+            duration: duration !== undefined ? Number(duration) || 0 : record.duration
+          }
+        });
+      } catch (e) {
+        console.error("[CallRecordController] CALL_ENDED event error:", e);
+      }
+    }
 
     const io = getIO();
     io.to(String(companyId)).emit(`company-${companyId}-call`, {
