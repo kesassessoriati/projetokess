@@ -26,6 +26,43 @@ import Opportunity from "./Opportunity";
 import Tag from "./Tag";
 import LeadTag from "./LeadTag";
 
+const convertedStatuses = new Set(["convertido", "won", "converted"]);
+const clientSyncFields = [
+  "name",
+  "email",
+  "phone",
+  "document",
+  "companyName",
+  "birthDate",
+  "address",
+  "clientSince",
+  "product",
+  "paymentType",
+  "purchaseType",
+  "purchaseValue",
+  "acquisitionDate",
+  "ownerUserId",
+  "decisionMakerName",
+  "decisionMakerPhone",
+  "gmn",
+  "website",
+  "instagram",
+  "linkedin",
+  "position",
+  "source",
+  "campaign",
+  "temperature",
+  "score",
+  "notes",
+  "contactId"
+];
+
+const isConvertedStatus = (value?: string | null): boolean =>
+  convertedStatuses.has(String(value || "").toLowerCase());
+
+const changedAny = (instance: any, fields: string[]): boolean =>
+  fields.some(field => Boolean((instance as any).changed(field)));
+
 @Table({
   tableName: "crm_leads"
 })
@@ -234,6 +271,24 @@ class CrmLead extends Model<CrmLead> {
 
   @AfterUpdate
   static async syncToClient(instance: CrmLead) {
+    const currentIsConverted =
+      isConvertedStatus(instance.status) || isConvertedStatus(instance.leadStatus);
+
+    if (!currentIsConverted) {
+      return;
+    }
+
+    const previousWasConverted =
+      isConvertedStatus((instance as any).previous("status")) ||
+      isConvertedStatus((instance as any).previous("leadStatus"));
+
+    const becameConverted = !previousWasConverted;
+    const hasClientDataChanged = changedAny(instance, clientSyncFields);
+
+    if (!becameConverted && !hasClientDataChanged) {
+      return;
+    }
+
     // Import dinâmico para evitar circular dependency
     const { default: syncLeadToClient } = await import("../services/CrmLeadService/helpers/syncLeadToClient");
 

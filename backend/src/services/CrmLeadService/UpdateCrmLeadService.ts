@@ -210,8 +210,7 @@ const UpdateCrmLeadService = async ({
   const shouldSyncByStatus =
     data.status === "convertido" && previousStatus !== "convertido";
   const shouldSyncByLeadStatus =
-    (data.leadStatus === "convertido" && previousLeadStatus !== "convertido") ||
-    (lead.leadStatus === "convertido" && previousLeadStatus !== "convertido");
+    data.leadStatus === "convertido" && previousLeadStatus !== "convertido";
 
   if (shouldSyncByStatus || shouldSyncByLeadStatus) {
     await syncLeadToClient(lead);

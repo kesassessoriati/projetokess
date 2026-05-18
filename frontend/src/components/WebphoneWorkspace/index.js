@@ -35,7 +35,6 @@ import {
   Stop as StopIcon,
   DeleteOutline as DeleteOutlineIcon,
   EventAvailable as EventAvailableIcon,
-  AssignmentTurnedIn as AssignmentTurnedInIcon,
   NoteAdd as NoteAddIcon,
   TrendingFlat as TrendingFlatIcon,
 } from "@material-ui/icons";
@@ -607,7 +606,6 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
   const [previewTargets, setPreviewTargets] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [leadNote, setLeadNote] = useState("");
-  const [leadScheduleAt, setLeadScheduleAt] = useState("");
   const keypadAudioContextRef = useRef(null);
 
   const selectedPipeline = useMemo(
@@ -939,30 +937,6 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
     }
   };
 
-  const handleLeadSchedule = async () => {
-    if (!leadScheduleAt || !currentLeadId) {
-      toast.info("Escolha uma data para agendar o lead.");
-      return;
-    }
-
-    try {
-      await api.put(`/crm/leads/${currentLeadId}`, {
-        meetingScheduledAt: leadScheduleAt,
-      });
-      hydrateLeadContext(
-        {
-          ...currentLead,
-          meetingScheduledAt: leadScheduleAt,
-        },
-        currentCallContext
-      );
-      toast.success("Agendamento atualizado.");
-    } catch (error) {
-      console.error("[WebphoneWorkspace] Failed to schedule lead", error);
-      toast.error("Não foi possível agendar o lead.");
-    }
-  };
-
   const handleMoveOpportunity = async (targetStageId) => {
     if (!currentLeadOpportunityId || !targetStageId) {
       toast.info("Selecione um estágio válido.");
@@ -989,21 +963,6 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
     } catch (error) {
       console.error("[WebphoneWorkspace] Failed to move opportunity", error);
       toast.error("Não foi possível mover o lead.");
-    }
-  };
-
-  const handleLeadConvert = async () => {
-    if (!currentLeadOpportunityId) {
-      toast.info("Esse lead ainda não possui oportunidade vinculada.");
-      return;
-    }
-
-    try {
-      await api.put(`/opportunities/${currentLeadOpportunityId}`, { status: "WON" });
-      toast.success("Lead convertido com sucesso.");
-    } catch (error) {
-      console.error("[WebphoneWorkspace] Failed to convert lead", error);
-      toast.error("Não foi possível converter o lead.");
     }
   };
 
@@ -1568,24 +1527,32 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                 <Box className={classes.sectionCard}>
                   <Typography className={classes.sectionTitle}>Ações rápidas</Typography>
 
-                  <Box className={classes.row} style={{ marginBottom: 10 }}>
-                    <Button
-                      variant="outlined"
-                      className={classes.primaryButton}
-                      onClick={handleLeadConvert}
-                      startIcon={<AssignmentTurnedInIcon />}
+                  <FormControl variant="outlined" size="small" fullWidth style={{ marginBottom: 10 }}>
+                    <InputLabel>Estágio</InputLabel>
+                    <Select
+                      label="Estágio"
+                      MenuProps={selectMenuProps}
+                      value={String(currentLeadStageId || "")}
+                      onChange={(event) => handleMoveOpportunity(event.target.value)}
                     >
-                      Converter
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      className={classes.primaryButton}
-                      onClick={handleNextStage}
-                      startIcon={<TrendingFlatIcon />}
-                    >
-                      Próximo estágio
-                    </Button>
-                  </Box>
+                      {currentLeadStages.map((stage) => (
+                        <MenuItem key={stage.id} value={String(stage.id)}>
+                          {stage.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    className={classes.primaryButton}
+                    onClick={handleNextStage}
+                    startIcon={<TrendingFlatIcon />}
+                    style={{ marginBottom: 10 }}
+                  >
+                    Próximo estágio
+                  </Button>
 
                   <TextField
                     label="Nova anotação"
@@ -1610,43 +1577,6 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                     Salvar anotação
                   </Button>
 
-                  <Box className={classes.row}>
-                    <TextField
-                      label="Agendar"
-                      type="datetime-local"
-                      variant="outlined"
-                      size="small"
-                      InputLabelProps={{ shrink: true }}
-                      value={leadScheduleAt}
-                      onChange={(event) => setLeadScheduleAt(event.target.value)}
-                    />
-                    <Button
-                      className={`${classes.primaryButton} ${classes.callButton}`}
-                      onClick={handleLeadSchedule}
-                      startIcon={<EventAvailableIcon />}
-                    >
-                      Agendar
-                    </Button>
-                  </Box>
-                </Box>
-
-                <Box className={classes.sectionCard}>
-                  <Typography className={classes.sectionTitle}>Mover para estágio</Typography>
-                  <FormControl variant="outlined" size="small" fullWidth>
-                    <InputLabel>Estágio</InputLabel>
-                    <Select
-                      label="Estágio"
-                      MenuProps={selectMenuProps}
-                      value={String(currentLeadStageId || "")}
-                      onChange={(event) => handleMoveOpportunity(event.target.value)}
-                    >
-                      {currentLeadStages.map((stage) => (
-                        <MenuItem key={stage.id} value={String(stage.id)}>
-                          {stage.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
                 </Box>
 
                 <Divider />
