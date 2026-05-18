@@ -50,6 +50,7 @@ import { SocketProvider } from "../context/SocketContext";
 import { TicketsContextProvider } from "../context/Tickets/TicketsContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { WebphoneProvider } from "../context/WebphoneContext";
+import { WorkspacePreferencesProvider } from "../context/WorkspacePreferencesContext";
 import Route from "./Route";
 import Schedules from "../pages/Lembretes";
 import Campanhas from "../pages/Campanhas";
@@ -133,6 +134,8 @@ import BackendErrors from "../pages/BackendErrors";
 import SystemMetrics from "../pages/SystemMetrics";
 import Performance from "../pages/Performance";
 import GlobalAISettings from "../pages/GlobalAISettings";
+import WorkspaceMenuSettings from "../pages/WorkspaceMenuSettings";
+import LeadFieldSettings from "../pages/LeadFieldSettings";
 import { embeddedLinks } from "../config/embedded_links";
 
 const Routes = () => {
@@ -150,6 +153,7 @@ const Routes = () => {
       <AuthProvider>
         <SocketProvider>
           <PlanPermissionsProvider>
+          <WorkspacePreferencesProvider>
           <WebphoneProvider>
             <TicketsContextProvider>
               <Switch>
@@ -222,6 +226,8 @@ const Routes = () => {
                         <Route exact path="/departamentos" component={Departamentos} isPrivate />
                         <Route exact path="/relatorios" component={Reports} isPrivate />
                         <Route exact path="/sistema" component={Sistema} isPrivate />
+                        <Route exact path="/workspace/menu-settings" component={WorkspaceMenuSettings} isPrivate />
+                        <Route exact path="/crm/lead-field-settings" component={LeadFieldSettings} isPrivate />
                         <Route exact path="/smtp" component={Smtp} isPrivate />
                         <Route exact path="/sip-settings" component={Sip} isPrivate adminOnly featureKey="webphone" />
                         <Route exact path="/ferramentas" component={FerramentasPage} isPrivate />
@@ -343,6 +349,7 @@ const Routes = () => {
               <ToastContainer position="top-center" autoClose={3000} />
             </TicketsContextProvider>
           </WebphoneProvider>
+          </WorkspacePreferencesProvider>
           </PlanPermissionsProvider>
         </SocketProvider>
       </AuthProvider>

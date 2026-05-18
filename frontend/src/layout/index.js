@@ -101,6 +101,7 @@ import DescriptionIcon from "@material-ui/icons/Description";
 
 import { AuthContext } from "../context/Auth/AuthContext";
 import { usePlanPermissions } from "../context/PlanPermissionsContext";
+import { useWorkspacePreferences } from "../context/WorkspacePreferencesContext";
 import NotificationsVolume from "../components/NotificationsVolume";
 import NotificationCenter from "../components/NotificationCenter";
 import UserModal from "../components/UserModal";
@@ -945,6 +946,7 @@ const LoggedInLayout = ({ children }) => {
   const location = useLocation();
 
   const { user, handleLogout, loading, isMobileSession } = useContext(AuthContext);
+  const { isMenuVisible } = useWorkspacePreferences();
   const isAdmin = user?.profile === "admin";
   const isSuperAdmin = Boolean(user?.super) || (isAdmin && user?.companyId === 1);
   const { toggleColorMode, mode: colorMode } = useContext(ColorModeContext);
@@ -1086,6 +1088,44 @@ const LoggedInLayout = ({ children }) => {
     return isActivePath(item.path);
   };
 
+  const menuTitleKeyMap = {
+    Dashboard: "dashboard",
+    Disparos: "disparos",
+    Campanhas: "campanhas",
+    "Chat Interno": "chat-interno",
+    "Chat Agendamento": "chat-agendamento",
+    Compromissos: "compromissos",
+    Tutoriais: "tutoriais",
+    Conversas: "conversas",
+    Chamadas: "chamadas",
+    "CRM Kanban": "crm-kanban",
+    Etiquetas: "etiquetas",
+    Contatos: "contatos",
+    Leads: "leads",
+    Clientes: "clientes",
+    "Follow-ups": "follow-ups",
+    Canais: "canais",
+    Produtos: "produtos",
+    Propostas: "propostas",
+    Agenda: "agenda",
+    Projetos: "projetos",
+    Tarefas: "tarefas",
+    Departamentos: "departamentos",
+    "Gestor Financeiro IA": "gestor-financeiro-ia",
+    Faturas: "faturas",
+    Financeiro: "financeiro",
+    "SMTP (E-mail)": "smtp",
+    Banners: "banners",
+  };
+
+  const isNavigationItemVisible = useCallback(
+    (item) => {
+      const key = item?.menuKey || menuTitleKeyMap[item?.title];
+      return isMenuVisible(key);
+    },
+    [isMenuVisible]
+  );
+
   // Detectar se está dentro de uma conversa de ticket (para ocultar menu mobile e header)
   const isInsideTicketConversation =
     /\/tickets\/[a-zA-Z0-9-]+$/i.test(location.pathname) ||
@@ -1208,7 +1248,7 @@ const LoggedInLayout = ({ children }) => {
   );
 
   const renderQuickNavItems = (items, buttonClassName = classes.quickNavBtn) =>
-    items.map((item) => (
+    items.filter((item) => isMenuVisible(item.key)).map((item) => (
       <Tooltip key={item.key} title={item.title}>
         <button
           type="button"
@@ -1287,6 +1327,8 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Configurações", path: "/settings" },
           { title: "SMTP (E-mail)", path: "/smtp" },
+          { title: "Personalizacao de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
+          { title: "Campos do card do lead", path: "/crm/lead-field-settings", menuKey: "personalizacao-lead" },
           { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
           { title: "Vídeo Tutorial", path: "/tutorial-videos", superAdmin: true },
@@ -1314,6 +1356,8 @@ const LoggedInLayout = ({ children }) => {
         icon: <BuildIcon />,
         children: [
           { title: "ConfiguraÃ§Ãµes", path: "/settings?tab=options", activePath: "/settings", activeSearch: "tab=options" },
+          { title: "Personalizacao de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
+          { title: "Campos do card do lead", path: "/crm/lead-field-settings", menuKey: "personalizacao-lead" },
           { title: "SMTP (E-mail)", path: "/smtp" },
           { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners" },
@@ -1345,16 +1389,18 @@ const LoggedInLayout = ({ children }) => {
       }
 
       if (group.children) {
-        const children = group.children.filter((child) => child && !(child.featureKey === "webphone" && !webphone));
+        const children = group.children.filter((child) => child && !(child.featureKey === "webphone" && !webphone) && isNavigationItemVisible(child));
         if (!children.length) return null;
         return { ...group, children };
       }
 
-      return group;
+      return isNavigationItemVisible(group) ? group : null;
     };
 
     if (isSuperAdmin) {
-      return superAdminMenuGroups;
+      return superAdminMenuGroups
+        .map(applyPlanVisibility)
+        .filter(Boolean);
     }
 
     if (isAdmin) {
@@ -1373,16 +1419,22 @@ const LoggedInLayout = ({ children }) => {
 
     // Para usuários comuns: Mostrar tudo, exceto grupo "Sistema" e itens adminOnly
     return menuGroups
-      .filter((group) => group && group.title !== "Sistema" && !group.adminOnly)
+      .filter((group) => group && !group.adminOnly)
       .map((group) => {
         const visibleGroup = applyPlanVisibility(group);
         if (!visibleGroup) return null;
         if (!visibleGroup.children) return visibleGroup;
-        const filtered = visibleGroup.children.filter((child) => child && child.path !== "/users");
+        const filtered = visibleGroup.children.filter((child) => {
+          if (!child || child.path === "/users" || child.adminOnly) return false;
+          if (visibleGroup.title === "Sistema") {
+            return child.path === "/workspace/menu-settings" || child.path === "/crm/lead-field-settings";
+          }
+          return true;
+        });
         return filtered.length ? { ...visibleGroup, children: filtered } : null;
       })
       .filter(Boolean);
-  }, [isAdmin, isSuperAdmin, menuGroups, superAdminMenuGroups, webphone]);
+  }, [isAdmin, isSuperAdmin, menuGroups, superAdminMenuGroups, webphone, isNavigationItemVisible]);
 
   const [openMenus, setOpenMenus] = useState({});
 

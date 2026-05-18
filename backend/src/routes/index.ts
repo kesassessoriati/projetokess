@@ -148,6 +148,8 @@ import firecrawlRoutes from "./firecrawlRoutes";
 import proposalRoutes from "./proposalRoutes";
 import gestorFinancasIaRoutes from "./gestorFinancasIaRoutes";
 import globalAISettingsRoutes from "./globalAISettingsRoutes";
+import workspacePersonalizationRoutes from "./workspacePersonalizationRoutes";
+import leadFieldSettingsRoutes from "./leadFieldSettingsRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -321,6 +323,8 @@ routes.use(firecrawlRoutes);
 routes.use(aiAgentTemplateRoutes);
 routes.use(gestorFinancasIaRoutes);
 routes.use(globalAISettingsRoutes);
+routes.use(workspacePersonalizationRoutes);
+routes.use(leadFieldSettingsRoutes);
 
 import taskRoutes from "./taskRoutes";
 routes.use(taskRoutes);

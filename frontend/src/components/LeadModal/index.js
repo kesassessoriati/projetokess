@@ -11,6 +11,8 @@ import {
   CircularProgress,
   Typography,
   Divider,
+  FormControlLabel,
+  Switch,
 } from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
@@ -82,6 +84,7 @@ const normalizeLeadForm = (lead = {}) => {
     status: sourceLead.status || sourceLead.leadStatus || "novo",
     tags: Array.isArray(sourceLead.tags) ? sourceLead.tags : [],
     cardColor: sourceLead.cardColor || sourceLead.card_color || "#FFFFFF",
+    customFields: sourceLead.customFields || {},
     sessionid: sourceLead.sessionid || "",
   };
 };
@@ -197,6 +200,7 @@ const defaultForm = {
   notes: "",
   tags: [],
   cardColor: "#FFFFFF",
+  customFields: {},
 };
 
 const LeadModal = ({
@@ -218,6 +222,7 @@ const LeadModal = ({
   const [stages, setStages] = useState([]);
   const [tags, setTags] = useState([]);
   const [products, setProducts] = useState([]);
+  const [leadFields, setLeadFields] = useState([]);
   const resolvedLeadId = leadId || leadData?.id || leadData?.leadId || leadData?.lead?.id || null;
 
   useEffect(() => {
@@ -230,11 +235,13 @@ const LeadModal = ({
           { data: pipelinesData },
           { data: tagsData },
           { data: productsData },
+          { data: leadFieldsData },
         ] = await Promise.all([
           api.get("/users/"),
           api.get("/pipelines"),
           api.get("/tags/list"),
           api.get("/produtos", { params: { limit: 100 } }),
+          api.get("/crm/lead-field-settings"),
         ]);
         setUsers(usersData.users || []);
         setPipelines(pipelinesData || []);
@@ -246,6 +253,7 @@ const LeadModal = ({
               ? productsData
               : [],
         );
+        setLeadFields(leadFieldsData?.fields || []);
       } catch (err) {
         toastError(err);
       }
@@ -306,6 +314,30 @@ const LeadModal = ({
     }));
   };
 
+  const handleCustomFieldChange = (fieldKey, value) => {
+    setForm((prev) => ({
+      ...prev,
+      customFields: {
+        ...(prev.customFields || {}),
+        [fieldKey]: value,
+      },
+    }));
+  };
+
+  const fieldSettingsByKey = React.useMemo(
+    () =>
+      leadFields.reduce((acc, field) => {
+        acc[field.fieldKey] = field;
+        return acc;
+      }, {}),
+    [leadFields]
+  );
+
+  const isFieldVisible = (fieldKey) => fieldSettingsByKey[fieldKey]?.visible !== false;
+  const fieldLabel = (fieldKey, fallback) => fieldSettingsByKey[fieldKey]?.label || fallback;
+  const visibleGridStyle = (fieldKey) => (isFieldVisible(fieldKey) ? undefined : { display: "none" });
+  const customLeadFields = leadFields.filter((field) => field.isCustom && field.visible !== false && field.active !== false);
+
   const handleDocumentChange = (event) => {
     const rawValue = event.target.value || "";
     setForm((prev) => ({
@@ -351,6 +383,7 @@ const LeadModal = ({
         expirationDate: form.expirationDate || undefined,
         tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
         cardColor: cardColor || form.cardColor,
+        customFields: form.customFields || {},
       };
       delete payload.sessionid;
 
@@ -391,10 +424,10 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} style={visibleGridStyle("status")}>
                 <TextField
                   select
-                  label="Status"
+                  label={fieldLabel("status", "Status")}
                   name="status"
                   value={form.status}
                   onChange={handleChange}
@@ -409,10 +442,10 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} style={visibleGridStyle("pipelineId")}>
                 <TextField
                   select
-                  label="Funil de Vendas"
+                  label={fieldLabel("pipelineId", "Funil de Vendas")}
                   name="pipelineId"
                   value={form.pipelineId}
                   onChange={handleChange}
@@ -428,10 +461,10 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} style={visibleGridStyle("stageId")}>
                 <TextField
                   select
-                  label="Estágio Funil"
+                  label={fieldLabel("stageId", "Estágio Funil")}
                   name="stageId"
                   value={form.stageId}
                   onChange={handleChange}
@@ -448,9 +481,9 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("name")}>
                 <TextField
-                  label="Nome Contato"
+                  label={fieldLabel("name", "Nome Contato")}
                   name="name"
                   value={form.name}
                   onChange={handleChange}
@@ -460,9 +493,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("companyName")}>
                 <TextField
-                  label="Empresa"
+                  label={fieldLabel("companyName", "Empresa")}
                   name="companyName"
                   value={form.companyName}
                   onChange={handleChange}
@@ -471,9 +504,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("document")}>
                 <TextField
-                  label="CPF / CNPJ"
+                  label={fieldLabel("document", "CPF / CNPJ")}
                   name="document"
                   value={form.document}
                   onChange={handleDocumentChange}
@@ -484,9 +517,9 @@ const LeadModal = ({
                   inputProps={{ maxLength: 18 }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("email")}>
                 <TextField
-                  label="E-mail"
+                  label={fieldLabel("email", "E-mail")}
                   name="email"
                   value={form.email}
                   onChange={handleChange}
@@ -496,9 +529,9 @@ const LeadModal = ({
                   type="email"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("phone")}>
                 <TextField
-                  label="Telefone Celular"
+                  label={fieldLabel("phone", "Telefone Celular")}
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
@@ -507,9 +540,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("decisionMakerPhone")}>
                 <TextField
-                  label="Telefone decisor"
+                  label={fieldLabel("decisionMakerPhone", "Telefone decisor")}
                   name="decisionMakerPhone"
                   value={form.decisionMakerPhone}
                   onChange={handleChange}
@@ -518,9 +551,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} style={visibleGridStyle("address")}>
                 <TextField
-                  label="Endereço"
+                  label={fieldLabel("address", "Endereço")}
                   name="address"
                   value={form.address}
                   onChange={handleChange}
@@ -532,7 +565,7 @@ const LeadModal = ({
               </Grid>
 
               {/* ── PRODUTO VINCULADO ── */}
-              <Grid item xs={12}>
+              <Grid item xs={12} style={visibleGridStyle("product")}>
                 <div className={classes.highlightedField}>
                   <Typography className={classes.highlightedLabel}>
                     Produto vinculado ao lead
@@ -575,7 +608,7 @@ const LeadModal = ({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Produto"
+                        label={fieldLabel("product", "Produto")}
                         variant="outlined"
                         fullWidth
                         className={classes.formField}
@@ -593,9 +626,9 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("position")}>
                 <TextField
-                  label="Cargo"
+                  label={fieldLabel("position", "Cargo")}
                   name="position"
                   value={form.position}
                   onChange={handleChange}
@@ -604,9 +637,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("decisionMakerName")}>
                 <TextField
-                  label="Nome decisor"
+                  label={fieldLabel("decisionMakerName", "Nome decisor")}
                   name="decisionMakerName"
                   value={form.decisionMakerName}
                   onChange={handleChange}
@@ -615,9 +648,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("birthDate")}>
                 <TextField
-                  label="Data de nascimento"
+                  label={fieldLabel("birthDate", "Data de nascimento")}
                   name="birthDate"
                   type="date"
                   value={form.birthDate}
@@ -628,9 +661,9 @@ const LeadModal = ({
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("clientSince")}>
                 <TextField
-                  label="Cliente desde"
+                  label={fieldLabel("clientSince", "Cliente desde")}
                   name="clientSince"
                   type="date"
                   value={form.clientSince}
@@ -641,9 +674,9 @@ const LeadModal = ({
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("acquisitionDate")}>
                 <TextField
-                  label="Data de aquisição"
+                  label={fieldLabel("acquisitionDate", "Data de aquisição")}
                   name="acquisitionDate"
                   type="date"
                   value={form.acquisitionDate}
@@ -655,9 +688,9 @@ const LeadModal = ({
                   helperText="Quando o lead adquiriu o produto/plano."
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("expirationDate")}>
                 <TextField
-                  label="Data de vencimento"
+                  label={fieldLabel("expirationDate", "Data de vencimento")}
                   name="expirationDate"
                   type="date"
                   value={form.expirationDate}
@@ -669,9 +702,9 @@ const LeadModal = ({
                   helperText="Ao atingir a data, o lead expira."
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("paymentType")}>
                 <TextField
-                  label="Tipo de pagamento"
+                  label={fieldLabel("paymentType", "Tipo de pagamento")}
                   name="paymentType"
                   value={form.paymentType}
                   onChange={handleChange}
@@ -680,10 +713,10 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("purchaseType")}>
                 <TextField
                   select
-                  label="Tipo de compra"
+                  label={fieldLabel("purchaseType", "Tipo de compra")}
                   name="purchaseType"
                   value={form.purchaseType}
                   onChange={handleChange}
@@ -699,9 +732,9 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("purchaseValue")}>
                 <TextField
-                  label="Valor da venda/oportunidade"
+                  label={fieldLabel("purchaseValue", "Valor da venda/oportunidade")}
                   name="purchaseValue"
                   type="number"
                   value={form.purchaseValue}
@@ -804,9 +837,9 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("source")}>
                 <TextField
-                  label="Origem"
+                  label={fieldLabel("source", "Origem")}
                   name="source"
                   value={form.source}
                   onChange={handleChange}
@@ -815,9 +848,9 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("campaign")}>
                 <TextField
-                  label="Campanha/Tag"
+                  label={fieldLabel("campaign", "Campanha/Tag")}
                   name="campaign"
                   value={form.campaign}
                   onChange={handleChange}
@@ -826,10 +859,10 @@ const LeadModal = ({
                   className={classes.formField}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("temperature")}>
                 <TextField
                   select
-                  label="Temperatura"
+                  label={fieldLabel("temperature", "Temperatura")}
                   name="temperature"
                   value={form.temperature}
                   onChange={handleChange}
@@ -845,9 +878,9 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} style={visibleGridStyle("score")}>
                 <TextField
-                  label="Score"
+                  label={fieldLabel("score", "Score")}
                   name="score"
                   value={form.score}
                   onChange={handleChange}
@@ -858,10 +891,10 @@ const LeadModal = ({
                   inputProps={{ min: 0 }}
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
+              <Grid item xs={12} sm={8} style={visibleGridStyle("ownerUserId")}>
                 <TextField
                   select
-                  label="Atribuir a"
+                  label={fieldLabel("ownerUserId", "Atribuir a")}
                   name="ownerUserId"
                   value={form.ownerUserId}
                   onChange={handleChange}
@@ -877,7 +910,7 @@ const LeadModal = ({
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("tags")}>
                 <Autocomplete
                   multiple
                   freeSolo
@@ -908,7 +941,7 @@ const LeadModal = ({
                     <TextField
                       {...params}
                       variant="outlined"
-                      label="Tags"
+                      label={fieldLabel("tags", "Tags")}
                       placeholder="Selecione ou adicione novas tags..."
                       className={classes.formField}
                     />
@@ -918,9 +951,9 @@ const LeadModal = ({
                   Tags vinculadas ao módulo de etiquetas.
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} style={visibleGridStyle("notes")}>
                 <TextField
-                  label="Observações"
+                  label={fieldLabel("notes", "Observações")}
                   name="notes"
                   value={form.notes}
                   onChange={handleChange}
@@ -943,6 +976,46 @@ const LeadModal = ({
                   helperText="Preenchido por automação."
                 />
               </Grid>
+
+              {customLeadFields.length > 0 && (
+                <>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" className={classes.sectionTitle}>
+                      Campos personalizados
+                    </Typography>
+                    <Divider />
+                  </Grid>
+                  {customLeadFields.map((field) => (
+                    <Grid item xs={12} sm={field.fieldType === "textarea" ? 12 : 6} key={field.fieldKey}>
+                      {field.fieldType === "boolean" ? (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              color="primary"
+                              checked={String(form.customFields?.[field.fieldKey] || "false") === "true"}
+                              onChange={(event) => handleCustomFieldChange(field.fieldKey, event.target.checked)}
+                            />
+                          }
+                          label={field.label}
+                        />
+                      ) : (
+                        <TextField
+                          label={field.label}
+                          type={field.fieldType === "number" ? "number" : field.fieldType === "date" ? "date" : field.fieldType === "email" ? "email" : "text"}
+                          value={form.customFields?.[field.fieldKey] || ""}
+                          onChange={(event) => handleCustomFieldChange(field.fieldKey, event.target.value)}
+                          variant="outlined"
+                          fullWidth
+                          multiline={field.fieldType === "textarea"}
+                          rows={field.fieldType === "textarea" ? 3 : undefined}
+                          className={classes.formField}
+                          InputLabelProps={field.fieldType === "date" ? { shrink: true } : undefined}
+                        />
+                      )}
+                    </Grid>
+                  ))}
+                </>
+              )}
 
             </Grid>
           </form>

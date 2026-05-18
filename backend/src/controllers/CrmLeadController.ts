@@ -14,6 +14,71 @@ import Opportunity from "../models/Opportunity";
 import OpportunityEvent from "../models/OpportunityEvent";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 import EventBus from "../libs/EventBus";
+import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
+import CrmLeadCustomFieldValue from "../models/CrmLeadCustomFieldValue";
+
+const appendCustomFieldValues = async (lead: any, companyId: number) => {
+  const leadId = Number(lead?.id);
+  if (!leadId) return lead;
+
+  const values = await CrmLeadCustomFieldValue.findAll({
+    where: { leadId, companyId },
+    include: [
+      {
+        model: CompanyLeadFieldSetting,
+        as: "field",
+        attributes: ["id", "fieldKey", "label", "fieldType", "visible", "active", "isCustom"]
+      }
+    ]
+  });
+
+  return {
+    ...lead,
+    customFields: values.reduce((acc, item) => {
+      const key = item.field?.fieldKey || String(item.fieldId);
+      acc[key] = item.value || "";
+      return acc;
+    }, {} as Record<string, string>)
+  };
+};
+
+const syncCustomFieldValues = async ({
+  leadId,
+  companyId,
+  customFields
+}: {
+  leadId: number;
+  companyId: number;
+  customFields?: Record<string, any>;
+}) => {
+  if (!customFields || typeof customFields !== "object") return;
+
+  const fields = await CompanyLeadFieldSetting.findAll({
+    where: { companyId, isCustom: true, active: true }
+  });
+  const fieldsByKey = new Map(fields.map(field => [field.fieldKey, field]));
+
+  await Promise.all(
+    Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
+      const field = fieldsByKey.get(fieldKey);
+      if (!field) return;
+
+      const value =
+        rawValue === null || rawValue === undefined
+          ? ""
+          : field.fieldType === "boolean"
+            ? String(Boolean(rawValue))
+            : String(rawValue);
+
+      await CrmLeadCustomFieldValue.upsert({
+        companyId,
+        leadId,
+        fieldId: field.id,
+        value
+      });
+    })
+  );
+};
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile, id: userId } = req.user;
@@ -37,6 +102,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const data = { ...req.body };
+  const customFields = data.customFields;
+  delete data.customFields;
   delete data.sessionid;
 
   // Capturar UTMs da requisição (query params)
@@ -73,7 +140,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
 
-  return res.status(201).json(serializeCrmLead(lead));
+  await syncCustomFieldValues({ leadId: lead.id, companyId, customFields });
+
+  return res.status(201).json(await appendCustomFieldValues(serializeCrmLead(lead), companyId));
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -85,13 +154,15 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
 
-  return res.json(serializeCrmLead(lead));
+  return res.json(await appendCustomFieldValues(serializeCrmLead(lead), companyId));
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { leadId } = req.params;
   const data = { ...req.body };
+  const customFields = data.customFields;
+  delete data.customFields;
   delete data.sessionid;
 
   const lead = await UpdateCrmLeadService({
@@ -100,7 +171,9 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     ...data
   });
 
-  return res.json(serializeCrmLead(lead));
+  await syncCustomFieldValues({ leadId: Number(leadId), companyId, customFields });
+
+  return res.json(await appendCustomFieldValues(serializeCrmLead(lead), companyId));
 };
 
 export const exportLeads = async (req: Request, res: Response): Promise<void> => {
