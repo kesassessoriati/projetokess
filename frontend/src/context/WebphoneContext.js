@@ -174,6 +174,19 @@ export const WebphoneProvider = ({ children }) => {
   const shouldAutoReconnectRef = useRef(false);
   const startRecordingRef = useRef(null);
   const tonePlayerRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+
+  useEffect(() => {
+    const audio = document.createElement("audio");
+    audio.autoplay = true;
+    audio.style.display = "none";
+    document.body.appendChild(audio);
+    remoteAudioRef.current = audio;
+    return () => {
+      audio.srcObject = null;
+      try { document.body.removeChild(audio); } catch (e) {}
+    };
+  }, []);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -246,6 +259,9 @@ export const WebphoneProvider = ({ children }) => {
 
   const resetCallState = useCallback(() => {
     releaseCallMediaStream();
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+    }
     setSession(null);
     setMuted(false);
     setCallDuration(0);
@@ -1117,6 +1133,23 @@ export const WebphoneProvider = ({ children }) => {
         setPanelOpen(true);
         setPanelMinimized(leadModalOpen);
 
+        // Route remote RTP audio to the hidden <audio> element
+        nextSession.on("peerconnection", ({ peerconnection: pc }) => {
+          pc.addEventListener("track", (event) => {
+            const audio = remoteAudioRef.current;
+            if (!audio) return;
+            if (event.streams && event.streams[0]) {
+              audio.srcObject = event.streams[0];
+            } else {
+              // fallback: build stream from individual tracks
+              if (!audio.srcObject) {
+                audio.srcObject = new MediaStream();
+              }
+              audio.srcObject.addTrack(event.track);
+            }
+          });
+        });
+
         if (nextSession.direction === "incoming") {
           setStatus("incoming");
           const remoteNumber = normalizePhone(nextSession.remote_identity?.uri?.user || "");
@@ -1145,6 +1178,25 @@ export const WebphoneProvider = ({ children }) => {
           callAnsweredRef.current = true;
           setStatus("in-call");
           setCallDuration(0);
+
+          // Fallback: if track event already fired before listener was set up
+          const audio = remoteAudioRef.current;
+          if (audio && !audio.srcObject) {
+            const pc =
+              nextSession.connection ||
+              nextSession._connection ||
+              null;
+            if (pc) {
+              const remoteStream = new MediaStream();
+              (pc.getReceivers?.() || []).forEach(({ track }) => {
+                if (track) remoteStream.addTrack(track);
+              });
+              if (remoteStream.getTracks().length > 0) {
+                audio.srcObject = remoteStream;
+              }
+            }
+          }
+
           await persistCallUpdate({
             status: "answered",
             duration: 0,
