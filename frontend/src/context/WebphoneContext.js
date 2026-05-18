@@ -62,6 +62,71 @@ const sortSequenceTargets = (targets = []) =>
     return Number(left.orderIndex || 0) - Number(right.orderIndex || 0);
   });
 
+const createTonePlayer = () => {
+  let audioCtx = null;
+  let ringbackTimer = null;
+
+  const getCtx = () => {
+    if (!audioCtx || audioCtx.state === "closed") {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  };
+
+  const beep = (freq, durationMs, volume = 0.25, type = "sine") => {
+    try {
+      const c = getCtx();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = volume;
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start();
+      setTimeout(() => { try { osc.stop(); } catch (e) {} }, durationMs);
+    } catch (e) {
+      console.warn("[Webphone] tone error:", e);
+    }
+  };
+
+  const stop = () => {
+    if (ringbackTimer !== null) {
+      clearTimeout(ringbackTimer);
+      ringbackTimer = null;
+    }
+  };
+
+  const ringback = () => {
+    // Brazilian ringback: 425 Hz, 1s on / 4s off
+    stop();
+    const cycle = () => {
+      beep(425, 1000);
+      ringbackTimer = setTimeout(cycle, 5000);
+    };
+    cycle();
+  };
+
+  const busy = () => {
+    // Busy: 425 Hz, 250ms on / 250ms off × 6
+    stop();
+    [0, 500, 1000, 1500, 2000, 2500].forEach(t =>
+      setTimeout(() => beep(425, 250, 0.3), t)
+    );
+  };
+
+  const failed = () => {
+    // 3 short descending beeps for invalid/failed
+    stop();
+    beep(880, 150, 0.2, "square");
+    setTimeout(() => beep(660, 150, 0.2, "square"), 220);
+    setTimeout(() => beep(440, 200, 0.2, "square"), 440);
+  };
+
+  return { ringback, busy, failed, stop };
+};
+
 export const WebphoneProvider = ({ children }) => {
   const { user, isAuth } = useContext(AuthContext);
   const { loading: planLoading, webphone: canUseWebphone } = usePlanPermissions();
@@ -108,6 +173,7 @@ export const WebphoneProvider = ({ children }) => {
   const reconnectTimerRef = useRef(null);
   const shouldAutoReconnectRef = useRef(false);
   const startRecordingRef = useRef(null);
+  const tonePlayerRef = useRef(null);
 
   const clearSequenceTimer = useCallback(() => {
     if (sequenceTimerRef.current) {
@@ -669,6 +735,17 @@ export const WebphoneProvider = ({ children }) => {
     finalizeCallRef.current = finalizeCall;
   }, [finalizeCall]);
 
+  useEffect(() => {
+    if (!tonePlayerRef.current) {
+      tonePlayerRef.current = createTonePlayer();
+    }
+    if (status === "calling") {
+      tonePlayerRef.current.ringback();
+    } else {
+      tonePlayerRef.current.stop();
+    }
+  }, [status]);
+
   const hydrateLeadContext = useCallback((lead, callContext = {}, options = {}) => {
     const nextLead = lead
       ? {
@@ -1091,6 +1168,14 @@ export const WebphoneProvider = ({ children }) => {
 
         nextSession.on("failed", async (error) => {
           const failureStatus = error?.cause === "Busy" ? "busy" : "failed";
+          const player = tonePlayerRef.current;
+          if (player) {
+            if (failureStatus === "busy") {
+              player.busy();
+            } else {
+              player.failed();
+            }
+          }
           toast.error(`Chamada falhou${error?.cause ? `: ${error.cause}` : "."}`);
           await finalizeCallRef.current?.({
             finalStatus: failureStatus,
