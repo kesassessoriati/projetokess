@@ -664,6 +664,11 @@ export const WebphoneProvider = ({ children }) => {
     ]
   );
 
+  const finalizeCallRef = useRef(null);
+  useEffect(() => {
+    finalizeCallRef.current = finalizeCall;
+  }, [finalizeCall]);
+
   const hydrateLeadContext = useCallback((lead, callContext = {}, options = {}) => {
     const nextLead = lead
       ? {
@@ -1079,7 +1084,7 @@ export const WebphoneProvider = ({ children }) => {
         nextSession.on("confirmed", markAnswered);
 
         nextSession.on("ended", async () => {
-          await finalizeCall({
+          await finalizeCallRef.current?.({
             finalStatus: callAnsweredRef.current ? "answered" : "missed",
           });
         });
@@ -1087,7 +1092,7 @@ export const WebphoneProvider = ({ children }) => {
         nextSession.on("failed", async (error) => {
           const failureStatus = error?.cause === "Busy" ? "busy" : "failed";
           toast.error(`Chamada falhou${error?.cause ? `: ${error.cause}` : "."}`);
-          await finalizeCall({
+          await finalizeCallRef.current?.({
             finalStatus: failureStatus,
             failureCause: error?.cause,
           });
@@ -1098,7 +1103,7 @@ export const WebphoneProvider = ({ children }) => {
       uaRef.current = nextUa;
       setUa(nextUa);
     },
-    [clearReconnectTimer, currentLead, finalizeCall, leadModalOpen, persistCallUpdate, scheduleSipReconnect, stopUA, user?.name]
+    [clearReconnectTimer, currentLead, leadModalOpen, persistCallUpdate, scheduleSipReconnect, stopUA, user?.name]
   );
 
   const createSequence = useCallback(async (payload) => {
