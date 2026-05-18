@@ -224,6 +224,13 @@ const LeadModal = ({
   const [products, setProducts] = useState([]);
   const [leadFields, setLeadFields] = useState([]);
   const resolvedLeadId = leadId || leadData?.id || leadData?.leadId || leadData?.lead?.id || null;
+  const hasInitialLeadData = Boolean(leadData);
+  const leadDataKey = resolvedLeadId || [
+    leadData?.name,
+    leadData?.phone,
+    leadData?.pipelineId,
+    leadData?.stageId,
+  ].join("|");
 
   useEffect(() => {
     if (!open) return;
@@ -266,7 +273,7 @@ const LeadModal = ({
     }
 
     if (resolvedLeadId) {
-      loadLead(resolvedLeadId);
+      loadLead(resolvedLeadId, { showBlockingLoader: !hasInitialLeadData });
     } else if (!leadData) {
       // Para novos leads, preencher automaticamente com UTMs da URL
       const utmData = getUTMParameters();
@@ -278,7 +285,7 @@ const LeadModal = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedLeadId, leadData, open]);
+  }, [resolvedLeadId, leadDataKey, open, hasInitialLeadData]);
 
   useEffect(() => {
     if (form.pipelineId && pipelines.length > 0) {
@@ -293,8 +300,11 @@ const LeadModal = ({
     }
   }, [form.pipelineId, pipelines]);
 
-  const loadLead = async (id = resolvedLeadId) => {
-    setLoading(true);
+  const loadLead = async (id = resolvedLeadId, options = {}) => {
+    const { showBlockingLoader = true } = options;
+    if (showBlockingLoader) {
+      setLoading(true);
+    }
     try {
       const { data } = await api.get(`/crm/leads/${id}`);
       setForm(normalizeLeadForm(data));
@@ -302,7 +312,9 @@ const LeadModal = ({
       toastError(err);
       onClose();
     } finally {
-      setLoading(false);
+      if (showBlockingLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -409,7 +421,7 @@ const LeadModal = ({
   const content = (
     <>
       <div style={{ padding: isEmbedded ? 0 : 24 }}>
-        {loading ? (
+        {loading && !hasInitialLeadData ? (
           <Grid container justifyContent="center">
             <CircularProgress size={24} />
           </Grid>
