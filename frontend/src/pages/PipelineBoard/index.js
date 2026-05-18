@@ -265,8 +265,8 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 11,
     padding: "6px 12px",
     gap: 8,
-    minWidth: 250,
-    maxWidth: 340,
+    minWidth: 220,
+    maxWidth: 285,
     flex: 1,
     [theme.breakpoints.down("sm")]: {
       minWidth: 200,
@@ -283,8 +283,8 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     gap: 8,
-    minWidth: 250,
-    maxWidth: 340,
+    minWidth: 220,
+    maxWidth: 285,
     flex: 1,
     [theme.breakpoints.down("sm")]: {
       minWidth: 220,
@@ -324,6 +324,42 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid #c5e2d0",
     borderRadius: 999,
     padding: "4px 10px",
+  },
+  keywordFilterButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    border: "1px solid #cde1d4",
+    backgroundColor: "#f8fcf9",
+    color: "#176f3e",
+    flexShrink: 0,
+    "&:hover": {
+      backgroundColor: "#eaf8ef",
+      borderColor: "#8fc9a4",
+    },
+  },
+  keywordFilterButtonActive: {
+    backgroundColor: "#e6f6ed",
+    borderColor: "#1f9d55",
+    boxShadow: "0 0 0 3px rgba(31,157,85,0.14)",
+  },
+  keywordFilterSummary: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    padding: "4px 8px 4px 10px",
+    backgroundColor: "#ecfdf3",
+    border: "1px solid #bde2ca",
+    color: "#176f3e",
+    fontSize: "0.72rem",
+    fontWeight: 800,
+    maxWidth: 260,
+  },
+  keywordFilterText: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   crmTabs: {
     display: "flex",
@@ -812,6 +848,9 @@ const PipelineBoard = () => {
 
   // NOVO: Busca client-side
   const [searchText, setSearchText] = useState("");
+  const [keywordFilterModalOpen, setKeywordFilterModalOpen] = useState(false);
+  const [keywordFilterDraft, setKeywordFilterDraft] = useState("");
+  const [keywordFilter, setKeywordFilter] = useState("");
 
   // NOVO: Filtros de usuário (admin only)
   // viewMode: "team" = vê todos; "personal" = vê apenas próprios leads
@@ -931,6 +970,7 @@ const PipelineBoard = () => {
     sort,
     viewMode,
     selectedOwnerUserId,
+    keywordFilter,
     user,
     socket,
   ]);
@@ -994,6 +1034,10 @@ const PipelineBoard = () => {
   const buildBoardParams = (extraParams = {}) => {
     const params = { riskLevel: riskFilter, onlyAI, onlyExpired, sort, ...extraParams };
 
+    if (keywordFilter.trim()) {
+      params.searchKeyword = keywordFilter.trim();
+    }
+
     if (isAdmin) {
       if (viewMode === "personal") {
         params.viewMode = "personal";
@@ -1011,6 +1055,22 @@ const PipelineBoard = () => {
     return Array.from(
       new Map([...current, ...incoming].map((opportunity) => [opportunity.id, opportunity])).values(),
     );
+  };
+
+  const handleOpenKeywordFilter = () => {
+    setKeywordFilterDraft(keywordFilter);
+    setKeywordFilterModalOpen(true);
+  };
+
+  const handleApplyKeywordFilter = () => {
+    setKeywordFilter(keywordFilterDraft.trim());
+    setKeywordFilterModalOpen(false);
+  };
+
+  const handleClearKeywordFilter = () => {
+    setKeywordFilter("");
+    setKeywordFilterDraft("");
+    setKeywordFilterModalOpen(false);
   };
 
   const handleLoadMoreStage = async (stage) => {
@@ -1403,12 +1463,12 @@ const PipelineBoard = () => {
   }, [board]);
 
   const searchResultCount = useMemo(() => {
-    if (!searchText.trim()) return null;
+    if (!searchText.trim() && !keywordFilter.trim()) return null;
     return (filteredBoard.stages || []).reduce(
       (acc, s) => acc + s.opportunities.length,
       0,
     );
-  }, [filteredBoard, searchText]);
+  }, [filteredBoard, searchText, keywordFilter]);
 
   return (
     <Box className={classes.container}>
@@ -1530,7 +1590,26 @@ const PipelineBoard = () => {
             )}
           </div>
 
-          {searchText && searchResultCount !== null && (
+          <Tooltip title={keywordFilter ? `Filtro aplicado: ${keywordFilter}` : "Filtro por palavra-chave"}>
+            <IconButton
+              size="small"
+              className={`${classes.keywordFilterButton} ${keywordFilter ? classes.keywordFilterButtonActive : ""}`}
+              onClick={handleOpenKeywordFilter}
+            >
+              <FilterListIcon style={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {keywordFilter && (
+            <span className={classes.keywordFilterSummary}>
+              <span className={classes.keywordFilterText}>{keywordFilter}</span>
+              <IconButton size="small" onClick={handleClearKeywordFilter} style={{ padding: 1 }}>
+                <ClearIcon style={{ fontSize: 14, color: "#176f3e" }} />
+              </IconButton>
+            </span>
+          )}
+
+          {(searchText || keywordFilter) && searchResultCount !== null && (
             <span className={classes.resultCount}>
               {searchResultCount} resultado{searchResultCount !== 1 ? "s" : ""}
             </span>
@@ -1802,7 +1881,7 @@ const PipelineBoard = () => {
                                 <div className={classes.cardList}>
                                   {stage.opportunities.length === 0 && (
                                     <Typography className={classes.noResults}>
-                                      {searchText
+                                      {searchText || keywordFilter
                                         ? "Nenhum resultado nesta etapa"
                                         : "Sem cards nesta etapa"}
                                     </Typography>
@@ -1828,7 +1907,7 @@ const PipelineBoard = () => {
                                         >
                                           <IntelligentCard
                                             op={op}
-                                            highlight={!!searchText.trim()}
+                                            highlight={!!searchText.trim() || !!keywordFilter.trim()}
                                             onClick={(o) => {
                                               hydrateLeadContext(
                                                 {
@@ -2584,6 +2663,56 @@ const PipelineBoard = () => {
         <DialogActions>
           <Button onClick={() => setFeedbackOpen(false)} color="primary">
             Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={keywordFilterModalOpen}
+        onClose={() => setKeywordFilterModalOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          style: { borderRadius: 14, border: "1px solid #cee1d5" },
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800 }}>
+          Filtro por palavra-chave
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" style={{ color: "#5f7669", marginBottom: 12 }}>
+            Busque em todas as etapas por nome, empresa, produto, origem,
+            observações, anotações e campos personalizados do lead.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            variant="outlined"
+            label="Palavra-chave"
+            placeholder="Ex: imobiliária, clínica, escritório..."
+            value={keywordFilterDraft}
+            onChange={(event) => setKeywordFilterDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleApplyKeywordFilter();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClearKeywordFilter}>
+            Limpar
+          </Button>
+          <Button onClick={() => setKeywordFilterModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleApplyKeywordFilter}
+            variant="contained"
+            style={{ backgroundColor: "#1f9d55", color: "#fff" }}
+          >
+            Aplicar filtro
           </Button>
         </DialogActions>
       </Dialog>

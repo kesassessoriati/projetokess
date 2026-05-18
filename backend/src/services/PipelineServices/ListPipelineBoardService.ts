@@ -1,4 +1,4 @@
-import { Op, fn, col, literal } from "sequelize";
+import { Op, fn, col, literal, QueryTypes } from "sequelize";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
@@ -6,6 +6,8 @@ import Contact from "../../models/Contact";
 import CrmLead from "../../models/CrmLead";
 import OpportunityPrediction from "../../models/OpportunityPrediction";
 import AppError from "../../errors/AppError";
+import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
+import sequelize from "../../database";
 
 interface Request {
     pipelineId: number;
@@ -24,6 +26,7 @@ interface Request {
     userId?: number;
     ownerUserId?: number;
     viewMode?: "team" | "personal";
+    searchKeyword?: string;
 }
 
 interface BoardOpportunity {
@@ -147,6 +150,97 @@ const applyBoardFilters = (where: any, filter?: Request["filter"]) => {
     return where;
 };
 
+const normalizeKeyword = (value?: string): string => String(value || "").trim();
+
+const buildKeywordScope = async (companyId: number, searchKeyword?: string) => {
+    const keyword = normalizeKeyword(searchKeyword);
+    if (!keyword) return null;
+
+    const like = `%${keyword.replace(/[\\%_]/g, "\\$&")}%`;
+    const likeCondition = { [Op.iLike]: like };
+
+    const matchingLeads = await CrmLead.findAll({
+        where: {
+            companyId,
+            [Op.or]: [
+                { name: likeCondition },
+                { companyName: likeCondition },
+                { email: likeCondition },
+                { phone: likeCondition },
+                { document: likeCondition },
+                { cnpj: likeCondition },
+                { address: likeCondition },
+                { product: likeCondition },
+                { source: likeCondition },
+                { campaign: likeCondition },
+                { medium: likeCondition },
+                { notes: likeCondition },
+                { position: likeCondition },
+                { decisionMakerName: likeCondition },
+                { decisionMakerPhone: likeCondition },
+                { paymentType: likeCondition },
+                { purchaseType: likeCondition },
+                { gmn: likeCondition },
+                { website: likeCondition },
+                { instagram: likeCondition },
+                { linkedin: likeCondition },
+                { temperature: likeCondition },
+                { followUp: likeCondition },
+                { followUp2: likeCondition }
+            ]
+        },
+        attributes: ["id"],
+        raw: true
+    }) as Array<{ id: number }>;
+
+    const matchingCustomValues = await CrmLeadCustomFieldValue.findAll({
+        where: {
+            companyId,
+            value: likeCondition
+        },
+        attributes: ["leadId"],
+        raw: true
+    }) as Array<{ leadId: number }>;
+
+    const matchingContacts = await Contact.findAll({
+        where: {
+            companyId,
+            [Op.or]: [
+                { name: likeCondition },
+                { number: likeCondition },
+                { email: likeCondition }
+            ]
+        },
+        attributes: ["id"],
+        raw: true
+    }) as Array<{ id: number }>;
+
+    const eventRows = await sequelize.query<{ opportunityId: number }>(
+        `SELECT DISTINCT "opportunityId"
+         FROM "OpportunityEvents"
+         WHERE "companyId" = :companyId
+           AND "metadata"::text ILIKE :like`,
+        {
+            type: QueryTypes.SELECT,
+            replacements: { companyId, like: `%${keyword}%` }
+        }
+    );
+
+    const leadIds = Array.from(new Set([
+        ...matchingLeads.map(item => item.id),
+        ...matchingCustomValues.map(item => item.leadId)
+    ])).filter(Boolean);
+    const contactIds = matchingContacts.map(item => item.id).filter(Boolean);
+    const opportunityIds = eventRows.map(item => item.opportunityId).filter(Boolean);
+
+    const conditions: any[] = [{ title: likeCondition }];
+    if (leadIds.length > 0) conditions.push({ leadId: { [Op.in]: leadIds } });
+    if (contactIds.length > 0) conditions.push({ contactId: { [Op.in]: contactIds } });
+    if (opportunityIds.length > 0) conditions.push({ id: { [Op.in]: opportunityIds } });
+
+    return { [Op.or]: conditions };
+};
+
 const buildPredictionInclude = (filter?: Request["filter"], attributes: string[] = []) => {
     const predictionInclude: any = {
         model: OpportunityPrediction,
@@ -179,7 +273,8 @@ const ListPipelineBoardService = async ({
     profile,
     userId,
     ownerUserId,
-    viewMode
+    viewMode,
+    searchKeyword
 }: Request): Promise<BoardResponse> => {
     const effectiveValueSql =
         'CASE WHEN COALESCE("Opportunity"."value", 0) = 0 THEN COALESCE("lead"."purchase_value", 0) ELSE COALESCE("Opportunity"."value", 0) END';
@@ -208,6 +303,15 @@ const ListPipelineBoardService = async ({
         ownerUserId,
         viewMode
     });
+
+    const keywordScope = await buildKeywordScope(companyId, searchKeyword);
+    if (keywordScope) {
+        scopedOpportunityWhere[Op.and] = [
+            ...(Array.isArray(scopedOpportunityWhere[Op.and]) ? scopedOpportunityWhere[Op.and] : []),
+            keywordScope
+        ];
+    }
+
     const scopedStatsWhere = applyBoardFilters({ ...scopedOpportunityWhere }, filter);
 
     const stats = await Opportunity.findAll({
@@ -242,6 +346,8 @@ const ListPipelineBoardService = async ({
         };
         return acc;
     }, {} as any);
+
+    const effectiveLimit = normalizeKeyword(searchKeyword) ? Math.max(limit, 1000) : limit;
 
     const getOpportunitiesForStage = async (sId: number, sCursor?: string) => {
         const where: any = {
@@ -291,13 +397,13 @@ const ListPipelineBoardService = async ({
         const opportunities = await Opportunity.findAll({
             where,
             include,
-            limit: limit + 1,
+            limit: effectiveLimit + 1,
             order,
             attributes: ["id", "title", "value", "status", "createdAt", "slaDeadline", "aiSuggestedStageId", "lastMovedBy", "leadId", "contactId", "pipelineId", "stageId"]
         });
 
-        const hasMore = opportunities.length > limit;
-        const results = hasMore ? opportunities.slice(0, limit) : opportunities;
+        const hasMore = opportunities.length > effectiveLimit;
+        const results = hasMore ? opportunities.slice(0, effectiveLimit) : opportunities;
 
         let nextCursor = null;
         if (hasMore) {

@@ -67,7 +67,8 @@ export const board = async (req: Request, res: Response): Promise<Response> => {
         onlyExpired,
         sort,
         ownerUserId,
-        viewMode
+        viewMode,
+        searchKeyword
     } = req.query;
 
     const pipelineBoard = await ListPipelineBoardService({
@@ -86,7 +87,8 @@ export const board = async (req: Request, res: Response): Promise<Response> => {
         profile,
         userId: Number(userId),
         ownerUserId: ownerUserId ? parseInt(ownerUserId as string, 10) : undefined,
-        viewMode: viewMode as "team" | "personal" | undefined
+        viewMode: viewMode as "team" | "personal" | undefined,
+        searchKeyword: searchKeyword as string | undefined
     });
 
     return res.status(200).json(pipelineBoard);
