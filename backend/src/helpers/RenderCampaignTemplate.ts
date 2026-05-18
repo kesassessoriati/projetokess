@@ -10,7 +10,19 @@ type ContactLike = {
 const escapeRegExp = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Returns true when the name is a system-generated placeholder that should
+// never appear in outgoing messages (e.g. "Contato sem nome 9470").
+const isFallbackName = (value?: string | null): boolean => {
+  const trimmed = String(value || "").trim().toLowerCase();
+  if (!trimmed) return true;
+  return (
+    /^contato\s+sem\s+nome(\s+\d+)?$/.test(trimmed) ||
+    /^sem\s+nome(\s+\d+)?$/.test(trimmed)
+  );
+};
+
 const getFirstName = (name?: string | null): string => {
+  if (isFallbackName(name)) return "";
   const safeName = String(name || "").trim();
   return safeName ? safeName.split(" ")[0] : "";
 };
@@ -19,7 +31,9 @@ const buildTemplateView = (
   contact?: ContactLike | null,
   variables: Array<{ key?: string; value?: any }> = []
 ) => {
-  const name = String(contact?.name || "").trim();
+  const rawName = String(contact?.name || "").trim();
+  // Blank out fallback names so they never reach outgoing messages
+  const name = isFallbackName(rawName) ? "" : rawName;
   const email = String(contact?.email || "").trim();
   const number = String(contact?.number || "").trim();
   const greeting = msgsd();
@@ -37,7 +51,7 @@ const buildTemplateView = (
   );
 
   return {
-    firstName: getFirstName(name),
+    firstName: getFirstName(rawName),
     name,
     contactName: name,
     email,
@@ -73,6 +87,11 @@ const replaceLegacyTokens = (
   return rendered;
 };
 
+// Collapses runs of horizontal spaces produced when a variable resolves to ""
+// (e.g. "Olá  tudo bem?" → "Olá tudo bem?"). Preserves newlines intentionally.
+const collapseSpaces = (text: string): string =>
+  text.replace(/[^\S\n]{2,}/g, " ");
+
 const renderTemplateString = (
   template: string,
   contact?: ContactLike | null,
@@ -80,7 +99,7 @@ const renderTemplateString = (
 ): string => {
   const view = buildTemplateView(contact, variables);
   const mustacheRendered = Mustache.render(String(template || ""), view);
-  return replaceLegacyTokens(mustacheRendered, view);
+  return collapseSpaces(replaceLegacyTokens(mustacheRendered, view));
 };
 
 export const renderCampaignTemplate = <T = any>(

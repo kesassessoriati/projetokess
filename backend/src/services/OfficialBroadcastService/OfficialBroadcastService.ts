@@ -40,7 +40,19 @@ const sanitizePhoneNumber = (value?: string | null): string =>
 const truncate = (value: string, max = 500): string =>
   value.length > max ? value.slice(0, max) : value;
 
+// Returns true when the name is a system-generated placeholder that should
+// never appear in outgoing messages (e.g. "Contato sem nome 9470").
+const isFallbackName = (value?: string | null): boolean => {
+  const trimmed = String(value || "").trim().toLowerCase();
+  if (!trimmed) return true;
+  return (
+    /^contato\s+sem\s+nome(\s+\d+)?$/.test(trimmed) ||
+    /^sem\s+nome(\s+\d+)?$/.test(trimmed)
+  );
+};
+
 const getFirstName = (name?: string | null): string => {
+  if (isFallbackName(name)) return "";
   const text = String(name || "").trim();
   return text ? text.split(/\s+/)[0] : "";
 };
@@ -58,9 +70,12 @@ const resolveTemplateValue = (
     return String(input);
   }
 
+  const rawName = String(contact?.name || shipping?.contactName || "");
+  const safeName = isFallbackName(rawName) ? "" : rawName;
+
   const tokens: Record<string, string> = {
-    name: String(contact?.name || shipping?.contactName || ""),
-    firstName: getFirstName(String(contact?.name || shipping?.contactName || "")),
+    name: safeName,
+    firstName: getFirstName(rawName),
     number: sanitizePhoneNumber(contact?.number || shipping?.number),
     phone: sanitizePhoneNumber(contact?.number || shipping?.number),
     email: String(contact?.email || ""),
