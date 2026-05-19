@@ -3417,6 +3417,9 @@ export const ActionsWebhookService = async (
     return "ds";
   } catch (error) {
     logger.error(error);
+    if (executionId) {
+      throw error;
+    }
   }
 };
 

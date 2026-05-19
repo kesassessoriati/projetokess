@@ -312,6 +312,7 @@ export const testFlow = async (
     const { idFlow } = req.params;
     const { message, contactNumber, contactName } = req.body;
     const { companyId } = req.user;
+    const userId = parseInt(req.user.id);
 
     // Validar idFlow
     if (!idFlow || isNaN(parseInt(idFlow))) {
@@ -328,7 +329,8 @@ export const testFlow = async (
       message,
       contactNumber,
       contactName,
-      companyId
+      companyId,
+      userId
     });
 
     return res.status(200).json(result);

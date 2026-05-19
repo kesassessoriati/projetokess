@@ -297,6 +297,29 @@ const useStyles = makeStyles((theme) => ({
       boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
     },
   },
+  testButton: {
+    width: "100%",
+    backgroundColor: "#10b981",
+    color: "#ffffff",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: "600",
+    textTransform: "none",
+    boxShadow: "0 4px 12px rgba(16, 185, 129, 0.22)",
+    border: "none",
+    marginBottom: "8px",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    "&:hover": {
+      backgroundColor: "#059669",
+      transform: "translateY(-1px)",
+      boxShadow: "0 6px 16px rgba(16, 185, 129, 0.32)",
+    },
+    "&:disabled": {
+      backgroundColor: "#94a3b8",
+      color: "#ffffff",
+    },
+  },
   backButton: {
     backgroundColor: "#f3f4f6",
     color: "#374151",
@@ -413,6 +436,7 @@ const useStyles = makeStyles((theme) => ({
     overflowY: "auto",
     display: "grid",
     gap: 10,
+    flex: 1,
   },
   logCard: {
     border: "1px solid rgba(148,163,184,0.22)",
@@ -452,6 +476,47 @@ const useStyles = makeStyles((theme) => ({
     fontSize: 12,
     padding: 16,
     textAlign: "center",
+  },
+  executionDetails: {
+    borderTop: "1px solid rgba(148,163,184,0.18)",
+    padding: "12px",
+    background: "rgba(15,23,42,0.72)",
+  },
+  executionDetailsTitle: {
+    color: "#f8fafc",
+    fontSize: 12,
+    fontWeight: 800,
+    marginBottom: 10,
+  },
+  executionStep: {
+    display: "grid",
+    gridTemplateColumns: "22px 1fr",
+    gap: 8,
+    padding: "8px 0",
+    borderBottom: "1px solid rgba(148,163,184,0.12)",
+  },
+  executionStepIndex: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    background: "rgba(59,130,246,0.22)",
+    color: "#bfdbfe",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 10,
+    fontWeight: 800,
+  },
+  executionStepTitle: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  executionStepMessage: {
+    color: "#94a3b8",
+    fontSize: 11,
+    lineHeight: 1.45,
+    marginTop: 3,
   },
 }));
 
@@ -655,6 +720,7 @@ export const FlowBuilderConfig = () => {
     status: "success",
   });
   const [selectedExecutionId, setSelectedExecutionId] = useState(null);
+  const [testingFlow, setTestingFlow] = useState(false);
   const [modalAddVideo, setModalAddVideo] = useState(null);
   const [modalAddSingleBlock, setModalAddSingleBlock] = useState(null);
   const [contentModalType, setContentModalType] = useState(null);
@@ -1228,8 +1294,10 @@ export const FlowBuilderConfig = () => {
         params: { flowId: id, pageNumber: 1 },
       });
       setFlowExecutions(data.executions || []);
+      return data.executions || [];
     } catch (error) {
       console.log("Erro ao buscar logs do fluxo", error);
+      return [];
     }
   }, [id]);
 
@@ -1559,6 +1627,64 @@ export const FlowBuilderConfig = () => {
   };
 
   // [TODAS AS FUNÇÕES DE EVENTOS MANTIDAS IGUAIS]
+  const testFlow = async () => {
+    if (testingFlow) return;
+
+    const storedNumber = localStorage.getItem("flowbuilderTestContactNumber") || "";
+    const contactNumber = window.prompt(
+      "Informe o número do contato para testar o fluxo (somente números ou com DDI).",
+      storedNumber
+    );
+
+    if (!contactNumber) return;
+
+    const contactName = window.prompt(
+      "Nome do contato de teste (opcional).",
+      localStorage.getItem("flowbuilderTestContactName") || "Contato Teste"
+    );
+
+    const message = window.prompt(
+      "Mensagem/frase de teste (opcional).",
+      "teste manual"
+    );
+
+    setTestingFlow(true);
+
+    try {
+      await saveFlow();
+
+      localStorage.setItem("flowbuilderTestContactNumber", contactNumber);
+      if (contactName) {
+        localStorage.setItem("flowbuilderTestContactName", contactName);
+      }
+
+      const { data } = await api.post(`/flowbuilder/test/${id}`, {
+        contactNumber,
+        contactName,
+        message,
+      });
+
+      const executions = await fetchFlowExecutions();
+      const execution = executions.find((item) => item.id === data.executionId) || data;
+      const firstLog = Array.isArray(execution.nodePath) ? execution.nodePath[0] : null;
+
+      if (firstLog?.nodeId) {
+        setLogsPanel({
+          open: true,
+          nodeId: firstLog.nodeId,
+          status: firstLog.status === "error" ? "error" : firstLog.status === "warning" ? "warning" : "success",
+        });
+      }
+
+      setSelectedExecutionId(data.executionId);
+      toast.success("Fluxo de teste executado. Log gerado para conferência.");
+    } catch (error) {
+      toastError(error);
+    } finally {
+      setTestingFlow(false);
+    }
+  };
+
   const doubleClick = (event, node) => {
     console.log("NODE", node);
     setDataNode(node);
@@ -2079,6 +2205,15 @@ export const FlowBuilderConfig = () => {
                 Salvar
               </Button>
             </div>
+            <Button
+              variant="contained"
+              className={classes.testButton}
+              startIcon={<PlayArrowIcon />}
+              onClick={testFlow}
+              disabled={testingFlow}
+            >
+              {testingFlow ? "Testando..." : "Testar Fluxo"}
+            </Button>
             
             {actionGroups.map((group) => (
               <div key={group.label} className={classes.buttonGroup}>
@@ -2313,6 +2448,37 @@ export const FlowBuilderConfig = () => {
                   );
                 })}
               </div>
+
+              {selectedExecution && (
+                <div className={classes.executionDetails}>
+                  <div className={classes.executionDetailsTitle}>
+                    Detalhes da execução #{selectedExecution.id}
+                  </div>
+                  {Array.isArray(selectedExecution.nodePath) && selectedExecution.nodePath.length > 0 ? (
+                    selectedExecution.nodePath.map((item, index) => (
+                      <div key={`${selectedExecution.id}-${item.nodeId}-${index}`} className={classes.executionStep}>
+                        <div className={classes.executionStepIndex}>{index + 1}</div>
+                        <div>
+                          <div className={classes.executionStepTitle}>
+                            {item.nodeTitle || item.nodeType || item.nodeId}
+                          </div>
+                          <div className={classes.executionStepMessage}>
+                            Status: {LOG_STATUS_LABELS[item.status] || LOG_STATUS_LABELS.success}
+                            {item.executedAt ? ` · ${new Date(item.executedAt).toLocaleString("pt-BR")}` : ""}
+                          </div>
+                          <div className={classes.executionStepMessage}>
+                            {item.message || "Bloco executado"}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={classes.logsEmpty}>
+                      Caminho detalhado indisponível para esta execução.
+                    </div>
+                  )}
+                </div>
+              )}
             </aside>
           )}
         </Paper>
