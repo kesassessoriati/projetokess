@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useReducer, useContext, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useReducer, useContext, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
@@ -68,7 +68,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 import Chart from "react-apexcharts";
 
-// â”€â”€ Reducers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Reducers ──────────────────────────────────────────────────────────────────
 const campaignReducer = (state, action) => {
   if (action.type === "LOAD_CAMPAIGNS") {
     const campaigns = action.payload;
@@ -182,7 +182,7 @@ const formatFullDate = (value) => {
 
 const formatInteger = (value) => Number(value || 0).toLocaleString("pt-BR");
 
-// â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Styles ────────────────────────────────────────────────────────────────────
 const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
@@ -1030,7 +1030,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Component ─────────────────────────────────────────────────────────────────
 const Campaigns = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -1107,7 +1107,7 @@ const Campaigns = () => {
     (async () => {
       const planConfigs = await getPlanCompany(undefined, user.companyId);
       if (!planConfigs.plan.useCampaigns) {
-        toast.error("Esta empresa nÃ£o possui permissÃ£o para acessar essa pÃ¡gina! Estamos lhe redirecionando.");
+        toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
         setTimeout(() => history.push("/"), 1000);
       }
     })();
@@ -1395,9 +1395,9 @@ const Campaigns = () => {
   const deliveryTotals = deliveryBreakdown.reduce((acc, item) => acc + Number(item.value || 0), 0);
   const performanceHighlights = [
     {
-      label: "Taxa mÃ©dia de entrega",
+      label: "Taxa média de entrega",
       value: `${Number(metricsSummary.averageDeliveryRate || 0).toFixed(1)}%`,
-      helper: deliveryTotals > 0 ? `${formatInteger(metricsSummary.messagesDelivered)} mensagens entregues` : "Sem histÃ³rico de envios ainda",
+      helper: deliveryTotals > 0 ? `${formatInteger(metricsSummary.messagesDelivered)} mensagens entregues` : "Sem histórico de envios ainda",
     },
     {
       label: "Campanhas ativas",
@@ -1412,14 +1412,14 @@ const Campaigns = () => {
     {
       label: "Base de contatos",
       value: formatInteger(metricsSummary.totalContacts),
-      helper: `${formatInteger(metricsSummary.totalContactLists)} listas ativas conectadas ao mÃ³dulo`,
+      helper: `${formatInteger(metricsSummary.totalContactLists)} listas ativas conectadas ao módulo`,
     },
   ];
   const overviewCards = [
     {
       label: "Campanhas",
       value: formatInteger(metricsSummary.totalCampaigns),
-      footnote: `${formatInteger(metricsSummary.activeCampaigns)} em operaÃ§Ã£o`,
+      footnote: `${formatInteger(metricsSummary.activeCampaigns)} em operação`,
     },
     {
       label: "Contatos em listas",
@@ -1429,7 +1429,7 @@ const Campaigns = () => {
     {
       label: "Mensagens entregues",
       value: formatInteger(metricsSummary.messagesDelivered),
-      footnote: `${Number(metricsSummary.averageDeliveryRate || 0).toFixed(1)}% de entrega mÃ©dia`,
+      footnote: `${Number(metricsSummary.averageDeliveryRate || 0).toFixed(1)}% de entrega média`,
     },
     {
       label: "Taxa de falha",
@@ -1441,7 +1441,7 @@ const Campaigns = () => {
     {
       label: "Total WhatsApp Sends",
       value: formatInteger(metricsSummary.totalWhatsAppSends),
-      hint: `${formatInteger(metricsSummary.totalWhatsAppCampaigns)} campanhas WhatsApp no mÃ³dulo`,
+      hint: `${formatInteger(metricsSummary.totalWhatsAppCampaigns)} campanhas WhatsApp no módulo`,
       Icon: WhatsAppIcon,
       iconColor: "#16a34a",
       iconBg: "#dcfce7",
@@ -1465,7 +1465,7 @@ const Campaigns = () => {
     {
       label: "Messages Delivered",
       value: formatInteger(metricsSummary.messagesDelivered),
-      hint: "Tentativas concluÃ­das com entrega registrada",
+      hint: "Tentativas concluídas com entrega registrada",
       Icon: CheckCircleIcon,
       iconColor: "#15803d",
       iconBg: "#dcfce7",
@@ -1481,7 +1481,7 @@ const Campaigns = () => {
     {
       label: "Total Contacts",
       value: formatInteger(metricsSummary.totalContacts),
-      hint: "Contatos disponÃ­veis nas listas para campanhas",
+      hint: "Contatos disponíveis nas listas para campanhas",
       Icon: PeopleIcon,
       iconColor: "#0f766e",
       iconBg: "#ccfbf1",
@@ -1605,13 +1605,13 @@ const Campaigns = () => {
     { label: "Disparos E-mail", helper: "E-mail em massa", count: emailCampaigns.length, Icon: EmailIcon },
     { label: "Lista de contatos", helper: "Base", count: contactLists.length, Icon: ListAltIcon },
     { label: "API Oficial", helper: "Templates Meta", count: officialMetrics?.campaigns?.total || 0, Icon: VerifiedUserIcon },
-    { label: "MÃ©tricas", helper: "AnÃ¡lise", count: totalCampaigns, Icon: CheckCircleIcon },
+    { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: CheckCircleIcon },
   ];
 
   tabItems.splice(
     0,
     tabItems.length,
-    { label: "MÃ©tricas", helper: "AnÃ¡lise", count: totalCampaigns, Icon: TrendingUpIcon },
+    { label: "Métricas", helper: "Análise", count: totalCampaigns, Icon: TrendingUpIcon },
     { label: "Disparos WhatsApp", helper: "Envios", count: metricsSummary.totalWhatsAppCampaigns || whatsappCampaigns.length, Icon: CampaignIcon },
     { label: "Disparos E-mail", helper: "E-mail em massa", count: metricsSummary.totalEmailCampaigns || emailCampaigns.length, Icon: EmailIcon },
     { label: "Lista de contatos", helper: "Base", count: metricsSummary.totalContactLists || contactLists.length, Icon: ListAltIcon },
@@ -1705,7 +1705,7 @@ const Campaigns = () => {
         ))}
       </Box>
 
-      {/* â”€â”€ TAB 0: Disparos â”€â”€ */}
+      {/* ── TAB 0: Disparos ── */}
       {activeTab === TAB_INDEX.METRICS && (
         <Box className={classes.tabContent}>
           <Box className={classes.metricsContainer}>
@@ -1716,10 +1716,10 @@ const Campaigns = () => {
                   Dashboard de performance
                 </Typography>
                 <Typography className={classes.heroTitle}>
-                  MÃ©tricas operacionais para uma leitura rÃ¡pida do funil de disparos
+                  Métricas operacionais para uma leitura rápida do funil de disparos
                 </Typography>
                 <Typography className={classes.heroSubtitle}>
-                  Acompanhe volume por canal, entregas, falhas e campanhas com melhor performance em um layout pensado para operaÃ§Ã£o diÃ¡ria.
+                  Acompanhe volume por canal, entregas, falhas e campanhas com melhor performance em um layout pensado para operação diária.
                 </Typography>
               </Box>
               <Box className={classes.heroInsightGrid}>
@@ -1760,10 +1760,10 @@ const Campaigns = () => {
                       <Box className={classes.chartTitleWrap}>
                         <Typography className={classes.chartTitle}>Mensagens enviadas ao longo do tempo</Typography>
                         <Typography className={classes.chartSubtitle}>
-                          EvoluÃ§Ã£o diÃ¡ria dos envios processados nos Ãºltimos 14 dias, separando WhatsApp e e-mail.
+                          Evolução diária dos envios processados nos últimos 14 dias, separando WhatsApp e e-mail.
                         </Typography>
                       </Box>
-                      <span className={classes.chartBadge}>Ãšltimos 14 dias</span>
+                      <span className={classes.chartBadge}>Últimos 14 dias</span>
                     </Box>
                     <Box className={classes.chartBody}>
                       <Chart options={messagesOverTimeOptions} series={messagesOverTimeSeries} type="line" height={290} />
@@ -1775,7 +1775,7 @@ const Campaigns = () => {
                       <Box className={classes.chartTitleWrap}>
                         <Typography className={classes.chartTitle}>Sucesso vs falha</Typography>
                         <Typography className={classes.chartSubtitle}>
-                          DistribuiÃ§Ã£o consolidada das tentativas entre entregues, falhas e pendÃªncias.
+                          Distribuição consolidada das tentativas entre entregues, falhas e pendências.
                         </Typography>
                       </Box>
                       <span className={classes.chartBadge}>Entrega</span>
@@ -1829,7 +1829,7 @@ const Campaigns = () => {
                     <Box className={classes.chartTitleWrap}>
                       <Typography className={classes.chartTitle}>Campaign Performance Table</Typography>
                       <Typography className={classes.chartSubtitle}>
-                        VisÃ£o estruturada por campanha com canal, volume, entregas, falhas e taxa de entrega.
+                        Visão estruturada por campanha com canal, volume, entregas, falhas e taxa de entrega.
                       </Typography>
                     </Box>
                     <span className={classes.chartBadge}>{campaignPerformance.length} campanhas</span>
@@ -1878,7 +1878,7 @@ const Campaigns = () => {
                       </Table>
                     ) : (
                       <Box className={classes.tableEmptyState}>
-                        Nenhuma campanha processada ainda. Assim que os disparos forem executados, a tabela exibirÃ¡ o ranking detalhado.
+                        Nenhuma campanha processada ainda. Assim que os disparos forem executados, a tabela exibirá o ranking detalhado.
                       </Box>
                     )}
                   </Box>
@@ -1985,7 +1985,7 @@ const Campaigns = () => {
                               </Box>
                               <Box className={classes.kanbanMetaRow}>
                                 <WhatsAppIcon style={{ color: "#25D366" }} />
-                                <span>{campaign.whatsappId ? campaign.whatsapp?.name : "NÃ£o definido"}</span>
+                                <span>{campaign.whatsappId ? campaign.whatsapp?.name : "Não definido"}</span>
                               </Box>
                               {campaign.scheduledAt && (
                                 <Box className={classes.kanbanMetaRow}>
@@ -2002,7 +2002,7 @@ const Campaigns = () => {
                                 startIcon={<DescriptionIcon style={{ fontSize: 15 }} />}
                                 onClick={() => history.push(`/campaign/${campaign.id}/report`)}
                               >
-                                RelatÃ³rio
+                                Relatório
                               </Button>
                               <Button
                                 size="small"
@@ -2038,21 +2038,21 @@ const Campaigns = () => {
                     <Typography className={classes.itemName}>{campaign.name}</Typography>
                     <Box className={classes.itemDetails}>
                       <span>ID: {campaign.id}</span>
-                      <span>â€¢</span>
+                      <span>•</span>
                       {getStatusChip(campaign.status)}
-                      <span>â€¢</span>
+                      <span>•</span>
                       <Box className={classes.itemDetail}>
                         <PeopleIcon style={{ fontSize: 12 }} />
                         <span>{campaign.contactListId ? campaign.contactList?.name : "Sem lista"}</span>
                       </Box>
-                      <span>â€¢</span>
+                      <span>•</span>
                       <Box className={classes.itemDetail}>
                         <WhatsAppIcon style={{ fontSize: 12, color: "#25D366" }} />
-                        <span>{campaign.whatsappId ? campaign.whatsapp?.name : "NÃ£o definido"}</span>
+                        <span>{campaign.whatsappId ? campaign.whatsapp?.name : "Não definido"}</span>
                       </Box>
                       {campaign.scheduledAt && (
                         <>
-                          <span>â€¢</span>
+                          <span>•</span>
                           <Box className={classes.itemDetail}>
                             <ScheduleIcon style={{ fontSize: 12 }} />
                             <span>{datetimeToClient(campaign.scheduledAt)}</span>
@@ -2068,7 +2068,7 @@ const Campaigns = () => {
                       startIcon={<DescriptionIcon style={{ fontSize: 15 }} />}
                       onClick={() => history.push(`/campaign/${campaign.id}/report`)}
                     >
-                      RelatÃ³rio
+                      Relatório
                     </Button>
                     <Button
                       size="small"
@@ -2095,7 +2095,7 @@ const Campaigns = () => {
         </Box>
       )}
 
-      {/* â”€â”€ TAB 1: Disparos de E-mail â”€â”€ */}
+      {/* ── TAB 1: Disparos de E-mail ── */}
       {activeTab === TAB_INDEX.EMAIL && (
         <Box className={classes.tabContent} onScroll={handleCampaignScroll}>
           <Box className={classes.header}>
@@ -2134,16 +2134,16 @@ const Campaigns = () => {
                     <Typography className={classes.itemName}>{campaign.name}</Typography>
                     <Box className={classes.itemDetails}>
                       <span>ID: {campaign.id}</span>
-                      <span>â€¢</span>
+                      <span>•</span>
                       {getStatusChip(campaign.status)}
-                      <span>â€¢</span>
+                      <span>•</span>
                       <Box className={classes.itemDetail}>
                         <PeopleIcon style={{ fontSize: 12 }} />
                         <span>{campaign.contactListId ? campaign.contactList?.name : "Sem lista"}</span>
                       </Box>
                       {campaign.emailSubject && (
                         <>
-                          <span>â€¢</span>
+                          <span>•</span>
                           <Box className={classes.itemDetail}>
                             <EmailIcon style={{ fontSize: 12 }} />
                             <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2154,7 +2154,7 @@ const Campaigns = () => {
                       )}
                       {campaign.scheduledAt && (
                         <>
-                          <span>â€¢</span>
+                          <span>•</span>
                           <Box className={classes.itemDetail}>
                             <ScheduleIcon style={{ fontSize: 12 }} />
                             <span>{datetimeToClient(campaign.scheduledAt)}</span>
@@ -2170,7 +2170,7 @@ const Campaigns = () => {
                       startIcon={<DescriptionIcon style={{ fontSize: 15 }} />}
                       onClick={() => history.push(`/campaign/${campaign.id}/report`)}
                     >
-                      RelatÃ³rio
+                      Relatório
                     </Button>
                     <Button
                       size="small"
@@ -2208,7 +2208,7 @@ const Campaigns = () => {
         </Box>
       )}
 
-      {/* â”€â”€ TAB 2: Listas de Contatos â”€â”€ */}
+      {/* ── TAB 2: Listas de Contatos ── */}
       {activeTab === TAB_INDEX.CONTACTS && (
         <Box className={classes.tabContent} onScroll={handleListScroll}>
           <Box className={classes.header}>
@@ -2267,7 +2267,7 @@ const Campaigns = () => {
                     <Typography className={classes.itemName}>{list.name}</Typography>
                     <Box className={classes.itemDetails}>
                       <span>ID: {list.id}</span>
-                      <span>â€¢</span>
+                      <span>•</span>
                       <Box className={classes.itemDetail}>
                         <PeopleIcon style={{ fontSize: 12 }} />
                         <span>{list.contactsCount || 0} {list.contactsCount === 1 ? "contato" : "contatos"}</span>
@@ -2300,7 +2300,7 @@ const Campaigns = () => {
         </Box>
       )}
 
-      {/* â”€â”€ Contacts Drawer â”€â”€ */}
+      {/* ── Contacts Drawer ── */}
       {activeTab === TAB_INDEX.OFFICIAL && (
         <Box className={classes.tabContent}>
           <OfficialBroadcastPanel />
@@ -2313,7 +2313,7 @@ const Campaigns = () => {
         onClose={setConfirmDeleteItemOpen}
         onConfirm={() => handleDeleteListItem(deletingItem?.id)}
       >
-        Essa aÃ§Ã£o nÃ£o pode ser desfeita.
+        Essa ação não pode ser desfeita.
       </ConfirmationModal>
 
       {contactItemModalOpen && (
@@ -2475,13 +2475,13 @@ const Campaigns = () => {
         </Box>
       </Drawer>
 
-      {/* â”€â”€ TAB 3: MÃ©tricas â”€â”€ */}
+      {/* ── TAB 3: Métricas ── */}
       {false && activeTab === 3 && (
         <Box className={classes.tabContent}>
           <Box className={classes.metricsContainer}>
 
             {/* Campaign status cards */}
-            <Typography className={classes.sectionTitle}>VisÃ£o geral dos disparos</Typography>
+            <Typography className={classes.sectionTitle}>Visão geral dos disparos</Typography>
             <Grid container spacing={2}>
               {[
                 { label: "Total de Campanhas", value: totalCampaigns, color: "#0a0a0a", bg: "#f5f5f5", Icon: CampaignIcon },
@@ -2509,7 +2509,7 @@ const Campaigns = () => {
             {totalCampaigns > 0 && (
               <Box className={classes.progressSection}>
                 <Typography className={classes.sectionTitle} style={{ marginBottom: 14 }}>
-                  DistribuiÃ§Ã£o por status
+                  Distribuição por status
                 </Typography>
                 {[
                   { label: "Finalizadas", count: metricsByStatus.FINALIZADA, color: "#4caf50" },

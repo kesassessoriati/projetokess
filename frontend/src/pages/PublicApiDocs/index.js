@@ -161,9 +161,9 @@ const PublicApiDocs = () => {
   const apis = [
     {
       name: "Mensagens",
-      description: "Dispare textos e mÃ­dias diretamente de seus fluxos.",
+      description: "Dispare textos e mídias diretamente de seus fluxos.",
       endpoints: [{ method: "POST", path: "/api/external/messages/send" }],
-      highlights: ["Suporte a templates", "Envio de mÃ­dia", "AtribuiÃ§Ã£o de atendente"]
+      highlights: ["Suporte a templates", "Envio de mídia", "Atribuição de atendente"]
     },
     {
       name: "Clientes",
@@ -178,14 +178,14 @@ const PublicApiDocs = () => {
     },
     {
       name: "Contatos",
-      description: "Gerencie leads operacionais, tags e informaÃ§Ãµes extras.",
+      description: "Gerencie leads operacionais, tags e informações extras.",
       endpoints: [
         { method: "GET", path: "/api/external/contacts" },
         { method: "POST", path: "/api/external/contacts" },
         { method: "PUT", path: "/api/external/contacts/:id" },
         { method: "DELETE", path: "/api/external/contacts/:id" }
       ],
-      highlights: ["Tags associadas", "ExtraInfo JSON", "Filtros e paginaÃ§Ã£o"]
+      highlights: ["Tags associadas", "ExtraInfo JSON", "Filtros e paginação"]
     },
     {
       name: "Tags",
@@ -196,7 +196,7 @@ const PublicApiDocs = () => {
         { method: "PUT", path: "/api/external/tags/:id" },
         { method: "DELETE", path: "/api/external/tags/:id" }
       ],
-      highlights: ["Kanban e SLAs", "ConfiguraÃ§Ãµes de lanes", "Eventos em webhooks"]
+      highlights: ["Kanban e SLAs", "Configurações de lanes", "Eventos em webhooks"]
     }
   ];
 
@@ -207,15 +207,15 @@ const PublicApiDocs = () => {
     },
     {
       title: "2. Configure webhooks",
-      text: "Informe a URL que receberÃ¡ eventos de criaÃ§Ã£o, atualizaÃ§Ã£o e exclusÃ£o dos recursos."
+      text: "Informe a URL que receberá eventos de criação, atualização e exclusão dos recursos."
     },
     {
-      title: "3. Monte as requisiÃ§Ãµes",
+      title: "3. Monte as requisições",
       text: "Envie o header Authorization: Bearer {token}. Utilize HTTPS e mantenha o token seguro."
     },
     {
       title: "4. Monitore e versione",
-      text: "Implemente retries, logging e versionamento de payloads para integraÃ§Ãµes futuras."
+      text: "Implemente retries, logging e versionamento de payloads para integrações futuras."
     }
   ];
 
@@ -241,12 +241,12 @@ const PublicApiDocs = () => {
           <div className={classes.heroAccent} />
           <span className={classes.pill}>Whaticket API</span>
           <Typography className={classes.heroTitle}>
-            IntegraÃ§Ãµes modernas para sua operaÃ§Ã£o omnichannel
+            Integrações modernas para sua operação omnichannel
           </Typography>
           <Typography className={classes.heroSubtitle}>
             Use nossas APIs REST para enviar mensagens, sincronizar clientes, organizar contatos e
-            automatizar pipelines. A documentaÃ§Ã£o pÃºblica estÃ¡ pronta para crescer com novas APIs e
-            permite que sua equipe tenha uma visÃ£o clara do ecossistema.
+            automatizar pipelines. A documentação pública está pronta para crescer com novas APIs e
+            permite que sua equipe tenha uma visão clara do ecossistema.
           </Typography>
           <Box mt={4} display="flex" flexWrap="wrap" gap={16}>
             <Button
@@ -262,19 +262,19 @@ const PublicApiDocs = () => {
               style={{ textTransform: "none", fontWeight: 600, borderColor: "#2563eb", color: "#2563eb" }}
               onClick={() => window.open("/docs/public/api", "_self")}
             >
-              Download da coleÃ§Ã£o Postman
+              Download da coleção Postman
             </Button>
           </Box>
         </Paper>
 
         <Paper className={classes.section} elevation={0}>
           <Typography variant="h5" gutterBottom style={{ fontWeight: 700, color: "#0f172a" }}>
-            AutenticaÃ§Ã£o e headers padrÃ£o
+            Autenticação e headers padrão
           </Typography>
           <Typography variant="body1" style={{ color: "#475569", lineHeight: 1.6 }}>
             Cada empresa possui um token exclusivo, emitido em <strong>/messages-api</strong> dentro do painel.
-            Envie sempre via header <strong>Authorization: Bearer {"{token}"}</strong>. Recomendamos armazenÃ¡-lo em
-            variÃ¡veis de ambiente e rotacionar periodicamente.
+            Envie sempre via header <strong>Authorization: Bearer {"{token}"}</strong>. Recomendamos armazená-lo em
+            variáveis de ambiente e rotacionar periodicamente.
           </Typography>
           <Typography className={classes.codeBlock}>
             POST {backendUrl}/api/external/messages/send{"\n"}
@@ -283,7 +283,7 @@ const PublicApiDocs = () => {
           </Typography>
           <Divider style={{ margin: "24px 0" }} />
           <Typography variant="body2" style={{ color: "#64748b" }}>
-            Todas as APIs respondem em JSON, seguem convenÃ§Ãµes REST e retornam cÃ³digos HTTP padronizados
+            Todas as APIs respondem em JSON, seguem convenções REST e retornam códigos HTTP padronizados
             (2xx para sucesso, 4xx/5xx para erros). Mantenha TLS ativo e trate limites de 10 req/s por token.
           </Typography>
         </Paper>
@@ -297,7 +297,7 @@ const PublicApiDocs = () => {
                     {api.name}
                   </Typography>
                   <Chip
-                    label="DisponÃ­vel"
+                    label="Disponível"
                     size="small"
                     style={{ background: "rgba(34,197,94,0.15)", color: "#15803d", fontWeight: 600 }}
                   />
@@ -331,7 +331,7 @@ const PublicApiDocs = () => {
 
         <Paper className={classes.section} elevation={0}>
           <Typography variant="h5" gutterBottom style={{ fontWeight: 700, color: "#0f172a" }}>
-            Como comeÃ§ar
+            Como começar
           </Typography>
           <div className={classes.timeline}>
             {onboardingSteps.map(step => (
@@ -350,19 +350,19 @@ const PublicApiDocs = () => {
 
         <Paper className={classes.section} elevation={0}>
           <Typography variant="h5" gutterBottom style={{ fontWeight: 700, color: "#0f172a" }}>
-            Webhooks e melhores prÃ¡ticas
+            Webhooks e melhores práticas
           </Typography>
           <Typography variant="body1" style={{ color: "#475569", lineHeight: 1.7 }}>
             Configure webhooks para ser notificado em eventos <code>tag.created</code>, <code>contact.updated</code>,
             <code>client.deleted</code> e outros. Validamos a origem com o header <code>x-whaticket-signature</code>
-            e esperamos respostas em atÃ© 5 segundos. Caso nÃ£o haja sucesso, executamos retentativas com backoff.
+            e esperamos respostas em até 5 segundos. Caso não haja sucesso, executamos retentativas com backoff.
           </Typography>
           <Divider style={{ margin: "20px 0" }} />
           <ul style={{ paddingLeft: 20, color: "#1f2937", lineHeight: 1.8 }}>
             <li>Mantenha tokens e secrets em cofres seguros (Vault, AWS Secrets Manager, etc.).</li>
-            <li>Implemente logs e dashboards para monitorar falhas e latÃªncia das integraÃ§Ãµes.</li>
-            <li>VersÃ£ose payloads usando headers ou query params, evitando quebras em clientes antigos.</li>
-            <li>Planeje limites: 10 requisiÃ§Ãµes/segundo por token Ã© o mÃ¡ximo recomendado.</li>
+            <li>Implemente logs e dashboards para monitorar falhas e latência das integrações.</li>
+            <li>Versione os payloads usando headers ou query params, evitando quebras em clientes antigos.</li>
+            <li>Planeje limites: 10 requisições/segundo por token é o máximo recomendado.</li>
           </ul>
         </Paper>
 
@@ -371,7 +371,7 @@ const PublicApiDocs = () => {
             Mais APIs chegando
           </Typography>
           <Typography variant="body1" style={{ maxWidth: 520, margin: "0 auto 24px" }}>
-            JÃ¡ estamos preparando endpoints para filas, tickets e automaÃ§Ãµes. Assine o boletim tÃ©cnico e
+            Já estamos preparando endpoints para filas, tickets e automações. Assine o boletim técnico e
             receba alertas sempre que novas APIs forem liberadas.
           </Typography>
           <Button
