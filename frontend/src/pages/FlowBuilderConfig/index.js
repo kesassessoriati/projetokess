@@ -267,21 +267,26 @@ const useStyles = makeStyles((theme) => ({
     height: "18px",
     flexShrink: 0,
   },
+  sidebarHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    width: "100%",
+    marginBottom: "8px",
+  },
   saveButton: {
     backgroundColor: "#3b82f6",
     color: "#ffffff",
-    borderRadius: "10px",
-    padding: "12px 24px",
-    fontSize: "14px",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    fontSize: "13px",
     fontWeight: "600",
     textTransform: "none",
     boxShadow: "0 4px 12px rgba(59, 130, 246, 0.25)",
     border: "none",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    position: "fixed",
-    bottom: "20px",
-    right: "20px",
-    zIndex: 1000,
+    flex: 1,
+    minWidth: 0,
     "&:hover": {
       backgroundColor: "#2563eb",
       transform: "translateY(-1px)",
@@ -301,8 +306,8 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "500",
     textTransform: "none",
     border: "1px solid #e5e7eb",
-    marginBottom: "8px",
     transition: "all 0.2s ease",
+    flexShrink: 0,
     "&:hover": {
       backgroundColor: "#e5e7eb",
       borderColor: "#d1d5db",
@@ -2056,13 +2061,24 @@ export const FlowBuilderConfig = () => {
           {/* Sidebar Estilo Typebot */}
           <Stack className={classes.sidebar}>
             {/* Back Button */}
-            <Button
-              className={classes.backButton}
-              startIcon={<ArrowBackIcon />}
-              onClick={() => history.push("/flowbuilders")}
-            >
-              Voltar
-            </Button>
+            <div className={classes.sidebarHeader}>
+              <Button
+                className={classes.backButton}
+                startIcon={<ArrowBackIcon />}
+                onClick={() => history.push("/flowbuilders")}
+              >
+                Voltar
+              </Button>
+              <Button
+                color="primary"
+                variant="contained"
+                className={classes.saveButton}
+                startIcon={<SaveIcon />}
+                onClick={() => saveFlow()}
+              >
+                Salvar
+              </Button>
+            </div>
             
             {actionGroups.map((group) => (
               <div key={group.label} className={classes.buttonGroup}>
@@ -2086,17 +2102,6 @@ export const FlowBuilderConfig = () => {
               </div>
             ))}
           </Stack>
-
-          {/* Save Button - Fixed bottom right */}
-          <Button
-            color="primary"
-            variant="contained"
-            className={classes.saveButton}
-            startIcon={<SaveIcon />}
-            onClick={() => saveFlow()}
-          >
-            Salvar Fluxo
-          </Button>
 
           {/* Top Toolbar */}
           <div style={{
@@ -2132,20 +2137,6 @@ export const FlowBuilderConfig = () => {
             </button>
 
             <div style={{ width: 1, height: 20, background: "#e5e7eb" }} />
-
-            {/* Save */}
-            <button
-              onClick={saveFlow}
-              title="Salvar fluxo"
-              style={{
-                width: 34, height: 34, borderRadius: 8, border: "none",
-                background: "#eff6ff", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s",
-              }}
-            >
-              <SaveIcon style={{ fontSize: 16, color: "#3b82f6" }} />
-            </button>
 
             {/* Add Note */}
             <button
