@@ -16,6 +16,7 @@ import Company from "./Company";
 import User from "./User";
 import AiExternalPromptVersion from "./AiExternalPromptVersion";
 import AiExternalAgentEvent from "./AiExternalAgentEvent";
+import AiExternalWebhook from "./AiExternalWebhook";
 
 @Table({ tableName: "ai_external_agent_configs" })
 class AiExternalAgentConfig extends Model<AiExternalAgentConfig> {
@@ -72,6 +73,9 @@ class AiExternalAgentConfig extends Model<AiExternalAgentConfig> {
 
   @HasMany(() => AiExternalAgentEvent)
   events: AiExternalAgentEvent[];
+
+  @HasMany(() => AiExternalWebhook)
+  webhooks: AiExternalWebhook[];
 
   @CreatedAt
   @Column({ field: "created_at" })

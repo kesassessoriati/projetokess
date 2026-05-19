@@ -181,6 +181,7 @@ import AIUsageLog from "../models/AIUsageLog";
 import AiExternalAgentConfig from "../models/AiExternalAgentConfig";
 import AiExternalPromptVersion from "../models/AiExternalPromptVersion";
 import AiExternalAgentEvent from "../models/AiExternalAgentEvent";
+import AiExternalWebhook from "../models/AiExternalWebhook";
 import AiExternalAppointment from "../models/AiExternalAppointment";
 import AiExternalReminder from "../models/AiExternalReminder";
 import Notification from "../models/Notification";
@@ -278,6 +279,7 @@ const models = [
   AiExternalAgentConfig,
   AiExternalPromptVersion,
   AiExternalAgentEvent,
+  AiExternalWebhook,
   AiExternalAppointment,
   AiExternalReminder,
   Partner,

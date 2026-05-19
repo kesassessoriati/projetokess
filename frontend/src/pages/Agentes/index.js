@@ -35,6 +35,7 @@ import SettingsIcon from "@material-ui/icons/Settings";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import SendIcon from "@material-ui/icons/Send";
 import GroupIcon from "@material-ui/icons/Group";
+import LinkIcon from "@material-ui/icons/Link";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -568,6 +569,9 @@ const Prompts = () => {
   const [aiReminders, setAiReminders] = useState([]);
   const [aiFollowUps, setAiFollowUps] = useState([]);
   const [whatsappOptions, setWhatsappOptions] = useState([]);
+  const [aiWebhooks, setAiWebhooks] = useState([]);
+  const [webhookForm, setWebhookForm] = useState({ name: "", url: "", eventType: "" });
+  const [editingWebhookId, setEditingWebhookId] = useState(null);
   const [ragDocuments, setRagDocuments] = useState([]);
   const [ragBase, setRagBase] = useState("empresa");
   const [ragContent, setRagContent] = useState("");
@@ -673,6 +677,7 @@ const Prompts = () => {
         followUpsResponse,
         ragResponse,
         whatsappsResponse,
+        webhooksResponse,
       ] = await Promise.all([
         api.get("/ai-agents/external/config"),
         api.get("/ai-agents/external/prompt/versions"),
@@ -682,6 +687,7 @@ const Prompts = () => {
         api.get("/ai-agents/external/follow-ups", { params: { pageNumber: 1 } }),
         api.get(`/ai-agents/external/rag/${ragBase}`, { params: { pageNumber: 1 } }),
         api.get("/whatsapp/filter", { params: { session: 0, channel: "whatsapp" } }),
+        api.get("/ai-agents/external/webhooks"),
       ]);
 
       setExternalConfig(configResponse.data);
@@ -693,6 +699,7 @@ const Prompts = () => {
       setAiFollowUps(followUpsResponse.data?.leads || []);
       setRagDocuments(ragResponse.data?.documents || []);
       setWhatsappOptions(whatsappsResponse.data || []);
+      setAiWebhooks(webhooksResponse.data?.webhooks || []);
     } catch (err) {
       toastError(err);
     } finally {
@@ -801,8 +808,6 @@ const Prompts = () => {
     try {
       const { data } = await api.put("/ai-agents/external/config", {
         name: externalConfig?.name || "Agente Externo N8N",
-        n8nWebhookUrl: externalConfig?.n8nWebhookUrl || null,
-        webhookEnabled: Boolean(externalConfig?.webhookEnabled),
         metadata: externalConfig?.metadata || {},
       });
       setExternalConfig(data);
@@ -1070,6 +1075,77 @@ const Prompts = () => {
     }
   };
 
+  const WEBHOOK_EVENT_TYPES = [
+    { value: "external_agent.appointment.created", label: "Agendamento criado" },
+    { value: "external_agent.appointment.updated", label: "Agendamento atualizado" },
+    { value: "external_agent.appointment.deleted", label: "Agendamento excluido" },
+    { value: "external_agent.reminder.created", label: "Lembrete criado" },
+    { value: "external_agent.reminder.updated", label: "Lembrete atualizado" },
+    { value: "external_agent.reminder.sent", label: "Lembrete enviado" },
+    { value: "external_agent.followup.sent", label: "Follow-up enviado" },
+    { value: "external_agent.rag.created", label: "Documento RAG criado" },
+    { value: "external_agent.prompt.updated", label: "Prompt atualizado" },
+    { value: "external_agent.config.updated", label: "Configuracao alterada" },
+  ];
+
+  const handleSaveWebhook = async () => {
+    setExternalSaving(true);
+    try {
+      if (editingWebhookId) {
+        await api.put(`/ai-agents/external/webhooks/${editingWebhookId}`, webhookForm);
+        toast.success("Webhook atualizado.");
+      } else {
+        await api.post("/ai-agents/external/webhooks", { ...webhookForm, isActive: true });
+        toast.success("Webhook cadastrado.");
+      }
+      setWebhookForm({ name: "", url: "", eventType: "" });
+      setEditingWebhookId(null);
+      const { data } = await api.get("/ai-agents/external/webhooks");
+      setAiWebhooks(data?.webhooks || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleEditWebhook = (webhook) => {
+    setEditingWebhookId(webhook.id);
+    setWebhookForm({ name: webhook.name, url: webhook.url, eventType: webhook.eventType });
+  };
+
+  const handleCancelEditWebhook = () => {
+    setEditingWebhookId(null);
+    setWebhookForm({ name: "", url: "", eventType: "" });
+  };
+
+  const handleToggleWebhook = async (webhookId) => {
+    setExternalSaving(true);
+    try {
+      await api.patch(`/ai-agents/external/webhooks/${webhookId}/toggle`);
+      const { data } = await api.get("/ai-agents/external/webhooks");
+      setAiWebhooks(data?.webhooks || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleDeleteWebhook = async (webhookId) => {
+    setExternalSaving(true);
+    try {
+      await api.delete(`/ai-agents/external/webhooks/${webhookId}`);
+      const { data } = await api.get("/ai-agents/external/webhooks");
+      setAiWebhooks(data?.webhooks || []);
+      toast.success("Webhook removido.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
   const handleDeleteExternalEvent = async (eventId) => {
     setExternalSaving(true);
     try {
@@ -1119,8 +1195,9 @@ const Prompts = () => {
     { key: "reminders", label: "Lembretes", icon: <NotificationsActiveIcon /> },
     { key: "followups", label: "Follow-up", icon: <NotificationsActiveIcon /> },
     { key: "rag", label: "Base RAG", icon: <StorageIcon /> },
-    { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
     { key: "settings", label: "Configuracoes", icon: <SettingsIcon /> },
+    { key: "webhooks", label: "Webhooks", icon: <LinkIcon /> },
+    { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
   ];
 
   const externalStats = {
@@ -1398,7 +1475,7 @@ const Prompts = () => {
       <Box className={classes.externalPanel}>
         <Typography className={classes.panelTitle}>Configuracoes do Agente Externo N8N</Typography>
         <Typography className={classes.panelSubtitle}>
-          Configure o webhook da empresa para receber eventos do CRM neste agente externo.
+          Configure as opcoes gerais do agente externo. Para gerenciar URLs de webhook por evento, acesse a aba Webhooks.
         </Typography>
 
         <Box className={classes.fieldStack}>
@@ -1408,24 +1485,6 @@ const Prompts = () => {
             size="small"
             value={externalConfig?.name || ""}
             onChange={(event) => handleExternalConfigChange("name", event.target.value)}
-          />
-          <TextField
-            label="Webhook N8N da empresa"
-            variant="outlined"
-            size="small"
-            value={externalConfig?.n8nWebhookUrl || ""}
-            onChange={(event) => handleExternalConfigChange("n8nWebhookUrl", event.target.value)}
-            placeholder="https://n8n.seudominio.com/webhook/empresa"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                color="primary"
-                checked={Boolean(externalConfig?.webhookEnabled)}
-                onChange={(event) => handleExternalConfigChange("webhookEnabled", event.target.checked)}
-              />
-            }
-            label="Enviar eventos para o N8N"
           />
         </Box>
 
@@ -1878,10 +1937,131 @@ const Prompts = () => {
     </Box>
   );
 
+  const renderWebhooks = () => (
+    <Box className={classes.placeholderGrid}>
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>
+          {editingWebhookId ? "Editar Webhook" : "Novo Webhook"}
+        </Typography>
+        <Typography className={classes.panelSubtitle}>
+          Cada evento pode ter sua propria URL de destino. O sistema dispara o evento apenas para o webhook configurado para aquele tipo.
+        </Typography>
+        <Box className={classes.fieldStack}>
+          <TextField
+            label="Nome do webhook"
+            variant="outlined"
+            size="small"
+            value={webhookForm.name}
+            onChange={(e) => setWebhookForm({ ...webhookForm, name: e.target.value })}
+            placeholder="Ex: Agendamento para n8n producao"
+          />
+          <TextField
+            select
+            label="Tipo de evento"
+            variant="outlined"
+            size="small"
+            value={webhookForm.eventType}
+            onChange={(e) => setWebhookForm({ ...webhookForm, eventType: e.target.value })}
+            SelectProps={{ native: false }}
+          >
+            <MenuItem value="">Selecionar evento</MenuItem>
+            {WEBHOOK_EVENT_TYPES.map((et) => (
+              <MenuItem key={et.value} value={et.value}>
+                {et.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="URL de destino"
+            variant="outlined"
+            size="small"
+            value={webhookForm.url}
+            onChange={(e) => setWebhookForm({ ...webhookForm, url: e.target.value })}
+            placeholder="https://n8n.seudominio.com/webhook/..."
+          />
+        </Box>
+        <Box className={classes.actionRow}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            disabled={externalSaving || !webhookForm.name.trim() || !webhookForm.url.trim() || !webhookForm.eventType}
+            onClick={handleSaveWebhook}
+          >
+            {editingWebhookId ? "Salvar alteracoes" : "Cadastrar webhook"}
+          </Button>
+          {editingWebhookId && (
+            <Button variant="outlined" disabled={externalSaving} onClick={handleCancelEditWebhook}>
+              Cancelar
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      <Box className={classes.externalPanel}>
+        <Typography className={classes.panelTitle}>Webhooks cadastrados</Typography>
+        <Typography className={classes.panelSubtitle}>
+          {aiWebhooks.length} webhook(s). Clique no toggle para ativar ou desativar.
+        </Typography>
+        <Box className={classes.placeholderList}>
+          {aiWebhooks.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhum webhook cadastrado ainda.</Typography>
+          ) : (
+            aiWebhooks.map((webhook) => {
+              const eventLabel = WEBHOOK_EVENT_TYPES.find((et) => et.value === webhook.eventType)?.label || webhook.eventType;
+              return (
+                <Box key={webhook.id} className={classes.placeholderRow}>
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Typography className={classes.versionTitle}>{webhook.name}</Typography>
+                    <Typography className={classes.versionMeta} style={{ wordBreak: "break-all" }}>
+                      {eventLabel}
+                    </Typography>
+                    <Typography className={classes.versionMeta} style={{ wordBreak: "break-all", fontSize: "0.72rem", color: "#9ca3af" }}>
+                      {webhook.url}
+                    </Typography>
+                  </Box>
+                  <Box className={classes.inlineActions} style={{ flexShrink: 0 }}>
+                    <Switch
+                      size="small"
+                      color="primary"
+                      checked={Boolean(webhook.isActive)}
+                      disabled={externalSaving}
+                      onChange={() => handleToggleWebhook(webhook.id)}
+                    />
+                    <Tooltip title="Editar webhook">
+                      <IconButton
+                        size="small"
+                        disabled={externalSaving}
+                        onClick={() => handleEditWebhook(webhook)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir webhook">
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        disabled={externalSaving}
+                        onClick={() => handleDeleteWebhook(webhook.id)}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              );
+            })
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+
   const renderExternalSection = () => {
     if (externalSection === "dashboard") return renderExternalDashboard();
     if (externalSection === "prompt") return renderExternalPrompt();
     if (externalSection === "settings") return renderExternalSettings();
+    if (externalSection === "webhooks") return renderWebhooks();
     if (externalSection === "events") return renderExternalEvents();
     if (externalSection === "appointments") return renderAppointments();
     if (externalSection === "reminders") return renderReminders();
