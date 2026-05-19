@@ -1,4 +1,3 @@
-import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import AiExternalWebhook from "../../models/AiExternalWebhook";
 import GetOrCreateExternalAgentConfigService from "./GetOrCreateExternalAgentConfigService";
@@ -89,7 +88,7 @@ export const findActiveWebhooksForEvent = async (
     where: {
       companyId,
       isActive: true,
-      eventType: { [Op.eq]: eventType }
+      eventType
     }
   });
 };
