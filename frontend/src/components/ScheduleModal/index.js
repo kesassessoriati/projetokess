@@ -34,6 +34,10 @@ import SaveIcon from '@mui/icons-material/Save';
 import Picker from '@emoji-mart/react';
 import loadEmojiData from "../../utils/loadEmojiData";
 import Draggable from 'react-draggable';
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 // Ícones adicionais para os campos
 import ContactMailIcon from '@mui/icons-material/ContactMail';
@@ -309,11 +313,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
           ...whatsapp,
           selected: false,
         }));
-        setWhatsapps(mappedWhatsapps);
+        const sortedWhatsapps = sortWhatsappsByUserQueues(mappedWhatsapps, user);
+        setWhatsapps(sortedWhatsapps);
         if (!scheduleId) {
           setSelectedWhatsapps((current) => {
-            const currentStillAvailable = mappedWhatsapps.some((whatsapp) => Number(whatsapp.id) === Number(current));
-            return currentStillAvailable ? current : getPreferredWhatsappId(mappedWhatsapps);
+            const currentStillAvailable = sortedWhatsapps.some((whatsapp) => Number(whatsapp.id) === Number(current));
+            return currentStillAvailable ? current : getPreferredWhatsappId(sortedWhatsapps, user);
           });
         }
       });
@@ -406,25 +411,6 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
     if (file) {
       setAttachment(file);
     }
-  };
-
-  const getPreferredWhatsappId = (mappedWhatsapps) => {
-    if (!mappedWhatsapps.length) return "";
-
-    const userQueueIds = (user?.queues || []).map((queue) => Number(queue.id));
-    const queueLinkedWhatsapp = mappedWhatsapps.find((whatsapp) =>
-      Array.isArray(whatsapp.queues) &&
-      whatsapp.queues.some((queue) => userQueueIds.includes(Number(queue.id)))
-    );
-
-    if (queueLinkedWhatsapp) return queueLinkedWhatsapp.id;
-
-    if (user?.whatsappId) {
-      const userWhatsapp = mappedWhatsapps.find((whatsapp) => Number(whatsapp.id) === Number(user.whatsappId));
-      if (userWhatsapp) return userWhatsapp.id;
-    }
-
-    return mappedWhatsapps[0].id;
   };
 
   const IconChannel = (channel) => {

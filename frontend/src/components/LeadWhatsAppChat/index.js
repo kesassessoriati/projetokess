@@ -30,6 +30,10 @@ import { EditMessageProvider } from "../../context/EditingMessage/EditingMessage
 import { QueueSelectedProvider } from "../../context/QueuesSelected/QueuesSelectedContext";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import {
+    getPreferredWhatsappId,
+    sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -142,11 +146,19 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
         setLoadingConnections(true);
         api.get("/quick-send/connections")
             .then(({ data }) => {
-                setConnections(data || []);
-                const firstConn = (data || []).find((c) => c.status === "CONNECTED");
-                if (firstConn) {
-                    setSelectedWhatsappId(firstConn.id);
-                    setSelectedWhatsappName(firstConn.name);
+                const sortedConnections = sortWhatsappsByUserQueues(data || [], user);
+                setConnections(sortedConnections);
+                const preferredWhatsappId = getPreferredWhatsappId(
+                    sortedConnections,
+                    user,
+                );
+                const preferredConnection = sortedConnections.find(
+                    (connection) =>
+                        Number(connection.id) === Number(preferredWhatsappId),
+                );
+                if (preferredConnection) {
+                    setSelectedWhatsappId(preferredConnection.id);
+                    setSelectedWhatsappName(preferredConnection.name);
                 }
             })
             .catch(() => {})
@@ -159,7 +171,7 @@ const LeadWhatsAppChat = ({ leadId, op, onBackToInfo }) => {
         if (preferredPhone) {
             setSelectedPhone(preferredPhone);
         }
-    }, [op]);
+    }, [op, user]);
 
     // ── Validação de número com debounce de 800ms ─────────────────────────────
     useEffect(() => {

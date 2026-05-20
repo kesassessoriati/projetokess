@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -21,6 +21,11 @@ import CloseIcon from "@material-ui/icons/Close";
 import FileCopyIcon from "@material-ui/icons/FileCopy";
 import { toast } from "react-toastify";
 import api from "../../services/api";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 // ─── Trigger catalog ─────────────────────────────────────────────────────────
 
@@ -222,6 +227,7 @@ const BACKEND_URL =
 
 const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
   const [selectedCat, setSelectedCat] = useState("mensagens");
   const [selectedType, setSelectedType] = useState(null);
   const [config, setConfig] = useState({});
@@ -241,9 +247,9 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
   useEffect(() => {
     api
       .get("/whatsapp", { params: { session: 0 } })
-      .then(({ data }) => setWhatsapps(data || []))
+      .then(({ data }) => setWhatsapps(sortWhatsappsByUserQueues(data || [], user)))
       .catch(() => {});
-  }, []);
+  }, [user]);
 
   const currentCat = CATEGORIES.find((c) => c.id === selectedCat);
 
@@ -257,6 +263,9 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
       const defaultConfig = {};
       if (trigger.type === "http_webhook") {
         defaultConfig.token = genToken();
+      }
+      if (trigger.fields?.some((field) => field.name === "whatsappId")) {
+        defaultConfig.whatsappId = getPreferredWhatsappId(whatsapps, user);
       }
       setConfig(defaultConfig);
       setEditing(null);

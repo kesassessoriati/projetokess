@@ -41,6 +41,7 @@ import { Mutex } from "async-mutex";
 import CreateCampaignService from "../services/CampaignService/CreateService";
 import { RestartService as RestartCampaignService } from "../services/CampaignService/RestartService";
 import { ImportContacts } from "../services/ContactListService/ImportContacts";
+import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsService";
 
 const quickSendMutex = new Mutex();
 
@@ -1380,20 +1381,12 @@ export const listConnections = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const { companyId } = req.user;
+  const { companyId, id: userId } = req.user;
 
-  const connections = await Whatsapp.findAll({
-    where: { companyId },
-    attributes: [
-      "id",
-      "name",
-      "number",
-      "status",
-      "battery",
-      "plugged",
-      "channel"
-    ],
-    order: [["name", "ASC"]]
+  const connections = await ListWhatsAppsService({
+    companyId,
+    session: 0,
+    userId: Number(userId)
   });
 
   return res.status(200).json(connections);

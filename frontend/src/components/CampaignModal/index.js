@@ -49,6 +49,10 @@ import Paper from "@material-ui/core/Paper";
 import { getBackendUrl } from "../../config";
 import MediaDrivePickerModal from "../MediaDrivePickerModal";
 import QuickRepliesModal from "../QuickRepliesModal";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 // Icons for fields
 import CampaignIcon from "@mui/icons-material/Campaign";
@@ -772,7 +776,18 @@ const CampaignModal = ({
             ...whatsapp,
             selected: false,
           }));
-          setWhatsapps(mappedWhatsapps);
+          const sortedWhatsapps = sortWhatsappsByUserQueues(mappedWhatsapps, user);
+          setWhatsapps(sortedWhatsapps);
+          if (!campaignId) {
+            setWhatsappId((current) => {
+              const currentStillAvailable = sortedWhatsapps.some(
+                (whatsapp) => Number(whatsapp.id) === Number(current),
+              );
+              return currentStillAvailable
+                ? current
+                : getPreferredWhatsappId(sortedWhatsapps, user);
+            });
+          }
         });
 
       api
@@ -841,7 +856,7 @@ const CampaignModal = ({
         });
       });
     }
-  }, [campaignId, open, initialValues, companyId]);
+  }, [campaignId, open, initialValues, companyId, user]);
 
   useEffect(() => {
     const now = moment();

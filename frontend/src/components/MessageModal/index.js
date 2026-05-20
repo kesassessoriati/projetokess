@@ -33,6 +33,10 @@ import SaveIcon from '@mui/icons-material/Save';
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -164,7 +168,8 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
         const { companyId } = user;
 
         const { data: connectionList } = await api.get(`/whatsapp`);
-        setConexoes(connectionList);
+        const sortedConnections = sortWhatsappsByUserQueues(connectionList, user);
+        setConexoes(sortedConnections);
 
         const { data: userList } = await api.get(`/users/list?companyId=${companyId}`);
         setUsuarios(userList);
@@ -193,12 +198,14 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
 
           if (!!data.mediaName) scheduleMessage.file = { name: data.mediaName };
 
-          if (!!data.id_conexao && conexoes.length > 0) {
-            const finded_conexao = conexoes.find(
+          if (!!data.id_conexao && sortedConnections.length > 0) {
+            const finded_conexao = sortedConnections.find(
               (_c) => _c.id == data.id_conexao
             );
-            scheduleMessage.id_conexao = finded_conexao.id;
-            setCurrentConexao(finded_conexao);
+            if (finded_conexao) {
+              scheduleMessage.id_conexao = finded_conexao.id;
+              setCurrentConexao(finded_conexao);
+            }
           }
 
           if (!!data.contatos && contatos.length > 0) {
@@ -228,6 +235,21 @@ const MessageModal = ({ open, onClose, messageId, reload }) => {
           }
 
           setScheduleMessage({ ...scheduleMessage });
+        } else {
+          const preferredWhatsappId = getPreferredWhatsappId(
+            sortedConnections,
+            user,
+          );
+          const preferredConnection = sortedConnections.find(
+            (_c) => Number(_c.id) === Number(preferredWhatsappId),
+          );
+          if (preferredConnection) {
+            setCurrentConexao(preferredConnection);
+            setScheduleMessage((prev) => ({
+              ...prev,
+              id_conexao: preferredConnection.id,
+            }));
+          }
         }
 
         return;

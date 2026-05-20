@@ -66,6 +66,10 @@ import {
   QUICK_MESSAGE_VARIABLES,
   QUICK_MESSAGE_VARIABLES_HELPER,
 } from "../../constants/messageVariables";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 const fCurrency = (value) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -1183,9 +1187,12 @@ const PipelineBoard = () => {
         api.get("/whatsapp"),
         api.get("/tasks"),
       ]);
-      setMassWhatsapps(
+      const connectedWhatsapps = sortWhatsappsByUserQueues(
         (wpRes.data || []).filter((w) => w.status === "CONNECTED"),
+        user,
       );
+      setMassWhatsapps(connectedWhatsapps);
+      setMassWhatsappId(getPreferredWhatsappId(connectedWhatsapps, user));
       setMassTaskBoards(boardRes.data || []);
     } catch (_) {}
     setMassActionModalOpen(true);

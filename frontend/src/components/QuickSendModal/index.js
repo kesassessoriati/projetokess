@@ -35,6 +35,10 @@ import Autocomplete from "@material-ui/lab/Autocomplete";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import QuickRepliesModal from "../QuickRepliesModal";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 const useStyles = makeStyles((theme) => ({
   dialog: {
@@ -672,16 +676,19 @@ export default function QuickSendModal({
                 ? productRes.value.data
                 : []
             : [];
-        setConnections(availableConnections);
+        const sortedConnections = sortWhatsappsByUserQueues(
+          availableConnections,
+          user,
+        );
+        setConnections(sortedConnections);
         setTags(availableTags);
         setContactLists(availableContactLists);
         setProducts(availableProducts);
-        const firstConnected = availableConnections.find(
-          (c) => c.status === "CONNECTED",
+        const preferredWhatsappId = getPreferredWhatsappId(
+          sortedConnections,
+          user,
         );
-        const fallbackConnection = availableConnections[0];
-        if (firstConnected) setWhatsappId(firstConnected.id);
-        else if (fallbackConnection) setWhatsappId(fallbackConnection.id);
+        if (preferredWhatsappId) setWhatsappId(preferredWhatsappId);
       } catch (err) {
         console.error("Erro ao carregar conexões:", err);
       }

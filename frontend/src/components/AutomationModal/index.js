@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Box,
@@ -38,6 +38,11 @@ import {
 } from "@material-ui/icons";
 import useWhatsApps from "../../hooks/useWhatsApps";
 import api from "../../services/api";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 import {
   createScheduledDispatcher,
   eventTypeOptions,
@@ -184,6 +189,7 @@ const scheduledDispatcherVariables = [
 
 const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
   const { whatsApps } = useWhatsApps();
   const fileInputRef = useRef(null);
 
@@ -202,14 +208,19 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
   const [existingMediaType, setExistingMediaType] = useState(null);
   const [removeMedia, setRemoveMedia] = useState(false);
 
+  const sortedWhatsApps = useMemo(
+    () => sortWhatsappsByUserQueues(whatsApps, user),
+    [whatsApps, user]
+  );
+
   const whatsappOptions = useMemo(
     () =>
-      whatsApps.map(connection => ({
+      sortedWhatsApps.map(connection => ({
         value: connection.id,
         label: connection.name || `Conexão #${connection.id}`,
         channel: connection.channel
       })),
-    [whatsApps]
+    [sortedWhatsApps]
   );
 
   useEffect(() => {
@@ -229,7 +240,10 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
     }
 
     if (!dispatcher) {
-      setForm(defaultForm);
+      setForm({
+        ...defaultForm,
+        whatsappId: getPreferredWhatsappId(sortedWhatsApps, user)
+      });
       setTestNumber("");
       setTestNumberValidation({ status: "idle", normalizedNumber: "", error: "" });
       return;
@@ -264,7 +278,7 @@ const ScheduledDispatcherModal = ({ open, onClose, dispatcher }) => {
     };
 
     loadDetails();
-  }, [dispatcher, open, onClose]);
+  }, [dispatcher, open, onClose, sortedWhatsApps, user]);
 
   // Clean up object URL on unmount / change
   useEffect(() => {

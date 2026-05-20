@@ -23,6 +23,10 @@ import { Facebook, Instagram, WhatsApp } from "@material-ui/icons";
 import ShowTicketOpen from "../ShowTicketOpenModal";
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
+import {
+  getPreferredWhatsappId,
+  sortWhatsappsByUserQueues,
+} from "../../utils/whatsappQueuePreference";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -87,7 +91,7 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
   const [whatsapps, setWhatsapps] = useState([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const { user } = useContext(AuthContext);
-  const { companyId, whatsappId } = user;
+  const { companyId } = user;
 
   const [openAlert, setOpenAlert] = useState(false);
   const [userTicketOpen, setUserTicketOpen] = useState("");
@@ -106,12 +110,19 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
       const fetchContacts = async () => {
         api
           .get(`/whatsapp`, { params: { companyId, session: 0 } })
-          .then(({ data }) => setWhatsapps(data));
+          .then(({ data }) => {
+            const sortedWhatsapps = sortWhatsappsByUserQueues(data, user);
+            setWhatsapps(sortedWhatsapps);
+            setSelectedWhatsapp((current) => {
+              const currentStillAvailable = sortedWhatsapps.some(
+                (whatsapp) => Number(whatsapp.id) === Number(current),
+              );
+              return currentStillAvailable
+                ? current
+                : getPreferredWhatsappId(sortedWhatsapps, user);
+            });
+          });
       };
-
-      if (whatsappId !== null && whatsappId !== undefined) {
-        setSelectedWhatsapp(whatsappId);
-      }
 
       if (user.queues.length === 1) {
         setSelectedQueue(user.queues[0].id);

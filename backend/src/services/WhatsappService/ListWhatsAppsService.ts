@@ -51,11 +51,16 @@ const ListWhatsAppsService = async ({
 
   let whatsapps = await Whatsapp.findAll(options);
 
+  let userQueueIds: number[] = [];
+
   if (userId) {
     const UserObj = (await import("../../models/User")).default;
-    const user = await UserObj.findByPk(userId, { include: ["queues"] });
+    const user = await UserObj.findOne({
+      where: { id: userId, companyId },
+      include: ["queues"]
+    });
+    userQueueIds = user?.queues?.map(q => q.id) || [];
     if (user && user.profile !== "admin") {
-      const userQueueIds = user.queues.map(q => q.id);
       if (userQueueIds.length === 0) {
         whatsapps = [];
       } else {
@@ -78,12 +83,29 @@ const ListWhatsAppsService = async ({
     }
   });
 
-  return whatsapps.filter(whatsapp =>
-    isPlanChannelEnabled(company?.plan, {
-      channel: whatsapp.channel,
-      notificameHub: whatsapp.notificameHub
-    })
-  );
+  return whatsapps
+    .filter(whatsapp =>
+      isPlanChannelEnabled(company?.plan, {
+        channel: whatsapp.channel,
+        notificameHub: whatsapp.notificameHub
+      })
+    )
+    .sort((first, second) => {
+      if (!userQueueIds.length) return 0;
+
+      const firstMatches = first.queues?.some(queue =>
+        userQueueIds.includes(queue.id)
+      )
+        ? 0
+        : 1;
+      const secondMatches = second.queues?.some(queue =>
+        userQueueIds.includes(queue.id)
+      )
+        ? 0
+        : 1;
+
+      return firstMatches - secondMatches;
+    });
 };
 
 
