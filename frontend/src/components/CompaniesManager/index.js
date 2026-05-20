@@ -498,16 +498,29 @@ export function CompaniesManagerGrid(props) {
         <Grid item xs={12} sm={6} md={4} key={key}>
           <Card className={classes.card} style={rowStyle(row)}>
             <CardContent className={classes.cardContent}>
-              <Grid container alignItems="center" spacing={1}>
-                <Grid item>
+              <Grid container alignItems="center" spacing={1} style={{ justifyContent: "space-between" }}>
+                <Grid item style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Avatar className={classes.avatar}>
                     <PersonIcon />
                   </Avatar>
-                </Grid>
-                <Grid item>
                   <Typography variant="h6" component="h2" className={classes.companyName}>
                     {row.name || "-"}
                   </Typography>
+                </Grid>
+                <Grid item>
+                  <span style={{
+                    display: "inline-block",
+                    backgroundColor: "#e8f0fe",
+                    color: "#1565c0",
+                    borderRadius: "6px",
+                    padding: "2px 8px",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.5px",
+                    border: "1px solid #bbdefb",
+                  }}>
+                    ID: {row.id}
+                  </span>
                 </Grid>
               </Grid>
               <Typography color="textSecondary" gutterBottom className={classes.smallText}>

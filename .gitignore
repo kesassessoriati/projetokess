@@ -4,6 +4,7 @@ node_modules/
 # Variáveis de ambiente (NUNCA commitar com senhas reais)
 .env
 .env.local
+.dockerhub.env
 backend/.env
 frontend/.env
 

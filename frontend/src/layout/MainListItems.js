@@ -878,7 +878,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           <>
             <div className={classes.submenuHeader}>
               <Typography className={classes.submenuTitle}>
-                ComunicaÃƒÂ§ÃƒÂ£o
+                Comunicação
               </Typography>
             </div>
             <div className={classes.submenuContent}>
@@ -1114,7 +1114,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           <>
             <div className={classes.submenuHeader}>
               <Typography className={classes.submenuTitle}>
-                AdministraÃƒÂ§ÃƒÂ£o
+                Administração
               </Typography>
             </div>
             <div className={classes.submenuContent}>
@@ -1129,7 +1129,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               />
               <ListItemLink
                 to="/connections"
-                primary="Sessoes WhatsApp"
+                primary="Sessões WhatsApp"
                 icon={<SyncAltIcon />}
                 onNavigate={handleNavigateFromSubmenu}
               />
@@ -1169,7 +1169,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               {user.super && (
                 <ListItemLink
                   to="/admin/system-metrics"
-                  primary="Metricas do Sistema"
+                  primary="Métricas do Sistema"
                   icon={<TrendingUpIcon />}
                   onNavigate={handleNavigateFromSubmenu}
                 />
@@ -1189,7 +1189,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                   yes={() => (
                     <ListItemLink
                       to="/messages-api"
-                      primary={i18n.t("DocumentaÃƒÂ§ÃƒÂ£o API")}
+                      primary={i18n.t("Documentação API")}
                       icon={<CodeIcon />}
                       onNavigate={handleNavigateFromSubmenu}
                     />
@@ -1204,7 +1204,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                     <>
                       <ListItemLink
                         to="/users"
-                        primary={i18n.t("Usuarios")}
+                        primary={i18n.t("Usuários")}
                         icon={<PeopleOutlineIcon />}
                         onNavigate={handleNavigateFromSubmenu}
                       />
@@ -1378,7 +1378,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           />
         )}
 
-        <Tooltip title={collapsed ? "ComunicaÃƒÂ§ÃƒÂ£o" : ""} placement="right">
+        <Tooltip title={collapsed ? "Comunicação" : ""} placement="right">
           <ListItem
             button
             onClick={(e) => {
@@ -1396,7 +1396,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
               <ListItemText
                 primary={
                   <Typography className={`${classes.listItemText} ${activeSubmenu === "communication" ? "active" : ""}`}>
-                    ComunicaÃƒÂ§ÃƒÂ£o
+                    Comunicação
                   </Typography>
                 }
               />
@@ -1550,7 +1550,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           role={user.profile === "user" && user.allowConnections === "enabled" ? "admin" : user.profile}
           perform="dashboard:view"
           yes={() => (
-            <Tooltip title={collapsed ? "AdministraÃƒÂ§ÃƒÂ£o" : ""} placement="right">
+            <Tooltip title={collapsed ? "Administração" : ""} placement="right">
               <ListItem
                 button
                 onClick={(e) => {
@@ -1568,7 +1568,7 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                   <ListItemText
                     primary={
                       <Typography className={`${classes.listItemText} ${activeSubmenu === "administration" ? "active" : ""}`}>
-                        AdministraÃƒÂ§ÃƒÂ£o
+                        Administração
                       </Typography>
                     }
                   />

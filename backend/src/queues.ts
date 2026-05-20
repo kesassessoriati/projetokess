@@ -1990,6 +1990,11 @@ async function handleInvoiceCreate() {
 
         } else { // ELSE if(dias <= -3){
 
+          // Empresa 1 é a conta admin/master do sistema — nunca processar faturamento
+          if (c.id === 1) {
+            continue;
+          }
+
           const plan = await Plan.findByPk(c.planId);
 
           if (!plan || !plan.amount || !plan.name) {
