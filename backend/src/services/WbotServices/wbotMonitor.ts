@@ -22,6 +22,7 @@ import path from "path";
 import { verifyMessage } from "./wbotMessageListener";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
 import resolveWhatsAppContactName from "../../helpers/resolveWhatsAppContactName";
+import { dispatchCallFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 let i = 0;
 
@@ -94,6 +95,7 @@ const wbotMonitor = async (
               contact: contact ? { id: contact.id, name: contact.name, number: contact.number, profilePicUrl: contact.profilePicUrl } : null,
             },
           });
+          dispatchCallFlowTrigger("call_started", callRecord);
         }
 
         // === TERMINATE: Chamada encerrada ===
@@ -145,6 +147,19 @@ const wbotMonitor = async (
             action: "ended",
             callRecord: updatedRecord,
           });
+
+          if (updatedRecord) {
+            if (updatedRecord.status === "answered") {
+              dispatchCallFlowTrigger("call_answered", updatedRecord);
+            }
+            if (["missed", "busy", "rejected", "failed"].includes(updatedRecord.status)) {
+              dispatchCallFlowTrigger("call_not_answered", updatedRecord);
+            }
+            if (["missed", "failed"].includes(updatedRecord.status)) {
+              dispatchCallFlowTrigger("call_lost", updatedRecord);
+            }
+            dispatchCallFlowTrigger("call_finished", updatedRecord);
+          }
 
           // Manter comportamento existente: enviar mensagem automática
           const settings = await CompaniesSettings.findOne({

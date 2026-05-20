@@ -2,6 +2,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
 import { syncCrmClientTags, tagsToString } from "./helpers/syncCrmClientTags";
+import { dispatchClientFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 interface ITagInput {
   id?: number | string;
@@ -137,6 +138,7 @@ const CreateCrmClientService = async (
 
   const client = await CrmClient.create(clientData);
   await syncCrmClientTags(client.id, data.companyId, data.tags);
+  dispatchClientFlowTrigger("client_created", client);
 
   return client;
 };

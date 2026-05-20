@@ -11,6 +11,7 @@ import User from "../models/User";
 import AppError from "../errors/AppError";
 import uploadConfig from "../config/upload";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import { dispatchCallFlowTrigger } from "../services/FlowBuilderService/FlowTriggerPayloads";
 
 const buildScope = (req: Request, query: any = {}) => {
   const { companyId, id: authUserId, profile } = req.user;
@@ -111,6 +112,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         }
       }
     );
+    const callRecord = await CallRecord.findOne({ where: { id: Number(callRecordId), companyId } });
+    if (callRecord) dispatchCallFlowTrigger("call_recorded", callRecord, { recordingId: recording.id });
   }
 
   return res.status(201).json(recording);
@@ -171,6 +174,7 @@ export const upload = async (req: Request, res: Response): Promise<Response> => 
           recordingId: recording.id
         }
       });
+      dispatchCallFlowTrigger("call_recorded", currentCallRecord, { recordingId: recording.id });
     }
   }
 

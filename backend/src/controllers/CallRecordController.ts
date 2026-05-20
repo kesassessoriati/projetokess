@@ -10,6 +10,7 @@ import Pipeline from "../models/Pipeline";
 import PipelineStage from "../models/PipelineStage";
 import { getIO } from "../libs/socket";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
+import { dispatchCallFlowTrigger } from "../services/FlowBuilderService/FlowTriggerPayloads";
 
 type IndexQuery = {
   pageNumber?: string;
@@ -140,6 +141,26 @@ const callRecordIncludes = [
   }
 ];
 
+const dispatchCallStatusTriggers = (record: CallRecord, previousStatus?: string) => {
+  const metadata = { previousStatus };
+
+  if (record.status === "answered" && previousStatus !== "answered") {
+    dispatchCallFlowTrigger("call_answered", record, metadata);
+  }
+
+  if (["missed", "busy", "rejected", "failed"].includes(record.status) && previousStatus !== record.status) {
+    dispatchCallFlowTrigger("call_not_answered", record, metadata);
+  }
+
+  if (["missed", "failed"].includes(record.status) && previousStatus !== record.status) {
+    dispatchCallFlowTrigger("call_lost", record, metadata);
+  }
+
+  if (["answered", "missed", "busy", "rejected", "failed"].includes(record.status) && previousStatus !== record.status) {
+    dispatchCallFlowTrigger("call_finished", record, metadata);
+  }
+};
+
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: userId } = req.user;
   const {
@@ -215,6 +236,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       record: fullRecord
     });
 
+    dispatchCallFlowTrigger("call_started", callRecord);
+
     return res.status(201).json(fullRecord);
   } catch (err) {
     console.error("[CallRecordController] store error:", err);
@@ -247,6 +270,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       return res.status(404).json({ error: "Registro não encontrado" });
     }
 
+    const previousStatus = record.status;
     const nextStatus = status || record.status;
     const isTerminalStatus = ["answered", "missed", "busy", "rejected", "failed"].includes(nextStatus);
 
@@ -298,6 +322,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       action: isTerminalStatus ? "ended" : "updated",
       record: fullRecord
     });
+
+    dispatchCallStatusTriggers(record, previousStatus);
 
     return res.json(fullRecord);
   } catch (err) {

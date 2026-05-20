@@ -5,6 +5,7 @@ import GroupMember from "../../models/GroupMember";
 import { getWbot } from "../../libs/wbot";
 import logger from "../../utils/logger";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
+import { dispatchGroupFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 type SyncParams = {
   companyId: number;
@@ -43,10 +44,12 @@ const syncBaileysConnection = async (connection: Whatsapp, companyId: number, su
   const wbot = getWbot(connection.id);
   const participating = await (wbot as any).groupFetchAllParticipating();
   const groupList = Object.values(participating || {}) as any[];
+  const activeGroupJids: string[] = [];
 
   for (const group of groupList) {
     const normalized = normalizeGroupRecord(group);
     if (!normalized.groupJid) continue;
+    activeGroupJids.push(normalized.groupJid);
 
     let directory = await GroupDirectory.findOne({ where: { companyId, groupJid: normalized.groupJid } });
 
@@ -58,8 +61,31 @@ const syncBaileysConnection = async (connection: Whatsapp, companyId: number, su
         lastSyncAt: new Date(),
         isActive: true
       });
+      dispatchGroupFlowTrigger("group_created", {
+        companyId,
+        whatsappId: connection.id,
+        groupJid: normalized.groupJid,
+        subject: normalized.subject,
+        metadata: { groupId: directory.id, memberCount: normalized.memberCount, adminCount: normalized.adminCount }
+      });
     } else {
+      const hasChanges =
+        directory.subject !== normalized.subject ||
+        directory.description !== normalized.description ||
+        directory.owner !== normalized.owner ||
+        Number(directory.memberCount || 0) !== Number(normalized.memberCount || 0) ||
+        Number(directory.adminCount || 0) !== Number(normalized.adminCount || 0) ||
+        directory.isActive !== true;
       await directory.update({ whatsappId: connection.id, ...normalized, lastSyncAt: new Date(), isActive: true });
+      if (hasChanges) {
+        dispatchGroupFlowTrigger("group_updated", {
+          companyId,
+          whatsappId: connection.id,
+          groupJid: normalized.groupJid,
+          subject: normalized.subject,
+          metadata: { groupId: directory.id, memberCount: normalized.memberCount, adminCount: normalized.adminCount }
+        });
+      }
     }
 
     summary.groupsSynced += 1;
@@ -84,16 +110,40 @@ const syncBaileysConnection = async (connection: Whatsapp, companyId: number, su
       }
     }
   }
+
+  if (activeGroupJids.length) {
+    const removedGroups = await GroupDirectory.findAll({
+      where: {
+        companyId,
+        whatsappId: connection.id,
+        isActive: true,
+        groupJid: { [Op.notIn]: activeGroupJids }
+      }
+    });
+
+    for (const group of removedGroups) {
+      await group.update({ isActive: false, lastSyncAt: new Date() });
+      dispatchGroupFlowTrigger("group_removed", {
+        companyId,
+        whatsappId: connection.id,
+        groupJid: group.groupJid,
+        subject: group.subject,
+        metadata: { groupId: group.id }
+      });
+    }
+  }
 };
 
 const syncWhatsMeowConnection = async (connection: Whatsapp, companyId: number, summary: any) => {
   const provider = ProviderFactory.createProvider(connection, null, companyId);
   const groupList = (await provider.getGroups()) as any[];
   if (!Array.isArray(groupList)) return;
+  const activeGroupJids: string[] = [];
 
   for (const group of groupList) {
     const normalized = normalizeWhatsMeowGroup(group);
     if (!normalized.groupJid) continue;
+    activeGroupJids.push(normalized.groupJid);
 
     let members: any[] = [];
     try {
@@ -117,15 +167,39 @@ const syncWhatsMeowConnection = async (connection: Whatsapp, companyId: number, 
         lastSyncAt: new Date(),
         isActive: true
       });
+      dispatchGroupFlowTrigger("group_created", {
+        companyId,
+        whatsappId: connection.id,
+        groupJid: normalized.groupJid,
+        subject: normalized.subject,
+        metadata: { groupId: directory.id, memberCount: members.length || normalized.memberCount, adminCount }
+      });
     } else {
+      const nextMemberCount = members.length || normalized.memberCount;
+      const hasChanges =
+        directory.subject !== normalized.subject ||
+        directory.description !== normalized.description ||
+        directory.owner !== normalized.owner ||
+        Number(directory.memberCount || 0) !== Number(nextMemberCount || 0) ||
+        Number(directory.adminCount || 0) !== Number(adminCount || 0) ||
+        directory.isActive !== true;
       await directory.update({
         whatsappId: connection.id,
         ...normalized,
-        memberCount: members.length || normalized.memberCount,
+        memberCount: nextMemberCount,
         adminCount,
         lastSyncAt: new Date(),
         isActive: true
       });
+      if (hasChanges) {
+        dispatchGroupFlowTrigger("group_updated", {
+          companyId,
+          whatsappId: connection.id,
+          groupJid: normalized.groupJid,
+          subject: normalized.subject,
+          metadata: { groupId: directory.id, memberCount: nextMemberCount, adminCount }
+        });
+      }
     }
 
     summary.groupsSynced += 1;
@@ -143,6 +217,28 @@ const syncWhatsMeowConnection = async (connection: Whatsapp, companyId: number, 
         await GroupMember.bulkCreate(memberRows);
         summary.membersSynced += memberRows.length;
       }
+    }
+  }
+
+  if (activeGroupJids.length) {
+    const removedGroups = await GroupDirectory.findAll({
+      where: {
+        companyId,
+        whatsappId: connection.id,
+        isActive: true,
+        groupJid: { [Op.notIn]: activeGroupJids }
+      }
+    });
+
+    for (const group of removedGroups) {
+      await group.update({ isActive: false, lastSyncAt: new Date() });
+      dispatchGroupFlowTrigger("group_removed", {
+        companyId,
+        whatsappId: connection.id,
+        groupJid: group.groupJid,
+        subject: group.subject,
+        metadata: { groupId: group.id }
+      });
     }
   }
 };

@@ -4,6 +4,7 @@ import AiExternalReminder from "../../models/AiExternalReminder";
 import AiExternalAppointment from "../../models/AiExternalAppointment";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
+import { dispatchReminderFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 const DEFAULT_REMINDER_TEXT =
   "CONFIRMACAO DE CONSULTA\n\nOla, *{{leadName}}*! Tudo bem?\n\nEstamos passando para confirmar seu compromisso conosco:\n\nData: {{appointmentDate}}\n\nVoce podera comparecer neste horario?\n\nResponda com uma das opcoes:";
@@ -168,6 +169,8 @@ export const createReminder = async (data: {
     }
   });
 
+  dispatchReminderFlowTrigger("reminder_created", reminder, { channel: "buttons" });
+
   return reminder.reload();
 };
 
@@ -183,6 +186,8 @@ export const updateReminder = async (data: {
 }) => {
   const reminder = await AiExternalReminder.findOne({ where: { id: data.id, companyId: data.companyId } });
   if (!reminder) throw new AppError("Lembrete nao encontrado.", 404);
+
+  const previousStatus = reminder.status;
 
   await reminder.update({
     status: data.status ?? reminder.status,
@@ -210,6 +215,10 @@ export const updateReminder = async (data: {
     userId: data.userId,
     data: { reminderId: reminder.id, status: reminder.status }
   });
+
+  if (previousStatus !== "cancelled" && reminder.status === "cancelled") {
+    dispatchReminderFlowTrigger("reminder_cancelled", reminder, { previousStatus });
+  }
 
   return reminder.reload();
 };

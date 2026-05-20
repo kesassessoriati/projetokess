@@ -6,6 +6,7 @@ import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
 import { createGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
 import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
+import { dispatchAppointmentFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 interface CreateAppointmentData {
   title: string;
@@ -272,6 +273,10 @@ const CreateAppointmentService = async (
       appointment
     }).catch(() => undefined);
   }
+
+  dispatchAppointmentFlowTrigger("appointment_created", appointment, {
+    source: appointment.source || "crm"
+  });
 
   return appointment;
 };

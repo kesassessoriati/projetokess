@@ -138,6 +138,154 @@ const CATEGORIES = [
     ],
   },
   {
+    id: "agendamentos",
+    label: "Compromissos",
+    emoji: "Agenda",
+    triggers: [
+      {
+        type: "appointment_created",
+        label: "Agendamento criado",
+        description: "Quando um compromisso e criado na agenda",
+      },
+      {
+        type: "appointment_updated",
+        label: "Agendamento atualizado",
+        description: "Quando um compromisso e atualizado",
+      },
+      {
+        type: "appointment_cancelled",
+        label: "Agendamento cancelado",
+        description: "Quando um compromisso e cancelado",
+      },
+      {
+        type: "appointment_completed",
+        label: "Agendamento concluido",
+        description: "Quando um compromisso e marcado como concluido",
+      },
+      {
+        type: "appointment_rescheduled",
+        label: "Agendamento reagendado",
+        description: "Quando data ou duracao do compromisso muda",
+      },
+      {
+        type: "reminder_created",
+        label: "Lembrete criado",
+        description: "Quando um lembrete de agendamento e criado",
+      },
+      {
+        type: "reminder_sent",
+        label: "Lembrete enviado",
+        description: "Quando um lembrete e enviado ao contato",
+      },
+      {
+        type: "reminder_cancelled",
+        label: "Lembrete cancelado",
+        description: "Quando um lembrete e cancelado",
+      },
+    ],
+  },
+  {
+    id: "ligacoes",
+    label: "Ligacoes",
+    emoji: "Call",
+    triggers: [
+      {
+        type: "call_started",
+        label: "Ligacao iniciada",
+        description: "Quando uma ligacao e iniciada ou recebida",
+      },
+      {
+        type: "call_answered",
+        label: "Ligacao atendida",
+        description: "Quando uma ligacao e atendida",
+      },
+      {
+        type: "call_not_answered",
+        label: "Ligacao nao atendida",
+        description: "Quando uma ligacao nao e atendida",
+      },
+      {
+        type: "call_finished",
+        label: "Ligacao finalizada",
+        description: "Quando uma ligacao e encerrada",
+      },
+      {
+        type: "call_recorded",
+        label: "Ligacao gravada",
+        description: "Quando uma gravacao de ligacao e salva",
+      },
+      {
+        type: "call_lost",
+        label: "Ligacao perdida",
+        description: "Quando uma ligacao e perdida ou falha",
+      },
+    ],
+  },
+  {
+    id: "clientes",
+    label: "Clientes",
+    emoji: "Cliente",
+    triggers: [
+      {
+        type: "client_created",
+        label: "Cliente criado",
+        description: "Quando um cliente e criado",
+      },
+      {
+        type: "client_updated",
+        label: "Cliente atualizado",
+        description: "Quando os dados de um cliente sao atualizados",
+      },
+      {
+        type: "client_converted",
+        label: "Cliente convertido",
+        description: "Quando um cliente e convertido para lead ou negocio",
+      },
+      {
+        type: "client_reactivated",
+        label: "Cliente reativado",
+        description: "Quando um cliente volta para ativo",
+      },
+      {
+        type: "client_inactivated",
+        label: "Cliente inativado",
+        description: "Quando um cliente e marcado como inativo",
+      },
+    ],
+  },
+  {
+    id: "grupos",
+    label: "Grupos",
+    emoji: "Grupo",
+    triggers: [
+      {
+        type: "group_created",
+        label: "Grupo criado",
+        description: "Quando um grupo e identificado na sincronizacao",
+      },
+      {
+        type: "group_updated",
+        label: "Grupo atualizado",
+        description: "Quando dados de um grupo mudam",
+      },
+      {
+        type: "group_removed",
+        label: "Grupo removido",
+        description: "Quando um grupo deixa de aparecer na conexao",
+      },
+      {
+        type: "group_message_sent",
+        label: "Mensagem enviada para grupo",
+        description: "Quando uma campanha envia mensagem para grupo",
+      },
+      {
+        type: "group_event_received",
+        label: "Evento recebido de grupo",
+        description: "Quando uma mensagem ou evento de grupo chega ao CRM",
+      },
+    ],
+  },
+  {
     id: "http",
     label: "HTTP",
     emoji: "🌐",
@@ -590,6 +738,30 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
             "opportunity_lost",
             "move_lead",
             "kanban_event",
+            "appointment_created",
+            "appointment_updated",
+            "appointment_cancelled",
+            "appointment_completed",
+            "appointment_rescheduled",
+            "reminder_created",
+            "reminder_sent",
+            "reminder_cancelled",
+            "call_started",
+            "call_answered",
+            "call_not_answered",
+            "call_finished",
+            "call_recorded",
+            "call_lost",
+            "client_created",
+            "client_updated",
+            "client_converted",
+            "client_reactivated",
+            "client_inactivated",
+            "group_created",
+            "group_updated",
+            "group_removed",
+            "group_message_sent",
+            "group_event_received",
             "flow_triggered",
           ].includes(
             selectedType

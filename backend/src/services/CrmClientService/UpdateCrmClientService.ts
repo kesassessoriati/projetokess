@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import CrmClient from "../../models/CrmClient";
 import { syncCrmClientTags, tagsToString } from "./helpers/syncCrmClientTags";
+import { dispatchClientFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 interface ITagInput {
   id?: number | string;
@@ -140,11 +141,20 @@ const UpdateCrmClientService = async ({
     linkedin: data.linkedin
   };
 
+  const previousStatus = client.status;
   await client.update(updateData);
 
   if (data.tags !== undefined) {
     await syncCrmClientTags(client.id, companyId, data.tags);
   }
+
+  let eventType = "client_updated";
+  if (previousStatus !== "active" && client.status === "active") {
+    eventType = "client_reactivated";
+  } else if (previousStatus !== "inactive" && client.status === "inactive") {
+    eventType = "client_inactivated";
+  }
+  dispatchClientFlowTrigger(eventType, client, { previousStatus });
 
   return client;
 };

@@ -4,6 +4,7 @@ import User from "../../models/User";
 import Notification from "../../models/Notification";
 import CreateNotificationService from "../NotificationServices/CreateNotificationService";
 import logger from "../../utils/logger";
+import { dispatchClientFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 const INACTIVE_TAG = "cliente inativo";
 
@@ -56,6 +57,7 @@ const ProcessExpiredCrmClientsService = async (): Promise<void> => {
       status: "inactive",
       tags: nextTags
     });
+    dispatchClientFlowTrigger("client_inactivated", client, { reason: "expiration" });
 
     logger.info(
       `[CRM Clients] Cliente ${client.id} marcado como inativo por vencimento em ${client.expirationDate}`

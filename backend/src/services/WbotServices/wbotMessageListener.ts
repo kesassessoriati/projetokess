@@ -4311,6 +4311,20 @@ const flowbuilderIntegration = async (
   if (!ticket.flowWebhook) {
     try {
       const { dispatchFlowTrigger } = await import("../FlowBuilderService/FlowTriggerDispatchService");
+      if (ticket.isGroup || contact.isGroup) {
+        await dispatchFlowTrigger("group_event_received", ticket.companyId, {
+          ticketId: ticket.id,
+          whatsappId: whatsapp.id,
+          message: body,
+          contactNumber: contact.number,
+          contactName: contact.name,
+          metadata: {
+            groupJid: msg?.key?.remoteJid,
+            participant: msg?.key?.participant || msg?.participant,
+            fromMe: msg?.key?.fromMe
+          }
+        });
+      }
       const triggered = await dispatchFlowTrigger("message_received", ticket.companyId, {
         ticketId: ticket.id,
         whatsappId: whatsapp.id,

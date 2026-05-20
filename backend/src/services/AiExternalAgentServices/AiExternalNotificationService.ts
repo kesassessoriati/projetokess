@@ -10,6 +10,7 @@ import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
 import logger from "../../utils/logger";
 import GetOrCreateExternalAgentConfigService from "./GetOrCreateExternalAgentConfigService";
+import { dispatchReminderFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 type GroupEventType = "appointmentCreated" | "reminderSent" | "appointmentCancelled";
 
@@ -229,6 +230,7 @@ export const sendAiExternalReminderNow = async (
   });
 
   await reminder.update({ status: "sent", sentAt: new Date(), message });
+  dispatchReminderFlowTrigger("reminder_sent", reminder, { whatsappId: settings.whatsappId });
 
   return reminder.reload();
 };

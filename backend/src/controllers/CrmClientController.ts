@@ -14,6 +14,7 @@ import Opportunity from "../models/Opportunity";
 import PipelineStage from "../models/PipelineStage";
 import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
 import { getIO } from "../libs/socket";
+import { dispatchClientFlowTrigger } from "../services/FlowBuilderService/FlowTriggerPayloads";
 
 export const index = async (
   req: Request,
@@ -319,6 +320,13 @@ export const bulkAssignPipeline = async (
       status: "convertido",
       leadStatus: "convertido"
     });
+    if (client) {
+      dispatchClientFlowTrigger("client_converted", client, {
+        leadId: lead.id,
+        pipelineId: normalizedPipelineId,
+        stageId: normalizedStageId
+      });
+    }
 
     const opportunity = await Opportunity.findOne({
       where: {

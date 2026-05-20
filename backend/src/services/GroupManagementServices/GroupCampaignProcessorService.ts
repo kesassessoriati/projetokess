@@ -13,6 +13,7 @@ import {
   sendListMessage
 } from "../../helpers/SendInteractiveMessage";
 import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
+import { dispatchGroupFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 const runningCampaigns = new Set<number>();
 
@@ -243,6 +244,18 @@ export const processGroupCampaignById = async (campaignId: number): Promise<void
           successCount: (campaign.successCount || 0) + 1
         });
         await createCampaignLog(campaign, "TARGET_SENT", "Mensagem enviada com sucesso", target.groupJid);
+        dispatchGroupFlowTrigger("group_message_sent", {
+          companyId: campaign.companyId,
+          whatsappId: campaign.whatsappId,
+          groupJid: target.groupJid,
+          subject: (target as any).groupName,
+          message: campaign.message || "",
+          metadata: {
+            campaignId: campaign.id,
+            targetId: target.id,
+            messageType: campaign.messageType
+          }
+        });
       } catch (error) {
         await target.update({
           status: "FAILED",

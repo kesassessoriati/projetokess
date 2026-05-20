@@ -6,6 +6,7 @@ import User from "../../models/User";
 import UserGoogleCalendarIntegration from "../../models/UserGoogleCalendarIntegration";
 import { updateGoogleCalendarEvent } from "../../helpers/googleCalendarClient";
 import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
+import { dispatchAppointmentFlowTrigger } from "../FlowBuilderService/FlowTriggerPayloads";
 
 interface UpdateAppointmentData {
   id: string | number;
@@ -264,6 +265,27 @@ const UpdateAppointmentService = async (
       cancellationReason: data.operationalNote || null
     }).catch(() => undefined);
   }
+
+  const newStartDatetime = new Date(appointment.startDatetime);
+  const newEndDatetime = new Date(newStartDatetime.getTime() + appointment.durationMinutes * 60000);
+  const wasRescheduled =
+    oldStartDatetime.getTime() !== newStartDatetime.getTime() ||
+    oldEndDatetime.getTime() !== newEndDatetime.getTime();
+
+  let flowEventType = "appointment_updated";
+  if (previousStatus !== "cancelled" && appointment.status === "cancelled") {
+    flowEventType = "appointment_cancelled";
+  } else if (previousStatus !== "completed" && appointment.status === "completed") {
+    flowEventType = "appointment_completed";
+  } else if (wasRescheduled) {
+    flowEventType = "appointment_rescheduled";
+  }
+
+  dispatchAppointmentFlowTrigger(flowEventType, appointment, {
+    previousStatus,
+    oldStartDatetime,
+    oldEndDatetime
+  });
 
   return appointment;
 };
