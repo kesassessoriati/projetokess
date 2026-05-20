@@ -24,6 +24,7 @@ import {
   getPreferredWhatsappId,
   sortWhatsappsByUserQueues,
 } from "../../utils/whatsappQueuePreference";
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 // ─── Trigger catalog ─────────────────────────────────────────────────────────
 
@@ -502,6 +503,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
                     onChange={(e) =>
                       setConfig({ ...config, matchType: e.target.value })
                     }
+                    MenuProps={flowBuilderSelectMenuProps}
                   >
                     <MenuItem value="contains">Contém</MenuItem>
                     <MenuItem value="exact">Exato</MenuItem>
@@ -517,6 +519,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
                   onChange={(e) =>
                     setConfig({ ...config, whatsappId: e.target.value })
                   }
+                  MenuProps={flowBuilderSelectMenuProps}
                 >
                   <MenuItem value="">Qualquer conexão</MenuItem>
                   {whatsapps.map((w) => (
@@ -557,6 +560,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
                   onChange={(e) =>
                     setConfig({ ...config, whatsappId: e.target.value })
                   }
+                  MenuProps={flowBuilderSelectMenuProps}
                 >
                   <MenuItem value="">Automático (primeira conectada)</MenuItem>
                   {whatsapps.map((w) => (
@@ -598,6 +602,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
                 onChange={(e) =>
                   setConfig({ ...config, whatsappId: e.target.value })
                 }
+                MenuProps={flowBuilderSelectMenuProps}
               >
                 <MenuItem value="">Automático (primeiro conectado)</MenuItem>
                 {whatsapps.map((w) => (

@@ -16,6 +16,7 @@ import LibraryBooksIcon from "@material-ui/icons/LibraryBooks";
 import api from "../../services/api";
 import { getBackendUrl } from "../../config";
 import toastError from "../../errors/toastError";
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 // Componente Error Boundary simples
 class ErrorBoundary extends React.Component {
@@ -499,6 +500,7 @@ const FlowBuilderAddDirectOpenAIModal = ({ open, onSave, data, close }) => {
                   as={Select}
                   name="provider"
                   label="Provider"
+                  MenuProps={flowBuilderSelectMenuProps}
                 >
                   <MenuItem value="openai">OpenAI</MenuItem>
                   <MenuItem value="gemini">Gemini</MenuItem>
@@ -521,6 +523,7 @@ const FlowBuilderAddDirectOpenAIModal = ({ open, onSave, data, close }) => {
                   as={Select}
                   name="model"
                   label="Model"
+                  MenuProps={flowBuilderSelectMenuProps}
                 >
                   {(values.provider === "gemini" ? geminiModels : openaiModels.map(m => ({ value: m, label: m }))).map(model => (
                     <MenuItem key={model.value || model} value={model.value || model}>

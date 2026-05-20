@@ -20,6 +20,7 @@ import { makeStyles } from "@material-ui/core/styles";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles((theme) => ({
   dialogContent: {
@@ -191,6 +192,7 @@ const FlowBuilderAddFollowUpModal = ({ open, onClose, onSave, initialData }) => 
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 label="Tags disponíveis"
+                MenuProps={flowBuilderSelectMenuProps}
                 renderValue={(selected) => (
                   <div className={classes.chipContainer}>
                     {selected.map((value) => {
@@ -229,7 +231,7 @@ const FlowBuilderAddFollowUpModal = ({ open, onClose, onSave, initialData }) => 
         return (
           <FormControl fullWidth variant="outlined" className={classes.formControl}>
             <InputLabel>Tag Kanban</InputLabel>
-            <Select value={selectedKanbanTag} onChange={(e) => setSelectedKanbanTag(e.target.value)} label="Tag Kanban">
+            <Select value={selectedKanbanTag} onChange={(e) => setSelectedKanbanTag(e.target.value)} label="Tag Kanban" MenuProps={flowBuilderSelectMenuProps}>
               <MenuItem value="">Selecione...</MenuItem>
               {kanbanTagList.map((tag) => (
                 <MenuItem key={tag.id} value={tag.id}>
@@ -252,7 +254,7 @@ const FlowBuilderAddFollowUpModal = ({ open, onClose, onSave, initialData }) => 
         return (
           <FormControl fullWidth variant="outlined" className={classes.formControl}>
             <InputLabel>Fila de destino</InputLabel>
-            <Select value={queueId} onChange={(e) => setQueueId(e.target.value)} label="Fila de destino">
+            <Select value={queueId} onChange={(e) => setQueueId(e.target.value)} label="Fila de destino" MenuProps={flowBuilderSelectMenuProps}>
               <MenuItem value="">Selecione...</MenuItem>
               {queues.map((queue) => (
                 <MenuItem key={queue.id} value={queue.id}>
@@ -275,7 +277,7 @@ const FlowBuilderAddFollowUpModal = ({ open, onClose, onSave, initialData }) => 
         return (
           <FormControl fullWidth variant="outlined" className={classes.formControl}>
             <InputLabel>Fluxo de destino</InputLabel>
-            <Select value={flowId} onChange={(e) => setFlowId(e.target.value)} label="Fluxo de destino">
+            <Select value={flowId} onChange={(e) => setFlowId(e.target.value)} label="Fluxo de destino" MenuProps={flowBuilderSelectMenuProps}>
               <MenuItem value="">Selecione...</MenuItem>
               {flows.map((flow) => (
                 <MenuItem key={flow.id} value={flow.id}>

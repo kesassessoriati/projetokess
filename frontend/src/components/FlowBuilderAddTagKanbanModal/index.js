@@ -16,6 +16,7 @@ import api from "../../services/api";
 import { Stack, Chip } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -136,22 +137,7 @@ const FlowBuilderAddTagKanbanModal = ({
               style={{ width: "100%" }}
               onChange={(e) => setSelectedTag(e.target.value)}
               displayEmpty
-              MenuProps={{
-                anchorOrigin: {
-                  vertical: "bottom",
-                  horizontal: "left",
-                },
-                transformOrigin: {
-                  vertical: "top",
-                  horizontal: "left",
-                },
-                getContentAnchorEl: null,
-                PaperProps: {
-                  style: {
-                    maxHeight: 360,
-                  },
-                },
-              }}
+              MenuProps={flowBuilderSelectMenuProps}
               renderValue={(selected) => {
                 if (!selected) {
                   return <span style={{ color: "#999" }}>Selecione uma tag do Kanban</span>;

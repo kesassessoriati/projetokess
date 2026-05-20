@@ -14,6 +14,7 @@ import api from "../../services/api";
 import { Stack } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -115,17 +116,7 @@ const FlowBuilderTransferFlowModal = ({
               style={{ width: "100%" }}
               onChange={(e) => setSelectedFlow(e.target.value)}
               displayEmpty
-              MenuProps={{
-                anchorOrigin: {
-                  vertical: "bottom",
-                  horizontal: "left",
-                },
-                transformOrigin: {
-                  vertical: "top",
-                  horizontal: "left",
-                },
-                getContentAnchorEl: null,
-              }}
+              MenuProps={flowBuilderSelectMenuProps}
             >
               <MenuItem value="" disabled>
                 Selecione um fluxo

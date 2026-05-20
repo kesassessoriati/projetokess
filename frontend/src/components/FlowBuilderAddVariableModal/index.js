@@ -17,6 +17,7 @@ import { makeStyles } from "@material-ui/core/styles";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import MessageVariablesPicker from "../MessageVariablesPicker";
+import { flowBuilderAutocompleteListboxProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles((theme) => ({
   section: {
@@ -211,6 +212,7 @@ const FlowBuilderAddVariableModal = ({
             options={availableVariables}
             value={formData.variableName}
             onInputChange={(event, value) => handleFieldChange("variableName", value)}
+            ListboxProps={flowBuilderAutocompleteListboxProps}
             renderInput={(params) => (
               <TextField
                 {...params}

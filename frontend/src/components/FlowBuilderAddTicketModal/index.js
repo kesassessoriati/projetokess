@@ -24,6 +24,7 @@ import toastError from "../../errors/toastError";
 import { Stack } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 
 const useStyles = makeStyles(theme => ({
@@ -143,17 +144,7 @@ const FlowBuilderTicketModal = ({
                             value={selectedQueue}
                             style={{ width: "95%" }}
                             onChange={(e) => { setQueueSelected(e.target.value) }}
-                            MenuProps={{
-                                anchorOrigin: {
-                                    vertical: "bottom",
-                                    horizontal: "left",
-                                },
-                                transformOrigin: {
-                                    vertical: "top",
-                                    horizontal: "left",
-                                },
-                                getContentAnchorEl: null,
-                            }}
+                            MenuProps={flowBuilderSelectMenuProps}
                             renderValue={() => {
                                 if (selectedQueue === "") {
                                     return "Selecione uma Conexão"

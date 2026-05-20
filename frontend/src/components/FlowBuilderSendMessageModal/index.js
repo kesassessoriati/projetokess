@@ -21,6 +21,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import SendIcon from '@mui/icons-material/Send';
 import MessageVariablesPicker from "../MessageVariablesPicker";
 import api from "../../services/api";
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -202,6 +203,7 @@ const FlowBuilderSendMessageModal = ({
               label="Fila (Opcional)"
               fullWidth
               disabled={loading}
+              MenuProps={flowBuilderSelectMenuProps}
             >
               <MenuItem value="">
                 <em>Sem fila</em>

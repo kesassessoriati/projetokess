@@ -19,6 +19,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { Grid } from "@material-ui/core";
 import { TOOL_CATALOG, DEFAULT_SENSITIVE_TOOLS } from "../../constants/aiTools";
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -535,6 +536,9 @@ Qual curso você tem interesse?"
                   name="iaId"
                   margin="dense"
                   fullWidth
+                  SelectProps={{
+                    MenuProps: flowBuilderSelectMenuProps,
+                  }}
                   helperText="Selecione qual IA (Prompt) será usada neste bloco."
                 >
                   {prompts.map(prompt => (

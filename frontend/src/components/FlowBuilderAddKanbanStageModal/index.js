@@ -16,6 +16,7 @@ import api from "../../services/api";
 import { Stack, Chip, Typography } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -150,6 +151,7 @@ const FlowBuilderAddKanbanStageModal = ({
                 style={{ width: "100%" }}
                 onChange={handlePipelineChange}
                 displayEmpty
+                MenuProps={flowBuilderSelectMenuProps}
               >
                 <MenuItem value="" disabled>
                   Selecione um pipeline
@@ -171,6 +173,7 @@ const FlowBuilderAddKanbanStageModal = ({
                 style={{ width: "100%" }}
                 onChange={(e) => setSelectedStage(e.target.value)}
                 displayEmpty
+                MenuProps={flowBuilderSelectMenuProps}
                 renderValue={(selected) => {
                   if (!selected) return "Selecione um estágio";
                   const stage = stages.find(s => s.id === selected);
