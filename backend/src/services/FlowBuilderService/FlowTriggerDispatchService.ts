@@ -16,6 +16,55 @@ export interface TriggerDispatchData {
   metadata?: Record<string, any>;
 }
 
+const onlyNumbers = (value?: string): string =>
+  String(value || "").replace(/\D/g, "");
+
+const getTriggers = (flow: FlowBuilderModel): any[] =>
+  Array.isArray(flow.triggers) ? flow.triggers : [];
+
+const triggerMatchesEvent = (trigger: any, eventType: string): boolean =>
+  String(trigger?.type || "").toLowerCase() === eventType.toLowerCase();
+
+const matchesKeyword = (trigger: any, message?: string): boolean => {
+  const keyword = (trigger.config?.keyword || "").trim();
+  if (!keyword) return true;
+
+  const msg = (message || "").toLowerCase();
+  const kw = keyword.toLowerCase();
+  const matchType = trigger.config?.matchType || "contains";
+
+  if (matchType === "exact") return msg === kw;
+  if (matchType === "starts") return msg.startsWith(kw);
+  return msg.includes(kw);
+};
+
+const matchesTriggerFilters = (
+  eventType: string,
+  trigger: any,
+  data: TriggerDispatchData
+): boolean => {
+  const config = trigger.config || {};
+
+  if (config.whatsappId && data.whatsappId) {
+    if (Number(config.whatsappId) !== Number(data.whatsappId)) return false;
+  }
+
+  if (eventType === "message_received" && !matchesKeyword(trigger, data.message)) {
+    return false;
+  }
+
+  if (config.pipelineId && data.metadata?.pipelineId) {
+    if (String(config.pipelineId) !== String(data.metadata.pipelineId)) return false;
+  }
+
+  if (config.stageId && (data.metadata?.stageId || data.metadata?.toStageId)) {
+    const currentStageId = data.metadata?.toStageId || data.metadata?.stageId;
+    if (String(config.stageId) !== String(currentStageId)) return false;
+  }
+
+  return true;
+};
+
 /**
  * Dispatches a flow trigger event.
  * Scans all active flows for matching triggers and executes them.
@@ -34,32 +83,13 @@ export const dispatchFlowTrigger = async (
     let triggered = false;
 
     for (const flow of flows) {
-      const triggers: any[] = flow.triggers || [];
+      const triggers = getTriggers(flow);
       if (!triggers.length) continue;
 
-      const matching = triggers.find(t => t.type === eventType);
+      const matching = triggers.find(t =>
+        triggerMatchesEvent(t, eventType) && matchesTriggerFilters(eventType, t, data)
+      );
       if (!matching) continue;
-
-      // Keyword filter for message_received
-      if (eventType === "message_received") {
-        const keyword = (matching.config?.keyword || "").trim();
-        if (keyword) {
-          const msg = (data.message || "").toLowerCase();
-          const kw = keyword.toLowerCase();
-          const matchType = matching.config?.matchType || "contains";
-          let matched = false;
-          if (matchType === "exact") matched = msg === kw;
-          else if (matchType === "starts") matched = msg.startsWith(kw);
-          else matched = msg.includes(kw);
-          if (!matched) continue;
-        }
-        // If no keyword configured: any message triggers the flow
-      }
-
-      // Stage filter for opportunity_moved
-      if (eventType === "opportunity_moved" && matching.config?.stageId) {
-        if (String(data.metadata?.stageId) !== String(matching.config.stageId)) continue;
-      }
 
       const ok = await _executeFlow(flow, companyId, data, matching);
       if (ok) triggered = true;
@@ -83,7 +113,7 @@ export const executeFlowByToken = async (
     const flows = await FlowBuilderModel.findAll({ where: { active: true } });
 
     for (const flow of flows) {
-      const triggers: any[] = flow.triggers || [];
+      const triggers = getTriggers(flow);
       const httpTrigger = triggers.find(
         t => t.type === "http_webhook" && t.config?.token === token
       );
@@ -133,8 +163,9 @@ async function _executeFlow(
     // Resolve whatsappId
     let whatsappId = data.whatsappId;
     let ticketId = data.ticketId;
-    let contactNumber = data.contactNumber || "";
+    let contactNumber = onlyNumbers(data.contactNumber);
     let contactName = data.contactName || "";
+    let contactEmail = data.contactEmail || "";
 
     if (!whatsappId && trigger.config?.whatsappId) {
       whatsappId = Number(trigger.config.whatsappId);
@@ -146,7 +177,11 @@ async function _executeFlow(
         whatsappId = ticket.whatsappId;
         if (!contactNumber && ticket.contactId) {
           const c = await Contact.findByPk(ticket.contactId);
-          if (c) { contactNumber = c.number; contactName = c.name; }
+          if (c) {
+            contactNumber = c.number;
+            contactName = c.name;
+            contactEmail = c.email || contactEmail;
+          }
         }
       }
     }
@@ -161,6 +196,58 @@ async function _executeFlow(
     if (!whatsappId) {
       logger.warn(`[FlowTrigger] No whatsappId for flow ${flow.id}, skipping`);
       return false;
+    }
+
+    if (!ticketId && contactNumber) {
+      let contact = await Contact.findOne({
+        where: { number: contactNumber, companyId }
+      });
+
+      if (!contact) {
+        contact = await Contact.create({
+          name: contactName || contactNumber,
+          number: contactNumber,
+          email: contactEmail || "",
+          companyId,
+          channel: "whatsapp",
+          active: true,
+          isGroup: false
+        } as any);
+      }
+
+      contactName = contactName || contact.name;
+      contactEmail = contactEmail || contact.email || "";
+
+      const ticket = await Ticket.findOne({
+        where: {
+          contactId: contact.id,
+          whatsappId,
+          companyId,
+          status: ["open", "pending"]
+        },
+        order: [["updatedAt", "DESC"]]
+      });
+
+      if (ticket) {
+        ticketId = ticket.id;
+      } else {
+        const whatsapp = await Whatsapp.findOne({ where: { id: whatsappId, companyId } });
+        const newTicket = await Ticket.create({
+          contactId: contact.id,
+          whatsappId,
+          companyId,
+          status: "pending",
+          userId: null,
+          channel: whatsapp?.channel || "whatsapp",
+          isBot: true,
+          isGroup: false,
+          unreadMessages: 0,
+          flowWebhook: false,
+          webhookDisabled: false,
+          isActiveDemand: true
+        } as any);
+        ticketId = newTicket.id;
+      }
     }
 
     const execution = await FlowExecution.create({
@@ -178,7 +265,7 @@ async function _executeFlow(
     const mountDataContact = {
       number: contactNumber,
       name: contactName,
-      email: data.contactEmail || ""
+      email: contactEmail
     };
 
     try {

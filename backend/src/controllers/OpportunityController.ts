@@ -16,6 +16,7 @@ import DeleteOpportunityEventService from "../services/OpportunityServices/Delet
 import ListOpportunityEventsService from "../services/OpportunityServices/ListOpportunityEventsService";
 import { getIO } from "../libs/socket";
 import EventBus from "../libs/EventBus";
+import { dispatchFlowTrigger } from "../services/FlowBuilderService/FlowTriggerDispatchService";
 
 export const remove = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
@@ -173,6 +174,32 @@ export const addEvent = async (req: Request, res: Response): Promise<Response> =
         version: `manual:${event.id}`
     }, companyId);
 
+    const contact = opportunity.contactId
+        ? await Contact.findOne({ where: { id: opportunity.contactId, companyId } })
+        : null;
+
+    dispatchFlowTrigger("opportunity_updated", companyId, {
+        ticketId: opportunity.ticketId || undefined,
+        contactNumber: contact?.number || "",
+        contactName: contact?.name || opportunity.title,
+        contactEmail: contact?.email || "",
+        metadata: {
+            opportunityId: opportunity.id,
+            pipelineId: opportunity.pipelineId,
+            stageId: opportunity.stageId,
+            leadId: opportunity.leadId,
+            contactId: opportunity.contactId,
+            value: opportunity.value,
+            status: opportunity.status,
+            changes: {
+                manualEvent: {
+                    type,
+                    metadata
+                }
+            }
+        }
+    }).catch(() => null);
+
     return res.status(201).json(event);
 };
 
@@ -270,6 +297,27 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         version: opportunity.version
     }, companyId);
 
+    const contact = opportunity.contactId
+        ? await Contact.findOne({ where: { id: opportunity.contactId, companyId } })
+        : null;
+
+    dispatchFlowTrigger("opportunity_updated", companyId, {
+        ticketId: opportunity.ticketId || undefined,
+        contactNumber: contact?.number || "",
+        contactName: contact?.name || opportunity.title,
+        contactEmail: contact?.email || "",
+        metadata: {
+            opportunityId: opportunity.id,
+            pipelineId: opportunity.pipelineId,
+            stageId: opportunity.stageId,
+            leadId: opportunity.leadId,
+            contactId: opportunity.contactId,
+            value: opportunity.value,
+            status: opportunity.status,
+            changes
+        }
+    }).catch(() => null);
+
     const io = getIO();
     io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
         action: "update",
@@ -309,6 +357,24 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
                 });
             }
         }
+    }
+
+    if (status === "WON" || status === "LOST") {
+        dispatchFlowTrigger(status === "WON" ? "opportunity_won" : "opportunity_lost", companyId, {
+            ticketId: opportunity.ticketId || undefined,
+            contactNumber: contact?.number || "",
+            contactName: contact?.name || opportunity.title,
+            contactEmail: contact?.email || "",
+            metadata: {
+                opportunityId: opportunity.id,
+                pipelineId: opportunity.pipelineId,
+                stageId: opportunity.stageId,
+                leadId: opportunity.leadId,
+                contactId: opportunity.contactId,
+                value: opportunity.value,
+                status: opportunity.status
+            }
+        }).catch(() => null);
     }
 
     return res.status(200).json(opportunity);

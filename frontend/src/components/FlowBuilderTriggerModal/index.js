@@ -1,8 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
   Button,
   TextField,
@@ -62,6 +60,31 @@ const CATEGORIES = [
         label: "Lead criado",
         description: "Quando um novo lead é criado no CRM",
       },
+      {
+        type: "lead_updated",
+        label: "Lead atualizado",
+        description: "Quando os dados de um lead sao atualizados",
+      },
+      {
+        type: "lead_status_changed",
+        label: "Status do lead alterado",
+        description: "Quando o status comercial de um lead muda",
+      },
+      {
+        type: "lead_converted",
+        label: "Lead convertido",
+        description: "Quando um lead vira cliente",
+      },
+      {
+        type: "lead_lost",
+        label: "Lead perdido",
+        description: "Quando um lead e marcado como perdido",
+      },
+      {
+        type: "lead_stage_changed",
+        label: "Lead movido",
+        description: "Quando um lead muda de etapa no funil",
+      },
     ],
   },
   {
@@ -80,6 +103,11 @@ const CATEGORIES = [
         description: "Quando um negócio é movido para uma etapa",
       },
       {
+        type: "opportunity_updated",
+        label: "Negocio atualizado",
+        description: "Quando os dados de um negocio sao atualizados",
+      },
+      {
         type: "opportunity_won",
         label: "Negócio ganho",
         description: "Quando um negócio é marcado como ganho",
@@ -88,6 +116,23 @@ const CATEGORIES = [
         type: "opportunity_lost",
         label: "Negócio perdido",
         description: "Quando um negócio é marcado como perdido",
+      },
+    ],
+  },
+  {
+    id: "kanban",
+    label: "Kanban",
+    emoji: "Kanban",
+    triggers: [
+      {
+        type: "move_lead",
+        label: "MoveLead",
+        description: "Quando um lead e movimentado no Kanban",
+      },
+      {
+        type: "kanban_event",
+        label: "Evento do Kanban",
+        description: "Quando o Kanban recebe um evento interno mapeado",
       },
     ],
   },
@@ -524,8 +569,25 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
             </Box>
           )}
 
-          {/* lead_created / ticket_created / ticket_closed: whatsapp selector */}
-          {["lead_created", "ticket_created", "ticket_closed", "opportunity_created", "opportunity_moved", "opportunity_won", "opportunity_lost"].includes(
+          {/* Internal events: whatsapp selector */}
+          {[
+            "lead_created",
+            "lead_updated",
+            "lead_status_changed",
+            "lead_stage_changed",
+            "lead_converted",
+            "lead_lost",
+            "ticket_created",
+            "ticket_closed",
+            "opportunity_created",
+            "opportunity_moved",
+            "opportunity_updated",
+            "opportunity_won",
+            "opportunity_lost",
+            "move_lead",
+            "kanban_event",
+            "flow_triggered",
+          ].includes(
             selectedType
           ) && (
             <FormControl size="small" variant="outlined" fullWidth>

@@ -461,6 +461,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   dispatchFlowTrigger("lead_created", data.companyId, {
     contactNumber: lead.phone || "",
     contactName: lead.name || "",
+    contactEmail: lead.email || "",
     metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
   }).catch(() => null);
 

@@ -4,6 +4,7 @@ import EventBus from "../../libs/EventBus";
 import Contact from "../../models/Contact";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 import logger from "../../utils/logger";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 
 interface Request {
     companyId: number;
@@ -29,11 +30,13 @@ const CreateOpportunityService = async ({
     assignedUserId
 }: Request): Promise<Opportunity> => {
 
-    if (contactId && !leadId) {
-        const contact = await Contact.findOne({
+    let contact: Contact | null = null;
+
+    if (contactId) {
+        contact = await Contact.findOne({
             where: { id: contactId, companyId }
         });
-        if (contact) {
+        if (contact && !leadId) {
             const lead = await findOrCreateLeadByContact({ contact, companyId });
             if (lead) {
                 leadId = lead.id;
@@ -79,6 +82,22 @@ const CreateOpportunityService = async ({
         value: opportunity.value,
         createdAt: opportunity.createdAt
     }, opportunity.companyId);
+
+    dispatchFlowTrigger("opportunity_created", companyId, {
+        ticketId: opportunity.ticketId || undefined,
+        contactNumber: contact?.number || "",
+        contactName: contact?.name || title,
+        contactEmail: contact?.email || "",
+        metadata: {
+            opportunityId: opportunity.id,
+            pipelineId: opportunity.pipelineId,
+            stageId: opportunity.stageId,
+            leadId: opportunity.leadId,
+            contactId: opportunity.contactId,
+            value: opportunity.value,
+            status: opportunity.status
+        }
+    }).catch(() => null);
 
     try {
         const { getIO } = await import("../../libs/socket");

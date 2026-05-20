@@ -7,6 +7,7 @@ import PipelineStage from "../../models/PipelineStage";
 import Contact from "../../models/Contact";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 import logger from "../../utils/logger";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 
 interface Request {
     opportunityId: number;
@@ -152,6 +153,36 @@ const MoveOpportunityService = async ({
     }, opportunity.companyId);
 
     await opportunity.reload();
+
+    const contact = opportunity.contactId
+        ? await Contact.findOne({ where: { id: opportunity.contactId, companyId } })
+        : null;
+
+    const triggerData = {
+        ticketId: opportunity.ticketId || undefined,
+        contactNumber: contact?.number || "",
+        contactName: contact?.name || opportunity.title,
+        contactEmail: contact?.email || "",
+        metadata: {
+            opportunityId: opportunity.id,
+            pipelineId: opportunity.pipelineId,
+            fromStageId,
+            stageId: opportunity.stageId,
+            toStageId,
+            leadId: opportunity.leadId,
+            contactId: opportunity.contactId,
+            value: opportunity.value,
+            status: opportunity.status,
+            movedBy,
+            reason
+        }
+    };
+
+    dispatchFlowTrigger("opportunity_moved", companyId, triggerData).catch(() => null);
+    dispatchFlowTrigger("kanban_event", companyId, {
+        ...triggerData,
+        metadata: { ...triggerData.metadata, event: "opportunity_moved" }
+    }).catch(() => null);
 
     try {
         const { getIO } = await import("../../libs/socket");

@@ -9,6 +9,7 @@ import {
   resolveLeadPrimaryTicketId
 } from "./helpers/resolveLeadRelations";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
+import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
 
 interface Request {
   id: number | string;
@@ -161,6 +162,8 @@ const UpdateCrmLeadService = async ({
 
   const previousStatus = lead.status;
   const previousLeadStatus = lead.leadStatus;
+  const previousPipelineId = lead.pipelineId;
+  const previousStageId = lead.stageId;
 
   const contactId = await resolveLeadContactId({
     companyId,
@@ -322,12 +325,78 @@ const UpdateCrmLeadService = async ({
 
     if (lead.status === "convertido" || lead.leadStatus === "convertido") {
       webhookDispatch("LEAD_CONVERTED", companyId, { lead: leadPayload });
+      dispatchFlowTrigger("lead_converted", companyId, {
+        contactNumber: lead.phone || "",
+        contactName: lead.name || "",
+        contactEmail: lead.email || "",
+        metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
+      }).catch(() => null);
     } else if (lead.status === "perdido" || lead.leadStatus === "perdido") {
       webhookDispatch("LEAD_LOST", companyId, { lead: leadPayload });
+      dispatchFlowTrigger("lead_lost", companyId, {
+        contactNumber: lead.phone || "",
+        contactName: lead.name || "",
+        contactEmail: lead.email || "",
+        metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
+      }).catch(() => null);
     }
+
+    dispatchFlowTrigger("lead_status_changed", companyId, {
+      contactNumber: lead.phone || "",
+      contactName: lead.name || "",
+      contactEmail: lead.email || "",
+      metadata: {
+        leadId: lead.id,
+        oldStatus: previousStatus,
+        newStatus: lead.status,
+        oldLeadStatus: previousLeadStatus,
+        newLeadStatus: lead.leadStatus,
+        pipelineId: lead.pipelineId,
+        stageId: lead.stageId
+      }
+    }).catch(() => null);
   }
 
   webhookDispatch("LEAD_UPDATED", companyId, { lead: leadPayload });
+  dispatchFlowTrigger("lead_updated", companyId, {
+    contactNumber: lead.phone || "",
+    contactName: lead.name || "",
+    contactEmail: lead.email || "",
+    metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
+  }).catch(() => null);
+
+  if (
+    (data.pipelineId !== undefined && Number(previousPipelineId) !== Number(lead.pipelineId)) ||
+    (data.stageId !== undefined && Number(previousStageId) !== Number(lead.stageId))
+  ) {
+    const movePayload = {
+      leadId: lead.id,
+      fromPipelineId: previousPipelineId,
+      pipelineId: lead.pipelineId,
+      fromStageId: previousStageId,
+      stageId: lead.stageId,
+      toStageId: lead.stageId
+    };
+
+    dispatchFlowTrigger("lead_stage_changed", companyId, {
+      contactNumber: lead.phone || "",
+      contactName: lead.name || "",
+      contactEmail: lead.email || "",
+      metadata: movePayload
+    }).catch(() => null);
+    dispatchFlowTrigger("move_lead", companyId, {
+      contactNumber: lead.phone || "",
+      contactName: lead.name || "",
+      contactEmail: lead.email || "",
+      metadata: movePayload
+    }).catch(() => null);
+    dispatchFlowTrigger("kanban_event", companyId, {
+      contactNumber: lead.phone || "",
+      contactName: lead.name || "",
+      contactEmail: lead.email || "",
+      metadata: { ...movePayload, event: "lead_stage_changed" }
+    }).catch(() => null);
+  }
   // ── fim Webhook events ────────────────────────────────────────────────────
 
   return lead;
