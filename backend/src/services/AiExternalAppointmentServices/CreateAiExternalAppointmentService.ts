@@ -5,12 +5,12 @@ import CreateAppointmentService from "../AppointmentServices/CreateAppointmentSe
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
 import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
+import { registerAiAppointmentCreatedJourney } from "../AiExternalAgentServices/AiExternalJourneyService";
 import {
   buildReminderPayload,
   createReminder,
   getReminderSettings
 } from "../AiExternalReminderServices/AiExternalReminderServices";
-import UpdateCrmLeadService from "../CrmLeadService/UpdateCrmLeadService";
 
 interface Request {
   companyId: number;
@@ -111,14 +111,11 @@ const CreateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     createdByUserId: data.userId || null
   } as any);
 
-  if (data.crmLeadId) {
-    await UpdateCrmLeadService({
-      id: data.crmLeadId,
-      companyId: data.companyId,
-      status: "reuniao_agendada",
-      leadStatus: "reuniao_agendada"
-    }).catch(() => undefined);
-  }
+  await registerAiAppointmentCreatedJourney({
+    aiAppointment,
+    metadata: config.metadata
+  }).catch(() => undefined);
+  await aiAppointment.reload();
 
   if (reminderSettings.enabled) {
     const startDatetime = new Date(data.startDatetime);

@@ -218,6 +218,10 @@ export const updateReminder = async (data: {
 
   if (previousStatus !== "cancelled" && reminder.status === "cancelled") {
     dispatchReminderFlowTrigger("reminder_cancelled", reminder, { previousStatus });
+  } else if (previousStatus !== "sent" && reminder.status === "sent") {
+    const { registerReminderSentJourney } = await import("../AiExternalAgentServices/AiExternalJourneyService");
+    await registerReminderSentJourney(reminder).catch(() => undefined);
+    dispatchReminderFlowTrigger("reminder_sent", reminder, { previousStatus });
   }
 
   return reminder.reload();

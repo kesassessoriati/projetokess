@@ -116,6 +116,7 @@ import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchS
 import FlowExecution from "../../models/FlowExecution";
 import { handleOpenAi } from "../IntegrationsServices/OpenAiService";
 import { IOpenAi } from "../../@types/openai";
+import { handleAiReminderReply } from "../AiExternalAgentServices/AiExternalJourneyService";
 
 const os = require("os");
 
@@ -5371,6 +5372,27 @@ const handleMessage = async (
           false,
           isMsgForwarded
         );
+      }
+    }
+
+    if (!msg.key.fromMe && !isGroup && !hasMedia) {
+      const reminderReplyResult = await handleAiReminderReply({
+        companyId,
+        contactId: contact?.id,
+        phone: contact?.number || msgContact?.id,
+        body: bodyMessage,
+        buttonId:
+          msg?.message?.buttonsResponseMessage?.selectedButtonId ||
+          msg?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+          msg?.message?.templateButtonReplyMessage?.selectedId ||
+          null
+      }).catch(error => {
+        logger.warn(`[AiExternalJourney] Falha ao processar resposta de lembrete: ${error?.message || error}`);
+        return { handled: false, continueAutomation: true };
+      });
+
+      if (reminderReplyResult?.handled && !reminderReplyResult?.continueAutomation) {
+        return;
       }
     }
 

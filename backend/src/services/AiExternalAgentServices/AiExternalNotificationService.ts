@@ -230,6 +230,8 @@ export const sendAiExternalReminderNow = async (
   });
 
   await reminder.update({ status: "sent", sentAt: new Date(), message });
+  const { registerReminderSentJourney } = await import("./AiExternalJourneyService");
+  await registerReminderSentJourney(reminder).catch(() => undefined);
   dispatchReminderFlowTrigger("reminder_sent", reminder, { whatsappId: settings.whatsappId });
 
   return reminder.reload();
@@ -264,6 +266,14 @@ export const processAiExternalReminders = async ({ companyId }: { companyId?: nu
         eventType: "reminderSent",
         aiAppointment,
         reminder
+      }).then(sent => {
+        if (!sent) return undefined;
+        return reminder.update({
+          metadata: {
+            ...(reminder.metadata || {}),
+            reminderGroupNotifiedAt: new Date().toISOString()
+          }
+        });
       });
     } catch (error: any) {
       await reminder.update({

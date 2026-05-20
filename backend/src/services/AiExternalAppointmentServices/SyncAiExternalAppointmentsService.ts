@@ -231,6 +231,16 @@ const SyncAiExternalAppointmentsService = async ({
     try {
       const syncResult = await ensureCrmAppointment({ aiAppointment: keeper, companyId, userId });
       await keeper.reload();
+      const hasAppointmentJourney = Array.isArray((keeper.metadata || {}).journeyEvents) &&
+        (keeper.metadata || {}).journeyEvents.some((event: any) => event?.type === "appointment_created");
+      if (!hasAppointmentJourney) {
+        const { registerAiAppointmentCreatedJourney } = await import("../AiExternalAgentServices/AiExternalJourneyService");
+        await registerAiAppointmentCreatedJourney({
+          aiAppointment: keeper,
+          metadata: (await GetOrCreateExternalAgentConfigService({ companyId, userId })).metadata
+        }).catch(() => undefined);
+        await keeper.reload();
+      }
       await ensureAutomaticReminder({ aiAppointment: keeper, companyId, userId });
 
       if (

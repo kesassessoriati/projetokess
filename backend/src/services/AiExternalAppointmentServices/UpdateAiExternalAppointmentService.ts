@@ -1,9 +1,20 @@
 import AppError from "../../errors/AppError";
+import { Op } from "sequelize";
 import AiExternalAppointment from "../../models/AiExternalAppointment";
+import AiExternalReminder from "../../models/AiExternalReminder";
 import UpdateAppointmentService from "../AppointmentServices/UpdateAppointmentService";
 import DispatchExternalAgentEventService from "../AiExternalAgentServices/DispatchExternalAgentEventService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
 import { notifyAiExternalGroup } from "../AiExternalAgentServices/AiExternalNotificationService";
+import {
+  syncAiAppointmentCancellationJourney,
+  syncAiAppointmentRescheduleJourney
+} from "../AiExternalAgentServices/AiExternalJourneyService";
+import {
+  buildReminderPayload,
+  createReminder,
+  getReminderSettings
+} from "../AiExternalReminderServices/AiExternalReminderServices";
 
 interface Request {
   id: number;
@@ -39,8 +50,15 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
   }
 
   const previousStatus = aiAppointment.status;
+  const previousStartDatetime = aiAppointment.startDatetime
+    ? new Date(aiAppointment.startDatetime)
+    : null;
 
   if (aiAppointment.appointmentId) {
+    const appointmentStatus = ["scheduled", "confirmed", "completed", "cancelled", "no_show"].includes(String(data.status || ""))
+      ? data.status
+      : undefined;
+
     await UpdateAppointmentService({
       id: aiAppointment.appointmentId,
       companyId: data.companyId,
@@ -48,7 +66,7 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
       description: data.description,
       startDatetime: data.startDatetime,
       durationMinutes: data.durationMinutes,
-      status: data.status,
+      status: appointmentStatus,
       serviceId: data.serviceId,
       contactId: data.contactId,
       leadName: data.leadName,
@@ -80,6 +98,11 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     metadata: data.metadata !== undefined ? data.metadata : aiAppointment.metadata
   });
 
+  const startDatetimeChanged =
+    data.startDatetime &&
+    previousStartDatetime &&
+    previousStartDatetime.getTime() !== new Date(data.startDatetime).getTime();
+
   if (!aiAppointment.appointmentId && previousStatus !== "cancelled" && aiAppointment.status === "cancelled") {
     notifyAiExternalGroup({
       companyId: data.companyId,
@@ -93,6 +116,73 @@ const UpdateAiExternalAppointmentService = async (data: Request): Promise<AiExte
     companyId: data.companyId,
     userId: data.userId
   });
+
+  if (previousStatus !== "cancelled" && aiAppointment.status === "cancelled") {
+    await syncAiAppointmentCancellationJourney(
+      aiAppointment,
+      data.cancellationReason || null
+    ).catch(() => undefined);
+  } else if (startDatetimeChanged) {
+    const reminderSettings = getReminderSettings(config.metadata);
+    if (reminderSettings.enabled && aiAppointment.reminderEnabled !== false) {
+      const newStartDatetime = new Date(aiAppointment.startDatetime);
+      const scheduledAt = new Date(
+        newStartDatetime.getTime() - reminderSettings.hoursBefore * 60 * 60 * 1000
+      );
+      const safeScheduledAt = scheduledAt.getTime() > Date.now() ? scheduledAt : new Date();
+      const interactivePayload = buildReminderPayload({
+        settings: reminderSettings,
+        leadName: aiAppointment.leadName,
+        leadPhone: aiAppointment.leadPhone,
+        appointmentDate: newStartDatetime
+      });
+
+      const existingReminder = await AiExternalReminder.findOne({
+        where: {
+          companyId: data.companyId,
+          aiAppointmentId: aiAppointment.id,
+          status: { [Op.in]: ["pending", "processing", "sent", "reschedule_requested"] }
+        },
+        order: [["updatedAt", "DESC"]]
+      });
+
+      if (existingReminder) {
+        await existingReminder.update({
+          status: "pending",
+          sentAt: null,
+          scheduledAt: safeScheduledAt,
+          message: interactivePayload.text,
+          metadata: {
+            ...(existingReminder.metadata || {}),
+            rescheduledAt: new Date().toISOString(),
+            interactivePayload
+          }
+        });
+      } else {
+        await createReminder({
+          companyId: data.companyId,
+          userId: data.userId,
+          aiAppointmentId: aiAppointment.id,
+          contactId: aiAppointment.contactId || undefined,
+          ticketId: aiAppointment.ticketId || undefined,
+          leadName: aiAppointment.leadName || undefined,
+          leadPhone: aiAppointment.leadPhone || undefined,
+          message: interactivePayload.text,
+          scheduledAt: safeScheduledAt,
+          n8nSessionId: aiAppointment.n8nSessionId || undefined,
+          metadata: {
+            automatic: true,
+            appointmentId: aiAppointment.appointmentId,
+            aiAppointmentId: aiAppointment.id,
+            hoursBefore: reminderSettings.hoursBefore,
+            interactivePayload
+          }
+        });
+      }
+    }
+
+    await syncAiAppointmentRescheduleJourney(aiAppointment).catch(() => undefined);
+  }
 
   await DispatchExternalAgentEventService({
     eventType: "external_agent.appointment.updated",

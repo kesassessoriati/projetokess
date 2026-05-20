@@ -50,6 +50,21 @@ export const sendNow = async (req: Request, res: Response): Promise<Response> =>
   if (!reminder) throw new AppError("Lembrete nao encontrado.", 404);
 
   const sentReminder = await sendAiExternalReminderNow(reminder);
+  const groupSent = await notifyAiExternalGroup({
+    companyId,
+    eventType: "reminderSent",
+    aiAppointment: (sentReminder as any).aiAppointment || (reminder as any).aiAppointment || null,
+    reminder: sentReminder
+  });
+
+  if (groupSent) {
+    await sentReminder.update({
+      metadata: {
+        ...(sentReminder.metadata || {}),
+        reminderGroupNotifiedAt: new Date().toISOString()
+      }
+    });
+  }
 
   return res.json({ message: "Lembrete enviado com sucesso.", reminder: sentReminder });
 };
