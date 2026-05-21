@@ -28,6 +28,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Ferramentas e propostas locais de IA
+.claude/
+.gemini/proposals/
+
 # Docker
 docker-compose.override.yml
 # stack-swarm.yml
