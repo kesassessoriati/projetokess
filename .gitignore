@@ -32,9 +32,33 @@ Thumbs.db
 .claude/
 .gemini/proposals/
 
+# Documentos e artefatos locais de analise/operacao
+.docker_version
+ANALISE_*.md
+API_EXTERNA.md
+AUDITORIA_*.md
+CHANGELOG.md
+DEPLOY.md
+DEPLOY_KES.md
+IMPACTO_REFATORACAO_QUEUES.md
+MULTI_TENANT_SHIELDING.md
+PLANO_*.md
+TUTORIAL_CRM.md
+VALIDACAO_TECNICA_CRITICOS.md
+Passo a passo instalação portainer  Atualizado.pdf
+data-*.csv
+
+# Scripts e stacks locais/sensiveis
+atendzappy_stack.yml
+stack-swarm.yml
+reset_admin_fae.sh
+reset_user.sh
+setup_remote.sh
+vps_update.sh
+wapainel_stack.yml
+
 # Docker
 docker-compose.override.yml
-# stack-swarm.yml
 
 # Arquivos grandes (OCR)
 *.traineddata
