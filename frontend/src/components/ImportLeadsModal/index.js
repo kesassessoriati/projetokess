@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -103,6 +103,12 @@ const LEAD_FIELDS = [
     { id: "tags", label: "Tags", required: false }
 ];
 
+const toImportField = (field) => ({
+    id: field.fieldKey,
+    label: field.label || field.fieldKey,
+    required: Boolean(field.required)
+});
+
 function WorksheetToDatagrid(ws) {
     const rows = utils.sheet_to_json(ws, { header: 1, defval: "" });
     const range = utils.decode_range(ws["!ref"] || "A1");
@@ -123,6 +129,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
     const [users, setUsers] = useState([]);
     const [pipelines, setPipelines] = useState([]);
     const [stages, setStages] = useState([]);
+    const [leadFields, setLeadFields] = useState(LEAD_FIELDS);
 
     const [form, setForm] = useState({
         ownerUserId: "",
@@ -160,12 +167,19 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [{ data: usersData }, { data: pipelinesData }] = await Promise.all([
+                const [{ data: usersData }, { data: pipelinesData }, { data: leadFieldsData }] = await Promise.all([
                     api.get("/users/"),
                     api.get("/pipelines"),
+                    api.get("/crm/lead-field-settings"),
                 ]);
                 setUsers(usersData.users || []);
                 setPipelines(pipelinesData || []);
+                const configuredFields = Array.isArray(leadFieldsData?.fields)
+                    ? leadFieldsData.fields
+                        .filter((field) => field.visible !== false && field.active !== false)
+                        .map(toImportField)
+                    : [];
+                setLeadFields(configuredFields.length > 0 ? configuredFields : LEAD_FIELDS);
             } catch (err) {
                 toastError(err);
             } finally {
@@ -175,6 +189,11 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
 
         fetchData();
     }, [open, defaultPipelineId, defaultStageId]);
+
+    const importLeadFields = useMemo(
+        () => leadFields.filter((field) => field.id),
+        [leadFields]
+    );
 
     useEffect(() => {
         if (form.pipelineId && pipelines.length > 0) {
@@ -220,7 +239,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
         }
 
         if (selectedFields[newValue]) {
-            const matchedField = LEAD_FIELDS.find(f => f.id === newValue);
+            const matchedField = importLeadFields.find(f => f.id === newValue);
             toast.error(`O campo ${matchedField ? matchedField.label : ""} já foi mapeado para outra coluna.`);
             return;
         }
@@ -274,10 +293,11 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
             const headers = rows[0];
             columns.forEach((col, idx) => {
                 const headerStr = String(headers[idx] || "").toLowerCase().trim();
-                const fieldMatch = LEAD_FIELDS.find(f =>
+                const fieldMatch = importLeadFields.find(f =>
                     headerStr === f.id.toLowerCase() ||
                     headerStr === f.label.toLowerCase() ||
                     (f.id === "name" && headerStr === "nome") ||
+                    (f.id === "document" && (headerStr === "cnpj" || headerStr === "cpf" || headerStr === "cpf/cnpj" || headerStr === "cpf / cnpj")) ||
                     (f.id === "phone" && (headerStr === "numero" || headerStr === "telefone" || headerStr === "número"))
                 );
                 if (fieldMatch && !newSelectedFields[fieldMatch.id]) {
@@ -363,7 +383,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
     });
 
     const downloadTemplate = () => {
-        const headers = LEAD_FIELDS.map(f => f.label);
+        const headers = importLeadFields.map(f => f.label);
         const ws = utils.aoa_to_sheet([headers]);
         const wb = utils.book_new();
         utils.book_append_sheet(wb, ws, "Modelo Leads");
@@ -480,7 +500,7 @@ const ImportLeadsModal = ({ open, onClose, defaultPipelineId, defaultStageId, on
                                         style={{ minWidth: 120 }}
                                     >
                                         <MenuItem value="">Não importar</MenuItem>
-                                        {LEAD_FIELDS.map((field) => (
+                                        {importLeadFields.map((field) => (
                                             <MenuItem key={field.id} value={field.id}>{field.label}</MenuItem>
                                         ))}
                                     </Select>

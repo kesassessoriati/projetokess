@@ -95,22 +95,25 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const fields = Array.isArray(req.body?.fields) ? req.body.fields : [];
+  const standardFieldKeys = new Set(defaultLeadFields.map(field => field.fieldKey));
 
   await Promise.all(
     fields
       .filter(field => field?.fieldKey)
-      .map(field =>
-        CompanyLeadFieldSetting.upsert({
+      .map(field => {
+        const isStandardField = standardFieldKeys.has(field.fieldKey);
+
+        return CompanyLeadFieldSetting.upsert({
           companyId,
           fieldKey: field.fieldKey,
           label: field.label || field.fieldKey,
           fieldType: field.fieldType || "text",
           visible: field.visible !== false,
-          isCustom: Boolean(field.isCustom),
+          isCustom: !isStandardField && Boolean(field.isCustom),
           active: field.active !== false,
           sortOrder: Number(field.sortOrder) || 0
-        })
-      )
+        });
+      })
   );
 
   return index(req, res);
@@ -148,4 +151,25 @@ export const createCustom = async (req: Request, res: Response): Promise<Respons
   });
 
   return res.status(201).json(serializeField({ ...field.toJSON(), group: "Campos personalizados" }));
+};
+
+export const removeCustom = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+
+  const field = await CompanyLeadFieldSetting.findOne({
+    where: {
+      id,
+      companyId,
+      isCustom: true
+    }
+  });
+
+  if (!field) {
+    throw new AppError("Campo personalizado nao encontrado.", 404);
+  }
+
+  await field.destroy();
+
+  return res.status(200).json({ message: "Campo personalizado excluido." });
 };

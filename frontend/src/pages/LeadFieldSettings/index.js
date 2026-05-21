@@ -3,17 +3,24 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import DeleteIcon from "@material-ui/icons/Delete";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -42,7 +49,7 @@ const useStyles = makeStyles((theme) => ({
   },
   row: {
     display: "grid",
-    gridTemplateColumns: "70px 1fr 150px",
+    gridTemplateColumns: "70px 1fr 150px 44px",
     gap: theme.spacing(1),
     alignItems: "center",
     borderTop: "1px solid #eef2f7",
@@ -78,8 +85,10 @@ const LeadFieldSettings = () => {
   const classes = useStyles();
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
   const [customType, setCustomType] = useState("text");
+  const [fieldToDelete, setFieldToDelete] = useState(null);
 
   const loadFields = async () => {
     try {
@@ -136,6 +145,22 @@ const LeadFieldSettings = () => {
       loadFields();
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const handleDeleteCustom = async () => {
+    if (!fieldToDelete?.id) return;
+
+    try {
+      setDeleting(true);
+      await api.delete(`/crm/lead-field-settings/custom-fields/${fieldToDelete.id}`);
+      toast.success("Campo personalizado excluido.");
+      setFieldToDelete(null);
+      loadFields();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -206,12 +231,43 @@ const LeadFieldSettings = () => {
                       <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
                     ))}
                   </TextField>
+                  {field.isCustom ? (
+                    <Tooltip title="Excluir campo personalizado">
+                      <IconButton
+                        size="small"
+                        onClick={() => setFieldToDelete(field)}
+                        disabled={deleting}
+                        style={{ color: "#b91c1c" }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Box />
+                  )}
                 </div>
               ))}
             </Grid>
           ))}
         </Grid>
       </Paper>
+
+      <Dialog open={Boolean(fieldToDelete)} onClose={() => setFieldToDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Excluir campo personalizado</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir este campo personalizado? Ele deixara de aparecer no card do lead e na importacao.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFieldToDelete(null)} disabled={deleting}>
+            Cancelar
+          </Button>
+          <Button onClick={handleDeleteCustom} color="secondary" variant="contained" disabled={deleting}>
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

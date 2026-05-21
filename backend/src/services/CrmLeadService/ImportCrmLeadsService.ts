@@ -9,6 +9,9 @@ import PipelineStage from "../../models/PipelineStage";
 import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
 import EventBus from "../../libs/EventBus";
 import { getIO } from "../../libs/socket";
+import CompanyLeadFieldSetting from "../../models/CompanyLeadFieldSetting";
+import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
+import { defaultLeadFields } from "../../controllers/LeadFieldSettingsController";
 
 // Converte qualquer formato de data para Date:
 // - Objeto Date, ISO (yyyy-mm-dd), Brasileiro (dd/mm/yyyy)
@@ -33,6 +36,50 @@ const parseDate = (raw: any): Date | undefined => {
     // ISO ou outros formatos parseáveis
     const d = new Date(str);
     return isNaN(d.getTime()) ? undefined : d;
+};
+
+const normalizeImportedStatus = (raw: any): string | undefined => {
+    if (raw === null || raw === undefined || raw === "") return undefined;
+
+    const normalized = String(raw)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim()
+        .replace(/[\s-]+/g, "_");
+
+    const statusMap: Record<string, string> = {
+        new: "novo",
+        novo: "novo",
+        novo_lead: "novo",
+        contacted: "contactado",
+        contactado: "contactado",
+        qualified: "qualificado",
+        qualificado: "qualificado",
+        scheduled: "reuniao_agendada",
+        reuniao_agendada: "reuniao_agendada",
+        nao_qualificado: "nao_qualificado",
+        nao_qualificado_: "nao_qualificado",
+        unqualified: "nao_qualificado",
+        converted: "convertido",
+        convertido: "convertido",
+        lost: "perdido",
+        perdido: "perdido",
+        follow_up: "follow_up",
+        follow_up_enviado: "follow_up_enviado"
+    };
+
+    return statusMap[normalized];
+};
+
+const normalizeImportedBoolean = (raw: any): string => {
+    const normalized = String(raw || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+
+    return ["true", "1", "sim", "yes", "y", "s"].includes(normalized) ? "true" : "false";
 };
 
 interface Request {
@@ -175,6 +222,63 @@ const ensureImportedLeadInPipeline = async ({
     });
 };
 
+const getImportableLeadFields = async (companyId: number) => {
+    const saved = await CompanyLeadFieldSetting.findAll({
+        where: { companyId }
+    });
+    const savedByKey = new Map(saved.map(field => [field.fieldKey, field]));
+
+    const standardFieldKeys = new Set(
+        defaultLeadFields
+            .filter(field => {
+                const override = savedByKey.get(field.fieldKey);
+                return override ? override.visible !== false && override.active !== false : true;
+            })
+            .map(field => field.fieldKey)
+    );
+
+    const customFieldsByKey = new Map(
+        saved
+            .filter(field => field.isCustom && field.active !== false && field.visible !== false)
+            .map(field => [field.fieldKey, field])
+    );
+
+    return { standardFieldKeys, customFieldsByKey };
+};
+
+const syncImportedCustomFieldValues = async ({
+    companyId,
+    leadId,
+    customFields,
+    customFieldsByKey
+}: {
+    companyId: number;
+    leadId: number;
+    customFields: Record<string, any>;
+    customFieldsByKey: Map<string, CompanyLeadFieldSetting>;
+}) => {
+    await Promise.all(
+        Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
+            const field = customFieldsByKey.get(fieldKey);
+            if (!field) return;
+
+            const value =
+                rawValue === null || rawValue === undefined
+                    ? ""
+                    : field.fieldType === "boolean"
+                        ? normalizeImportedBoolean(rawValue)
+                        : String(rawValue);
+
+            await CrmLeadCustomFieldValue.upsert({
+                companyId,
+                leadId,
+                fieldId: field.id,
+                value
+            });
+        })
+    );
+};
+
 const ImportCrmLeadsService = async ({
     companyId,
     filePath,
@@ -199,6 +303,7 @@ const ImportCrmLeadsService = async ({
         }
         const sheetNameList = workbook.SheetNames;
         const useMapping = mapping && Object.keys(mapping).length > 0;
+        const { standardFieldKeys, customFieldsByKey } = await getImportableLeadFields(companyId);
 
         const xlData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], useMapping ? { header: 1 } : {});
 
@@ -237,9 +342,20 @@ const ImportCrmLeadsService = async ({
 
                 // Aplicar mapeamento
                 const leadRow: any = {};
+                const customFieldValues: Record<string, any> = {};
                 if (useMapping) {
                     for (const [colName, fieldKey] of Object.entries(mapping)) {
-                        leadRow[fieldKey] = rowOriginal[parseInt(colName, 10)];
+                        if (!fieldKey) continue;
+
+                        const rawValue = rowOriginal[parseInt(colName, 10)];
+                        if (customFieldsByKey.has(fieldKey)) {
+                            customFieldValues[fieldKey] = rawValue;
+                            continue;
+                        }
+
+                        if (standardFieldKeys.has(fieldKey)) {
+                            leadRow[fieldKey] = rawValue;
+                        }
                     }
                 } else {
                     Object.assign(leadRow, rowOriginal);
@@ -263,7 +379,7 @@ const ImportCrmLeadsService = async ({
                     notes += `\n[Tag Auto: ${autoTag}]`;
                 }
 
-                let rawCnpj = leadRow.cnpj || leadRow.CNPJ || leadRow.Cnpj;
+                let rawCnpj = leadRow.document || leadRow.cnpj || leadRow.CNPJ || leadRow.Cnpj;
                 let cleanCnpj: string | undefined = undefined;
 
                 if (rawCnpj) {
@@ -280,22 +396,33 @@ const ImportCrmLeadsService = async ({
                     tagsObjArray = splitTags.map(t => ({ name: t }));
                 }
 
+                const rowOwnerUserId = leadRow.ownerUserId ? Number(leadRow.ownerUserId) : ownerUserId;
+                const rowPipelineId = leadRow.pipelineId ? Number(leadRow.pipelineId) : pipelineId;
+                const rowStageId = leadRow.stageId ? Number(leadRow.stageId) : stageId;
+                const rowPurchaseValue = leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined;
+                const rowScore = leadRow.score != null && leadRow.score !== "" ? Number(leadRow.score) : undefined;
+                const rowStatus = normalizeImportedStatus(leadRow.status);
+
                 const lead = await CreateCrmLeadService({
                     companyId,
                     name: String(name),
                     phone: phone ? String(phone) : undefined,
                     email: email ? String(email) : undefined,
-                    ownerUserId,
-                    pipelineId,
-                    stageId,
+                    ownerUserId: rowOwnerUserId,
+                    pipelineId: rowPipelineId,
+                    stageId: rowStageId,
                     source: String(leadRow.source || leadRow.origem || source || ""),
                     campaign: String(leadRow.campaign || leadRow.campanha || ""),
                     notes,
                     temperature: leadRow.temperature || leadRow.temperatura || null,
+                    status: rowStatus,
+                    leadStatus: rowStatus,
+                    score: rowScore,
                     position: String(leadRow.position || leadRow.cargo || ""),
                     companyName: String(leadRow.companyName || leadRow.empresa || ""),
                     decisionMakerName: leadRow.decisionMakerName ? String(leadRow.decisionMakerName) : undefined,
                     decisionMakerPhone: leadRow.decisionMakerPhone ? String(leadRow.decisionMakerPhone) : undefined,
+                    document: cleanCnpj,
                     cnpj: cleanCnpj,
                     gmn: leadRow.gmn ? String(leadRow.gmn) : undefined,
                     website: leadRow.website ? String(leadRow.website) : undefined,
@@ -304,7 +431,8 @@ const ImportCrmLeadsService = async ({
                     product: leadRow.product ? String(leadRow.product) : undefined,
                     paymentType: leadRow.paymentType ? String(leadRow.paymentType) : undefined,
                     purchaseType: leadRow.purchaseType ? String(leadRow.purchaseType) : undefined,
-                    purchaseValue: leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined,
+                    purchaseValue: rowPurchaseValue,
+                    sessionid: leadRow.sessionid ? String(leadRow.sessionid) : undefined,
                     tags: tagsObjArray.length > 0 ? tagsObjArray : undefined,
                     address: leadRow.address || leadRow.endereco || undefined,
                     birthDate: parseDate(leadRow.birthDate || leadRow.dataNascimento),
@@ -316,10 +444,17 @@ const ImportCrmLeadsService = async ({
                 await ensureImportedLeadInPipeline({
                     lead,
                     companyId,
-                    pipelineId,
-                    stageId,
-                    ownerUserId,
-                    value: leadRow.purchaseValue != null && leadRow.purchaseValue !== "" ? Number(leadRow.purchaseValue) : undefined
+                    pipelineId: rowPipelineId,
+                    stageId: rowStageId,
+                    ownerUserId: rowOwnerUserId,
+                    value: rowPurchaseValue
+                });
+
+                await syncImportedCustomFieldValues({
+                    companyId,
+                    leadId: lead.id,
+                    customFields: customFieldValues,
+                    customFieldsByKey
                 });
 
                 imported++;

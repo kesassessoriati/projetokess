@@ -7,5 +7,6 @@ const leadFieldSettingsRoutes = Router();
 leadFieldSettingsRoutes.get("/crm/lead-field-settings", isAuth, LeadFieldSettingsController.index);
 leadFieldSettingsRoutes.put("/crm/lead-field-settings", isAuth, LeadFieldSettingsController.update);
 leadFieldSettingsRoutes.post("/crm/lead-field-settings/custom-fields", isAuth, LeadFieldSettingsController.createCustom);
+leadFieldSettingsRoutes.delete("/crm/lead-field-settings/custom-fields/:id", isAuth, LeadFieldSettingsController.removeCustom);
 
 export default leadFieldSettingsRoutes;
