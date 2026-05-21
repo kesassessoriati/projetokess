@@ -1444,6 +1444,23 @@ const PipelineBoard = () => {
         0,
         draggedOp,
       );
+
+      if (sourceStageId !== destStageId) {
+        const movedValue = Number(draggedOp.value || 0);
+        newBoard.stages[sourceStageIdx].opportunitiesCount = Math.max(
+          Number(newBoard.stages[sourceStageIdx].opportunitiesCount || 0) - 1,
+          0,
+        );
+        newBoard.stages[sourceStageIdx].totalValue = Math.max(
+          Number(newBoard.stages[sourceStageIdx].totalValue || 0) - movedValue,
+          0,
+        );
+        newBoard.stages[destStageIdx].opportunitiesCount =
+          Number(newBoard.stages[destStageIdx].opportunitiesCount || 0) + 1;
+        newBoard.stages[destStageIdx].totalValue =
+          Number(newBoard.stages[destStageIdx].totalValue || 0) + movedValue;
+      }
+
       setBoard(newBoard);
     }
 
@@ -1788,6 +1805,7 @@ const PipelineBoard = () => {
                   const stageColor = stage.color || "#1f9d55";
                   const textColor = "#fff";
                   const visibleCardsCount = (stage.opportunities || []).length;
+                  const totalCardsCount = Number(stage.opportunitiesCount ?? visibleCardsCount);
                   return (
                     <Draggable
                       key={stage.id}
@@ -1874,7 +1892,7 @@ const PipelineBoard = () => {
                                       }}
                                     >
                                       Total cards:{" "}
-                                      {visibleCardsCount}
+                                      {totalCardsCount}
                                     </span>
                                   </div>
                                   {stage.highRiskCount > 0 && (

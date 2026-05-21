@@ -1,4 +1,4 @@
-import { Op, fn, col, literal, QueryTypes } from "sequelize";
+import { Op, literal, QueryTypes } from "sequelize";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
@@ -276,9 +276,6 @@ const ListPipelineBoardService = async ({
     viewMode,
     searchKeyword
 }: Request): Promise<BoardResponse> => {
-    const effectiveValueSql =
-        'CASE WHEN COALESCE("Opportunity"."value", 0) = 0 THEN COALESCE("lead"."purchase_value", 0) ELSE COALESCE("Opportunity"."value", 0) END';
-
     const pipeline = await Pipeline.findOne({
         where: { id: pipelineId, companyId },
         include: [
@@ -314,36 +311,51 @@ const ListPipelineBoardService = async ({
 
     const scopedStatsWhere = applyBoardFilters({ ...scopedOpportunityWhere }, filter);
 
-    const stats = await Opportunity.findAll({
-        attributes: [
-            "stageId",
-            [fn("COUNT", col("Opportunity.id")), "count"],
-            [literal(`SUM(${effectiveValueSql})`), "totalValue"],
-            [literal(`SUM(COALESCE((${effectiveValueSql}) * "prediction"."predictedCloseProbability", 0))`), "forecastValue"],
-            [literal('COUNT(CASE WHEN "prediction"."riskLevel" = \'HIGH\' THEN 1 END)'), "highRiskCount"]
-        ],
+    const statsRows = await Opportunity.findAll({
+        attributes: ["id", "stageId", "value"],
         include: [
             {
                 model: CrmLead,
                 as: "lead",
-                attributes: [],
+                attributes: ["id", "purchaseValue"],
                 where: { companyId },
                 required: false
             },
-            buildPredictionInclude(filter)
+            buildPredictionInclude(filter, ["predictedCloseProbability", "riskLevel"])
         ],
-        where: scopedStatsWhere,
-        group: ["stageId"],
-        raw: true
-    }) as any[];
+        where: scopedStatsWhere
+    });
 
-    const statsMap = stats.reduce((acc, curr) => {
-        acc[curr.stageId] = {
-            count: parseInt(curr.count, 10),
-            totalValue: parseFloat(curr.totalValue || "0"),
-            forecastValue: parseFloat(curr.forecastValue || "0"),
-            highRiskCount: parseInt(curr.highRiskCount || "0", 10)
-        };
+    const uniqueStatsRows = Array.from(
+        new Map(statsRows.map(op => [op.id, op])).values()
+    );
+
+    const statsMap = uniqueStatsRows.reduce((acc, op) => {
+        const stageKey = op.stageId;
+        const fallbackLeadValue = op.lead?.purchaseValue != null ? Number(op.lead.purchaseValue) : 0;
+        const opportunityValue = Number(op.value || 0);
+        const effectiveValue =
+            opportunityValue === 0 && fallbackLeadValue > 0
+                ? fallbackLeadValue
+                : opportunityValue;
+        const probability = Number(op.prediction?.predictedCloseProbability || 0);
+
+        if (!acc[stageKey]) {
+            acc[stageKey] = {
+                count: 0,
+                totalValue: 0,
+                forecastValue: 0,
+                highRiskCount: 0
+            };
+        }
+
+        acc[stageKey].count += 1;
+        acc[stageKey].totalValue += effectiveValue;
+        acc[stageKey].forecastValue += effectiveValue * probability;
+        if (op.prediction?.riskLevel === "HIGH") {
+            acc[stageKey].highRiskCount += 1;
+        }
+
         return acc;
     }, {} as any);
 
