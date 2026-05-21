@@ -17,9 +17,16 @@ type ReminderReplyAction = "confirm" | "reschedule" | "cancel";
 
 const STAGE_ALIASES: Record<JourneyStageKey, string[]> = {
   appointment: ["agendamento", "agendado", "agenda", "consulta agendada", "reuniao agendada"],
-  confirmed: ["agendamento confirmado", "confirmado", "confirmacao", "presenca confirmada"],
+  confirmed: [
+    "agendamento confirmado",
+    "confirmado",
+    "confirmacao",
+    "presenca confirmada",
+    "confirmou presenca",
+    "paciente confirmou"
+  ],
   reschedule: ["reagendamento", "remarcar", "remarcacao", "remarcando"],
-  cancelled: ["cancelado", "cancelamento", "desmarcado"]
+  cancelled: ["cancelado", "cancelamento", "cencelamento", "desmarcado"]
 };
 
 const normalizePhone = (value?: string | null): string =>
