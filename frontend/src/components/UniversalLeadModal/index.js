@@ -213,6 +213,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [editingNote, setEditingNote] = useState(null);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [activityToDelete, setActivityToDelete] = useState(null);
+    const [removeFromFunnelConfirmOpen, setRemoveFromFunnelConfirmOpen] = useState(false);
+    const [removingFromFunnel, setRemovingFromFunnel] = useState(false);
     const syncLeadModalStateRef = useRef(syncLeadModalState);
     const leadAppointmentPhone = useMemo(() => {
         const rawPhone =
@@ -232,6 +234,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             setNoteText("");
             setActivityToDelete(null);
             setConfirmDeleteOpen(false);
+            setRemoveFromFunnelConfirmOpen(false);
+            setRemovingFromFunnel(false);
             setShowRecordings(false);
             setShowMeetings(false);
         }
@@ -478,6 +482,23 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
         }
     };
 
+    const handleRemoveLeadFromFunnel = async () => {
+        if (!op?.id) return;
+
+        try {
+            setRemovingFromFunnel(true);
+            await api.delete(`/opportunities/${op.id}`);
+            toast.success("Lead removido do funil.");
+            setRemoveFromFunnelConfirmOpen(false);
+            if (onSuccess) onSuccess();
+            onClose();
+        } catch (err) {
+            toast.error("Erro ao remover lead do funil.");
+        } finally {
+            setRemovingFromFunnel(false);
+        }
+    };
+
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" PaperProps={{ className: classes.dialogPaper }}>
             <IconButton onClick={onClose} className={classes.closeButton}>
@@ -554,6 +575,22 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                         }}
                                     >
                                         Marcar como PERDIDO
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        disabled={removingFromFunnel}
+                                        style={{
+                                            backgroundColor: removingFromFunnel ? "#fcd34d" : "#f59e0b",
+                                            color: "#111827",
+                                            fontWeight: "bold"
+                                        }}
+                                        onClick={() => setRemoveFromFunnelConfirmOpen(true)}
+                                    >
+                                        {removingFromFunnel ? (
+                                            <CircularProgress size={18} style={{ color: "#111827" }} />
+                                        ) : (
+                                            "Remover lead do funil"
+                                        )}
                                     </Button>
                                     <Typography variant="caption" color="textSecondary" style={{ textAlign: "center", marginTop: 4 }}>
                                         Isso fará com que o card saia do Kanban aberto.
@@ -1000,6 +1037,15 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                 onConfirm={handleDeleteActivity}
             >
                 Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                title="Remover lead do funil"
+                open={removeFromFunnelConfirmOpen}
+                onClose={() => setRemoveFromFunnelConfirmOpen(false)}
+                onConfirm={handleRemoveLeadFromFunnel}
+            >
+                Tem certeza que deseja remover este lead do funil? O lead continuara cadastrado e o responsavel atual sera mantido.
             </ConfirmationModal>
 
         </Dialog>

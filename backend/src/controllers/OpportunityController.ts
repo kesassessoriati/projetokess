@@ -27,6 +27,35 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
         throw new AppError("Oportunidade não encontrada.", 404);
     }
 
+    const CrmLead = (await import("../models/CrmLead")).default;
+    let updatedLead = null;
+
+    if (opportunity.leadId) {
+        const lead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
+
+        if (lead) {
+            const leadUpdate: Record<string, any> = {
+                pipelineId: null,
+                stageId: null
+            };
+
+            const currentStage = opportunity.stageId
+                ? await PipelineStage.findOne({ where: { id: opportunity.stageId, companyId } })
+                : null;
+
+            if (
+                currentStage?.linkedStatus &&
+                (lead.status === currentStage.linkedStatus || lead.leadStatus === currentStage.linkedStatus)
+            ) {
+                leadUpdate.status = "novo";
+                leadUpdate.leadStatus = "novo";
+            }
+
+            await lead.update(leadUpdate);
+            updatedLead = lead;
+        }
+    }
+
     await opportunity.destroy();
 
     const io = getIO();
@@ -34,6 +63,13 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
         action: "delete",
         opportunityId: Number(id)
     });
+
+    if (updatedLead) {
+        io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
+            action: "update",
+            lead: updatedLead
+        });
+    }
 
     return res.status(200).json({ message: "Oportunidade removida do funil." });
 };
