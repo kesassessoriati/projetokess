@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import AiExternalAppointment from "../../models/AiExternalAppointment";
 import AiExternalReminder from "../../models/AiExternalReminder";
 import Appointment from "../../models/Appointment";
+import UserSchedule from "../../models/UserSchedule";
 import CreateAppointmentService from "../AppointmentServices/CreateAppointmentService";
 import DeleteAppointmentService from "../AppointmentServices/DeleteAppointmentService";
 import GetOrCreateExternalAgentConfigService from "../AiExternalAgentServices/GetOrCreateExternalAgentConfigService";
@@ -63,6 +64,60 @@ const findExistingAppointment = async (
   }
 
   return Appointment.findOne({ where });
+};
+
+const ensureOwnedActiveSchedule = async (
+  aiAppointment: AiExternalAppointment,
+  companyId: number
+): Promise<boolean> => {
+  const scheduleId = aiAppointment.scheduleId;
+  const metadata = aiAppointment.metadata || {};
+
+  const blockSync = async (reason: string) => {
+    const previousBlock = (metadata as any).syncBlocked || {};
+    const sameBlock =
+      previousBlock.reason === reason &&
+      Number(previousBlock.scheduleId || 0) === Number(scheduleId || 0);
+
+    if (!sameBlock) {
+      await aiAppointment.update({
+        metadata: {
+          ...metadata,
+          syncBlocked: {
+            reason,
+            scheduleId: scheduleId || null,
+            blockedAt: new Date().toISOString()
+          }
+        }
+      });
+
+      logger.warn(
+        `[AI External Appointments] Sincronizacao bloqueada para agendamento IA ${aiAppointment.id}: ${reason}`
+      );
+    }
+  };
+
+  if (!scheduleId) {
+    await blockSync("missing_schedule_id");
+    return false;
+  }
+
+  const schedule = await UserSchedule.findOne({
+    where: { id: scheduleId, companyId },
+    attributes: ["id", "active"]
+  });
+
+  if (!schedule) {
+    await blockSync("schedule_not_found_or_cross_tenant");
+    return false;
+  }
+
+  if (!schedule.active) {
+    await blockSync("inactive_schedule");
+    return false;
+  }
+
+  return true;
 };
 
 const ensureCrmAppointment = async ({
@@ -229,6 +284,9 @@ const SyncAiExternalAppointmentsService = async ({
     const keeper = sorted[0];
 
     try {
+      const hasValidSchedule = await ensureOwnedActiveSchedule(keeper, companyId);
+      if (!hasValidSchedule) continue;
+
       const syncResult = await ensureCrmAppointment({ aiAppointment: keeper, companyId, userId });
       await keeper.reload();
       const hasAppointmentJourney = Array.isArray((keeper.metadata || {}).journeyEvents) &&
