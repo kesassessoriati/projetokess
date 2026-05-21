@@ -143,9 +143,9 @@ const syncScheduleEvents = async (
   let newSyncToken: string | null | undefined = null;
 
   try {
-    const response = await calendar.events.list(listParams);
-    events = response.data.items || [];
-    newSyncToken = response.data.nextSyncToken;
+    const response = await listGoogleCalendarEvents(calendar, listParams);
+    events = response.events;
+    newSyncToken = response.nextSyncToken;
   } catch (err: any) {
     if (err?.code === 410 || err?.status === 410) {
       // syncToken expirado - fazer full sync
@@ -161,9 +161,9 @@ const syncScheduleEvents = async (
         orderBy: "startTime"
       };
 
-      const response = await calendar.events.list(fallbackParams);
-      events = response.data.items || [];
-      newSyncToken = response.data.nextSyncToken;
+      const response = await listGoogleCalendarEvents(calendar, fallbackParams);
+      events = response.events;
+      newSyncToken = response.nextSyncToken;
     } else {
       throw err;
     }
@@ -205,6 +205,14 @@ const processGoogleEvent = async (
   const durationMinutes = Math.max(1, Math.round((endDatetime.getTime() - startDatetime.getTime()) / 60000));
   const title = event.summary?.trim() || "(Sem título)";
   const description = event.description || null;
+
+  if (isPersonalCalendarEvent(event, title, description)) {
+    logger.info(
+      `[Calendar Sync] Evento pessoal ignorado - agenda ${schedule.id}, evento ${event.id}, titulo "${title}"`
+    );
+    result.skipped++;
+    return;
+  }
 
   // Extrair dados do Google Meet e organizador
   const meetLink =
@@ -274,6 +282,57 @@ const processGoogleEvent = async (
       result.skipped++;
     }
   }
+};
+
+const listGoogleCalendarEvents = async (
+  calendar: any,
+  params: any
+): Promise<{ events: any[]; nextSyncToken?: string | null }> => {
+  const events: any[] = [];
+  let pageToken: string | undefined;
+  let nextSyncToken: string | null | undefined;
+
+  do {
+    const response = await calendar.events.list({
+      ...params,
+      pageToken
+    });
+
+    events.push(...(response.data.items || []));
+    pageToken = response.data.nextPageToken || undefined;
+    nextSyncToken = response.data.nextSyncToken;
+  } while (pageToken);
+
+  return { events, nextSyncToken };
+};
+
+const normalizeText = (value?: string | null): string =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const personalCalendarPatterns = [
+  "parabens",
+  "aniversario",
+  "feliz aniversario",
+  "birthday",
+  "happy birthday",
+  "cumpleanos"
+];
+
+const isPersonalCalendarEvent = (
+  event: any,
+  title: string,
+  description?: string | null
+): boolean => {
+  if (event.eventType === "birthday" || event.birthdayProperties) {
+    return true;
+  }
+
+  const searchableText = `${normalizeText(title)} ${normalizeText(description)}`;
+
+  return personalCalendarPatterns.some(pattern => searchableText.includes(pattern));
 };
 
 export default SyncGoogleCalendarService;
