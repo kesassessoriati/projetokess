@@ -24,6 +24,7 @@ import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTi
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
+import { verifyMessage } from "../services/WbotServices/wbotMessageListener";
 import { getWbot } from "../libs/wbot";
 import {
   sendButtonMessage,
@@ -44,6 +45,14 @@ import { ImportContacts } from "../services/ContactListService/ImportContacts";
 import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsService";
 
 const quickSendMutex = new Mutex();
+
+const isTrustedDirectRemoteJid = (remoteJid?: string | null): boolean =>
+  Boolean(
+    remoteJid &&
+      remoteJid.includes("@") &&
+      remoteJid.endsWith("@s.whatsapp.net") &&
+      !remoteJid.includes("@lid")
+  );
 
 // â”€â”€â”€ Tipagens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface QuickSendBody {
@@ -503,6 +512,7 @@ export const quickSend = async (
         name: createContactName,
         number: validatedNumber,
         remoteJid,
+        remoteJidValidated: whatsappValidated,
         companyId,
         isGroup: false,
         channel: "whatsapp",
@@ -510,6 +520,21 @@ export const quickSend = async (
         acceptAudioMessage: acceptAudio,
         active: true
       });
+    }
+
+    if (!whatsappValidated && isTrustedDirectRemoteJid(contact?.remoteJid)) {
+      logger.info(
+        {
+          companyId,
+          contactId: contact.id,
+          normalized,
+          attemptedRemoteJid: remoteJid,
+          preservedRemoteJid: contact.remoteJid
+        },
+        "QuickSend: preserving existing remoteJid because onWhatsApp did not confirm new variant"
+      );
+      remoteJid = contact.remoteJid;
+      validatedNumber = remoteJid.split("@")[0] || validatedNumber;
     }
 
     // â”€â”€â”€ 4. Buscar ticket aberto ou criar novo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -560,6 +585,7 @@ export const quickSend = async (
           validatedNumber,
         number: validatedNumber,
         remoteJid,
+        remoteJidValidated: whatsappValidated,
         companyId,
         isGroup: false,
         channel: "whatsapp",
@@ -638,9 +664,6 @@ export const quickSend = async (
         { ticketId: ticket.id, hasButtons: !!parsedButtons },
         "QuickSend: Sending message(s)"
       );
-      const {
-        verifyMessage
-      } = require("../services/WbotServices/wbotMessageListener");
       const templateContact = {
         name: contact.name,
         email: contact.email,
@@ -824,9 +847,6 @@ export const quickSend = async (
           quotedMsg: null
         });
         if (sentMsg && sentMsg.key) {
-          const {
-            verifyMessage
-          } = require("../../services/WbotServices/wbotMessageListener");
           await verifyMessage(
             sentMsg,
             ticket,

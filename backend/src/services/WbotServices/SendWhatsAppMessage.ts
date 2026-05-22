@@ -17,6 +17,14 @@ import { ProviderFactory } from "../whatsapp/providers/ProviderFactory";
 import logger from "../../utils/logger";
 import EnsureWhatsAppContactNameService from "../ContactServices/EnsureWhatsAppContactNameService";
 
+const isTrustedDirectRemoteJid = (remoteJid?: string | null): boolean =>
+  Boolean(
+    remoteJid &&
+      remoteJid.includes("@") &&
+      remoteJid.endsWith("@s.whatsapp.net") &&
+      !remoteJid.includes("@lid")
+  );
+
 interface Request {
   body: string;
   ticket: Ticket;
@@ -48,22 +56,33 @@ const SendWhatsAppMessage = async ({
 
   let number: string;
 
-  if (
-    contactNumber.remoteJid &&
-    contactNumber.remoteJid !== "" &&
-    contactNumber.remoteJid.includes("@")
-  ) {
+  const storedRemoteJid = stripCompanionDeviceSuffix(contactNumber.remoteJid);
+
+  if (ticket.isGroup && storedRemoteJid && storedRemoteJid.includes("@")) {
     number =
-      sanitizeRemoteJid(
-        stripCompanionDeviceSuffix(contactNumber.remoteJid),
-        contactNumber.number,
-        ticket.isGroup
-      ) || stripCompanionDeviceSuffix(contactNumber.remoteJid);
+      sanitizeRemoteJid(storedRemoteJid, contactNumber.number, true) ||
+      storedRemoteJid;
+  } else if (isTrustedDirectRemoteJid(storedRemoteJid)) {
+    number = storedRemoteJid;
+  } else if (storedRemoteJid && storedRemoteJid.includes("@")) {
+    number =
+      sanitizeRemoteJid(storedRemoteJid, contactNumber.number, ticket.isGroup) ||
+      storedRemoteJid;
   } else {
     number = `${contactNumber.number}@${
       ticket.isGroup ? "g.us" : "s.whatsapp.net"
     }`;
   }
+
+  logger.info({
+    companyId: ticket.companyId,
+    ticketId: ticket.id,
+    whatsappId: ticket.whatsappId,
+    contactId: contactNumber?.id,
+    contactNumber: contactNumber?.number,
+    contactRemoteJid: contactNumber?.remoteJid,
+    resolvedJid: number
+  }, "[SendWhatsAppMessage] resolved whatsapp jid");
 
   if (quotedMsg) {
     const chatMessages = await Message.findOne({
@@ -102,7 +121,7 @@ const SendWhatsAppMessage = async ({
     const numberContact = String(vCard?.number || "").replace(/\D/g, "");
 
     if (!formattedName || !numberContact) {
-      logger.error("[SendWhatsAppMessage] invalid vCard payload", { vCard });
+      logger.error({ vCard }, "[SendWhatsAppMessage] invalid vCard payload");
       throw new AppError("ERR_SENDING_WAPP_MSG");
     }
 
@@ -129,10 +148,27 @@ const SendWhatsAppMessage = async ({
         lastMessage: `Contato: ${formattedName}`,
         imported: null
       });
+      logger.info({
+        companyId: ticket.companyId,
+        ticketId: ticket.id,
+        whatsappId: ticket.whatsappId,
+        contactId: contactNumber?.id,
+        resolvedJid: number,
+        wid: sentMessage?.key?.id,
+        initialAck: sentMessage?.status,
+        initialStatus: sentMessage?.status
+      }, "[SendWhatsAppMessage] vCard provider response");
       return sentMessage;
     } catch (err) {
       Sentry.captureException(err);
-      logger.error(`[SendWhatsAppMessage] vCard send error: ${err?.message}`);
+      logger.error({
+        companyId: ticket.companyId,
+        ticketId: ticket.id,
+        whatsappId: ticket.whatsappId,
+        contactId: contactNumber?.id,
+        resolvedJid: number,
+        error: err?.message
+      }, "[SendWhatsAppMessage] vCard send error");
       throw new AppError("ERR_SENDING_WAPP_MSG");
     }
   }
@@ -158,9 +194,30 @@ const SendWhatsAppMessage = async ({
       lastMessage: formatBody(body, ticket),
       imported: null
     });
+    logger.info({
+      companyId: ticket.companyId,
+      ticketId: ticket.id,
+      whatsappId: ticket.whatsappId,
+      contactId: contactNumber?.id,
+      contactNumber: contactNumber?.number,
+      contactRemoteJid: contactNumber?.remoteJid,
+      resolvedJid: number,
+      wid: sentMessage?.key?.id,
+      initialAck: sentMessage?.status,
+      initialStatus: sentMessage?.status
+    }, "[SendWhatsAppMessage] text provider response");
     return sentMessage;
   } catch (err) {
-    logger.error(`[SendWhatsAppMessage] company=${ticket.companyId} error: ${err?.message}`);
+    logger.error({
+      companyId: ticket.companyId,
+      ticketId: ticket.id,
+      whatsappId: ticket.whatsappId,
+      contactId: contactNumber?.id,
+      contactNumber: contactNumber?.number,
+      contactRemoteJid: contactNumber?.remoteJid,
+      resolvedJid: number,
+      error: err?.message
+    }, "[SendWhatsAppMessage] provider send error");
     Sentry.captureException(err);
     throw new AppError("ERR_SENDING_WAPP_MSG");
   }

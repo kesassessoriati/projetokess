@@ -78,6 +78,7 @@ interface Request {
   extraInfo?: ExtraInfo[];
   remoteJid?: string;
   remoteJidAlt?: string;
+  remoteJidValidated?: boolean;
   whatsappId?: number;
   wbot?: any;
   lid?: string;
@@ -150,6 +151,7 @@ const CreateOrUpdateContactService = async ({
   extraInfo = [],
   remoteJid = "",
   remoteJidAlt,
+  remoteJidValidated = false,
   whatsappId,
   wbot,
   lid,
@@ -449,9 +451,39 @@ const CreateOrUpdateContactService = async ({
       }
 
       // Prioriza remoteJidAlt (número real) para o remoteJid salvo
-      if (sanitizedRemoteJid && sanitizedRemoteJid !== contact.remoteJid && !sanitizedRemoteJid.includes("@lid")) {
+      const sanitizedRemoteJidNumber = sanitizedRemoteJid.split("@")[0];
+      const contactRemoteJidNumber = (contact.remoteJid || "").split("@")[0];
+      const remoteJidIsNinthDigitVariant =
+        sanitizedRemoteJid &&
+        contact.remoteJid &&
+        sanitizedRemoteJid !== contact.remoteJid &&
+        !sanitizedRemoteJid.includes("@lid") &&
+        !contact.remoteJid.includes("@lid") &&
+        (getBrazilianPhoneVariants(sanitizedRemoteJidNumber).includes(
+          contactRemoteJidNumber
+        ) ||
+          getBrazilianPhoneVariants(contactRemoteJidNumber).includes(
+            sanitizedRemoteJidNumber
+          ));
+
+      if (
+        sanitizedRemoteJid &&
+        sanitizedRemoteJid !== contact.remoteJid &&
+        !sanitizedRemoteJid.includes("@lid") &&
+        (!remoteJidIsNinthDigitVariant || remoteJidValidated)
+      ) {
         contact.remoteJid = sanitizedRemoteJid;
         logger.info(`Updated remoteJid to: ${sanitizedRemoteJid}`);
+      } else if (remoteJidIsNinthDigitVariant && !remoteJidValidated) {
+        logger.info(
+          {
+            companyId,
+            contactId: contact.id,
+            currentRemoteJid: contact.remoteJid,
+            candidateRemoteJid: sanitizedRemoteJid
+          },
+          "Preserved existing remoteJid because new Brazilian variant was not provider validated"
+        );
       }
 
       // Salva o LID original para referência futura
