@@ -126,6 +126,11 @@ import TimerTask from "../models/TimerTask";
 import TimerSession from "../models/TimerSession";
 import SmtpSetting from "../models/SmtpSetting";
 import SipSetting from "../models/SipSetting";
+import SipDid from "../models/SipDid";
+import SipExtension from "../models/SipExtension";
+import SipDidRoute from "../models/SipDidRoute";
+import SipChannelBinding from "../models/SipChannelBinding";
+import SipCallLog from "../models/SipCallLog";
 import WhatsappWarmup from "../models/WhatsappWarmup";
 import WhatsappWarmupLog from "../models/WhatsappWarmupLog";
 import WhatsappWarmupSession from "../models/WhatsappWarmupSession";
@@ -360,6 +365,11 @@ const models = [
   LeadAttachment,
   SmtpSetting,
   SipSetting,
+  SipDid,
+  SipExtension,
+  SipDidRoute,
+  SipChannelBinding,
+  SipCallLog,
   TimerTask,
   TimerSession,
   WhatsappWarmup,

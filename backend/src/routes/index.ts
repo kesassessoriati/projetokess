@@ -152,6 +152,12 @@ import globalAISettingsRoutes from "./globalAISettingsRoutes";
 import workspacePersonalizationRoutes from "./workspacePersonalizationRoutes";
 import leadFieldSettingsRoutes from "./leadFieldSettingsRoutes";
 import internalMessageSyncRoutes from "./internalMessageSyncRoutes";
+import sipDidRoutes from "./sipDidRoutes";
+import sipExtensionRoutes from "./sipExtensionRoutes";
+import sipDidRouteRoutes from "./sipDidRouteRoutes";
+import sipChannelBindingRoutes from "./sipChannelBindingRoutes";
+import sipCallLogRoutes from "./sipCallLogRoutes";
+import sipAdvancedRoutes from "./sipAdvancedRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -308,6 +314,12 @@ routes.use(migrationRoutes);
 routes.use(smtpSettingRoutes);
 routes.use(sipSettingRoutes);
 routes.use(callSequenceRoutes);
+routes.use(sipDidRoutes);
+routes.use(sipExtensionRoutes);
+routes.use(sipDidRouteRoutes);
+routes.use(sipChannelBindingRoutes);
+routes.use(sipCallLogRoutes);
+routes.use(sipAdvancedRoutes);
 
 import timerRoutes from "./timerRoutes";
 routes.use(timerRoutes);
