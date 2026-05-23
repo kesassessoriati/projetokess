@@ -105,11 +105,19 @@ const EnqueueInternalMessageSyncService = async ({
       return;
     }
 
-    await BullQueues.add("internalMessageSyncQueue", {
-      eventId: event.id,
-      peerId: resolved.peer.id,
-      payload
-    });
+    try {
+      await BullQueues.add("internalMessageSyncQueue", {
+        eventId: event.id,
+        peerId: resolved.peer.id,
+        payload
+      });
+    } catch (queueError) {
+      await event.update({
+        status: "failed",
+        lastError: queueError?.message || "queue enqueue failed"
+      });
+      throw queueError;
+    }
 
     logger.info(
       {

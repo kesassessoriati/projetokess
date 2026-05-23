@@ -17,6 +17,28 @@ import WebhookService from "./services/PipelineServices/WebhookService";
 import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 import InitPipelineTemplatesService from "./services/PipelineServices/InitPipelineTemplatesService";
 
+const isEnabled = (value?: string): boolean =>
+  ["true", "1", "yes", "on", "enabled"].includes(
+    String(value || "").toLowerCase()
+  );
+
+const hasInternalMessageSyncRedis = (): boolean =>
+  Boolean(process.env.INTERNAL_MESSAGE_SYNC_REDIS_URI || process.env.REDIS_URI);
+
+const startBullQueueProcessors = (): void => {
+  if (process.env.REDIS_URI_ACK && process.env.REDIS_URI_ACK !== "") {
+    BullQueue.process();
+    return;
+  }
+
+  if (
+    isEnabled(process.env.INTERNAL_MESSAGE_SYNC_ENABLED) &&
+    hasInternalMessageSyncRedis()
+  ) {
+    BullQueue.process(["internalMessageSyncQueue"]);
+  }
+};
+
 if (process.env.CERTIFICADOS == "true") {
 
   const httpsOptions = {
@@ -40,9 +62,7 @@ if (process.env.CERTIFICADOS == "true") {
       await startQueueProcess();
     });
 
-    if (process.env.REDIS_URI_ACK && process.env.REDIS_URI_ACK !== '') {
-      BullQueue.process();
-    }
+    startBullQueueProcessors();
 
     logger.info(`Server started on port: ${process.env.PORT} with HTTPS`);
 
@@ -90,9 +110,7 @@ if (process.env.CERTIFICADOS == "true") {
       await startQueueProcess();
     });
 
-    if (process.env.REDIS_URI_ACK && process.env.REDIS_URI_ACK !== '') {
-      BullQueue.process();
-    }
+    startBullQueueProcessors();
 
     logger.info(`Server started on port: ${process.env.PORT}`);
 
