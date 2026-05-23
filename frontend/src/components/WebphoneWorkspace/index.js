@@ -579,7 +579,11 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
     toggleMute,
     recentCalls,
     historyLoading,
-    loadHistory,
+    currentExtension,
+    availableDids,
+    selectedDidInfo,
+    currentSipCallLogId,
+    loadUserExtension,
     activeTab,
     setActiveTab,
     activeSequence,
@@ -1074,6 +1078,76 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
                       : "Aguardando configuração"}
               </Typography>
             </Box>
+
+            {currentExtension && (
+              <Box display="flex" alignItems="center" gridGap={6} mb={0.5}>
+                <Chip
+                  label={`Ramal: ${currentExtension.extension || currentExtension.authUser || ""}`}
+                  size="small"
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.65rem",
+                    backgroundColor: "#e0f2fe",
+                    color: "#075985",
+                  }}
+                />
+                {currentExtension.displayName && (
+                  <Typography style={{ fontSize: "0.62rem", color: "#6b7280" }}>
+                    {currentExtension.displayName}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {!currentExtension && status !== "disabled" && status !== "disconnected" && (
+              <Typography style={{ fontSize: "0.62rem", color: "#9ca3af", marginBottom: 4 }}>
+                Nenhum ramal ativo vinculado ao seu usuário.
+              </Typography>
+            )}
+
+            {selectedDidInfo && (
+              <Box
+                display="flex"
+                alignItems="center"
+                gridGap={6}
+                mb={0.5}
+                p={0.5}
+                style={{
+                  borderRadius: 8,
+                  backgroundColor: selectedDidInfo.fallbackUsed ? "#fffbeb" : "#f0fdf4",
+                }}
+              >
+                <Typography style={{ fontSize: "0.62rem", fontWeight: 700, color: "#374151" }}>
+                  DID: {selectedDidInfo.didNumber}
+                </Typography>
+                {selectedDidInfo.areaCode && (
+                  <Chip
+                    label={`DDD ${selectedDidInfo.areaCode}`}
+                    size="small"
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "0.58rem",
+                      height: 18,
+                      backgroundColor: "#e0f2fe",
+                      color: "#075985",
+                    }}
+                  />
+                )}
+                <Tooltip title={selectedDidInfo.selectionReason || ""}>
+                  <Typography
+                    style={{
+                      fontSize: "0.55rem",
+                      color: selectedDidInfo.fallbackUsed ? "#b45309" : "#16a34a",
+                      flex: 1,
+                      textAlign: "right",
+                    }}
+                    noWrap
+                  >
+                    {selectedDidInfo.fallbackUsed ? "Fallback" : "Local"}
+                  </Typography>
+                </Tooltip>
+              </Box>
+            )}
 
             {didOptions.length > 1 && (
               <FormControl fullWidth variant="outlined" size="small">

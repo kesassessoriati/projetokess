@@ -15,6 +15,46 @@ import { usePlanPermissions } from "./PlanPermissionsContext";
 
 const WebphoneContext = createContext();
 
+const resolveOutboundDid = async (payload) => {
+  try {
+    const { data } = await api.post("/sip/resolve-outbound-did", payload);
+    return data;
+  } catch (error) {
+    console.warn("[Webphone] resolveOutboundDid failed", error);
+    return null;
+  }
+};
+
+const createSipCallLog = async (payload) => {
+  try {
+    const { data } = await api.post("/sip-call-logs", payload);
+    return data;
+  } catch (error) {
+    console.warn("[Webphone] createSipCallLog failed", error);
+    return null;
+  }
+};
+
+const updateSipCallLogStatus = async (id, payload) => {
+  try {
+    const { data } = await api.put(`/sip-call-logs/${id}/status`, payload);
+    return data;
+  } catch (error) {
+    console.warn("[Webphone] updateSipCallLogStatus failed", error);
+    return null;
+  }
+};
+
+const loadUserExtensionsFromApi = async () => {
+  try {
+    const { data } = await api.get("/sip-extensions");
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.warn("[Webphone] loadUserExtensions failed", error);
+    return [];
+  }
+};
+
 const normalizeBrazilianNumber = (value = "") => {
   let number = String(value || "").replace(/\D/g, "");
 
@@ -153,6 +193,10 @@ export const WebphoneProvider = ({ children }) => {
   const [recordingState, setRecordingState] = useState("idle");
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [selectedDid, setSelectedDid] = useState("");
+  const [currentExtension, setCurrentExtension] = useState(null);
+  const [availableDids, setAvailableDids] = useState([]);
+  const [selectedDidInfo, setSelectedDidInfo] = useState(null);
+  const [currentSipCallLogId, setCurrentSipCallLogId] = useState(null);
 
   const uaRef = useRef(null);
   const sessionRef = useRef(null);
@@ -175,6 +219,7 @@ export const WebphoneProvider = ({ children }) => {
   const startRecordingRef = useRef(null);
   const tonePlayerRef = useRef(null);
   const remoteAudioRef = useRef(null);
+  const currentSipCallLogIdRef = useRef(null);
 
   useEffect(() => {
     const audio = document.createElement("audio");
@@ -266,8 +311,11 @@ export const WebphoneProvider = ({ children }) => {
     setMuted(false);
     setCallDuration(0);
     setActiveCallRecord(null);
+    setSelectedDidInfo(null);
+    setCurrentSipCallLogId(null);
     sessionRef.current = null;
     activeCallRecordIdRef.current = null;
+    currentSipCallLogIdRef.current = null;
     callStartedAtRef.current = null;
     callAnsweredRef.current = false;
   }, [releaseCallMediaStream]);
@@ -871,13 +919,33 @@ export const WebphoneProvider = ({ children }) => {
       }
       callMediaStreamRef.current = mediaStream;
 
+      // Resolve DID via call center SIP (se disponível)
+      let resolvedDidInfo = null;
+      let effectiveFromNumber = selectedFromNumber;
+      try {
+        const didResult = await resolveOutboundDid({
+          userId: Number(user?.id),
+          leadPhone: sanitizedNumber,
+          queueId: callMetadata?.queueId || options.queueId || null,
+          channelId: callMetadata?.whatsappId || options.channelId || null
+        });
+        if (didResult?.didId) {
+          resolvedDidInfo = didResult;
+          effectiveFromNumber = didResult.didNumber || selectedFromNumber;
+        }
+      } catch (_err) {
+        // Fallback: mantém fluxo antigo
+      }
+      setSelectedDidInfo(resolvedDidInfo);
+
       try {
         const callRecord = await createCallRecord(sanitizedNumber, callMetadata || {}, {
           ...options,
-          fromNumber: selectedFromNumber,
+          fromNumber: effectiveFromNumber,
           metadata: {
             ...(options.metadata || {}),
             selectedDid: selectedDidConfig || null,
+            resolvedDid: resolvedDidInfo || null,
           },
         });
 
@@ -895,6 +963,34 @@ export const WebphoneProvider = ({ children }) => {
           });
         }
 
+        // Cria log SIP
+        let sipLogId = null;
+        try {
+          const sipLog = await createSipCallLog({
+            direction: "outbound",
+            status: "created",
+            fromNumber: effectiveFromNumber,
+            toNumber: sanitizedNumber,
+            didId: resolvedDidInfo?.didId || null,
+            extensionId: currentExtension?.id || null,
+            userId: Number(user?.id),
+            ticketId: callMetadata?.ticketId || options.ticketId || null,
+            contactId: callMetadata?.contactId || null,
+            metadata: {
+              selectionReason: resolvedDidInfo?.selectionReason || null,
+              fallbackUsed: resolvedDidInfo?.fallbackUsed || false,
+              source: resolvedDidInfo?.source || "manual"
+            }
+          });
+          if (sipLog?.id) {
+            sipLogId = sipLog.id;
+            currentSipCallLogIdRef.current = sipLogId;
+            setCurrentSipCallLogId(sipLogId);
+          }
+        } catch (_err) {
+          // log opcional, não quebra chamada
+        }
+
         setCurrentLead(leadContext || currentLead || null);
         setCurrentCallContext(callMetadata || currentCallContext || null);
         setDialNumber(sanitizedNumber);
@@ -910,7 +1006,8 @@ export const WebphoneProvider = ({ children }) => {
           mediaStream,
           rtcOfferConstraints: { offerToReceiveAudio: 1, offerToReceiveVideo: 0 },
           extraHeaders: selectedFromNumber ? [
-            `X-AtendZappy-DID: ${selectedFromNumber}`,
+            `X-AtendZappy-DID: ${effectiveFromNumber}`,
+            ...(resolvedDidInfo?.didId ? [`X-CRM-DID-ID: ${resolvedDidInfo.didId}`] : []),
           ] : [],
         };
 
@@ -935,6 +1032,7 @@ export const WebphoneProvider = ({ children }) => {
     [
       createCallRecord,
       currentCallContext,
+      currentExtension,
       currentLead,
       dialNumber,
       persistCallUpdate,
@@ -946,6 +1044,7 @@ export const WebphoneProvider = ({ children }) => {
       updateSequenceTarget,
       leadModalOpen,
       canUseWebphone,
+      user?.id,
     ]
   );
 
@@ -1037,6 +1136,35 @@ export const WebphoneProvider = ({ children }) => {
     },
     [clearSequenceTimer, getNextSequenceTarget, hydrateLeadContext, makeCall, status]
   );
+
+  const loadAvailableDids = useCallback(async () => {
+    try {
+      const { data } = await api.get("/sip-dids");
+      setAvailableDids(Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.warn("[Webphone] Failed to load DIDs", error);
+      setAvailableDids([]);
+      return [];
+    }
+  }, []);
+
+  const loadUserExtension = useCallback(async () => {
+    try {
+      const { data } = await api.get("/sip-extensions");
+      const extensions = Array.isArray(data) ? data : [];
+      const userExt = extensions.find((ext) => {
+        const extUserId = ext.userId || ext.UserId;
+        return Number(extUserId) === Number(user?.id);
+      });
+      setCurrentExtension(userExt || null);
+      return userExt || null;
+    } catch (error) {
+      console.warn("[Webphone] Failed to load user extension", error);
+      setCurrentExtension(null);
+      return null;
+    }
+  }, [user?.id]);
 
   const loadSipSettings = useCallback(async () => {
     if (!canUseWebphone) {
@@ -1179,6 +1307,13 @@ export const WebphoneProvider = ({ children }) => {
           setStatus("in-call");
           setCallDuration(0);
 
+          if (currentSipCallLogIdRef.current) {
+            await updateSipCallLogStatus(currentSipCallLogIdRef.current, {
+              status: "answered",
+              answeredAt: new Date().toISOString()
+            });
+          }
+
           // Fallback: if track event already fired before listener was set up
           const audio = remoteAudioRef.current;
           if (audio && !audio.srcObject) {
@@ -1213,6 +1348,17 @@ export const WebphoneProvider = ({ children }) => {
         nextSession.on("confirmed", markAnswered);
 
         nextSession.on("ended", async () => {
+          if (currentSipCallLogIdRef.current && callAnsweredRef.current) {
+            await updateSipCallLogStatus(currentSipCallLogIdRef.current, {
+              status: "completed",
+              endedAt: new Date().toISOString()
+            });
+          } else if (currentSipCallLogIdRef.current && !callAnsweredRef.current) {
+            await updateSipCallLogStatus(currentSipCallLogIdRef.current, {
+              status: "missed",
+              endedAt: new Date().toISOString()
+            });
+          }
           await finalizeCallRef.current?.({
             finalStatus: callAnsweredRef.current ? "answered" : "missed",
           });
@@ -1220,6 +1366,12 @@ export const WebphoneProvider = ({ children }) => {
 
         nextSession.on("failed", async (error) => {
           const failureStatus = error?.cause === "Busy" ? "busy" : "failed";
+          if (currentSipCallLogIdRef.current) {
+            await updateSipCallLogStatus(currentSipCallLogIdRef.current, {
+              status: failureStatus,
+              endedAt: new Date().toISOString()
+            });
+          }
           const player = tonePlayerRef.current;
           if (player) {
             if (failureStatus === "busy") {
@@ -1380,6 +1532,8 @@ export const WebphoneProvider = ({ children }) => {
       if (!cancelled) {
         await loadHistory();
         await loadSequences();
+        await loadUserExtension();
+        await loadAvailableDids();
       }
     };
 
@@ -1388,7 +1542,7 @@ export const WebphoneProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [canUseWebphone, clearLeadContext, isAuth, loadHistory, loadSequences, loadSipSettings, planLoading, startUA, stopUA, user]);
+  }, [canUseWebphone, clearLeadContext, isAuth, loadHistory, loadSequences, loadSipSettings, loadUserExtension, loadAvailableDids, planLoading, startUA, stopUA, user]);
 
   useEffect(() => {
     if (status !== "in-call" && status !== "calling") {
@@ -1462,6 +1616,10 @@ export const WebphoneProvider = ({ children }) => {
       activeTab,
       activeSequence,
       sequenceLoading,
+      currentExtension,
+      availableDids,
+      selectedDidInfo,
+      currentSipCallLogId,
       setPanelOpen: setPanelVisibility,
       closePanel,
       minimizePanel,
@@ -1487,6 +1645,8 @@ export const WebphoneProvider = ({ children }) => {
       createSequence,
       controlSequence,
       updateSequenceTarget,
+      loadUserExtension,
+      loadAvailableDids,
     }),
     [
       activeSequence,
@@ -1501,6 +1661,10 @@ export const WebphoneProvider = ({ children }) => {
       controlSequence,
       createSequence,
       currentCallContext,
+      currentExtension,
+      availableDids,
+      selectedDidInfo,
+      currentSipCallLogId,
       currentLead,
       dialNumber,
       selectedDid,
@@ -1513,6 +1677,8 @@ export const WebphoneProvider = ({ children }) => {
       loadSequenceById,
       loadSequences,
       loadSipSettings,
+      loadUserExtension,
+      loadAvailableDids,
       makeCall,
       minimizePanel,
       muted,
