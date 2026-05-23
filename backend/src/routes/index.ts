@@ -152,6 +152,7 @@ import globalAISettingsRoutes from "./globalAISettingsRoutes";
 import workspacePersonalizationRoutes from "./workspacePersonalizationRoutes";
 import leadFieldSettingsRoutes from "./leadFieldSettingsRoutes";
 import internalMessageSyncRoutes from "./internalMessageSyncRoutes";
+import sipWebhookRoutes from "./sipWebhookRoutes";
 import sipDidRoutes from "./sipDidRoutes";
 import sipExtensionRoutes from "./sipExtensionRoutes";
 import sipDidRouteRoutes from "./sipDidRouteRoutes";
@@ -320,6 +321,7 @@ routes.use(sipDidRouteRoutes);
 routes.use(sipChannelBindingRoutes);
 routes.use(sipCallLogRoutes);
 routes.use(sipAdvancedRoutes);
+routes.use(sipWebhookRoutes);
 
 import timerRoutes from "./timerRoutes";
 routes.use(timerRoutes);

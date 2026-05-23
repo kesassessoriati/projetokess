@@ -12,6 +12,7 @@ import { toast } from "react-toastify";
 import api from "../services/api";
 import { AuthContext } from "./Auth/AuthContext";
 import { usePlanPermissions } from "./PlanPermissionsContext";
+import { useSocket } from "./SocketContext";
 
 const WebphoneContext = createContext();
 
@@ -170,6 +171,7 @@ const createTonePlayer = () => {
 export const WebphoneProvider = ({ children }) => {
   const { user, isAuth } = useContext(AuthContext);
   const { loading: planLoading, webphone: canUseWebphone } = usePlanPermissions();
+  const { on: socketOn } = useSocket();
 
   const [ua, setUa] = useState(null);
   const [session, setSession] = useState(null);
@@ -809,6 +811,42 @@ export const WebphoneProvider = ({ children }) => {
       tonePlayerRef.current.stop();
     }
   }, [status]);
+
+  // Listener para chamadas recebidas via socket
+  useEffect(() => {
+    if (!socketOn || !isAuth) return;
+
+    const cleanup = socketOn("sip-call", (event) => {
+      if (!event || event.type !== "incoming_call") return;
+
+      const currentUserId = Number(user?.id);
+      const eventUserId = event.userId ? Number(event.userId) : null;
+
+      // Só notificar se a chamada for para o usuário atual ou se não houver userId específico
+      if (eventUserId && eventUserId !== currentUserId) return;
+
+      setDialNumber(event.fromNumber || "");
+      setStatus("incoming");
+      setPanelOpen(true);
+      setPanelMinimized(false);
+
+      if (event.contactId) {
+        setCurrentLead((prev) => ({
+          ...(prev || {}),
+          id: prev?.id || null,
+          name: prev?.name || `Chamada recebida`,
+          phone: event.fromNumber || "",
+          contactId: event.contactId,
+        }));
+      }
+
+      toast.info(`Chamada recebida de ${event.fromNumber || "número desconhecido"}`, {
+        autoClose: 8000,
+      });
+    });
+
+    return cleanup;
+  }, [socketOn, isAuth, user?.id]);
 
   const hydrateLeadContext = useCallback((lead, callContext = {}, options = {}) => {
     const nextLead = lead
