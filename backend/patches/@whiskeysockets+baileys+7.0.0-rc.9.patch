@@ -105,6 +105,32 @@ index f2c866b..3f2cdb0 100644
                      // Skip retry for expired status messages (>24h old)
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-send.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-send.js
+index a9b002b..8086cb5 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-send.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-send.js
+@@ -945,16 +945,17 @@ export const makeMessagesSocket = (config) => {
+                     ? await canonicalizeCarouselRecipients(otherRecipients)
+                     : otherRecipients;
+                 const effectiveAllRecipients = [...effectiveMeRecipients, ...effectiveOtherRecipients];
++                await assertSessions(allRecipients);
+                 await assertSessions(effectiveAllRecipients);
+                 const [{ nodes: meNodes, shouldIncludeDeviceIdentity: s1 }, { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }] = await Promise.all([
+                     // For own devices: use DSM (deviceSentMessage) wrapper
+-                    createParticipantNodes(effectiveMeRecipients, meMsg || message, extraAttrs),
+-                    createParticipantNodes(effectiveOtherRecipients, message, extraAttrs)
++                    createParticipantNodes(meRecipients, meMsg || message, extraAttrs),
++                    createParticipantNodes(otherRecipients, message, extraAttrs)
+                 ]);
+                 participants.push(...meNodes);
+                 participants.push(...otherNodes);
+-                if (effectiveMeRecipients.length > 0 || effectiveOtherRecipients.length > 0) {
+-                    extraAttrs['phash'] = generateParticipantHashV2(effectiveAllRecipients);
++                if (meRecipients.length > 0 || otherRecipients.length > 0) {
++                    extraAttrs['phash'] = generateParticipantHashV2([...meRecipients, ...otherRecipients]);
+                 }
+                 shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
+             }
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 index 47b0ff6..e1d0949 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
