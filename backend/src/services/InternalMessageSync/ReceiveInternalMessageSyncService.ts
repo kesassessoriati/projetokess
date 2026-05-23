@@ -2,6 +2,7 @@ import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import CompaniesSettings from "../../models/CompaniesSettings";
 import InternalMessageSyncEvent from "../../models/InternalMessageSyncEvent";
+import InternalSyncRoute from "../../models/InternalSyncRoute";
 import InternalSyncPeer from "../../models/InternalSyncPeer";
 import Message from "../../models/Message";
 import Whatsapp from "../../models/Whatsapp";
@@ -10,9 +11,14 @@ import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateConta
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
 import { getInternalMessageSyncServerId } from "./featureFlags";
-import { assertPeerAllowsTarget } from "./InternalMessageSyncSecurity";
 import { InternalMessageSyncPayload } from "./types";
-import { buildPayloadHash, normalizeDigits } from "./utils";
+import {
+  buildPayloadHash,
+  isDirectionAllowed,
+  isMessageTypeAllowed,
+  jidMatches,
+  normalizeDigits
+} from "./utils";
 
 const isUnsupportedJid = (jid?: string): boolean =>
   Boolean(
@@ -68,12 +74,30 @@ const ReceiveInternalMessageSyncService = async ({
   const targetNumber = normalizeDigits(payload.target.number);
   const sourceNumber = normalizeDigits(payload.source.number);
 
-  assertPeerAllowsTarget({
-    peer,
-    targetCompanyId: payload.target.companyId,
-    targetWhatsappId: payload.target.whatsappId,
-    targetNumber
+  const route = await InternalSyncRoute.findOne({
+    where: {
+      localServerId: payload.target.serverId,
+      remotePeerId: peer.id,
+      remoteServerId: payload.source.serverId,
+      localCompanyId: payload.target.companyId,
+      localWhatsappId: payload.target.whatsappId,
+      remoteCompanyId: payload.source.companyId,
+      remoteWhatsappId: payload.source.whatsappId,
+      status: "active"
+    }
   });
+
+  if (
+    !route ||
+    !isDirectionAllowed(route.direction, "inbound") ||
+    !isMessageTypeAllowed(route.allowedMessageTypes, "text") ||
+    normalizeDigits(route.localNumber) !== targetNumber ||
+    normalizeDigits(route.remoteNumber) !== sourceNumber ||
+    !jidMatches(route.localRemoteJid, payload.target.remoteJid) ||
+    !jidMatches(route.remoteJid, payload.source.remoteJid)
+  ) {
+    throw new AppError("ERR_INTERNAL_SYNC_ROUTE_NOT_ALLOWED", 403);
+  }
 
   const payloadHash = payload.dedupe?.payloadHash || buildPayloadHash(payload);
 

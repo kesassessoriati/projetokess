@@ -194,6 +194,7 @@ import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
 import CrmLeadCustomFieldValue from "../models/CrmLeadCustomFieldValue";
 import InternalSyncPeer from "../models/InternalSyncPeer";
 import InternalMessageSyncEvent from "../models/InternalMessageSyncEvent";
+import InternalSyncRoute from "../models/InternalSyncRoute";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -421,7 +422,8 @@ const models = [
   CompanyLeadFieldSetting,
   CrmLeadCustomFieldValue,
   InternalSyncPeer,
-  InternalMessageSyncEvent
+  InternalMessageSyncEvent,
+  InternalSyncRoute
 ];
 
 sequelize.addModels(models);

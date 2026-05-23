@@ -1,7 +1,8 @@
-import { QueryInterface, DataTypes } from "sequelize";
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { DataTypes } = require("sequelize");
 
 module.exports = {
-  up: async (queryInterface: QueryInterface) => {
+  up: async queryInterface => {
     await queryInterface.createTable("InternalMessageSyncEvents", {
       id: {
         type: DataTypes.INTEGER,
@@ -111,7 +112,9 @@ module.exports = {
     );
   },
 
-  down: async (queryInterface: QueryInterface) => {
+  down: async queryInterface => {
     await queryInterface.dropTable("InternalMessageSyncEvents");
   }
 };
+
+export {};

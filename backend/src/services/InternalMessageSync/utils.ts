@@ -72,6 +72,33 @@ export const isValueAllowed = (
   });
 };
 
+export const isDirectionAllowed = (
+  routeDirection: string,
+  expectedDirection: "inbound" | "outbound"
+): boolean =>
+  routeDirection === "bidirectional" || routeDirection === expectedDirection;
+
+export const isMessageTypeAllowed = (
+  allowedTypes: string[] | null | undefined,
+  messageType: string
+): boolean =>
+  Array.isArray(allowedTypes) &&
+  allowedTypes.some(type => String(type).toLowerCase() === messageType);
+
+export const jidMatches = (
+  configuredJid?: string | null,
+  candidateJid?: string | null
+): boolean => {
+  if (!configuredJid) {
+    return true;
+  }
+
+  return (
+    String(configuredJid).toLowerCase() ===
+    String(candidateJid || "").toLowerCase()
+  );
+};
+
 export const getSingleAllowedNumber = (
   values?: Array<string | number> | null
 ): string | null => {

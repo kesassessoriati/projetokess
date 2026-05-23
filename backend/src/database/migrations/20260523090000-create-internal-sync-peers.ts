@@ -1,7 +1,8 @@
-import { QueryInterface, DataTypes } from "sequelize";
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { DataTypes } = require("sequelize");
 
 module.exports = {
-  up: async (queryInterface: QueryInterface) => {
+  up: async queryInterface => {
     await queryInterface.createTable("InternalSyncPeers", {
       id: {
         type: DataTypes.INTEGER,
@@ -30,21 +31,6 @@ module.exports = {
         type: DataTypes.STRING,
         allowNull: true
       },
-      allowedCompanyIds: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-        defaultValue: []
-      },
-      allowedWhatsappIds: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-        defaultValue: []
-      },
-      allowedNumbers: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-        defaultValue: []
-      },
       allowedIpCidrs: {
         type: DataTypes.JSONB,
         allowNull: true,
@@ -71,7 +57,9 @@ module.exports = {
     });
   },
 
-  down: async (queryInterface: QueryInterface) => {
+  down: async queryInterface => {
     await queryInterface.dropTable("InternalSyncPeers");
   }
 };
+
+export {};

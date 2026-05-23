@@ -34,18 +34,6 @@ class InternalSyncPeer extends Model {
 
   @Default([])
   @Column(DataType.JSONB)
-  allowedCompanyIds: number[];
-
-  @Default([])
-  @Column(DataType.JSONB)
-  allowedWhatsappIds: number[];
-
-  @Default([])
-  @Column(DataType.JSONB)
-  allowedNumbers: string[];
-
-  @Default([])
-  @Column(DataType.JSONB)
   allowedIpCidrs: string[];
 
   @Default("inactive")

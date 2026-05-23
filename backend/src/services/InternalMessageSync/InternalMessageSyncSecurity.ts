@@ -2,11 +2,7 @@ import crypto from "crypto";
 import AppError from "../../errors/AppError";
 import InternalMessageSyncEvent from "../../models/InternalMessageSyncEvent";
 import InternalSyncPeer from "../../models/InternalSyncPeer";
-import {
-  isValueAllowed,
-  resolvePeerSecret,
-  signInternalSyncPayload
-} from "./utils";
+import { resolvePeerSecret, signInternalSyncPayload } from "./utils";
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
@@ -84,28 +80,4 @@ export const verifyInternalSyncSignature = async ({
   }
 
   return peer;
-};
-
-export const assertPeerAllowsTarget = ({
-  peer,
-  targetCompanyId,
-  targetWhatsappId,
-  targetNumber
-}: {
-  peer: InternalSyncPeer;
-  targetCompanyId: number;
-  targetWhatsappId: number;
-  targetNumber: string;
-}): void => {
-  if (!isValueAllowed(peer.allowedCompanyIds, targetCompanyId)) {
-    throw new AppError("ERR_INTERNAL_SYNC_COMPANY_NOT_ALLOWED", 403);
-  }
-
-  if (!isValueAllowed(peer.allowedWhatsappIds, targetWhatsappId)) {
-    throw new AppError("ERR_INTERNAL_SYNC_WHATSAPP_NOT_ALLOWED", 403);
-  }
-
-  if (!isValueAllowed(peer.allowedNumbers, targetNumber)) {
-    throw new AppError("ERR_INTERNAL_SYNC_NUMBER_NOT_ALLOWED", 403);
-  }
 };

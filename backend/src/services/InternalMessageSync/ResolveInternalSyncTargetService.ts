@@ -1,4 +1,5 @@
 import Contact from "../../models/Contact";
+import InternalSyncRoute from "../../models/InternalSyncRoute";
 import InternalSyncPeer from "../../models/InternalSyncPeer";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
@@ -9,9 +10,9 @@ import {
   isInternalMessageSyncOutboundEnabled
 } from "./featureFlags";
 import {
-  getSingleAllowedId,
-  getSingleAllowedNumber,
-  isValueAllowed,
+  isDirectionAllowed,
+  isMessageTypeAllowed,
+  jidMatches,
   normalizeDigits
 } from "./utils";
 
@@ -80,41 +81,36 @@ const ResolveInternalSyncTargetService = async ({
     return null;
   }
 
-  const peers = await InternalSyncPeer.findAll({
-    where: { status: "active" }
+  const routes = await InternalSyncRoute.findAll({
+    where: {
+      localServerId: sourceServerId,
+      localCompanyId: ticket.companyId,
+      localWhatsappId: ticket.whatsappId,
+      status: "active"
+    }
   });
 
-  const matches = peers.filter(peer => {
-    if (peer.publicId === sourceServerId) {
-      return false;
-    }
-
-    return isValueAllowed(peer.allowedNumbers, targetNumber);
+  const matches = routes.filter(route => {
+    const routeRemoteNumber = normalizeDigits(route.remoteNumber);
+    return (
+      isDirectionAllowed(route.direction, "outbound") &&
+      isMessageTypeAllowed(route.allowedMessageTypes, "text") &&
+      routeRemoteNumber === targetNumber &&
+      jidMatches(route.remoteJid, contact.remoteJid)
+    );
   });
 
   if (matches.length !== 1) {
     if (matches.length > 1) {
       logger.warn(
         { wid: message.wid, targetNumber, matches: matches.length },
-        "[InternalSync] outbound skipped: ambiguous peer"
+        "[InternalSync] outbound skipped: ambiguous route"
       );
     }
     return null;
   }
 
-  const [peer] = matches;
-  const targetCompanyId = getSingleAllowedId(peer.allowedCompanyIds);
-  const targetWhatsappId = getSingleAllowedId(peer.allowedWhatsappIds);
-  const mappedTargetNumber = getSingleAllowedNumber(peer.allowedNumbers);
-
-  if (!targetCompanyId || !targetWhatsappId || !mappedTargetNumber) {
-    logger.warn(
-      { wid: message.wid, peerId: peer.publicId },
-      "[InternalSync] outbound skipped: peer mapping must be unambiguous in MVP"
-    );
-    return null;
-  }
-
+  const [route] = matches;
   const whatsapp = await Whatsapp.findOne({
     where: {
       id: ticket.whatsappId,
@@ -130,12 +126,40 @@ const ResolveInternalSyncTargetService = async ({
     return null;
   }
 
+  const localNumber =
+    normalizeDigits((whatsapp as any).number) ||
+    normalizeDigits((whatsapp as any).name);
+  if (route.localNumber && normalizeDigits(route.localNumber) !== localNumber) {
+    logger.warn(
+      { wid: message.wid, routeId: route.id },
+      "[InternalSync] outbound skipped: local number mismatch"
+    );
+    return null;
+  }
+
+  const peer = await InternalSyncPeer.findOne({
+    where: {
+      id: route.remotePeerId,
+      publicId: route.remoteServerId,
+      status: "active"
+    }
+  });
+
+  if (!peer) {
+    logger.warn(
+      { wid: message.wid, routeId: route.id },
+      "[InternalSync] outbound skipped: remote peer not active"
+    );
+    return null;
+  }
+
   return {
     peer,
-    targetCompanyId,
-    targetWhatsappId,
-    targetNumber: mappedTargetNumber,
-    targetRemoteJid: contact.remoteJid || `${mappedTargetNumber}@s.whatsapp.net`
+    targetCompanyId: route.remoteCompanyId,
+    targetWhatsappId: route.remoteWhatsappId,
+    targetNumber: normalizeDigits(route.remoteNumber),
+    targetRemoteJid:
+      route.remoteJid || `${normalizeDigits(route.remoteNumber)}@s.whatsapp.net`
   };
 };
 
