@@ -48,7 +48,6 @@ const CreateMessageService = async ({
   const existingMessage = await Message.findOne({
     where: {
       wid: messageData.wid,
-      ticketId: messageData.ticketId,
       companyId,
     },
   });

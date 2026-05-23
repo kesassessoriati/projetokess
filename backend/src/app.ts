@@ -43,6 +43,11 @@ dotenvConfig();
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const app = express();
+const captureRawBody = (req: any, _res: any, buf: Buffer): void => {
+  if (buf?.length) {
+    req.rawBody = buf.toString("utf8");
+  }
+};
 
 // Configuração de filas
 app.set("queues", {
@@ -94,7 +99,7 @@ console.info = (...args: any[]) => (logger as any).info(...args);
 console.warn = (...args: any[]) => (logger as any).warn(...args);
 console.error = (...args: any[]) => (logger as any).error(...args);
 
-app.use(bodyParser.json({ limit: '50mb' })); // Limite de 50MB para segurança
+app.use(bodyParser.json({ limit: '50mb', verify: captureRawBody })); // Limite de 50MB para segurança
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 // Configuração CORS para permitir qualquer origem
 app.use(
@@ -104,7 +109,7 @@ app.use(
   })
 );
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '50mb', verify: captureRawBody }));
 app.use(Sentry.Handlers.requestHandler());
 // Arquivos públicos com cache curto (1 hora) para evitar cache excessivo
 app.use("/public", express.static(uploadConfig.directory, {

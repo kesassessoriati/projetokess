@@ -192,6 +192,8 @@ import Proposal from "../models/Proposal";
 import UserWorkspacePreference from "../models/UserWorkspacePreference";
 import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
 import CrmLeadCustomFieldValue from "../models/CrmLeadCustomFieldValue";
+import InternalSyncPeer from "../models/InternalSyncPeer";
+import InternalMessageSyncEvent from "../models/InternalMessageSyncEvent";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -417,7 +419,9 @@ const models = [
   Proposal,
   UserWorkspacePreference,
   CompanyLeadFieldSetting,
-  CrmLeadCustomFieldValue
+  CrmLeadCustomFieldValue,
+  InternalSyncPeer,
+  InternalMessageSyncEvent
 ];
 
 sequelize.addModels(models);

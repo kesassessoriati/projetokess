@@ -35,6 +35,7 @@ import Message from "../../models/Message";
 import { Mutex } from "async-mutex";
 import { getIO } from "../../libs/socket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
+import EnqueueInternalMessageSyncService from "../InternalMessageSync/EnqueueInternalMessageSyncService";
 import logger from "../../utils/logger";
 import { buildPromptRuntimeConfig, finalizeAIUsage } from "../AIProviderService/AIProviderService";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
@@ -1373,7 +1374,23 @@ export const verifyMessage = async (
     lastMessage: body
   });
 
-  await CreateMessageService({ messageData, companyId: companyId });
+  const createdMessage = await CreateMessageService({ messageData, companyId: companyId });
+
+  if (msg.key.fromMe && fromAgent && !isPrivate && !isMessageImported) {
+    EnqueueInternalMessageSyncService({
+      message: createdMessage,
+      ticket,
+      contact
+    }).catch(error => {
+      logger.warn(
+        {
+          wid: createdMessage?.wid,
+          error: error?.message
+        },
+        "[InternalSync] enqueue after message create failed"
+      );
+    });
+  }
 
   if (msg.key.fromMe && !isPrivate && !isMessageImported) {
     const outgoingOrigin = getOutgoingWebhookOrigin(

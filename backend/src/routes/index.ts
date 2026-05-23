@@ -151,6 +151,7 @@ import gestorFinancasIaRoutes from "./gestorFinancasIaRoutes";
 import globalAISettingsRoutes from "./globalAISettingsRoutes";
 import workspacePersonalizationRoutes from "./workspacePersonalizationRoutes";
 import leadFieldSettingsRoutes from "./leadFieldSettingsRoutes";
+import internalMessageSyncRoutes from "./internalMessageSyncRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -158,6 +159,7 @@ const routes = Router();
 // Rota pública registrada antes das rotas autenticadas para liberar links enviados a clientes.
 routes.get("/proposals/public/:slug", ProposalController.showPublic);
 routes.get("/api/proposals/public/:slug", ProposalController.showPublic);
+routes.use(internalMessageSyncRoutes);
 
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);
