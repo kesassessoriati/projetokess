@@ -180,6 +180,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
       setLeadValue(ticket?.leadValue || "");
       setCurrentLeadValue(ticket?.leadValue ?? null);
       loadQueues();
+      setOpportunity(null);
       loadTicketDetails(ticket.id);
       loadTicketMedia(ticket.id);
       const contactId = ticket?.contact?.id || contact?.id;
@@ -196,6 +197,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     if (!open) {
       setTicketDetails(ticket || null);
       setContactDetails(contact || null);
+      setOpportunity(null);
     }
   }, [open, ticket, contact]);
 
@@ -834,7 +836,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const summaryCards = [
     {
       label: "Valor potencial",
-      value: formatCurrency(opportunity?.value ?? currentLeadValue ?? 0),
+      value: formatCurrency(opportunity?.value ?? 0),
     },
     {
       label: "Fila",
