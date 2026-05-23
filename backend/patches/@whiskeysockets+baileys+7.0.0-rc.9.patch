@@ -1,36 +1,36 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-index 61c6372..baa0e10 100644
+index f2c866b..3f2cdb0 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
-@@ -1847,7 +1847,11 @@ export const makeMessagesRecvSocket = (config) => {
-                 // may create mappings via storeLIDPNMappings() without calling migrateSession()
-                 // This leaves sessions under PN format while decrypt() expects LID format
-                 // Skipping migration based on mapping existence causes "No session record" errors
--                await signalRepository.migrateSession(primaryJid, alt);
-+                await signalRepository.migrateSession(primaryJid, alt).catch(error => logger.warn({
-+                    error,
-+                    primaryJid,
-+                    alt
-+                }, 'LID session migration failed, continuing with current message'));
-             }
-             else {
-                 // Check if reverse mapping exists
-@@ -1861,7 +1865,11 @@ export const makeMessagesRecvSocket = (config) => {
+@@ -2044,7 +2044,11 @@ export const makeMessagesRecvSocket = (config) => {
+                     // may create mappings via storeLIDPNMappings() without calling migrateSession()
+                     // This leaves sessions under PN format while decrypt() expects LID format
+                     // Skipping migration based on mapping existence causes "No session record" errors
+-                    await signalRepository.migrateSession(primaryJid, alt);
++                    await signalRepository.migrateSession(primaryJid, alt).catch(error => logger.warn({
++                        error,
++                        primaryJid,
++                        alt
++                    }, 'LID session migration failed, continuing with current message'));
                  }
-                 // CRITICAL: ALWAYS migrate session, even if mapping exists
-                 // Same reasoning as above - mapping existence doesn't guarantee session migration
--                await signalRepository.migrateSession(alt, primaryJid);
-+                await signalRepository.migrateSession(alt, primaryJid).catch(error => logger.warn({
-+                    error,
-+                    primaryJid,
-+                    alt
-+                }, 'PN session migration failed, continuing with current message'));
+                 else {
+                     // Check if reverse mapping exists
+@@ -2058,7 +2062,11 @@ export const makeMessagesRecvSocket = (config) => {
+                     }
+                     // CRITICAL: ALWAYS migrate session, even if mapping exists
+                     // Same reasoning as above - mapping existence doesn't guarantee session migration
+-                    await signalRepository.migrateSession(alt, primaryJid);
++                    await signalRepository.migrateSession(alt, primaryJid).catch(error => logger.warn({
++                        error,
++                        primaryJid,
++                        alt
++                    }, 'PN session migration failed, continuing with current message'));
+                 }
              }
-         }
-         if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
-@@ -1993,6 +2001,74 @@ export const makeMessagesRecvSocket = (config) => {
-                         }
-                         return sendMessageAck(node);
+             if (msg.key?.remoteJid && msg.key?.id && messageRetryManager) {
+@@ -2197,6 +2205,76 @@ export const makeMessagesRecvSocket = (config) => {
+                         acked = true;
+                         return;
                      }
 +                    const normalizedFromJid = node.attrs.from?.replace(/:\d+@/, '@');
 +                    const isDirectFromMeCompanionSync = !isJidGroup(msg.key.remoteJid) &&
@@ -98,13 +98,15 @@ index 61c6372..baa0e10 100644
 +                                metrics.ctwaRecoveryFailures.inc({ reason: 'request_failed' });
 +                            }
 +                        }
-+                        return sendMessageAck(node);
++                        await sendMessageAck(node);
++                        acked = true;
++                        return;
 +                    }
                      // Skip retry for expired status messages (>24h old)
                      if (isJidStatusBroadcast(msg.key.remoteJid)) {
                          const messageAge = unixTimestampSeconds() - toNumber(msg.messageTimestamp);
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-index c463fb8..d14eecc 100644
+index 47b0ff6..e1d0949 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 @@ -1,6 +1,6 @@
@@ -128,7 +130,7 @@ index c463fb8..d14eecc 100644
              logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
          }
          catch (error) {
-@@ -129,8 +133,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -132,8 +136,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
      const participant = stanza.attrs.participant;
      const recipient = stanza.attrs.recipient;
      const addressingContext = extractAddressingContext(stanza);
@@ -145,7 +147,7 @@ index c463fb8..d14eecc 100644
      if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
          if (recipient && !isJidMetaAI(recipient)) {
              if (!isMe(from) && !isMeLid(from)) {
-@@ -185,9 +195,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -188,9 +198,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
          throw new Boom('Unknown message type', { data: stanza });
      }
      const pushname = stanza?.attrs?.notify;
@@ -158,10 +160,10 @@ index c463fb8..d14eecc 100644
          remoteJid: chatId,
 -        remoteJidAlt: !isJidGroup(chatId) ? addressingContext.senderAlt : undefined,
 +        remoteJidAlt: directChatAltJid,
-         fromMe,
-         id: msgId,
-         participant,
-@@ -242,7 +257,41 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+         // Direct chats only (msgType === 'chat'): on broadcast/newsletter the remoteJid is not a
+         // user, and `stanza.attrs.username` there is participant-level data, not the chat identity.
+         remoteJidUsername: msgType === 'chat'
+@@ -253,7 +268,41 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                      }
                      decryptables += 1;
                      let msgBuffer;
@@ -204,7 +206,7 @@ index c463fb8..d14eecc 100644
                      if (tag !== 'plaintext') {
                          // TODO: Handle hosted devices
                          await storeMappingFromEnvelope(stanza, author, repository, decryptionJid, logger);
-@@ -283,6 +332,18 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
+@@ -294,6 +343,18 @@ export const decryptMessageNode = (stanza, meId, meLid, repository, logger) => {
                                  throw new Error(`Unknown e2e type: ${e2eType}`);
                          }
                          let msg = proto.Message.decode(e2eType !== 'plaintext' ? unpadRandomMax16(msgBuffer) : msgBuffer);
@@ -224,10 +226,10 @@ index c463fb8..d14eecc 100644
                          if (msg.senderKeyDistributionMessage) {
                              //eslint-disable-next-line max-depth
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
-index 21782ed..fbfa8ac 100644
+index 1d764bc..4ef24c1 100644
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/process-message.js
-@@ -373,6 +373,27 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
+@@ -412,6 +412,27 @@ const processMessage = async (message, { shouldProcessHistoryMsg, placeholderRes
                              // This ensures we don't lose critical information like pushName and LID mappings
                              // eslint-disable-next-line max-depth
                              if (cachedData && typeof cachedData === 'object') {
