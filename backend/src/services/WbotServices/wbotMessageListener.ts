@@ -4872,6 +4872,10 @@ const handleMessage = async (
   companyId: number,
   isImported: boolean = false
 ): Promise<void> => {
+  logWhatsappDiagnostic("handleMessage.enter", msg, companyId, wbot.id, {
+    isImported
+  });
+
   console.log("log... 2874");
 
   // Ignorar mensagens de newsletter
@@ -4881,6 +4885,7 @@ const handleMessage = async (
   }
 
   if (!isValidMsg(msg)) {
+    logWhatsappDiagnostic("handleMessage.invalid-message", msg, companyId, wbot.id);
     console.log("log... 2877");
     return;
   }
@@ -6744,11 +6749,108 @@ const filterMessages = (msg: WAMessage): boolean => {
   return true;
 };
 
+const whatsappDecryptDiagnosticsEnabled = (): boolean =>
+  String(process.env.WHATSAPP_DECRYPT_DIAGNOSTICS || "").toLowerCase() ===
+  "enabled";
+
+const parseDiagnosticList = (value?: string): string[] =>
+  String(value || "")
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+const getSafeMessageDiagnosticMeta = (
+  msg: proto.IWebMessageInfo | WAMessageUpdate,
+  companyId: number,
+  whatsappId?: number | string,
+  stage?: string
+) => {
+  const key = (msg as any)?.key || {};
+  const message = (msg as any)?.message || (msg as any)?.update?.message;
+  const update = (msg as any)?.update;
+
+  return {
+    stage,
+    companyId,
+    whatsappId,
+    wid: key?.id,
+    remoteJid: key?.remoteJid,
+    remoteJidAlt: key?.remoteJidAlt,
+    fromMe: key?.fromMe,
+    participant: key?.participant,
+    participantAlt: key?.participantAlt,
+    addressingMode: key?.addressingMode,
+    messageType: message ? getContentType(message) : undefined,
+    messageStubType: (msg as any)?.messageStubType || update?.messageStubType,
+    status: (msg as any)?.status || update?.status,
+    timestamp: (msg as any)?.messageTimestamp || update?.messageTimestamp
+  };
+};
+
+const shouldLogWhatsappDiagnostic = (
+  msg: proto.IWebMessageInfo | WAMessageUpdate
+): boolean => {
+  if (!whatsappDecryptDiagnosticsEnabled()) return false;
+
+  const key = (msg as any)?.key || {};
+  const messageIds = parseDiagnosticList(process.env.WHATSAPP_DIAG_MESSAGE_IDS);
+  const remoteJids = parseDiagnosticList(process.env.WHATSAPP_DIAG_REMOTE_JIDS);
+
+  if (messageIds.length > 0 && !messageIds.includes(String(key?.id || ""))) {
+    return false;
+  }
+
+  if (
+    remoteJids.length > 0 &&
+    !remoteJids.some(item =>
+      [
+        key?.remoteJid,
+        key?.remoteJidAlt,
+        key?.participant,
+        key?.participantAlt
+      ]
+        .filter(Boolean)
+        .map(String)
+        .some(value => value.includes(item))
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+const logWhatsappDiagnostic = (
+  stage: string,
+  msg: proto.IWebMessageInfo | WAMessageUpdate,
+  companyId: number,
+  whatsappId?: number | string,
+  extra: Record<string, any> = {}
+) => {
+  if (!shouldLogWhatsappDiagnostic(msg)) return;
+
+  logger.info(
+    {
+      ...getSafeMessageDiagnosticMeta(msg, companyId, whatsappId, stage),
+      ...extra
+    },
+    "[WhatsAppDecryptDiagnostic] message metadata"
+  );
+};
+
 const wbotMessageListener = (wbot: Session, companyId: number): void => {
   wbot.ev.on("messages.upsert", async (messageUpsert: ImessageUpsert) => {
-    const messages = messageUpsert.messages
-      .filter(filterMessages)
-      .map(msg => msg);
+    const rawMessages = messageUpsert.messages || [];
+
+    rawMessages.forEach(message =>
+      logWhatsappDiagnostic("messages.upsert.raw", message, companyId, wbot.id)
+    );
+
+    const messages = rawMessages.filter(filterMessages).map(msg => msg);
+
+    messages.forEach(message =>
+      logWhatsappDiagnostic("messages.upsert.filtered", message, companyId, wbot.id)
+    );
 
     if (!messages) return;
 
@@ -6776,6 +6878,14 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           where: { wid: message.key.id!, companyId }
         });
 
+        logWhatsappDiagnostic(
+          "messages.upsert.exists-check",
+          message,
+          companyId,
+          wbot.id,
+          { messageExists }
+        );
+
         if (!messageExists) {
           let isCampaign = false;
           let body = await getBodyMessage(message);
@@ -6801,6 +6911,13 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
                     jobId: queueJobId
                   }
                 );
+                logWhatsappDiagnostic(
+                  "messages.upsert.enqueued-handleMessage",
+                  message,
+                  companyId,
+                  wbot.id,
+                  { queueJobId }
+                );
               } catch (e) {
                 Sentry.captureException(e);
                 logger.error(
@@ -6809,6 +6926,12 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
               }
             } else {
               console.log("log... 3970");
+              logWhatsappDiagnostic(
+                "messages.upsert.direct-handleMessage",
+                message,
+                companyId,
+                wbot.id
+              );
               await handleMessage(message, wbot, companyId);
             }
           }
@@ -6856,6 +6979,8 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
   wbot.ev.on("messages.update", (messageUpdate: WAMessageUpdate[]) => {
     if (messageUpdate.length === 0) return;
     messageUpdate.forEach(async (message: WAMessageUpdate) => {
+      logWhatsappDiagnostic("messages.update.raw", message, companyId, wbot.id);
+
       (wbot as WASocket)!.readMessages([message.key]);
 
       try {
