@@ -149,6 +149,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const [currentLeadValue, setCurrentLeadValue] = useState(
     ticket?.leadValue ?? null
   );
+  const [opportunity, setOpportunity] = useState(null);
   const [activeTab, setActiveTab] = useState("files");
   const [mediaLoading, setMediaLoading] = useState(false);
   const [imageMessages, setImageMessages] = useState([]);
@@ -184,6 +185,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
       const contactId = ticket?.contact?.id || contact?.id;
       if (contactId) {
         loadContactDetails(contactId);
+        loadOpportunity(contactId);
       } else {
         setContactDetails(contact || null);
       }
@@ -308,6 +310,24 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     }
   };
 
+  const loadOpportunity = async (contactId) => {
+    if (!contactId) return;
+    try {
+      const { data } = await api.get("/opportunities", {
+        params: { contactId }
+      });
+      const opportunities = data?.opportunities || data || [];
+      if (Array.isArray(opportunities) && opportunities.length > 0) {
+        setOpportunity(opportunities[0]);
+      } else {
+        setOpportunity(null);
+      }
+    } catch (err) {
+      console.warn("Nenhuma oportunidade vinculada:", err?.message);
+      setOpportunity(null);
+    }
+  };
+
   const loadContactDetails = async (contactId) => {
     if (!contactId) return;
     try {
@@ -337,6 +357,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
       toast.success("Valor do ticket atualizado!");
       const normalizedValue = leadValue === "" ? null : Number(leadValue);
       setCurrentLeadValue(normalizedValue);
+      setOpportunity((prev) => prev ? { ...prev, value: normalizedValue } : prev);
       setTicketDetails((prev) =>
         prev ? { ...prev, leadValue: normalizedValue } : prev
       );
@@ -718,14 +739,18 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     encodeURIComponent(contactName);
 
   const kanbanStage = useMemo(() => {
-    const tags = resolvedTicket?.tags || [];
-    const firstKanbanTag = tags.find((tag) => tag?.kanban === 1);
-    const fallbackTag = tags[0];
-    return firstKanbanTag?.name || fallbackTag?.name || "Sem etapa";
-  }, [resolvedTicket?.tags]);
+    if (opportunity?.stage?.name) {
+      return opportunity.stage.name;
+    }
+    return "Sem etapa";
+  }, [opportunity]);
 
   const handleKanbanUpdated = () => {
     loadTicketDetails(resolvedTicket?.id || ticket?.id);
+    const contactId = resolvedContact?.id || ticket?.contact?.id;
+    if (contactId) {
+      loadOpportunity(contactId);
+    }
   };
 
   const linkedClient = resolvedTicket?.crmClient || resolvedContact?.crmClient;
@@ -809,7 +834,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const summaryCards = [
     {
       label: "Valor potencial",
-      value: formatCurrency(currentLeadValue),
+      value: formatCurrency(opportunity?.value ?? currentLeadValue ?? 0),
     },
     {
       label: "Fila",
