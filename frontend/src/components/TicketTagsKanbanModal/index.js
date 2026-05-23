@@ -186,7 +186,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
       const contactId = ticket?.contact?.id || contact?.id;
       if (contactId) {
         loadContactDetails(contactId);
-        loadOpportunity(contactId);
+        loadOpportunity(contactId, ticket?.id);
       } else {
         setContactDetails(contact || null);
       }
@@ -312,14 +312,21 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
     }
   };
 
-  const loadOpportunity = async (contactId) => {
+  const loadOpportunity = async (contactId, ticketId) => {
     if (!contactId) return;
     try {
-      const { data } = await api.get("/opportunities", {
-        params: { contactId }
-      });
-      const opportunities = data?.opportunities || data || [];
-      if (Array.isArray(opportunities) && opportunities.length > 0) {
+      const params = ticketId ? { contactId, ticketId } : { contactId };
+      const { data } = await api.get("/opportunities", { params });
+      let opportunities = data?.opportunities || data || [];
+      if (!Array.isArray(opportunities)) opportunities = [];
+      if (opportunities.length === 0 && ticketId) {
+        const { data: fallbackData } = await api.get("/opportunities", {
+          params: { contactId }
+        });
+        opportunities = fallbackData?.opportunities || fallbackData || [];
+        if (!Array.isArray(opportunities)) opportunities = [];
+      }
+      if (opportunities.length > 0) {
         setOpportunity(opportunities[0]);
       } else {
         setOpportunity(null);
@@ -750,8 +757,9 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const handleKanbanUpdated = () => {
     loadTicketDetails(resolvedTicket?.id || ticket?.id);
     const contactId = resolvedContact?.id || ticket?.contact?.id;
+    const ticketId = resolvedTicket?.id || ticket?.id;
     if (contactId) {
-      loadOpportunity(contactId);
+      loadOpportunity(contactId, ticketId);
     }
   };
 

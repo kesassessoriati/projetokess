@@ -134,14 +134,24 @@ export function TagsKanbanContainer({ ticket, onStageChange, currentLeadValue })
     const loadExistingOpportunity = async () => {
         try {
             const contactId = ticket?.contact?.id;
+            const ticketId = ticket?.id;
             if (!contactId) return;
 
-            const { data } = await api.get("/opportunities", {
-                params: { contactId }
-            });
+            const tryFetch = async (params) => {
+                const { data } = await api.get("/opportunities", { params });
+                const list = data?.opportunities || data || [];
+                return Array.isArray(list) ? list : [];
+            };
 
-            const opportunities = data?.opportunities || data || [];
-            if (Array.isArray(opportunities) && opportunities.length > 0) {
+            let opportunities = ticketId
+                ? await tryFetch({ contactId, ticketId })
+                : [];
+
+            if (opportunities.length === 0) {
+                opportunities = await tryFetch({ contactId });
+            }
+
+            if (opportunities.length > 0) {
                 const opp = opportunities[0];
                 setExistingOpportunity(opp);
                 if (opp.stageId && opp.pipelineId) {
