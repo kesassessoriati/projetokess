@@ -132,6 +132,47 @@ ensure_tag_is_new() {
     fi
 }
 
+find_next_available_tag() {
+    local current_version next_version candidate_tag
+
+    current_version=$(resolve_current_version)
+
+    while true; do
+        next_version=$(increment_patch_version "$current_version")
+        candidate_tag="v${next_version}"
+
+        if ! dockerhub_tag_exists "$BACKEND_REPOSITORY" "$candidate_tag" && ! dockerhub_tag_exists "$FRONTEND_REPOSITORY" "$candidate_tag"; then
+            NEXT_VERSION="$next_version"
+            TAG="$candidate_tag"
+            return
+        fi
+
+        current_version="$next_version"
+    done
+}
+
+retag_built_images_if_needed() {
+    local previous_tag="$TAG"
+
+    if ! dockerhub_tag_exists "$BACKEND_REPOSITORY" "$TAG" && ! dockerhub_tag_exists "$FRONTEND_REPOSITORY" "$TAG"; then
+        return
+    fi
+
+    echo -e "${YELLOW}[!] A tag ${TAG} apareceu no Docker Hub durante o build.${NC}"
+    echo -e "${YELLOW}[!] Recalculando proxima tag livre sem reconstruir as imagens...${NC}"
+
+    find_next_available_tag
+
+    echo -e "${YELLOW}[!] Retagueando imagens locais: ${previous_tag} -> ${TAG}${NC}"
+
+    docker tag "${BACKEND_IMAGE}:${previous_tag}" "${BACKEND_IMAGE}:${TAG}"
+    docker tag "${FRONTEND_IMAGE}:${previous_tag}" "${FRONTEND_IMAGE}:${TAG}"
+    docker tag "${BACKEND_IMAGE}:${previous_tag}" "${BACKEND_IMAGE}:latest"
+    docker tag "${FRONTEND_IMAGE}:${previous_tag}" "${FRONTEND_IMAGE}:latest"
+
+    echo -e "${GREEN}OK: Build reaproveitado para a nova TAG: ${TAG}${NC}"
+}
+
 ## ========================= INICIO ========================= ##
 
 echo -e "${BLUE}============================================${NC}"
@@ -209,7 +250,8 @@ echo -e "${GREEN}OK: Frontend construido com sucesso!${NC}"
 echo ""
 
 ## Revalida antes do push para reduzir risco de sobrescrever tag criada por outro servidor.
-ensure_tag_is_new "$TAG"
+## Se a tag apareceu durante o build, reaproveita as imagens locais e avanca para a proxima tag livre.
+retag_built_images_if_needed
 
 ## ========================= PUSH TAGS VERSIONADAS ========================= ##
 
