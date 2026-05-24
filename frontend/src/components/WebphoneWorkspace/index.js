@@ -579,6 +579,7 @@ const WebphoneWorkspace = ({ compact = false, closable = false, allowMinimize = 
     toggleMute,
     recentCalls,
     historyLoading,
+    loadHistory,
     currentExtension,
     availableDids,
     selectedDidInfo,
