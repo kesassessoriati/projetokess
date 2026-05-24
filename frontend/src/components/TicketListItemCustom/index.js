@@ -970,4 +970,4 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
   );
 };
 
-export default TicketListItemCustom;
+export default React.memo(TicketListItemCustom);

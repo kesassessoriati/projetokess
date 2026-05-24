@@ -437,7 +437,46 @@ const reducer = (state, action) => {
     if (messageIndex !== -1) {
       state[messageIndex] = newMessage;
     } else {
-      state.push(newMessage);
+      const optimisticIndex = state.findIndex((message) =>
+        message.isOptimistic &&
+        message.fromMe &&
+        newMessage.fromMe &&
+        message.ticketId === newMessage.ticketId &&
+        message.body === newMessage.body
+      );
+
+      if (optimisticIndex !== -1) {
+        state[optimisticIndex] = newMessage;
+      } else {
+        state.push(newMessage);
+      }
+    }
+
+    return [...state];
+  }
+
+  if (action.type === "CONFIRM_OPTIMISTIC_MESSAGE") {
+    const { tempId, message } = action.payload;
+    const messageIndex = state.findIndex((m) => m.id === tempId);
+
+    if (messageIndex !== -1) {
+      state[messageIndex] = message;
+    }
+
+    return [...state];
+  }
+
+  if (action.type === "FAIL_OPTIMISTIC_MESSAGE") {
+    const tempId = action.payload;
+    const messageIndex = state.findIndex((m) => m.id === tempId);
+
+    if (messageIndex !== -1) {
+      state[messageIndex] = {
+        ...state[messageIndex],
+        ack: -1,
+        sendError: true,
+        isOptimistic: false,
+      };
     }
 
     return [...state];
@@ -526,40 +565,87 @@ const MessagesList = ({
   }, [ticketId, selectedQueuesMessage]);
 
   useEffect(() => {
+    const handleOptimisticMessage = (event) => {
+      const { ticketUuid, message } = event.detail || {};
+
+      if (ticketUuid !== ticketId || !message) return;
+
+      dispatch({ type: "ADD_MESSAGE", payload: message });
+      scrollToBottom();
+    };
+
+    const handleOptimisticMessageConfirm = (event) => {
+      const { ticketUuid, tempId, message } = event.detail || {};
+
+      if (ticketUuid !== ticketId || !tempId || !message) return;
+
+      dispatch({
+        type: "CONFIRM_OPTIMISTIC_MESSAGE",
+        payload: { tempId, message },
+      });
+    };
+
+    const handleOptimisticMessageFail = (event) => {
+      const { ticketUuid, tempId } = event.detail || {};
+
+      if (ticketUuid !== ticketId || !tempId) return;
+
+      dispatch({ type: "FAIL_OPTIMISTIC_MESSAGE", payload: tempId });
+    };
+
+    window.addEventListener("ticket:optimistic-message", handleOptimisticMessage);
+    window.addEventListener("ticket:optimistic-message:confirm", handleOptimisticMessageConfirm);
+    window.addEventListener("ticket:optimistic-message:fail", handleOptimisticMessageFail);
+
+    return () => {
+      window.removeEventListener("ticket:optimistic-message", handleOptimisticMessage);
+      window.removeEventListener("ticket:optimistic-message:confirm", handleOptimisticMessageConfirm);
+      window.removeEventListener("ticket:optimistic-message:fail", handleOptimisticMessageFail);
+    };
+  }, [ticketId]);
+
+  useEffect(() => {
+    let isActive = true;
+
     setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchMessages = async () => {
-        if (ticketId === "undefined") {
-          history.push("/tickets");
-          return;
-        }
-        if (isNil(ticketId)) return;
-        try {
-          const { data } = await api.get("/messages/" + ticketId, {
-            params: { pageNumber, selectedQueues: JSON.stringify(selectedQueuesMessage) },
-          });
 
-          if (currentTicketId.current === ticketId) {
-            dispatch({ type: "LOAD_MESSAGES", payload: data.messages });
-            setHasMore(data.hasMore);
-            setLoading(false);
-            setLoadingMore(false);
-          }
+    const fetchMessages = async () => {
+      if (ticketId === "undefined") {
+        history.push("/tickets");
+        return;
+      }
+      if (isNil(ticketId)) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data } = await api.get("/messages/" + ticketId, {
+          params: { pageNumber, selectedQueues: JSON.stringify(selectedQueuesMessage) },
+        });
 
-          if (pageNumber === 1 && data.messages.length > 1) {
-            scrollToBottom();
-          }
-        } catch (err) {
+        if (isActive && currentTicketId.current === ticketId) {
+          dispatch({ type: "LOAD_MESSAGES", payload: data.messages });
+          setHasMore(data.hasMore);
           setLoading(false);
-          toastError(err);
           setLoadingMore(false);
         }
-      };
 
-      fetchMessages();
-    }, 500);
+        if (isActive && pageNumber === 1 && data.messages.length > 1) {
+          scrollToBottom();
+        }
+      } catch (err) {
+        if (!isActive) return;
+
+        setLoading(false);
+        toastError(err);
+        setLoadingMore(false);
+      }
+    };
+
+    fetchMessages();
+
     return () => {
-      clearTimeout(delayDebounceFn);
+      isActive = false;
     };
   }, [pageNumber, ticketId, selectedQueuesMessage]);
 
@@ -993,6 +1079,10 @@ const MessagesList = ({
   };
 
   const renderMessageAck = (message) => {
+    if (message.sendError) {
+      return <AccessTime fontSize="small" className={classes.ackIcons} style={{ color: red[500] }} />;
+    }
+
     if (message.ack === 0) {
       return <AccessTime fontSize="small" className={classes.ackIcons} />;
     } else

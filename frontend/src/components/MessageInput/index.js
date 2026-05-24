@@ -664,6 +664,11 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
     if (messageToSend === "") return;
     setLoading(true);
 
+    const previousInputMessage = inputMessage;
+    const previousReplyingMessage = replyingMessage;
+    const previousPrivateMessage = privateMessage;
+    const previousPrivateMessageInputVisible = privateMessageInputVisible;
+
     const userName = privateMessage
       ? `${user.name} - Mensagem Privada`
       : user.name;
@@ -681,28 +686,96 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
       isPrivate: privateMessage ? "true" : "false",
     };
 
-   try {
-      if (editingMessage !== null) {
-        await api.post(`/messages/edit/${editingMessage.id}`, message);
-      } else {
-        if (notificameHub) {
-          await api.post(`/hub-message/${ticketId}`, message);
-        } else {
-          await api.post(`/messages/${ticketId}`, message);
-        }
+    const optimisticMessageId = !editingMessage && ticket?.uuid
+      ? `optimistic-${ticket.id}-${Date.now()}`
+      : null;
+
+    if (!editingMessage) {
+      setInputMessage("");
+      setShowEmoji(false);
+      setReplyingMessage(null);
+      setPrivateMessage(false);
+      setPrivateMessageInputVisible(false);
+      handleMenuItemClick();
+
+      if (optimisticMessageId) {
+        window.dispatchEvent(new CustomEvent("ticket:optimistic-message", {
+          detail: {
+            ticketUuid: ticket.uuid,
+            message: {
+              id: optimisticMessageId,
+              ticketId: ticket.id,
+              body: message.body,
+              fromMe: true,
+              read: 1,
+              ack: 0,
+              mediaType: "conversation",
+              mediaUrl: "",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              quotedMsg: replyingMessage,
+              isPrivate: privateMessage,
+              isOptimistic: true,
+              contact: ticket.contact,
+              ticket,
+            },
+          },
+        }));
       }
-    } catch (err) {
-      toastError(err);
     }
 
-    setInputMessage("");
-    setShowEmoji(false);
-    setLoading(false);
-    setReplyingMessage(null);
-    setPrivateMessage(false);
-    setEditingMessage(null);
-    setPrivateMessageInputVisible(false);
-    handleMenuItemClick();
+    try {
+      let response;
+
+      if (editingMessage !== null) {
+        response = await api.post(`/messages/edit/${editingMessage.id}`, message);
+      } else {
+        if (notificameHub) {
+          response = await api.post(`/hub-message/${ticketId}`, message);
+        } else {
+          response = await api.post(`/messages/${ticketId}`, message);
+        }
+      }
+
+      if (optimisticMessageId && response?.data?.id) {
+        window.dispatchEvent(new CustomEvent("ticket:optimistic-message:confirm", {
+          detail: {
+            ticketUuid: ticket.uuid,
+            tempId: optimisticMessageId,
+            message: response.data,
+          },
+        }));
+      }
+    } catch (err) {
+      if (!editingMessage) {
+        setInputMessage(previousInputMessage);
+        setReplyingMessage(previousReplyingMessage);
+        setPrivateMessage(previousPrivateMessage);
+        setPrivateMessageInputVisible(previousPrivateMessageInputVisible);
+
+        if (optimisticMessageId) {
+          window.dispatchEvent(new CustomEvent("ticket:optimistic-message:fail", {
+            detail: {
+              ticketUuid: ticket.uuid,
+              tempId: optimisticMessageId,
+            },
+          }));
+        }
+      }
+      toastError(err);
+    } finally {
+      setLoading(false);
+    }
+
+    if (editingMessage) {
+      setInputMessage("");
+      setShowEmoji(false);
+      setReplyingMessage(null);
+      setPrivateMessage(false);
+      setEditingMessage(null);
+      setPrivateMessageInputVisible(false);
+      handleMenuItemClick();
+    }
   };
 
   const handleSubmitSend = (e) => {

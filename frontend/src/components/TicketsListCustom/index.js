@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext, useMemo } from "react";
+import React, { useState, useEffect, useReducer, useContext, useMemo, useCallback } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
@@ -220,7 +220,7 @@ const TicketsListCustom = (props) => {
 
     const classes = useStyles();
     const [pageNumber, setPageNumber] = useState(1);
-    let [ticketsList, dispatch] = useReducer(reducer, []);
+    const [ticketsList, dispatch] = useReducer(reducer, []);
     //   const socketManager = useContext(SocketContext);
     const { user } = useContext(AuthContext);
     const { isConnected, on, emit } = useSocket();
@@ -379,18 +379,32 @@ const TicketsListCustom = (props) => {
 
     }, [isConnected, on, emit, status, showAll, user, selectedQueueIds, tags, users, profile, queues, sortTickets, showTicketWithoutQueue]);
 
+    const visibleTickets = useMemo(() => {
+        let filteredTickets = ticketsList;
+
+        if (status && status !== "search") {
+            filteredTickets = filteredTickets.filter(ticket => ticket.status === status);
+        }
+
+        if (channelsFilter && Array.isArray(channelsFilter) && channelsFilter.length > 0) {
+            filteredTickets = filteredTickets.filter(ticket => channelsFilter.includes(ticket.channel));
+        }
+
+        return filteredTickets;
+    }, [ticketsList, status, channelsFilter]);
+
     useEffect(() => {
         if (typeof updateCount === "function") {
-            updateCount(ticketsList.length);
+            updateCount(visibleTickets.length);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ticketsList]);
+    }, [visibleTickets.length]);
 
-    const loadMore = () => {
+    const loadMore = useCallback(() => {
         setPageNumber((prevState) => prevState + 1);
-    };
+    }, []);
 
-    const handleScroll = (e) => {
+    const handleScroll = useCallback((e) => {
         if (!hasMore || loading) return;
 
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -398,15 +412,7 @@ const TicketsListCustom = (props) => {
         if (scrollHeight - (scrollTop + 100) < clientHeight) {
             loadMore();
         }
-    };
-
-    if (status && status !== "search") {
-        ticketsList = ticketsList.filter(ticket => ticket.status === status)
-    }
-
-    if (channelsFilter && Array.isArray(channelsFilter) && channelsFilter.length > 0) {
-        ticketsList = ticketsList.filter(ticket => channelsFilter.includes(ticket.channel));
-    }
+    }, [hasMore, loading, loadMore]);
 
     return (
         <Paper className={classes.ticketsListWrapper} style={style}>
@@ -418,7 +424,7 @@ const TicketsListCustom = (props) => {
                 onScroll={handleScroll}
             >
                 <List style={{ paddingTop: 0 }} >
-                    {ticketsList.length === 0 && !loading ? (
+                    {visibleTickets.length === 0 && !loading ? (
                         <div className={classes.noTicketsDiv}>
                             <span className={classes.noTicketsTitle}>
                                 {i18n.t("ticketsList.noTicketsTitle")}
@@ -429,7 +435,7 @@ const TicketsListCustom = (props) => {
                         </div>
                     ) : (
                         <>
-                            {ticketsList.map((ticket) => (
+                            {visibleTickets.map((ticket) => (
                                 // <List key={ticket.id}>
                                 //     {console.log(ticket)}
                                 <TicketListItem

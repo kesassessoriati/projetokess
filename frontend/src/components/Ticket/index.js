@@ -80,41 +80,46 @@ const Ticket = () => {
   const pendingDeleteTimeoutRef = useRef(null);
 
   useEffect(() => {
-    console.log("======== Ticket ===========")
-    console.log(ticket)
-    console.log("===========================")
-  }, [ticket])
+    let isActive = true;
 
-  useEffect(() => {
-    setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchTicket = async () => {
-        try {
-
-          if (!isNil(ticketId) && ticketId !== "undefined") {
-
-            const { data } = await api.get("/tickets/u/" + ticketId);
-
-            setContact(data.contact);
-            // setWhatsapp(data.whatsapp);
-            // setQueueId(data.queueId);
-            setNotificameHub(data.whatsapp.notificameHub);
-            setTicket(data);
-            if (["pending", "open", "group"].includes(data.status)) {
-              setTabOpen(data.status);
-            }
-            setLoading(false);
-          }
-        } catch (err) {
-          history.push("/tickets");
-          setLoading(false);
-          toastError(err);
-        }
+    if (isNil(ticketId) || ticketId === "undefined") {
+      setLoading(false);
+      return () => {
+        isActive = false;
       };
-      fetchTicket();
-    }, 500);
+    }
 
-    return () => clearTimeout(delayDebounceFn);
+    setLoading(true);
+
+    const fetchTicket = async () => {
+      try {
+        const { data } = await api.get("/tickets/u/" + ticketId);
+
+        if (!isActive) return;
+
+        setContact(data.contact);
+        // setWhatsapp(data.whatsapp);
+        // setQueueId(data.queueId);
+        setNotificameHub(data.whatsapp.notificameHub);
+        setTicket(data);
+        if (["pending", "open", "group"].includes(data.status)) {
+          setTabOpen(data.status);
+        }
+        setLoading(false);
+      } catch (err) {
+        if (!isActive) return;
+
+        history.push("/tickets");
+        setLoading(false);
+        toastError(err);
+      }
+    };
+
+    fetchTicket();
+
+    return () => {
+      isActive = false;
+    };
   }, [ticketId, user, history, setTabOpen]);
 
   useEffect(() => {

@@ -28,6 +28,9 @@ const useTickets = ({
 
   useEffect(() => {
     setLoading(true);
+    const shouldDebounce = Boolean(searchParam) || searchOnMessages === "true";
+    const debounceMs = shouldDebounce ? 350 : 0;
+
     const delayDebounceFn = setTimeout(() => {
       const fetchTickets = async () => {
         if (userFilter === undefined || userFilter === null) {
@@ -98,7 +101,7 @@ const useTickets = ({
         }
       };
     fetchTickets();
-    }, 500);
+    }, debounceMs);
     return () => clearTimeout(delayDebounceFn);
   }, [
     searchParam,
@@ -114,6 +117,7 @@ const useTickets = ({
     whatsappIds,
     statusFilter,
     forceSearch,
+    userFilter,
     sortTickets,
     searchOnMessages
   ]);
