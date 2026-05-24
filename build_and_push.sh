@@ -103,22 +103,8 @@ dockerhub_tag_exists() {
     [ "$http_code" = "200" ]
 }
 
-fetch_running_image_versions() {
-    local image="$1"
-
-    docker ps --format '{{.Image}}' 2>/dev/null \
-        | grep -E "^${image}:v[0-9]+\.[0-9]+\.[0-9]+$" \
-        | sed -E 's/^.*:v//' || true
-}
-
-read_local_version() {
-    if [ -f "$VERSION_FILE" ]; then
-        sed 's/^v//' "$VERSION_FILE" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true
-    fi
-}
-
 resolve_current_version() {
-    local local_version running_version remote_backend_version remote_frontend_version remote_version fallback_version
+    local remote_backend_version remote_frontend_version remote_version
 
     remote_backend_version=$(fetch_latest_remote_version "$BACKEND_REPOSITORY")
     remote_frontend_version=$(fetch_latest_remote_version "$FRONTEND_REPOSITORY")
@@ -126,24 +112,15 @@ resolve_current_version() {
 
     if [ -n "$remote_version" ]; then
         echo -e "${YELLOW}[!] Docker Hub backend: ${remote_backend_version:-nao encontrada} | frontend: ${remote_frontend_version:-nao encontrada}${NC}" >&2
-        echo -e "${YELLOW}[!] Usando Docker Hub como referencia principal.${NC}" >&2
+        echo -e "${YELLOW}[!] Usando Docker Hub como unica referencia de versionamento.${NC}" >&2
         version_max "$MIN_VERSION" "$remote_version"
         return
     fi
 
-    running_version=$(version_max "$(fetch_running_image_versions "$BACKEND_IMAGE")" "$(fetch_running_image_versions "$FRONTEND_IMAGE")")
-    local_version=$(read_local_version)
-    fallback_version=$(version_max "$MIN_VERSION" "$running_version" "$local_version")
-
-    echo -e "${YELLOW}[!] Docker Hub indisponivel ou sem tags validas. Usando fallback local.${NC}" >&2
-    echo -e "${YELLOW}[!] Versao em execucao: ${running_version:-nao encontrada} | ${VERSION_FILE}: ${local_version:-nao encontrada}${NC}" >&2
-
-    if [ -z "$fallback_version" ]; then
-        echo -e "${RED}ERRO: Nao foi possivel determinar uma versao base para o build.${NC}" >&2
-        exit 1
-    fi
-
-    version_max "$MIN_VERSION" "$fallback_version"
+    echo -e "${RED}ERRO: Nao foi possivel encontrar tags validas no Docker Hub para backend ou frontend.${NC}" >&2
+    echo -e "${RED}ERRO: O versionamento nao usa imagem instalada nem ${VERSION_FILE} como referencia.${NC}" >&2
+    echo -e "${RED}ERRO: Verifique conectividade, permissao no Docker Hub ou se existem tags vX.Y.Z publicadas.${NC}" >&2
+    exit 1
 }
 
 ensure_tag_is_new() {
