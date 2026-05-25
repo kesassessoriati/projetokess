@@ -557,6 +557,12 @@ const useStyles = makeStyles(theme => ({
     color: "#3730a3",
     fontWeight: 700
   },
+  contextSummaryChips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1.5)
+  },
   filterGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -604,17 +610,41 @@ const useStyles = makeStyles(theme => ({
       textTransform: "none"
     }
   },
-  summaryStrip: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(2)
-  },
   neutralChip: {
     borderRadius: 999,
     fontWeight: 700,
     background: "#e2e8f0",
     color: "#334155"
+  },
+  statusFilterStrip: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(2)
+  },
+  statusFilterChip: {
+    borderRadius: 999,
+    fontWeight: 800,
+    background: "#f8fafc",
+    color: "#334155",
+    border: "1px solid rgba(148,163,184,0.38)",
+    transition: "all 0.18s ease",
+    "&:hover, &:focus": {
+      background: "#eff6ff",
+      color: "#1d4ed8",
+      borderColor: "rgba(59,130,246,0.45)"
+    }
+  },
+  statusFilterChipActive: {
+    background: "#111827",
+    color: "#fff",
+    borderColor: "#111827",
+    boxShadow: "0 12px 22px rgba(15, 23, 42, 0.18)",
+    "&:hover, &:focus": {
+      background: "#111827",
+      color: "#fff",
+      borderColor: "#111827"
+    }
   },
   inlineLoader: {
     marginTop: theme.spacing(2),
@@ -929,6 +959,14 @@ const statDefs = [
   { key: "no_show", label: "Não compareceu", color: "#f59e0b", icon: <CancelIcon style={{ fontSize: 28 }} /> }
 ];
 
+const statusFilterButtons = [
+  { key: "scheduled", label: "Agendados" },
+  { key: "confirmed", label: "Confirmados" },
+  { key: "completed", label: "Concluídos" },
+  { key: "cancelled", label: "Cancelados" },
+  { key: "no_show", label: "Não compareceu" }
+];
+
 const Agenda = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -941,7 +979,7 @@ const Agenda = () => {
   const [syncingCalendar, setSyncingCalendar] = useState(false);
   const [filters, setFilters] = useState({
     scheduleId: "",
-    status: "",
+    status: "scheduled",
     startDate: "",
     endDate: ""
   });
@@ -1051,10 +1089,14 @@ const Agenda = () => {
     setFilters(prev => ({ ...prev, [field]: event.target.value }));
   };
 
+  const handleStatusFilterClick = status => {
+    setFilters(prev => ({ ...prev, status }));
+  };
+
   const handleResetFilters = () => {
     setFilters({
       scheduleId: "",
-      status: "",
+      status: "scheduled",
       startDate: "",
       endDate: ""
     });
@@ -1700,6 +1742,12 @@ const Agenda = () => {
               ))}
             </Box>
 
+            <Box className={classes.contextSummaryChips}>
+              {summaryChips.map(item => (
+                <Chip key={item} label={item} className={classes.neutralChip} />
+              ))}
+            </Box>
+
             <Box className={classes.filterGrid}>
               <FormControl variant="outlined" size="small">
                 <InputLabel>Agenda</InputLabel>
@@ -1795,9 +1843,17 @@ const Agenda = () => {
           </ButtonGroup>
         </Box>
 
-        <Box className={classes.summaryStrip}>
-          {summaryChips.map(item => (
-            <Chip key={item} label={item} className={classes.neutralChip} />
+        <Box className={classes.statusFilterStrip}>
+          {statusFilterButtons.map(item => (
+            <Chip
+              key={item.key}
+              label={item.label}
+              clickable
+              onClick={() => handleStatusFilterClick(item.key)}
+              className={`${classes.statusFilterChip} ${
+                filters.status === item.key ? classes.statusFilterChipActive : ""
+              }`}
+            />
           ))}
         </Box>
 
