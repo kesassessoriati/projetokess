@@ -813,6 +813,11 @@ const Atendimentos = () => {
 	const documentInputRef = useRef(null);
 	const selectedTicketRef = useRef(null);
 	const pendingTicketDeleteTimeoutRef = useRef(null);
+	const messagesRequestRef = useRef(0);
+	const ticketRequestRef = useRef(0);
+	const typingEmitRef = useRef(0);
+	const optimisticMessageCounterRef = useRef(0);
+	const pendingTextSendsRef = useRef(new Set());
 	const { list: listQuickMessages } = useQuickMessages();
 
 	const resetQuickReplyState = useCallback(() => {
@@ -1864,7 +1869,35 @@ const Atendimentos = () => {
 
 				const currentTicket = selectedTicketRef.current;
 				if (currentTicket && data.message.ticketId === currentTicket.id) {
-					setMessages((prev) => [...prev, data.message]);
+					setMessages((prev) => {
+						if (prev.some(message => message.id === data.message.id || (data.message.wid && message.wid === data.message.wid))) {
+							return prev.map(message =>
+								message.id === data.message.id || (data.message.wid && message.wid === data.message.wid)
+									? { ...message, ...data.message, isOptimistic: false, sendError: false }
+									: message
+							);
+						}
+
+						const optimisticIndex = prev.findIndex(message =>
+							message.isOptimistic &&
+							message.ticketId === data.message.ticketId &&
+							message.fromMe === data.message.fromMe &&
+							message.body === data.message.body
+						);
+
+						if (optimisticIndex !== -1) {
+							const updatedMessages = [...prev];
+							updatedMessages[optimisticIndex] = {
+								...updatedMessages[optimisticIndex],
+								...data.message,
+								isOptimistic: false,
+								sendError: false
+							};
+							return updatedMessages;
+						}
+
+						return [...prev, data.message];
+					});
 				}
 			}
 
@@ -2061,8 +2094,10 @@ const Atendimentos = () => {
 	}, [tabIndex, buildFilterParams, applyClientFilters, TAB_CONFIG, fetchTicketsApi]);
 
 	const loadTicket = async (id) => {
+		const requestId = ++ticketRequestRef.current;
 		try {
 			const { data } = await api.get(`/tickets/${id}`);
+			if (requestId !== ticketRequestRef.current) return;
 			setSelectedTicket(data);
 			loadMessages(id);
 		} catch (err) {
@@ -2070,11 +2105,13 @@ const Atendimentos = () => {
 	};
 
 	const loadMessages = async (ticketId) => {
+		const requestId = ++messagesRequestRef.current;
 		try {
 			const { data } = await api.get(`/messages/${ticketId}`, {
 				params: { pageNumber: 1 }
 			});
 
+			if (requestId !== messagesRequestRef.current) return;
 			setMessages(data.messages);
 			setHasMore(data.hasMore);
 			setPageNumber(1);
@@ -2130,6 +2167,11 @@ const Atendimentos = () => {
 	};
 
 	const handleTicketClick = async (ticket) => {
+		setSelectedTicket(ticket);
+		selectedTicketRef.current = ticket;
+		setMessages([]);
+		setHasMore(false);
+		setPageNumber(1);
 		history.push(`/atendimentos/${ticket.id}`);
 		if (isMobile) {
 			setMobileView("chat");
@@ -2157,33 +2199,88 @@ const Atendimentos = () => {
 	};
 
 	const handleSendMessage = useCallback(async () => {
-		if (!inputMessage.trim() || !selectedTicket) return;
+		const rawMessage = inputMessage.trim();
+		if (!rawMessage || !selectedTicket) return;
 		if (selectedTicket.status === "pending") return;
 
+		const ticketSnapshot = selectedTicket;
+		const replyingToSnapshot = replyingTo;
+		const privateMessageSnapshot = privateMessage;
+		const sendKey = `${ticketSnapshot.id}:${rawMessage}:${replyingToSnapshot?.id || ""}:${privateMessageSnapshot}`;
+		let optimisticId = null;
+
+		if (pendingTextSendsRef.current.has(sendKey)) return;
+		pendingTextSendsRef.current.add(sendKey);
+
 		try {
-			const senderLabel = privateMessage
+			const senderLabel = privateMessageSnapshot
 				? `${user.name} - Mensagem Privada`
 				: user.name;
-			const shouldPrefixAuthor = signMessage || privateMessage;
+			const shouldPrefixAuthor = signMessage || privateMessageSnapshot;
 			const messageBody = shouldPrefixAuthor
-				? `*${senderLabel}:*\n${inputMessage}`
-				: inputMessage;
+				? `*${senderLabel}:*\n${rawMessage}`
+				: rawMessage;
 
 			const payload = {
 				body: messageBody,
-				isPrivate: privateMessage ? "true" : "false"
+				isPrivate: privateMessageSnapshot ? "true" : "false"
 			};
 
 			// Envia apenas o ID da mensagem citada se existir
-			if (replyingTo) {
-				payload.quotedMsg = { id: replyingTo.id };
+			if (replyingToSnapshot) {
+				payload.quotedMsg = { id: replyingToSnapshot.id };
 			}
 
-			await api.post(`/messages/${selectedTicket.id}`, payload);
+			optimisticId = `optimistic-${Date.now()}-${optimisticMessageCounterRef.current++}`;
+			const now = new Date().toISOString();
+			const optimisticMessage = {
+				id: optimisticId,
+				wid: optimisticId,
+				ticketId: ticketSnapshot.id,
+				body: messageBody,
+				fromMe: true,
+				fromAgent: false,
+				ack: 0,
+				mediaType: "conversation",
+				isPrivate: privateMessageSnapshot,
+				isOptimistic: true,
+				createdAt: now,
+				updatedAt: now,
+				user: { name: user.name },
+				quotedMsg: replyingToSnapshot || null
+			};
+
 			setInputMessage("");
 			setReplyingTo(null);
 			setPrivateMessage(false);
+			setMessages(prev => [...prev, optimisticMessage]);
+
+			const { data } = await api.post(`/messages/${ticketSnapshot.id}`, payload);
+			const confirmedMessage = data?.message || data;
+
+			if (confirmedMessage?.id) {
+				setMessages(prev =>
+					prev.map(message =>
+						message.id === optimisticId
+							? { ...message, ...confirmedMessage, isOptimistic: false, sendError: false }
+							: message
+					)
+				);
+			}
 		} catch (err) {
+			setMessages(prev =>
+				prev.map(message =>
+					message.id === optimisticId
+						? { ...message, ack: -1, sendError: true }
+						: message
+				)
+			);
+			setInputMessage(current => current || rawMessage);
+			setReplyingTo(replyingToSnapshot);
+			setPrivateMessage(privateMessageSnapshot);
+			toast.error("Nao foi possivel enviar a mensagem. Tente novamente.");
+		} finally {
+			pendingTextSendsRef.current.delete(sendKey);
 		}
 	}, [inputMessage, selectedTicket, signMessage, user.name, replyingTo, privateMessage]);
 
@@ -3709,6 +3806,12 @@ const Atendimentos = () => {
 		return () => clearTimeout(timer);
 	}, [quickReplySearchTerm, quickMessages]);
 
+	const groupedMessages = React.useMemo(
+		() => groupConsecutiveMediaMessages(messages),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[messages]
+	);
+
 	return (
 		<div className={`${classes.root} ${isMobile ? classes.rootMobile : ""}`}>
 			{shouldShowList && (
@@ -3850,8 +3953,9 @@ const Atendimentos = () => {
 									<div
 										key={ticket.id}
 										className={`${classes.ticketItem} ${selectedTicket?.id === ticket.id ? "active" : ""}`}
+										style={{ contentVisibility: "auto", containIntrinsicSize: "72px" }}
 										onClick={() => handleTicketClick(ticket)}
-										onContextMenu={(e) => handleTicketContextMenu(e)}
+										onContextMenu={(e) => handleTicketContextMenu(e, ticket)}
 									>
 										<Avatar
 											src={ticket.contact?.urlPicture || ticket.contact?.profilePicUrl}
@@ -4231,7 +4335,7 @@ const Atendimentos = () => {
 								)}
 
 								<>
-									{groupConsecutiveMediaMessages(messages).map((item) => {
+									{groupedMessages.map((item) => {
 										// Se for um grupo de mensagens com múltiplos arquivos
 										if (item.isGroup) {
 											const firstMessage = item.messages[0];
@@ -4245,6 +4349,8 @@ const Atendimentos = () => {
 													style={{
 														alignItems: firstMessage.fromMe ? "flex-end" : "flex-start",
 														position: "relative",
+														contentVisibility: "auto",
+														containIntrinsicSize: "88px",
 													}}
 												>
 													<div
@@ -4350,6 +4456,8 @@ const Atendimentos = () => {
 												style={{
 													alignItems: item.fromMe ? "flex-end" : "flex-start",
 													position: "relative",
+													contentVisibility: "auto",
+													containIntrinsicSize: "72px",
 												}}
 											>
 												<div
@@ -4461,6 +4569,11 @@ const Atendimentos = () => {
 														</Typography>
 														{item.isEdited && !item.isDeleted && (
 															<EditIcon style={{ fontSize: 14, color: "#667781" }} />
+														)}
+														{item.sendError && !item.isDeleted && (
+															<Tooltip title="Falha ao enviar">
+																<BlockIcon style={{ fontSize: 16, color: "#f44336" }} />
+															</Tooltip>
 														)}
 														{item.fromMe && !item.isDeleted && (
 															<>
@@ -4730,7 +4843,9 @@ const Atendimentos = () => {
 
 										updateQuickReplyContext(value);
 
-										if (selectedTicket && value.length > 0) {
+										const now = Date.now();
+										if (selectedTicket && value.length > 0 && now - typingEmitRef.current > 1500) {
+											typingEmitRef.current = now;
 											emit(`company-${user.companyId}-typing`, {
 												ticketId: selectedTicket.id,
 												isTyping: true,
