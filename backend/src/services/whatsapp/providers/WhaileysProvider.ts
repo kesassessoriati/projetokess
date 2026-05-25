@@ -1,13 +1,21 @@
-import { BaseProvider } from "./BaseProvider";
-
 import fs from "fs";
+
+import { BaseProvider } from "./BaseProvider";
+import { sendWithHybridSessionGuard } from "./HybridSendGuard";
 
 export class WhaileysProvider extends BaseProvider {
   // Whaileys (WAPI) is often a drop-in replacement or similar API to baileys
 
   async sendMessage(to: string, content: any): Promise<any> {
     const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
-    return await this.connection.sendMessage(jid, content);
+    return sendWithHybridSessionGuard({
+      connection: this.connection,
+      content,
+      jid,
+      provider: "whaileys",
+      send: () => this.connection.sendMessage(jid, content),
+      tenantId: this.tenantId
+    });
   }
 
   async sendMedia(to: string, mediaPath: string, caption?: string): Promise<any> {
