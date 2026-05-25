@@ -1,6 +1,9 @@
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import syncContactToLead from "../CrmLeadService/helpers/syncContactToLead";
+import ContactIdentityResolverService, {
+  isGenericContactName
+} from "./ContactIdentityResolverService";
 import lookupWhatsAppContactName from "../../helpers/lookupWhatsAppContactName";
 import logger from "../../utils/logger";
 import fs from "fs";
@@ -157,10 +160,13 @@ const EnsureWhatsAppContactNameService = async ({
   });
 
   let changed = false;
+  const originalName = contact.name;
+  const originalProfilePicUrl = contact.profilePicUrl;
 
   if (
     hasMeaningfulName(resolvedName, contact.number, contact.lid) &&
-    contact.name !== resolvedName
+    contact.name !== resolvedName &&
+    isGenericContactName(contact.name, contact.number, contact.lid)
   ) {
     contact.name = resolvedName;
     changed = true;
@@ -186,20 +192,29 @@ const EnsureWhatsAppContactNameService = async ({
     }
   }
 
-  if (!changed) {
-    return contact;
+  if (changed) {
+    await contact.save();
   }
 
-  await contact.save();
-
-  const io = getIO();
-  io.of(String(contact.companyId)).emit(`company-${contact.companyId}-contact`, {
-    action: "update",
-    contact
+  contact = await ContactIdentityResolverService({
+    contact,
+    companyId: contact.companyId,
+    pushName: resolvedName
   });
 
   await syncContactToLead({ contact, companyId: contact.companyId });
-  logger.info(`Updated contact ${contact.id} from WhatsApp profile cache`);
+
+  const identityChanged =
+    originalName !== contact.name || originalProfilePicUrl !== contact.profilePicUrl;
+
+  if (changed || identityChanged) {
+    const io = getIO();
+    io.of(String(contact.companyId)).emit(`company-${contact.companyId}-contact`, {
+      action: "update",
+      contact
+    });
+    logger.info(`Updated contact ${contact.id} from WhatsApp profile cache`);
+  }
 
   return contact;
 };

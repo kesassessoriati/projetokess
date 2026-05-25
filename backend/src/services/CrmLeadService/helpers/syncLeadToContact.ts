@@ -1,5 +1,6 @@
 import CrmLead from "../../../models/CrmLead";
 import Contact from "../../../models/Contact";
+import { isGenericContactName } from "../../ContactServices/ContactIdentityResolverService";
 import logger from "../../../utils/logger";
 
 interface Params {
@@ -39,7 +40,11 @@ const syncLeadToContact = async ({
     updates.number = lead.phone;
   }
 
-  if (lead.name && lead.name !== contact.name) {
+  if (
+    lead.name &&
+    lead.name !== contact.name &&
+    isGenericContactName(contact.name, contact.number, contact.lid)
+  ) {
     updates.name = lead.name;
   }
 

@@ -1,6 +1,7 @@
 import CrmLead from "../../../models/CrmLead";
 import Contact from "../../../models/Contact";
 import { Op } from "sequelize";
+import { getBrazilianPhoneVariants } from "../../../helpers/normalizeContactNumber";
 
 interface Params {
   contact: Contact;
@@ -39,7 +40,10 @@ const findOrCreateLeadByContact = async ({
     const whereConditions: any[] = [];
 
     if (normalizedPhone) {
-      whereConditions.push({ phone: normalizedPhone });
+      const phoneVariants = getBrazilianPhoneVariants(normalizedPhone);
+      whereConditions.push({
+        phone: phoneVariants.length ? { [Op.in]: phoneVariants } : normalizedPhone
+      });
     }
 
     if (normalizedDocument) {

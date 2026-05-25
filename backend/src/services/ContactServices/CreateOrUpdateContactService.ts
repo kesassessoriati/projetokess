@@ -12,6 +12,9 @@ import * as Sentry from "@sentry/node";
 import { Op } from "sequelize";
 import syncContactToLead from "../CrmLeadService/helpers/syncContactToLead";
 import relinkContactToExistingRecords from "./relinkContactToExistingRecords";
+import ContactIdentityResolverService, {
+  isGenericContactName
+} from "./ContactIdentityResolverService";
 import {
   buildRemoteJidFromNumber,
   normalizePhoneNumber,
@@ -395,7 +398,11 @@ const CreateOrUpdateContactService = async ({
           duplicateContact.profilePicUrl = profilePicUrl;
         }
 
-        if (hasBestIncomingName && bestIncomingName !== duplicateContact.name) {
+        if (
+          hasBestIncomingName &&
+          bestIncomingName !== duplicateContact.name &&
+          isGenericContactName(duplicateContact.name, duplicateContact.number, duplicateContact.lid)
+        ) {
           duplicateContact.name = bestIncomingName;
         }
 
@@ -446,7 +453,11 @@ const CreateOrUpdateContactService = async ({
         contact.profilePicUrl = profilePicUrl;
       }
 
-      if (hasBestIncomingName && bestIncomingName !== contact.name) {
+      if (
+        hasBestIncomingName &&
+        bestIncomingName !== contact.name &&
+        isGenericContactName(contact.name, contact.number, contact.lid)
+      ) {
         contact.name = bestIncomingName;
       }
 
@@ -601,6 +612,13 @@ const CreateOrUpdateContactService = async ({
       }
     }
 
+    contact = await ContactIdentityResolverService({
+      contact,
+      companyId,
+      pushName: bestIncomingName,
+      profilePicUrl
+    });
+
     // Emite evento
     io.of(String(companyId)).emit(`company-${companyId}-contact`, {
       action: createContact ? "create" : "update",
@@ -610,6 +628,7 @@ const CreateOrUpdateContactService = async ({
     // Cria lead se necessário
     await syncContactToLead({ contact, companyId });
 
+    await contact.reload();
     await ensureFallbackName(contact);
 
     logger.info("=== CREATE OR UPDATE CONTACT SERVICE END ===");
