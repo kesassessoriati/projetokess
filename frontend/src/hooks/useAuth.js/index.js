@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useHistory } from "react-router-dom";
 import { has, isArray } from "lodash";
 
@@ -19,52 +19,72 @@ const useAuth = () => {
     () => localStorage.getItem("loginOrigin") || "default"
   );
 
-  api.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          // Tenta fazer parse se for string JSON
-          const parsedToken = token.startsWith('"') ? JSON.parse(token) : token;
-          config.headers["Authorization"] = `Bearer ${parsedToken}`;
-          setIsAuth(true);
-        } catch (e) {
-          // Se falhar, usa o token direto
-          config.headers["Authorization"] = `Bearer ${token}`;
-          setIsAuth(true);
-        }
-      }
-      return config;
-    },
-    (error) => {
-      Promise.reject(error);
-    }
-  );
+  const clearAuthSession = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("companyId");
+    api.defaults.headers.Authorization = undefined;
+    setIsAuth(false);
+    setUser({});
 
-  api.interceptors.response.use(
-    (response) => {
-      return response;
-    },
-    async (error) => {
-      const originalRequest = error.config;
-      if (error?.response?.status === 403 && !originalRequest._retry) {
-        originalRequest._retry = true;
-
-        const { data } = await api.post("/auth/refresh_token");
-        if (data) {
-          localStorage.setItem("token", data.token);
-          api.defaults.headers.Authorization = `Bearer ${data.token}`;
-        }
-        return api(originalRequest);
-      }
-      if (error?.response?.status === 401) {
-        localStorage.removeItem("token");
-        api.defaults.headers.Authorization = undefined;
-        setIsAuth(false);
-      }
-      return Promise.reject(error);
+    if (!["/login", "/", "/cadastro", "/forgetpsw"].includes(window.location.pathname)) {
+      history.replace("/login");
     }
-  );
+  }, [history]);
+
+  useEffect(() => {
+    const requestInterceptor = api.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            // Tenta fazer parse se for string JSON
+            const parsedToken = token.startsWith('"') ? JSON.parse(token) : token;
+            config.headers["Authorization"] = `Bearer ${parsedToken}`;
+          } catch (e) {
+            // Se falhar, usa o token direto
+            config.headers["Authorization"] = `Bearer ${token}`;
+          }
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    const responseInterceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config || {};
+
+        if (error?.response?.status === 403 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const { data } = await api.post("/auth/refresh_token");
+            if (data) {
+              localStorage.setItem("token", data.token);
+              api.defaults.headers.Authorization = `Bearer ${data.token}`;
+            }
+            return api(originalRequest);
+          } catch (refreshError) {
+            clearAuthSession();
+            return Promise.reject(refreshError);
+          }
+        }
+
+        if (error?.response?.status === 401) {
+          clearAuthSession();
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.request.eject(requestInterceptor);
+      api.interceptors.response.eject(responseInterceptor);
+    };
+  }, [clearAuthSession]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -78,12 +98,16 @@ const useAuth = () => {
           localStorage.setItem("userId", data.user.id);
           localStorage.setItem("companyId", data.user.company.id);
         } catch (err) {
-          toastError(err);
+          if (err?.response?.status === 401) {
+            clearAuthSession();
+          } else {
+            toastError(err);
+          }
         }
       }
       setLoading(false);
     })();
-  }, []);
+  }, [clearAuthSession]);
 
   useEffect(() => {
     // Socket removido para SocketProvider dedicado
