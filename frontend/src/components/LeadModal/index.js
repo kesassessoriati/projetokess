@@ -124,6 +124,13 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.primary.main,
     marginBottom: theme.spacing(1),
   },
+  closeButton: {
+    color: "#fff",
+    backgroundColor: theme.palette.error.main,
+    "&:hover": {
+      backgroundColor: theme.palette.error.dark,
+    },
+  },
   helperNote: {
     marginTop: -theme.spacing(1),
     color: theme.palette.text.secondary,
@@ -407,7 +414,6 @@ const LeadModal = ({
         toast.success("Lead criado com sucesso!");
       }
 
-      onClose();
       if (onSuccess) {
         onSuccess();
       }
@@ -576,61 +582,6 @@ const LeadModal = ({
                 />
               </Grid>
 
-              {/* ── PRODUTO VINCULADO ── */}
-              <Grid item xs={12} style={visibleGridStyle("product")}>
-                <div className={classes.highlightedField}>
-                  <Typography className={classes.highlightedLabel}>
-                    Produto vinculado ao lead
-                  </Typography>
-                  <Autocomplete
-                    freeSolo
-                    options={products}
-                    value={form.product || ""}
-                    onChange={(event, newValue) => {
-                      const productName =
-                        typeof newValue === "string"
-                          ? newValue
-                          : newValue?.inputValue || newValue?.nome || "";
-                      setForm((prev) => ({ ...prev, product: productName }));
-                    }}
-                    onInputChange={(event, newInputValue, reason) => {
-                      if (reason === "input") {
-                        setForm((prev) => ({ ...prev, product: newInputValue }));
-                      }
-                    }}
-                    getOptionLabel={(option) => {
-                      if (typeof option === "string") return option;
-                      return option?.inputValue || option?.nome || "";
-                    }}
-                    filterOptions={(options, params) => {
-                      const filtered = filter(options, params);
-                      const inputValue = params.inputValue.trim();
-                      if (
-                        inputValue &&
-                        !options.some(
-                          (option) =>
-                            (option?.nome || "").toLowerCase() ===
-                            inputValue.toLowerCase(),
-                        )
-                      ) {
-                        filtered.push({ inputValue, nome: `Usar "${inputValue}"` });
-                      }
-                      return filtered;
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={fieldLabel("product", "Produto")}
-                        variant="outlined"
-                        fullWidth
-                        className={classes.formField}
-                        placeholder="Selecione ou digite um produto"
-                      />
-                    )}
-                  />
-                </div>
-              </Grid>
-
               {/* ── INFORMAÇÕES COMERCIAIS ── */}
               <Grid item xs={12}>
                 <Typography variant="subtitle1" className={classes.sectionTitle}>
@@ -756,6 +707,60 @@ const LeadModal = ({
                   className={classes.formField}
                   inputProps={{ min: 0, step: "0.01" }}
                 />
+              </Grid>
+              {/* ── PRODUTO VINCULADO ── */}
+              <Grid item xs={12} style={visibleGridStyle("product")}>
+                <div className={classes.highlightedField}>
+                  <Typography className={classes.highlightedLabel}>
+                    Produto vinculado ao lead
+                  </Typography>
+                  <Autocomplete
+                    freeSolo
+                    options={products}
+                    value={form.product || ""}
+                    onChange={(event, newValue) => {
+                      const productName =
+                        typeof newValue === "string"
+                          ? newValue
+                          : newValue?.inputValue || newValue?.nome || "";
+                      setForm((prev) => ({ ...prev, product: productName }));
+                    }}
+                    onInputChange={(event, newInputValue, reason) => {
+                      if (reason === "input") {
+                        setForm((prev) => ({ ...prev, product: newInputValue }));
+                      }
+                    }}
+                    getOptionLabel={(option) => {
+                      if (typeof option === "string") return option;
+                      return option?.inputValue || option?.nome || "";
+                    }}
+                    filterOptions={(options, params) => {
+                      const filtered = filter(options, params);
+                      const inputValue = params.inputValue.trim();
+                      if (
+                        inputValue &&
+                        !options.some(
+                          (option) =>
+                            (option?.nome || "").toLowerCase() ===
+                            inputValue.toLowerCase(),
+                        )
+                      ) {
+                        filtered.push({ inputValue, nome: `Usar "${inputValue}"` });
+                      }
+                      return filtered;
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={fieldLabel("product", "Produto")}
+                        variant="outlined"
+                        fullWidth
+                        className={classes.formField}
+                        placeholder="Selecione ou digite um produto"
+                      />
+                    )}
+                  />
+                </div>
               </Grid>
 
               {/* ── PRESENÇA DIGITAL ── */}
@@ -1038,25 +1043,33 @@ const LeadModal = ({
         style={{
           padding: isEmbedded ? "16px 0 0 0" : undefined,
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
         }}
       >
-        <Button onClick={onClose} disabled={submitting}>
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          color="primary"
-          variant="contained"
-          form="lead-form"
-          disabled={submitting || loading}
-        >
-          {submitting ? (
-            <CircularProgress size={20} color="inherit" />
-          ) : (
-            "Salvar"
-          )}
-        </Button>
+        <div>
+          <Button
+            variant="contained"
+            className={classes.closeButton}
+            onClick={onClose}
+            disabled={submitting}
+            style={{ marginRight: 8 }}
+          >
+            Fechar
+          </Button>
+          <Button
+            type="submit"
+            color="primary"
+            variant="contained"
+            form="lead-form"
+            disabled={submitting || loading}
+          >
+            {submitting ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Salvar"
+            )}
+          </Button>
+        </div>
       </div>
     </>
   );
