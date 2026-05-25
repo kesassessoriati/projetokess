@@ -103,6 +103,25 @@ dockerhub_tag_exists() {
     [ "$http_code" = "200" ]
 }
 
+ensure_dockerhub_authenticated() {
+    local docker_config="${DOCKER_CONFIG:-$HOME/.docker}"
+
+    if docker info 2>/dev/null | grep -qi "Username"; then
+        return 0
+    fi
+
+    if [ -f "${docker_config}/config.json" ] && grep -q '"auths"' "${docker_config}/config.json"; then
+        return 0
+    fi
+
+    if [ -n "${DOCKER_USERNAME:-}" ] && [ -n "${DOCKER_PASSWORD:-}" ]; then
+        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin >/dev/null 2>&1
+        return $?
+    fi
+
+    return 1
+}
+
 resolve_current_version() {
     local remote_backend_version remote_frontend_version remote_version
 
@@ -192,7 +211,7 @@ fi
 echo -e "${GREEN}OK: Docker encontrado${NC}"
 
 ## Verificar login no Docker Hub
-if ! docker info 2>/dev/null | grep -q "Username"; then
+if ! ensure_dockerhub_authenticated; then
     echo -e "${RED}ERRO: Voce nao esta logado no Docker Hub. Execute 'docker login' primeiro.${NC}"
     exit 1
 fi
