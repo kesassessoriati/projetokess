@@ -135,6 +135,11 @@ const buildOrderBy = (columns: HistoryColumns): string => {
 const buildScopeWhere = (columns: HistoryColumns): string => {
   const companyColumn = getCompanyColumn(columns);
   if (companyColumn) {
+    const scopedColumns = getScopedKeyColumns(columns);
+    if (scopedColumns.length) {
+      return `("${companyColumn}" = :companyId OR ("${companyColumn}" IS NULL AND (${scopedColumns.map(column => `"${column}" LIKE :companyPrefix`).join(" OR ")})))`;
+    }
+
     return `"${companyColumn}" = :companyId`;
   }
 
