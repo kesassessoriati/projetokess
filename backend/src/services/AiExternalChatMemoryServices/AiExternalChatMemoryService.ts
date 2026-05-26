@@ -142,6 +142,9 @@ const buildScopeWhere = (columns: HistoryColumns): string => {
   return `(${scopedColumns.map(column => `"${column}" LIKE :companyPrefix`).join(" OR ")})`;
 };
 
+const escapeLikePattern = (value: string): string =>
+  value.replace(/[!%_\\]/g, match => `!${match}`);
+
 const buildSearchWhere = (columns: HistoryColumns): string[] => {
   const clauses: string[] = [];
   const keyColumns = getScopedKeyColumns(columns);
@@ -451,8 +454,10 @@ export const deleteChatMemoryBySession = async ({
 
   const where = [
     buildScopeWhere(columns),
-    `(${scopedColumns.map(column => `"${column}" LIKE :sessionLike`).join(" OR ")})`
+    `(${scopedColumns.map(column => `"${column}" LIKE :sessionLike ESCAPE '!'`).join(" OR ")})`
   ].join(" AND ");
+
+  const safeSessionId = escapeLikePattern(sessionId.trim());
 
   const [, metadata] = (await sequelize.query(
     `DELETE FROM ${HISTORY_TABLE}
@@ -461,7 +466,7 @@ export const deleteChatMemoryBySession = async ({
       replacements: {
         companyId,
         companyPrefix: `${companyId}:lead:%`,
-        sessionLike: `%:session:${sessionId}%`
+        sessionLike: `%:session:${safeSessionId}%`
       }
     }
   )) as any;
