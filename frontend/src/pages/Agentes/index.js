@@ -13,6 +13,10 @@ import {
   FormControlLabel,
   Divider,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -36,6 +40,11 @@ import ListAltIcon from "@material-ui/icons/ListAlt";
 import SendIcon from "@material-ui/icons/Send";
 import GroupIcon from "@material-ui/icons/Group";
 import LinkIcon from "@material-ui/icons/Link";
+import MemoryIcon from "@material-ui/icons/Memory";
+import VisibilityIcon from "@material-ui/icons/Visibility";
+import FileCopyIcon from "@material-ui/icons/FileCopy";
+import DeleteSweepIcon from "@material-ui/icons/DeleteSweep";
+import WarningIcon from "@material-ui/icons/Warning";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -294,6 +303,16 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: 2,
     ...theme.scrollbarStyles,
   },
+  externalMenuSecondary: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: -8,
+    marginBottom: 16,
+    overflowX: "auto",
+    paddingBottom: 2,
+    ...theme.scrollbarStyles,
+  },
   externalMenuButton: {
     minHeight: 40,
     border: "1px solid #e5e7eb",
@@ -436,6 +455,70 @@ const useStyles = makeStyles((theme) => ({
   eventsPanel: {
     marginTop: 16,
   },
+  chatMemoryGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 0.35fr)",
+    gap: 16,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  chatMemoryFilters: {
+    display: "grid",
+    gridTemplateColumns: "minmax(180px, 1fr) repeat(3, minmax(130px, 0.35fr))",
+    gap: 12,
+    marginBottom: 12,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  chatMemoryRow: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: "#fff",
+  },
+  chatMemoryHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 6,
+  },
+  chatMemoryPreview: {
+    color: "#4b5563",
+    fontSize: "0.82rem",
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  dangerPanel: {
+    border: "1px solid #fecaca",
+    backgroundColor: "#fff7f7",
+  },
+  dangerTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    color: "#b91c1c",
+    fontWeight: 800,
+    marginBottom: 8,
+  },
+  rawJsonBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#0f172a",
+    color: "#e5e7eb",
+    fontSize: "0.78rem",
+    lineHeight: 1.5,
+    maxHeight: 320,
+    overflow: "auto",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    ...theme.scrollbarStyles,
+  },
   placeholderGrid: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 0.45fr)",
@@ -572,6 +655,20 @@ const Prompts = () => {
   const [aiWebhooks, setAiWebhooks] = useState([]);
   const [webhookForm, setWebhookForm] = useState({ name: "", url: "", eventType: "" });
   const [editingWebhookId, setEditingWebhookId] = useState(null);
+  const [chatMemoryLoading, setChatMemoryLoading] = useState(false);
+  const [chatMemories, setChatMemories] = useState([]);
+  const [chatMemoryTotal, setChatMemoryTotal] = useState(0);
+  const [chatMemoryPage, setChatMemoryPage] = useState(1);
+  const [chatMemoryFilters, setChatMemoryFilters] = useState({
+    search: "",
+    range: "recent",
+    leadId: "",
+    sessionId: "",
+  });
+  const [chatMemoryDetail, setChatMemoryDetail] = useState(null);
+  const [chatMemoryDeleteTarget, setChatMemoryDeleteTarget] = useState(null);
+  const [chatMemoryDangerOpen, setChatMemoryDangerOpen] = useState(false);
+  const [chatMemoryDangerText, setChatMemoryDangerText] = useState("");
   const [ragDocuments, setRagDocuments] = useState([]);
   const [ragBase, setRagBase] = useState("empresa");
   const [ragContent, setRagContent] = useState("");
@@ -715,6 +812,113 @@ const Prompts = () => {
       setRagDocuments(data?.documents || []);
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const loadChatMemory = async (page = chatMemoryPage, filters = chatMemoryFilters) => {
+    setChatMemoryLoading(true);
+    try {
+      const { data } = await api.get("/ai-agents/external/chat-memory", {
+        params: {
+          ...filters,
+          page,
+          limit: 25,
+        },
+      });
+      setChatMemories(data?.memories || []);
+      setChatMemoryTotal(data?.count || 0);
+      setChatMemoryPage(data?.page || page);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setChatMemoryLoading(false);
+    }
+  };
+
+  const handleChatMemoryFilterChange = (field, value) => {
+    setChatMemoryFilters(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSearchChatMemory = () => {
+    setChatMemoryPage(1);
+    loadChatMemory(1);
+  };
+
+  const handleClearChatMemoryFilters = () => {
+    const nextFilters = { search: "", range: "recent", leadId: "", sessionId: "" };
+    setChatMemoryFilters(nextFilters);
+    setChatMemoryPage(1);
+    loadChatMemory(1, nextFilters);
+  };
+
+  const handleShowChatMemory = async (memoryId) => {
+    setExternalSaving(true);
+    try {
+      const { data } = await api.get(`/ai-agents/external/chat-memory/${memoryId}`);
+      setChatMemoryDetail(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const copyToClipboard = async (value, label = "Conteudo") => {
+    try {
+      await navigator.clipboard.writeText(String(value || ""));
+      toast.success(`${label} copiado.`);
+    } catch {
+      toast.error("Nao foi possivel copiar para a area de transferencia.");
+    }
+  };
+
+  const requestDeleteChatMemory = (type, payload) => {
+    setChatMemoryDeleteTarget({ type, ...payload });
+  };
+
+  const handleDeleteChatMemory = async () => {
+    if (!chatMemoryDeleteTarget) return;
+
+    setExternalSaving(true);
+    try {
+      if (chatMemoryDeleteTarget.type === "record") {
+        await api.delete(`/ai-agents/external/chat-memory/${chatMemoryDeleteTarget.id}`);
+      }
+      if (chatMemoryDeleteTarget.type === "lead") {
+        await api.delete(`/ai-agents/external/chat-memory/lead/${chatMemoryDeleteTarget.leadId}`);
+      }
+      if (chatMemoryDeleteTarget.type === "session") {
+        await api.delete(`/ai-agents/external/chat-memory/session/${encodeURIComponent(chatMemoryDeleteTarget.sessionId)}`);
+      }
+      setChatMemoryDeleteTarget(null);
+      await loadChatMemory();
+      toast.success("Chat Memory excluido.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
+    }
+  };
+
+  const handleDeleteCompanyChatMemory = async () => {
+    if (chatMemoryDangerText !== "EXCLUIR MEMORIA") return;
+
+    setExternalSaving(true);
+    try {
+      const { data } = await api.delete("/ai-agents/external/chat-memory/company", {
+        data: { confirmation: chatMemoryDangerText },
+      });
+      setChatMemoryDangerOpen(false);
+      setChatMemoryDangerText("");
+      await loadChatMemory(1);
+      toast.success(`${data?.deleted || 0} registro(s) de Chat Memory excluido(s).`);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setExternalSaving(false);
     }
   };
 
@@ -1198,6 +1402,10 @@ const Prompts = () => {
     { key: "settings", label: "Configuracoes", icon: <SettingsIcon /> },
     { key: "webhooks", label: "Webhooks", icon: <LinkIcon /> },
     { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
+  ];
+
+  const externalSecondaryMenuItems = [
+    { key: "chatMemory", label: "Chat Memory", icon: <MemoryIcon /> },
   ];
 
   const externalStats = {
@@ -2057,6 +2265,285 @@ const Prompts = () => {
     </Box>
   );
 
+  const renderChatMemory = () => {
+    const totalPages = Math.max(Math.ceil(chatMemoryTotal / 25), 1);
+    const canDeleteAll = chatMemoryDangerText === "EXCLUIR MEMORIA";
+    const canManageChatMemory = ["admin", "super"].includes(user?.profile);
+
+    return (
+      <Box className={classes.chatMemoryGrid}>
+        <Box className={classes.externalPanel}>
+          <Typography className={classes.panelTitle}>Chat Memory</Typography>
+          <Typography className={classes.panelSubtitle}>
+            Consulte e gerencie a memoria de conversa salva pelo N8N somente da empresa logada.
+          </Typography>
+
+          <Box className={classes.chatMemoryFilters}>
+            <TextField
+              label="Buscar por key, session, texto ou ID"
+              variant="outlined"
+              size="small"
+              value={chatMemoryFilters.search}
+              onChange={(event) => handleChatMemoryFilterChange("search", event.target.value)}
+            />
+            <TextField
+              select
+              label="Periodo"
+              variant="outlined"
+              size="small"
+              value={chatMemoryFilters.range}
+              onChange={(event) => handleChatMemoryFilterChange("range", event.target.value)}
+            >
+              <MenuItem value="recent">Ultimas conversas</MenuItem>
+              <MenuItem value="24h">Ultimas 24 horas</MenuItem>
+              <MenuItem value="7d">Ultimos 7 dias</MenuItem>
+              <MenuItem value="all">Todos da empresa</MenuItem>
+            </TextField>
+            <TextField
+              label="Lead ID"
+              variant="outlined"
+              size="small"
+              value={chatMemoryFilters.leadId}
+              onChange={(event) => handleChatMemoryFilterChange("leadId", event.target.value)}
+            />
+            <TextField
+              label="Session ID"
+              variant="outlined"
+              size="small"
+              value={chatMemoryFilters.sessionId}
+              onChange={(event) => handleChatMemoryFilterChange("sessionId", event.target.value)}
+            />
+          </Box>
+
+          <Box className={classes.actionRow} style={{ justifyContent: "space-between", marginTop: 0, marginBottom: 12 }}>
+            <Typography className={classes.versionMeta}>
+              {chatMemoryTotal} registro(s) encontrado(s). Pagina {chatMemoryPage} de {totalPages}.
+            </Typography>
+            <Box className={classes.inlineActions}>
+              <Button size="small" variant="outlined" onClick={handleClearChatMemoryFilters} disabled={chatMemoryLoading}>
+                Limpar
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => loadChatMemory(chatMemoryPage)} disabled={chatMemoryLoading}>
+                Atualizar
+              </Button>
+              <Button size="small" variant="contained" color="primary" onClick={handleSearchChatMemory} disabled={chatMemoryLoading}>
+                Buscar
+              </Button>
+            </Box>
+          </Box>
+
+          {chatMemoryLoading ? (
+            <Box className={classes.loadingContainer}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : chatMemories.length === 0 ? (
+            <Typography className={classes.toolsEmpty}>Nenhuma memoria encontrada para esta empresa.</Typography>
+          ) : (
+            chatMemories.map((memory) => {
+              const leadId = memory.parsed?.leadId;
+              const sessionId = memory.parsed?.sessionId;
+              const key = memory.sessionId || memory.key || "";
+              return (
+                <Box key={memory.id} className={classes.chatMemoryRow}>
+                  <Box className={classes.chatMemoryHeader}>
+                    <Box style={{ minWidth: 0 }}>
+                      <Typography className={classes.versionTitle}>
+                        Lead {leadId || "-"} {memory.leadName ? `- ${memory.leadName}` : ""}
+                      </Typography>
+                      <Typography className={classes.versionMeta} style={{ wordBreak: "break-all" }}>
+                        Session: {sessionId || "-"}
+                      </Typography>
+                      <Typography className={classes.versionMeta}>
+                        {memory.leadPhone ? `Telefone: ${memory.leadPhone} - ` : ""}
+                        {memory.updatedAt || memory.createdAt ? formatDateTime(memory.updatedAt || memory.createdAt) : "Sem data na tabela"}
+                      </Typography>
+                    </Box>
+                    <Box className={classes.inlineActions} style={{ flexShrink: 0 }}>
+                      <Tooltip title="Ver detalhes">
+                        <IconButton size="small" onClick={() => handleShowChatMemory(memory.id)}>
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Copiar Session ID">
+                        <IconButton size="small" onClick={() => copyToClipboard(sessionId || key, "Session ID")}>
+                          <FileCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir este registro">
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          disabled={!canManageChatMemory}
+                          onClick={() => requestDeleteChatMemory("record", { id: memory.id, leadId, sessionId })}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                  <Typography className={classes.chatMemoryPreview}>
+                    {memory.preview || "Sem previa disponivel."}
+                  </Typography>
+                  <Box className={classes.itemDetails} style={{ marginTop: 8 }}>
+                    <span>ID: {memory.id}</span>
+                    <span>Interacoes: {memory.messageCount || 0}</span>
+                    <span>Origem: {memory.source}</span>
+                  </Box>
+                  {canManageChatMemory && (
+                    <Box className={classes.inlineActions} style={{ marginTop: 8 }}>
+                      {leadId && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => requestDeleteChatMemory("lead", { leadId, sessionId })}
+                        >
+                          Excluir lead
+                        </Button>
+                      )}
+                      {sessionId && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => requestDeleteChatMemory("session", { leadId, sessionId })}
+                        >
+                          Excluir sessao
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })
+          )}
+
+          <Box className={classes.actionRow}>
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={chatMemoryPage <= 1 || chatMemoryLoading}
+              onClick={() => loadChatMemory(chatMemoryPage - 1)}
+            >
+              Anterior
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={chatMemoryPage >= totalPages || chatMemoryLoading}
+              onClick={() => loadChatMemory(chatMemoryPage + 1)}
+            >
+              Proxima
+            </Button>
+          </Box>
+        </Box>
+
+        <Box className={`${classes.externalPanel} ${classes.dangerPanel}`}>
+          <Typography className={classes.dangerTitle}>
+            <WarningIcon fontSize="small" />
+            Zona de risco
+          </Typography>
+          <Typography className={classes.panelSubtitle}>
+            Exclui somente os registros de Chat Memory da empresa logada. O backend valida o companyId pela sessao.
+            {!canManageChatMemory ? " Apenas administradores podem executar exclusoes." : ""}
+          </Typography>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<DeleteSweepIcon />}
+            disabled={!canManageChatMemory}
+            onClick={() => setChatMemoryDangerOpen(true)}
+          >
+            Excluir toda memoria da empresa
+          </Button>
+        </Box>
+
+        <Dialog open={Boolean(chatMemoryDetail)} onClose={() => setChatMemoryDetail(null)} fullWidth maxWidth="md">
+          <DialogTitle>Detalhes do Chat Memory</DialogTitle>
+          <DialogContent dividers>
+            {chatMemoryDetail && (
+              <>
+                <Box className={classes.itemDetails} style={{ marginBottom: 12 }}>
+                  <span>ID: {chatMemoryDetail.id}</span>
+                  <span>Company ID: {chatMemoryDetail.parsed?.companyId || companyId}</span>
+                  <span>Lead ID: {chatMemoryDetail.parsed?.leadId || "-"}</span>
+                  <span>Session ID: {chatMemoryDetail.parsed?.sessionId || "-"}</span>
+                </Box>
+                <Typography className={classes.versionMeta} style={{ wordBreak: "break-all", marginBottom: 12 }}>
+                  Key: {chatMemoryDetail.sessionId || chatMemoryDetail.key || "-"}
+                </Typography>
+                <Typography className={classes.chatMemoryPreview}>
+                  {chatMemoryDetail.preview || "Sem previa disponivel."}
+                </Typography>
+                <Box className={classes.rawJsonBox}>
+                  {JSON.stringify(chatMemoryDetail.message ?? chatMemoryDetail, null, 2)}
+                </Box>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => copyToClipboard(JSON.stringify(chatMemoryDetail?.message ?? {}, null, 2), "Conteudo")}>
+              Copiar conteudo
+            </Button>
+            <Button color="primary" variant="contained" onClick={() => setChatMemoryDetail(null)}>
+              Fechar
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={Boolean(chatMemoryDeleteTarget)} onClose={() => setChatMemoryDeleteTarget(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Excluir Chat Memory?</DialogTitle>
+          <DialogContent dividers>
+            <Typography>
+              Tem certeza que deseja excluir esta memoria? Essa acao nao podera ser desfeita.
+            </Typography>
+            {chatMemoryDeleteTarget && (
+              <Typography className={classes.versionMeta} style={{ marginTop: 8 }}>
+                Escopo: {chatMemoryDeleteTarget.type === "record" ? "registro" : chatMemoryDeleteTarget.type}
+                {" | "}
+                Lead: {chatMemoryDeleteTarget.leadId || "-"} | Session: {chatMemoryDeleteTarget.sessionId || "-"}
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setChatMemoryDeleteTarget(null)}>Cancelar</Button>
+            <Button color="secondary" variant="contained" disabled={externalSaving} onClick={handleDeleteChatMemory}>
+              Excluir
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={chatMemoryDangerOpen} onClose={() => setChatMemoryDangerOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Excluir toda memoria da empresa</DialogTitle>
+          <DialogContent dividers>
+            <Typography>
+              Esta acao remove todos os registros de Chat Memory vinculados a empresa atual.
+              Digite <strong>EXCLUIR MEMORIA</strong> para confirmar.
+            </Typography>
+            <Typography className={classes.versionMeta} style={{ marginTop: 8 }}>
+              Registros estimados na busca atual: {chatMemoryTotal}
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              size="small"
+              label="Confirmacao"
+              value={chatMemoryDangerText}
+              onChange={(event) => setChatMemoryDangerText(event.target.value)}
+              style={{ marginTop: 16 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setChatMemoryDangerOpen(false)}>Cancelar</Button>
+            <Button color="secondary" variant="contained" disabled={!canDeleteAll || externalSaving} onClick={handleDeleteCompanyChatMemory}>
+              Excluir memoria da empresa
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  };
+
   const renderExternalSection = () => {
     if (externalSection === "dashboard") return renderExternalDashboard();
     if (externalSection === "prompt") return renderExternalPrompt();
@@ -2067,6 +2554,7 @@ const Prompts = () => {
     if (externalSection === "reminders") return renderReminders();
     if (externalSection === "followups") return renderFollowUps();
     if (externalSection === "rag") return renderRag();
+    if (externalSection === "chatMemory") return renderChatMemory();
     return null;
   };
 
@@ -2113,6 +2601,13 @@ const Prompts = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab]);
+
+  useEffect(() => {
+    if (activeAgentTab === "external" && externalSection === "chatMemory") {
+      loadChatMemory(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAgentTab, externalSection]);
 
   useEffect(() => {
     if (!isConnected || !user.companyId) return;
@@ -2291,6 +2786,19 @@ const Prompts = () => {
             <>
               <Box className={classes.externalMenu}>
                 {externalMenuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`${classes.externalMenuButton} ${externalSection === item.key ? classes.externalMenuButtonActive : ""}`}
+                    onClick={() => setExternalSection(item.key)}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </Box>
+              <Box className={classes.externalMenuSecondary}>
+                {externalSecondaryMenuItems.map((item) => (
                   <button
                     key={item.key}
                     type="button"
