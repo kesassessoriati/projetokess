@@ -11,6 +11,7 @@ import PipelineStage from "../models/PipelineStage";
 import { getIO } from "../libs/socket";
 import CreateOpportunityEventService from "../services/OpportunityServices/CreateOpportunityEventService";
 import { dispatchCallFlowTrigger } from "../services/FlowBuilderService/FlowTriggerPayloads";
+import { normalizeCallProvider } from "../services/CallProviderServices/CallProviderTypes";
 
 type IndexQuery = {
   pageNumber?: string;
@@ -26,6 +27,7 @@ type IndexQuery = {
   stageId?: string;
   sequenceId?: string;
   source?: string;
+  provider?: string;
 };
 
 const buildScopedWhere = (req: Request, query: IndexQuery) => {
@@ -46,6 +48,10 @@ const buildScopedWhere = (req: Request, query: IndexQuery) => {
 
   if (query.source) {
     where.source = query.source;
+  }
+
+  if (query.provider) {
+    where.provider = normalizeCallProvider(query.provider);
   }
 
   if (query.whatsappId && query.whatsappId !== "null" && query.whatsappId !== "undefined") {
@@ -177,6 +183,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     stageId,
     sequenceId,
     source,
+    provider,
     disposition,
     metadata,
     duration,
@@ -203,6 +210,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       stageId: stageId || null,
       sequenceId: sequenceId ? String(sequenceId) : null,
       source: source || "manual",
+      provider: normalizeCallProvider(provider || source),
       disposition: disposition || null,
       metadata: metadata || {},
       callStartedAt: callStartedAt ? new Date(callStartedAt) : new Date(),
@@ -257,6 +265,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     stageId,
     sequenceId,
     source,
+    provider,
     disposition,
     metadata,
     answeredAt,
@@ -283,6 +292,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       stageId: stageId !== undefined ? stageId : record.stageId,
       sequenceId: sequenceId !== undefined ? String(sequenceId || "") || null : record.sequenceId,
       source: source || record.source,
+      provider: provider ? normalizeCallProvider(provider) : record.provider,
       disposition: disposition !== undefined ? disposition : record.disposition,
       metadata: metadata ? { ...(record.metadata || {}), ...metadata } : record.metadata,
       answeredAt: answeredAt ? new Date(answeredAt) : nextStatus === "answered" && !record.answeredAt ? new Date() : record.answeredAt,

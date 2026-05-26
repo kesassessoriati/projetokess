@@ -45,11 +45,13 @@ import {
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "react-toastify";
 import Title from "../../components/Title";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 import { useWebphone } from "../../context/WebphoneContext";
+import { callProviderOptions, getCallProvider } from "../../services/callProviderService";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -127,6 +129,13 @@ const useStyles = makeStyles((theme) => ({
   statusChip: {
     fontWeight: 800,
     height: 26,
+  },
+  providerChip: {
+    borderRadius: 999,
+    height: 24,
+    fontWeight: 800,
+    backgroundColor: "#f1f5f9",
+    color: "#334155",
   },
   emptyState: {
     padding: theme.spacing(6),
@@ -364,6 +373,7 @@ const CallHistory = () => {
     pipelineId: "",
     stageId: "",
     source: "",
+    provider: "",
   });
 
   // Delete confirmation state
@@ -458,6 +468,13 @@ const CallHistory = () => {
   const openCallAgain = (record) => {
     const phone = record.toNumber || record.lead?.phone || record.contact?.number || record.fromNumber;
     if (!phone) return;
+    const provider = getCallProvider(record);
+
+    if (provider.value === "wavoip") {
+      toast.info("Chamada Wavoip identificada no histórico. A abertura do widget Wavoip pela Central será habilitada na próxima fase.");
+      return;
+    }
+
     hydrateLeadContext(
       {
         id: record.lead?.id || record.leadId || null,
@@ -475,6 +492,7 @@ const CallHistory = () => {
         opportunityId: record.opportunity?.id || record.opportunityId || null,
         pipelineId: record.pipelineId || null,
         stageId: record.stageId || null,
+        provider: provider.value,
       },
       { tab: "dialer" }
     );
@@ -677,6 +695,19 @@ const CallHistory = () => {
               </Select>
             </FormControl>
           </Grid>
+          <Grid item xs={12} md={1.5}>
+            <FormControl variant="outlined" size="small" fullWidth>
+              <InputLabel>Provider</InputLabel>
+              <Select value={filters.provider} onChange={handleFilterChange("provider")} label="Provider">
+                <MenuItem value="">Todos</MenuItem>
+                {callProviderOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
           {isAdmin && (
             <Grid item xs={12} md={1.5}>
               <FormControl variant="outlined" size="small" fullWidth>
@@ -725,7 +756,7 @@ const CallHistory = () => {
               style={{ height: 40, textTransform: "none", fontWeight: 800 }}
               onClick={() => {
                 setPage(0);
-                setFilters({ search: "", status: "", dateStart: "", dateEnd: "", userId: "", pipelineId: "", stageId: "", source: "" });
+                setFilters({ search: "", status: "", dateStart: "", dateEnd: "", userId: "", pipelineId: "", stageId: "", source: "", provider: "" });
               }}
             >
               Limpar filtros
@@ -759,6 +790,7 @@ const CallHistory = () => {
                     <TableCell className={classes.tableHeadCell}>Tipo</TableCell>
                     <TableCell className={classes.tableHeadCell}>Contato</TableCell>
                     <TableCell className={classes.tableHeadCell}>Status</TableCell>
+                    <TableCell className={classes.tableHeadCell}>Provider</TableCell>
                     <TableCell className={classes.tableHeadCell}>Duração</TableCell>
                     <TableCell className={classes.tableHeadCell}>CRM</TableCell>
                     <TableCell className={classes.tableHeadCell}>Usuário</TableCell>
@@ -771,6 +803,7 @@ const CallHistory = () => {
                     const config = statusConfig[record.status] || statusConfig.failed;
                     const StatusIcon = config.icon;
                     const phone = record.toNumber || record.lead?.phone || record.contact?.number || record.fromNumber;
+                    const provider = getCallProvider(record);
 
                     return (
                       <TableRow key={record.id} hover>
@@ -801,6 +834,13 @@ const CallHistory = () => {
                             className={classes.statusChip}
                             size="small"
                             style={{ backgroundColor: config.bgColor, color: config.color }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={provider.label}
+                            className={classes.providerChip}
+                            size="small"
                           />
                         </TableCell>
                         <TableCell>

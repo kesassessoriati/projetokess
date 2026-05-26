@@ -893,6 +893,7 @@ export const WebphoneProvider = ({ children }) => {
       status: "ringing",
       type: "outgoing",
       source: options.source || callMetadata.source || "manual",
+      provider: options.provider || callMetadata.provider || "sip",
       metadata: options.metadata || {},
     };
 

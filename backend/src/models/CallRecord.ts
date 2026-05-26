@@ -119,6 +119,10 @@ class CallRecord extends Model<CallRecord> {
   @Column
   source: string;
 
+  @Default("manual")
+  @Column
+  provider: string;
+
   @Column
   disposition: string;
 
