@@ -1,3 +1,5 @@
+import api from "./api";
+
 export const callProviderOptions = [
   { value: "sip", label: "SIP" },
   { value: "wavoip", label: "Wavoip" },
@@ -29,4 +31,42 @@ export const getCallProvider = (record = {}) => {
   }
 
   return callProviderMap.unknown;
+};
+
+export const defaultCallProviderSettings = {
+  defaultProvider: "sip",
+  sipEnabled: true,
+  wavoipEnabled: false,
+  wavoipBaseUrl: "",
+  wavoipDeviceId: "",
+  wavoipToken: "",
+  wavoipTokenConfigured: false,
+  rejectCallsDefault: false,
+  callRejectMessagePt: "",
+  callRejectMessageEn: "",
+  businessHoursEnabled: false,
+  settings: {},
+};
+
+export const getCallProviderSettings = async () => {
+  const { data } = await api.get("/call-providers/settings");
+  return {
+    ...defaultCallProviderSettings,
+    ...(data || {}),
+    wavoipToken: "",
+  };
+};
+
+export const updateCallProviderSettings = async (payload) => {
+  const { data } = await api.put("/call-providers/settings", payload);
+  return {
+    ...defaultCallProviderSettings,
+    ...(data || {}),
+    wavoipToken: "",
+  };
+};
+
+export const startProviderCall = async (payload) => {
+  const { data } = await api.post("/call-providers/start", payload);
+  return data;
 };

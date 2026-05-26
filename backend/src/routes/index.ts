@@ -112,6 +112,7 @@ import contactAnalyticsRoutes from "./contactAnalyticsRoutes";
 import notificationRoutes from "./notificationRoutes";
 import callRecordRoutes from "./callRecordRoutes";
 import callRecordingRoutes from "./callRecordingRoutes";
+import callProviderSettingRoutes from "./callProviderSettingRoutes";
 import externalAppRoutes from "./externalAppRoutes";
 import quickSendRoutes from "./quickSendRoutes";
 import frontendErrorRoutes from "./frontendErrorRoutes";
@@ -305,6 +306,7 @@ routes.use("/notifications", notificationRoutes);
 // Histórico de Chamadas
 routes.use(callRecordRoutes);
 routes.use(callRecordingRoutes);
+routes.use(callProviderSettingRoutes);
 routes.use(externalAppRoutes);
 routes.use(quickSendRoutes);
 routes.use(frontendErrorRoutes);

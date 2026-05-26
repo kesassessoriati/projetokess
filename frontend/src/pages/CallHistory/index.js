@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   FormControl,
   Grid,
   IconButton,
@@ -18,6 +19,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -41,6 +43,7 @@ import {
   PhoneDisabled as PhoneDisabledIcon,
   PhoneMissed as PhoneMissedIcon,
   Refresh as RefreshIcon,
+  Settings as SettingsIcon,
   Warning as WarningIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
@@ -51,7 +54,12 @@ import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 import { useWebphone } from "../../context/WebphoneContext";
-import { callProviderOptions, getCallProvider } from "../../services/callProviderService";
+import {
+  callProviderOptions,
+  defaultCallProviderSettings,
+  getCallProvider,
+  updateCallProviderSettings,
+} from "../../services/callProviderService";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -94,6 +102,29 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 18,
     border: "1px solid #dbe7df",
     boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+  },
+  settingsPanel: {
+    padding: theme.spacing(2),
+    borderRadius: 18,
+    border: "1px solid #dbe7df",
+    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%)",
+  },
+  settingsHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing(2),
+    flexWrap: "wrap",
+    marginBottom: theme.spacing(2),
+  },
+  sectionTitle: {
+    fontWeight: 900,
+    color: "#0f172a",
+  },
+  helperText: {
+    color: "#64748b",
+    fontSize: "0.78rem",
   },
   tablePaper: {
     borderRadius: 18,
@@ -340,7 +371,14 @@ const CallHistory = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const { isConnected, on } = useSocket();
-  const { hydrateLeadContext, setActiveTab, setPanelOpen } = useWebphone();
+  const {
+    callProviderSettings,
+    hydrateLeadContext,
+    loadCallProviderSettings,
+    makeCall,
+    setActiveTab,
+    setPanelOpen,
+  } = useWebphone();
 
   const isAdmin = user?.profile === "admin" || user?.profile === "super";
   const isSuper = user?.profile === "super";
@@ -375,10 +413,21 @@ const CallHistory = () => {
     source: "",
     provider: "",
   });
+  const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [providerSaving, setProviderSaving] = useState(false);
+  const [providerForm, setProviderForm] = useState(defaultCallProviderSettings);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, contactName }
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setProviderForm({
+      ...defaultCallProviderSettings,
+      ...(callProviderSettings || {}),
+      wavoipToken: "",
+    });
+  }, [callProviderSettings]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -465,14 +514,65 @@ const CallHistory = () => {
     }));
   };
 
+  const handleProviderFormChange = (field) => (event) => {
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    setProviderForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveProviderSettings = async () => {
+    if (!isAdmin) {
+      toast.error("Apenas administradores podem alterar as configuracoes de chamadas.");
+      return;
+    }
+
+    setProviderSaving(true);
+    try {
+      await updateCallProviderSettings({
+        ...providerForm,
+        wavoipToken: providerForm.wavoipToken || undefined,
+      });
+      await loadCallProviderSettings();
+      toast.success("Configuracoes de chamadas salvas.");
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.response?.data?.error || "Erro ao salvar configuracoes de chamadas.";
+      toast.error(message);
+    } finally {
+      setProviderSaving(false);
+    }
+  };
+
   const openCallAgain = (record) => {
     const phone = record.toNumber || record.lead?.phone || record.contact?.number || record.fromNumber;
     if (!phone) return;
     const provider = getCallProvider(record);
+    const selectedProvider = callProviderSettings?.defaultProvider || provider.value;
 
-    if (provider.value === "wavoip") {
-      toast.info("Chamada Wavoip identificada no histórico. A abertura do widget Wavoip pela Central será habilitada na próxima fase.");
-      return;
+    if (selectedProvider === "wavoip") {
+      return makeCall(
+        phone,
+        {
+          id: record.lead?.id || record.leadId || null,
+          name: record.lead?.name || record.contact?.name || phone,
+          phone,
+          companyName: record.lead?.companyName || "",
+          pipelineId: record.pipelineId || null,
+          stageId: record.stageId || null,
+          opportunityId: record.opportunity?.id || record.opportunityId || null,
+          contactId: record.contact?.id || record.contactId || null,
+        },
+        {
+          contactId: record.contact?.id || record.contactId || null,
+          leadId: record.lead?.id || record.leadId || null,
+          opportunityId: record.opportunity?.id || record.opportunityId || null,
+          pipelineId: record.pipelineId || null,
+          stageId: record.stageId || null,
+          provider: "wavoip",
+        },
+        { provider: "wavoip" }
+      );
     }
 
     hydrateLeadContext(
@@ -492,7 +592,7 @@ const CallHistory = () => {
         opportunityId: record.opportunity?.id || record.opportunityId || null,
         pipelineId: record.pipelineId || null,
         stageId: record.stageId || null,
-        provider: provider.value,
+        provider: selectedProvider,
       },
       { tab: "dialer" }
     );
@@ -541,6 +641,16 @@ const CallHistory = () => {
           <span className={classes.quickPill} style={{ backgroundColor: "#ecfccb", color: "#3f6212" }}>
             Média {summaryLoading ? "..." : formatDuration(summary.averageDuration || 0)}
           </span>
+          <Button
+            variant={showProviderSettings ? "contained" : "outlined"}
+            color="primary"
+            size="small"
+            startIcon={<SettingsIcon />}
+            onClick={() => setShowProviderSettings((prev) => !prev)}
+            style={{ borderRadius: 999, textTransform: "none", fontWeight: 800 }}
+          >
+            Configuracoes
+          </Button>
           <IconButton onClick={() => { fetchRecords(); fetchSummary(); }}>
             <RefreshIcon />
           </IconButton>
@@ -548,6 +658,183 @@ const CallHistory = () => {
       </Box>
 
       {/* ─── Metric cards ─────────────────────────────────────────────────────── */}
+      {showProviderSettings && (
+        <Paper className={classes.settingsPanel}>
+          <Box className={classes.settingsHeader}>
+            <Box>
+              <Typography variant="h6" className={classes.sectionTitle}>
+                Central telefonica
+              </Typography>
+              <Typography className={classes.helperText}>
+                Configure o provider padrao sem expor tokens no navegador. SIP continua usando o Webphone atual.
+              </Typography>
+            </Box>
+            <Chip
+              size="small"
+              label={`Padrao: ${getCallProvider({ provider: providerForm.defaultProvider }).label}`}
+              className={classes.providerChip}
+            />
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <FormControl variant="outlined" size="small" fullWidth>
+                <InputLabel>Provider padrao</InputLabel>
+                <Select
+                  value={providerForm.defaultProvider || "sip"}
+                  onChange={handleProviderFormChange("defaultProvider")}
+                  label="Provider padrao"
+                  disabled={!isAdmin || providerSaving}
+                >
+                  <MenuItem value="sip">SIP / Webphone</MenuItem>
+                  <MenuItem value="wavoip">Wavoip</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControlLabel
+                control={(
+                  <Switch
+                    color="primary"
+                    checked={providerForm.sipEnabled !== false}
+                    onChange={handleProviderFormChange("sipEnabled")}
+                    disabled={!isAdmin || providerSaving}
+                  />
+                )}
+                label="SIP ativo"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControlLabel
+                control={(
+                  <Switch
+                    color="primary"
+                    checked={Boolean(providerForm.wavoipEnabled)}
+                    onChange={handleProviderFormChange("wavoipEnabled")}
+                    disabled={!isAdmin || providerSaving}
+                  />
+                )}
+                label="Wavoip ativo"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Chip
+                size="small"
+                label={providerForm.wavoipTokenConfigured ? "Token Wavoip configurado" : "Token Wavoip ausente"}
+                style={{
+                  marginTop: 8,
+                  fontWeight: 800,
+                  backgroundColor: providerForm.wavoipTokenConfigured ? "#dcfce7" : "#fee2e2",
+                  color: providerForm.wavoipTokenConfigured ? "#166534" : "#991b1b",
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                label="Wavoip Base URL"
+                value={providerForm.wavoipBaseUrl || ""}
+                onChange={handleProviderFormChange("wavoipBaseUrl")}
+                disabled={!isAdmin || providerSaving}
+                placeholder="https://api.wavoip..."
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                label="Wavoip Device ID"
+                value={providerForm.wavoipDeviceId || ""}
+                onChange={handleProviderFormChange("wavoipDeviceId")}
+                disabled={!isAdmin || providerSaving}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                type="password"
+                label="Token Wavoip"
+                value={providerForm.wavoipToken || ""}
+                onChange={handleProviderFormChange("wavoipToken")}
+                disabled={!isAdmin || providerSaving}
+                placeholder={providerForm.wavoipTokenConfigured ? "Deixe em branco para manter" : "Informe o token"}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                variant="outlined"
+                label="Mensagem de rejeicao PT"
+                value={providerForm.callRejectMessagePt || ""}
+                onChange={handleProviderFormChange("callRejectMessagePt")}
+                disabled={!isAdmin || providerSaving}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                variant="outlined"
+                label="Mensagem de rejeicao EN"
+                value={providerForm.callRejectMessageEn || ""}
+                onChange={handleProviderFormChange("callRejectMessageEn")}
+                disabled={!isAdmin || providerSaving}
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" gridGap={12} flexWrap="wrap">
+                <Box display="flex" gridGap={16} flexWrap="wrap">
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        color="primary"
+                        checked={Boolean(providerForm.rejectCallsDefault)}
+                        onChange={handleProviderFormChange("rejectCallsDefault")}
+                        disabled={!isAdmin || providerSaving}
+                      />
+                    )}
+                    label="Rejeitar chamadas por padrao"
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        color="primary"
+                        checked={Boolean(providerForm.businessHoursEnabled)}
+                        onChange={handleProviderFormChange("businessHoursEnabled")}
+                        disabled={!isAdmin || providerSaving}
+                      />
+                    )}
+                    label="Usar horario comercial"
+                  />
+                </Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveProviderSettings}
+                  disabled={!isAdmin || providerSaving}
+                  style={{ textTransform: "none", fontWeight: 900, borderRadius: 10 }}
+                >
+                  {providerSaving ? "Salvando..." : "Salvar configuracoes"}
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
       <div className={classes.metricsGrid}>
         {metricCards.map((metric) => (
           <Card key={metric.label} className={classes.metricCard}>

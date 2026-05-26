@@ -10,6 +10,11 @@ import React, {
 import JsSIP from "jssip";
 import { toast } from "react-toastify";
 import api from "../services/api";
+import {
+  defaultCallProviderSettings,
+  getCallProviderSettings,
+  startProviderCall,
+} from "../services/callProviderService";
 import { AuthContext } from "./Auth/AuthContext";
 import { usePlanPermissions } from "./PlanPermissionsContext";
 import { useSocket } from "./SocketContext";
@@ -177,6 +182,7 @@ export const WebphoneProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [status, setStatus] = useState("disconnected");
   const [sipSettings, setSipSettings] = useState(null);
+  const [callProviderSettings, setCallProviderSettings] = useState(defaultCallProviderSettings);
   const [sipLoading, setSipLoading] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
   const [currentCallContext, setCurrentCallContext] = useState(null);
@@ -947,6 +953,48 @@ export const WebphoneProvider = ({ children }) => {
         return null;
       }
 
+      const selectedProvider = String(
+        options.provider || callMetadata?.provider || callProviderSettings?.defaultProvider || "sip"
+      ).toLowerCase();
+
+      if (selectedProvider === "wavoip") {
+        if (
+          !callProviderSettings?.wavoipEnabled ||
+          !callProviderSettings?.wavoipBaseUrl ||
+          !callProviderSettings?.wavoipDeviceId ||
+          !callProviderSettings?.wavoipTokenConfigured
+        ) {
+          toast.error("Wavoip nao configurado para esta empresa.");
+          return null;
+        }
+
+        try {
+          await startProviderCall({
+            provider: "wavoip",
+            toNumber: sanitizedNumber,
+            contactId: callMetadata?.contactId || null,
+            ticketId: callMetadata?.ticketId || null,
+            leadId: callMetadata?.leadId || null,
+            opportunityId: callMetadata?.opportunityId || null,
+            source: options.source || callMetadata?.source || "manual",
+          });
+        } catch (error) {
+          const message = error?.response?.data?.message || error?.response?.data?.error || "Chamada Wavoip ainda nao foi iniciada.";
+          toast.info(message);
+        }
+        return null;
+      }
+
+      if (selectedProvider !== "sip") {
+        toast.info("Provider de chamada nao suportado para discagem direta.");
+        return null;
+      }
+
+      if (callProviderSettings?.sipEnabled === false) {
+        toast.error("Provider SIP esta desativado nas configuracoes de chamadas.");
+        return null;
+      }
+
       if (!uaRef.current || status === "disconnected" || status === "disabled") {
         toast.error("Webphone SIP não está conectado.");
         return null;
@@ -1083,6 +1131,7 @@ export const WebphoneProvider = ({ children }) => {
       updateSequenceTarget,
       leadModalOpen,
       canUseWebphone,
+      callProviderSettings,
       user?.id,
     ]
   );
@@ -1227,6 +1276,23 @@ export const WebphoneProvider = ({ children }) => {
       return null;
     } finally {
       setSipLoading(false);
+    }
+  }, [canUseWebphone]);
+
+  const loadCallProviderSettings = useCallback(async () => {
+    if (!canUseWebphone) {
+      setCallProviderSettings(defaultCallProviderSettings);
+      return defaultCallProviderSettings;
+    }
+
+    try {
+      const settings = await getCallProviderSettings();
+      setCallProviderSettings(settings);
+      return settings;
+    } catch (error) {
+      console.warn("[Webphone] Failed to load call provider settings", error);
+      setCallProviderSettings(defaultCallProviderSettings);
+      return defaultCallProviderSettings;
     }
   }, [canUseWebphone]);
 
@@ -1569,6 +1635,7 @@ export const WebphoneProvider = ({ children }) => {
         startUA(runtimeConfig);
       }
       if (!cancelled) {
+        await loadCallProviderSettings();
         await loadHistory();
         await loadSequences();
         await loadUserExtension();
@@ -1581,7 +1648,7 @@ export const WebphoneProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [canUseWebphone, clearLeadContext, isAuth, loadHistory, loadSequences, loadSipSettings, loadUserExtension, loadAvailableDids, planLoading, startUA, stopUA, user]);
+  }, [canUseWebphone, clearLeadContext, isAuth, loadCallProviderSettings, loadHistory, loadSequences, loadSipSettings, loadUserExtension, loadAvailableDids, planLoading, startUA, stopUA, user]);
 
   useEffect(() => {
     if (status !== "in-call" && status !== "calling") {
@@ -1635,6 +1702,7 @@ export const WebphoneProvider = ({ children }) => {
       session,
       status,
       sipSettings,
+      callProviderSettings,
       canUseWebphone,
       sipLoading,
       currentLead,
@@ -1679,6 +1747,7 @@ export const WebphoneProvider = ({ children }) => {
       loadHistory,
       loadRecordings,
       loadSipSettings,
+      loadCallProviderSettings,
       loadSequences,
       loadSequenceById,
       createSequence,
@@ -1695,6 +1764,7 @@ export const WebphoneProvider = ({ children }) => {
       appendDialDigit,
       backspaceDialDigit,
       callDuration,
+      callProviderSettings,
       clearLeadContext,
       closePanel,
       controlSequence,
@@ -1716,6 +1786,7 @@ export const WebphoneProvider = ({ children }) => {
       loadSequenceById,
       loadSequences,
       loadSipSettings,
+      loadCallProviderSettings,
       loadUserExtension,
       loadAvailableDids,
       makeCall,
