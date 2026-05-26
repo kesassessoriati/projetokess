@@ -30,6 +30,22 @@ const addIndexIfMissing = async (
   }
 };
 
+const backfillCreatedAt = async (queryInterface: QueryInterface) => {
+  await queryInterface.sequelize.query(`
+    UPDATE ${TABLE_NAME}
+    SET created_at = NOW()
+    WHERE created_at IS NULL
+  `);
+};
+
+const backfillUpdatedAt = async (queryInterface: QueryInterface) => {
+  await queryInterface.sequelize.query(`
+    UPDATE ${TABLE_NAME}
+    SET updated_at = COALESCE(created_at, NOW())
+    WHERE updated_at IS NULL
+  `);
+};
+
 module.exports = {
   up: async (queryInterface: QueryInterface) => {
     let table = await describeTable(queryInterface);
@@ -52,12 +68,12 @@ module.exports = {
         },
         created_at: {
           type: DataTypes.DATE,
-          allowNull: false,
+          allowNull: true,
           defaultValue: DataTypes.NOW
         },
         updated_at: {
           type: DataTypes.DATE,
-          allowNull: false,
+          allowNull: true,
           defaultValue: DataTypes.NOW
         }
       });
@@ -84,20 +100,24 @@ module.exports = {
     if (!table.created_at) {
       await queryInterface.addColumn(TABLE_NAME, "created_at", {
         type: DataTypes.DATE,
-        allowNull: false,
+        allowNull: true,
         defaultValue: DataTypes.NOW
       });
       table = await describeTable(queryInterface);
     }
 
+    await backfillCreatedAt(queryInterface);
+
     if (!table.updated_at) {
       await queryInterface.addColumn(TABLE_NAME, "updated_at", {
         type: DataTypes.DATE,
-        allowNull: false,
+        allowNull: true,
         defaultValue: DataTypes.NOW
       });
       table = await describeTable(queryInterface);
     }
+
+    await backfillUpdatedAt(queryInterface);
 
     const indexes = await queryInterface.showIndex(TABLE_NAME).catch(() => []);
     await addIndexIfMissing(queryInterface, indexes as any[], ["session_id"], INDEXES.sessionId);
