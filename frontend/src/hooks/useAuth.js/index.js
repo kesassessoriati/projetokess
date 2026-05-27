@@ -56,7 +56,13 @@ const useAuth = () => {
       async (error) => {
         const originalRequest = error.config || {};
 
-        if (error?.response?.status === 403 && !originalRequest._retry) {
+        if (error?.response?.status === 401 && !originalRequest._retry) {
+          // Se for erro na própria rota de refresh_token, desloga imediatamente para evitar loop infinito
+          if (originalRequest.url?.includes("/auth/refresh_token")) {
+            clearAuthSession();
+            return Promise.reject(error);
+          }
+
           originalRequest._retry = true;
 
           try {
@@ -64,6 +70,10 @@ const useAuth = () => {
             if (data) {
               localStorage.setItem("token", data.token);
               api.defaults.headers.Authorization = `Bearer ${data.token}`;
+              if (!originalRequest.headers) {
+                originalRequest.headers = {};
+              }
+              originalRequest.headers["Authorization"] = `Bearer ${data.token}`;
             }
             return api(originalRequest);
           } catch (refreshError) {
