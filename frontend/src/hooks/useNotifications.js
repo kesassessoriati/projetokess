@@ -5,7 +5,7 @@ import { AuthContext } from "../context/Auth/AuthContext";
 import alertSound from "../assets/sound.mp3";
 
 const useNotifications = () => {
-  const { user } = useContext(AuthContext);
+  const { user, loading: authLoading, isAuth } = useContext(AuthContext);
   const { on } = useSocket();
 
   const [notifications, setNotifications] = useState([]);
@@ -47,9 +47,10 @@ const useNotifications = () => {
 
   // Initial load
   useEffect(() => {
+    if (authLoading || !isAuth) return;
     fetchNotifications(true);
     // eslint-disable-next-line
-  }, [user]);
+  }, [user, authLoading, isAuth]);
 
   // Real-time Socket.io events
   useEffect(() => {

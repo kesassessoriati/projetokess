@@ -10,6 +10,20 @@ import toastError from "../../errors/toastError";
 // import { useDate } from "../../hooks/useDate";
 import moment from "moment";
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 const useAuth = () => {
   const history = useHistory();
   const [isAuth, setIsAuth] = useState(false);
@@ -63,23 +77,49 @@ const useAuth = () => {
             return Promise.reject(error);
           }
 
-          originalRequest._retry = true;
-
-          try {
-            const { data } = await api.post("/auth/refresh_token");
-            if (data) {
-              localStorage.setItem("token", data.token);
-              api.defaults.headers.Authorization = `Bearer ${data.token}`;
-              if (!originalRequest.headers) {
-                originalRequest.headers = {};
-              }
-              originalRequest.headers["Authorization"] = `Bearer ${data.token}`;
-            }
-            return api(originalRequest);
-          } catch (refreshError) {
-            clearAuthSession();
-            return Promise.reject(refreshError);
+          if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+              failedQueue.push({ resolve, reject });
+            })
+              .then((token) => {
+                if (!originalRequest.headers) {
+                  originalRequest.headers = {};
+                }
+                originalRequest.headers["Authorization"] = `Bearer ${token}`;
+                return api(originalRequest);
+              })
+              .catch((err) => {
+                return Promise.reject(err);
+              });
           }
+
+          originalRequest._retry = true;
+          isRefreshing = true;
+
+          return new Promise((resolve, reject) => {
+            api
+              .post("/auth/refresh_token")
+              .then(({ data }) => {
+                if (data) {
+                  localStorage.setItem("token", data.token);
+                  api.defaults.headers.Authorization = `Bearer ${data.token}`;
+                  if (!originalRequest.headers) {
+                    originalRequest.headers = {};
+                  }
+                  originalRequest.headers["Authorization"] = `Bearer ${data.token}`;
+                  processQueue(null, data.token);
+                  resolve(api(originalRequest));
+                }
+              })
+              .catch((err) => {
+                processQueue(err, null);
+                clearAuthSession();
+                reject(err);
+              })
+              .finally(() => {
+                isRefreshing = false;
+              });
+          });
         }
 
         if (error?.response?.status === 401) {
@@ -101,24 +141,28 @@ const useAuth = () => {
     (async () => {
       if (token) {
         try {
+          isRefreshing = true;
           const { data } = await api.post("/auth/refresh_token");
           api.defaults.headers.Authorization = `Bearer ${data.token}`;
           setIsAuth(true);
           setUser(data.user);
           localStorage.setItem("userId", data.user.id);
           localStorage.setItem("companyId", data.user.company.id);
+          processQueue(null, data.token);
         } catch (err) {
+          processQueue(err, null);
           if (err?.response?.status === 401) {
             clearAuthSession();
           } else {
             toastError(err);
           }
+        } finally {
+          isRefreshing = false;
         }
       }
       setLoading(false);
     })();
   }, [clearAuthSession]);
-
   useEffect(() => {
     // Socket removido para SocketProvider dedicado
   }, [user]);

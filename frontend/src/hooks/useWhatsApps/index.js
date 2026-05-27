@@ -51,7 +51,7 @@ const reducer = (state, action) => {
 
 const useWhatsApps = () => {
   const [whatsApps, dispatch] = useReducer(reducer, []);
-  const { user } = useContext(AuthContext);
+  const { user, loading: authLoading, isAuth } = useContext(AuthContext);
   const { isReady, on } = useSocket();
   const isMounted = useRef(true);
 
@@ -65,6 +65,7 @@ const useWhatsApps = () => {
   }, []);
 
   useEffect(() => {
+    if (authLoading || !isAuth) return;
     const load = async () => {
       const data = await fetchWhatsApps();
       if (data && isMounted.current) {
@@ -72,7 +73,7 @@ const useWhatsApps = () => {
       }
     };
     load();
-  }, [fetchWhatsApps]);
+  }, [fetchWhatsApps, authLoading, isAuth]);
 
   useEffect(() => {
     if (!isReady || !user.companyId) return;
