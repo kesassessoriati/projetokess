@@ -27,6 +27,7 @@ import {
   Tab,
   Tabs,
   Chip,
+  Grid,
 } from "@material-ui/core";
 import {
   Warning as WarningIcon,
@@ -2127,6 +2128,11 @@ const PipelineBoard = () => {
             icon={<AssignmentIcon fontSize="small" />}
             style={{ minWidth: 80, fontSize: "0.75rem" }}
           />
+          <Tab
+            label="Automação"
+            icon={<TuneIcon fontSize="small" />}
+            style={{ minWidth: 80, fontSize: "0.75rem" }}
+          />
         </Tabs>
         <DialogContent
           style={{ minHeight: 220, paddingTop: 20, overflow: "hidden" }}
@@ -2575,6 +2581,14 @@ const PipelineBoard = () => {
                   </Button>
                 </Box>
               )}
+              {/* Aba 4: Automação por etapa */}
+              {massActionTab === 4 && (
+                <StageAutomationPanel
+                  stage={massActionStage}
+                  whatsapps={massWhatsapps}
+                  taskBoards={massTaskBoards}
+                />
+              )}
             </Box>
             {massQuickRepliesOpen && massActionTab === 1 && (
               <QuickRepliesModal
@@ -2840,6 +2854,326 @@ const PipelineBoard = () => {
         }}
         pipelineId={selectedPipelineId || undefined}
       />
+    </Box>
+  );
+};
+
+const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
+  const [enabled, setEnabled] = useState(false);
+  const [actions, setActions] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [autoRes, tagsRes] = await Promise.all([
+          api.get(`/pipelines/${stage.pipelineId}/stages/${stage.id}/automation`),
+          api.get("/tags")
+        ]);
+        if (autoRes.data) {
+          setEnabled(autoRes.data.isActive);
+          setActions(autoRes.data.actions || []);
+        } else {
+          setEnabled(false);
+          setActions([]);
+        }
+        setTags(tagsRes.data || []);
+      } catch (err) {
+        toast.error("Erro ao carregar dados de automação");
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (stage) {
+      loadData();
+    }
+  }, [stage]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/pipelines/${stage.pipelineId}/stages/${stage.id}/automation`, {
+        isActive: enabled,
+        actions: actions.map((act, idx) => ({
+          ...act,
+          order: idx
+        }))
+      });
+      toast.success("Automação atualizada com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao salvar automação");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddAction = (type) => {
+    let config = {};
+    if (type === "send_message") config = { message: "", whatsappId: whatsapps[0]?.id || "" };
+    else if (type === "create_task") config = { title: "", description: "", priority: "normal", listId: "" };
+    else if (type === "create_note") config = { text: "" };
+    else if (type === "add_tag") config = { tagId: "" };
+
+    const newAction = {
+      actionType: type,
+      actionConfig: config,
+      delayMinutes: 0
+    };
+    setActions([...actions, newAction]);
+  };
+
+  const handleRemoveAction = (index) => {
+    setActions(actions.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateAction = (index, field, value) => {
+    setActions(actions.map((act, idx) => {
+      if (idx === index) {
+        if (field === "delayMinutes") {
+          return { ...act, delayMinutes: Number(value) };
+        }
+        return {
+          ...act,
+          actionConfig: {
+            ...act.actionConfig,
+            [field]: value
+          }
+        };
+      }
+      return act;
+    }));
+  };
+
+  const handleMoveUp = (index) => {
+    if (index === 0) return;
+    const newActions = [...actions];
+    const temp = newActions[index - 1];
+    newActions[index - 1] = newActions[index];
+    newActions[index] = temp;
+    setActions(newActions);
+  };
+
+  const handleMoveDown = (index) => {
+    if (index === actions.length - 1) return;
+    const newActions = [...actions];
+    const temp = newActions[index + 1];
+    newActions[index + 1] = newActions[index];
+    newActions[index] = temp;
+    setActions(newActions);
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" style={{ minHeight: 200 }}>
+        <CircularProgress size={32} color="primary" />
+      </Box>
+    );
+  }
+
+  return (
+    <Box display="flex" flexDirection="column" style={{ gap: 16 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" p={2} style={{ backgroundColor: "#f9fafb", borderRadius: 12, border: "1px solid #e5e7eb" }}>
+        <Box>
+          <Typography variant="subtitle2" style={{ fontWeight: 800 }}>Ativar Automação da Etapa</Typography>
+          <Typography variant="caption" style={{ color: "#6b7280" }}>Executa ações configuradas ao mover lead para esta etapa</Typography>
+        </Box>
+        <Switch
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          color="primary"
+        />
+      </Box>
+
+      {enabled && (
+        <>
+          <Typography variant="subtitle2" style={{ fontWeight: 800 }}>Fluxo de Ações</Typography>
+          <Box display="flex" flexWrap="wrap" style={{ gap: 8 }}>
+            <Button size="small" variant="outlined" startIcon={<MessageIcon fontSize="small" />} onClick={() => handleAddAction("send_message")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Mensagem WhatsApp
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<AssignmentIcon fontSize="small" />} onClick={() => handleAddAction("create_task")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Criar Tarefa
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<NoteIcon fontSize="small" />} onClick={() => handleAddAction("create_note")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Adicionar Anotação
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<FlashOnIcon fontSize="small" />} onClick={() => handleAddAction("add_tag")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Aplicar Etiqueta
+            </Button>
+          </Box>
+
+          <Box display="flex" flexDirection="column" style={{ gap: 12, maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
+            {actions.length === 0 && (
+              <Box p={4} display="flex" justifyContent="center" alignItems="center" style={{ border: "2px dashed #e5e7eb", borderRadius: 12 }}>
+                <Typography variant="body2" style={{ color: "#9ca3af" }}>Nenhuma ação configurada ainda. Clique nos botões acima para adicionar!</Typography>
+              </Box>
+            )}
+            {actions.map((action, index) => (
+              <Box key={index} p={2} style={{ border: "1px solid #e5e7eb", borderRadius: 12, backgroundColor: "#fff", display: "flex", flexDirection: "column", gap: 12 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                    <Chip size="small" label={`Ordem ${index + 1}`} style={{ backgroundColor: "#effaf4", color: "#175c35", fontWeight: 700 }} />
+                    <Typography variant="subtitle2" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.7rem", color: "#4b5563" }}>
+                      {action.actionType === "send_message" && "WhatsApp"}
+                      {action.actionType === "create_task" && "Criar Tarefa"}
+                      {action.actionType === "create_note" && "Criar Anotação"}
+                      {action.actionType === "add_tag" && "Aplicar Etiqueta"}
+                    </Typography>
+                  </Box>
+                  <Box display="flex" style={{ gap: 4 }}>
+                    <IconButton size="small" disabled={index === 0} onClick={() => handleMoveUp(index)}>
+                      <ClockIcon style={{ transform: "rotate(-90deg)", fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton size="small" disabled={index === actions.length - 1} onClick={() => handleMoveDown(index)}>
+                      <ClockIcon style={{ transform: "rotate(90deg)", fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton size="small" style={{ color: "#dc2626" }} onClick={() => handleRemoveAction(index)}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+
+                <Box display="flex" style={{ gap: 12 }}>
+                  <Box style={{ minWidth: 100 }}>
+                    <TextField
+                      label="Aguardar (min)"
+                      type="number"
+                      size="small"
+                      variant="outlined"
+                      value={action.delayMinutes || 0}
+                      onChange={(e) => handleUpdateAction(index, "delayMinutes", e.target.value)}
+                      fullWidth
+                    />
+                  </Box>
+                  <Box flex={1} display="flex" flexDirection="column" style={{ gap: 10 }}>
+                    {action.actionType === "send_message" && (
+                      <>
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Conexão WhatsApp</InputLabel>
+                          <Select
+                            value={action.actionConfig?.whatsappId || ""}
+                            onChange={(e) => handleUpdateAction(index, "whatsappId", e.target.value)}
+                            label="Conexão WhatsApp"
+                          >
+                            {whatsapps.map(w => (
+                              <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <TextField
+                          label="Mensagem do Disparo"
+                          multiline
+                          rows={2}
+                          variant="outlined"
+                          size="small"
+                          value={action.actionConfig?.message || ""}
+                          onChange={(e) => handleUpdateAction(index, "message", e.target.value)}
+                          placeholder="Variáveis suportadas: {{nome}}"
+                          fullWidth
+                        />
+                      </>
+                    )}
+
+                    {action.actionType === "create_task" && (
+                      <>
+                        <Grid container spacing={1}>
+                          <Grid item xs={6}>
+                            <TextField
+                              label="Título da Tarefa"
+                              variant="outlined"
+                              size="small"
+                              value={action.actionConfig?.title || ""}
+                              onChange={(e) => handleUpdateAction(index, "title", e.target.value)}
+                              fullWidth
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <FormControl variant="outlined" size="small" fullWidth>
+                              <InputLabel>Lista de Tarefas</InputLabel>
+                              <Select
+                                value={action.actionConfig?.listId || ""}
+                                onChange={(e) => handleUpdateAction(index, "listId", e.target.value)}
+                                label="Lista de Tarefas"
+                              >
+                                {taskBoards.map(board =>
+                                  (board.lists || []).map(list => (
+                                    <MenuItem key={list.id} value={list.id}>
+                                      {board.name} - {list.name}
+                                    </MenuItem>
+                                  ))
+                                )}
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                        </Grid>
+                        <TextField
+                          label="Descrição da Tarefa"
+                          multiline
+                          rows={2}
+                          variant="outlined"
+                          size="small"
+                          value={action.actionConfig?.description || ""}
+                          onChange={(e) => handleUpdateAction(index, "description", e.target.value)}
+                          fullWidth
+                        />
+                      </>
+                    )}
+
+                    {action.actionType === "create_note" && (
+                      <TextField
+                        label="Texto da Anotação"
+                        multiline
+                        rows={2}
+                        variant="outlined"
+                        size="small"
+                        value={action.actionConfig?.text || ""}
+                        onChange={(e) => handleUpdateAction(index, "text", e.target.value)}
+                        fullWidth
+                      />
+                    )}
+
+                    {action.actionType === "add_tag" && (
+                      <FormControl variant="outlined" size="small" fullWidth>
+                        <InputLabel>Selecionar Etiqueta</InputLabel>
+                        <Select
+                          value={action.actionConfig?.tagId || ""}
+                          onChange={(e) => handleUpdateAction(index, "tagId", e.target.value)}
+                          label="Selecionar Etiqueta"
+                        >
+                          {tags.map(t => (
+                            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </>
+      )}
+
+      <Button
+        variant="contained"
+        fullWidth
+        disabled={saving}
+        onClick={handleSave}
+        style={{
+          marginTop: 8,
+          backgroundColor: "#1f9d55",
+          color: "#fff",
+        }}
+      >
+        {saving ? (
+          <CircularProgress size={20} style={{ color: "#fff" }} />
+        ) : (
+          "Salvar Configurações de Automação"
+        )}
+      </Button>
     </Box>
   );
 };

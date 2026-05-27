@@ -16,6 +16,7 @@ import SLASchedulerService from "./services/PipelineServices/SLASchedulerService
 import WebhookService from "./services/PipelineServices/WebhookService";
 import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 import InitPipelineTemplatesService from "./services/PipelineServices/InitPipelineTemplatesService";
+import StageAutomationService from "./services/AutomationServices/StageAutomationService";
 
 const isEnabled = (value?: string): boolean =>
   ["true", "1", "yes", "on", "enabled"].includes(
@@ -70,6 +71,7 @@ if (process.env.CERTIFICADOS == "true") {
     SLASchedulerService.init();
     WebhookService.init();
     AIAnalyzerService.init();
+    StageAutomationService.init();
     InitPipelineTemplatesService();
   });
 
@@ -118,6 +120,7 @@ if (process.env.CERTIFICADOS == "true") {
     SLASchedulerService.init();
     WebhookService.init();
     AIAnalyzerService.init();
+    StageAutomationService.init();
     InitPipelineTemplatesService();
   });
 

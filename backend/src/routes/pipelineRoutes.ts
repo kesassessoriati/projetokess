@@ -19,6 +19,8 @@ pipelineRoutes.put("/pipelines/:id/stages/sort", isAuth, PipelineController.upda
 pipelineRoutes.post("/pipelines/:id/stages", isAuth, PipelineController.storeStage);
 pipelineRoutes.put("/pipelines/stages/:stageId", isAuth, PipelineController.updateStage);
 pipelineRoutes.delete("/pipelines/stages/:stageId", isAuth, PipelineController.deleteStage);
+pipelineRoutes.get("/pipelines/:pipelineId/stages/:stageId/automation", isAuth, PipelineController.getStageAutomation);
+pipelineRoutes.put("/pipelines/:pipelineId/stages/:stageId/automation", isAuth, PipelineController.updateStageAutomation);
 
 pipelineRoutes.get("/executive/dashboard", isAuth, ExecutiveController.index);
 pipelineRoutes.put("/executive/dashboard/goals", isAuth, ExecutiveController.updateGoals);

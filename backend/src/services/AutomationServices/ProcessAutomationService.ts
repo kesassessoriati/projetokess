@@ -41,7 +41,9 @@ const INSTANT_ACTIONS = new Set([
   "move_kanban",
   "transfer_queue",
   "transfer_user",
-  "close_ticket"
+  "close_ticket",
+  "create_task",
+  "create_note"
 ]);
 
 // Buscar configurações de disparo da empresa
@@ -380,6 +382,94 @@ const executeActionCloseTicket = async (
   }
 };
 
+// Executar ação de criar tarefa
+const executeActionCreateTask = async (
+  action: AutomationAction,
+  contact: Contact,
+  ticket: Ticket | null,
+  companyId: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const { title, description, priority, listId } = action.actionConfig || {};
+
+    const CrmLead = (await import("../../models/CrmLead")).default;
+    const lead = await CrmLead.findOne({
+      where: { contactId: contact.id, companyId }
+    });
+
+    let targetListId = listId ? Number(listId) : null;
+    if (!targetListId) {
+      const TaskBoard = (await import("../../models/TaskBoard")).default;
+      const TaskList = (await import("../../models/TaskList")).default;
+      const firstBoard = await TaskBoard.findOne({ where: { companyId } });
+      if (firstBoard) {
+        const firstList = await TaskList.findOne({ where: { boardId: firstBoard.id } });
+        if (firstList) {
+          targetListId = firstList.id;
+        }
+      }
+    }
+
+    if (!targetListId) {
+      return { success: false, message: "Nenhuma lista de tarefas encontrada para criar a tarefa." };
+    }
+
+    const Task = (await import("../../models/Task")).default;
+    await Task.create({
+      listId: targetListId,
+      title: title || "Nova Tarefa de Automação",
+      description: description || "",
+      priority: priority || "normal",
+      status: "active",
+      leadId: lead?.id || null
+    });
+
+    return { success: true, message: "Tarefa criada com sucesso" };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao criar tarefa: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
+// Executar ação de criar anotação
+const executeActionCreateNote = async (
+  action: AutomationAction,
+  contact: Contact,
+  ticket: Ticket | null,
+  companyId: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const { text } = action.actionConfig || {};
+
+    if (!text) {
+      return { success: false, message: "Conteúdo da anotação não informado." };
+    }
+
+    const Opportunity = (await import("../../models/Opportunity")).default;
+    const opportunity = await Opportunity.findOne({
+      where: { contactId: contact.id, companyId },
+      order: [["updatedAt", "DESC"]]
+    });
+
+    if (!opportunity) {
+      return { success: false, message: "Oportunidade não encontrada para associar a anotação." };
+    }
+
+    const CreateOpportunityEventService = (await import("../OpportunityServices/CreateOpportunityEventService")).default;
+    await CreateOpportunityEventService({
+      opportunityId: opportunity.id,
+      companyId,
+      type: "ANOTACAO",
+      metadata: { text }
+    });
+
+    return { success: true, message: "Anotação criada com sucesso" };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao criar anotação: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
 // Executar uma ação específica
 export const executeAction = async (
   action: AutomationAction,
@@ -402,6 +492,10 @@ export const executeAction = async (
       return executeActionTransferUser(action, contact, ticket, companyId);
     case "close_ticket":
       return executeActionCloseTicket(action, contact, ticket, companyId);
+    case "create_task":
+      return executeActionCreateTask(action, contact, ticket, companyId);
+    case "create_note":
+      return executeActionCreateNote(action, contact, ticket, companyId);
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:

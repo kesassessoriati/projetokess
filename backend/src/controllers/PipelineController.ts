@@ -216,3 +216,83 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
     await pipeline.destroy();
     return res.status(200).json({ message: "Pipeline deleted successfully" });
 };
+
+export const getStageAutomation = async (req: Request, res: Response): Promise<Response> => {
+    const { stageId } = req.params;
+    const { companyId } = req.user;
+
+    const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
+    if (!stage) return res.status(404).json({ error: "Stage not found" });
+
+    const Automation = (await import("../models/Automation")).default;
+    const AutomationAction = (await import("../models/AutomationAction")).default;
+
+    const automations = await Automation.findAll({
+        where: { companyId, triggerType: "crm_stage" },
+        include: [{ model: AutomationAction, as: "actions" }]
+    });
+
+    const automation = automations.find(a => Number(a.triggerConfig?.stageId) === Number(stageId)) || null;
+
+    return res.status(200).json(automation);
+};
+
+export const updateStageAutomation = async (req: Request, res: Response): Promise<Response> => {
+    const { stageId } = req.params;
+    const { companyId } = req.user;
+    const { isActive, actions } = req.body;
+
+    const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
+    if (!stage) return res.status(404).json({ error: "Stage not found" });
+
+    const Automation = (await import("../models/Automation")).default;
+    const AutomationAction = (await import("../models/AutomationAction")).default;
+    const sequelize = (await import("../database")).default;
+
+    let automation: any = null;
+    const automations = await Automation.findAll({
+        where: { companyId, triggerType: "crm_stage" }
+    });
+    automation = automations.find(a => Number(a.triggerConfig?.stageId) === Number(stageId));
+
+    await sequelize.transaction(async (t) => {
+        if (!automation) {
+            automation = await Automation.create({
+                companyId,
+                name: `Automação Etapa - ${stage.name}`,
+                description: `Automação automática para a etapa ${stage.name}`,
+                triggerType: "crm_stage",
+                triggerConfig: { stageId: Number(stageId), pipelineId: stage.pipelineId },
+                isActive: isActive !== undefined ? isActive : true
+            }, { transaction: t });
+        } else {
+            await automation.update({
+                isActive: isActive !== undefined ? isActive : automation.isActive
+            }, { transaction: t });
+        }
+
+        // Deletar as ações antigas
+        await AutomationAction.destroy({
+            where: { automationId: automation.id },
+            transaction: t
+        });
+
+        // Criar as novas ações
+        if (actions && Array.isArray(actions)) {
+            const actionsToCreate = actions.map((act: any, idx: number) => ({
+                automationId: automation.id,
+                actionType: act.actionType,
+                actionConfig: act.actionConfig || {},
+                delayMinutes: Number(act.delayMinutes || 0),
+                order: act.order !== undefined ? act.order : idx
+            }));
+            await AutomationAction.bulkCreate(actionsToCreate, { transaction: t });
+        }
+    });
+
+    const updatedAutomation = await Automation.findByPk(automation.id, {
+        include: [{ model: AutomationAction, as: "actions" }]
+    });
+
+    return res.status(200).json(updatedAutomation);
+};
