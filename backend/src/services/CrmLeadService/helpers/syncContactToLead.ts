@@ -73,8 +73,17 @@ const syncContactToLead = async ({
     lead = await CrmLead.findOne({
       where: {
         companyId,
-        contactId: { [Op.is]: null },
         phone: { [Op.in]: phoneVariants }
+      },
+      order: [["updatedAt", "DESC"]]
+    });
+  }
+
+  if (!lead && contact.email) {
+    lead = await CrmLead.findOne({
+      where: {
+        companyId,
+        email: contact.email
       },
       order: [["updatedAt", "DESC"]]
     });
@@ -85,20 +94,59 @@ const syncContactToLead = async ({
     const email = contact.email || null;
     const name = contact.name || normalizedPhone || "Lead";
 
-    lead = await CrmLead.create({
-      companyId,
-      contactId: contact.id,
-      name,
-      email,
-      phone: normalizedPhone,
-      document: normalizedDocument,
-      status: "novo",
-      leadStatus: "novo",
-      lastActivityAt: new Date()
-    });
+    try {
+      lead = await CrmLead.create({
+        companyId,
+        contactId: contact.id,
+        name,
+        email,
+        phone: normalizedPhone,
+        document: normalizedDocument,
+        status: "novo",
+        leadStatus: "novo",
+        lastActivityAt: new Date()
+      });
+      action = "create";
+      logger.info(`Created new Lead ${lead.id} for Contact ${contact.id}`);
+    } catch (createErr) {
+      if (createErr.name === "SequelizeUniqueConstraintError") {
+        logger.warn(
+          `CrmLead.create unique constraint error for contact ${contact.id}. Attempting to resolve by finding existing lead.`
+        );
+        lead = await CrmLead.findOne({
+          where: {
+            companyId,
+            [Op.or]: [
+              normalizedPhone ? { phone: { [Op.in]: phoneVariants } } : null,
+              email ? { email } : null
+            ].filter(Boolean) as any
+          },
+          order: [["updatedAt", "DESC"]]
+        });
 
-    action = "create";
-    logger.info(`Created new Lead ${lead.id} for Contact ${contact.id}`);
+        if (lead) {
+          // Apenas vincula o contactId — não toca no phone para evitar nova
+          // violação de constraint caso o lead encontrado seja uma variante
+          // (ex: com/sem 9º dígito) e já exista outro lead com o número alvo.
+          try {
+            await (lead as any).update({ contactId: contact.id }, { hooks: false });
+            action = "update";
+            logger.info(`Resolved constraint conflict: linked Contact ${contact.id} to existing Lead ${lead.id}`);
+          } catch (updateErr) {
+            logger.warn(`syncContactToLead: recovery update failed for lead ${lead.id}: ${updateErr.message}`);
+            // Não re-lança — o lead existe e o vínculo é secundário
+          }
+        } else {
+          // O lead deve existir (ele causou a constraint), mas não foi localizado.
+          // Não lança — deixa o fluxo continuar sem travar o QuickSend.
+          logger.error(
+            `syncContactToLead: lead not found after constraint error for company ${companyId}, phone ${normalizedPhone}`
+          );
+        }
+      } else {
+        throw createErr;
+      }
+    }
   } else {
     const updates: Partial<CrmLead> = {};
     const normalizedDocument = normalizeDocument(contact.cpfCnpj);
@@ -108,7 +156,21 @@ const syncContactToLead = async ({
     }
 
     if (contact.number && contact.number !== lead.phone) {
-      updates.phone = contact.number;
+      // Verifica se o novo número conflitaria com outro lead antes de atualizar
+      const phoneConflict = await CrmLead.findOne({
+        where: {
+          companyId,
+          phone: contact.number,
+          id: { [Op.ne]: lead.id }
+        }
+      });
+      if (!phoneConflict) {
+        updates.phone = contact.number;
+      } else {
+        logger.warn(
+          `syncContactToLead: skip phone update for lead ${lead.id} — "${contact.number}" already in use by lead ${phoneConflict.id}`
+        );
+      }
     }
 
     if (contact.email && contact.email !== lead.email) {
