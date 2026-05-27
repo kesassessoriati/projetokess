@@ -2129,17 +2129,29 @@ const PipelineBoard = () => {
           setMassQuickRepliesOpen(false);
           setMassActionModalOpen(false);
         }}
-        maxWidth={massQuickRepliesOpen && massActionTab === 1 ? "lg" : "sm"}
+        maxWidth={
+          massActionTab === 4
+            ? "md"
+            : massQuickRepliesOpen && massActionTab === 1
+            ? "lg"
+            : "sm"
+        }
         fullWidth
         PaperProps={{
           style: {
             borderRadius: 16,
             width:
-              massQuickRepliesOpen && massActionTab === 1
+              massActionTab === 4
+                ? "min(780px, 96vw)"
+                : massQuickRepliesOpen && massActionTab === 1
                 ? "min(1040px, 96vw)"
                 : undefined,
             maxWidth:
-              massQuickRepliesOpen && massActionTab === 1 ? "96vw" : undefined,
+              massActionTab === 4
+                ? "96vw"
+                : massQuickRepliesOpen && massActionTab === 1
+                ? "96vw"
+                : undefined,
           },
         }}
       >
@@ -2641,6 +2653,7 @@ const PipelineBoard = () => {
                   stage={massActionStage}
                   whatsapps={massWhatsapps}
                   taskBoards={massTaskBoards}
+                  stages={board.stages || []}
                 />
               )}
             </Box>
@@ -2912,7 +2925,7 @@ const PipelineBoard = () => {
   );
 };
 
-const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
+const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [enabled, setEnabled] = useState(false);
   const [actions, setActions] = useState([]);
   const [tags, setTags] = useState([]);
@@ -2925,7 +2938,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
       try {
         const [autoRes, tagsRes] = await Promise.all([
           api.get(`/pipelines/${stage.pipelineId}/stages/${stage.id}/automation`),
-          api.get("/tags")
+          api.get("/tags/list")
         ]);
         if (autoRes.data) {
           setEnabled(autoRes.data.isActive);
@@ -2947,6 +2960,42 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
   }, [stage]);
 
   const handleSave = async () => {
+    // Validar ações antes de salvar
+    if (actions && Array.isArray(actions)) {
+      for (const act of actions) {
+        if (act.actionType === "add_tag" && !act.actionConfig?.tagId) {
+          toast.error("Por favor, selecione uma etiqueta para a ação 'Aplicar Etiqueta'.");
+          return;
+        }
+        if (act.actionType === "move_lead") {
+          if (!act.actionConfig?.destinationStageId) {
+            toast.error("Por favor, selecione a etapa de destino para a ação 'Mover Lead'.");
+            return;
+          }
+          if (Number(act.actionConfig.destinationStageId) === Number(stage.id)) {
+            toast.error("Não é permitido mover o lead para a mesma etapa em que ele já se encontra.");
+            return;
+          }
+        }
+        if (act.actionType === "send_message" && !act.actionConfig?.message?.trim()) {
+          toast.error("Por favor, digite a mensagem de WhatsApp.");
+          return;
+        }
+        if (act.actionType === "create_task" && !act.actionConfig?.title?.trim()) {
+          toast.error("Por favor, informe o título da tarefa.");
+          return;
+        }
+        if (act.actionType === "create_note" && !act.actionConfig?.text?.trim()) {
+          toast.error("Por favor, digite o conteúdo da anotação.");
+          return;
+        }
+        if (act.actionType === "call_task" && !act.actionConfig?.title?.trim()) {
+          toast.error("Por favor, informe o título da tarefa de ligação.");
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     try {
       await api.put(`/pipelines/${stage.pipelineId}/stages/${stage.id}/automation`, {
@@ -2958,7 +3007,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
       });
       toast.success("Automação atualizada com sucesso!");
     } catch (err) {
-      toast.error("Erro ao salvar automação");
+      const errorMessage = err?.response?.data?.error || "Erro ao salvar automação";
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -2970,6 +3020,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
     else if (type === "create_task") config = { title: "", description: "", priority: "normal", listId: "" };
     else if (type === "create_note") config = { text: "" };
     else if (type === "add_tag") config = { tagId: "" };
+    else if (type === "move_lead") config = { destinationStageId: "" };
+    else if (type === "call_task") config = { title: "", description: "", priority: "high", listId: "" };
 
     const newAction = {
       actionType: type,
@@ -3057,6 +3109,12 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
             <Button size="small" variant="outlined" startIcon={<FlashOnIcon fontSize="small" />} onClick={() => handleAddAction("add_tag")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Aplicar Etiqueta
             </Button>
+            <Button size="small" variant="outlined" startIcon={<TimelineIcon fontSize="small" />} onClick={() => handleAddAction("move_lead")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Mover de Etapa
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<CallIcon fontSize="small" />} onClick={() => handleAddAction("call_task")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Tarefa de Ligação
+            </Button>
           </Box>
 
           <Box display="flex" flexDirection="column" style={{ gap: 12, maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
@@ -3075,6 +3133,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
                       {action.actionType === "create_task" && "Criar Tarefa"}
                       {action.actionType === "create_note" && "Criar Anotação"}
                       {action.actionType === "add_tag" && "Aplicar Etiqueta"}
+                      {action.actionType === "move_lead" && "Mover de Etapa"}
+                      {action.actionType === "call_task" && "Tarefa de Ligação"}
                     </Typography>
                   </Box>
                   <Box display="flex" style={{ gap: 4 }}>
@@ -3090,8 +3150,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
                   </Box>
                 </Box>
 
-                <Box display="flex" style={{ gap: 12 }}>
-                  <Box style={{ minWidth: 100 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={3}>
                     <TextField
                       label="Aguardar (min)"
                       type="number"
@@ -3101,110 +3161,180 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards }) => {
                       onChange={(e) => handleUpdateAction(index, "delayMinutes", e.target.value)}
                       fullWidth
                     />
-                  </Box>
-                  <Box flex={1} display="flex" flexDirection="column" style={{ gap: 10 }}>
-                    {action.actionType === "send_message" && (
-                      <>
+                  </Grid>
+                  <Grid item xs={12} sm={9}>
+                    <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
+                      {action.actionType === "send_message" && (
+                        <>
+                          <FormControl variant="outlined" size="small" fullWidth>
+                            <InputLabel>Conexão WhatsApp</InputLabel>
+                            <Select
+                              value={action.actionConfig?.whatsappId || ""}
+                              onChange={(e) => handleUpdateAction(index, "whatsappId", e.target.value)}
+                              label="Conexão WhatsApp"
+                            >
+                              {whatsapps.map(w => (
+                                <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label="Mensagem do Disparo"
+                            multiline
+                            rows={3}
+                            variant="outlined"
+                            size="small"
+                            value={action.actionConfig?.message || ""}
+                            onChange={(e) => handleUpdateAction(index, "message", e.target.value)}
+                            placeholder="Variáveis suportadas: {{nome}}, {{numero}}, {{email}}"
+                            fullWidth
+                          />
+                        </>
+                      )}
+
+                      {action.actionType === "create_task" && (
+                        <>
+                          <Grid container spacing={1}>
+                            <Grid item xs={6}>
+                              <TextField
+                                label="Título da Tarefa"
+                                variant="outlined"
+                                size="small"
+                                value={action.actionConfig?.title || ""}
+                                onChange={(e) => handleUpdateAction(index, "title", e.target.value)}
+                                fullWidth
+                              />
+                            </Grid>
+                            <Grid item xs={6}>
+                              <FormControl variant="outlined" size="small" fullWidth>
+                                <InputLabel>Lista de Tarefas</InputLabel>
+                                <Select
+                                  value={action.actionConfig?.listId || ""}
+                                  onChange={(e) => handleUpdateAction(index, "listId", e.target.value)}
+                                  label="Lista de Tarefas"
+                                >
+                                  {taskBoards.map(board =>
+                                    (board.lists || []).map(list => (
+                                      <MenuItem key={list.id} value={list.id}>
+                                        {board.name} - {list.name}
+                                      </MenuItem>
+                                    ))
+                                  )}
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                          </Grid>
+                          <TextField
+                            label="Descrição da Tarefa"
+                            multiline
+                            rows={2}
+                            variant="outlined"
+                            size="small"
+                            value={action.actionConfig?.description || ""}
+                            onChange={(e) => handleUpdateAction(index, "description", e.target.value)}
+                            fullWidth
+                          />
+                        </>
+                      )}
+
+                      {action.actionType === "create_note" && (
+                        <TextField
+                          label="Texto da Anotação"
+                          multiline
+                          rows={2}
+                          variant="outlined"
+                          size="small"
+                          value={action.actionConfig?.text || ""}
+                          onChange={(e) => handleUpdateAction(index, "text", e.target.value)}
+                          fullWidth
+                        />
+                      )}
+
+                      {action.actionType === "add_tag" && (
                         <FormControl variant="outlined" size="small" fullWidth>
-                          <InputLabel>Conexão WhatsApp</InputLabel>
+                          <InputLabel>Selecionar Etiqueta</InputLabel>
                           <Select
-                            value={action.actionConfig?.whatsappId || ""}
-                            onChange={(e) => handleUpdateAction(index, "whatsappId", e.target.value)}
-                            label="Conexão WhatsApp"
+                            value={action.actionConfig?.tagId || ""}
+                            onChange={(e) => handleUpdateAction(index, "tagId", e.target.value)}
+                            label="Selecionar Etiqueta"
                           >
-                            {whatsapps.map(w => (
-                              <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                            {!Array.isArray(tags) || tags.length === 0 ? (
+                              <MenuItem disabled value="">
+                                <em>Nenhuma etiqueta cadastrada</em>
+                              </MenuItem>
+                            ) : (
+                              tags.map(t => (
+                                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                              ))
+                            )}
+                          </Select>
+                        </FormControl>
+                      )}
+
+                      {action.actionType === "move_lead" && (
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Mover para Etapa</InputLabel>
+                          <Select
+                            value={action.actionConfig?.destinationStageId || ""}
+                            onChange={(e) => handleUpdateAction(index, "destinationStageId", e.target.value)}
+                            label="Mover para Etapa"
+                          >
+                            {(stages || []).map(s => (
+                              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
                             ))}
                           </Select>
                         </FormControl>
-                        <TextField
-                          label="Mensagem do Disparo"
-                          multiline
-                          rows={2}
-                          variant="outlined"
-                          size="small"
-                          value={action.actionConfig?.message || ""}
-                          onChange={(e) => handleUpdateAction(index, "message", e.target.value)}
-                          placeholder="Variáveis suportadas: {{nome}}"
-                          fullWidth
-                        />
-                      </>
-                    )}
+                      )}
 
-                    {action.actionType === "create_task" && (
-                      <>
-                        <Grid container spacing={1}>
-                          <Grid item xs={6}>
-                            <TextField
-                              label="Título da Tarefa"
-                              variant="outlined"
-                              size="small"
-                              value={action.actionConfig?.title || ""}
-                              onChange={(e) => handleUpdateAction(index, "title", e.target.value)}
-                              fullWidth
-                            />
+                      {action.actionType === "call_task" && (
+                        <>
+                          <Grid container spacing={1}>
+                            <Grid item xs={6}>
+                              <TextField
+                                label="Título da Ligação"
+                                variant="outlined"
+                                size="small"
+                                value={action.actionConfig?.title || ""}
+                                onChange={(e) => handleUpdateAction(index, "title", e.target.value)}
+                                placeholder="Ex: Telefonar para lead"
+                                fullWidth
+                              />
+                            </Grid>
+                            <Grid item xs={6}>
+                              <FormControl variant="outlined" size="small" fullWidth>
+                                <InputLabel>Lista de Tarefas</InputLabel>
+                                <Select
+                                  value={action.actionConfig?.listId || ""}
+                                  onChange={(e) => handleUpdateAction(index, "listId", e.target.value)}
+                                  label="Lista de Tarefas"
+                                >
+                                  {taskBoards.map(board =>
+                                    (board.lists || []).map(list => (
+                                      <MenuItem key={list.id} value={list.id}>
+                                        {board.name} - {list.name}
+                                      </MenuItem>
+                                    ))
+                                  )}
+                                </Select>
+                              </FormControl>
+                            </Grid>
                           </Grid>
-                          <Grid item xs={6}>
-                            <FormControl variant="outlined" size="small" fullWidth>
-                              <InputLabel>Lista de Tarefas</InputLabel>
-                              <Select
-                                value={action.actionConfig?.listId || ""}
-                                onChange={(e) => handleUpdateAction(index, "listId", e.target.value)}
-                                label="Lista de Tarefas"
-                              >
-                                {taskBoards.map(board =>
-                                  (board.lists || []).map(list => (
-                                    <MenuItem key={list.id} value={list.id}>
-                                      {board.name} - {list.name}
-                                    </MenuItem>
-                                  ))
-                                )}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        </Grid>
-                        <TextField
-                          label="Descrição da Tarefa"
-                          multiline
-                          rows={2}
-                          variant="outlined"
-                          size="small"
-                          value={action.actionConfig?.description || ""}
-                          onChange={(e) => handleUpdateAction(index, "description", e.target.value)}
-                          fullWidth
-                        />
-                      </>
-                    )}
-
-                    {action.actionType === "create_note" && (
-                      <TextField
-                        label="Texto da Anotação"
-                        multiline
-                        rows={2}
-                        variant="outlined"
-                        size="small"
-                        value={action.actionConfig?.text || ""}
-                        onChange={(e) => handleUpdateAction(index, "text", e.target.value)}
-                        fullWidth
-                      />
-                    )}
-
-                    {action.actionType === "add_tag" && (
-                      <FormControl variant="outlined" size="small" fullWidth>
-                        <InputLabel>Selecionar Etiqueta</InputLabel>
-                        <Select
-                          value={action.actionConfig?.tagId || ""}
-                          onChange={(e) => handleUpdateAction(index, "tagId", e.target.value)}
-                          label="Selecionar Etiqueta"
-                        >
-                          {tags.map(t => (
-                            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Box>
-                </Box>
+                          <TextField
+                            label="Instruções da Ligação"
+                            multiline
+                            rows={2}
+                            variant="outlined"
+                            size="small"
+                            value={action.actionConfig?.description || ""}
+                            onChange={(e) => handleUpdateAction(index, "description", e.target.value)}
+                            placeholder="Ex: Oferecer desconto especial de 10%..."
+                            fullWidth
+                          />
+                        </>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
               </Box>
             ))}
           </Box>

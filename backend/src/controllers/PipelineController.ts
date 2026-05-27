@@ -245,6 +245,44 @@ export const updateStageAutomation = async (req: Request, res: Response): Promis
     const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
     if (!stage) return res.status(404).json({ error: "Stage not found" });
 
+    // Validar ações antes de salvar
+    if (actions && Array.isArray(actions)) {
+        const Tag = (await import("../models/Tag")).default;
+        const PipelineStageModel = (await import("../models/PipelineStage")).default;
+
+        for (const act of actions) {
+            if (act.actionType === "add_tag" || act.actionType === "remove_tag") {
+                const tagId = act.actionConfig?.tagId;
+                if (!tagId) {
+                    return res.status(400).json({ error: "tagId é obrigatório para ações de etiqueta." });
+                }
+                const tag = await Tag.findOne({ where: { id: tagId, companyId } });
+                if (!tag) {
+                    return res.status(400).json({ error: `Etiqueta não encontrada ou não pertence a esta empresa.` });
+                }
+            }
+
+            if (act.actionType === "move_lead") {
+                const destinationStageId = act.actionConfig?.destinationStageId;
+                if (!destinationStageId) {
+                    return res.status(400).json({ error: "destinationStageId é obrigatório para a ação de mover lead." });
+                }
+                if (Number(destinationStageId) === Number(stageId)) {
+                    return res.status(400).json({ error: "Não é permitido mover o lead para a mesma etapa." });
+                }
+                const destStage = await PipelineStageModel.findOne({
+                    where: { id: destinationStageId, companyId }
+                });
+                if (!destStage) {
+                    return res.status(400).json({ error: "Etapa de destino não encontrada." });
+                }
+                if (Number(destStage.pipelineId) !== Number(stage.pipelineId)) {
+                    return res.status(400).json({ error: "A etapa de destino deve pertencer ao mesmo funil." });
+                }
+            }
+        }
+    }
+
     const Automation = (await import("../models/Automation")).default;
     const AutomationAction = (await import("../models/AutomationAction")).default;
     const sequelize = (await import("../database")).default;

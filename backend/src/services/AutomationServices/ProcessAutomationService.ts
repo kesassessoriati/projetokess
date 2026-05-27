@@ -470,6 +470,99 @@ const executeActionCreateNote = async (
   }
 };
 
+// Executar ação de mover lead de etapa
+const executeActionMoveLead = async (
+  action: AutomationAction,
+  contact: Contact,
+  ticket: Ticket | null,
+  companyId: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const { destinationStageId } = action.actionConfig || {};
+
+    if (!destinationStageId) {
+      return { success: false, message: "Etapa de destino não configurada." };
+    }
+
+    const Opportunity = (await import("../../models/Opportunity")).default;
+    const opportunity = await Opportunity.findOne({
+      where: { contactId: contact.id, companyId },
+      order: [["updatedAt", "DESC"]]
+    });
+
+    if (!opportunity) {
+      return { success: false, message: "Oportunidade não encontrada para mover de etapa." };
+    }
+
+    if (Number(opportunity.stageId) === Number(destinationStageId)) {
+      return { success: true, message: "Lead já se encontra na etapa de destino." };
+    }
+
+    const MoveOpportunityService = (await import("../OpportunityServices/MoveOpportunityService")).default;
+    await MoveOpportunityService({
+      opportunityId: opportunity.id,
+      toStageId: Number(destinationStageId),
+      companyId,
+      movedBy: "AUTOMATION",
+      reason: "Movimentação automática por regra de etapa"
+    });
+
+    return { success: true, message: `Oportunidade movida para a etapa ${destinationStageId} com sucesso.` };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao mover lead de etapa: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
+// Executar ação de criar tarefa de ligação
+const executeActionCallTask = async (
+  action: AutomationAction,
+  contact: Contact,
+  ticket: Ticket | null,
+  companyId: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const { title, description, priority, listId } = action.actionConfig || {};
+
+    const CrmLead = (await import("../../models/CrmLead")).default;
+    const lead = await CrmLead.findOne({
+      where: { contactId: contact.id, companyId }
+    });
+
+    let targetListId = listId ? Number(listId) : null;
+    if (!targetListId) {
+      const TaskBoard = (await import("../../models/TaskBoard")).default;
+      const TaskList = (await import("../../models/TaskList")).default;
+      const firstBoard = await TaskBoard.findOne({ where: { companyId } });
+      if (firstBoard) {
+        const firstList = await TaskList.findOne({ where: { boardId: firstBoard.id } });
+        if (firstList) {
+          targetListId = firstList.id;
+        }
+      }
+    }
+
+    if (!targetListId) {
+      return { success: false, message: "Nenhuma lista de tarefas encontrada para criar a tarefa de ligação." };
+    }
+
+    const Task = (await import("../../models/Task")).default;
+    await Task.create({
+      listId: targetListId,
+      title: title || `Telefonar para ${contact.name || "Contato"}`,
+      description: description || "Tarefa de ligação agendada automaticamente por automação de etapa.",
+      priority: priority || "high",
+      status: "active",
+      leadId: lead?.id || null
+    });
+
+    return { success: true, message: "Tarefa de ligação criada com sucesso" };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao criar tarefa de ligação: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
 // Executar uma ação específica
 export const executeAction = async (
   action: AutomationAction,
@@ -496,6 +589,10 @@ export const executeAction = async (
       return executeActionCreateTask(action, contact, ticket, companyId);
     case "create_note":
       return executeActionCreateNote(action, contact, ticket, companyId);
+    case "move_lead":
+      return executeActionMoveLead(action, contact, ticket, companyId);
+    case "call_task":
+      return executeActionCallTask(action, contact, ticket, companyId);
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:
