@@ -51,6 +51,7 @@ import {
   Note as NoteIcon,
   Assignment as AssignmentIcon,
   GetApp as GetAppIcon2,
+  PushPin as PushPinIcon,
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -205,11 +206,12 @@ const useStyles = makeStyles((theme) => ({
   },
   metricsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+    gridTemplateColumns: "repeat(3,minmax(0,1fr))",
     gap: 10,
     marginTop: 12,
     [theme.breakpoints.down("sm")]: {
-      gap: 6,
+      gridTemplateColumns: "1fr",
+      gap: 8,
       marginTop: 8,
     },
   },
@@ -835,6 +837,33 @@ const PipelineBoard = () => {
 
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
+  const [pinTrigger, setPinTrigger] = useState(0);
+
+  const pinKey = useMemo(() => {
+    return `crm_kanban_pinned_pipeline_${user?.companyId}_${user?.id}`;
+  }, [user]);
+
+  const isPinned = useMemo(() => {
+    if (!selectedPipelineId) return false;
+    const pinnedPipelineId = localStorage.getItem(pinKey);
+    return Number(pinnedPipelineId) === Number(selectedPipelineId);
+  }, [selectedPipelineId, pinKey, pinTrigger]);
+
+  const handleTogglePin = () => {
+    try {
+      if (isPinned) {
+        localStorage.removeItem(pinKey);
+        toast.info("Funil desfixado como padrão.");
+      } else {
+        localStorage.setItem(pinKey, selectedPipelineId);
+        toast.success("Funil fixado como padrão.");
+      }
+      setPinTrigger((p) => p + 1);
+    } catch (e) {
+      toast.error("Não foi possível fixar o funil.");
+    }
+  };
+
   const [board, setBoard] = useState({ stages: [] });
   const [loading, setLoading] = useState(false);
   const [loadingStageIds, setLoadingStageIds] = useState([]);
@@ -984,7 +1013,16 @@ const PipelineBoard = () => {
     try {
       const { data } = await api.get("/pipelines");
       setPipelines(data);
-      if (data.length > 0) setSelectedPipelineId(data[0].id);
+      if (data.length > 0) {
+        const pinKey = `crm_kanban_pinned_pipeline_${user?.companyId}_${user?.id}`;
+        const pinnedPipelineId = localStorage.getItem(pinKey);
+        const hasPinned = data.some(p => Number(p.id) === Number(pinnedPipelineId));
+        if (hasPinned && pinnedPipelineId) {
+          setSelectedPipelineId(Number(pinnedPipelineId));
+        } else {
+          setSelectedPipelineId(data[0].id);
+        }
+      }
     } catch (e) {}
   };
 
@@ -1506,10 +1544,27 @@ const PipelineBoard = () => {
           </div> */}
 
           <div className={classes.topRight}>
+            {/* Seletor movido para o Grid de Métricas */}
+          </div>
+        </div>
+
+        <div className={classes.metricsGrid}>
+          {/* Card 1: Seletor de Funil + Botão Pin */}
+          <div
+            className={classes.metricCard}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 12px",
+              borderColor: "#c6dfd0",
+            }}
+          >
             <FormControl
               variant="outlined"
               size="small"
               className={classes.selector}
+              style={{ flex: 1, minWidth: 160 }}
             >
               <InputLabel>Funil de Vendas</InputLabel>
               <Select
@@ -1525,30 +1580,27 @@ const PipelineBoard = () => {
               </Select>
             </FormControl>
 
-            {/* <Button
-              startIcon={<TimelineIcon />}
-              className={`${classes.aiPriorityBtn} ${sort === "AI_PRIORITY" ? classes.aiPriorityBtnActive : ""}`}
-              onClick={() =>
-                setSort((s) =>
-                  s === "AI_PRIORITY" ? "CREATED_AT" : "AI_PRIORITY",
-                )
-              }
-            >
-              Prioridade IA
-            </Button>
-            <IconButton
-              className={classes.filterBtn}
-              onClick={() => setFilterModalOpen(true)}
-            >
-              <FilterListIcon />
-            </IconButton> */}
+            <Tooltip title={isPinned ? "Funil fixado como padrão" : "Fixar este funil"}>
+              <IconButton
+                size="small"
+                onClick={handleTogglePin}
+                style={{
+                  color: isPinned ? "#0f8f4b" : "#6b7280",
+                  backgroundColor: isPinned ? "#effaf4" : "transparent",
+                  border: isPinned ? "1px solid #10b981" : "1px solid #d1d5db",
+                  borderRadius: 8,
+                  padding: 8,
+                }}
+              >
+                <PushPinIcon style={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
           </div>
-        </div>
 
-        <div className={classes.metricsGrid}>
+          {/* Card 2: Compromissos Agendados */}
           <div className={classes.metricCard}>
             <Typography className={classes.metricLabel}>
-              Reuniões agendadas
+              Compromissos agendados
             </Typography>
             <Typography
               className={classes.metricValue}
@@ -1557,6 +1609,8 @@ const PipelineBoard = () => {
               {board.pipeline?.scheduledMeetingsCount || 0}
             </Typography>
           </div>
+
+          {/* Card 3: Valor Total do Funil */}
           <div className={classes.metricCard}>
             <Typography className={classes.metricLabel}>
               Valor Total do Funil
