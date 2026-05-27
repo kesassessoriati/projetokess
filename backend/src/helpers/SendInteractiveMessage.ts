@@ -7,10 +7,6 @@
  */
 
 import axios from "axios";
-import {
-  generateWAMessageFromContent,
-  prepareWAMessageMedia
-} from "@whiskeysockets/baileys";
 import logger from "../utils/logger";
 
 // ─── Tipos Públicos ────────────────────────────────────────────────────────
@@ -89,6 +85,38 @@ function mapButtonsToNative(buttons: InteractiveButton[]): any[] {
             display_text: btn.displayText,
             id: btn.value?.trim() || `btn_${baseId}_${index + 1}`
           })
+        };
+    }
+  });
+}
+
+function mapButtonsToCarouselNative(buttons: InteractiveButton[]): any[] {
+  const baseId = Date.now();
+  return (buttons || []).map((btn, index) => {
+    switch (btn.type) {
+      case "url":
+        return {
+          type: "url" as const,
+          text: btn.displayText,
+          url: btn.value
+        };
+      case "call":
+        return {
+          type: "call" as const,
+          text: btn.displayText,
+          phoneNumber: btn.value
+        };
+      case "copy":
+        return {
+          type: "copy" as const,
+          text: btn.displayText,
+          copyText: btn.value
+        };
+      default:
+        return {
+          type: "reply" as const,
+          text: btn.displayText,
+          id: btn.value?.trim() || `carousel_btn_${baseId}_${index + 1}`
         };
     }
   });
@@ -318,65 +346,49 @@ export async function sendCarouselMessage(
   cards: CarouselCard[]
 ): Promise<any> {
   try {
-    // Pré-carrega imagens se houver URLs
-    const preparedCards: any[] = [];
-    for (const card of cards) {
-      const nativeButtons = mapButtonsToNative(card.buttons);
-      const cardEntry: any = {
-        header: {
-          title: card.headerTitle || "",
-          hasMediaAttachment: false
-        },
-        body: { text: card.body },
-        nativeFlowMessage: { buttons: nativeButtons }
-      };
+    if (!Array.isArray(cards) || cards.length < 2) {
+      throw new Error("Carrossel precisa de pelo menos 2 cards.");
+    }
 
-      if (card.footer) {
-        cardEntry.footer = { text: card.footer };
-      }
+    const nativeCards: any[] = [];
+    for (const card of cards) {
+      const nativeButtons = mapButtonsToCarouselNative(card.buttons);
+      const cardEntry: any = {
+        title: card.headerTitle || " ",
+        body: card.body || " ",
+        footer: card.footer || undefined,
+        buttons: nativeButtons.length
+          ? nativeButtons
+          : [
+              {
+                type: "reply" as const,
+                text: "Ver detalhes",
+                id: `carousel_reply_${Date.now()}`
+              }
+            ]
+      };
 
       if (card.imageUrl) {
         const imgBuffer = await downloadMediaBuffer(card.imageUrl);
         if (imgBuffer) {
-          try {
-            const preparedMedia = await prepareWAMessageMedia(
-              { image: imgBuffer, mimetype: "image/jpeg" },
-              { upload: (wbot as any).waUploadToServer }
-            );
-            if (preparedMedia?.imageMessage) {
-              cardEntry.header.hasMediaAttachment = true;
-              cardEntry.header.imageMessage = preparedMedia.imageMessage;
-            }
-          } catch (_) {
-            // Ignora falha no upload de imagem, envia card sem imagem
-          }
+          cardEntry.image = imgBuffer;
         }
       }
 
-      preparedCards.push(cardEntry);
+      nativeCards.push(cardEntry);
     }
 
-    const carouselContent = {
-      interactiveMessage: {
-        carouselMessage: {
-          cards: preparedCards
-        }
+    // Envia carrossel nativo utilizando a propriedade nativeCarousel do InfiniteAPI
+    const sentMessage = await wbot.sendMessage(jid, {
+      nativeCarousel: {
+        cards: nativeCards
       }
-    };
-
-    const newMsg = generateWAMessageFromContent(jid, carouselContent, {
-      userJid: wbot.user?.id || jid
     });
 
-    await wbot.relayMessage(jid, newMsg.message, { messageId: newMsg.key.id });
-    if (typeof wbot.upsertMessage === "function") {
-      await wbot.upsertMessage(newMsg, "notify");
-    }
-
-    logger.info(`[SendInteractiveMessage] Carrossel enviado para ${jid} (${cards.length} cards)`);
-    return newMsg;
+    logger.info(`[SendInteractiveMessage] Carrossel enviado via nativeCarousel para ${jid} (${cards.length} cards)`);
+    return sentMessage;
   } catch (err) {
-    logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`);
+    logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`, err);
     // Fallback: envia cada card como mensagem de texto
     let fallbackSentMessage = null;
     for (const [i, card] of cards.entries()) {
