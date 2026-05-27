@@ -204,7 +204,7 @@ const useStyles = makeStyles((theme) => ({
   },
   metricsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
     gap: 10,
     marginTop: 12,
     [theme.breakpoints.down("sm")]: {
@@ -1498,11 +1498,11 @@ const PipelineBoard = () => {
     <Box className={classes.container}>
       <header className={classes.header}>
         <div className={classes.headerTop}>
-          <div className={classes.titleWrap}>
+          {/* <div className={classes.titleWrap}>
             <div className={classes.titleRow}>
               <span className={classes.titleBadge}>CRM Kanban</span>
             </div>
-          </div>
+          </div> */}
 
           <div className={classes.topRight}>
             <FormControl
@@ -1524,7 +1524,7 @@ const PipelineBoard = () => {
               </Select>
             </FormControl>
 
-            <Button
+            {/* <Button
               startIcon={<TimelineIcon />}
               className={`${classes.aiPriorityBtn} ${sort === "AI_PRIORITY" ? classes.aiPriorityBtnActive : ""}`}
               onClick={() =>
@@ -1540,7 +1540,7 @@ const PipelineBoard = () => {
               onClick={() => setFilterModalOpen(true)}
             >
               <FilterListIcon />
-            </IconButton>
+            </IconButton> */}
           </div>
         </div>
 
@@ -1567,7 +1567,7 @@ const PipelineBoard = () => {
               {fCurrency(totals.totalValue)}
             </Typography>
           </div>
-          <div className={classes.metricCard}>
+          {/* <div className={classes.metricCard}>
             <Typography className={classes.metricLabel}>
               Alertas de risco
             </Typography>
@@ -1577,7 +1577,7 @@ const PipelineBoard = () => {
             >
               {totals.highRiskCount}
             </Typography>
-          </div>
+          </div> */}
         </div>
 
         <div className={classes.controlBar}>
