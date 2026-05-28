@@ -2152,6 +2152,9 @@ const PipelineBoard = () => {
                 : massQuickRepliesOpen && massActionTab === 1
                 ? "96vw"
                 : undefined,
+            maxHeight: "calc(100vh - 48px)",
+            display: "flex",
+            flexDirection: "column",
           },
         }}
       >
@@ -2201,7 +2204,7 @@ const PipelineBoard = () => {
           />
         </Tabs>
         <DialogContent
-          style={{ minHeight: 220, paddingTop: 20, overflow: "hidden" }}
+          style={{ minHeight: 220, paddingTop: 20, overflowY: "auto", flex: 1 }}
         >
           <Box display="flex" alignItems="stretch" style={{ gap: 16 }}>
             <Box flex={1} minWidth={0}>
@@ -3117,7 +3120,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             </Button>
           </Box>
 
-          <Box display="flex" flexDirection="column" style={{ gap: 12, maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
+          <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
             {actions.length === 0 && (
               <Box p={4} display="flex" justifyContent="center" alignItems="center" style={{ border: "2px dashed #e5e7eb", borderRadius: 12 }}>
                 <Typography variant="body2" style={{ color: "#9ca3af" }}>Nenhuma ação configurada ainda. Clique nos botões acima para adicionar!</Typography>
