@@ -102,7 +102,11 @@ const ApiCrmLeadsPage = () => {
         stageId: 3,
         source: "site",
         temperature: "quente",
-        notes: "Interesse no plano Pro"
+        notes: "Interesse no plano Pro",
+        customFields: {
+          qual_e_a_sua_idade: "28",
+          qual_tipo_de_acompanhamento_faz_mais_sentido_para_voce_hoje: "Ganho de massa muscular"
+        }
       }
     },
     {
@@ -114,7 +118,10 @@ const ApiCrmLeadsPage = () => {
         status: "negociando",
         temperature: "quente",
         stageId: 4,
-        notes: "Reunião agendada"
+        notes: "Reunião agendada",
+        customFields: {
+          qual_e_a_sua_idade: "29"
+        }
       }
     },
     {
@@ -261,6 +268,37 @@ const ApiCrmLeadsPage = () => {
             <Typography variant="body2" color="textSecondary">— {ep.desc}</Typography>
           </Box>
         ))}
+      </Box>
+
+      <Divider style={{ marginBottom: 24 }} />
+
+      {/* Campos Personalizados */}
+      <Box mb={3}>
+        <Typography variant="subtitle1" gutterBottom><strong>Campos Personalizados (customFields)</strong></Typography>
+        <Typography variant="body2" color="textSecondary" gutterBottom>
+          Você pode enviar e atualizar valores de campos personalizados associados aos seus leads enviando um objeto <code>customFields</code> no corpo da requisição <code>POST</code> ou <code>PUT</code>.
+        </Typography>
+        <Typography variant="body2" color="textSecondary" gutterBottom>
+          As chaves do objeto devem ser as <strong>Chaves do Campo</strong> cadastradas no CRM em configurações de campos (por exemplo, <code>qual_e_a_sua_idade</code>). Os valores serão persistidos automaticamente no card do lead.
+        </Typography>
+        
+        <Box style={{ background: "#0f172a", color: "#cbd5f5", fontFamily: "monospace", padding: 12, borderRadius: 8, marginTop: 8 }}>
+          <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+{`curl -X POST "${getLeadsEndpoint()}" \\
+  -H "apikey: seu-token-aqui" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "João Silva",
+    "phone": "5511999999999",
+    "pipelineId": 1,
+    "stageId": 3,
+    "customFields": {
+      "qual_e_a_sua_idade": "28",
+      "qual_tipo_de_acompanhamento_faz_mais_sentido_para_voce_hoje": "Ganho de massa muscular"
+    }
+  }'`}
+          </pre>
+        </Box>
       </Box>
 
       <Divider style={{ marginBottom: 24 }} />

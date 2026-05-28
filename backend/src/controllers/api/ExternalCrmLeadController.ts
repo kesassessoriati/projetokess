@@ -7,12 +7,78 @@ import UpdateCrmLeadService from "../../services/CrmLeadService/UpdateCrmLeadSer
 import ConvertCrmLeadService from "../../services/CrmLeadService/ConvertCrmLeadService";
 import triggerExternalWebhook from "../../services/ExternalWebhook/triggerExternalWebhook";
 import { markLeadForAiExternalFollowUp } from "../../services/AiExternalFollowUpServices/AiExternalFollowUpService";
+import serializeCrmLead from "../../services/CrmLeadService/helpers/serializeCrmLead";
+import CompanyLeadFieldSetting from "../../models/CompanyLeadFieldSetting";
+import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
 
 const ensureExternalAuth = (req: Request) => {
   if (!req.externalAuth) {
     throw new AppError("ERR_EXTERNAL_AUTH_REQUIRED", 401);
   }
   return req.externalAuth;
+};
+
+const appendCustomFieldValues = async (lead: any, companyId: number) => {
+  const leadId = Number(lead?.id);
+  if (!leadId) return lead;
+
+  const values = await CrmLeadCustomFieldValue.findAll({
+    where: { leadId, companyId },
+    include: [
+      {
+        model: CompanyLeadFieldSetting,
+        as: "field",
+        attributes: ["id", "fieldKey", "label", "fieldType", "visible", "active", "isCustom"]
+      }
+    ]
+  });
+
+  return {
+    ...lead,
+    customFields: values.reduce((acc, item) => {
+      const key = item.field?.fieldKey || String(item.fieldId);
+      acc[key] = item.value || "";
+      return acc;
+    }, {} as Record<string, string>)
+  };
+};
+
+const syncCustomFieldValues = async ({
+  leadId,
+  companyId,
+  customFields
+}: {
+  leadId: number;
+  companyId: number;
+  customFields?: Record<string, any>;
+}) => {
+  if (!customFields || typeof customFields !== "object") return;
+
+  const fields = await CompanyLeadFieldSetting.findAll({
+    where: { companyId, isCustom: true, active: true }
+  });
+  const fieldsByKey = new Map(fields.map(field => [field.fieldKey, field]));
+
+  await Promise.all(
+    Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
+      const field = fieldsByKey.get(fieldKey);
+      if (!field) return;
+
+      const value =
+        rawValue === null || rawValue === undefined
+          ? ""
+          : field.fieldType === "boolean"
+            ? String(Boolean(rawValue))
+            : String(rawValue);
+
+      await CrmLeadCustomFieldValue.upsert({
+        companyId,
+        leadId,
+        fieldId: field.id,
+        value
+      });
+    })
+  );
 };
 
 // GET /api/external/crm-leads
@@ -37,7 +103,14 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     userId: 0
   });
 
-  return res.json(result);
+  const leadsWithCustomFields = await Promise.all(
+    result.leads.map(async (lead: any) => appendCustomFieldValues(lead, companyId))
+  );
+
+  return res.json({
+    ...result,
+    leads: leadsWithCustomFields
+  });
 };
 
 // GET /api/external/crm-leads/:id
@@ -50,13 +123,17 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
 
-  return res.json(lead);
+  const serializedLead = await appendCustomFieldValues(serializeCrmLead(lead), companyId);
+
+  return res.json(serializedLead);
 };
 
 // POST /api/external/crm-leads
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const externalAuth = ensureExternalAuth(req);
-  const data = req.body;
+  const data = { ...req.body };
+  const customFields = data.customFields;
+  delete data.customFields;
 
   if (!data.name) {
     throw new AppError("ERR_LEAD_NAME_REQUIRED", 400);
@@ -67,21 +144,31 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     companyId: externalAuth.companyId
   });
 
+  await syncCustomFieldValues({
+    leadId: lead.id,
+    companyId: externalAuth.companyId,
+    customFields
+  });
+
+  const serializedLead = await appendCustomFieldValues(serializeCrmLead(lead), externalAuth.companyId);
+
   await triggerExternalWebhook({
     url: externalAuth.webhookUrl,
     secret: externalAuth.webhookSecret,
     event: "lead.created",
-    data: { apiKeyId: externalAuth.apiKeyId, lead }
+    data: { apiKeyId: externalAuth.apiKeyId, lead: serializedLead }
   });
 
-  return res.status(201).json(lead);
+  return res.status(201).json(serializedLead);
 };
 
 // PUT /api/external/crm-leads/:id
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const externalAuth = ensureExternalAuth(req);
   const { id } = req.params;
-  const data = req.body;
+  const data = { ...req.body };
+  const customFields = data.customFields;
+  delete data.customFields;
 
   const lead = await UpdateCrmLeadService({
     id: Number(id),
@@ -89,14 +176,22 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     ...data
   });
 
+  await syncCustomFieldValues({
+    leadId: Number(id),
+    companyId: externalAuth.companyId,
+    customFields
+  });
+
+  const serializedLead = await appendCustomFieldValues(serializeCrmLead(lead), externalAuth.companyId);
+
   await triggerExternalWebhook({
     url: externalAuth.webhookUrl,
     secret: externalAuth.webhookSecret,
     event: "lead.updated",
-    data: { apiKeyId: externalAuth.apiKeyId, lead }
+    data: { apiKeyId: externalAuth.apiKeyId, lead: serializedLead }
   });
 
-  return res.json(lead);
+  return res.json(serializedLead);
 };
 
 // POST /api/external/crm-leads/:id/convert
