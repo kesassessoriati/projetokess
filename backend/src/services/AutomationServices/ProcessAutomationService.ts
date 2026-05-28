@@ -169,18 +169,21 @@ const calculateDelay = (settings: CampaignSettings, messageCount: number): numbe
 // Executar ação de enviar mensagem
 const executeActionSendMessage = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    const { message, mediaUrl } = action.actionConfig;
+    if (!contact) {
+      return { success: false, message: "Oportunidade sem contato associado - send_message ignorada" };
+    }
+
+    const { message } = action.actionConfig;
 
     if (!ticket) {
       return { success: false, message: "Ticket não encontrado" };
     }
 
-    // Substituir variáveis na mensagem
     let finalMessage = message || "";
     finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, contact.name || "");
     finalMessage = finalMessage.replace(/\{\{numero\}\}/gi, contact.number || "");
@@ -198,11 +201,15 @@ const executeActionSendMessage = async (
 // Executar ação de adicionar tag
 const executeActionAddTag = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
+    if (!contact) {
+      return { success: false, message: "Oportunidade sem contato - add_tag ignorada" };
+    }
+
     const { tagId } = action.actionConfig;
 
     if (!tagId) {
@@ -214,13 +221,11 @@ const executeActionAddTag = async (
       return { success: false, message: "Tag não encontrada" };
     }
 
-    // Adicionar tag ao contato
     await ContactTag.findOrCreate({
       where: { contactId: contact.id, tagId: tag.id },
       defaults: { contactId: contact.id, tagId: tag.id }
     });
 
-    // Adicionar tag ao ticket se existir
     if (ticket) {
       await TicketTag.findOrCreate({
         where: { ticketId: ticket.id, tagId: tag.id },
@@ -238,25 +243,25 @@ const executeActionAddTag = async (
 // Executar ação de remover tag
 const executeActionRemoveTag = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
+    if (!contact) {
+      return { success: false, message: "Oportunidade sem contato - remove_tag ignorada" };
+    }
+
     const { tagId } = action.actionConfig;
 
     if (!tagId) {
       return { success: false, message: "Tag não especificada" };
     }
 
-    await ContactTag.destroy({
-      where: { contactId: contact.id, tagId }
-    });
+    await ContactTag.destroy({ where: { contactId: contact.id, tagId } });
 
     if (ticket) {
-      await TicketTag.destroy({
-        where: { ticketId: ticket.id, tagId }
-      });
+      await TicketTag.destroy({ where: { ticketId: ticket.id, tagId } });
     }
 
     return { success: true, message: "Tag removida" };
@@ -269,7 +274,7 @@ const executeActionRemoveTag = async (
 // Executar ação de mover no Kanban
 const executeActionMoveKanban = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
@@ -306,7 +311,7 @@ const executeActionMoveKanban = async (
 // Executar ação de transferir para fila
 const executeActionTransferQueue = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
@@ -333,7 +338,7 @@ const executeActionTransferQueue = async (
 // Executar ação de transferir para usuário
 const executeActionTransferUser = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
@@ -360,7 +365,7 @@ const executeActionTransferUser = async (
 // Executar ação de fechar ticket
 const executeActionCloseTicket = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
   companyId: number
 ): Promise<{ success: boolean; message: string }> => {
@@ -385,17 +390,25 @@ const executeActionCloseTicket = async (
 // Executar ação de criar tarefa
 const executeActionCreateTask = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const { title, description, priority, listId } = action.actionConfig || {};
 
     const CrmLead = (await import("../../models/CrmLead")).default;
-    const lead = await CrmLead.findOne({
-      where: { contactId: contact.id, companyId }
-    });
+    let lead = null;
+    if (contact) {
+      lead = await CrmLead.findOne({ where: { contactId: contact.id, companyId } });
+    } else if (opportunityId) {
+      const Opportunity = (await import("../../models/Opportunity")).default;
+      const opp = await Opportunity.findOne({ where: { id: opportunityId, companyId } });
+      if (opp?.leadId) {
+        lead = await CrmLead.findOne({ where: { id: opp.leadId, companyId } });
+      }
+    }
 
     let targetListId = listId ? Number(listId) : null;
     if (!targetListId) {
@@ -434,9 +447,10 @@ const executeActionCreateTask = async (
 // Executar ação de criar anotação
 const executeActionCreateNote = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const { text } = action.actionConfig || {};
@@ -446,10 +460,16 @@ const executeActionCreateNote = async (
     }
 
     const Opportunity = (await import("../../models/Opportunity")).default;
-    const opportunity = await Opportunity.findOne({
-      where: { contactId: contact.id, companyId },
-      order: [["updatedAt", "DESC"]]
-    });
+
+    let opportunity = null;
+    if (opportunityId) {
+      opportunity = await Opportunity.findOne({ where: { id: opportunityId, companyId } });
+    } else if (contact) {
+      opportunity = await Opportunity.findOne({
+        where: { contactId: contact.id, companyId },
+        order: [["updatedAt", "DESC"]]
+      });
+    }
 
     if (!opportunity) {
       return { success: false, message: "Oportunidade não encontrada para associar a anotação." };
@@ -473,9 +493,10 @@ const executeActionCreateNote = async (
 // Executar ação de mover lead de etapa
 const executeActionMoveLead = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const { destinationStageId } = action.actionConfig || {};
@@ -485,10 +506,15 @@ const executeActionMoveLead = async (
     }
 
     const Opportunity = (await import("../../models/Opportunity")).default;
-    const opportunity = await Opportunity.findOne({
-      where: { contactId: contact.id, companyId },
-      order: [["updatedAt", "DESC"]]
-    });
+    let opportunity = null;
+    if (opportunityId) {
+      opportunity = await Opportunity.findOne({ where: { id: opportunityId, companyId } });
+    } else if (contact) {
+      opportunity = await Opportunity.findOne({
+        where: { contactId: contact.id, companyId },
+        order: [["updatedAt", "DESC"]]
+      });
+    }
 
     if (!opportunity) {
       return { success: false, message: "Oportunidade não encontrada para mover de etapa." };
@@ -517,17 +543,25 @@ const executeActionMoveLead = async (
 // Executar ação de criar tarefa de ligação
 const executeActionCallTask = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const { title, description, priority, listId } = action.actionConfig || {};
 
     const CrmLead = (await import("../../models/CrmLead")).default;
-    const lead = await CrmLead.findOne({
-      where: { contactId: contact.id, companyId }
-    });
+    let lead = null;
+    if (contact) {
+      lead = await CrmLead.findOne({ where: { contactId: contact.id, companyId } });
+    } else if (opportunityId) {
+      const Opportunity = (await import("../../models/Opportunity")).default;
+      const opp = await Opportunity.findOne({ where: { id: opportunityId, companyId } });
+      if (opp?.leadId) {
+        lead = await CrmLead.findOne({ where: { id: opp.leadId, companyId } });
+      }
+    }
 
     let targetListId = listId ? Number(listId) : null;
     if (!targetListId) {
@@ -549,7 +583,7 @@ const executeActionCallTask = async (
     const Task = (await import("../../models/Task")).default;
     await Task.create({
       listId: targetListId,
-      title: title || `Telefonar para ${contact.name || "Contato"}`,
+      title: title || `Telefonar para ${contact?.name || "Contato"}`,
       description: description || "Tarefa de ligação agendada automaticamente por automação de etapa.",
       priority: priority || "high",
       status: "active",
@@ -566,9 +600,10 @@ const executeActionCallTask = async (
 // Executar uma ação específica
 export const executeAction = async (
   action: AutomationAction,
-  contact: Contact,
+  contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   switch (action.actionType) {
     case "send_message":
@@ -586,13 +621,13 @@ export const executeAction = async (
     case "close_ticket":
       return executeActionCloseTicket(action, contact, ticket, companyId);
     case "create_task":
-      return executeActionCreateTask(action, contact, ticket, companyId);
+      return executeActionCreateTask(action, contact, ticket, companyId, opportunityId);
     case "create_note":
-      return executeActionCreateNote(action, contact, ticket, companyId);
+      return executeActionCreateNote(action, contact, ticket, companyId, opportunityId);
     case "move_lead":
-      return executeActionMoveLead(action, contact, ticket, companyId);
+      return executeActionMoveLead(action, contact, ticket, companyId, opportunityId);
     case "call_task":
-      return executeActionCallTask(action, contact, ticket, companyId);
+      return executeActionCallTask(action, contact, ticket, companyId, opportunityId);
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:
@@ -600,11 +635,12 @@ export const executeAction = async (
   }
 };
 
-// Processar automação completa para um contato
+// Processar automação completa para um contato (contact pode ser null para oportunidades sem contato)
 export const processAutomationForContact = async (
   automation: Automation,
-  contact: Contact,
-  ticket: Ticket | null
+  contact: Contact | null,
+  ticket: Ticket | null,
+  opportunityId?: number
 ): Promise<void> => {
   const companyId = automation.companyId;
   const settings = await getCampaignSettings(companyId);
@@ -620,11 +656,11 @@ export const processAutomationForContact = async (
     const isInstantAction = INSTANT_ACTIONS.has(action.actionType);
 
     if (isInstantAction) {
-      const result = await executeAction(action, contact, ticket, companyId);
+      const result = await executeAction(action, contact, ticket, companyId, opportunityId);
 
       await AutomationLog.create({
         automationId: automation.id,
-        contactId: contact.id,
+        contactId: contact?.id || null,
         ticketId: ticket?.id,
         status: result.success ? "completed" : "failed",
         executedAt: new Date(),
@@ -635,6 +671,12 @@ export const processAutomationForContact = async (
       if (!result.success) {
         logger.warn(`[Automation] Ação instantânea ${action.actionType} falhou: ${result.message}`);
       }
+      continue;
+    }
+
+    // Ações não-instantâneas sem contato não podem ser agendadas (dependem de contato para execução)
+    if (!contact && action.actionType === "send_message") {
+      logger.warn(`[Automation] Ação send_message ignorada para oportunidade ${opportunityId}: sem contato associado`);
       continue;
     }
 
@@ -652,16 +694,16 @@ export const processAutomationForContact = async (
     const execution = await AutomationExecution.create({
       automationId: automation.id,
       automationActionId: action.id,
-      contactId: contact.id,
+      contactId: contact?.id || null,
       ticketId: ticket?.id,
       scheduledAt,
       status: "scheduled",
-      metadata: { actionType: action.actionType }
+      metadata: { actionType: action.actionType, opportunityId: opportunityId || null }
     });
 
     await AutomationLog.create({
       automationId: automation.id,
-      contactId: contact.id,
+      contactId: contact?.id || null,
       ticketId: ticket?.id,
       status: "pending",
       result: { executionId: execution.id, actionType: action.actionType }
@@ -672,7 +714,7 @@ export const processAutomationForContact = async (
     }
   }
 
-  logger.info(`[Automation] ${actions.length} ações agendadas para automação ${automation.id}, contato ${contact.id}`);
+  logger.info(`[Automation] ${actions.length} ações processadas para automação ${automation.id}${contact ? `, contato ${contact.id}` : `, oportunidade ${opportunityId}`}`);
 };
 
 // Buscar automações por gatilho

@@ -3,6 +3,7 @@ import Company from "../../models/Company";
 import AutomationExecution from "../../models/AutomationExecution";
 import AutomationAction from "../../models/AutomationAction";
 import AutomationLog from "../../models/AutomationLog";
+import Automation from "../../models/Automation";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import logger from "../../utils/logger";
@@ -24,8 +25,9 @@ export const executeScheduledAutomations = async (): Promise<void> => {
       },
       include: [
         { model: AutomationAction, as: "automationAction" },
-        { model: Contact, as: "contact" },
-        { model: Ticket, as: "ticket" }
+        { model: Automation, as: "automation" },
+        { model: Contact, as: "contact", required: false },
+        { model: Ticket, as: "ticket", required: false }
       ],
       limit: 100,
       order: [["scheduledAt", "ASC"]]
@@ -47,19 +49,25 @@ export const executeScheduledAutomations = async (): Promise<void> => {
         });
 
         const action = execution.automationAction;
-        const contact = execution.contact;
-        const ticket = execution.ticket;
+        const contact = execution.contact || null;
+        const ticket = execution.ticket || null;
+        const automation = execution.automation;
 
-        if (!action || !contact) {
-          await execution.update({
-            status: "failed",
-            error: "Ação ou contato não encontrado"
-          });
+        if (!action) {
+          await execution.update({ status: "failed", error: "Ação não encontrada" });
           continue;
         }
 
+        const companyId = contact?.companyId || automation?.companyId;
+        if (!companyId) {
+          await execution.update({ status: "failed", error: "companyId não determinado" });
+          continue;
+        }
+
+        const opportunityId = (execution.metadata as any)?.opportunityId || undefined;
+
         // Executar a ação
-        const result = await executeAction(action, contact, ticket, contact.companyId);
+        const result = await executeAction(action, contact, ticket, companyId, opportunityId);
 
         // Atualizar execução
         await execution.update({
