@@ -105,44 +105,75 @@ export const MergeContacts = async ({
       mergedData.name = originalContact.name || duplicateContact.name;
     }
     
-    // Número: sempre preferir número real sobre @lid
-    const originalIsReal = originalContact.number && !originalContact.number.includes("@lid");
-    const duplicateIsReal = duplicateContact.number && !duplicateContact.number.includes("@lid");
-    
-    if (originalIsReal) {
-      mergedData.number = originalContact.number;
-    } else if (duplicateIsReal) {
-      mergedData.number = duplicateContact.number;
-    } else {
-      mergedData.number = originalContact.number || duplicateContact.number;
+    // Número: sempre preferir número real sobre @lid / temp
+    const originalIsReal = originalContact.number &&
+      !originalContact.number.includes("@lid") &&
+      !originalContact.number.startsWith("lid-") &&
+      !originalContact.number.startsWith("temp-");
+    const duplicateIsReal = duplicateContact.number &&
+      !duplicateContact.number.includes("@lid") &&
+      !duplicateContact.number.startsWith("lid-") &&
+      !duplicateContact.number.startsWith("temp-");
+
+    // Quando originalContact tem número LID/temp e duplicateContact tem número real,
+    // NÃO tentamos mover o número real para originalContact (causaria constraint violation
+    // já que duplicateContact ainda existe na DB com esse número).
+    // Em vez disso: enriquecemos duplicateContact com os dados do original e o retornamos.
+    if (!originalIsReal && duplicateIsReal) {
+      logger.info(
+        `MergeContacts: originalContact ${originalContact.id} has LID/temp number, duplicateContact ${duplicateContact.id} has real number — enriching duplicate and returning it`
+      );
+
+      const enrichData: any = { companyId };
+      // Nome: enriquecer apenas se duplicateContact não tem nome significativo
+      if (
+        originalContact.name &&
+        originalContact.name !== originalContact.number &&
+        (!duplicateContact.name || duplicateContact.name === duplicateContact.number)
+      ) {
+        enrichData.name = originalContact.name;
+      }
+      enrichData.lid = duplicateContact.lid || originalContact.lid;
+      enrichData.isLid = false;
+      enrichData.savedToPhone = originalContact.savedToPhone || duplicateContact.savedToPhone;
+      enrichData.potentialScore = Math.max(originalContact.potentialScore || 0, duplicateContact.potentialScore || 0);
+      enrichData.isPotential = enrichData.potentialScore >= 5;
+
+      await duplicateContact.update(enrichData);
+      logger.info(`Contact merged (duplicate wins) — Original: ${originalContact.id}, Duplicate: ${duplicateContact.id}`);
+      return duplicateContact;
     }
-    
+
+    // Caminho normal: originalContact tem número real ou ambos têm LID
+    // Mantemos o número do originalContact — não tentamos mudar para evitar constraint
+    mergedData.number = originalContact.number;
+
     // LID: usar o que existir
     mergedData.lid = originalContact.lid || duplicateContact.lid;
-    
+
     // RemoteJid: usar o mais recente
     mergedData.remoteJid = originalContact.remoteJid || duplicateContact.remoteJid;
-    
+
     // ProfilePicUrl: usar o que existir
     mergedData.profilePicUrl = originalContact.profilePicUrl || duplicateContact.profilePicUrl;
-    
+
     // Email: usar o que existir
     mergedData.email = originalContact.email || duplicateContact.email;
-    
+
     // Campos booleanos: usar valores mais significativos
     mergedData.isLid = originalContact.isLid && duplicateContact.isLid;
     mergedData.savedToPhone = originalContact.savedToPhone || duplicateContact.savedToPhone;
     mergedData.savedToPhoneAt = originalContact.savedToPhoneAt || duplicateContact.savedToPhoneAt;
     mergedData.savedToPhoneReason = originalContact.savedToPhoneReason || duplicateContact.savedToPhoneReason;
-    
+
     // Score: usar o maior
     mergedData.potentialScore = Math.max(
       originalContact.potentialScore || 0,
       duplicateContact.potentialScore || 0
     );
-    
+
     mergedData.isPotential = mergedData.potentialScore >= 5;
-    
+
     // LidStability: usar o mais confiável
     if (originalContact.lidStability === "high" || duplicateContact.lidStability === "high") {
       mergedData.lidStability = "high";
@@ -151,12 +182,12 @@ export const MergeContacts = async ({
     } else {
       mergedData.lidStability = originalContact.lidStability || duplicateContact.lidStability;
     }
-    
+
     // Atualizar contato original com dados mergeados
     await originalContact.update(mergedData);
-    
+
     logger.info(`Contact merged successfully - Original: ${originalContact.id}, Duplicate: ${duplicateContact.id}`);
-    
+
     return originalContact;
     
   } catch (error) {

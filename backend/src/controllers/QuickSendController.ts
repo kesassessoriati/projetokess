@@ -602,11 +602,33 @@ export const quickSend = async (
       }
 
       if (lead.phone !== validatedNumber) {
-        leadUpdates.phone = validatedNumber;
+        // Prevent unique constraint violation if another lead already has this phone number
+        const existingLeadWithPhone = await CrmLead.findOne({
+          where: {
+            companyId,
+            phone: { [Op.in]: getBrazilianPhoneVariants(validatedNumber) },
+            id: { [Op.ne]: lead.id }
+          }
+        });
+        if (!existingLeadWithPhone) {
+          leadUpdates.phone = validatedNumber;
+        } else {
+          logger.warn(
+            { leadId: lead.id, existingLeadId: existingLeadWithPhone.id, validatedNumber },
+            "QuickSend: Skip updating lead phone to avoid unique constraint violation"
+          );
+        }
       }
 
       if (Object.keys(leadUpdates).length > 0) {
-        await lead.update(leadUpdates, { hooks: false });
+        try {
+          await lead.update(leadUpdates, { hooks: false });
+        } catch (updateErr) {
+          logger.error(
+            { leadId: lead.id, err: updateErr.message },
+            "QuickSend: Error updating lead, ignoring to proceed"
+          );
+        }
       }
     }
 
@@ -890,8 +912,23 @@ export const quickSend = async (
       contact
     });
   } catch (err) {
+    const seqDetails =
+      err.name === "SequelizeUniqueConstraintError"
+        ? {
+            constraint: err.parent?.constraint,
+            table: err.parent?.table,
+            detail: err.parent?.detail,
+            code: err.parent?.code,
+            fields: (err.errors || []).map((e: any) => ({
+              path: e.path,
+              value: e.value,
+              message: e.message
+            }))
+          }
+        : undefined;
+
     logger.error(
-      { err: err.message, stack: err.stack },
+      { companyId, userId, errName: err.name, err: err.message, seqDetails },
       "QuickSend: Unexpected error"
     );
     return res

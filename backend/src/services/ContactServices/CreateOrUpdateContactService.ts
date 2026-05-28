@@ -510,8 +510,31 @@ const CreateOrUpdateContactService = async ({
         contact.addressingMode = addressingMode;
       }
 
-      await contact.save();
-      logger.info(`Contact ${contact.id} updated`);
+      try {
+        await contact.save();
+        logger.info(`Contact ${contact.id} updated`);
+      } catch (saveErr) {
+        if (saveErr.name === "SequelizeUniqueConstraintError") {
+          // Race condition ou conflito de número: reverter number e usar o contato existente
+          logger.warn(
+            { contactId: contact.id, number, constraint: saveErr.parent?.constraint },
+            "Contact.save() unique constraint — reverting and using existing contact"
+          );
+          await contact.reload();
+          const conflicting = await Contact.findOne({
+            where: {
+              companyId,
+              number: { [Op.in]: getBrazilianPhoneVariants(number) },
+              id: { [Op.ne]: contact.id }
+            }
+          });
+          if (conflicting) {
+            contact = conflicting;
+          }
+        } else {
+          throw saveErr;
+        }
+      }
     } else {
       // Cria novo contato
       const settings = await CompaniesSettings.findOne({ where: { companyId } });
@@ -539,29 +562,53 @@ const CreateOrUpdateContactService = async ({
 
       logger.info("Creating new contact:", { name: initialName, number, newRemoteJid, lid: lidToSave, addressingMode });
 
-      contact = await Contact.create({
-        name: initialName,
-        number,
-        email,
-        isGroup,
-        companyId,
-        channel,
-        acceptAudioMessage: acceptAudioMessageContact === 'enabled',
-        remoteJid: newRemoteJid,
-        profilePicUrl: profileUrl,
-        urlPicture: "",
-        whatsappId,
-        lid: lidToSave,
-        addressingMode,
-        // Campos novos para deduplicação e scoring
-        potentialScore: 0,
-        isPotential: false,
-        savedToPhone: false,
-        lidStability: "unknown"
-      });
-
-      createContact = true;
-      logger.info(`Contact ${contact.id} created`);
+      try {
+        contact = await Contact.create({
+          name: initialName,
+          number,
+          email,
+          isGroup,
+          companyId,
+          channel,
+          acceptAudioMessage: acceptAudioMessageContact === 'enabled',
+          remoteJid: newRemoteJid,
+          profilePicUrl: profileUrl,
+          urlPicture: "",
+          whatsappId,
+          lid: lidToSave,
+          addressingMode,
+          // Campos novos para deduplicação e scoring
+          potentialScore: 0,
+          isPotential: false,
+          savedToPhone: false,
+          lidStability: "unknown"
+        });
+        createContact = true;
+        logger.info(`Contact ${contact.id} created`);
+      } catch (createErr) {
+        if (createErr.name === "SequelizeUniqueConstraintError") {
+          // Race condition: outra request criou o contato concorrentemente
+          logger.warn(
+            { companyId, number, constraint: createErr.parent?.constraint },
+            "Contact.create unique constraint — refetching existing contact (race condition)"
+          );
+          const numberVariants = getBrazilianPhoneVariants(number);
+          const orFallback: any[] = [{ number: { [Op.in]: numberVariants } }];
+          if (newRemoteJid && !isGroupJid(newRemoteJid)) {
+            orFallback.push({ remoteJid: newRemoteJid });
+          }
+          contact = await Contact.findOne({
+            where: { companyId, [Op.or]: orFallback }
+          });
+          if (!contact) {
+            logger.error({ companyId, number }, "Contact not found after create constraint error");
+            throw createErr;
+          }
+          // Trata como update — não marca createContact = true
+        } else {
+          throw createErr;
+        }
+      }
     }
 
     // Download imagem de perfil se necessário
