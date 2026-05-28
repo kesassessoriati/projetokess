@@ -153,11 +153,13 @@ class StageAutomationService {
 
         for (const automation of matchingAutomations) {
           try {
-            // Guarda para evitar execução duplicada concorrente usando opportunityId
+            // Guarda para evitar execução duplicada concorrente — diferencia por oportunidade quando não há contato
             const existingExecution = await AutomationExecution.findOne({
               where: {
                 automationId: automation.id,
-                ...(contact ? { contactId: contact.id } : {}),
+                ...(contact
+                  ? { contactId: contact.id }
+                  : { metadata: { [Op.contains]: { opportunityId } } }),
                 createdAt: {
                   [Op.gte]: moment().subtract(10, "seconds").toDate()
                 }
