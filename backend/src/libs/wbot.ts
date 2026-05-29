@@ -120,11 +120,12 @@ export const removeWbot = async (
   try {
     const sessionIndex = sessions.findIndex(s => s.id === whatsappId);
     if (sessionIndex !== -1) {
+      const session = sessions[sessionIndex];
       if (isLogout) {
-        sessions[sessionIndex].logout();
-        sessions[sessionIndex].ws.close();
+        try { await session.logout(); } catch (_) {}
       }
-
+      try { (session.ev as any).removeAllListeners(); } catch (_) {}
+      try { session.ws.close(); } catch (_) {}
       sessions.splice(sessionIndex, 1);
     }
   } catch (err) {
