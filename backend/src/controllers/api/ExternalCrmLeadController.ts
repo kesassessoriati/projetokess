@@ -71,12 +71,20 @@ const syncCustomFieldValues = async ({
             ? String(Boolean(rawValue))
             : String(rawValue);
 
-      await CrmLeadCustomFieldValue.upsert({
-        companyId,
-        leadId,
-        fieldId: field.id,
-        value
+      const [customFieldValue, created] = await CrmLeadCustomFieldValue.findOrCreate({
+        where: { companyId, leadId, fieldId: field.id },
+        defaults: {
+          companyId,
+          leadId,
+          fieldId: field.id,
+          value
+        }
       });
+
+      if (!created && customFieldValue.value !== value) {
+        customFieldValue.value = value;
+        await customFieldValue.save();
+      }
     })
   );
 };
