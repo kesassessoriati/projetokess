@@ -43,6 +43,13 @@ const appendCustomFieldValues = async (lead: any, companyId: number) => {
   };
 };
 
+const slugifyKey = (s: string) =>
+  s.toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
 const syncCustomFieldValues = async ({
   leadId,
   companyId,
@@ -58,10 +65,17 @@ const syncCustomFieldValues = async ({
     where: { companyId, isCustom: true, active: true }
   });
   const fieldsByKey = new Map(fields.map(field => [field.fieldKey, field]));
+  // Fallback: match by normalized label (handles timestamp-suffixed keys)
+  const fieldsByLabel = new Map(fields.map(field => [slugifyKey(field.label), field]));
 
   await Promise.all(
     Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
-      const field = fieldsByKey.get(fieldKey);
+      const bare = fieldKey.replace(/^custom_/, "");
+      const field =
+        fieldsByKey.get(fieldKey) ||
+        fieldsByKey.get(`custom_${bare}`) ||
+        fieldsByLabel.get(bare) ||
+        fieldsByLabel.get(fieldKey);
       if (!field) return;
 
       const value =
