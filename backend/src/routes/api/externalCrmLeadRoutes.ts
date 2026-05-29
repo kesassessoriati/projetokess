@@ -5,6 +5,12 @@ import * as ExternalCrmLeadController from "../../controllers/api/ExternalCrmLea
 const externalCrmLeadRoutes = Router();
 
 externalCrmLeadRoutes.get(
+  "/crm-leads/field-settings",
+  isAuthExternal,
+  ExternalCrmLeadController.fieldSettings
+);
+
+externalCrmLeadRoutes.get(
   "/crm-leads",
   isAuthExternal,
   ExternalCrmLeadController.index

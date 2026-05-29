@@ -89,6 +89,23 @@ const syncCustomFieldValues = async ({
   );
 };
 
+// GET /api/external/crm-leads/field-settings
+export const fieldSettings = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = ensureExternalAuth(req);
+
+  const fields = await CompanyLeadFieldSetting.findAll({
+    where: { companyId, isCustom: true, active: true },
+    attributes: ["id", "fieldKey", "label", "fieldType", "sortOrder"],
+    order: [["sortOrder", "ASC"]]
+  });
+
+  return res.json(fields.map(f => ({
+    fieldKey: f.fieldKey,
+    label: f.label,
+    fieldType: f.fieldType
+  })));
+};
+
 // GET /api/external/crm-leads
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = ensureExternalAuth(req);
