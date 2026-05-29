@@ -14,6 +14,8 @@ import UpdateTicketService from "../TicketServices/UpdateTicketService";
 import { getIO } from "../../libs/socket";
 import logger from "../../utils/logger";
 import moment from "moment";
+import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
+import path from "path";
 
 interface AutomationWindowConfig {
   startHour?: string;
@@ -171,29 +173,133 @@ const executeActionSendMessage = async (
   action: AutomationAction,
   contact: Contact | null,
   ticket: Ticket | null,
-  companyId: number
+  companyId: number,
+  opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
     if (!contact) {
+      logger.warn(`[StageAutomation][WhatsApp] Oportunidade ${opportunityId} sem contato - send_message ignorada`);
       return { success: false, message: "Oportunidade sem contato associado - send_message ignorada" };
     }
 
-    const { message } = action.actionConfig;
-
     if (!ticket) {
-      return { success: false, message: "Ticket não encontrado" };
+      logger.warn(`[StageAutomation][WhatsApp] Contato ${contact.id} sem ticket - send_message ignorada`);
+      return { success: false, message: "Ticket não encontrado para send_message" };
     }
 
-    let finalMessage = message || "";
-    finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, contact.name || "");
-    finalMessage = finalMessage.replace(/\{\{numero\}\}/gi, contact.number || "");
-    finalMessage = finalMessage.replace(/\{\{email\}\}/gi, contact.email || "");
+    const { message, whatsappId, quickReplyId, mediaId } = action.actionConfig || {};
 
-    await SendWhatsAppMessage({ body: finalMessage, ticket });
+    logger.info(`[StageAutomation][WhatsApp] Iniciando - contato ${contact.id}, ticket ${ticket.id}, conexão=${whatsappId || "padrão"}, quickReplyId=${quickReplyId || "—"}, mediaId=${mediaId || "—"}`);
 
+    // Garante que o ticket usa a conexão WhatsApp configurada na ação
+    if (whatsappId && Number(ticket.whatsappId) !== Number(whatsappId)) {
+      logger.info(`[StageAutomation][WhatsApp] Atualizando conexão do ticket ${ticket.id}: ${ticket.whatsappId} → ${whatsappId}`);
+      await ticket.update({ whatsappId: Number(whatsappId) });
+      await ticket.reload();
+    }
+
+    let textBody = message || "";
+    let mediaFilePath: string | null = null;
+    let mediaFileName: string | null = null;
+
+    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+
+    // Resolve resposta rápida (QuickReply)
+    if (quickReplyId) {
+      const QuickReply = (await import("../../models/QuickReply")).default;
+      const qr = await QuickReply.findOne({ where: { id: Number(quickReplyId), companyId } });
+      if (qr) {
+        if (!textBody && qr.message) textBody = qr.message;
+        const rawMedia = qr.getDataValue("mediaUrl") as string | null;
+        if (rawMedia) {
+          const normalized = rawMedia.replace(/\\/g, "/").replace(/^\/+/, "");
+          mediaFilePath = normalized.startsWith("media-drive/")
+            ? path.join(publicFolder, `company${companyId}`, normalized)
+            : path.join(publicFolder, `company${companyId}`, "quickReply", normalized);
+          mediaFileName = qr.mediaName || path.basename(normalized);
+          logger.info(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} com mídia: ${mediaFileName}`);
+        } else {
+          logger.info(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} apenas texto`);
+        }
+      } else {
+        logger.warn(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} não encontrada`);
+      }
+    }
+
+    // Resolve mídia da biblioteca (apenas se não há mídia de resposta rápida)
+    if (mediaId && !mediaFilePath) {
+      const MediaFile = (await import("../../models/MediaFile")).default;
+      const mf = await MediaFile.findOne({ where: { id: Number(mediaId), companyId } });
+      if (mf) {
+        const normalizedStorage = mf.storagePath.replace(/\\/g, "/").replace(/^\/+/, "");
+        mediaFilePath = path.join(publicFolder, `company${companyId}`, normalizedStorage);
+        mediaFileName = mf.customName || mf.originalName;
+        logger.info(`[StageAutomation][WhatsApp] Mídia biblioteca ${mediaId}: ${mediaFileName}`);
+      } else {
+        logger.warn(`[StageAutomation][WhatsApp] Mídia ${mediaId} não encontrada`);
+      }
+    }
+
+    // Aplica variáveis de template
+    const finalText = renderCampaignTemplate(textBody, contact) as string;
+
+    if (mediaFilePath) {
+      const { getMessageOptions } = await import("../WbotServices/SendWhatsAppMedia");
+      const { getWbot } = await import("../../libs/wbot");
+      const CreateMessageService = (await import("../MessageServices/CreateMessageService")).default;
+      const mimeLookup = require("mime-types").lookup;
+
+      const wbot = await getWbot(ticket.whatsappId);
+      const options = await getMessageOptions(mediaFileName || "arquivo", mediaFilePath, String(companyId), finalText);
+
+      if (!options) {
+        return { success: false, message: "Falha ao preparar opções de mídia" };
+      }
+
+      const remoteJid =
+        contact.remoteJid && contact.remoteJid.includes("@")
+          ? contact.remoteJid
+          : `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+
+      const sentMessage = await wbot.sendMessage(remoteJid, options);
+      logger.info(`[StageAutomation][WhatsApp] Mídia enviada: ${sentMessage?.key?.id}`);
+
+      const mimeType = mimeLookup(mediaFilePath) || "application/octet-stream";
+      const mediaType = String(mimeType).split("/")[0];
+
+      const messageData = {
+        wid: sentMessage.key.id,
+        ticketId: ticket.id,
+        contactId: undefined,
+        body: finalText || mediaFileName,
+        fromMe: true,
+        read: true,
+        mediaUrl: mediaFileName,
+        mediaType,
+        quotedMsgId: null,
+        ack: 2,
+        remoteJid,
+        participant: null,
+        dataJson: JSON.stringify(sentMessage),
+        ticketTrakingId: null,
+        isForwarded: false
+      };
+      await CreateMessageService({ messageData, companyId: ticket.companyId });
+      await ticket.update({ lastMessage: finalText || `📎 ${mediaFileName}`, imported: null });
+
+      return { success: true, message: "Mídia enviada com sucesso" };
+    }
+
+    // Envio de texto simples
+    if (!finalText) {
+      return { success: false, message: "Mensagem vazia e nenhuma mídia configurada" };
+    }
+
+    await SendWhatsAppMessage({ body: finalText, ticket });
+    logger.info(`[StageAutomation][WhatsApp] Mensagem de texto enviada com sucesso`);
     return { success: true, message: "Mensagem enviada com sucesso" };
   } catch (error: any) {
-    logger.error(`[Automation] Erro ao enviar mensagem: ${error.message}`);
+    logger.error(`[StageAutomation][WhatsApp] Erro ao enviar: ${error.message}`);
     return { success: false, message: error.message };
   }
 };
@@ -607,7 +713,7 @@ export const executeAction = async (
 ): Promise<{ success: boolean; message: string }> => {
   switch (action.actionType) {
     case "send_message":
-      return executeActionSendMessage(action, contact, ticket, companyId);
+      return executeActionSendMessage(action, contact, ticket, companyId, opportunityId);
     case "add_tag":
       return executeActionAddTag(action, contact, ticket, companyId);
     case "remove_tag":

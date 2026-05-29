@@ -87,7 +87,7 @@ export const executeScheduledAutomations = async (): Promise<void> => {
           {
             where: {
               automationId: execution.automationId,
-              contactId: contact.id,
+              contactId: contact?.id || null,
               status: "pending"
             }
           }

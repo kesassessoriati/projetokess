@@ -2934,6 +2934,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [quickReplyModalIndex, setQuickReplyModalIndex] = useState(-1);
 
   useEffect(() => {
     const loadData = async () => {
@@ -2980,8 +2981,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             return;
           }
         }
-        if (act.actionType === "send_message" && !act.actionConfig?.message?.trim()) {
-          toast.error("Por favor, digite a mensagem de WhatsApp.");
+        if (act.actionType === "send_message" && !act.actionConfig?.message?.trim() && !act.actionConfig?.quickReplyId) {
+          toast.error("Por favor, digite a mensagem ou selecione uma resposta rápida.");
           return;
         }
         if (act.actionType === "create_task" && !act.actionConfig?.title?.trim()) {
@@ -3019,7 +3020,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
 
   const handleAddAction = (type) => {
     let config = {};
-    if (type === "send_message") config = { message: "", whatsappId: whatsapps[0]?.id || "" };
+    if (type === "send_message") config = { message: "", whatsappId: whatsapps[0]?.id || "", quickReplyId: null, quickReplyName: null, mediaId: null };
     else if (type === "create_task") config = { title: "", description: "", priority: "normal", listId: "" };
     else if (type === "create_note") config = { text: "" };
     else if (type === "add_tag") config = { tagId: "" };
@@ -3072,6 +3073,36 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     newActions[index + 1] = newActions[index];
     newActions[index] = temp;
     setActions(newActions);
+  };
+
+  const handleSelectQuickReply = (index, reply) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      return {
+        ...act,
+        actionConfig: {
+          ...act.actionConfig,
+          quickReplyId: reply.id,
+          quickReplyName: reply.shortcut || reply.message?.substring(0, 40) || `Resposta #${reply.id}`,
+          message: act.actionConfig?.message || reply.message || ""
+        }
+      };
+    }));
+    setQuickReplyModalIndex(-1);
+  };
+
+  const handleClearQuickReply = (index) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      return {
+        ...act,
+        actionConfig: {
+          ...act.actionConfig,
+          quickReplyId: null,
+          quickReplyName: null
+        }
+      };
+    }));
   };
 
   if (loading) {
@@ -3181,6 +3212,44 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                               ))}
                             </Select>
                           </FormControl>
+
+                          {action.actionConfig?.quickReplyId ? (
+                            <Box display="flex" alignItems="center" style={{ gap: 8, padding: "6px 10px", backgroundColor: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                              <FlashOnIcon style={{ fontSize: 14, color: "#16a34a" }} />
+                              <Typography variant="caption" style={{ color: "#15803d", flex: 1 }}>
+                                Resposta rápida: {action.actionConfig?.quickReplyName || `ID ${action.actionConfig.quickReplyId}`}
+                              </Typography>
+                              <IconButton size="small" onClick={() => handleClearQuickReply(index)} style={{ padding: 2 }}>
+                                <ClearIcon style={{ fontSize: 12, color: "#dc2626" }} />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<FlashOnIcon fontSize="small" />}
+                              onClick={() => setQuickReplyModalIndex(index)}
+                              style={{ borderRadius: 8, fontSize: "0.75rem", borderColor: "#d1d5db", color: "#374151" }}
+                            >
+                              Selecionar Resposta Rápida
+                            </Button>
+                          )}
+
+                          <Box>
+                            <Typography variant="caption" style={{ color: "#6b7280", display: "block", marginBottom: 4 }}>Variáveis:</Typography>
+                            <Box display="flex" flexWrap="wrap" style={{ gap: 4 }}>
+                              {QUICK_MESSAGE_VARIABLES.map(v => (
+                                <Chip
+                                  key={v.token}
+                                  label={v.token}
+                                  size="small"
+                                  onClick={() => handleUpdateAction(index, "message", (action.actionConfig?.message || "") + v.token)}
+                                  style={{ cursor: "pointer", fontSize: "0.68rem", backgroundColor: "#e0f2fe", color: "#0369a1" }}
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+
                           <TextField
                             label="Mensagem do Disparo"
                             multiline
@@ -3189,7 +3258,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                             size="small"
                             value={action.actionConfig?.message || ""}
                             onChange={(e) => handleUpdateAction(index, "message", e.target.value)}
-                            placeholder="Variáveis suportadas: {{nome}}, {{numero}}, {{email}}"
+                            placeholder={action.actionConfig?.quickReplyId ? "Texto adicional (opcional, complementa a resposta rápida)" : "Digite a mensagem ou selecione uma resposta rápida acima"}
                             fullWidth
                           />
                         </>
@@ -3361,6 +3430,16 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
           "Salvar Configurações de Automação"
         )}
       </Button>
+
+      <QuickRepliesModal
+        open={quickReplyModalIndex >= 0}
+        onClose={() => setQuickReplyModalIndex(-1)}
+        onSelect={(_message, _file, _autoSend, reply) => {
+          if (quickReplyModalIndex >= 0 && reply) {
+            handleSelectQuickReply(quickReplyModalIndex, reply);
+          }
+        }}
+      />
     </Box>
   );
 };
