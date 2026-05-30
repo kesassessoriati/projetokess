@@ -49,11 +49,17 @@ const ListCrmLeadsService = async ({
 
   if (searchParam) {
     const like = { [Op.iLike]: `%${searchParam}%` };
+    // Also match phone without/with Brazilian 9-digit mobile prefix (55DD9XXXXXXXX ↔ 55DDXXXXXXXX)
+    const noNine = searchParam.replace(/^(55\d{2})9(\d{8})$/, "$1$2");
+    const withNine = searchParam.replace(/^(55\d{2})(\d{8})$/, "$19$2");
+    const phoneConditions: any[] = [{ phone: like }];
+    if (noNine !== searchParam) phoneConditions.push({ phone: { [Op.iLike]: `%${noNine}%` } });
+    if (withNine !== searchParam) phoneConditions.push({ phone: { [Op.iLike]: `%${withNine}%` } });
     conditions.push({
       [Op.or]: [
         { name: like },
         { email: like },
-        { phone: like },
+        ...phoneConditions,
         { companyName: like }
       ]
     });
