@@ -200,7 +200,7 @@ const useStyles = makeStyles((theme) => ({
     height: "40px",
     borderRadius: "50%",
     color: "#ffffff",
-    backgroundColor: props.primaryColor || "#3b82f6",
+    backgroundColor: props.buttonColor || props.primaryColor || "#3b82f6",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -210,7 +210,7 @@ const useStyles = makeStyles((theme) => ({
       color: "#ffffff",
     },
     "&:hover": {
-      backgroundColor: props.primaryColor || "#2563eb",
+      backgroundColor: props.buttonColor || props.primaryColor || "#2563eb",
       filter: "brightness(0.9)",
       transform: "scale(1.05)",
     },
@@ -278,8 +278,8 @@ const useStyles = makeStyles((theme) => ({
     gap: "8px",
     minWidth: "max-content",
   },
-  quickNavBtn: {
-    backgroundColor: theme.palette.quickNavBg,
+  quickNavBtn: (props) => ({
+    backgroundColor: props.buttonColor || theme.palette.quickNavBg,
     color: theme.palette.quickNavText,
     borderRadius: "10px",
     padding: "0 12px",
@@ -296,22 +296,25 @@ const useStyles = makeStyles((theme) => ({
     border: `1px solid ${theme.palette.type === "dark" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.08)"}`,
     cursor: "pointer",
     "&:hover": {
-      backgroundColor: theme.palette.quickNavHover,
+      backgroundColor: props.buttonColor || theme.palette.quickNavHover,
+      filter: props.buttonColor ? "brightness(0.85)" : undefined,
       transform: "translateY(-1px)",
       boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
     },
     "&.quickNavActive": {
-      backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#000000",
+      backgroundColor: props.buttonColor || (theme.palette.type === "dark" ? "#0f172a" : "#000000"),
+      filter: props.buttonColor ? "brightness(0.7)" : undefined,
       border: "1px solid rgba(255,255,255,0.18)",
       boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
     },
-  },
-  secondaryQuickNavBtn: {
-    backgroundColor: theme.palette.quickNavBg,
+  }),
+  secondaryQuickNavBtn: (props) => ({
+    backgroundColor: props.buttonColor || theme.palette.quickNavBg,
     "&:hover": {
-      backgroundColor: theme.palette.quickNavHover,
+      backgroundColor: props.buttonColor || theme.palette.quickNavHover,
+      filter: props.buttonColor ? "brightness(0.85)" : undefined,
     },
-  },
+  }),
   mobileLogo: {
     display: "none",
     [theme.breakpoints.down("sm")]: {
@@ -339,14 +342,14 @@ const useStyles = makeStyles((theme) => ({
     right: "4px",
     top: "50%",
     transform: "translateY(-50%)",
-    backgroundColor: props.primaryColor || "#3b82f6",
+    backgroundColor: props.buttonColor || props.primaryColor || "#3b82f6",
     color: "#ffffff",
     borderRadius: "8px",
     padding: "8px",
     minWidth: "36px",
     height: "36px",
     "&:hover": {
-      backgroundColor: props.primaryColor || "#2563eb",
+      backgroundColor: props.buttonColor || props.primaryColor || "#2563eb",
       filter: "brightness(0.9)",
     },
   }),
@@ -378,7 +381,7 @@ const useStyles = makeStyles((theme) => ({
     height: "40px",
     borderRadius: "50%",
     color: "#ffffff",
-    backgroundColor: props.primaryColor || "#3b82f6",
+    backgroundColor: props.buttonColor || props.primaryColor || "#3b82f6",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -388,7 +391,7 @@ const useStyles = makeStyles((theme) => ({
       color: "#ffffff",
     },
     "&:hover": {
-      backgroundColor: props.primaryColor || "#2563eb",
+      backgroundColor: props.buttonColor || props.primaryColor || "#2563eb",
       filter: "brightness(0.9)",
       transform: "scale(1.05)",
     },
@@ -949,7 +952,10 @@ const LoggedInLayout = ({ children }) => {
   const { isMenuVisible } = useWorkspacePreferences();
   const isAdmin = user?.profile === "admin";
   const isSuperAdmin = Boolean(user?.super) || (isAdmin && user?.companyId === 1);
-  const { toggleColorMode, mode: colorMode } = useContext(ColorModeContext);
+  const { toggleColorMode, mode: colorMode, buttonColorLight, buttonColorDark } = useContext(ColorModeContext);
+  const resolvedButtonColor = colorMode === "dark"
+    ? (buttonColorDark || buttonColorLight || null)
+    : (buttonColorLight || null);
   const {
     planActive,
     loading: planLoading,
@@ -984,6 +990,7 @@ const LoggedInLayout = ({ children }) => {
     drawerExpanded,
     isMobileSession,
     primaryColor: theme?.palette?.primary?.main || "#3b82f6",
+    buttonColor: resolvedButtonColor,
     shouldHideLayout,
     topMenuVisible: effectiveTopMenuVisible,
   });
@@ -1722,7 +1729,7 @@ const LoggedInLayout = ({ children }) => {
                     width: "40px",
                     height: "40px",
                     borderRadius: "50%",
-                    backgroundColor: primaryColor,
+                    backgroundColor: resolvedButtonColor || primaryColor,
                     color: "#ffffff",
                     padding: 0,
                     flexShrink: 0,
@@ -1813,7 +1820,7 @@ const LoggedInLayout = ({ children }) => {
                     width: "40px",
                     height: "40px",
                     borderRadius: "50%",
-                    backgroundColor: primaryColor,
+                    backgroundColor: resolvedButtonColor || primaryColor,
                     color: "#ffffff",
                     padding: 0,
                   }}
