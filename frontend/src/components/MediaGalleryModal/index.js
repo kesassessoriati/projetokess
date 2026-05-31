@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import {
   Dialog,
   IconButton,
@@ -225,9 +226,33 @@ const MediaGalleryModal = ({
     setCurrentIndex((prev) => (prev < medias.length - 1 ? prev + 1 : 0));
   };
 
-  const handleDownload = () => {
-    if (currentMedia?.mediaUrl) {
-      window.open(currentMedia.mediaUrl, "_blank");
+  const handleDownload = async () => {
+    if (!currentMedia?.mediaUrl) return;
+    const url = currentMedia.mediaUrl;
+    const filename = url.split("/").pop()?.split("?")[0] || "arquivo";
+    try {
+      const response = await fetch(url, {
+        headers: { Origin: window.location.origin },
+        mode: "cors"
+      });
+      if (!response.ok) throw new Error("fetch error");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Download iniciado.");
+    } catch {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 

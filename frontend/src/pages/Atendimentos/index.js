@@ -3244,16 +3244,34 @@ const Atendimentos = () => {
 		return "arquivo";
 	};
 
-	const downloadMessageMedia = (message) => {
+	const downloadMessageMedia = async (message) => {
 		if (!message?.mediaUrl) return;
-
-		const link = document.createElement("a");
-		link.href = message.mediaUrl;
-		link.download = getMediaDownloadName(message);
-		link.target = "_blank";
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
+		const filename = getMediaDownloadName(message);
+		try {
+			const response = await fetch(message.mediaUrl, {
+				headers: { Origin: window.location.origin },
+				mode: "cors"
+			});
+			if (!response.ok) throw new Error("fetch error");
+			const blob = await response.blob();
+			const blobUrl = window.URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = blobUrl;
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.URL.revokeObjectURL(blobUrl);
+			toast.success("Download iniciado.");
+		} catch {
+			// Fallback: link direto sem abrir nova aba
+			const link = document.createElement("a");
+			link.href = message.mediaUrl;
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}
 	};
 
 	// Agrupa mensagens consecutivas com mídia do mesmo remetente
@@ -5079,6 +5097,19 @@ const Atendimentos = () => {
 						}}
 					>
 						Copiar Texto
+					</MenuItem>
+				)}
+				{/* Copiar Link da mídia */}
+				{selectedMessage?.mediaUrl && (
+					<MenuItem
+						onClick={() => {
+							navigator.clipboard.writeText(selectedMessage.mediaUrl)
+								.then(() => toast.success("Link copiado com sucesso."))
+								.catch(() => toast.error("Não foi possível copiar o link."));
+							handleMessageMenuClose();
+						}}
+					>
+						Copiar Link
 					</MenuItem>
 				)}
 				{/* Baixar Arquivo(s) */}
