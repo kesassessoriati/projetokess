@@ -346,7 +346,7 @@ const GlobalAISettings = () => {
             </Grid>
             {/* Modelo de contingência */}
             <Grid item xs={12} md={3}>
-              {attendanceFallbackProvider && attendanceFallbackModels.length > 0 ? (
+              {attendanceAiFallbackProvider && attendanceFallbackModels.length > 0 ? (
                 <Autocomplete
                   options={attendanceFallbackModels}
                   getOptionLabel={option => option.name || option.id || ""}
