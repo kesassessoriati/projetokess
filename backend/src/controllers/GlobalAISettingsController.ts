@@ -22,6 +22,7 @@ const ensureSuperAdmin = (req: Request) => {
 const updateSchema = Yup.object().shape({
   preferredProvider: Yup.string().oneOf(providers).optional(),
   crmAiSystemPrompt: Yup.string().nullable().optional(),
+  crmAiDefaultModel: Yup.string().nullable().optional(),
   keys: Yup.object().shape({
     openai: Yup.string().nullable().optional(),
     gemini: Yup.string().nullable().optional(),

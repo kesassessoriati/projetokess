@@ -1330,7 +1330,7 @@ const LoggedInLayout = ({ children }) => {
         children: [
           { title: "Configurações", path: "/settings" },
           { title: "SMTP (E-mail)", path: "/smtp" },
-          { title: "Personalizacao de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
+          { title: "Personalização de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
           { title: "Campos do card do lead", path: "/crm/lead-field-settings", menuKey: "personalizacao-lead" },
           { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners", superAdmin: true },
@@ -1344,7 +1344,7 @@ const LoggedInLayout = ({ children }) => {
   const superAdminMenuGroups = useMemo(
     () => [
       {
-        title: "AdministraÃ§Ã£o",
+        title: "Administração",
         icon: <BusinessIcon />,
         children: [
           { title: "Empresas", path: "/settings?tab=companies", activePath: "/settings", activeSearch: "tab=companies" },
@@ -1358,21 +1358,21 @@ const LoggedInLayout = ({ children }) => {
         title: "Sistema",
         icon: <BuildIcon />,
         children: [
-          { title: "ConfiguraÃ§Ãµes", path: "/settings?tab=options", activePath: "/settings", activeSearch: "tab=options" },
-          { title: "Personalizacao de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
+          { title: "Configurações", path: "/settings?tab=options", activePath: "/settings", activeSearch: "tab=options" },
+          { title: "Personalização de menus", path: "/workspace/menu-settings", menuKey: "personalizacao-menus" },
           { title: "Campos do card do lead", path: "/crm/lead-field-settings", menuKey: "personalizacao-lead" },
           { title: "SMTP (E-mail)", path: "/smtp" },
           { title: "SIP / Webphone", path: "/sip-settings", featureKey: "webphone" },
           { title: "Banners", path: "/slider-banners" },
-          { title: "VÃ­deo Tutorial", path: "/tutorial-videos" },
+          { title: "Vídeo Tutorial", path: "/tutorial-videos" },
         ],
       },
       {
         title: "Ferramentas",
         icon: <SmartToyIcon />,
         children: [
-          { title: "AutomaÃ§Ãµes", path: "/automations" },
-          { title: "DocumentaÃ§Ã£o", path: "/messages-api" },
+          { title: "Automações", path: "/automations" },
+          { title: "Documentação", path: "/messages-api" },
         ],
       },
     ],

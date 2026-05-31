@@ -6,6 +6,10 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
   IconButton,
@@ -14,6 +18,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  Tooltip,
   Typography
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
@@ -21,6 +26,7 @@ import Visibility from "@material-ui/icons/Visibility";
 import VisibilityOff from "@material-ui/icons/VisibilityOff";
 import SyncIcon from "@material-ui/icons/Sync";
 import SaveIcon from "@material-ui/icons/Save";
+import EditIcon from "@material-ui/icons/Edit";
 import { toast } from "react-toastify";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -62,6 +68,20 @@ const useStyles = makeStyles(theme => ({
   },
   modelChip: {
     margin: 4
+  },
+  promptPreviewField: {
+    "& .MuiInputBase-root": {
+      cursor: "pointer"
+    },
+    "& .MuiInputBase-input": {
+      cursor: "pointer",
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      textOverflow: "ellipsis"
+    }
+  },
+  promptDialogContent: {
+    paddingTop: theme.spacing(1)
   }
 }));
 
@@ -91,7 +111,12 @@ const GlobalAISettings = () => {
   const [settings, setSettings] = useState(null);
   const [preferredProvider, setPreferredProvider] = useState("openai");
   const [crmAiSystemPrompt, setCrmAiSystemPrompt] = useState("");
+  const [crmAiDefaultModel, setCrmAiDefaultModel] = useState("");
   const [keys, setKeys] = useState(defaultKeys);
+
+  // Modal de edição do prompt
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [draftPrompt, setDraftPrompt] = useState("");
 
   const providers = useMemo(() => settings?.providers || [], [settings]);
 
@@ -102,6 +127,7 @@ const GlobalAISettings = () => {
         setSettings(data);
         setPreferredProvider(data.preferredProvider || "openai");
         setCrmAiSystemPrompt(data.crmAiSystemPrompt || "");
+        setCrmAiDefaultModel(data.crmAiDefaultModel || "");
       } catch (err) {
         toastError(err);
       } finally {
@@ -115,12 +141,27 @@ const GlobalAISettings = () => {
     return <ForbiddenPage />;
   }
 
+  const handleOpenPromptModal = () => {
+    setDraftPrompt(crmAiSystemPrompt);
+    setPromptModalOpen(true);
+  };
+
+  const handleSavePromptModal = () => {
+    setCrmAiSystemPrompt(draftPrompt);
+    setPromptModalOpen(false);
+  };
+
+  const handleCancelPromptModal = () => {
+    setPromptModalOpen(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       let data = await updateGlobalAiSettings({
         preferredProvider,
         crmAiSystemPrompt,
+        crmAiDefaultModel,
         keys
       });
       const providersWithNewKeys = Object.entries(keys)
@@ -180,6 +221,10 @@ const GlobalAISettings = () => {
     );
   }
 
+  const promptPreview = crmAiSystemPrompt
+    ? crmAiSystemPrompt.replace(/\n/g, " ").slice(0, 120) + (crmAiSystemPrompt.length > 120 ? "…" : "")
+    : "";
+
   return (
     <div className={classes.root}>
       <div className={classes.header}>
@@ -208,16 +253,41 @@ const GlobalAISettings = () => {
                 </Select>
               </FormControl>
             </Grid>
+
+            <Grid item xs={12} md={8}>
+              <TextField
+                label="Modelo LLM do Assistente CRM IA"
+                value={crmAiDefaultModel}
+                onChange={event => setCrmAiDefaultModel(event.target.value)}
+                variant="outlined"
+                fullWidth
+                placeholder="Ex: openai/gpt-4o-mini ou deepseek/deepseek-chat"
+                helperText="Modelo usado pelo Assistente CRM IA. Deixe vazio para usar o padrão do provedor."
+              />
+            </Grid>
+
             <Grid item xs={12}>
               <TextField
                 label="Prompt global do Assistente CRM IA"
-                value={crmAiSystemPrompt}
-                onChange={event => setCrmAiSystemPrompt(event.target.value)}
+                value={promptPreview}
                 variant="outlined"
-                multiline
-                minRows={5}
                 fullWidth
-                helperText="Este prompt é aplicado como base para os assistentes globais do CRM."
+                className={classes.promptPreviewField}
+                placeholder="Nenhum prompt global configurado. Clique em editar para definir."
+                helperText={crmAiSystemPrompt ? `${crmAiSystemPrompt.length} caracteres configurados` : "Este prompt é aplicado como base para os assistentes globais do CRM."}
+                inputProps={{ readOnly: true }}
+                onClick={handleOpenPromptModal}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Editar prompt completo">
+                        <IconButton onClick={handleOpenPromptModal} size="small">
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
               />
             </Grid>
           </Grid>
@@ -315,6 +385,38 @@ const GlobalAISettings = () => {
           Salvar configuração global
         </Button>
       </Box>
+
+      {/* Modal de edição do Prompt Global */}
+      <Dialog
+        open={promptModalOpen}
+        onClose={handleCancelPromptModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Editar Prompt Global do Assistente CRM IA</DialogTitle>
+        <DialogContent className={classes.promptDialogContent}>
+          <TextField
+            value={draftPrompt}
+            onChange={event => setDraftPrompt(event.target.value)}
+            variant="outlined"
+            multiline
+            minRows={18}
+            maxRows={32}
+            fullWidth
+            placeholder="Digite aqui o prompt base do Assistente CRM IA..."
+            helperText={`${draftPrompt.length} caracteres`}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions style={{ padding: "16px 24px" }}>
+          <Button onClick={handleCancelPromptModal} color="default">
+            Cancelar
+          </Button>
+          <Button onClick={handleSavePromptModal} variant="contained" color="primary">
+            Aplicar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -87,6 +87,7 @@ const parseModels = (value: string, provider: AIProviderName): AIModelInfo[] => 
 export const getGlobalAISettings = async () => {
   const preferredProvider = ((await getSetting("aiProvider")) || "openai") as AIProviderName;
   const crmAiSystemPrompt = await getSetting("crmAiSystemPrompt");
+  const crmAiDefaultModel = await getSetting("crmAiDefaultModel");
 
   const providers = await Promise.all(PROVIDERS.map(async provider => {
     const apiKey = await getSetting(KEY_MAP[provider]);
@@ -106,6 +107,7 @@ export const getGlobalAISettings = async () => {
   return {
     preferredProvider: PROVIDERS.includes(preferredProvider) ? preferredProvider : "openai",
     crmAiSystemPrompt,
+    crmAiDefaultModel: crmAiDefaultModel || "",
     providers
   };
 };
@@ -196,6 +198,7 @@ export const syncProviderModels = async (
 export const saveGlobalAISettings = async (payload: {
   preferredProvider?: AIProviderName;
   crmAiSystemPrompt?: string;
+  crmAiDefaultModel?: string;
   keys?: Partial<Record<AIProviderName, string>>;
 }) => {
   if (payload.preferredProvider && PROVIDERS.includes(payload.preferredProvider)) {
@@ -204,6 +207,10 @@ export const saveGlobalAISettings = async (payload: {
 
   if (typeof payload.crmAiSystemPrompt === "string") {
     await upsertSystemSetting("crmAiSystemPrompt", payload.crmAiSystemPrompt);
+  }
+
+  if (typeof payload.crmAiDefaultModel === "string") {
+    await upsertSystemSetting("crmAiDefaultModel", payload.crmAiDefaultModel);
   }
 
   for (const provider of PROVIDERS) {
