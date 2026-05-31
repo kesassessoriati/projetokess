@@ -134,7 +134,7 @@ const generateFollowUpMessage = async (lead: CrmLead, context: string): Promise<
     const resolved = await resolveAIProviderConfig({
       companyId: lead.companyId,
       provider: "openai",
-      requestType: "agent"
+      requestType: "external_agent"
     });
 
     if (resolved.provider !== "openai") return buildFallbackMessage(lead);

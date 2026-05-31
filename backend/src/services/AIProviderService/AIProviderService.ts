@@ -12,7 +12,7 @@ import {
 
 export type AIUsageMode = "system" | "own";
 export type PromptUsageMode = "company_default" | AIUsageMode;
-export type AIProviderName = "openai" | "gemini" | "openrouter";
+export type AIProviderName = "openai" | "gemini" | "openrouter" | "groq";
 
 type CompanyWithPlan = Company & { plan?: Plan };
 
@@ -40,6 +40,7 @@ interface LogUsageParams {
 
 export interface ResolvedAIConfig {
   provider: AIProviderName;
+  model: string;
   usageMode: AIUsageMode;
   apiKey: string;
   shouldConsumeCredits: boolean;
@@ -51,7 +52,8 @@ export interface ResolvedAIConfig {
 const AI_KEY_SETTING_MAP: Record<AIProviderName, string> = {
   openai: "openaiApiKey",
   gemini: "geminiApiKey",
-  openrouter: "openrouterApiKey"
+  openrouter: "openrouterApiKey",
+  groq: "groqApiKey"
 };
 
 const DEFAULT_SYSTEM_PROVIDER: AIProviderName = "openai";
@@ -80,14 +82,45 @@ const getProviderSetting = async (
 };
 
 const normalizeProvider = (provider?: string | null): AIProviderName => {
-  if (provider === "gemini" || provider === "openrouter") return provider;
+  if (provider === "gemini" || provider === "openrouter" || provider === "groq") return provider;
   return "openai";
 };
 
 export const getProviderDisplayName = (provider?: string | null): string => {
   if (provider === "gemini") return "Google Gemini";
   if (provider === "openrouter") return "OpenRouter";
+  if (provider === "groq") return "Groq";
   return "OpenAI";
+};
+
+const getEnvKeyForProvider = (provider: AIProviderName): string | undefined => {
+  if (provider === "gemini") return process.env.GEMINI_API_KEY;
+  if (provider === "openrouter") return process.env.OPENROUTER_API_KEY;
+  if (provider === "groq") return process.env.GROQ_API_KEY;
+  return process.env.OPENAI_API_KEY;
+};
+
+// Carrega a configuração padrão definida pelo SuperAdmin para os agentes de atendimento interno.
+// Esses valores não são acessíveis pelo usuário final — são 100% server-side.
+const getAttendanceAiConfig = async (): Promise<{
+  primaryProvider: AIProviderName;
+  primaryModel: string;
+  fallbackProvider: AIProviderName | null;
+  fallbackModel: string;
+  strategy: string;
+}> => {
+  const primary = await getProviderSetting(SYSTEM_COMPANY_ID, "attendanceAiPrimaryProvider");
+  const primaryModel = (await getProviderSetting(SYSTEM_COMPANY_ID, "attendanceAiPrimaryModel")) || "";
+  const fallbackRaw = await getProviderSetting(SYSTEM_COMPANY_ID, "attendanceAiFallbackProvider");
+  const fallbackModel = (await getProviderSetting(SYSTEM_COMPANY_ID, "attendanceAiFallbackModel")) || "";
+  const strategy = (await getProviderSetting(SYSTEM_COMPANY_ID, "attendanceAiStrategy")) || "primary_only";
+  return {
+    primaryProvider: normalizeProvider(primary),
+    primaryModel,
+    fallbackProvider: fallbackRaw ? normalizeProvider(fallbackRaw) : null,
+    fallbackModel,
+    strategy,
+  };
 };
 
 const resolveCompanyUsageMode = (company: Company): AIUsageMode => {
@@ -176,7 +209,7 @@ export const getCompanyAiSettings = async (companyId: number) => {
 
 export const assertAiFeatureAccess = async (
   companyId: number,
-  feature: "general" | "agent" = "general"
+  feature: "general" | "agent" | "external_agent" = "general"
 ) => {
   const company = await loadCompanyWithPlan(companyId);
   const planInfo = getPlanAiSnapshot(company.plan);
@@ -186,7 +219,19 @@ export const assertAiFeatureAccess = async (
   }
 
   if (feature === "agent" && !planInfo.aiAgentEnabled) {
-    throw new AppError("Seu plano não possui acesso a agentes de IA.", 403);
+    throw new AppError("Seu plano não possui acesso a agentes de IA internos.", 403);
+  }
+
+  if (feature === "external_agent") {
+    if (!planInfo.aiAgentEnabled) {
+      throw new AppError("Seu plano não possui acesso ao módulo de agentes de IA.", 403);
+    }
+    const aiExternalAgentEnabled = typeof company.plan?.aiExternalAgentEnabled === "boolean"
+      ? company.plan.aiExternalAgentEnabled
+      : true;
+    if (!aiExternalAgentEnabled) {
+      throw new AppError("Seu plano não possui acesso a agentes externos N8N.", 403);
+    }
   }
 
   return { company, plan: company.plan || null, planInfo };
@@ -197,21 +242,16 @@ export const resolveAIProviderConfig = async ({
   provider,
   promptId = null,
   promptUsageMode = "company_default",
-  requestType = "agent"
+  requestType = "agent",
+  model = null
 }: ResolveConfigParams): Promise<ResolvedAIConfig> => {
-  const { company, planInfo } = await assertAiFeatureAccess(
-    companyId,
-    requestType === "crm_assistant" ? "general" : "agent"
-  );
+  const featureToCheck = requestType === "crm_assistant"
+    ? "general"
+    : requestType === "external_agent"
+      ? "external_agent"
+      : "agent";
 
-  // Cascade provider: own setting → system (companyId=1) setting → company column → global default
-  const companyProviderSetting = await getProviderSetting(companyId, "aiProvider");
-  const systemProviderSetting = companyId !== SYSTEM_COMPANY_ID
-    ? await getProviderSetting(SYSTEM_COMPANY_ID, "aiProvider")
-    : null;
-  const selectedProvider = normalizeProvider(
-    provider || companyProviderSetting || systemProviderSetting || company.aiPreferredProvider
-  );
+  const { company, planInfo } = await assertAiFeatureAccess(companyId, featureToCheck);
 
   const usageMode = resolveUsageMode(company, promptUsageMode);
   const creditInfo = await getCreditInfo(companyId);
@@ -219,6 +259,45 @@ export const resolveAIProviderConfig = async ({
   if (usageMode === "system" && planInfo.aiDailyCredits > 0 && !creditInfo.hasCredits) {
     throw new AppError("NO_CREDITS", 402);
   }
+
+  // When using system credits for internal attendance agents:
+  // ALWAYS use the SuperAdmin-configured attendance provider/model.
+  // The frontend-provided provider/model is IGNORED to prevent client-side manipulation.
+  if (usageMode === "system" && requestType === "agent") {
+    const attendanceConfig = await getAttendanceAiConfig();
+    const resolvedProvider = attendanceConfig.primaryProvider;
+    const systemKey =
+      (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[resolvedProvider])) ||
+      getEnvKeyForProvider(resolvedProvider);
+
+    if (!systemKey) {
+      throw new AppError(
+        `Nenhuma chave de sistema ${getProviderDisplayName(resolvedProvider)} configurada para agentes de atendimento.`,
+        503
+      );
+    }
+
+    return {
+      provider: resolvedProvider,
+      model: attendanceConfig.primaryModel,
+      usageMode,
+      apiKey: systemKey,
+      shouldConsumeCredits: true,
+      creditInfo,
+      plan: company.plan || null,
+      company
+    };
+  }
+
+  // Cascade provider for non-agent or own-key scenarios:
+  // frontend provider → company setting → system (companyId=1) setting → company column → global default
+  const companyProviderSetting = await getProviderSetting(companyId, "aiProvider");
+  const systemProviderSetting = companyId !== SYSTEM_COMPANY_ID
+    ? await getProviderSetting(SYSTEM_COMPANY_ID, "aiProvider")
+    : null;
+  const selectedProvider = normalizeProvider(
+    provider || companyProviderSetting || systemProviderSetting || company.aiPreferredProvider
+  );
 
   if (usageMode === "own") {
     const ownKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP[selectedProvider]);
@@ -231,6 +310,7 @@ export const resolveAIProviderConfig = async ({
 
     return {
       provider: selectedProvider,
+      model: model || "",
       usageMode,
       apiKey: ownKey,
       shouldConsumeCredits: false,
@@ -242,15 +322,12 @@ export const resolveAIProviderConfig = async ({
 
   const systemKey =
     (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[selectedProvider])) ||
-    (selectedProvider === "gemini"
-      ? process.env.GEMINI_API_KEY
-      : selectedProvider === "openrouter"
-        ? process.env.OPENROUTER_API_KEY
-        : process.env.OPENAI_API_KEY);
+    getEnvKeyForProvider(selectedProvider);
 
   if (systemKey) {
     return {
       provider: selectedProvider,
+      model: model || "",
       usageMode,
       apiKey: systemKey,
       shouldConsumeCredits: true,
@@ -267,6 +344,7 @@ export const resolveAIProviderConfig = async ({
     if (ownKeyFallback) {
       return {
         provider: selectedProvider,
+        model: model || "",
         usageMode: "own",
         apiKey: ownKeyFallback,
         shouldConsumeCredits: false,
@@ -344,6 +422,8 @@ export const finalizeAIUsage = async ({
 };
 
 export const buildPromptRuntimeConfig = async (prompt: Prompt, companyId: number) => {
+  // Note: when usageMode === "system", resolveAIProviderConfig ignores prompt.provider/model
+  // and uses the SuperAdmin attendance config instead. This is enforced server-side.
   const resolved = await resolveAIProviderConfig({
     companyId,
     provider: prompt.provider,
@@ -354,7 +434,10 @@ export const buildPromptRuntimeConfig = async (prompt: Prompt, companyId: number
   });
 
   return {
-    provider: prompt.provider || resolved.provider,
+    // For system mode: resolved.provider = attendanceAiPrimaryProvider (SuperAdmin-controlled)
+    // For own mode: resolved.provider = prompt.provider (company-configured)
+    provider: resolved.provider,
+    model: resolved.model,
     apiKey: resolved.apiKey,
     usageMode: resolved.usageMode,
     shouldConsumeCredits: resolved.shouldConsumeCredits,

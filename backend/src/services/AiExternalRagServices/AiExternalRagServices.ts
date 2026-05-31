@@ -25,7 +25,7 @@ const createEmbedding = async (companyId: number, content: string): Promise<numb
   const resolved = await resolveAIProviderConfig({
     companyId,
     provider: "openai",
-    requestType: "agent"
+    requestType: "external_agent"
   });
   if (resolved.provider !== "openai") {
     throw new AppError("RAG usa embeddings OpenAI. Configure uma chave OpenAI.", 400);

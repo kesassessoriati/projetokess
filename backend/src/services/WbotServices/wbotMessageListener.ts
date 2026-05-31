@@ -4931,6 +4931,11 @@ export const handleMessageIntegration = async (
       openAiSettings.apiKey = runtimeConfig.apiKey;
       openAiSettings.provider = runtimeConfig.provider;
       openAiSettings.aiUsageMode = runtimeConfig.usageMode;
+      // When using system credits, model comes from SuperAdmin attendance config (server-side).
+      // When using own API key, fall back to the model configured in the prompt.
+      if (runtimeConfig.model) {
+        openAiSettings.model = runtimeConfig.model;
+      }
 
       try {
         const toolsEnabled = await ListPromptToolSettingsService({
@@ -4958,7 +4963,7 @@ export const handleMessageIntegration = async (
         provider: runtimeConfig.provider,
         usageMode: runtimeConfig.usageMode,
         requestType: "agent",
-        model: prompt.model,
+        model: runtimeConfig.model || prompt.model,
         status: "success",
         metadata: { ticketId: ticket.id, source: "queue_integration" }
       }).catch(() => undefined);
