@@ -7,6 +7,7 @@ import Ticket from "../../models/Ticket";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
 import { sendMessageNotification } from "../../controllers/MobileWebhookController";
+import logger from "../../utils/logger";
 
 export interface MessageData {
   wid: string;
@@ -40,6 +41,37 @@ interface Request {
   companyId: number;
 }
 
+const shouldLogOwnDeviceSyncDiag = (): boolean =>
+  String(process.env.OWN_DEVICE_SYNC_DIAG || "").toLowerCase() === "enabled";
+
+const maskDiagValue = (value?: any): any => {
+  if (value === undefined || value === null || value === "") return value;
+  const text = String(value);
+
+  if (text.length > 16) {
+    return `${text.slice(0, 6)}...${text.slice(-4)}`;
+  }
+
+  return text;
+};
+
+const logOwnDeviceSyncDiag = (
+  stage: string,
+  companyId: number,
+  extra: Record<string, any> = {}
+) => {
+  if (!shouldLogOwnDeviceSyncDiag()) return;
+
+  logger.info(
+    {
+      stage,
+      companyId,
+      ...extra
+    },
+    "[OWN-DEVICE-SYNC-DIAG] message persistence metadata"
+  );
+};
+
 const CreateMessageService = async ({
   messageData,
   companyId,
@@ -53,6 +85,13 @@ const CreateMessageService = async ({
   });
 
   if (existingMessage) {
+    logOwnDeviceSyncDiag("CreateMessageService.dedupe-existing", companyId, {
+      wid: maskDiagValue(messageData.wid),
+      messageId: existingMessage.id,
+      ticketId: existingMessage.ticketId,
+      contactId: existingMessage.contactId,
+      fromMe: existingMessage.fromMe
+    });
     console.log("Mensagem já existe. Ignorando criação.");
     return existingMessage;
   }
@@ -133,6 +172,15 @@ const CreateMessageService = async ({
       message,
       ticket: message.ticket,
       contact: message.ticket.contact,
+    });
+    logOwnDeviceSyncDiag("CreateMessageService.appMessage-emitted", companyId, {
+      wid: maskDiagValue(message?.wid),
+      messageId: message?.id,
+      ticketId: message?.ticketId,
+      contactId: message?.contactId,
+      fromMe: message?.fromMe,
+      fromAgent: message?.fromAgent,
+      whatsappId: message?.ticket?.whatsappId
     });
 
     // Enviar notificação mobile apenas para mensagens não enviadas por mim (!fromMe)

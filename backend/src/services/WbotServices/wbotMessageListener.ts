@@ -300,8 +300,7 @@ const getOutgoingWebhookOrigin = (
 const OWN_DEVICE_SYNC_DIAG_PREFIX = "[OWN-DEVICE-SYNC-DIAG]";
 
 const shouldLogOwnDeviceSyncDiag = (): boolean =>
-  String(process.env.OWN_DEVICE_SYNC_DIAG || "enabled").toLowerCase() !==
-  "disabled";
+  String(process.env.OWN_DEVICE_SYNC_DIAG || "").toLowerCase() === "enabled";
 
 const maskDiagValue = (value?: any): any => {
   if (value === undefined || value === null || value === "") return value;
@@ -330,48 +329,6 @@ const maskDiagValue = (value?: any): any => {
   return text;
 };
 
-const getDiagJidUser = (jid?: string | null): string => {
-  if (!jid) return "";
-  return String(jid)
-    .split("@")[0]
-    .split(":")[0]
-    .replace(/\D/g, "");
-};
-
-const areSameDiagJidUser = (a?: string | null, b?: string | null): boolean => {
-  const left = getDiagJidUser(a);
-  const right = getDiagJidUser(b);
-  return Boolean(left && right && left === right);
-};
-
-const getOwnDevicePeerJid = (
-  msg: proto.IWebMessageInfo,
-  wbot?: Session
-): string => {
-  const remoteJid = msg?.key?.remoteJid || "";
-  const remoteJidAlt = (msg?.key as any)?.remoteJidAlt || "";
-  const participantAlt = (msg?.key as any)?.participantAlt || "";
-  const participant = msg?.key?.participant || "";
-  const ownJid = (wbot as any)?.user?.id
-    ? jidNormalizedUser((wbot as any).user.id)
-    : "";
-
-  const candidates = [remoteJidAlt, remoteJid, participantAlt, participant]
-    .filter(Boolean)
-    .map(jid => jidNormalizedUser(jid));
-
-  return (
-    candidates.find(
-      jid =>
-        !jid.includes("g.us") &&
-        !jid.includes("newsletter") &&
-        (!ownJid || !areSameDiagJidUser(jid, ownJid))
-    ) ||
-    remoteJidAlt ||
-    remoteJid
-  );
-};
-
 const getOwnDeviceSyncDiagMeta = (
   msg: proto.IWebMessageInfo,
   companyId: number,
@@ -383,7 +340,7 @@ const getOwnDeviceSyncDiagMeta = (
   return {
     companyId,
     whatsappId,
-    wid: key?.id,
+    wid: maskDiagValue(key?.id),
     fromMe: key?.fromMe,
     messageType: msg?.message ? getContentType(msg.message) : undefined,
     remoteJid: maskDiagValue(key?.remoteJid),
@@ -397,6 +354,40 @@ const getOwnDeviceSyncDiagMeta = (
   };
 };
 
+const getOwnDeviceFilterDiagnostic = (msg: proto.IWebMessageInfo) => {
+  const messageType = msg?.message ? getContentType(msg.message) : undefined;
+  const remoteJid = msg?.key?.remoteJid || "";
+
+  if (msg?.message?.protocolMessage?.editedMessage) {
+    return { passed: true, reason: "protocol_edited_message" };
+  }
+
+  if (msg?.message?.protocolMessage) {
+    return { passed: false, reason: "protocol_message" };
+  }
+
+  if (
+    [
+      WAMessageStubType.REVOKE,
+      WAMessageStubType.E2E_DEVICE_CHANGED,
+      WAMessageStubType.E2E_IDENTITY_CHANGED,
+      WAMessageStubType.CIPHERTEXT
+    ].includes(msg?.messageStubType)
+  ) {
+    return { passed: false, reason: `stub_${msg?.messageStubType}` };
+  }
+
+  return {
+    passed: true,
+    reason: "accepted",
+    isStatusBroadcast: remoteJid === "status@broadcast",
+    isGroup: remoteJid.includes("g.us"),
+    isProtocol: Boolean(msg?.message?.protocolMessage),
+    isCiphertext: msg?.messageStubType === WAMessageStubType.CIPHERTEXT,
+    messageType
+  };
+};
+
 const logOwnDeviceSyncDiag = (
   stage: string,
   msg: proto.IWebMessageInfo,
@@ -406,15 +397,31 @@ const logOwnDeviceSyncDiag = (
 ) => {
   if (!shouldLogOwnDeviceSyncDiag()) return;
 
-  const remoteJid = msg?.key?.remoteJid || "";
-  if (remoteJid.includes("g.us") || remoteJid.includes("newsletter")) return;
-
   logger.info(
     getOwnDeviceSyncDiagMeta(msg, companyId, whatsappId, {
       stage,
       ...extra
     }),
     `${OWN_DEVICE_SYNC_DIAG_PREFIX} message metadata`
+  );
+};
+
+const logOwnDeviceSyncEventDiag = (
+  stage: string,
+  companyId: number,
+  whatsappId?: number | string,
+  extra: Record<string, any> = {}
+) => {
+  if (!shouldLogOwnDeviceSyncDiag()) return;
+
+  logger.info(
+    {
+      stage,
+      companyId,
+      whatsappId,
+      ...extra
+    },
+    `${OWN_DEVICE_SYNC_DIAG_PREFIX} event metadata`
   );
 };
 
@@ -820,8 +827,6 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
   const participantAlt = msg?.key?.participantAlt || "";
   const isGroup = remoteJid.includes("g.us");
   const isNewsletter = remoteJid.includes("newsletter");
-  const ownDevicePeerJid =
-    msg?.key?.fromMe && !isGroup ? getOwnDevicePeerJid(msg, wbot) : "";
 
   logger.info("Message key info:", {
     remoteJid: maskDiagValue(remoteJid),
@@ -829,7 +834,6 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     fromMe: msg?.key?.fromMe,
     participant: maskDiagValue(participant),
     participantAlt: maskDiagValue(participantAlt),
-    ownDevicePeerJid: maskDiagValue(ownDevicePeerJid),
     addressingMode: msg?.key?.addressingMode
   });
 
@@ -842,18 +846,18 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
   const resolvedRemoteJidAlt =
     remoteJidAlt ||
     senderPn ||
-    (msg?.key?.fromMe && !isGroup ? sanitizeRemoteJid(ownDevicePeerJid || remoteJid, resolveContactNumber({
-      rawNumber: ownDevicePeerJid || remoteJid,
-      remoteJid: ownDevicePeerJid || remoteJid,
+    (msg?.key?.fromMe && !isGroup ? sanitizeRemoteJid(remoteJid, resolveContactNumber({
+      rawNumber: remoteJid,
+      remoteJid,
       remoteJidAlt: remoteJidAlt || senderPn
     }), false) : "");
 
   const baseNumber = resolveContactNumber({
-    rawNumber: resolvedRemoteJidAlt || ownDevicePeerJid || remoteJid,
-    remoteJid: ownDevicePeerJid || remoteJid,
+    rawNumber: resolvedRemoteJidAlt || remoteJid,
+    remoteJid,
     remoteJidAlt: resolvedRemoteJidAlt
   });
-  const normalizedContactJid = sanitizeRemoteJid(resolvedRemoteJidAlt || ownDevicePeerJid || remoteJid, baseNumber, false);
+  const normalizedContactJid = sanitizeRemoteJid(resolvedRemoteJidAlt || remoteJid, baseNumber, false);
   const contactId = isGroup
     ? remoteJid
     : normalizedContactJid || remoteJid;
@@ -865,8 +869,7 @@ const getContactMessage = async (msg: any, wbot: Session, senderPn?: string) => 
     rawNumber: maskDiagValue(rawNumber),
     contactId: maskDiagValue(contactId),
     addressingMode: msg?.key?.addressingMode,
-    hasRemoteJidAlt: !!resolvedRemoteJidAlt,
-    fromOwnDevice: Boolean(msg?.key?.fromMe && !isGroup)
+    hasRemoteJidAlt: !!resolvedRemoteJidAlt
   });
 
   const participantBase = participantAlt || participant || remoteJid;
@@ -7131,15 +7134,26 @@ const logWhatsappDiagnostic = (
 };
 
 const wbotMessageListener = (wbot: Session, companyId: number): void => {
+  logOwnDeviceSyncEventDiag("listener.registered", companyId, wbot.id, {
+    sessionJid: maskDiagValue((wbot as any)?.user?.id),
+    connectionName: (wbot as any)?.name
+  });
+
   wbot.ev.on("messages.upsert", async (messageUpsert: ImessageUpsert) => {
     const rawMessages = messageUpsert.messages || [];
+
+    logOwnDeviceSyncEventDiag("messages.upsert.enter", companyId, wbot.id, {
+      upsertType: (messageUpsert as any)?.type,
+      count: rawMessages.length
+    });
 
     rawMessages.forEach(message =>
       logWhatsappDiagnostic("messages.upsert.raw", message, companyId, wbot.id)
     );
     rawMessages.forEach(message =>
       logOwnDeviceSyncDiag("messages.upsert.raw", message, companyId, wbot.id, {
-        upsertType: (messageUpsert as any)?.type
+        upsertType: (messageUpsert as any)?.type,
+        ...getOwnDeviceFilterDiagnostic(message)
       })
     );
 
@@ -7150,7 +7164,9 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
     );
     messages.forEach(message =>
       logOwnDeviceSyncDiag("messages.upsert.filtered", message, companyId, wbot.id, {
-        upsertType: (messageUpsert as any)?.type
+        upsertType: (messageUpsert as any)?.type,
+        passed: true,
+        reason: "accepted_after_filter"
       })
     );
 
@@ -7287,8 +7303,16 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
 
   wbot.ev.on("messages.update", (messageUpdate: WAMessageUpdate[]) => {
     if (messageUpdate.length === 0) return;
+    logOwnDeviceSyncEventDiag("messages.update.enter", companyId, wbot.id, {
+      count: messageUpdate.length
+    });
     messageUpdate.forEach(async (message: WAMessageUpdate) => {
       logWhatsappDiagnostic("messages.update.raw", message, companyId, wbot.id);
+      logOwnDeviceSyncDiag("messages.update.raw", message, companyId, wbot.id, {
+        hasUpdateMessage: Boolean((message as any)?.update?.message),
+        updateStatus: (message as any)?.update?.status,
+        messageStubType: (message as any)?.update?.messageStubType
+      });
 
       (wbot as WASocket)!.readMessages([message.key]);
 
@@ -7334,6 +7358,48 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
       } else {
         handleMsgAck(message, ack);
       }
+    });
+  });
+
+  wbot.ev.on("messaging-history.set", (event: any) => {
+    logOwnDeviceSyncEventDiag("messaging-history.set", companyId, wbot.id, {
+      chatsCount: event?.chats?.length,
+      contactsCount: event?.contacts?.length,
+      messagesCount: event?.messages?.length,
+      isLatest: event?.isLatest
+    });
+  });
+
+  wbot.ev.on("chats.update", (events: any[]) => {
+    logOwnDeviceSyncEventDiag("chats.update", companyId, wbot.id, {
+      count: events?.length
+    });
+  });
+
+  wbot.ev.on("message-receipt.update", (events: any[]) => {
+    logOwnDeviceSyncEventDiag("message-receipt.update", companyId, wbot.id, {
+      count: events?.length,
+      sample: events?.slice?.(0, 3)?.map(event => ({
+        wid: maskDiagValue(event?.key?.id),
+        fromMe: event?.key?.fromMe,
+        remoteJid: maskDiagValue(event?.key?.remoteJid),
+        participant: maskDiagValue(event?.key?.participant),
+        receiptTimestamp: Boolean(event?.receipt?.receiptTimestamp),
+        readTimestamp: Boolean(event?.receipt?.readTimestamp)
+      }))
+    });
+  });
+
+  wbot.ev.on("creds.update", () => {
+    logOwnDeviceSyncEventDiag("creds.update", companyId, wbot.id);
+  });
+
+  wbot.ev.on("connection.update", (event: any) => {
+    logOwnDeviceSyncEventDiag("connection.update", companyId, wbot.id, {
+      connection: event?.connection,
+      lastDisconnectMessage: event?.lastDisconnect?.error?.message,
+      qr: Boolean(event?.qr),
+      receivedPendingNotifications: event?.receivedPendingNotifications
     });
   });
 
