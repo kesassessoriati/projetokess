@@ -1228,10 +1228,12 @@ export const verifyMediaMessage = async (
 
     const body = getBodyMessage(msg);
 
+    const messageContactId = contact?.id || ticket.contactId;
+
     const messageData = {
       wid: msg.key.id,
       ticketId: ticket.id,
-      contactId: msg.key.fromMe ? undefined : contact.id,
+      contactId: messageContactId,
       body: body || media.filename,
       fromMe: msg.key.fromMe,
       read: msg.key.fromMe,
@@ -1255,13 +1257,54 @@ export const verifyMediaMessage = async (
     };
 
     await ticket.update({
-      lastMessage: body || media.filename
+      lastMessage: body || media.filename,
+      updatedAt: new Date()
     });
 
     const newMessage = await CreateMessageService({
       messageData,
       companyId: companyId
     });
+
+    if (msg.key.fromMe && !isPrivate && !isMessageImported) {
+      await ticket.reload({
+        attributes: [
+          "id",
+          "uuid",
+          "queueId",
+          "isGroup",
+          "channel",
+          "status",
+          "contactId",
+          "useIntegration",
+          "lastMessage",
+          "updatedAt",
+          "unreadMessages",
+          "companyId",
+          "whatsappId",
+          "imported",
+          "lgpdAcceptedAt",
+          "amountUsedBotQueues",
+          "useIntegration",
+          "integrationId",
+          "userId",
+          "amountUsedBotQueuesNPS",
+          "lgpdSendMessageAt",
+          "isBot"
+        ],
+        include: [
+          { model: Queue, as: "queue" },
+          { model: User, as: "user" },
+          { model: Contact, as: "contact" },
+          { model: Whatsapp, as: "whatsapp" }
+        ]
+      });
+
+      io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
+        action: "update",
+        ticket
+      });
+    }
 
     if (!msg.key.fromMe && ticket.status === "closed") {
       await ticket.update({ status: "pending" });
@@ -1343,11 +1386,12 @@ export const verifyMessage = async (
 
   // Se a mensagem é fromMe e não tem userId específico, usa o userId do ticket
   const messageUserId = userId || (msg.key.fromMe && !fromAgent ? ticket.userId : undefined);
+  const messageContactId = contact?.id || ticket.contactId;
 
   const messageData = {
     wid: msg.key.id,
     ticketId: ticket.id,
-    contactId: msg.key.fromMe ? undefined : contact.id,
+    contactId: messageContactId,
     body,
     fromMe: msg.key.fromMe,
     mediaType: getTypeMessage(msg),
@@ -1371,10 +1415,27 @@ export const verifyMessage = async (
   };
 
   await ticket.update({
-    lastMessage: body
+    lastMessage: body,
+    updatedAt: new Date()
   });
 
   const createdMessage = await CreateMessageService({ messageData, companyId: companyId });
+
+  if (msg.key.fromMe && !isPrivate && !isMessageImported) {
+    await ticket.reload({
+      include: [
+        { model: Queue, as: "queue" },
+        { model: User, as: "user" },
+        { model: Contact, as: "contact" },
+        { model: Whatsapp, as: "whatsapp" }
+      ]
+    });
+
+    io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
+      action: "update",
+      ticket
+    });
+  }
 
   if (msg.key.fromMe && fromAgent && !isPrivate && !isMessageImported) {
     EnqueueInternalMessageSyncService({
