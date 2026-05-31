@@ -1503,6 +1503,13 @@ const Atendimentos = () => {
 		}
 	};
 
+	const isMessagesContainerAtBottom = (threshold = 150) => {
+		const container = messagesContainerRef.current;
+		if (!container) return true;
+
+		return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+	};
+
 	useEffect(() => {
 		// COMPORTAMENTO WHATSAPP WEB - Mas não força quando está carregando mensagens antigas
 		if (!loadingMore && messages.length > 0) {
@@ -1869,6 +1876,8 @@ const Atendimentos = () => {
 
 				const currentTicket = selectedTicketRef.current;
 				if (currentTicket && data.message.ticketId === currentTicket.id) {
+					const shouldAutoScroll = data.message.fromMe || isMessagesContainerAtBottom();
+
 					setMessages((prev) => {
 						if (prev.some(message => message.id === data.message.id || (data.message.wid && message.wid === data.message.wid))) {
 							return prev.map(message =>
@@ -1898,6 +1907,10 @@ const Atendimentos = () => {
 
 						return [...prev, data.message];
 					});
+
+					if (shouldAutoScroll) {
+						setTimeout(() => scrollToBottom(true), 50);
+					}
 				}
 			}
 
