@@ -49,6 +49,7 @@ type StorePlanData = {
   aiEnabled?: boolean;
   aiDailyCredits?: number;
   aiAgentEnabled?: boolean;
+  aiExternalAgentEnabled?: boolean;
   useIntegrations?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
@@ -82,6 +83,7 @@ type UpdatePlanData = {
   aiEnabled?: boolean;
   aiDailyCredits?: number;
   aiAgentEnabled?: boolean;
+  aiExternalAgentEnabled?: boolean;
   useIntegrations?: boolean;
   notifica_mehub?: boolean;
   whatsapp_whatsmeow?: boolean;
@@ -134,6 +136,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     aiEnabled: Yup.boolean(),
     aiDailyCredits: Yup.number(),
     aiAgentEnabled: Yup.boolean(),
+    aiExternalAgentEnabled: Yup.boolean(),
     useIntegrations: Yup.boolean(),
     notifica_mehub: Yup.boolean(),
     whatsapp_whatsmeow: Yup.boolean(),
@@ -192,6 +195,7 @@ export const update = async (
     aiEnabled: Yup.boolean(),
     aiDailyCredits: Yup.number(),
     aiAgentEnabled: Yup.boolean(),
+    aiExternalAgentEnabled: Yup.boolean(),
     useIntegrations: Yup.boolean(),
     notifica_mehub: Yup.boolean(),
     whatsapp_whatsmeow: Yup.boolean(),

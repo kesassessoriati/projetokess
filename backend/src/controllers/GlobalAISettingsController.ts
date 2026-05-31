@@ -23,6 +23,11 @@ const updateSchema = Yup.object().shape({
   preferredProvider: Yup.string().oneOf(providers).optional(),
   crmAiSystemPrompt: Yup.string().nullable().optional(),
   crmAiDefaultModel: Yup.string().nullable().optional(),
+  attendanceAiPrimaryProvider: Yup.string().nullable().optional(),
+  attendanceAiPrimaryModel: Yup.string().nullable().optional(),
+  attendanceAiFallbackProvider: Yup.string().nullable().optional(),
+  attendanceAiFallbackModel: Yup.string().nullable().optional(),
+  attendanceAiStrategy: Yup.string().oneOf(["primary_only", "fallback_on_error", "randomize"]).nullable().optional(),
   keys: Yup.object().shape({
     openai: Yup.string().nullable().optional(),
     gemini: Yup.string().nullable().optional(),

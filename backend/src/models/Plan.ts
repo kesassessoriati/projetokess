@@ -124,6 +124,10 @@ class Plan extends Model<Plan> {
   @Column
   aiAgentEnabled: boolean;
 
+  @Default(true)
+  @Column
+  aiExternalAgentEnabled: boolean;
+
   @Default(false)
   @Column
   useMeetings: boolean;

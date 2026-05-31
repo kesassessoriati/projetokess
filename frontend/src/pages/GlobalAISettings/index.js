@@ -83,6 +83,13 @@ const GlobalAISettings = () => {
   const [crmAiSystemPrompt, setCrmAiSystemPrompt] = useState("");
   const [crmAiDefaultModel, setCrmAiDefaultModel] = useState("");
 
+  // Configuração padrão dos Agentes de Atendimento
+  const [attendanceAiPrimaryProvider, setAttendanceAiPrimaryProvider] = useState("openai");
+  const [attendanceAiPrimaryModel, setAttendanceAiPrimaryModel] = useState("");
+  const [attendanceAiFallbackProvider, setAttendanceAiFallbackProvider] = useState("");
+  const [attendanceAiFallbackModel, setAttendanceAiFallbackModel] = useState("");
+  const [attendanceAiStrategy, setAttendanceAiStrategy] = useState("primary_only");
+
   // Modal de edição do prompt
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -95,6 +102,11 @@ const GlobalAISettings = () => {
         setPreferredProvider(data.preferredProvider || "openai");
         setCrmAiSystemPrompt(data.crmAiSystemPrompt || "");
         setCrmAiDefaultModel(data.crmAiDefaultModel || "");
+        setAttendanceAiPrimaryProvider(data.attendanceAiPrimaryProvider || "openai");
+        setAttendanceAiPrimaryModel(data.attendanceAiPrimaryModel || "");
+        setAttendanceAiFallbackProvider(data.attendanceAiFallbackProvider || "");
+        setAttendanceAiFallbackModel(data.attendanceAiFallbackModel || "");
+        setAttendanceAiStrategy(data.attendanceAiStrategy || "primary_only");
       } catch (err) {
         toastError(err);
       } finally {
@@ -104,11 +116,23 @@ const GlobalAISettings = () => {
     load();
   }, []);
 
-  // Modelos disponíveis do provedor selecionado
+  // Modelos disponíveis do provedor selecionado (Assistente CRM)
   const providerModels = useMemo(() => {
     const p = providers.find(item => item.provider === preferredProvider);
     return p?.models || [];
   }, [providers, preferredProvider]);
+
+  // Modelos do provedor principal dos agentes de atendimento
+  const attendancePrimaryModels = useMemo(() => {
+    const p = providers.find(item => item.provider === attendanceAiPrimaryProvider);
+    return p?.models || [];
+  }, [providers, attendanceAiPrimaryProvider]);
+
+  // Modelos do provedor de contingência dos agentes de atendimento
+  const attendanceFallbackModels = useMemo(() => {
+    const p = providers.find(item => item.provider === attendanceAiFallbackProvider);
+    return p?.models || [];
+  }, [providers, attendanceAiFallbackProvider]);
 
   if (user && !isSuperAdminUser(user)) return <ForbiddenPage />;
 
@@ -125,7 +149,16 @@ const GlobalAISettings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateGlobalAiSettings({ preferredProvider, crmAiSystemPrompt, crmAiDefaultModel });
+      await updateGlobalAiSettings({
+        preferredProvider,
+        crmAiSystemPrompt,
+        crmAiDefaultModel,
+        attendanceAiPrimaryProvider,
+        attendanceAiPrimaryModel,
+        attendanceAiFallbackProvider,
+        attendanceAiFallbackModel,
+        attendanceAiStrategy,
+      });
       toast.success("Configuração de IA salva com sucesso.");
     } catch (err) {
       toastError(err);
@@ -239,6 +272,118 @@ const GlobalAISettings = () => {
                   )
                 }}
               />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Configuração padrão dos Agentes de Atendimento */}
+      <Card className={classes.card}>
+        <CardContent>
+          <Typography variant="h6" style={{ fontWeight: 700, marginBottom: 4 }}>
+            Configuração padrão dos Agentes de Atendimento
+          </Typography>
+          <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+            Provedor e modelo usados quando empresas utilizam créditos do sistema nos agentes internos.
+            O usuário final não vê estas configurações.
+          </Typography>
+          <Grid container spacing={2}>
+            {/* Provedor principal */}
+            <Grid item xs={12} md={3}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Provedor principal</InputLabel>
+                <Select
+                  value={attendanceAiPrimaryProvider}
+                  onChange={e => { setAttendanceAiPrimaryProvider(e.target.value); setAttendanceAiPrimaryModel(""); }}
+                  label="Provedor principal"
+                >
+                  {Object.entries(providerLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {/* Modelo principal */}
+            <Grid item xs={12} md={3}>
+              {attendancePrimaryModels.length > 0 ? (
+                <Autocomplete
+                  options={attendancePrimaryModels}
+                  getOptionLabel={option => option.name || option.id || ""}
+                  value={attendancePrimaryModels.find(m => m.id === attendanceAiPrimaryModel) || null}
+                  onChange={(_, v) => setAttendanceAiPrimaryModel(v?.id || "")}
+                  freeSolo={false}
+                  renderInput={params => (
+                    <TextField {...params} label="Modelo principal" variant="outlined" helperText="Modelo principal para agentes." />
+                  )}
+                />
+              ) : (
+                <TextField
+                  label="Modelo principal"
+                  value={attendanceAiPrimaryModel}
+                  onChange={e => setAttendanceAiPrimaryModel(e.target.value)}
+                  variant="outlined"
+                  fullWidth
+                  placeholder="Ex: gpt-4o-mini"
+                  helperText="Sincronize modelos em APIs para usar a lista."
+                />
+              )}
+            </Grid>
+            {/* Provedor de contingência */}
+            <Grid item xs={12} md={3}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Provedor de contingência</InputLabel>
+                <Select
+                  value={attendanceAiFallbackProvider}
+                  onChange={e => { setAttendanceAiFallbackProvider(e.target.value); setAttendanceAiFallbackModel(""); }}
+                  label="Provedor de contingência"
+                >
+                  <MenuItem value=""><em>Nenhum</em></MenuItem>
+                  {Object.entries(providerLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {/* Modelo de contingência */}
+            <Grid item xs={12} md={3}>
+              {attendanceFallbackProvider && attendanceFallbackModels.length > 0 ? (
+                <Autocomplete
+                  options={attendanceFallbackModels}
+                  getOptionLabel={option => option.name || option.id || ""}
+                  value={attendanceFallbackModels.find(m => m.id === attendanceAiFallbackModel) || null}
+                  onChange={(_, v) => setAttendanceAiFallbackModel(v?.id || "")}
+                  freeSolo={false}
+                  renderInput={params => (
+                    <TextField {...params} label="Modelo de contingência" variant="outlined" helperText="Opcional." />
+                  )}
+                />
+              ) : (
+                <TextField
+                  label="Modelo de contingência"
+                  value={attendanceAiFallbackModel}
+                  onChange={e => setAttendanceAiFallbackModel(e.target.value)}
+                  variant="outlined"
+                  fullWidth
+                  disabled={!attendanceAiFallbackProvider}
+                  placeholder="Ex: llama-3.3-70b-versatile"
+                  helperText={attendanceAiFallbackProvider ? "Sincronize modelos em APIs ou digite manualmente." : "Selecione um provedor de contingência."}
+                />
+              )}
+            </Grid>
+            {/* Estratégia */}
+            <Grid item xs={12} md={6}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Estratégia de execução</InputLabel>
+                <Select
+                  value={attendanceAiStrategy}
+                  onChange={e => setAttendanceAiStrategy(e.target.value)}
+                  label="Estratégia de execução"
+                >
+                  <MenuItem value="primary_only">Usar somente o provedor principal</MenuItem>
+                  <MenuItem value="fallback_on_error">Usar contingência em caso de erro do principal</MenuItem>
+                  <MenuItem value="randomize">Alternar aleatoriamente entre principal e contingência</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
         </CardContent>

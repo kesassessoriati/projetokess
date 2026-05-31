@@ -154,6 +154,7 @@ const defaultPlanValues = {
     useOpenAi: true,
     aiEnabled: true,
     aiAgentEnabled: true,
+    aiExternalAgentEnabled: true,
     useIntegrations: true,
     notifica_mehub: false,
     whatsapp_whatsmeow: false,
@@ -451,9 +452,29 @@ export function PlanManagerForm(props) {
       }}
     >
       <InputLabel htmlFor="ai-agent-enabled-selection" style={{ fontWeight: "bold" }}>
-        Agentes IA
+        Agente Interno
       </InputLabel>
       <Field as={Select} id="ai-agent-enabled-selection" name="aiAgentEnabled" margin="dense">
+        <MenuItem value={true}>Sim</MenuItem>
+        <MenuItem value={false}>Não</MenuItem>
+      </Field>
+    </FormControl>
+  </Box>
+
+  <Box>
+    <FormControl
+      variant="outlined"
+      size="small"
+      fullWidth
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+      }}
+    >
+      <InputLabel htmlFor="ai-external-agent-enabled-selection" style={{ fontWeight: "bold" }}>
+        Agente Externo N8N
+      </InputLabel>
+      <Field as={Select} id="ai-external-agent-enabled-selection" name="aiExternalAgentEnabled" margin="dense">
         <MenuItem value={true}>Sim</MenuItem>
         <MenuItem value={false}>Não</MenuItem>
       </Field>
@@ -880,6 +901,7 @@ export default function PlansManager() {
         useOpenAi: true,
         aiEnabled: true,
         aiAgentEnabled: true,
+        aiExternalAgentEnabled: true,
         useIntegrations: true,
         notifica_mehub: false,
         whatsapp_whatsmeow: false,
@@ -1004,6 +1026,7 @@ export default function PlansManager() {
         let useOpenAi = data.useOpenAi === false ? false : true
         let aiEnabled = typeof data.aiEnabled === "boolean" ? data.aiEnabled : useOpenAi
         let aiAgentEnabled = typeof data.aiAgentEnabled === "boolean" ? data.aiAgentEnabled : aiEnabled
+        let aiExternalAgentEnabled = typeof data.aiExternalAgentEnabled === "boolean" ? data.aiExternalAgentEnabled : aiEnabled
         let useIntegrations = data.useIntegrations === false ? false : true
         let notifica_mehub = Boolean(data.notifica_mehub)
         let whatsapp_whatsmeow = Boolean(data.whatsapp_whatsmeow)
@@ -1035,6 +1058,7 @@ export default function PlansManager() {
             useOpenAi,
             aiEnabled,
             aiAgentEnabled,
+            aiExternalAgentEnabled,
             useIntegrations,
             notifica_mehub,
             whatsapp_whatsmeow,

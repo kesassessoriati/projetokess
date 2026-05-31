@@ -1145,58 +1145,55 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                             </div>
                                         </div>
 
-                                        <div className={classes.multFieldLine}>
-                                            <FormControl 
-                                                variant="outlined" 
-                                                className={classes.formControl}
-                                                margin="dense"
-                                            >
-                                                <InputLabel>Provedor de IA</InputLabel>
-                                                <Select
-                                                    value={selectedProvider}
-                                                    onChange={handleProviderChange}
-                                                    label="Provedor de IA"
-                                                    className={classes.modelSelect}
+                                        {/* Provedor e modelo: visíveis APENAS quando o usuário usa API key própria */}
+                                        {values.aiUsageMode === "own" && (
+                                            <div className={classes.multFieldLine}>
+                                                <FormControl
+                                                    variant="outlined"
+                                                    className={classes.formControl}
+                                                    margin="dense"
                                                 >
-                                                    <MenuItem value="openai">
-                                                        OpenAI
-                                                    </MenuItem>
-                                                    <MenuItem value="gemini">
-                                                        Google Gemini
-                                                    </MenuItem>
-                                                    <MenuItem value="openrouter">
-                                                        OpenRouter
-                                                    </MenuItem>
-                                                </Select>
-                                            </FormControl>
+                                                    <InputLabel>Provedor de IA</InputLabel>
+                                                    <Select
+                                                        value={selectedProvider}
+                                                        onChange={handleProviderChange}
+                                                        label="Provedor de IA"
+                                                        className={classes.modelSelect}
+                                                    >
+                                                        <MenuItem value="openai">OpenAI</MenuItem>
+                                                        <MenuItem value="gemini">Google Gemini</MenuItem>
+                                                        <MenuItem value="openrouter">OpenRouter</MenuItem>
+                                                    </Select>
+                                                </FormControl>
 
-                                            <FormControl 
-                                                variant="outlined" 
-                                                className={classes.formControl}
-                                                margin="dense"
-                                            >
-                                                <InputLabel>Modelo</InputLabel>
-                                                <Select
-                                                    value={selectedModel}
-                                                    onChange={handleModelChange}
-                                                    label="Modelo"
-                                                    className={classes.modelSelect}
+                                                <FormControl
+                                                    variant="outlined"
+                                                    className={classes.formControl}
+                                                    margin="dense"
                                                 >
-                                                    {getCurrentModels().map((model) => (
-                                                        <MenuItem key={model.value} value={model.value}>
-                                                            <Box display="flex" alignItems="center" width="100%">
-                                                                {model.label}
-                                                                {model.free && (
-                                                                    <span className={classes.freeLabel}>
-                                                                        Grátis
-                                                                    </span>
-                                                                )}
-                                                            </Box>
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </div>
+                                                    <InputLabel>Modelo</InputLabel>
+                                                    <Select
+                                                        value={selectedModel}
+                                                        onChange={handleModelChange}
+                                                        label="Modelo"
+                                                        className={classes.modelSelect}
+                                                    >
+                                                        {getCurrentModels().map((model) => (
+                                                            <MenuItem key={model.value} value={model.value}>
+                                                                <Box display="flex" alignItems="center" width="100%">
+                                                                    {model.label}
+                                                                    {model.free && (
+                                                                        <span className={classes.freeLabel}>
+                                                                            Grátis
+                                                                        </span>
+                                                                    )}
+                                                                </Box>
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </div>
+                                        )}
 
                                         {values.aiUsageMode === "system" ? (
                                             <div className={classes.usageInfoBox}>
@@ -1206,21 +1203,12 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                 <Typography variant="body2" color="textSecondary">
                                                     Saldo atual da empresa: {getCreditsLabel()}
                                                 </Typography>
+                                                <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                                                    Cada resposta do agente consome 1 crédito. O provedor e modelo são gerenciados pelo sistema.
+                                                </Typography>
                                                 <div className={classes.inlineMeta}>
                                                     <Chip label="Modo protegido via backend" size="small" color="primary" />
-                                                    <Chip
-                                                        label={`Provedor padrão: ${companyAiConfig?.preferredProvider || selectedProvider}`}
-                                                        size="small"
-                                                    />
                                                 </div>
-                                                <Button
-                                                    variant="outlined"
-                                                    color="primary"
-                                                    style={{ marginTop: 12 }}
-                                                    onClick={() => setFieldValue("aiUsageMode", "system")}
-                                                >
-                                                    Connect using system credits
-                                                </Button>
                                             </div>
                                         ) : (
                                             <div className={classes.usageInfoBox}>

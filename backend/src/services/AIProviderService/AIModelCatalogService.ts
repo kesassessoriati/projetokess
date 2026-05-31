@@ -91,6 +91,11 @@ export const getGlobalAISettings = async () => {
   const preferredProvider = ((await getSetting("aiProvider")) || "openai") as AIProviderName;
   const crmAiSystemPrompt = await getSetting("crmAiSystemPrompt");
   const crmAiDefaultModel = await getSetting("crmAiDefaultModel");
+  const attendanceAiPrimaryProvider = ((await getSetting("attendanceAiPrimaryProvider")) || "") as AIProviderName | "";
+  const attendanceAiPrimaryModel = await getSetting("attendanceAiPrimaryModel");
+  const attendanceAiFallbackProvider = ((await getSetting("attendanceAiFallbackProvider")) || "") as AIProviderName | "";
+  const attendanceAiFallbackModel = await getSetting("attendanceAiFallbackModel");
+  const attendanceAiStrategy = await getSetting("attendanceAiStrategy") || "primary_only";
 
   const providers = await Promise.all(PROVIDERS.map(async provider => {
     const apiKey = await getSetting(KEY_MAP[provider]);
@@ -111,6 +116,11 @@ export const getGlobalAISettings = async () => {
     preferredProvider: PROVIDERS.includes(preferredProvider) ? preferredProvider : "openai",
     crmAiSystemPrompt,
     crmAiDefaultModel: crmAiDefaultModel || "",
+    attendanceAiPrimaryProvider: (PROVIDERS.includes(attendanceAiPrimaryProvider as AIProviderName) ? attendanceAiPrimaryProvider : "") as string,
+    attendanceAiPrimaryModel: attendanceAiPrimaryModel || "",
+    attendanceAiFallbackProvider: (PROVIDERS.includes(attendanceAiFallbackProvider as AIProviderName) ? attendanceAiFallbackProvider : "") as string,
+    attendanceAiFallbackModel: attendanceAiFallbackModel || "",
+    attendanceAiStrategy,
     providers
   };
 };
@@ -221,6 +231,11 @@ export const saveGlobalAISettings = async (payload: {
   preferredProvider?: AIProviderName;
   crmAiSystemPrompt?: string;
   crmAiDefaultModel?: string;
+  attendanceAiPrimaryProvider?: string;
+  attendanceAiPrimaryModel?: string;
+  attendanceAiFallbackProvider?: string;
+  attendanceAiFallbackModel?: string;
+  attendanceAiStrategy?: string;
   keys?: Partial<Record<AIProviderName, string>>;
 }) => {
   if (payload.preferredProvider && PROVIDERS.includes(payload.preferredProvider)) {
@@ -233,6 +248,22 @@ export const saveGlobalAISettings = async (payload: {
 
   if (typeof payload.crmAiDefaultModel === "string") {
     await upsertSystemSetting("crmAiDefaultModel", payload.crmAiDefaultModel);
+  }
+
+  if (typeof payload.attendanceAiPrimaryProvider === "string") {
+    await upsertSystemSetting("attendanceAiPrimaryProvider", payload.attendanceAiPrimaryProvider);
+  }
+  if (typeof payload.attendanceAiPrimaryModel === "string") {
+    await upsertSystemSetting("attendanceAiPrimaryModel", payload.attendanceAiPrimaryModel);
+  }
+  if (typeof payload.attendanceAiFallbackProvider === "string") {
+    await upsertSystemSetting("attendanceAiFallbackProvider", payload.attendanceAiFallbackProvider);
+  }
+  if (typeof payload.attendanceAiFallbackModel === "string") {
+    await upsertSystemSetting("attendanceAiFallbackModel", payload.attendanceAiFallbackModel);
+  }
+  if (typeof payload.attendanceAiStrategy === "string") {
+    await upsertSystemSetting("attendanceAiStrategy", payload.attendanceAiStrategy);
   }
 
   for (const provider of PROVIDERS) {
