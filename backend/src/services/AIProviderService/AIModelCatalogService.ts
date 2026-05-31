@@ -3,7 +3,7 @@ import Setting from "../../models/Setting";
 import AppError from "../../errors/AppError";
 import { getMaskedSecret } from "./AIProviderService";
 
-export type AIProviderName = "openai" | "gemini" | "openrouter";
+export type AIProviderName = "openai" | "gemini" | "openrouter" | "groq";
 
 export interface AIModelInfo {
   id: string;
@@ -24,24 +24,27 @@ export interface GlobalAIProviderConfig {
 
 const SYSTEM_COMPANY_ID = 1;
 
-const PROVIDERS: AIProviderName[] = ["openai", "gemini", "openrouter"];
+const PROVIDERS: AIProviderName[] = ["openai", "gemini", "openrouter", "groq"];
 
 const KEY_MAP: Record<AIProviderName, string> = {
   openai: "openaiApiKey",
   gemini: "geminiApiKey",
-  openrouter: "openrouterApiKey"
+  openrouter: "openrouterApiKey",
+  groq: "groqApiKey"
 };
 
 const MODELS_KEY_MAP: Record<AIProviderName, string> = {
   openai: "openaiModels",
   gemini: "geminiModels",
-  openrouter: "openrouterModels"
+  openrouter: "openrouterModels",
+  groq: "groqModels"
 };
 
 const LAST_SYNC_KEY_MAP: Record<AIProviderName, string> = {
   openai: "openaiModelsLastSyncAt",
   gemini: "geminiModelsLastSyncAt",
-  openrouter: "openrouterModelsLastSyncAt"
+  openrouter: "openrouterModelsLastSyncAt",
+  groq: "groqModelsLastSyncAt"
 };
 
 export const getSystemCompanyId = () => SYSTEM_COMPANY_ID;
@@ -147,6 +150,17 @@ const normalizeGeminiModels = (models: any[]): AIModelInfo[] =>
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+const normalizeGroqModels = (models: any[]): AIModelInfo[] =>
+  models
+    .filter(model => typeof model?.id === "string")
+    .map(model => ({
+      id: model.id,
+      name: model.id,
+      provider: "groq" as AIProviderName,
+      created: model.created ?? null
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
 export const fetchProviderModels = async (
   provider: AIProviderName,
   apiKey: string
@@ -169,6 +183,14 @@ export const fetchProviderModels = async (
       timeout: 20000
     });
     return normalizeOpenRouterModels(data?.data || []);
+  }
+
+  if (provider === "groq") {
+    const { data } = await axios.get("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      timeout: 20000
+    });
+    return normalizeGroqModels(data?.data || []);
   }
 
   const { data } = await axios.get("https://generativelanguage.googleapis.com/v1beta/models", {

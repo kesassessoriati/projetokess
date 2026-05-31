@@ -134,6 +134,7 @@ import BackendErrors from "../pages/BackendErrors";
 import SystemMetrics from "../pages/SystemMetrics";
 import Performance from "../pages/Performance";
 import GlobalAISettings from "../pages/GlobalAISettings";
+import GlobalAPISettings from "../pages/GlobalAPISettings";
 import WorkspaceMenuSettings from "../pages/WorkspaceMenuSettings";
 import LeadFieldSettings from "../pages/LeadFieldSettings";
 import { embeddedLinks } from "../config/embedded_links";
@@ -324,6 +325,7 @@ const Routes = () => {
                         <Route exact path="/admin/system-metrics" component={SystemMetrics} isPrivate />
                         <Route exact path="/admin/performance" component={Performance} isPrivate />
                         <Route exact path="/admin/ai-settings" component={GlobalAISettings} isPrivate adminOnly />
+                        <Route exact path="/admin/api-settings" component={GlobalAPISettings} isPrivate adminOnly />
                         {showCampaigns && (
                           <>
                             <Route exact path="/contact-lists" component={ContactLists} isPrivate />

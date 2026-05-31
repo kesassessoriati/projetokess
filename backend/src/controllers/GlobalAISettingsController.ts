@@ -8,7 +8,7 @@ import {
   syncProviderModels
 } from "../services/AIProviderService/AIModelCatalogService";
 
-const providers: AIProviderName[] = ["openai", "gemini", "openrouter"];
+const providers: AIProviderName[] = ["openai", "gemini", "openrouter", "groq"];
 
 const ensureSuperAdmin = (req: Request) => {
   const isSuperAdmin = req.user.profile === "super" ||
@@ -26,7 +26,8 @@ const updateSchema = Yup.object().shape({
   keys: Yup.object().shape({
     openai: Yup.string().nullable().optional(),
     gemini: Yup.string().nullable().optional(),
-    openrouter: Yup.string().nullable().optional()
+    openrouter: Yup.string().nullable().optional(),
+    groq: Yup.string().nullable().optional()
   }).optional()
 });
 
