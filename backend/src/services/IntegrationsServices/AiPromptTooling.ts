@@ -15,9 +15,13 @@ export type BuildAiToolingPromptSectionArgs = {
   availableProdutos: any[];
   availableFerramentas: AiToolingFerramenta[];
   provider: string;
+  allowedTools?: string[] | null;
   getToolInstructions: (availableTags: string[], availableQueues: string[]) => string;
   getGeminiToolInstructions: (availableTags: string[], availableQueues: string[]) => string;
 };
+
+const normalizeToolName = (name?: string | null): string | null =>
+  name ? name.trim().toLowerCase() : null;
 
 export const buildAiToolingPromptSection = (args: BuildAiToolingPromptSectionArgs): string => {
   const providerInstructions =
@@ -33,13 +37,23 @@ export const buildAiToolingPromptSection = (args: BuildAiToolingPromptSectionArg
     .join("\n");
 
   // Gerar instruções das tools dinamicamente a partir do catálogo
-  const toolsInstructions = AI_TOOL_CATALOG
+  const allowedToolSet =
+    args.allowedTools && args.allowedTools.length > 0
+      ? new Set(args.allowedTools.map(tool => normalizeToolName(tool)).filter(Boolean))
+      : null;
+
+  const enabledCatalog = AI_TOOL_CATALOG.filter(tool => {
+    if (!allowedToolSet) return true;
+    return allowedToolSet.has(normalizeToolName(tool.name));
+  });
+
+  const toolsInstructions = enabledCatalog
     .map((tool, index) => {
       return `${index + 1}) ${tool.name}
 Quando usar: ${tool.whenToUse}
 Como usar: ${tool.howToUse}`;
     })
-    .join("\n\n");
+    .join("\n\n") || "Nenhuma ferramenta opcional habilitada para este prompt.";
 
   // Gerar lista detalhada de filas com IDs
   const queuesList = (args.availableQueues || [])
@@ -60,7 +74,7 @@ REGRAS GERAIS (OBRIGATÓRIO):
 4) Nunca escreva "Ação:" ou "Estou executando…".
 5) SE UM ID NÃO FOR ENCONTRADO, verifique nas listas abaixo o ID correto antes de tentar novamente.
 
-TOOLS (quando usar / como usar):
+TOOLS HABILITADAS PARA ESTE PROMPT (quando usar / como usar):
 
 ${toolsInstructions}
 

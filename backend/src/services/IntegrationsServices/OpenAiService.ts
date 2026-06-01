@@ -981,6 +981,7 @@ ${buildAiToolingPromptSection({
     availableProdutos,
     availableFerramentas,
     provider,
+    allowedTools,
     getToolInstructions,
     getGeminiToolInstructions
   })}

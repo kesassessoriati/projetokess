@@ -541,6 +541,69 @@ const providerKeyPayloadFields = {
     openrouter: "openrouterApiKey"
 };
 
+const TOOL_PROMPT_BLOCKS = {
+    get_company_schedule: "Use get_company_schedule quando o cliente perguntar horario, disponibilidade ou funcionamento. Nao invente horarios.",
+    get_contact_schedules: "Use get_contact_schedules para consultar agendamentos existentes antes de remarcar ou quando o cliente perguntar.",
+    create_contact_schedule: "Use create_contact_schedule somente apos confirmar data, horario, objetivo e dados principais do cliente.",
+    update_contact_schedule: "Use update_contact_schedule quando o cliente pedir remarcacao ou alteracao de um compromisso existente.",
+    get_contact_info: "Use get_contact_info para verificar dados ja cadastrados antes de perguntar novamente.",
+    update_contact_info: "Use update_contact_info para registrar nome, email, telefone, endereco, interesse, preferencias e observacoes relevantes.",
+    send_product: "Use send_product para enviar produtos, imoveis, planos ou ofertas cadastradas quando forem relevantes ao interesse do cliente.",
+    send_contact_file: "Use send_contact_file para enviar documentos, propostas, fichas ou materiais ja vinculados ao contato.",
+    execute_tool: "Use execute_tool apenas quando uma integracao externa estiver configurada e o contexto indicar exatamente qual ferramenta usar.",
+    format_message: "Use format_message quando precisar aplicar variaveis ou padronizar uma mensagem.",
+    execute_command: "Use execute_command para organizar fila, atendente, tag ou encerramento quando houver regra clara.",
+    call_prompt_agent: "Use call_prompt_agent para consultar outro agente especializado quando ele estiver configurado e for adequado ao assunto.",
+    call_flow_builder: "Use call_flow_builder para iniciar um fluxo automatizado especifico quando fizer sentido.",
+    list_professionals: "Use list_professionals para consultar profissionais, corretores, vendedores ou horarios por area/servico.",
+    like_message: "Use like_message apenas quando uma reacao discreta combinar com a conversa.",
+    send_emoji: "Use send_emoji apenas quando o tom do agente permitir uma resposta curta com emoji."
+};
+
+const DEFAULT_AGENT_FIELDS = {
+    agentName: "Agente IA",
+    companyName: "sua empresa",
+    industry: "Atendimento comercial",
+    language: "Portugues brasileiro",
+    mainGoal: "Atender, qualificar e conduzir o cliente para o proximo passo",
+    communicationTone: "Cordial, objetivo e profissional",
+    businessDescription: "Descreva brevemente o negocio, publico e diferenciais.",
+    productsOrServices: "Informe os principais produtos ou servicos atendidos.",
+    openingHours: "Use os horarios cadastrados no sistema quando disponiveis.",
+    address: "Informe endereco, cidade ou regiao de atendimento quando relevante.",
+    handoffRules: "Transfira para humano quando o cliente pedir, quando houver negociacao sensivel ou quando faltar informacao segura.",
+    qualificationQuestions: "Colete interesse, necessidade, prazo, orcamento e melhor horario de contato.",
+    customInstructions: ""
+};
+
+const stripStaticToolsBlock = (promptText = "") =>
+    promptText.replace(/# Ferramentas disponiveis[\s\S]*?(?=# Regras especificas do nicho)/, "");
+
+const replaceTemplateVariables = (text = "", values = {}) => {
+    const variables = { ...DEFAULT_AGENT_FIELDS, ...values };
+    return text.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key) => variables[key] || "");
+};
+
+const buildToolsPromptBlock = (toolsEnabled = []) => {
+    const enabled = TOOL_CATALOG.filter(tool => toolsEnabled.includes(tool.value));
+    if (enabled.length === 0) {
+        return "# Ferramentas habilitadas\nNenhuma ferramenta opcional foi habilitada para este agente.";
+    }
+
+    const lines = enabled.map(tool => {
+        const instruction = TOOL_PROMPT_BLOCKS[tool.value] || `Use ${tool.value} somente quando for necessario e permitido pelo contexto.`;
+        return `- ${tool.value}: ${instruction}`;
+    });
+
+    return `# Ferramentas habilitadas\n${lines.join("\n")}`;
+};
+
+const buildPromptFromTemplate = (template, values = {}, toolsEnabled = []) => {
+    const basePrompt = stripStaticToolsBlock(template?.defaultPrompt || values.prompt || "");
+    const filledPrompt = replaceTemplateVariables(basePrompt, values);
+    return `${filledPrompt.trim()}\n\n${buildToolsPromptBlock(toolsEnabled)}`;
+};
+
 const PromptModal = ({ open, onClose, promptId }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
@@ -556,6 +619,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [aiTemplates, setAiTemplates] = useState([]);
     const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "" });
     const imageInputRef = useRef(null);
+    const pdfInputRef = useRef(null);
     const [linkForm, setLinkForm] = useState({ title: "", url: "" });
 
     const backendBaseUrl = useMemo(() => {
@@ -741,7 +805,8 @@ const PromptModal = ({ open, onClose, promptId }) => {
         templateKey: "",
         description: "",
         toolsEnabled: [],
-        knowledgeBase: []
+        knowledgeBase: [],
+        ...DEFAULT_AGENT_FIELDS
     };
 
     const [prompt, setPrompt] = useState(initialState);
@@ -871,9 +936,31 @@ const PromptModal = ({ open, onClose, promptId }) => {
 
     const handleApplyTemplate = useCallback((template, values, setFieldValue) => {
         if (!template) return;
+        const nextValues = {
+            ...values,
+            agentName: values.agentName || template.name || DEFAULT_AGENT_FIELDS.agentName,
+            companyName: values.companyName || user?.company?.name || user?.companyName || DEFAULT_AGENT_FIELDS.companyName,
+            industry: template.name || values.industry || DEFAULT_AGENT_FIELDS.industry,
+            language: values.language || DEFAULT_AGENT_FIELDS.language,
+            mainGoal: template.objective || values.mainGoal || DEFAULT_AGENT_FIELDS.mainGoal,
+            communicationTone: template.defaultTone || values.communicationTone || DEFAULT_AGENT_FIELDS.communicationTone,
+            handoffRules: template.handoffRules || values.handoffRules || DEFAULT_AGENT_FIELDS.handoffRules,
+            qualificationQuestions: Array.isArray(template.qualificationQuestions)
+                ? template.qualificationQuestions.join("\n")
+                : values.qualificationQuestions || DEFAULT_AGENT_FIELDS.qualificationQuestions,
+            toolsEnabled: template.enabledTools || []
+        };
         setFieldValue("templateKey", template.key);
         setFieldValue("description", template.description || "");
-        setFieldValue("prompt", template.defaultPrompt || "");
+        setFieldValue("agentName", nextValues.agentName);
+        setFieldValue("companyName", nextValues.companyName);
+        setFieldValue("industry", nextValues.industry);
+        setFieldValue("language", nextValues.language);
+        setFieldValue("mainGoal", nextValues.mainGoal);
+        setFieldValue("communicationTone", nextValues.communicationTone);
+        setFieldValue("handoffRules", nextValues.handoffRules);
+        setFieldValue("qualificationQuestions", nextValues.qualificationQuestions);
+        setFieldValue("prompt", buildPromptFromTemplate(template, nextValues, nextValues.toolsEnabled));
         setFieldValue("toolsEnabled", template.enabledTools || []);
         setFieldValue("maxTokens", template.suggestedConfiguration?.maxTokens || values.maxTokens);
         setFieldValue("temperature", template.suggestedConfiguration?.temperature || values.temperature);
@@ -884,7 +971,18 @@ const PromptModal = ({ open, onClose, promptId }) => {
         setSelectedProvider(template.suggestedConfiguration?.provider || "openai");
         setSelectedModel(template.suggestedConfiguration?.model || "");
         toast.success("Template aplicado com sucesso.");
-    }, []);
+    }, [user]);
+
+    const handleRegeneratePrompt = useCallback((values, setFieldValue, toolsOverride) => {
+        const selectedTemplate = aiTemplates.find(template => template.key === values.templateKey);
+        if (!selectedTemplate) {
+            toast.error("Selecione um template antes de gerar o prompt.");
+            return;
+        }
+        const nextTools = toolsOverride || values.toolsEnabled || [];
+        setFieldValue("prompt", buildPromptFromTemplate(selectedTemplate, values, nextTools));
+        toast.success("Prompt atualizado com os campos do agente.");
+    }, [aiTemplates]);
 
     const handleCompanyKeyInputChange = useCallback((provider, value) => {
         setCompanyApiKeyInput(prev => ({ ...prev, [provider]: value }));
@@ -900,14 +998,36 @@ const PromptModal = ({ open, onClose, promptId }) => {
             return;
         }
 
-        const promptData = { 
-            ...values, 
+        const transientFields = new Set([
+            "agentName",
+            "companyName",
+            "industry",
+            "language",
+            "mainGoal",
+            "communicationTone",
+            "businessDescription",
+            "productsOrServices",
+            "openingHours",
+            "address",
+            "handoffRules",
+            "qualificationQuestions",
+            "customInstructions"
+        ]);
+        const persistedValues = Object.keys(values).reduce((acc, key) => {
+            if (!transientFields.has(key)) {
+                acc[key] = values[key];
+            }
+            return acc;
+        }, {});
+
+        const promptData = {
+            ...persistedValues,
             voice: selectedVoice, 
             provider: selectedProvider,
             model: selectedModel,
             aiUsageMode: nextUsageMode,
             apiKey: "",
-            toolsEnabled: values.toolsEnabled || []
+            toolsEnabled: persistedValues.toolsEnabled || []
         };
         console.log("[PromptModal] Saving prompt with toolsEnabled:", promptData.toolsEnabled);
         if (!values.queueId) {
@@ -1055,6 +1175,110 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                 ),
                                             }}
                                         />
+
+                                        <Typography className={classes.sectionTitle}>
+                                            <AssignmentIcon className={classes.sectionIcon} />
+                                            Perfil do agente
+                                        </Typography>
+
+                                        <Typography variant="body2" color="textSecondary">
+                                            Preencha dados simples para montar o prompt profissional automaticamente.
+                                        </Typography>
+
+                                        <Grid container spacing={1}>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Nome do agente"
+                                                    name="agentName"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Nome da empresa"
+                                                    name="companyName"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Setor / industria"
+                                                    name="industry"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Idioma"
+                                                    name="language"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Tom de comunicacao"
+                                                    name="communicationTone"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Objetivo principal"
+                                                    name="mainGoal"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Descricao comercial"
+                                                    name="businessDescription"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    multiline
+                                                    rows={2}
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12}>
+                                                <Field
+                                                    as={TextField}
+                                                    label="Instrucoes extras"
+                                                    name="customInstructions"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    multiline
+                                                    rows={3}
+                                                    className={classes.formControl}
+                                                />
+                                            </Grid>
+                                        </Grid>
                                     </>
                                 )}
 
@@ -1068,6 +1292,17 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                         <Typography variant="body2" color="textSecondary">
                                             Revise, ajuste ou substitua o texto do prompt antes de escolher a fila de atendimento.
                                         </Typography>
+
+                                        <Box display="flex" justifyContent="flex-end" mb={1}>
+                                            <Button
+                                                variant="outlined"
+                                                color="primary"
+                                                startIcon={<ModelTrainingIcon />}
+                                                onClick={() => handleRegeneratePrompt(values, setFieldValue)}
+                                            >
+                                                Gerar prompt pelos campos
+                                            </Button>
+                                        </Box>
 
                                         <Field
                                             as={TextField}
@@ -1315,6 +1550,10 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                                             ? [...current, tool.value]
                                                                             : current.filter(name => name !== tool.value);
                                                                         setFieldValue("toolsEnabled", next);
+                                                                        const selectedTemplate = aiTemplates.find(template => template.key === values.templateKey);
+                                                                        if (selectedTemplate) {
+                                                                            setFieldValue("prompt", buildPromptFromTemplate(selectedTemplate, values, next));
+                                                                        }
                                                                     }}
                                                                 />
                                                             </div>
@@ -1365,6 +1604,40 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                                 const file = event.target.files?.[0];
                                                                 if (file) {
                                                                     handleKnowledgeFileAdd(file, "image", values, setFieldValue);
+                                                                }
+                                                                event.target.value = null;
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </Grid>
+
+                                                <Grid item xs={12} md={6}>
+                                                    <div className={classes.knowledgeContainer}>
+                                                        <div className={classes.knowledgeHeader}>
+                                                            <Box display="flex" alignItems="center" gap={8}>
+                                                                <LibraryBooksIcon color="secondary" />
+                                                                <Typography variant="subtitle2">Adicionar PDF</Typography>
+                                                            </Box>
+                                                        </div>
+                                                        <Button
+                                                            variant="outlined"
+                                                            fullWidth
+                                                            startIcon={<LibraryBooksIcon />}
+                                                            className={classes.uploadButton}
+                                                            disabled={knowledgeUploading}
+                                                            onClick={() => pdfInputRef.current?.click()}
+                                                        >
+                                                            {knowledgeUploading ? "Enviando..." : "Selecionar PDF"}
+                                                        </Button>
+                                                        <input
+                                                            ref={pdfInputRef}
+                                                            type="file"
+                                                            accept="application/pdf,.pdf"
+                                                            className={classes.fileInput}
+                                                            onChange={event => {
+                                                                const file = event.target.files?.[0];
+                                                                if (file) {
+                                                                    handleKnowledgeFileAdd(file, "pdf", values, setFieldValue);
                                                                 }
                                                                 event.target.value = null;
                                                             }}
@@ -1455,7 +1728,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                                     </Typography>
                                                                     <Chip
                                                                         label={
-                                                                            type === "image" ? "Imagem" : "Link"
+                                                                            type === "image" ? "Imagem" : type === "pdf" ? "PDF" : "Link"
                                                                         }
                                                                         size="small"
                                                                         style={{ marginTop: 4, width: "fit-content" }}
