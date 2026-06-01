@@ -349,11 +349,17 @@ const WEBHOOK_EVENT_GROUPS = [
   }
 ];
 
+const WEBHOOK_TYPES = ["n8n", "webhook"];
+const LEGACY_INTERNAL_TYPES = ["flowbuilder", "openai"];
+
+const isWebhookType = (type) => WEBHOOK_TYPES.includes(type);
+const isLegacyInternalType = (type) => LEGACY_INTERNAL_TYPES.includes(type);
+
 const QueueIntegration = ({ open, onClose, integrationId }) => {
   const classes = useStyles();
 
   const initialState = {
-    type: "typebot",
+    type: "n8n",
     name: "",
     projectName: "",
     jsonContent: "",
@@ -400,7 +406,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
 
     return () => {
       setIntegration({
-        type: "dialogflow",
+        type: "n8n",
         name: "",
         projectName: "",
         jsonContent: "",
@@ -536,14 +542,26 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                             </InputAdornment>
                           }
                         >
+                          {values.type === "webhook" ? (
+                            <MenuItem value="webhook">Webhook</MenuItem>
+                          ) : (
+                            <MenuItem value="n8n">Webhook</MenuItem>
+                          )}
                           <MenuItem value="dialogflow">DialogFlow</MenuItem>
-                          <MenuItem value="n8n">N8N</MenuItem>
-                          <MenuItem value="webhook">WebHooks</MenuItem>
                           <MenuItem value="typebot">Typebot</MenuItem>
-                          <MenuItem value="flowbuilder">Flowbuilder</MenuItem>
-                          <MenuItem value="openai">ChatGPT / OpenAI</MenuItem>
+                          {values.type === "flowbuilder" && (
+                            <MenuItem value="flowbuilder">Flowbuilder (Legado)</MenuItem>
+                          )}
+                          {values.type === "openai" && (
+                            <MenuItem value="openai">ChatGPT / OpenAI (Legado)</MenuItem>
+                          )}
                         </Field>
                       </FormControl>
+                      {isLegacyInternalType(values.type) && (
+                        <Typography variant="caption" color="textSecondary">
+                          Este tipo será movido para o módulo próprio em breve. Registros antigos continuam compatíveis.
+                        </Typography>
+                      )}
                     </Grid>
                     {values.type === "dialogflow" && (
                       <>
@@ -646,7 +664,7 @@ const QueueIntegration = ({ open, onClose, integrationId }) => {
                       </>
                     )}
 
-                    {(values.type === "n8n" || values.type === "webhook") && (
+                    {isWebhookType(values.type) && (
                       <>
                         <Grid item xs={12} md={6} xl={6}>
                           <Field

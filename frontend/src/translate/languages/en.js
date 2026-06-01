@@ -97,9 +97,9 @@ const messages = {
 				form: {
 					name: "Name",
 					default: "Default",
-					n8nMessageIntegrationId: "N8N webhook for message events",
+					n8nMessageIntegrationId: "Webhook for message events",
 					n8nMessageIntegrationHelp:
-						"Choose which N8N/Webhook integration should receive only this channel's message events.",
+						"Choose which Webhook should receive only this channel's message events.",
 				},
 				buttons: {
 					okAdd: "Add",

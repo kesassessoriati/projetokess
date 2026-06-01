@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
-import n8n from "../../assets/n8n.png";
 import dialogflow from "../../assets/dialogflow.png";
 import webhooks from "../../assets/webhook.png";
 import typebot from "../../assets/typebot.jpg";
@@ -35,6 +34,17 @@ import usePlans from "../../hooks/usePlans";
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 import ForbiddenPage from "../../components/ForbiddenPage";
 import AddIcon from "@material-ui/icons/Add";
+
+const WEBHOOK_TYPES = ["n8n", "webhook"];
+
+const getIntegrationTypeLabel = (type) => {
+  if (WEBHOOK_TYPES.includes(type)) return "Webhook";
+  if (type === "flowbuilder") return "Flowbuilder (Legado)";
+  if (type === "openai") return "ChatGPT / OpenAI (Legado)";
+  if (type === "dialogflow") return "DialogFlow";
+  if (type === "typebot") return "Typebot";
+  return type || "Integração";
+};
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -423,8 +433,7 @@ const QueueIntegration = () => {
 
   const getIntegrationLogo = (type) => {
     if (type === "dialogflow") return dialogflow;
-    if (type === "n8n") return n8n;
-    if (type === "webhook") return webhooks;
+    if (WEBHOOK_TYPES.includes(type)) return webhooks;
     if (type === "typebot") return typebot;
     if (type === "flowbuilder") return flowbuilder;
     if (type === "openai") return chatgpt;
@@ -551,7 +560,7 @@ const QueueIntegration = () => {
                       <Box key={integration.id} className={classes.card}>
                         <img
                           src={getIntegrationLogo(integration.type)}
-                          alt={integration.type}
+                          alt={getIntegrationTypeLabel(integration.type)}
                           className={classes.logo}
                         />
                         <Box className={classes.cardInfo}>
@@ -559,7 +568,7 @@ const QueueIntegration = () => {
                             {integration.name}
                           </Typography>
                           <Typography variant="body2" color="textSecondary">
-                            Tipo: {integration.type}
+                            Tipo: {getIntegrationTypeLabel(integration.type)}
                           </Typography>
                         </Box>
                         <Box className={classes.cardActions}>
