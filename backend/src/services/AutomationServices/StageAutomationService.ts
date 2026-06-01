@@ -4,10 +4,10 @@ import EventBus from "../../libs/EventBus";
 import Automation from "../../models/Automation";
 import AutomationAction from "../../models/AutomationAction";
 import AutomationExecution from "../../models/AutomationExecution";
-import Opportunity from "../../models/Opportunity";
-import Contact from "../../models/Contact";
-import Ticket from "../../models/Ticket";
-import { processAutomationForContact } from "./ProcessAutomationService";
+import {
+  processAutomationForContact,
+  resolveOpportunityAutomationContext
+} from "./ProcessAutomationService";
 import logger from "../../utils/logger";
 
 class StageAutomationService {
@@ -71,103 +71,21 @@ class StageAutomationService {
 
         logger.info(`[StageAutomationService] Encontradas ${matchingAutomations.length} automações correspondentes para a etapa ${toStageId}`);
 
-        // Buscar oportunidade com contato e ticket
-        const opportunity = await Opportunity.findByPk(opportunityId, {
-          include: [
-            { model: Contact, as: "contact" },
-            { model: Ticket, as: "ticket" }
-          ]
+        const allActions = matchingAutomations.flatMap(a => a.actions || []);
+        const context = await resolveOpportunityAutomationContext({
+          companyId,
+          opportunityId,
+          actions: allActions
         });
+        const { opportunity, contact, ticket } = context;
 
         if (!opportunity) {
           logger.warn(`[StageAutomationService] Oportunidade ${opportunityId} não localizada`);
           return;
         }
 
-        if (!opportunity.contact) {
-          logger.warn(`[StageAutomationService] Oportunidade ${opportunityId} sem contato associado. Ações que requerem contato (send_message, add_tag) serão ignoradas.`);
-        }
-
-        // Regra do WhatsApp (Apenas para send_message)
-        // Só criar/carregar ticket se houver alguma ação do tipo "send_message" nas automações correspondentes
-        const hasSendMessage = matchingAutomations.some(a =>
-          a.actions && a.actions.some(act => act.actionType === "send_message")
-        );
-
-        const contact = opportunity.contact || null;
-
-        let ticket = opportunity.ticket || null;
-        if (hasSendMessage && contact && !ticket) {
-          logger.info(`[StageAutomationService] Automação com disparo de WhatsApp detectada. Buscando ticket aberto para contato ${contact.id}`);
-
-          ticket = await Ticket.findOne({
-            where: {
-              contactId: contact.id,
-              companyId,
-              status: "open"
-            },
-            order: [["updatedAt", "DESC"]]
-          });
-
-          if (!ticket) {
-            logger.info(`[StageAutomationService] Nenhum ticket aberto encontrado para contato ${contact.id}. Criando novo ticket via FindOrCreateTicketService`);
-
-            const GetDefaultWhatsApp = (await import("../../helpers/GetDefaultWhatsApp")).default;
-            const FindOrCreateTicketService = (await import("../TicketServices/FindOrCreateTicketService")).default;
-
-            try {
-              // Preferir whatsappId configurado na ação send_message antes de buscar o padrão
-              const sendMessageAction = matchingAutomations
-                .flatMap(a => a.actions || [])
-                .find(act => act.actionType === "send_message");
-              const configWhatsappId = sendMessageAction?.actionConfig?.whatsappId;
-
-              let whatsappForTicket: any = null;
-              if (configWhatsappId) {
-                const WhatsappModel = (await import("../../models/Whatsapp")).default;
-                whatsappForTicket = await WhatsappModel.findOne({
-                  where: { id: Number(configWhatsappId), companyId }
-                });
-                if (whatsappForTicket) {
-                  logger.info(`[StageAutomationService] Usando WhatsApp ${configWhatsappId} da configuração da ação para criar ticket`);
-                }
-              }
-              if (!whatsappForTicket) {
-                whatsappForTicket = await GetDefaultWhatsApp(companyId);
-              }
-
-              if (whatsappForTicket) {
-                if (contact.number) {
-                  ticket = await FindOrCreateTicketService(
-                    contact,
-                    whatsappForTicket,
-                    0,
-                    companyId,
-                    0,
-                    null,
-                    null,
-                    "whatsapp",
-                    null,
-                    false
-                  );
-                  logger.info(`[StageAutomationService] Novo ticket ${ticket.id} criado com sucesso`);
-                } else {
-                  logger.warn(`[StageAutomationService] Contato ${contact.id} sem telefone válido. send_message será ignorada.`);
-                }
-              } else {
-                logger.warn(`[StageAutomationService] Nenhum WhatsApp configurado (nem na ação, nem como padrão) para empresa ${companyId}. send_message será ignorada.`);
-              }
-            } catch (err: any) {
-              logger.error(`[StageAutomationService] Falha ao gerar ticket automático: ${err.message}`);
-            }
-          }
-
-          if (ticket) {
-            await opportunity.update({ ticketId: ticket.id });
-            logger.info(`[StageAutomationService] Oportunidade ${opportunityId} vinculada ao ticket ${ticket.id}`);
-          }
-        } else if (hasSendMessage && !contact) {
-          logger.warn(`[StageAutomationService] Oportunidade ${opportunityId} sem contato - send_message será ignorada.`);
+        if (!contact) {
+          logger.warn(`[StageAutomationService] ${context.missingReason || `Oportunidade ${opportunityId} sem contato associado.`}`);
         }
 
         for (const automation of matchingAutomations) {

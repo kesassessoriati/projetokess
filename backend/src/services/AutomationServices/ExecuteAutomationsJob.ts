@@ -7,7 +7,12 @@ import Automation from "../../models/Automation";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import logger from "../../utils/logger";
-import { executeAction, getCampaignSettings, isWithinDispatchHours } from "./ProcessAutomationService";
+import {
+  executeAction,
+  getCampaignSettings,
+  isWithinDispatchHours,
+  resolveOpportunityAutomationContext
+} from "./ProcessAutomationService";
 import processBirthdayAutomations from "./TriggerBirthdayService";
 import { processKanbanTimeAutomations } from "./TriggerKanbanService";
 import processNoResponseAutomations from "./TriggerNoResponseService";
@@ -49,8 +54,8 @@ export const executeScheduledAutomations = async (): Promise<void> => {
         });
 
         const action = execution.automationAction;
-        const contact = execution.contact || null;
-        const ticket = execution.ticket || null;
+        let contact = execution.contact || null;
+        let ticket = execution.ticket || null;
         const automation = execution.automation;
 
         if (!action) {
@@ -65,6 +70,17 @@ export const executeScheduledAutomations = async (): Promise<void> => {
         }
 
         const opportunityId = (execution.metadata as any)?.opportunityId || undefined;
+        if (opportunityId) {
+          const context = await resolveOpportunityAutomationContext({
+            companyId,
+            opportunityId,
+            contact,
+            ticket,
+            actions: [action]
+          });
+          contact = context.contact;
+          ticket = context.ticket;
+        }
 
         // Executar a ação
         const result = await executeAction(action, contact, ticket, companyId, opportunityId);

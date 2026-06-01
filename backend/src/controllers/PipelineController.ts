@@ -369,59 +369,18 @@ export const testStageAutomation = async (req: Request, res: Response): Promise<
         return res.status(404).json({ error: "Nenhuma ação configurada nesta automação" });
     }
 
-    const Opportunity = (await import("../models/Opportunity")).default;
-    const Contact = (await import("../models/Contact")).default;
-    const Ticket = (await import("../models/Ticket")).default;
+    const {
+        executeAction,
+        resolveOpportunityAutomationContext
+    } = await import("../services/AutomationServices/ProcessAutomationService");
 
-    const opportunity = await Opportunity.findOne({
-        where: { id: Number(opportunityId), companyId },
-        include: [
-            { model: Contact, as: "contact" },
-            { model: Ticket, as: "ticket" }
-        ]
+    const context = await resolveOpportunityAutomationContext({
+        companyId,
+        opportunityId: Number(opportunityId),
+        actions
     });
-
+    const { opportunity, contact, ticket } = context;
     if (!opportunity) return res.status(404).json({ error: "Oportunidade não encontrada" });
-
-    const contact = (opportunity as any).contact || null;
-    let ticket = (opportunity as any).ticket || null;
-
-    // Se há send_message e não há ticket, tenta encontrar ou criar um
-    const hasSendMessage = actions.some(a => a.actionType === "send_message");
-    if (hasSendMessage && contact && !ticket) {
-        ticket = await Ticket.findOne({
-            where: { contactId: contact.id, companyId, status: "open" },
-            order: [["updatedAt", "DESC"]]
-        });
-
-        if (!ticket && contact.number) {
-            const sendAction = actions.find(a => a.actionType === "send_message");
-            const configWhatsappId = sendAction?.actionConfig?.whatsappId;
-
-            let whatsappForTicket: any = null;
-            if (configWhatsappId) {
-                const WhatsappModel = (await import("../models/Whatsapp")).default;
-                whatsappForTicket = await WhatsappModel.findOne({ where: { id: Number(configWhatsappId), companyId } });
-            }
-            if (!whatsappForTicket) {
-                const GetDefaultWhatsApp = (await import("../helpers/GetDefaultWhatsApp")).default;
-                whatsappForTicket = await GetDefaultWhatsApp(companyId);
-            }
-
-            if (whatsappForTicket) {
-                try {
-                    const FindOrCreateTicketService = (await import("../services/TicketServices/FindOrCreateTicketService")).default;
-                    ticket = await FindOrCreateTicketService(contact, whatsappForTicket, 0, companyId, 0, null, null, "whatsapp", null, false);
-                    await (opportunity as any).update({ ticketId: ticket.id });
-                    logger.info(`[testStageAutomation] Ticket ${ticket.id} criado para oportunidade ${opportunityId}`);
-                } catch (err: any) {
-                    logger.error(`[testStageAutomation] Falha ao criar ticket: ${err.message}`);
-                }
-            }
-        }
-    }
-
-    const { executeAction } = await import("../services/AutomationServices/ProcessAutomationService");
     const results: Array<{ order: number; type: string; success: boolean; message: string }> = [];
 
     for (const action of actions) {

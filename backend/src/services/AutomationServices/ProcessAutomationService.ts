@@ -35,6 +35,22 @@ interface CampaignSettings {
   automationWindows: Record<string, AutomationWindowConfig>;
 }
 
+interface OpportunityAutomationContextRequest {
+  companyId: number;
+  opportunityId?: number;
+  contact?: Contact | null;
+  ticket?: Ticket | null;
+  actions?: AutomationAction[];
+}
+
+interface OpportunityAutomationContext {
+  opportunity: any | null;
+  contact: Contact | null;
+  ticket: Ticket | null;
+  phoneNumber: string | null;
+  missingReason?: string;
+}
+
 const AUTOMATION_WINDOW_REGEX = /^automation_(.+)_(startHour|endHour|sabado|domingo)$/;
 
 const INSTANT_ACTIONS = new Set([
@@ -160,6 +176,157 @@ export const getNextDispatchDate = (
   }
 };
 
+export const resolveOpportunityAutomationContext = async ({
+  companyId,
+  opportunityId,
+  contact: initialContact = null,
+  ticket: initialTicket = null,
+  actions = []
+}: OpportunityAutomationContextRequest): Promise<OpportunityAutomationContext> => {
+  let contact = initialContact;
+  let ticket = initialTicket;
+  let opportunity: any = null;
+
+  if (opportunityId) {
+    const Opportunity = (await import("../../models/Opportunity")).default;
+    const CrmLead = (await import("../../models/CrmLead")).default;
+
+    opportunity = await Opportunity.findOne({
+      where: { id: opportunityId, companyId },
+      include: [
+        { model: Contact, as: "contact", required: false },
+        {
+          model: Ticket,
+          as: "ticket",
+          required: false,
+          include: [{ model: Contact, as: "contact", required: false }]
+        },
+        {
+          model: CrmLead,
+          as: "lead",
+          required: false,
+          include: [
+            { model: Contact, as: "contact", required: false },
+            {
+              model: Ticket,
+              as: "primaryTicket",
+              required: false,
+              include: [{ model: Contact, as: "contact", required: false }]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!opportunity) {
+      return {
+        opportunity: null,
+        contact,
+        ticket,
+        phoneNumber: contact?.number || null,
+        missingReason: "Oportunidade não encontrada."
+      };
+    }
+
+    ticket = ticket || opportunity.ticket || opportunity.lead?.primaryTicket || null;
+    contact =
+      contact ||
+      opportunity.contact ||
+      ticket?.contact ||
+      opportunity.lead?.contact ||
+      opportunity.lead?.primaryTicket?.contact ||
+      null;
+
+    if (!contact && opportunity.contactId) {
+      contact = await Contact.findOne({ where: { id: opportunity.contactId, companyId } });
+    }
+
+    if (!contact && ticket?.contactId) {
+      contact = await Contact.findOne({ where: { id: ticket.contactId, companyId } });
+    }
+
+    if (!contact && opportunity.lead?.contactId) {
+      contact = await Contact.findOne({ where: { id: opportunity.lead.contactId, companyId } });
+    }
+
+    if (!contact && opportunity.lead?.primaryTicket?.contactId) {
+      contact = await Contact.findOne({
+        where: { id: opportunity.lead.primaryTicket.contactId, companyId }
+      });
+    }
+  }
+
+  const phoneNumber =
+    contact?.number ||
+    opportunity?.lead?.phone ||
+    opportunity?.lead?.decisionMakerPhone ||
+    null;
+
+  const hasSendMessage = actions.some(action => action.actionType === "send_message");
+
+  if (hasSendMessage && contact && !ticket) {
+    ticket = await Ticket.findOne({
+      where: {
+        contactId: contact.id,
+        companyId,
+        status: { [Op.notIn]: ["closed", "lgpd", "nps"] }
+      },
+      order: [["updatedAt", "DESC"]]
+    });
+  }
+
+  if (hasSendMessage && contact && !ticket && contact.number) {
+    const sendMessageAction = actions.find(action => action.actionType === "send_message");
+    const configWhatsappId = sendMessageAction?.actionConfig?.whatsappId;
+
+    let whatsappForTicket: any = null;
+    if (configWhatsappId) {
+      const WhatsappModel = (await import("../../models/Whatsapp")).default;
+      whatsappForTicket = await WhatsappModel.findOne({
+        where: { id: Number(configWhatsappId), companyId }
+      });
+    }
+
+    if (!whatsappForTicket) {
+      const GetDefaultWhatsApp = (await import("../../helpers/GetDefaultWhatsApp")).default;
+      whatsappForTicket = await GetDefaultWhatsApp(companyId);
+    }
+
+    if (whatsappForTicket) {
+      const FindOrCreateTicketService = (await import("../TicketServices/FindOrCreateTicketService")).default;
+      ticket = await FindOrCreateTicketService(
+        contact,
+        whatsappForTicket,
+        0,
+        companyId,
+        0,
+        null,
+        null,
+        "whatsapp",
+        null,
+        false
+      );
+
+      if (opportunity && ticket && Number(opportunity.ticketId) !== Number(ticket.id)) {
+        await opportunity.update({ ticketId: ticket.id });
+      }
+    }
+  }
+
+  let missingReason: string | undefined;
+  if (!contact) {
+    missingReason =
+      "Não foi possível resolver contato: oportunidade não possui contato, ticket com contato ou lead com contato associado.";
+  } else if (hasSendMessage && !contact.number) {
+    missingReason = `Não foi possível enviar mensagem: contato ${contact.id} não possui telefone válido.`;
+  } else if (hasSendMessage && !ticket) {
+    missingReason =
+      "Não foi possível enviar mensagem: nenhum ticket ativo encontrado/criado para o contato.";
+  }
+
+  return { opportunity, contact, ticket, phoneNumber, missingReason };
+};
+
 // Calcular delay baseado nas configurações
 const calculateDelay = (settings: CampaignSettings, messageCount: number): number => {
   if (messageCount >= settings.longerIntervalAfter) {
@@ -179,12 +346,18 @@ const executeActionSendMessage = async (
   try {
     if (!contact) {
       logger.warn(`[StageAutomation][WhatsApp] Oportunidade ${opportunityId} sem contato - send_message ignorada`);
-      return { success: false, message: "Oportunidade sem contato associado - send_message ignorada" };
+      return {
+        success: false,
+        message: "Não foi possível enviar mensagem: oportunidade não possui contato, ticket ou telefone associado."
+      };
     }
 
     if (!ticket) {
       logger.warn(`[StageAutomation][WhatsApp] Contato ${contact.id} sem ticket - send_message ignorada`);
-      return { success: false, message: "Ticket não encontrado para send_message" };
+      return {
+        success: false,
+        message: "Não foi possível enviar mensagem: nenhum ticket ativo encontrado/criado para o contato."
+      };
     }
 
     const { message, whatsappId, quickReplyId, mediaId } = action.actionConfig || {};
@@ -313,7 +486,10 @@ const executeActionAddTag = async (
 ): Promise<{ success: boolean; message: string }> => {
   try {
     if (!contact) {
-      return { success: false, message: "Oportunidade sem contato - add_tag ignorada" };
+      return {
+        success: false,
+        message: "Não foi possível aplicar etiqueta: oportunidade não possui contato, ticket ou lead com contato associado."
+      };
     }
 
     const { tagId } = action.actionConfig;
@@ -755,6 +931,16 @@ export const processAutomationForContact = async (
     where: { automationId: automation.id },
     order: [["order", "ASC"]]
   });
+
+  const context = await resolveOpportunityAutomationContext({
+    companyId,
+    opportunityId,
+    contact,
+    ticket,
+    actions
+  });
+  contact = context.contact;
+  ticket = context.ticket;
 
   let messageCount = 0;
 
