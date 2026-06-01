@@ -15,6 +15,7 @@ import {
 import Queue from "./Queue";
 import Company from "./Company";
 import PromptToolSetting from "./PromptToolSetting";
+import PromptChannelBinding from "./PromptChannelBinding";
 
 @Table
 class Prompt extends Model<Prompt> {
@@ -102,6 +103,9 @@ class Prompt extends Model<Prompt> {
 
   @HasMany(() => PromptToolSetting)
   toolSettings: PromptToolSetting[];
+
+  @HasMany(() => PromptChannelBinding)
+  channelBindings: PromptChannelBinding[];
 
   @AllowNull(true)
   @Column({ type: DataType.JSONB, defaultValue: [] })

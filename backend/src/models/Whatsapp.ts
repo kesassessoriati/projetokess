@@ -28,6 +28,7 @@ import Prompt from "./Prompt";
 import { FlowBuilderModel } from "./FlowBuilder";
 import WhatsappWarmup from "./WhatsappWarmup";
 import Chip from "./Chip";
+import PromptChannelBinding from "./PromptChannelBinding";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -296,6 +297,9 @@ class Whatsapp extends Model<Whatsapp> {
 
   @BelongsTo(() => Prompt)
   prompt: Prompt;
+
+  @HasMany(() => PromptChannelBinding)
+  promptChannelBindings: PromptChannelBinding[];
 
   @Column
   collectiveVacationMessage: string;

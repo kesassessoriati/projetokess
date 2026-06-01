@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/node";
 import { isNil, isArray } from "lodash";
 import ShowPromptService from "../PromptServices/ShowPromptService";
 import ListPromptToolSettingsService from "../PromptToolSettingService/ListPromptToolSettingsService";
+import ResolvePromptChannelBindingService from "../PromptChannelBindingServices/ResolvePromptChannelBindingService";
 import { REDIS_URI_MSG_CONN } from "../../config/redis";
 import axios, { AxiosError } from "axios";
 
@@ -6205,15 +6206,19 @@ const handleMessage = async (
     // openai na conexão
     // IA só responde se ticket NÃO tiver usuário vinculado
     // (independente de ter fila ou não)
-    if (
-      !isGroup &&
-      !msg.key.fromMe &&
-      !isNil(whatsapp.promptId) &&
-      !ticket.userId
-    ) {
-      const { prompt } = whatsapp;
+    if (!isGroup && !msg.key.fromMe && !ticket.userId) {
+      const channelBindingPrompt = await ResolvePromptChannelBindingService({
+        companyId,
+        channelType: "whatsapp",
+        whatsappId: whatsapp.id,
+        event: "message_received"
+      }).catch(error => {
+        console.error("Erro ao resolver agente por canal:", error);
+        return null;
+      });
+      const prompt = channelBindingPrompt || whatsapp.prompt;
 
-      if (prompt) {
+      if (prompt && (channelBindingPrompt || !isNil(whatsapp.promptId))) {
         try {
           const toolsEnabled = await ListPromptToolSettingsService({
             companyId,
@@ -6223,7 +6228,6 @@ const handleMessage = async (
         } catch (error) {
           console.error("Erro ao carregar toolsEnabled (WhatsApp prompt):", error);
         }
-      }
 
       // 🎧🖼️ Se for áudio ou imagem, envia direto sem buffer (será normalizado no OpenAiService)
       if (msg.message?.audioMessage || msg.message?.imageMessage) {
@@ -6284,6 +6288,7 @@ const handleMessage = async (
           console.error("❌ Erro ao processar mensagens agrupadas (Conexão):", error);
         }
       }, 8000); // 8 segundos
+      }
     }
 
     console.log("log... 4444", { ticket });

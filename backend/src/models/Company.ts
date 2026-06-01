@@ -26,6 +26,7 @@ import Whatsapp from "./Whatsapp";
 import CompaniesSettings from "./CompaniesSettings";
 import Invoices from "./Invoices";
 import CompanyPaymentSetting from "./CompanyPaymentSetting";
+import PromptChannelBinding from "./PromptChannelBinding";
 
 @Table
 class Company extends Model<Company> {
@@ -148,6 +149,13 @@ class Company extends Model<Company> {
     hooks: true
   })
   whatsapps: Whatsapp[];
+
+  @HasMany(() => PromptChannelBinding, {
+    onUpdate: "CASCADE",
+    onDelete: "CASCADE",
+    hooks: true
+  })
+  promptChannelBindings: PromptChannelBinding[];
 
   @HasMany(() => Message, {
     onUpdate: "CASCADE",

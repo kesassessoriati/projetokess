@@ -184,6 +184,7 @@ import GfIaAnalysisResult from "../models/GfIaAnalysisResult";
 import Chip from "../models/Chip";
 import ChipActivityLog from "../models/ChipActivityLog";
 import AIUsageLog from "../models/AIUsageLog";
+import PromptChannelBinding from "../models/PromptChannelBinding";
 import AiExternalAgentConfig from "../models/AiExternalAgentConfig";
 import AiExternalPromptVersion from "../models/AiExternalPromptVersion";
 import AiExternalAgentEvent from "../models/AiExternalAgentEvent";
@@ -285,6 +286,7 @@ const models = [
   Prompt,
   PromptToolSetting,
   AIUsageLog,
+  PromptChannelBinding,
   AiExternalAgentConfig,
   AiExternalPromptVersion,
   AiExternalAgentEvent,
