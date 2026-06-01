@@ -116,12 +116,31 @@ class StageAutomationService {
             const FindOrCreateTicketService = (await import("../TicketServices/FindOrCreateTicketService")).default;
 
             try {
-              const defaultWhatsapp = await GetDefaultWhatsApp(companyId);
-              if (defaultWhatsapp) {
+              // Preferir whatsappId configurado na ação send_message antes de buscar o padrão
+              const sendMessageAction = matchingAutomations
+                .flatMap(a => a.actions || [])
+                .find(act => act.actionType === "send_message");
+              const configWhatsappId = sendMessageAction?.actionConfig?.whatsappId;
+
+              let whatsappForTicket: any = null;
+              if (configWhatsappId) {
+                const WhatsappModel = (await import("../../models/Whatsapp")).default;
+                whatsappForTicket = await WhatsappModel.findOne({
+                  where: { id: Number(configWhatsappId), companyId }
+                });
+                if (whatsappForTicket) {
+                  logger.info(`[StageAutomationService] Usando WhatsApp ${configWhatsappId} da configuração da ação para criar ticket`);
+                }
+              }
+              if (!whatsappForTicket) {
+                whatsappForTicket = await GetDefaultWhatsApp(companyId);
+              }
+
+              if (whatsappForTicket) {
                 if (contact.number) {
                   ticket = await FindOrCreateTicketService(
                     contact,
-                    defaultWhatsapp,
+                    whatsappForTicket,
                     0,
                     companyId,
                     0,
@@ -136,7 +155,7 @@ class StageAutomationService {
                   logger.warn(`[StageAutomationService] Contato ${contact.id} sem telefone válido. send_message será ignorada.`);
                 }
               } else {
-                logger.warn(`[StageAutomationService] Nenhum WhatsApp padrão configurado para empresa ${companyId}. send_message será ignorada.`);
+                logger.warn(`[StageAutomationService] Nenhum WhatsApp configurado (nem na ação, nem como padrão) para empresa ${companyId}. send_message será ignorada.`);
               }
             } catch (err: any) {
               logger.error(`[StageAutomationService] Falha ao gerar ticket automático: ${err.message}`);

@@ -52,6 +52,9 @@ import {
   Assignment as AssignmentIcon,
   GetApp as GetAppIcon2,
   PushPin as PushPinIcon,
+  PlayArrow as PlayArrowIcon,
+  CheckCircle as CheckCircleIcon,
+  ErrorOutline as ErrorOutlineIcon,
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -2928,6 +2931,20 @@ const PipelineBoard = () => {
   );
 };
 
+const ACTION_TYPE_LABELS = {
+  send_message: "Mensagem WhatsApp",
+  create_task: "Criar Tarefa",
+  create_note: "Criar Anotação",
+  add_tag: "Aplicar Etiqueta",
+  move_lead: "Mover de Etapa",
+  call_task: "Tarefa de Ligação",
+  remove_tag: "Remover Etiqueta",
+  transfer_queue: "Transferir Fila",
+  transfer_user: "Transferir Atendente",
+  close_ticket: "Fechar Ticket",
+  wait: "Aguardar",
+};
+
 const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [enabled, setEnabled] = useState(false);
   const [actions, setActions] = useState([]);
@@ -2935,6 +2952,10 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [quickReplyModalIndex, setQuickReplyModalIndex] = useState(-1);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testOpportunityId, setTestOpportunityId] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResults, setTestResults] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -3105,6 +3126,34 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     }));
   };
 
+  const handleOpenTestDialog = () => {
+    const opps = stage?.opportunities || [];
+    setTestOpportunityId(opps.length > 0 ? String(opps[0].id) : "");
+    setTestResults(null);
+    setTestDialogOpen(true);
+  };
+
+  const handleRunTest = async () => {
+    if (!testOpportunityId) {
+      toast.error("Selecione uma oportunidade para o teste.");
+      return;
+    }
+    setTesting(true);
+    setTestResults(null);
+    try {
+      const { data } = await api.post(
+        `/pipelines/${stage.pipelineId}/stages/${stage.id}/automation/test`,
+        { opportunityId: Number(testOpportunityId), skipDelays: true }
+      );
+      setTestResults(data);
+    } catch (err) {
+      const msg = err?.response?.data?.error || "Erro ao executar teste de automação";
+      toast.error(msg);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" style={{ minHeight: 200 }}>
@@ -3113,6 +3162,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     );
   }
 
+  const stageOpportunities = stage?.opportunities || [];
+
   return (
     <Box display="flex" flexDirection="column" style={{ gap: 16 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" p={2} style={{ backgroundColor: "#f9fafb", borderRadius: 12, border: "1px solid #e5e7eb" }}>
@@ -3120,11 +3171,29 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
           <Typography variant="subtitle2" style={{ fontWeight: 800 }}>Ativar Automação da Etapa</Typography>
           <Typography variant="caption" style={{ color: "#6b7280" }}>Executa ações configuradas ao mover lead para esta etapa</Typography>
         </Box>
-        <Switch
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          color="primary"
-        />
+        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+          <Tooltip title="Testar automação manualmente">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleOpenTestDialog}
+                disabled={!enabled || actions.length === 0}
+                style={{
+                  backgroundColor: enabled && actions.length > 0 ? "#effaf4" : undefined,
+                  color: enabled && actions.length > 0 ? "#1f9d55" : undefined,
+                  border: "1px solid #d1fae5",
+                }}
+              >
+                <PlayArrowIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Switch
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            color="primary"
+          />
+        </Box>
       </Box>
 
       {enabled && (
@@ -3440,6 +3509,104 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
           }
         }}
       />
+
+      {/* Dialog de Teste de Automação */}
+      <Dialog
+        open={testDialogOpen}
+        onClose={() => { if (!testing) setTestDialogOpen(false); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle disableTypography style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+            <PlayArrowIcon style={{ color: "#1f9d55" }} />
+            <Typography variant="h6" style={{ fontWeight: 800 }}>Testar Automação</Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setTestDialogOpen(false)} disabled={testing}>
+            <ClearIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" style={{ color: "#6b7280", marginBottom: 16 }}>
+            Executa as ações configuradas nesta automação para a oportunidade selecionada.
+            Os delays configurados são ignorados no teste.
+          </Typography>
+
+          {stageOpportunities.length === 0 ? (
+            <Box p={3} style={{ backgroundColor: "#fef9c3", borderRadius: 8, border: "1px solid #fde047", textAlign: "center" }}>
+              <Typography variant="body2" style={{ color: "#854d0e" }}>
+                Nenhuma oportunidade nesta etapa. Mova um card para esta etapa antes de testar.
+              </Typography>
+            </Box>
+          ) : (
+            <FormControl variant="outlined" size="small" fullWidth>
+              <InputLabel>Selecionar Oportunidade para Teste</InputLabel>
+              <Select
+                value={testOpportunityId}
+                onChange={(e) => setTestOpportunityId(e.target.value)}
+                label="Selecionar Oportunidade para Teste"
+                disabled={testing}
+              >
+                {stageOpportunities.map(op => (
+                  <MenuItem key={op.id} value={String(op.id)}>
+                    {op.title || op.contact?.name || `Oportunidade #${op.id}`}
+                    {op.contact?.name && op.title ? ` — ${op.contact.name}` : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {testResults && (
+            <Box mt={2} display="flex" flexDirection="column" style={{ gap: 8 }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, marginTop: 8 }}>
+                Resultado do Teste ({testResults.executedActions.filter(r => r.success).length}/{testResults.executedActions.length} ações executadas)
+              </Typography>
+              {testResults.executedActions.map((item, i) => (
+                <Box
+                  key={i}
+                  display="flex"
+                  alignItems="flex-start"
+                  style={{
+                    gap: 10,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    backgroundColor: item.success ? "#f0fdf4" : "#fef2f2",
+                    border: `1px solid ${item.success ? "#bbf7d0" : "#fecaca"}`,
+                  }}
+                >
+                  {item.success
+                    ? <CheckCircleIcon style={{ color: "#16a34a", fontSize: 18, marginTop: 2, flexShrink: 0 }} />
+                    : <ErrorOutlineIcon style={{ color: "#dc2626", fontSize: 18, marginTop: 2, flexShrink: 0 }} />
+                  }
+                  <Box>
+                    <Typography variant="caption" style={{ fontWeight: 700, color: item.success ? "#15803d" : "#b91c1c", display: "block" }}>
+                      Ação {item.order}: {ACTION_TYPE_LABELS[item.type] || item.type}
+                    </Typography>
+                    <Typography variant="caption" style={{ color: item.success ? "#166534" : "#991b1b" }}>
+                      {item.message}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions style={{ padding: 16 }}>
+          <Button onClick={() => setTestDialogOpen(false)} disabled={testing}>
+            Fechar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRunTest}
+            disabled={testing || stageOpportunities.length === 0 || !testOpportunityId}
+            startIcon={testing ? <CircularProgress size={16} style={{ color: "#fff" }} /> : <PlayArrowIcon />}
+            style={{ backgroundColor: "#1f9d55", color: "#fff" }}
+          >
+            {testing ? "Executando..." : "Executar Teste"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
