@@ -135,15 +135,19 @@ class PromptChannelBinding extends Model<PromptChannelBinding> {
       where.id = { [Op.ne]: binding.id };
     }
 
-    where.whatsappId =
-      binding.whatsappId === null || typeof binding.whatsappId === "undefined"
-        ? { [Op.is]: null }
-        : binding.whatsappId;
+    const hasWhatsappId =
+      binding.whatsappId !== null && typeof binding.whatsappId !== "undefined";
+    const hasChannelId =
+      binding.channelId !== null && typeof binding.channelId !== "undefined";
 
-    where.channelId =
-      binding.channelId === null || typeof binding.channelId === "undefined"
-        ? { [Op.is]: null }
-        : binding.channelId;
+    if (hasWhatsappId) {
+      where.whatsappId = binding.whatsappId;
+    } else {
+      where.whatsappId = { [Op.is]: null };
+      where.channelId = hasChannelId
+        ? binding.channelId
+        : { [Op.is]: null };
+    }
 
     const candidates = await PromptChannelBinding.findAll({
       where,
