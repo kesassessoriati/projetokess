@@ -225,6 +225,8 @@ const SessionSchema = Yup.object().shape({
   channel: Yup.string(),
 });
 
+const HIDE_LEGACY_INTERNAL_CHANNEL_CONFIG = true;
+
 const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
   const classes = useStyles();
   const [autoToken, setAutoToken] = useState("");
@@ -756,6 +758,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                     }
                     value={"nps"}
                   />
+                  {!HIDE_LEGACY_INTERNAL_CHANNEL_CONFIG && (
                   <Tab
                     label={
                       <div className={classes.fieldWithIcon}>
@@ -765,6 +768,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                     }
                     value={"flowbuilder"}
                   />
+                  )}
                   {schedulesEnabled && (
                     <Tab
                       label={
@@ -1302,7 +1306,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                     <Typography variant="caption" color="textSecondary">
                       {i18n.t("whatsappModal.form.n8nMessageIntegrationHelp")}
                     </Typography>
-                    {showOpenAi && (
+                    {showOpenAi && !HIDE_LEGACY_INTERNAL_CHANNEL_CONFIG && (
                       <div className={classes.fieldWithIcon}>
                         <AutoAwesomeIcon className={classes.icon} />
                         <FormControl
@@ -1701,7 +1705,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                     </div>
                   </DialogContent>
                 </TabPanel>
-                {showIntegrations && (
+                {showIntegrations && !HIDE_LEGACY_INTERNAL_CHANNEL_CONFIG && (
                   <>
                     <TabPanel
                       className={classes.container}

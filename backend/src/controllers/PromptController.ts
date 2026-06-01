@@ -5,6 +5,9 @@ import DeletePromptService from "../services/PromptServices/DeletePromptService"
 import ListPromptsService from "../services/PromptServices/ListPromptsService";
 import ShowPromptService from "../services/PromptServices/ShowPromptService";
 import UpdatePromptService from "../services/PromptServices/UpdatePromptService";
+import DuplicatePromptService from "../services/PromptServices/DuplicatePromptService";
+import GetPromptMetricsService from "../services/PromptServices/GetPromptMetricsService";
+import SavePromptChannelBindingService from "../services/PromptChannelBindingServices/SavePromptChannelBindingService";
 import Whatsapp from "../models/Whatsapp";
 import { verify } from "jsonwebtoken";
 import authConfig from "../config/auth";
@@ -65,7 +68,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     templateKey,
     description,
     toolsEnabled,
-    knowledgeBase
+    knowledgeBase,
+    channelBinding
   } = req.body;
   console.log("[PromptController.store] toolsEnabled:", toolsEnabled);
   const promptTable = await CreatePromptService({
@@ -92,14 +96,24 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     knowledgeBase
   });
 
+  if (channelBinding) {
+    await SavePromptChannelBindingService({
+      companyId: Number(companyId),
+      promptId: promptTable.id,
+      ...channelBinding
+    });
+  }
+
+  const promptWithBindings = await ShowPromptService({ promptId: promptTable.id, companyId });
+
   const io = getIO();
   io.of(String(companyId))
   .emit(`company-${companyId}-prompt`, {
     action: "create",
-    prompt: getPromptSafeResponse(promptTable)
+    prompt: getPromptSafeResponse(promptWithBindings)
   });
 
-  return res.status(200).json(getPromptSafeResponse(promptTable));
+  return res.status(200).json(getPromptSafeResponse(promptWithBindings));
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -128,14 +142,80 @@ export const update = async (
 
   const prompt = await UpdatePromptService({ promptData, promptId: promptId, companyId });
 
+  if (promptData.channelBinding) {
+    await SavePromptChannelBindingService({
+      companyId: Number(companyId),
+      promptId: Number(promptId),
+      ...promptData.channelBinding
+    });
+  }
+
+  const promptWithBindings = await ShowPromptService({ promptId, companyId });
+
   const io = getIO();
   io.of(String(companyId))
   .emit(`company-${companyId}-prompt`, {
     action: "update",
-    prompt: getPromptSafeResponse(prompt)
+    prompt: getPromptSafeResponse(promptWithBindings)
   });
 
+  return res.status(200).json(getPromptSafeResponse(promptWithBindings));
+};
+
+export const duplicate = async (req: Request, res: Response): Promise<Response> => {
+  const { promptId } = req.params;
+  const authHeader = req.headers.authorization;
+  const [, token] = authHeader.split(" ");
+  const decoded = verify(token, authConfig.secret);
+  const { companyId } = decoded as TokenPayload;
+
+  const prompt = await DuplicatePromptService({ promptId, companyId });
+
+  const io = getIO();
+  io.of(String(companyId))
+    .emit(`company-${companyId}-prompt`, {
+      action: "create",
+      prompt: getPromptSafeResponse(prompt)
+    });
+
   return res.status(200).json(getPromptSafeResponse(prompt));
+};
+
+export const metrics = async (req: Request, res: Response): Promise<Response> => {
+  const { promptId } = req.params;
+  const authHeader = req.headers.authorization;
+  const [, token] = authHeader.split(" ");
+  const decoded = verify(token, authConfig.secret);
+  const { companyId } = decoded as TokenPayload;
+
+  const data = await GetPromptMetricsService({ promptId, companyId });
+  return res.status(200).json(data);
+};
+
+export const toggleBinding = async (req: Request, res: Response): Promise<Response> => {
+  const { promptId } = req.params;
+  const authHeader = req.headers.authorization;
+  const [, token] = authHeader.split(" ");
+  const decoded = verify(token, authConfig.secret);
+  const { companyId } = decoded as TokenPayload;
+
+  const prompt = await ShowPromptService({ promptId, companyId });
+  const binding = (prompt as any).channelBindings?.find((item: any) => item.channelType === "whatsapp");
+
+  if (!binding?.whatsappId) {
+    return res.status(400).json({ error: "Configure um canal de atuação para ativar este agente." });
+  }
+
+  await SavePromptChannelBindingService({
+    companyId: Number(companyId),
+    promptId: Number(promptId),
+    whatsappId: binding.whatsappId,
+    isActive: !binding.isActive,
+    events: binding.events
+  });
+
+  const updated = await ShowPromptService({ promptId, companyId });
+  return res.status(200).json(getPromptSafeResponse(updated));
 };
 
 export const remove = async (

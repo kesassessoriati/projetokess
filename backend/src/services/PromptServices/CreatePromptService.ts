@@ -26,6 +26,7 @@ interface PromptData {
     description?: string;
     toolsEnabled?: string[];
     knowledgeBase?: any[];
+    channelBinding?: any;
 }
 
 const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
@@ -43,14 +44,15 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         model,
         aiUsageMode,
         templateKey,
-        description
+        description,
+        channelBinding: _channelBinding
     } = promptData;
     console.log("[CreatePromptService] toolsEnabled:", toolsEnabled);
 
     const promptSchema = Yup.object().shape({
         name: Yup.string().required("ERR_PROMPT_NAME_INVALID"),
         prompt: Yup.string().required("ERR_PROMPT_INTELLIGENCE_INVALID"),
-        queueId: Yup.number().required("ERR_PROMPT_QUEUEID_INVALID"),
+        queueId: Yup.number().nullable(),
         maxMessages: Yup.number().required("ERR_PROMPT_MAX_MESSAGES_INVALID"),
         companyId: Yup.number().required("ERR_PROMPT_companyId_INVALID"),
         provider: Yup.string().oneOf(["openai", "gemini", "openrouter", "groq"]).required("ERR_PROMPT_PROVIDER_INVALID"),
@@ -62,7 +64,7 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         await promptSchema.validate({
             name,
             prompt,
-            queueId,
+            queueId: queueId || null,
             maxMessages,
             companyId,
             provider,
@@ -76,8 +78,20 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
     }
 
     let promptTable = await Prompt.create({
-        ...promptData,
+        name,
+        prompt,
+        maxTokens: promptData.maxTokens,
+        temperature: promptData.temperature,
+        promptTokens: promptData.promptTokens,
+        completionTokens: promptData.completionTokens,
+        totalTokens: promptData.totalTokens,
+        maxMessages,
+        companyId: Number(companyId),
+        voice: promptData.voice,
+        voiceKey: promptData.voiceKey,
+        voiceRegion: promptData.voiceRegion,
         apiKey: apiKey || "",
+        queueId: queueId || null,
         provider,
         model,
         aiUsageMode,

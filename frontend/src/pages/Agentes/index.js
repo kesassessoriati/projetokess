@@ -303,6 +303,25 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: 2,
     ...theme.scrollbarStyles,
   },
+  duplicateButton: {
+    backgroundColor: "#f3e8ff",
+    color: "#7e22ce",
+    "&:hover": {
+      backgroundColor: "#e9d5ff",
+    },
+  },
+  metricsButton: {
+    backgroundColor: "#ecfdf5",
+    color: "#047857",
+    "&:hover": {
+      backgroundColor: "#d1fae5",
+    },
+  },
+  statusChip: {
+    fontWeight: 700,
+    fontSize: "0.68rem",
+    height: 22,
+  },
   externalMenuSecondary: {
     display: "flex",
     alignItems: "center",
@@ -2662,6 +2681,47 @@ const Prompts = () => {
     setSelectedPrompt(null);
   };
 
+  const getWhatsappBinding = (prompt) =>
+    (prompt.channelBindings || []).find((binding) => binding.channelType === "whatsapp");
+
+  const handleDuplicatePrompt = async (prompt) => {
+    try {
+      await api.post(`/prompt/${prompt.id}/duplicate`);
+      toast.success("Agente duplicado. O clone fica sem canal ativo para evitar conflito.");
+      reloadPage();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleTogglePrompt = async (prompt) => {
+    try {
+      await api.patch(`/prompt/${prompt.id}/channel-binding/toggle`);
+      toast.success("Status do agente atualizado.");
+      reloadPage();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsData, setMetricsData] = useState(null);
+
+  const handleOpenMetrics = async (prompt) => {
+    setSelectedPrompt(prompt);
+    setMetricsOpen(true);
+    setMetricsLoading(true);
+    try {
+      const { data } = await api.get(`/prompt/${prompt.id}/metrics`);
+      setMetricsData(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
   const filteredPrompts = prompts.filter((prompt) =>
     prompt.name?.toLowerCase().includes(searchParam.toLowerCase()) ||
     prompt.queue?.name?.toLowerCase().includes(searchParam.toLowerCase())
@@ -2715,6 +2775,48 @@ const Prompts = () => {
         onClose={handleClosePromptModal}
         promptId={selectedPrompt?.id}
       />
+      <Dialog open={metricsOpen} onClose={() => setMetricsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Métricas do agente</DialogTitle>
+        <DialogContent dividers>
+          {metricsLoading ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : (
+            <>
+              <Typography variant="subtitle1" style={{ fontWeight: 700 }}>
+                {selectedPrompt?.name}
+              </Typography>
+              <Box display="flex" flexWrap="wrap" gridGap={8} mt={2}>
+                <Chip label={`Usos: ${metricsData?.total || 0}`} />
+                <Chip label={`Sucessos: ${metricsData?.success || 0}`} />
+                <Chip label={`Erros: ${metricsData?.errors || 0}`} />
+                <Chip label={`Créditos: ${metricsData?.creditsConsumed || 0}`} />
+              </Box>
+              <Box mt={2}>
+                <Typography variant="subtitle2">Últimas execuções</Typography>
+                {(metricsData?.lastExecutions || []).length === 0 ? (
+                  <Typography variant="body2" color="textSecondary">
+                    Ainda não há registros de uso para este agente.
+                  </Typography>
+                ) : (
+                  (metricsData?.lastExecutions || []).map(item => (
+                    <Box key={item.id} display="flex" justifyContent="space-between" py={1}>
+                      <Typography variant="body2">
+                        {item.provider || "-"} / {item.model || "-"}
+                      </Typography>
+                      <Chip size="small" label={item.status} />
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMetricsOpen(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       <Box className={classes.agentTabs}>
         <button
@@ -2839,6 +2941,20 @@ const Prompts = () => {
                   <span>{i18n.t("prompts.table.queue")}: {prompt.queue?.name || "Sem fila"}</span>
                   <span>•</span>
                   <span>{i18n.t("prompts.table.max_tokens")}: {prompt.maxTokens}</span>
+                  {(() => {
+                    const binding = getWhatsappBinding(prompt);
+                    return (
+                      <Chip
+                        size="small"
+                        label={binding?.isActive ? "Ativo" : "Inativo"}
+                        className={classes.statusChip}
+                        style={{
+                          backgroundColor: binding?.isActive ? "#dcfce7" : "#f3f4f6",
+                          color: binding?.isActive ? "#166534" : "#6b7280"
+                        }}
+                      />
+                    );
+                  })()}
                 </Box>
                 <Box className={classes.toolsWrapper}>
                   {prompt.toolsEnabled?.length ? (
@@ -2880,6 +2996,35 @@ const Prompts = () => {
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
+                </Tooltip>
+                <Tooltip title="Duplicar">
+                  <IconButton
+                    size="small"
+                    className={`${classes.actionButton} ${classes.duplicateButton}`}
+                    onClick={() => handleDuplicatePrompt(prompt)}
+                  >
+                    <FileCopyIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Métricas">
+                  <IconButton
+                    size="small"
+                    className={`${classes.actionButton} ${classes.metricsButton}`}
+                    onClick={() => handleOpenMetrics(prompt)}
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={getWhatsappBinding(prompt) ? "Ativar/Desativar" : "Configure um canal de atuação para ativar"}>
+                  <span>
+                    <Switch
+                      size="small"
+                      color="primary"
+                      checked={Boolean(getWhatsappBinding(prompt)?.isActive)}
+                      onChange={() => handleTogglePrompt(prompt)}
+                      disabled={!getWhatsappBinding(prompt)?.whatsappId}
+                    />
+                  </span>
                 </Tooltip>
                 <Tooltip title="Excluir">
                   <IconButton

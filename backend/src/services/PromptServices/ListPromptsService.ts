@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import Prompt from "../../models/Prompt";
 import Queue from "../../models/Queue";
 import PromptToolSetting from "../../models/PromptToolSetting";
+import PromptChannelBinding from "../../models/PromptChannelBinding";
 
 interface Request {
   searchParam?: string;
@@ -43,6 +44,11 @@ const ListPromptsService = async ({
       {
         model: PromptToolSetting,
         as: "toolSettings"
+      },
+      {
+        model: PromptChannelBinding,
+        as: "channelBindings",
+        required: false
       }
     ],
     limit,
@@ -55,6 +61,7 @@ const ListPromptsService = async ({
         ?.filter((tool: PromptToolSetting) => tool?.enabled)
         .map((tool: PromptToolSetting) => tool.toolName) || [];
     (prompt as any).setDataValue("toolsEnabled", toolsEnabled);
+    (prompt as any).setDataValue("channelBindings", (prompt as any).channelBindings || []);
   });
   const hasMore = count > offset + prompts.length;
 

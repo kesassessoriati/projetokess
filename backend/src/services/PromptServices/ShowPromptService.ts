@@ -2,6 +2,7 @@ import AppError from "../../errors/AppError";
 import Prompt from "../../models/Prompt";
 import Queue from "../../models/Queue";
 import PromptToolSetting from "../../models/PromptToolSetting";
+import PromptChannelBinding from "../../models/PromptChannelBinding";
 
 interface Data {
   promptId: string | number;
@@ -22,6 +23,11 @@ const ShowPromptService = async ({ promptId, companyId }: Data): Promise<Prompt>
       {
         model: PromptToolSetting,
         as: "toolSettings"
+      },
+      {
+        model: PromptChannelBinding,
+        as: "channelBindings",
+        required: false
       }
     ]
   });
@@ -37,6 +43,7 @@ const ShowPromptService = async ({ promptId, companyId }: Data): Promise<Prompt>
 
   (prompt as any).setDataValue("toolsEnabled", toolsEnabled);
   (prompt as any).setDataValue("knowledgeBase", prompt.knowledgeBase || []);
+  (prompt as any).setDataValue("channelBindings", (prompt as any).channelBindings || []);
 
   return prompt;
 };

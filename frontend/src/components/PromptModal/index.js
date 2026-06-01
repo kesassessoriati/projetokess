@@ -12,7 +12,7 @@ import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import { i18n } from "../../translate/i18n";
-import { MenuItem, FormControl, InputLabel, Select, Typography, Box, Chip, Tooltip, Tabs, Tab, Switch, Paper, Grid } from "@material-ui/core";
+import { MenuItem, FormControl, FormControlLabel, InputLabel, Select, Typography, Box, Checkbox, Chip, Tooltip, Tabs, Tab, Switch, Paper, Grid } from "@material-ui/core";
 import { Visibility, VisibilityOff } from "@material-ui/icons";
 import { InputAdornment, IconButton } from "@material-ui/core";
 import QueueSelectSingle from "../QueueSelectSingle";
@@ -618,6 +618,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [companyAiConfig, setCompanyAiConfig] = useState(null);
     const [aiTemplates, setAiTemplates] = useState([]);
     const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "" });
+    const [whatsappOptions, setWhatsappOptions] = useState([]);
     const imageInputRef = useRef(null);
     const pdfInputRef = useRef(null);
     const [linkForm, setLinkForm] = useState({ title: "", url: "" });
@@ -806,6 +807,12 @@ const PromptModal = ({ open, onClose, promptId }) => {
         description: "",
         toolsEnabled: [],
         knowledgeBase: [],
+        channelBinding: {
+            channelType: "whatsapp",
+            whatsappId: "",
+            isActive: true,
+            events: ["message_received"]
+        },
         ...DEFAULT_AGENT_FIELDS
     };
 
@@ -834,12 +841,19 @@ const PromptModal = ({ open, onClose, promptId }) => {
             try {
                 const { data } = await api.get(`/prompt/${promptId}`);
                 setPrompt(prevState => {
+                    const whatsappBinding = (data.channelBindings || []).find(binding => binding.channelType === "whatsapp");
                     return {
                         ...prevState,
                         ...data,
                         aiUsageMode: data.aiUsageMode || "system",
                         toolsEnabled: data.toolsEnabled || [],
-                        knowledgeBase: data.knowledgeBase || []
+                        knowledgeBase: data.knowledgeBase || [],
+                        channelBinding: {
+                            channelType: "whatsapp",
+                            whatsappId: whatsappBinding?.whatsappId || "",
+                            isActive: whatsappBinding ? Boolean(whatsappBinding.isActive) : true,
+                            events: whatsappBinding?.events || ["message_received"]
+                        }
                     };
                 });
                 setSelectedVoice(data.voice);
@@ -892,6 +906,22 @@ const PromptModal = ({ open, onClose, promptId }) => {
         };
 
         fetchSavedPrompts();
+    }, [open]);
+
+    useEffect(() => {
+        const fetchWhatsapps = async () => {
+            if (!open) return;
+            try {
+                const { data } = await api.get("/whatsapp/filter", {
+                    params: { session: 0, channel: "whatsapp" }
+                });
+                setWhatsappOptions(Array.isArray(data) ? data : []);
+            } catch (err) {
+                toastError(err);
+            }
+        };
+
+        fetchWhatsapps();
     }, [open]);
 
     const handleClose = () => {
@@ -1027,13 +1057,16 @@ const PromptModal = ({ open, onClose, promptId }) => {
             model: selectedModel,
             aiUsageMode: nextUsageMode,
             apiKey: "",
-            toolsEnabled: persistedValues.toolsEnabled || []
+            queueId: persistedValues.queueId || null,
+            toolsEnabled: persistedValues.toolsEnabled || [],
+            channelBinding: {
+                channelType: "whatsapp",
+                whatsappId: persistedValues.channelBinding?.whatsappId || null,
+                isActive: Boolean(persistedValues.channelBinding?.isActive),
+                events: persistedValues.channelBinding?.events || ["message_received"]
+            }
         };
         console.log("[PromptModal] Saving prompt with toolsEnabled:", promptData.toolsEnabled);
-        if (!values.queueId) {
-            toastError("Informe o setor");
-            return;
-        }
         if (!selectedProvider) {
             toastError("Selecione o provedor de IA");
             return;
@@ -1111,6 +1144,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                 >
                                     <Tab label="Identificação" />
                                     <Tab label="Prompt & Fila" />
+                                    <Tab label="Canais" />
                                     <Tab label="Configuração IA" />
                                     <Tab label="Ferramentas" />
                                     <Tab label="Conhecimento" />
@@ -1346,6 +1380,83 @@ const PromptModal = ({ open, onClose, promptId }) => {
 
                                 {activeTab === 2 && (
                                     <>
+                                        <div className={classes.configSection}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <SettingsInputAntennaIcon className={classes.sectionIcon} />
+                                                Canais de atuação
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 12 }}>
+                                                Escolha onde este agente interno deve atuar. Sem conexão selecionada, o agente fica salvo, mas não responde automaticamente por canal.
+                                            </Typography>
+                                            <Paper variant="outlined" style={{ padding: 14, borderRadius: 8 }}>
+                                                <Grid container spacing={2} alignItems="center">
+                                                    <Grid item xs={12} md={5}>
+                                                        <FormControl variant="outlined" fullWidth margin="dense" className={classes.formControl}>
+                                                            <InputLabel>Conexão WhatsApp</InputLabel>
+                                                            <Select
+                                                                value={values.channelBinding?.whatsappId || ""}
+                                                                onChange={event =>
+                                                                    setFieldValue("channelBinding", {
+                                                                        ...(values.channelBinding || {}),
+                                                                        channelType: "whatsapp",
+                                                                        whatsappId: event.target.value
+                                                                    })
+                                                                }
+                                                                label="Conexão WhatsApp"
+                                                            >
+                                                                <MenuItem value="">Sem conexão direta</MenuItem>
+                                                                {whatsappOptions.map(whatsapp => (
+                                                                    <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                                                                        {whatsapp.name}
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </Select>
+                                                        </FormControl>
+                                                    </Grid>
+                                                    <Grid item xs={12} md={3}>
+                                                        <FormControlLabel
+                                                            control={
+                                                                <Switch
+                                                                    color="primary"
+                                                                    checked={Boolean(values.channelBinding?.isActive)}
+                                                                    onChange={event =>
+                                                                        setFieldValue("channelBinding", {
+                                                                            ...(values.channelBinding || {}),
+                                                                            channelType: "whatsapp",
+                                                                            isActive: event.target.checked
+                                                                        })
+                                                                    }
+                                                                />
+                                                            }
+                                                            label={values.channelBinding?.isActive ? "Ativo" : "Inativo"}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={12} md={4}>
+                                                        <FormControlLabel
+                                                            control={
+                                                                <Checkbox
+                                                                    color="primary"
+                                                                    checked={(values.channelBinding?.events || []).includes("message_received")}
+                                                                    onChange={event =>
+                                                                        setFieldValue("channelBinding", {
+                                                                            ...(values.channelBinding || {}),
+                                                                            channelType: "whatsapp",
+                                                                            events: event.target.checked ? ["message_received"] : []
+                                                                        })
+                                                                    }
+                                                                />
+                                                            }
+                                                            label="Mensagem recebida"
+                                                        />
+                                                    </Grid>
+                                                </Grid>
+                                            </Paper>
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeTab === 3 && (
+                                    <>
                                         {/* Etapa 4: Configuração de IA */}
                                         <Typography className={classes.sectionTitle}>
                                             <SmartToyIcon className={classes.sectionIcon} />
@@ -1493,7 +1604,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                     </>
                                 )}
 
-                                {activeTab === 3 && (
+                                {activeTab === 4 && (
                                     <>
                                         <div className={classes.configSection}>
                                             <Typography className={classes.sectionTitle}>
@@ -1566,7 +1677,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                     </>
                                 )}
 
-                                {activeTab === 4 && (
+                                {activeTab === 5 && (
                                     <>
                                         <div className={classes.configSection}>
                                             <Typography className={classes.sectionTitle}>

@@ -27,6 +27,7 @@ interface PromptData {
     description?: string;
     toolsEnabled?: string[];
     knowledgeBase?: any[];
+    channelBinding?: any;
 }
 
 interface Request {
@@ -45,7 +46,7 @@ const UpdatePromptService = async ({
     const promptSchema = Yup.object().shape({
         name: Yup.string().required("ERR_PROMPT_NAME_INVALID"),
         prompt: Yup.string().required("ERR_PROMPT_PROMPT_INVALID"),
-        queueId: Yup.number().required("ERR_PROMPT_QUEUEID_INVALID"),
+        queueId: Yup.number().nullable(),
         maxMessages: Yup.number().required("ERR_PROMPT_MAX_MESSAGES_INVALID"),
         provider: Yup.string().oneOf(["openai", "gemini", "openrouter", "groq"]).required("ERR_PROMPT_PROVIDER_INVALID"),
         model: Yup.string().required("ERR_PROMPT_MODEL_INVALID"),
@@ -84,7 +85,7 @@ const UpdatePromptService = async ({
             promptTokens,
             completionTokens,
             totalTokens,
-            queueId,
+            queueId: queueId || null,
             maxMessages,
             provider,
             model,
@@ -103,7 +104,7 @@ const UpdatePromptService = async ({
         promptTokens,
         completionTokens,
         totalTokens,
-        queueId,
+        queueId: queueId || null,
         maxMessages,
         voice,
         voiceKey,
