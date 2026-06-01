@@ -53,7 +53,7 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         queueId: Yup.number().required("ERR_PROMPT_QUEUEID_INVALID"),
         maxMessages: Yup.number().required("ERR_PROMPT_MAX_MESSAGES_INVALID"),
         companyId: Yup.number().required("ERR_PROMPT_companyId_INVALID"),
-        provider: Yup.string().oneOf(["openai", "gemini"]).required("ERR_PROMPT_PROVIDER_INVALID"),
+        provider: Yup.string().oneOf(["openai", "gemini", "openrouter", "groq"]).required("ERR_PROMPT_PROVIDER_INVALID"),
         model: Yup.string().required("ERR_PROMPT_MODEL_INVALID"),
         aiUsageMode: Yup.string().oneOf(["company_default", "system", "own"]).required("ERR_PROMPT_USAGE_MODE_INVALID")
     });

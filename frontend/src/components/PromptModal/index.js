@@ -1064,6 +1064,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
             toast.success(i18n.t("promptModal.success"));
         } catch (err) {
             toastError(err);
+            return;
         }
         handleClose();
     };
