@@ -225,6 +225,7 @@ interface IMe {
 
 interface SessionOpenAi extends OpenAI {
   id?: number;
+  provider?: string;
 }
 
 interface SessionGemini {
@@ -524,13 +525,30 @@ const callOpenAI = async (
   return chat.choices[0].message?.content;
 };
 
+const OPENAI_COMPATIBLE_BASE_URL: Record<string, string | undefined> = {
+  openrouter: "https://openrouter.ai/api/v1",
+  groq: "https://api.groq.com/openai/v1"
+};
+
 const createOpenAICompatibleClient = (apiKey: string, provider?: string) => new OpenAI({
   apiKey,
-  baseURL: provider === "openrouter" ? "https://openrouter.ai/api/v1" : undefined,
+  baseURL: OPENAI_COMPATIBLE_BASE_URL[provider || "openai"],
   defaultHeaders: provider === "openrouter" ? {
     "HTTP-Referer": process.env.FRONTEND_URL || "https://atendzappy.com",
     "X-Title": "AtendZappy CRM"
   } : undefined
+});
+
+const getProviderErrorDetails = (error: any) => ({
+  status: error?.status || error?.response?.status,
+  code: error?.code || error?.response?.data?.error?.code,
+  type: error?.type || error?.response?.data?.error?.type,
+  message:
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.error?.message ||
+    error?.message ||
+    String(error || "Erro desconhecido")
 });
 
 const runAgentPrompt = async (
@@ -884,7 +902,7 @@ export const handleOpenAi = async (
     const geminiIndex = sessionsGemini.findIndex(s => s.id === ticket.id);
 
     if (geminiIndex === -1) {
-      console.log("Initializing Gemini Service", openAiSettings.apiKey?.substring(0, 10) + "...");
+      console.log("Initializing Gemini Service");
       const geminiClient = new GoogleGenerativeAI(openAiSettings.apiKey);
       const session = { id: ticket.id, client: geminiClient };
       sessionsGemini.push(session);
@@ -894,12 +912,13 @@ export const handleOpenAi = async (
     }
   } else {
     // Configurar OpenAI (padrão)
-    const openAiIndex = sessionsOpenAi.findIndex(s => s.id === ticket.id);
+    const openAiIndex = sessionsOpenAi.findIndex(s => s.id === ticket.id && s.provider === provider);
 
     if (openAiIndex === -1) {
-      console.log(`Initializing ${provider} Service`, openAiSettings.apiKey?.substring(0, 10) + "...");
+      console.log(`Initializing ${provider} Service`);
       aiClient = createOpenAICompatibleClient(openAiSettings.apiKey, provider);
       aiClient.id = ticket.id;
+      aiClient.provider = provider;
       sessionsOpenAi.push(aiClient);
     } else {
       aiClient = sessionsOpenAi[openAiIndex];
@@ -908,7 +927,11 @@ export const handleOpenAi = async (
 
   // 🔁 Normaliza a mensagem (texto, áudio ou imagem) para texto
   const bodyMessage = await normalizeMessageContent(msg, aiClient, provider);
-  console.log("📝 Mensagem normalizada:", bodyMessage);
+  console.log("Mensagem normalizada:", {
+    ticketId: ticket.id,
+    companyId: ticket.companyId,
+    messageLength: bodyMessage.length
+  });
   if (!bodyMessage) return;
 
   let knowledgeBaseSection = "";
@@ -2621,7 +2644,14 @@ ${openAiSettings.prompt}
         });
       }
     } catch (error) {
-      console.error(`Error calling ${provider}:`, error);
+      logger.error({
+        provider,
+        model: openAiSettings.model || (provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o"),
+        ticketId: ticket.id,
+        companyId: ticket.companyId,
+        promptId: openAiSettings.promptId,
+        ...getProviderErrorDetails(error)
+      }, "Error calling AI provider");
       console.warn("IA não respondeu devido a erro acima. Nenhuma mensagem foi enviada ao usuário.");
     }
   } else if (msg.message?.audioMessage) {

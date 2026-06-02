@@ -6182,7 +6182,11 @@ const handleMessage = async (
           const combinedMsg = JSON.parse(JSON.stringify(msg));
           combinedMsg.message.conversation = combinedText;
 
-          console.log(`🧠 Agrupando mensagens em 8s (FlowBuilder): ${combinedText}`);
+          console.log("Agrupando mensagens em 8s (FlowBuilder):", {
+            ticketId: ticket.id,
+            companyId,
+            messageLength: combinedText.length
+          });
 
           // Chama a IA com o texto combinado
           console.log(`OPENAI DIRETO: Chamando handleOpenAi com mensagem combinada`);
@@ -6219,12 +6223,31 @@ const handleMessage = async (
       const prompt = channelBindingPrompt || whatsapp.prompt;
 
       if (prompt && (channelBindingPrompt || !isNil(whatsapp.promptId))) {
+        const runtimeConfig = await buildPromptRuntimeConfig(prompt as any, companyId);
+        const openAiSettings: IOpenAi = {
+          name: (prompt as any).name,
+          prompt: (prompt as any).prompt,
+          voice: (prompt as any).voice,
+          voiceKey: (prompt as any).voiceKey,
+          voiceRegion: (prompt as any).voiceRegion,
+          maxTokens: Number((prompt as any).maxTokens),
+          temperature: Number((prompt as any).temperature),
+          apiKey: runtimeConfig.apiKey,
+          queueId: Number((prompt as any).queueId),
+          maxMessages: Number((prompt as any).maxMessages),
+          promptId: Number((prompt as any).id),
+          provider: runtimeConfig.provider,
+          model: runtimeConfig.model || (prompt as any).model,
+          aiUsageMode: runtimeConfig.usageMode,
+          knowledgeBase: (prompt as any).knowledgeBase || []
+        };
+
         try {
           const toolsEnabled = await ListPromptToolSettingsService({
             companyId,
             promptId: (prompt as any)?.id ?? null
           });
-          (prompt as any).toolsEnabled = toolsEnabled;
+          openAiSettings.toolsEnabled = toolsEnabled;
         } catch (error) {
           console.error("Erro ao carregar toolsEnabled (WhatsApp prompt):", error);
         }
@@ -6233,7 +6256,7 @@ const handleMessage = async (
       if (msg.message?.audioMessage || msg.message?.imageMessage) {
         console.log("🎧🖼️ Mídia detectada, enviando direto para normalização (sem buffer)");
         await handleOpenAi(
-          prompt,
+          openAiSettings,
           msg,
           wbot,
           ticket,
@@ -6272,11 +6295,15 @@ const handleMessage = async (
           const combinedMsg = JSON.parse(JSON.stringify(msg));
           combinedMsg.message.conversation = combinedText;
 
-          console.log(`🧠 Agrupando mensagens em 8s (Conexão): ${combinedText}`);
+          console.log("Agrupando mensagens em 8s (Conexao):", {
+            ticketId: ticket.id,
+            companyId,
+            messageLength: combinedText.length
+          });
 
           // Chama a IA com o texto combinado
           await handleOpenAi(
-            prompt,
+            openAiSettings,
             combinedMsg,
             wbot,
             ticket,

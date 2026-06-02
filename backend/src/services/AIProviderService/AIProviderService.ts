@@ -100,6 +100,10 @@ const getEnvKeyForProvider = (provider: AIProviderName): string | undefined => {
   return process.env.OPENAI_API_KEY;
 };
 
+const getSystemProviderKey = async (provider: AIProviderName): Promise<string | undefined> =>
+  (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[provider])) ||
+  getEnvKeyForProvider(provider);
+
 // Carrega a configuração padrão definida pelo SuperAdmin para os agentes de atendimento interno.
 // Esses valores não são acessíveis pelo usuário final — são 100% server-side.
 const getAttendanceAiConfig = async (): Promise<{
@@ -266,12 +270,20 @@ export const resolveAIProviderConfig = async ({
   // When using system credits for internal attendance agents:
   // ALWAYS use the SuperAdmin-configured attendance provider/model.
   // The frontend-provided provider/model is IGNORED to prevent client-side manipulation.
-  if (usageMode === "system" && requestType === "agent") {
+  if (usageMode === "system" && (requestType === "agent" || requestType === "agent_test")) {
     const attendanceConfig = await getAttendanceAiConfig();
-    const resolvedProvider = attendanceConfig.primaryProvider;
-    const systemKey =
-      (await getProviderSetting(SYSTEM_COMPANY_ID, AI_KEY_SETTING_MAP[resolvedProvider])) ||
-      getEnvKeyForProvider(resolvedProvider);
+    let resolvedProvider = attendanceConfig.primaryProvider;
+    let resolvedModel = attendanceConfig.primaryModel;
+    let systemKey = await getSystemProviderKey(resolvedProvider);
+
+    if (!systemKey && attendanceConfig.strategy === "fallback_on_error" && attendanceConfig.fallbackProvider) {
+      const fallbackKey = await getSystemProviderKey(attendanceConfig.fallbackProvider);
+      if (fallbackKey) {
+        resolvedProvider = attendanceConfig.fallbackProvider;
+        resolvedModel = attendanceConfig.fallbackModel;
+        systemKey = fallbackKey;
+      }
+    }
 
     if (!systemKey) {
       throw new AppError(
@@ -282,7 +294,7 @@ export const resolveAIProviderConfig = async ({
 
     return {
       provider: resolvedProvider,
-      model: attendanceConfig.primaryModel,
+      model: resolvedModel,
       usageMode,
       apiKey: systemKey,
       shouldConsumeCredits: true,
