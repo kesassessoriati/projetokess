@@ -11,9 +11,7 @@ const SavePromptToolSettingsService = async ({
   promptId,
   toolsEnabled
 }: SavePromptToolSettingsRequest): Promise<void> => {
-  console.log("[SavePromptToolSettingsService] Received:", { companyId, promptId, toolsEnabled });
   if (typeof toolsEnabled === "undefined") {
-    console.log("[SavePromptToolSettingsService] toolsEnabled is undefined, skipping");
     return;
   }
 
@@ -30,11 +28,9 @@ const SavePromptToolSettingsService = async ({
   });
 
   if (uniqueTools.length === 0) {
-    console.log("[SavePromptToolSettingsService] No tools to save after filtering");
     return;
   }
 
-  console.log("[SavePromptToolSettingsService] Saving tools:", uniqueTools);
   await PromptToolSetting.bulkCreate(
     uniqueTools.map(toolName => ({
       companyId,

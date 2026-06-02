@@ -30,7 +30,6 @@ interface PromptData {
 }
 
 const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
-    console.log("[CreatePromptService] Starting with promptData:", JSON.stringify(promptData, null, 2));
     const {
         name,
         apiKey,
@@ -47,7 +46,9 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         description,
         channelBinding: _channelBinding
     } = promptData;
-    console.log("[CreatePromptService] toolsEnabled:", toolsEnabled);
+    const normalizedProvider = provider || "openai";
+    const normalizedModel = model || "gpt-4o-mini";
+    const normalizedMaxMessages = maxMessages || 10;
 
     const promptSchema = Yup.object().shape({
         name: Yup.string().required("ERR_PROMPT_NAME_INVALID"),
@@ -65,15 +66,13 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
             name,
             prompt,
             queueId: queueId || null,
-            maxMessages,
+            maxMessages: normalizedMaxMessages,
             companyId,
-            provider,
-            model,
-            aiUsageMode
+            provider: normalizedProvider,
+            model: normalizedModel,
+            aiUsageMode: aiUsageMode || "system"
         });
-        console.log("[CreatePromptService] Validation passed");
     } catch (err) {
-        console.error("[CreatePromptService] Validation error:", err);
         throw new AppError(`${JSON.stringify(err, undefined, 2)}`);
     }
 
@@ -85,37 +84,28 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         promptTokens: promptData.promptTokens,
         completionTokens: promptData.completionTokens,
         totalTokens: promptData.totalTokens,
-        maxMessages,
+        maxMessages: normalizedMaxMessages,
         companyId: Number(companyId),
         voice: promptData.voice,
         voiceKey: promptData.voiceKey,
         voiceRegion: promptData.voiceRegion,
         apiKey: apiKey || "",
         queueId: queueId || null,
-        provider,
-        model,
-        aiUsageMode,
+        provider: normalizedProvider,
+        model: normalizedModel,
+        aiUsageMode: aiUsageMode || "system",
         templateKey,
         description,
         knowledgeBase: knowledgeBase || []
     });
-    console.log("[CreatePromptService] Prompt created with id:", promptTable.id);
 
-    console.log("[CreatePromptService] About to call SavePromptToolSettingsService with:", { companyId, promptId: promptTable.id, toolsEnabled });
-    try {
-        await SavePromptToolSettingsService({
-            companyId: Number(companyId),
-            promptId: promptTable.id,
-            toolsEnabled
-        });
-        console.log("[CreatePromptService] SavePromptToolSettingsService completed successfully");
-    } catch (err) {
-        console.error("[CreatePromptService] Error in SavePromptToolSettingsService:", err);
-        throw err;
-    }
+    await SavePromptToolSettingsService({
+        companyId: Number(companyId),
+        promptId: promptTable.id,
+        toolsEnabled
+    });
 
     promptTable = await ShowPromptService({ promptId: promptTable.id, companyId });
-    console.log("[CreatePromptService] Returning prompt with toolsEnabled:", (promptTable as any).toolsEnabled);
 
     return promptTable;
 };

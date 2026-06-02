@@ -58,6 +58,7 @@ import ImageIcon from "@material-ui/icons/Image";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import FileCopyIcon from "@material-ui/icons/FileCopy";
 import OpenInNewIcon from "@material-ui/icons/OpenInNew";
+import SendIcon from "@material-ui/icons/Send";
 
 import api from "../../services/api";
 import { getBackendUrl } from "../../config";
@@ -450,6 +451,97 @@ const useStyles = makeStyles(theme => ({
         "& svg": {
             marginLeft: theme.spacing(0.5),
         },
+    },
+    testChatGrid: {
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 360px)",
+        gap: theme.spacing(2),
+        [theme.breakpoints.down("sm")]: {
+            gridTemplateColumns: "1fr"
+        }
+    },
+    testInfoPanel: {
+        borderRadius: 8,
+        border: "1px solid #e5e7eb",
+        backgroundColor: "#fff",
+        padding: theme.spacing(2)
+    },
+    testPhone: {
+        height: 520,
+        borderRadius: 8,
+        overflow: "hidden",
+        border: "1px solid #d1d5db",
+        backgroundColor: "#0f172a",
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "0 14px 28px rgba(15, 23, 42, 0.18)"
+    },
+    testPhoneHeader: {
+        height: 58,
+        padding: theme.spacing(1, 1.5),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        color: "#fff",
+        background: "#075e54"
+    },
+    testAvatar: {
+        width: 34,
+        height: 34,
+        borderRadius: "50%",
+        background: "#dbeafe",
+        color: "#1d4ed8",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: theme.spacing(1)
+    },
+    testMessages: {
+        flex: 1,
+        padding: theme.spacing(2),
+        overflowY: "auto",
+        backgroundColor: "#102027",
+        backgroundImage: "radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)",
+        backgroundSize: "18px 18px"
+    },
+    testEmpty: {
+        minHeight: "100%",
+        color: "#e5e7eb",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        fontWeight: 700
+    },
+    testBubbleRow: {
+        display: "flex",
+        marginBottom: theme.spacing(1)
+    },
+    testBubble: {
+        maxWidth: "82%",
+        borderRadius: 8,
+        padding: theme.spacing(1, 1.25),
+        fontSize: "0.875rem",
+        lineHeight: 1.45,
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word"
+    },
+    testBubbleUser: {
+        marginLeft: "auto",
+        backgroundColor: "#dcf8c6",
+        color: "#111827"
+    },
+    testBubbleAssistant: {
+        marginRight: "auto",
+        backgroundColor: "#fff",
+        color: "#111827"
+    },
+    testComposer: {
+        display: "flex",
+        alignItems: "center",
+        gap: theme.spacing(1),
+        padding: theme.spacing(1),
+        backgroundColor: "#1f2937"
     }
 }));
 
@@ -541,6 +633,9 @@ const providerKeyPayloadFields = {
     openrouter: "openrouterApiKey"
 };
 
+const getFallbackModelForProvider = provider =>
+    providerFallbackModels[provider]?.[0]?.value || "gpt-4o-mini";
+
 const TOOL_PROMPT_BLOCKS = {
     get_company_schedule: "Use get_company_schedule quando o cliente perguntar horario, disponibilidade ou funcionamento. Nao invente horarios.",
     get_contact_schedules: "Use get_contact_schedules para consultar agendamentos existentes antes de remarcar ou quando o cliente perguntar.",
@@ -619,6 +714,9 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [aiTemplates, setAiTemplates] = useState([]);
     const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "" });
     const [whatsappOptions, setWhatsappOptions] = useState([]);
+    const [testMessages, setTestMessages] = useState([]);
+    const [testInput, setTestInput] = useState("");
+    const [testLoading, setTestLoading] = useState(false);
     const imageInputRef = useRef(null);
     const pdfInputRef = useRef(null);
     const [linkForm, setLinkForm] = useState({ title: "", url: "" });
@@ -673,7 +771,6 @@ const PromptModal = ({ open, onClose, promptId }) => {
             await navigator.clipboard.writeText(text);
             toast.success("Link copiado!");
         } catch (err) {
-            console.error(err);
             toastError("Não foi possível copiar o link.");
         }
     }, []);
@@ -701,7 +798,6 @@ const PromptModal = ({ open, onClose, promptId }) => {
 
             return data?.url || data?.path || "";
         } catch (err) {
-            console.error(err);
             toastError(err);
             return "";
         } finally {
@@ -932,6 +1028,9 @@ const PromptModal = ({ open, onClose, promptId }) => {
         setActiveTab(0);
         setSelectedSavedPrompt("");
         setCompanyApiKeyInput({ openai: "", gemini: "", openrouter: "" });
+        setTestMessages([]);
+        setTestInput("");
+        setTestLoading(false);
         onClose();
     };
 
@@ -1022,6 +1121,8 @@ const PromptModal = ({ open, onClose, promptId }) => {
         const providerKeyField = selectedProvider || "openai";
         const nextUsageMode = values.aiUsageMode || "system";
         const ownKeyInput = (companyApiKeyInput[providerKeyField] || "").trim();
+        const normalizedProvider = selectedProvider || companyAiConfig?.preferredProvider || "openai";
+        const normalizedModel = selectedModel || getFallbackModelForProvider(normalizedProvider);
 
         if (nextUsageMode === "own" && !ownKeyInput && !companyAiConfig?.hasOwnKeys?.[providerKeyField]) {
             toastError("Informe uma API key da empresa para usar o modo próprio.");
@@ -1053,32 +1154,35 @@ const PromptModal = ({ open, onClose, promptId }) => {
         const promptData = {
             ...persistedValues,
             voice: selectedVoice, 
-            provider: selectedProvider,
-            model: selectedModel,
+            provider: normalizedProvider,
+            model: normalizedModel,
             aiUsageMode: nextUsageMode,
             apiKey: "",
             queueId: persistedValues.queueId || null,
             toolsEnabled: persistedValues.toolsEnabled || [],
-            channelBinding: {
-                channelType: "whatsapp",
-                whatsappId: persistedValues.channelBinding?.whatsappId || null,
-                isActive: Boolean(persistedValues.channelBinding?.isActive),
-                events: persistedValues.channelBinding?.events || ["message_received"]
-            }
+            channelBinding: persistedValues.channelBinding?.whatsappId
+                ? {
+                    channelType: "whatsapp",
+                    whatsappId: persistedValues.channelBinding.whatsappId,
+                    isActive: Boolean(persistedValues.channelBinding?.isActive),
+                    events: persistedValues.channelBinding?.events?.length
+                        ? persistedValues.channelBinding.events
+                        : ["message_received"]
+                }
+                : null
         };
-        console.log("[PromptModal] Saving prompt with toolsEnabled:", promptData.toolsEnabled);
-        if (!selectedProvider) {
+        if (!normalizedProvider) {
             toastError("Selecione o provedor de IA");
             return;
         }
-        if (!selectedModel) {
+        if (nextUsageMode === "own" && !normalizedModel) {
             toastError("Selecione o modelo");
             return;
         }
         try {
             const aiConfigPayload = {
                 aiUsageMode: nextUsageMode === "own" ? "own" : "system",
-                aiPreferredProvider: selectedProvider
+                aiPreferredProvider: normalizedProvider
             };
 
             if (nextUsageMode === "own" && ownKeyInput) {
@@ -1101,6 +1205,71 @@ const PromptModal = ({ open, onClose, promptId }) => {
         }
         handleClose();
     };
+
+    const buildTestPayload = useCallback((values, message) => {
+        const provider = selectedProvider || companyAiConfig?.preferredProvider || "openai";
+        return {
+            prompt: values.prompt,
+            message,
+            provider,
+            model: selectedModel || getFallbackModelForProvider(provider),
+            temperature: Number(values.temperature || 0.7),
+            maxTokens: Number(values.maxTokens || 300),
+            aiUsageMode: values.aiUsageMode || "system",
+            allowedTools: values.toolsEnabled || [],
+            context: testMessages.map(item => ({
+                role: item.role,
+                content: item.content
+            }))
+        };
+    }, [companyAiConfig, selectedModel, selectedProvider, testMessages]);
+
+    const handleSendTestMessage = useCallback(async values => {
+        const message = testInput.trim();
+        if (!message) return;
+        if (!values.prompt?.trim()) {
+            toastError("Preencha o prompt antes de testar.");
+            return;
+        }
+
+        const userMessage = {
+            id: `user-${Date.now()}`,
+            role: "user",
+            content: message
+        };
+        setTestMessages(prev => [...prev, userMessage]);
+        setTestInput("");
+        setTestLoading(true);
+
+        try {
+            const endpoint = promptId ? `/prompt/${promptId}/test` : "/prompt/test";
+            const { data } = await api.post(endpoint, buildTestPayload(values, message));
+            setTestMessages(prev => [
+                ...prev,
+                {
+                    id: `assistant-${Date.now()}`,
+                    role: "assistant",
+                    content: data?.reply || "Nao consegui gerar uma resposta agora."
+                }
+            ]);
+        } catch (err) {
+            const message =
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                "Nao foi possivel testar o agente agora.";
+            toastError(message);
+            setTestMessages(prev => [
+                ...prev,
+                {
+                    id: `error-${Date.now()}`,
+                    role: "assistant",
+                    content: message
+                }
+            ]);
+        } finally {
+            setTestLoading(false);
+        }
+    }, [buildTestPayload, promptId, testInput]);
 
     return (
         <div className={classes.root}>
@@ -1126,7 +1295,6 @@ const PromptModal = ({ open, onClose, promptId }) => {
                         initialValues={prompt}
                         enableReinitialize={true}
                         onSubmit={async (values, actions) => {
-                            console.log("[Formik] onSubmit called with values:", values);
                             await handleSavePrompt(values);
                             actions.setSubmitting(false);
                         }}
@@ -1148,6 +1316,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                     <Tab label="Configuração IA" />
                                     <Tab label="Ferramentas" />
                                     <Tab label="Conhecimento" />
+                                    <Tab label="Teste do agente" />
                                 </Tabs>
 
                                 {activeTab === 0 && (
@@ -1880,6 +2049,127 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                     </>
                                 )}
 
+                                {activeTab === 6 && (
+                                    <div className={classes.testChatGrid}>
+                                        <div className={classes.testInfoPanel}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <ChatIcon className={classes.sectionIcon} />
+                                                Teste do agente
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" paragraph>
+                                                Modo teste: nenhuma mensagem sera enviada a clientes e nenhum ticket sera criado.
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" paragraph>
+                                                O teste usa o prompt atual do formulario, incluindo template, ferramentas e configuracao de IA.
+                                            </Typography>
+                                            <div className={classes.inlineMeta}>
+                                                <Chip label="Sem canal real" size="small" />
+                                                <Chip label="Ferramentas sensiveis simuladas" size="small" />
+                                                <Chip label={values.aiUsageMode === "own" ? "API key propria" : "Creditos do sistema"} size="small" color="primary" />
+                                            </div>
+                                            <Box mt={2}>
+                                                <Button
+                                                    variant="outlined"
+                                                    startIcon={<DeleteOutlineIcon />}
+                                                    onClick={() => setTestMessages([])}
+                                                    disabled={testLoading || testMessages.length === 0}
+                                                >
+                                                    Limpar conversa
+                                                </Button>
+                                            </Box>
+                                        </div>
+
+                                        <div className={classes.testPhone}>
+                                            <div className={classes.testPhoneHeader}>
+                                                <Box display="flex" alignItems="center" minWidth={0}>
+                                                    <div className={classes.testAvatar}>
+                                                        <SmartToyIcon fontSize="small" />
+                                                    </div>
+                                                    <Box minWidth={0}>
+                                                        <Typography variant="subtitle2" noWrap style={{ fontWeight: 700 }}>
+                                                            {values.agentName || values.name || "Agente IA"}
+                                                        </Typography>
+                                                        <Typography variant="caption" style={{ color: "#d1fae5" }}>
+                                                            Modo teste
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                                <Tooltip title="Limpar conversa">
+                                                    <IconButton size="small" onClick={() => setTestMessages([])} style={{ color: "#fff" }}>
+                                                        <DeleteOutlineIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </div>
+
+                                            <div className={classes.testMessages}>
+                                                {testMessages.length === 0 ? (
+                                                    <div className={classes.testEmpty}>
+                                                        Envie a primeira mensagem
+                                                    </div>
+                                                ) : (
+                                                    testMessages.map(item => (
+                                                        <div
+                                                            key={item.id}
+                                                            className={classes.testBubbleRow}
+                                                        >
+                                                            <div
+                                                                className={`${classes.testBubble} ${
+                                                                    item.role === "user"
+                                                                        ? classes.testBubbleUser
+                                                                        : classes.testBubbleAssistant
+                                                                }`}
+                                                            >
+                                                                {item.content}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                                {testLoading && (
+                                                    <div className={classes.testBubbleRow}>
+                                                        <div className={`${classes.testBubble} ${classes.testBubbleAssistant}`}>
+                                                            Digitando...
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className={classes.testComposer}>
+                                                <TextField
+                                                    value={testInput}
+                                                    onChange={event => setTestInput(event.target.value)}
+                                                    onKeyDown={event => {
+                                                        if (event.key === "Enter" && !event.shiftKey) {
+                                                            event.preventDefault();
+                                                            handleSendTestMessage(values);
+                                                        }
+                                                    }}
+                                                    placeholder="Digite sua mensagem..."
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                    multiline
+                                                    rowsMax={3}
+                                                    disabled={testLoading}
+                                                    InputProps={{
+                                                        style: {
+                                                            backgroundColor: "#fff",
+                                                            borderRadius: 8
+                                                        }
+                                                    }}
+                                                />
+                                                <IconButton
+                                                    color="primary"
+                                                    onClick={() => handleSendTestMessage(values)}
+                                                    disabled={testLoading || !testInput.trim()}
+                                                    style={{ backgroundColor: "#22c55e", color: "#fff" }}
+                                                >
+                                                    {testLoading ? <CircularProgress size={20} /> : <SendIcon />}
+                                                </IconButton>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <DialogActions className={classes.dialogActions}>
                                     <Button
                                         startIcon={<CancelIcon />}
@@ -1894,10 +2184,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                     <Button
                                         startIcon={<SaveIcon />}
                                         type="button"
-                                        onClick={() => {
-                                            console.log("[Button] onClick - calling submitForm");
-                                            submitForm();
-                                        }}
+                                        onClick={submitForm}
                                         className={classes.saveButton}
                                         disabled={isSubmitting}
                                         variant="contained"

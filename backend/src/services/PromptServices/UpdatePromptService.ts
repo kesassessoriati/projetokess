@@ -75,6 +75,9 @@ const UpdatePromptService = async ({
         toolsEnabled,
         knowledgeBase
     } = promptData;
+    const normalizedProvider = provider || promptTable.provider || "openai";
+    const normalizedModel = model || promptTable.model || "gpt-4o-mini";
+    const normalizedMaxMessages = maxMessages || promptTable.maxMessages || 10;
 
     try {
         await promptSchema.validate({
@@ -86,10 +89,10 @@ const UpdatePromptService = async ({
             completionTokens,
             totalTokens,
             queueId: queueId || null,
-            maxMessages,
-            provider,
-            model,
-            aiUsageMode
+            maxMessages: normalizedMaxMessages,
+            provider: normalizedProvider,
+            model: normalizedModel,
+            aiUsageMode: aiUsageMode || promptTable.aiUsageMode || "system"
         });
     } catch (err) {
         throw new AppError(`${JSON.stringify(err, undefined, 2)}`);
@@ -105,31 +108,23 @@ const UpdatePromptService = async ({
         completionTokens,
         totalTokens,
         queueId: queueId || null,
-        maxMessages,
+        maxMessages: normalizedMaxMessages,
         voice,
         voiceKey,
         voiceRegion,
-        provider,
-        model,
-        aiUsageMode,
+        provider: normalizedProvider,
+        model: normalizedModel,
+        aiUsageMode: aiUsageMode || promptTable.aiUsageMode || "system",
         templateKey,
         description,
         knowledgeBase: knowledgeBase || []
     });
 
-    console.log("[UpdatePromptService] About to call SavePromptToolSettingsService with:", { companyId, promptId, toolsEnabled });
-    
-    try {
-        await SavePromptToolSettingsService({
-            companyId: Number(companyId),
-            promptId: Number(promptId),
-            toolsEnabled
-        });
-        console.log("[UpdatePromptService] SavePromptToolSettingsService completed successfully");
-    } catch (err) {
-        console.error("[UpdatePromptService] Error in SavePromptToolSettingsService:", err);
-        throw err;
-    }
+    await SavePromptToolSettingsService({
+        companyId: Number(companyId),
+        promptId: Number(promptId),
+        toolsEnabled
+    });
 
     return ShowPromptService({ promptId, companyId });
 };

@@ -7,6 +7,7 @@ import ShowPromptService from "../services/PromptServices/ShowPromptService";
 import UpdatePromptService from "../services/PromptServices/UpdatePromptService";
 import DuplicatePromptService from "../services/PromptServices/DuplicatePromptService";
 import GetPromptMetricsService from "../services/PromptServices/GetPromptMetricsService";
+import TestPromptService from "../services/PromptServices/TestPromptService";
 import SavePromptChannelBindingService from "../services/PromptChannelBindingServices/SavePromptChannelBindingService";
 import Whatsapp from "../models/Whatsapp";
 import { verify } from "jsonwebtoken";
@@ -43,7 +44,6 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  console.log("[PromptController.store] Received request body:", JSON.stringify(req.body, null, 2));
   const authHeader = req.headers.authorization;
   const [, token] = authHeader.split(" ");
   const decoded = verify(token, authConfig.secret);
@@ -71,7 +71,6 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     knowledgeBase,
     channelBinding
   } = req.body;
-  console.log("[PromptController.store] toolsEnabled:", toolsEnabled);
   const promptTable = await CreatePromptService({
     name,
     apiKey,
@@ -96,7 +95,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     knowledgeBase
   });
 
-  if (channelBinding) {
+  if (channelBinding?.whatsappId) {
     await SavePromptChannelBindingService({
       companyId: Number(companyId),
       promptId: promptTable.id,
@@ -131,10 +130,8 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  console.log("[PromptController.update] Received request body:", JSON.stringify(req.body, null, 2));
   const { promptId } = req.params;
   const promptData = req.body;
-  console.log("[PromptController.update] promptId:", promptId, "toolsEnabled:", promptData.toolsEnabled);
   const authHeader = req.headers.authorization;
   const [, token] = authHeader.split(" ");
   const decoded = verify(token, authConfig.secret);
@@ -160,6 +157,27 @@ export const update = async (
   });
 
   return res.status(200).json(getPromptSafeResponse(promptWithBindings));
+};
+
+export const test = async (req: Request, res: Response): Promise<Response> => {
+  const promptId = req.params.promptId ? Number(req.params.promptId) : null;
+  const companyId = Number(req.user.companyId);
+
+  const data = await TestPromptService({
+    companyId,
+    promptId,
+    prompt: req.body?.prompt,
+    message: req.body?.message,
+    provider: req.body?.provider,
+    model: req.body?.model,
+    temperature: req.body?.temperature,
+    maxTokens: req.body?.maxTokens,
+    aiUsageMode: req.body?.aiUsageMode,
+    allowedTools: req.body?.allowedTools,
+    context: req.body?.context
+  });
+
+  return res.status(200).json(data);
 };
 
 export const duplicate = async (req: Request, res: Response): Promise<Response> => {
