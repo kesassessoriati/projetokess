@@ -70,7 +70,7 @@ const buildSystemPrompt = (prompt: string, allowedTools: string[] = []) => {
     prompt,
     "# Modo teste",
     "Voce esta em um simulador interno. Nao envie mensagens reais, nao crie ticket, nao altere contato, nao chame webhook e nao execute integracoes externas.",
-    "Se precisar usar uma ferramenta sensivel, responda com uma simulacao curta no formato: [Modo teste] Esta ferramenta seria chamada, mas nao foi executada.",
+    "Ferramentas sensiveis ficam sempre bloqueadas neste teste. Se uma delas for necessaria, nao tente executar a acao: responda exatamente com: [Modo teste] Esta ferramenta seria chamada, mas nao foi executada.",
     enabledSensitiveTools.length > 0
       ? `Ferramentas sensiveis em modo simulado: ${enabledSensitiveTools.join(", ")}.`
       : "Nenhuma ferramenta sensivel deve ser executada neste teste."

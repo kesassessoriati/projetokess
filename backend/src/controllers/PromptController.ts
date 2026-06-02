@@ -139,11 +139,11 @@ export const update = async (
 
   const prompt = await UpdatePromptService({ promptData, promptId: promptId, companyId });
 
-  if (promptData.channelBinding) {
+  if (Object.prototype.hasOwnProperty.call(promptData, "channelBinding")) {
     await SavePromptChannelBindingService({
       companyId: Number(companyId),
       promptId: Number(promptId),
-      ...promptData.channelBinding
+      ...(promptData.channelBinding || {})
     });
   }
 
