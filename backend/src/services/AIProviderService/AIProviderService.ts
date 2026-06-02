@@ -182,6 +182,7 @@ export const getCompanyAiSettings = async (companyId: number) => {
   const ownOpenAiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.openai);
   const ownGeminiKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.gemini);
   const ownOpenRouterKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.openrouter);
+  const ownGroqKey = await getProviderSetting(companyId, AI_KEY_SETTING_MAP.groq);
   const creditInfo = await getCreditInfo(companyId);
 
   return {
@@ -195,12 +196,14 @@ export const getCompanyAiSettings = async (companyId: number) => {
     ownKeys: {
       openai: ownOpenAiKey,
       gemini: ownGeminiKey,
-      openrouter: ownOpenRouterKey
+      openrouter: ownOpenRouterKey,
+      groq: ownGroqKey
     },
     maskedKeys: {
       openai: getMaskedSecret(ownOpenAiKey),
       gemini: getMaskedSecret(ownGeminiKey),
-      openrouter: getMaskedSecret(ownOpenRouterKey)
+      openrouter: getMaskedSecret(ownOpenRouterKey),
+      groq: getMaskedSecret(ownGroqKey)
     },
     creditInfo,
     planInfo: getPlanAiSnapshot(company.plan)

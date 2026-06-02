@@ -10,10 +10,11 @@ import { getStoredProviderModels } from "../services/AIProviderService/AIModelCa
 
 const updateSchema = Yup.object().shape({
   aiUsageMode: Yup.string().oneOf(["system", "own"]).optional(),
-  aiPreferredProvider: Yup.string().oneOf(["openai", "gemini", "openrouter"]).optional(),
+  aiPreferredProvider: Yup.string().oneOf(["openai", "gemini", "openrouter", "groq"]).optional(),
   openaiApiKey: Yup.string().nullable().optional(),
   geminiApiKey: Yup.string().nullable().optional(),
-  openrouterApiKey: Yup.string().nullable().optional()
+  openrouterApiKey: Yup.string().nullable().optional(),
+  groqApiKey: Yup.string().nullable().optional()
 });
 
 const ensureOwnership = async (requestCompanyId: number, targetCompanyId: number) => {
@@ -25,7 +26,8 @@ const ensureOwnership = async (requestCompanyId: number, targetCompanyId: number
 const getGlobalModels = async () => ({
   openai: await getStoredProviderModels("openai"),
   gemini: await getStoredProviderModels("gemini"),
-  openrouter: await getStoredProviderModels("openrouter")
+  openrouter: await getStoredProviderModels("openrouter"),
+  groq: await getStoredProviderModels("groq")
 });
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -44,7 +46,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     hasOwnKeys: {
       openai: Boolean(data.ownKeys.openai),
       gemini: Boolean(data.ownKeys.gemini),
-      openrouter: Boolean(data.ownKeys.openrouter)
+      openrouter: Boolean(data.ownKeys.openrouter),
+      groq: Boolean(data.ownKeys.groq)
     },
     creditInfo: data.creditInfo,
     planInfo: data.planInfo,
@@ -85,6 +88,10 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     await upsertCompanyAiSetting(targetCompanyId, "openrouterApiKey", payload.openrouterApiKey);
   }
 
+  if (typeof payload.groqApiKey === "string") {
+    await upsertCompanyAiSetting(targetCompanyId, "groqApiKey", payload.groqApiKey);
+  }
+
   const data = await getCompanyAiSettings(targetCompanyId);
   const globalModels = await getGlobalModels();
 
@@ -95,7 +102,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     hasOwnKeys: {
       openai: Boolean(data.ownKeys.openai),
       gemini: Boolean(data.ownKeys.gemini),
-      openrouter: Boolean(data.ownKeys.openrouter)
+      openrouter: Boolean(data.ownKeys.openrouter),
+      groq: Boolean(data.ownKeys.groq)
     },
     creditInfo: data.creditInfo,
     planInfo: data.planInfo,

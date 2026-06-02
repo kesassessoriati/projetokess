@@ -42,7 +42,7 @@ class Prompt extends Model<Prompt> {
   @Column({ defaultValue: 100 })
   maxTokens: number;
 
-  @Column({ defaultValue: 1 })
+  @Column({ type: DataType.FLOAT, defaultValue: 1 })
   temperature: number;
 
   @Column({ defaultValue: 0 })

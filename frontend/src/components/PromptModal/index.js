@@ -618,19 +618,25 @@ const openrouterModels = [
 const providerFallbackModels = {
     openai: openaiModels,
     gemini: geminiModels,
-    openrouter: openrouterModels
+    openrouter: openrouterModels,
+    groq: [
+        { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant (Groq)" },
+        { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile (Groq)" }
+    ]
 };
 
 const providerLabels = {
     openai: "OpenAI",
     gemini: "Google Gemini",
-    openrouter: "OpenRouter"
+    openrouter: "OpenRouter",
+    groq: "Groq"
 };
 
 const providerKeyPayloadFields = {
     openai: "openaiApiKey",
     gemini: "geminiApiKey",
-    openrouter: "openrouterApiKey"
+    openrouter: "openrouterApiKey",
+    groq: "groqApiKey"
 };
 
 const getFallbackModelForProvider = provider =>
@@ -712,7 +718,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     const [knowledgeUploading, setKnowledgeUploading] = useState(false);
     const [companyAiConfig, setCompanyAiConfig] = useState(null);
     const [aiTemplates, setAiTemplates] = useState([]);
-    const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "" });
+    const [companyApiKeyInput, setCompanyApiKeyInput] = useState({ openai: "", gemini: "", openrouter: "", groq: "" });
     const [whatsappOptions, setWhatsappOptions] = useState([]);
     const [testMessages, setTestMessages] = useState([]);
     const [testInput, setTestInput] = useState("");
@@ -1020,18 +1026,18 @@ const PromptModal = ({ open, onClose, promptId }) => {
         fetchWhatsapps();
     }, [open]);
 
-    const handleClose = () => {
+    const handleClose = (savedPrompt) => {
         setPrompt(initialState);
         setSelectedVoice("texto");
         setSelectedProvider("openai");
         setSelectedModel("");
         setActiveTab(0);
         setSelectedSavedPrompt("");
-        setCompanyApiKeyInput({ openai: "", gemini: "", openrouter: "" });
+        setCompanyApiKeyInput({ openai: "", gemini: "", openrouter: "", groq: "" });
         setTestMessages([]);
         setTestInput("");
         setTestLoading(false);
-        onClose();
+        onClose(savedPrompt);
     };
 
     const handleProviderChange = (e) => {
@@ -1191,19 +1197,22 @@ const PromptModal = ({ open, onClose, promptId }) => {
 
             await updateCompanyAiConfig(user.companyId, aiConfigPayload);
 
+            let savedPrompt;
             if (promptId) {
-                await api.put(`/prompt/${promptId}`, promptData);
+                const { data } = await api.put(`/prompt/${promptId}`, promptData);
+                savedPrompt = data;
             } else {
-                await api.post("/prompt", promptData);
+                const { data } = await api.post("/prompt", promptData);
+                savedPrompt = data;
             }
             const refreshedConfig = await getCompanyAiConfig(user.companyId);
             setCompanyAiConfig(refreshedConfig);
-            toast.success(i18n.t("promptModal.success"));
+            toast.success(promptId ? "Agente atualizado com sucesso" : "Agente criado com sucesso");
+            handleClose(savedPrompt);
         } catch (err) {
             toastError(err);
             return;
         }
-        handleClose();
     };
 
     const buildTestPayload = useCallback((values, message) => {
@@ -1679,6 +1688,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                         <MenuItem value="openai">OpenAI</MenuItem>
                                                         <MenuItem value="gemini">Google Gemini</MenuItem>
                                                         <MenuItem value="openrouter">OpenRouter</MenuItem>
+                                                        <MenuItem value="groq">Groq</MenuItem>
                                                     </Select>
                                                 </FormControl>
 
@@ -1749,8 +1759,8 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                                     fullWidth
                                                     className={classes.formControl}
                                                     helperText={
-                                                        companyAiConfig?.hasOwnKeys?.[selectedProvider === "openrouter" ? "openrouter" : selectedProvider === "gemini" ? "gemini" : "openai"]
-                                                            ? `Já existe uma chave salva: ${companyAiConfig?.maskedKeys?.[selectedProvider === "openrouter" ? "openrouter" : selectedProvider === "gemini" ? "gemini" : "openai"]}`
+                                                        companyAiConfig?.hasOwnKeys?.[selectedProvider]
+                                                            ? `Já existe uma chave salva: ${companyAiConfig?.maskedKeys?.[selectedProvider]}`
                                                             : "Nenhuma chave salva ainda para este provedor."
                                                     }
                                                     InputProps={{

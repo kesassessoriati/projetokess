@@ -777,10 +777,6 @@ const Prompts = () => {
     return map;
   }, []);
 
-  const reloadPage = () => {
-    window.location.reload();
-  };
-
   const loadExternalAgent = async () => {
     setExternalLoading(true);
     try {
@@ -2634,12 +2630,10 @@ const Prompts = () => {
     const onPromptEvent = (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_PROMPTS", payload: data.prompt });
-        reloadPage();
       }
 
       if (data.action === "delete") {
         dispatch({ type: "DELETE_PROMPT", payload: data.promptId });
-        reloadPage();
       }
     };
 
@@ -2654,10 +2648,12 @@ const Prompts = () => {
     setSelectedPrompt(null);
   };
 
-  const handleClosePromptModal = () => {
+  const handleClosePromptModal = (savedPrompt) => {
+    if (savedPrompt?.id) {
+      dispatch({ type: "UPDATE_PROMPTS", payload: savedPrompt });
+    }
     setPromptModalOpen(false);
     setSelectedPrompt(null);
-    reloadPage();
   };
 
   const handleEditPrompt = (prompt) => {
@@ -2674,7 +2670,7 @@ const Prompts = () => {
     try {
       const { data } = await api.delete(`/prompt/${promptId}`);
       toast.info(i18n.t(data.message));
-      reloadPage();
+      dispatch({ type: "DELETE_PROMPT", payload: promptId });
     } catch (err) {
       toastError(err);
     }
@@ -2686,9 +2682,11 @@ const Prompts = () => {
 
   const handleDuplicatePrompt = async (prompt) => {
     try {
-      await api.post(`/prompt/${prompt.id}/duplicate`);
+      const { data } = await api.post(`/prompt/${prompt.id}/duplicate`);
       toast.success("Agente duplicado. O clone fica sem canal ativo para evitar conflito.");
-      reloadPage();
+      if (data?.id) {
+        dispatch({ type: "UPDATE_PROMPTS", payload: data });
+      }
     } catch (err) {
       toastError(err);
     }
@@ -2696,9 +2694,11 @@ const Prompts = () => {
 
   const handleTogglePrompt = async (prompt) => {
     try {
-      await api.patch(`/prompt/${prompt.id}/channel-binding/toggle`);
+      const { data } = await api.patch(`/prompt/${prompt.id}/channel-binding/toggle`);
       toast.success("Status do agente atualizado.");
-      reloadPage();
+      if (data?.id) {
+        dispatch({ type: "UPDATE_PROMPTS", payload: data });
+      }
     } catch (err) {
       toastError(err);
     }
