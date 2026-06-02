@@ -920,6 +920,12 @@ const PipelineBoard = () => {
   const [massTaskBoards, setMassTaskBoards] = useState([]);
   const [massTaskListId, setMassTaskListId] = useState("");
 
+  // Modal standalone de Automação por etapa
+  const [stageAutomationModalOpen, setStageAutomationModalOpen] = useState(false);
+  const [stageAutomationStage, setStageAutomationStage] = useState(null);
+  const [stageAutomationWhatsapps, setStageAutomationWhatsapps] = useState([]);
+  const [stageAutomationTaskBoards, setStageAutomationTaskBoards] = useState([]);
+
   const appendMassToken = (token) => {
     setMassMsg((prev) => {
       const safeCurrent = String(prev || "");
@@ -1238,6 +1244,24 @@ const PipelineBoard = () => {
       setMassTaskBoards(boardRes.data || []);
     } catch (_) {}
     setMassActionModalOpen(true);
+  };
+
+  const handleOpenStageAutomation = async (stage) => {
+    handleCloseStageMenu();
+    setStageAutomationStage(stage);
+    try {
+      const [wpRes, boardRes] = await Promise.all([
+        api.get("/whatsapp"),
+        api.get("/tasks"),
+      ]);
+      const connectedWhatsapps = sortWhatsappsByUserQueues(
+        (wpRes.data || []).filter((w) => w.status === "CONNECTED"),
+        user,
+      );
+      setStageAutomationWhatsapps(connectedWhatsapps);
+      setStageAutomationTaskBoards(boardRes.data || []);
+    } catch (_) {}
+    setStageAutomationModalOpen(true);
   };
 
   const handleMassDelete = async () => {
@@ -2112,6 +2136,15 @@ const PipelineBoard = () => {
           </Box>
         </MenuItem>
         <MenuItem
+          onClick={() => handleOpenStageAutomation(stageMenuTarget)}
+          style={{ gap: 8 }}
+        >
+          <TuneIcon fontSize="small" style={{ color: "#7c3aed" }} />
+          <Typography variant="body2" style={{ fontWeight: 600 }}>
+            Automação
+          </Typography>
+        </MenuItem>
+        <MenuItem
           onClick={() => {
             handleCloseStageMenu();
             handleOpenImport(stageMenuTarget?.id);
@@ -2133,28 +2166,18 @@ const PipelineBoard = () => {
           setMassActionModalOpen(false);
         }}
         maxWidth={
-          massActionTab === 4
-            ? "md"
-            : massQuickRepliesOpen && massActionTab === 1
-            ? "lg"
-            : "sm"
+          massQuickRepliesOpen && massActionTab === 1 ? "lg" : "sm"
         }
         fullWidth
         PaperProps={{
           style: {
             borderRadius: 16,
             width:
-              massActionTab === 4
-                ? "min(780px, 96vw)"
-                : massQuickRepliesOpen && massActionTab === 1
+              massQuickRepliesOpen && massActionTab === 1
                 ? "min(1040px, 96vw)"
                 : undefined,
             maxWidth:
-              massActionTab === 4
-                ? "96vw"
-                : massQuickRepliesOpen && massActionTab === 1
-                ? "96vw"
-                : undefined,
+              massQuickRepliesOpen && massActionTab === 1 ? "96vw" : undefined,
             maxHeight: "calc(100vh - 48px)",
             display: "flex",
             flexDirection: "column",
@@ -2198,11 +2221,6 @@ const PipelineBoard = () => {
           <Tab
             label="Tarefas"
             icon={<AssignmentIcon fontSize="small" />}
-            style={{ minWidth: 80, fontSize: "0.75rem" }}
-          />
-          <Tab
-            label="Automação"
-            icon={<TuneIcon fontSize="small" />}
             style={{ minWidth: 80, fontSize: "0.75rem" }}
           />
         </Tabs>
@@ -2653,15 +2671,6 @@ const PipelineBoard = () => {
                   </Button>
                 </Box>
               )}
-              {/* Aba 4: Automação por etapa */}
-              {massActionTab === 4 && (
-                <StageAutomationPanel
-                  stage={massActionStage}
-                  whatsapps={massWhatsapps}
-                  taskBoards={massTaskBoards}
-                  stages={board.stages || []}
-                />
-              )}
             </Box>
             {massQuickRepliesOpen && massActionTab === 1 && (
               <QuickRepliesModal
@@ -2680,6 +2689,52 @@ const PipelineBoard = () => {
               setMassActionModalOpen(false);
             }}
           >
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal standalone de Automação por Etapa */}
+      <Dialog
+        open={stageAutomationModalOpen}
+        onClose={() => setStageAutomationModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: {
+            borderRadius: 16,
+            width: "min(780px, 96vw)",
+            maxWidth: "96vw",
+            maxHeight: "calc(100vh - 48px)",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800, paddingBottom: 0 }}>
+          Automação — {stageAutomationStage?.name}
+          <Typography
+            variant="caption"
+            display="block"
+            style={{ color: "#6b7280", fontWeight: 400 }}
+          >
+            Configure ações automáticas para esta etapa do funil
+          </Typography>
+        </DialogTitle>
+        <DialogContent
+          style={{ minHeight: 220, paddingTop: 20, overflowY: "auto", flex: 1 }}
+        >
+          {stageAutomationStage && (
+            <StageAutomationPanel
+              stage={stageAutomationStage}
+              whatsapps={stageAutomationWhatsapps}
+              taskBoards={stageAutomationTaskBoards}
+              stages={board.stages || []}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStageAutomationModalOpen(false)}>
             Fechar
           </Button>
         </DialogActions>
