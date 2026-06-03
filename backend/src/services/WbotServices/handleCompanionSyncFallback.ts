@@ -1,10 +1,4 @@
 // @ts-nocheck
-/**
- * Fallback for companion sync pkmsg decryption failures.
- * When the phone sends a message that the CRM cannot decrypt (Signal session
- * issue), this creates a placeholder message so agents can see that a message
- * was sent from the phone.
- */
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import Message from "../../models/Message";
@@ -16,6 +10,22 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 const extractAttr = (nodeStr: string, attr: string): string | null => {
   const m = nodeStr.match(new RegExp(`${attr}='([^']+)'`));
   return m ? m[1] : null;
+};
+
+const buildPlaceholderBody = (nodeStr: string): string => {
+  const msgType = extractAttr(nodeStr, "type");
+  if (msgType === "media") {
+    const mediaType = extractAttr(nodeStr, "mediatype");
+    switch (mediaType) {
+      case "image":     return "📷 [Imagem enviada pelo celular — conteúdo indisponível]";
+      case "video":     return "🎥 [Vídeo enviado pelo celular — conteúdo indisponível]";
+      case "audio":     return "🎵 [Áudio enviado pelo celular — conteúdo indisponível]";
+      case "document":  return "📄 [Documento enviado pelo celular — conteúdo indisponível]";
+      case "sticker":   return "🎭 [Sticker enviado pelo celular — conteúdo indisponível]";
+      default:          return "📎 [Mídia enviada pelo celular — conteúdo indisponível]";
+    }
+  }
+  return "💬 [Mensagem enviada pelo celular — conteúdo indisponível]";
 };
 
 export async function handleCompanionSyncFallback(
@@ -31,7 +41,6 @@ export async function handleCompanionSyncFallback(
 
   await runWithContext({ companyId }, async () => {
     try {
-      // Avoid duplicate processing on retries
       const existing = await Message.findOne({ where: { wid: msgId, companyId } });
       if (existing) {
         logger.info(`[CompanionSync Fallback] msg ${msgId} already registered, skipping`);
@@ -40,7 +49,6 @@ export async function handleCompanionSyncFallback(
 
       const contactNumber = peerPn.replace(/@s\.whatsapp\.net$/, "");
 
-      // Find the contact — only create placeholder if we know who it is
       const contact = await Contact.findOne({
         where: { number: contactNumber, companyId }
       });
@@ -59,21 +67,25 @@ export async function handleCompanionSyncFallback(
         companyId
       );
 
+      const body = buildPlaceholderBody(nodeStr);
+      const msgType = extractAttr(nodeStr, "type");
+      const mediaType = msgType === "media" ? (extractAttr(nodeStr, "mediatype") || "chat") : "chat";
+
       const messageData = {
         wid: msgId,
         ticketId: ticket.id,
         contactId: contact.id,
-        body: "🔒 [Mensagem enviada pelo celular — conteúdo indisponível]",
+        body,
         fromMe: true,
         read: true,
-        mediaType: "chat",
+        mediaType,
         ack: 2,
         companyId
       };
 
       await CreateMessageService({ messageData, companyId });
       logger.info(
-        `[CompanionSync Fallback] Placeholder created: msg=${msgId} contact=${contactNumber} ticket=${ticket.id}`
+        `[CompanionSync Fallback] Placeholder created: msg=${msgId} type=${msgType}/${mediaType} contact=${contactNumber} ticket=${ticket.id}`
       );
     } catch (err: any) {
       logger.warn(`[CompanionSync Fallback] Error: ${err?.message}`);
