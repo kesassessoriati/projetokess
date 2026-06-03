@@ -94,17 +94,17 @@ export const initWASocketWhaileys = async (
       let isJidGroup: any;
 
       try {
-        const whaileys = await import("whaileys");
-        makeWASocket = whaileys.default || whaileys.makeWASocket;
-        DisconnectReason = whaileys.DisconnectReason;
-        useMultiFileAuthState = whaileys.useMultiFileAuthState;
-        Browsers = whaileys.Browsers;
-        makeCacheableSignalKeyStore = whaileys.makeCacheableSignalKeyStore;
-        jidNormalizedUser = whaileys.jidNormalizedUser;
-        isJidBroadcast = whaileys.isJidBroadcast;
-        isJidGroup = whaileys.isJidGroup;
+        const baileys = await import("@whiskeysockets/baileys");
+        makeWASocket = baileys.default || baileys.makeWASocket;
+        DisconnectReason = baileys.DisconnectReason;
+        useMultiFileAuthState = baileys.useMultiFileAuthState;
+        Browsers = baileys.Browsers;
+        makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
+        jidNormalizedUser = baileys.jidNormalizedUser;
+        isJidBroadcast = baileys.isJidBroadcast;
+        isJidGroup = baileys.isJidGroup;
       } catch (err) {
-        logger.error(`[Whaileys] Falha ao importar biblioteca whaileys: ${err}`);
+        logger.error(`[Whaileys] Falha ao importar biblioteca @whiskeysockets/baileys: ${err}`);
         failInitialization(err);
         return;
       }
