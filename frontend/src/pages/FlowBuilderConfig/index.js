@@ -46,6 +46,8 @@ import closeTicketNode from "./nodes/closeTicketNode";
 import sendMessageNode from "./nodes/sendMessageNode";
 import waitQuestionNode from "./nodes/waitQuestionNode";
 import kanbanStageNode from "./nodes/kanbanStageNode";
+import crmLeadNode from "./nodes/crmLeadNode";
+import contactFieldsNode from "./nodes/contactFieldsNode";
 
 
 import api from "../../services/api";
@@ -102,6 +104,8 @@ import {
   DataObject,
   ShoppingBag,
   StickyNote2,
+  PersonAdd,
+  DriveFileRenameOutline,
 } from "@mui/icons-material";
 import DescriptionIcon from "@mui/icons-material/Description";
 import RemoveEdge from "./nodes/removeEdge";
@@ -140,6 +144,8 @@ import FlowBuilderProductListModal from "../../components/FlowBuilderProductList
 import FlowBuilderAddKanbanStageModal from "../../components/FlowBuilderAddKanbanStageModal";
 import FlowBuilderTriggerModal from "../../components/FlowBuilderTriggerModal";
 import FlowBuilderJavaScriptModal from "../../components/FlowBuilderJavaScriptModal";
+import FlowBuilderCrmLeadModal from "../../components/FlowBuilderCrmLeadModal";
+import FlowBuilderContactFieldsModal from "../../components/FlowBuilderContactFieldsModal";
 
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
@@ -575,6 +581,8 @@ const NODE_TITLES = {
   kanbanStage: "Etapa Kanban",
   javascript: "JavaScript",
   note: "Nota",
+  crmLead: "Criar / Atualizar Lead",
+  contactFields: "Atualizar Campo do Contato",
 };
 
 
@@ -651,6 +659,8 @@ const nodeTypes = {
   waitQuestion: withNodeTitle(waitQuestionNode, NODE_TITLES.waitQuestion),
   kanbanStage: withNodeTitle(kanbanStageNode, NODE_TITLES.kanbanStage),
   javascript: withNodeTitle(javascriptNode, NODE_TITLES.javascript),
+  crmLead: withNodeTitle(crmLeadNode, NODE_TITLES.crmLead),
+  contactFields: withNodeTitle(contactFieldsNode, NODE_TITLES.contactFields),
   note: noteNode,
 };
 
@@ -744,6 +754,8 @@ export const FlowBuilderConfig = () => {
   const [modalProductList, setModalProductList] = useState(null);
   const [modalWaitQuestion, setModalWaitQuestion] = useState(null);
   const [modalAddKanbanStage, setModalAddKanbanStage] = useState(null);
+  const [modalCrmLead, setModalCrmLead] = useState(null);
+  const [modalContactFields, setModalContactFields] = useState(null);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [flowTriggers, setFlowTriggers] = useState([]);
@@ -1230,6 +1242,8 @@ export const FlowBuilderConfig = () => {
   const productListAdd = (data) => { addNode("productList", data); };
   const kanbanStageAdd = (data) => { addNode("kanbanStage", data); };
   const javascriptAdd = (data) => { addNode("javascript", data); };
+  const crmLeadAdd = (data) => { addNode("crmLead", data); };
+  const contactFieldsAdd = (data) => { addNode("contactFields", data); };
   const noteAdd = () => { addNode("note", {}); };
 
 
@@ -1268,7 +1282,14 @@ export const FlowBuilderConfig = () => {
             );
             
             // Combinar todas as variáveis
-            const allVariables = [...questionVariables, ...apiVariables];
+            const variableNodes = flowNodes.filter(
+              (nd) => nd.type === "variable"
+            );
+            const manualVariables = variableNodes.map(
+              (node) => node.data?.data?.variableName || node.data?.variableName
+            );
+
+            const allVariables = [...questionVariables, ...apiVariables, ...manualVariables];
             
             // Remover duplicatas e valores vazios
             const uniqueVariables = [...new Set(allVariables.filter(v => v && v.trim()))];
@@ -1717,6 +1738,8 @@ export const FlowBuilderConfig = () => {
     if (node.type === "waitQuestion") { setModalWaitQuestion("edit"); }
     if (node.type === "kanbanStage") { setModalAddKanbanStage("edit"); }
     if (node.type === "javascript") { setModalJavaScript("edit"); }
+    if (node.type === "crmLead") { setModalCrmLead("edit"); }
+    if (node.type === "contactFields") { setModalContactFields("edit"); }
     if (node.type === "note") { /* handled inline by noteNode */ }
   };
 
@@ -1797,6 +1820,8 @@ export const FlowBuilderConfig = () => {
     setModalCloseTicket(null);
     setModalProductList(null);
     setModalWaitQuestion(null);
+    setModalCrmLead(null);
+    setModalContactFields(null);
   };
 
   const closeRenameModal = () => {
@@ -1866,6 +1891,8 @@ export const FlowBuilderConfig = () => {
         { icon: <ViewKanban sx={{ color: "#06b6d4", fontSize: 14 }} />, name: "Tag Kanban", type: "addTagKanban" },
         { icon: <ViewKanban sx={{ color: "#3b82f6", fontSize: 14 }} />, name: "Etapa Kanban", type: "kanbanStage" },
         { icon: <CheckCircle sx={{ color: "#22c55e", fontSize: 14 }} />, name: "Encerrar Ticket", type: "closeTicket" },
+        { icon: <PersonAdd sx={{ color: "#10b981", fontSize: 14 }} />, name: "Lead CRM", type: "crmLead" },
+        { icon: <DriveFileRenameOutline sx={{ color: "#3b82f6", fontSize: 14 }} />, name: "Campo CRM", type: "contactFields" },
 
         { icon: <ShoppingBag sx={{ color: "#3b82f6", fontSize: 14 }} />, name: "Lista de Produtos", type: "productList" },
         { icon: <Schedule sx={{ color: "#fb923c", fontSize: 14 }} />, name: "Espera Condicional", type: "waitQuestion" },
@@ -1959,6 +1986,8 @@ export const FlowBuilderConfig = () => {
       case "waitQuestion": setModalWaitQuestion("create"); break;
       case "kanbanStage": setModalAddKanbanStage("create"); break;
       case "javascript": setModalJavaScript("create"); break;
+      case "crmLead": setModalCrmLead("create"); break;
+      case "contactFields": setModalContactFields("create"); break;
       case "note": noteAdd(); break;
       default: break;
 
@@ -2157,6 +2186,20 @@ export const FlowBuilderConfig = () => {
         data={dataNode}
         onUpdate={updateNode}
         close={() => setModalAddKanbanStage(null)}
+      />
+      <FlowBuilderCrmLeadModal
+        open={modalCrmLead}
+        onSave={crmLeadAdd}
+        data={dataNode}
+        onUpdate={updateNode}
+        close={() => setModalCrmLead(null)}
+      />
+      <FlowBuilderContactFieldsModal
+        open={modalContactFields}
+        onSave={contactFieldsAdd}
+        data={dataNode}
+        onUpdate={updateNode}
+        close={() => setModalContactFields(null)}
       />
 
       <FlowBuilderNodeRenameModal

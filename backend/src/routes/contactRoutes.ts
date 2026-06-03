@@ -18,6 +18,7 @@ contactRoutes.get("/contacts/list", isAuth, ContactController.list);
 contactRoutes.get("/contacts/:contactId", isAuth, ContactController.show);
 contactRoutes.post("/contacts", isAuth, ContactController.store);
 contactRoutes.put("/contacts/:contactId", isAuth, ContactController.update);
+contactRoutes.patch("/contacts/:contactId/fields", isAuth, ContactController.updateFields);
 contactRoutes.delete("/contacts/:contactId", isAuth, ContactController.remove);
 contactRoutes.put("/contacts/toggleAcceptAudio/:contactId", isAuth, ContactController.toggleAcceptAudio);
 contactRoutes.get("/contacts", isAuth, ContactController.getContactVcard);

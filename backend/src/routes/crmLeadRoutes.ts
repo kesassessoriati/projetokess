@@ -38,6 +38,7 @@ crmLeadRoutes.post("/crm/leads/import", isAuth, upload.single("file"), CrmLeadCo
 crmLeadRoutes.get("/crm/leads/:leadId", isAuth, CrmLeadController.show);
 crmLeadRoutes.post("/crm/leads", isAuth, CrmLeadController.store);
 crmLeadRoutes.put("/crm/leads/:leadId", isAuth, CrmLeadController.update);
+crmLeadRoutes.patch("/crm/leads/:leadId/fields", isAuth, CrmLeadController.updateFields);
 crmLeadRoutes.post("/crm/leads/:leadId/convert", isAuth, CrmLeadController.convert);
 crmLeadRoutes.delete("/crm/leads/:leadId", isAuth, CrmLeadController.remove);
 

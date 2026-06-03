@@ -37,6 +37,10 @@ import Contact from "../models/Contact";
 import Tag from "../models/Tag";
 import ContactTag from "../models/ContactTag";
 import logger from "../utils/logger";
+import CrmLead from "../models/CrmLead";
+import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
+import CrmLeadCustomFieldValue from "../models/CrmLeadCustomFieldValue";
+import UpdateCrmLeadService from "../services/CrmLeadService/UpdateCrmLeadService";
 
 type IndexQuery = {
   searchParam: string;
@@ -322,6 +326,163 @@ export const update = async (
     });
 
   return res.status(200).json(contact);
+};
+
+const contactFieldKeys = new Set(["name", "number", "email", "cpfCnpj", "address", "info", "birthday", "anniversary"]);
+const leadFieldKeys = new Set([
+  "name",
+  "email",
+  "phone",
+  "birthDate",
+  "clientSince",
+  "expirationDate",
+  "acquisitionDate",
+  "document",
+  "companyName",
+  "position",
+  "decisionMakerName",
+  "decisionMakerPhone",
+  "cnpj",
+  "address",
+  "product",
+  "paymentType",
+  "purchaseType",
+  "purchaseValue",
+  "gmn",
+  "website",
+  "instagram",
+  "linkedin",
+  "source",
+  "campaign",
+  "medium",
+  "status",
+  "leadStatus",
+  "score",
+  "temperature",
+  "ownerUserId",
+  "notes",
+  "lastActivityAt",
+  "contactId",
+  "primaryTicketId",
+  "pipelineId",
+  "stageId",
+  "tags",
+  "cardColor"
+]);
+
+const syncLeadCustomFields = async ({
+  leadId,
+  companyId,
+  customFields
+}: {
+  leadId: number;
+  companyId: number;
+  customFields?: Record<string, any>;
+}) => {
+  if (!customFields || typeof customFields !== "object") return;
+
+  const fields = await CompanyLeadFieldSetting.findAll({
+    where: { companyId, isCustom: true, active: true }
+  });
+  const fieldsByKey = new Map(fields.map(field => [field.fieldKey, field]));
+
+  await Promise.all(Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
+    const field = fieldsByKey.get(fieldKey);
+    if (!field) return;
+
+    await CrmLeadCustomFieldValue.upsert({
+      companyId,
+      leadId,
+      fieldId: field.id,
+      value: rawValue === null || rawValue === undefined ? "" : String(rawValue)
+    });
+  }));
+};
+
+export const updateFields = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { contactId } = req.params;
+  const bodyFields = req.body?.fields || req.body || {};
+  const contactUpdates: any = {};
+  const leadUpdates: any = {};
+  const contactCustomFields: Record<string, any> = {};
+  const leadCustomFields = bodyFields.customFields || req.body?.customFields || {};
+
+  Object.entries(bodyFields).forEach(([key, value]) => {
+    if (key === "customFields") return;
+    if (key.startsWith("contactCustom.")) {
+      contactCustomFields[key.replace("contactCustom.", "")] = value;
+      return;
+    }
+    if (contactFieldKeys.has(key)) {
+      contactUpdates[key] = value;
+      return;
+    }
+    if (leadFieldKeys.has(key)) {
+      leadUpdates[key] = value;
+    }
+  });
+
+  const contact = await Contact.findOne({
+    where: { id: contactId, companyId }
+  });
+
+  if (!contact) {
+    throw new AppError("ERR_NO_CONTACT_FOUND", 404);
+  }
+
+  if (Object.keys(contactUpdates).length > 0) {
+    await contact.update(contactUpdates);
+  }
+
+  await Promise.all(Object.entries(contactCustomFields).map(async ([name, value]) => {
+    const fieldValue = value === null || value === undefined ? "" : String(value);
+    const existing = await ContactCustomField.findOne({
+      where: { contactId: contact.id, name }
+    });
+
+    if (existing) {
+      await existing.update({ value: fieldValue });
+    } else {
+      await ContactCustomField.create({
+        contactId: contact.id,
+        name,
+        value: fieldValue
+      } as any);
+    }
+  }));
+
+  let lead = await CrmLead.findOne({
+    where: { contactId: contact.id, companyId }
+  });
+
+  if (lead && Object.keys(leadUpdates).length > 0) {
+    lead = await UpdateCrmLeadService({
+      id: lead.id,
+      companyId,
+      ...leadUpdates
+    });
+  }
+
+  if (lead && Object.keys(leadCustomFields).length > 0) {
+    await syncLeadCustomFields({
+      leadId: lead.id,
+      companyId,
+      customFields: leadCustomFields
+    });
+  }
+
+  const io = getIO();
+  io.of(String(companyId))
+    .emit(`company-${companyId}-contact`, {
+      action: "update",
+      contact
+    });
+
+  return res.status(200).json({ contact, lead });
 };
 
 export const remove = async (

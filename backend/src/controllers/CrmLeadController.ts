@@ -80,6 +80,55 @@ const syncCustomFieldValues = async ({
   );
 };
 
+const allowedLeadFieldKeys = new Set([
+  "name",
+  "email",
+  "phone",
+  "birthDate",
+  "clientSince",
+  "expirationDate",
+  "acquisitionDate",
+  "document",
+  "companyName",
+  "position",
+  "decisionMakerName",
+  "decisionMakerPhone",
+  "cnpj",
+  "address",
+  "product",
+  "paymentType",
+  "purchaseType",
+  "purchaseValue",
+  "gmn",
+  "website",
+  "instagram",
+  "linkedin",
+  "source",
+  "campaign",
+  "medium",
+  "status",
+  "leadStatus",
+  "score",
+  "temperature",
+  "ownerUserId",
+  "notes",
+  "lastActivityAt",
+  "contactId",
+  "primaryTicketId",
+  "pipelineId",
+  "stageId",
+  "tags",
+  "cardColor"
+]);
+
+const pickAllowedLeadFields = (data: Record<string, any>) =>
+  Object.entries(data || {}).reduce((acc, [key, value]) => {
+    if (allowedLeadFieldKeys.has(key)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile, id: userId } = req.user;
   const { searchParam, status, product, ownerUserId, pageNumber, limit } = req.query as any;
@@ -162,6 +211,26 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   const { leadId } = req.params;
   const data = { ...req.body };
   const customFields = data.customFields;
+  delete data.customFields;
+  delete data.sessionid;
+
+  const lead = await UpdateCrmLeadService({
+    id: Number(leadId),
+    companyId,
+    ...data
+  });
+
+  await syncCustomFieldValues({ leadId: Number(leadId), companyId, customFields });
+
+  return res.json(await appendCustomFieldValues(serializeCrmLead(lead), companyId));
+};
+
+export const updateFields = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { leadId } = req.params;
+  const bodyFields = req.body?.fields || req.body || {};
+  const customFields = bodyFields.customFields || req.body?.customFields;
+  const data = pickAllowedLeadFields(bodyFields);
   delete data.customFields;
   delete data.sessionid;
 

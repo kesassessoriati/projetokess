@@ -65,6 +65,11 @@ import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import CrmLead from "../../models/CrmLead";
+import CompanyLeadFieldSetting from "../../models/CompanyLeadFieldSetting";
+import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
+import ContactCustomField from "../../models/ContactCustomField";
+import CreateCrmLeadService from "../CrmLeadService/CreateCrmLeadService";
+import UpdateCrmLeadService from "../CrmLeadService/UpdateCrmLeadService";
 import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
 import FlowExecution from "../../models/FlowExecution";
 
@@ -109,6 +114,205 @@ interface IAddContact {
   email?: string;
   dataMore?: any;
 }
+
+const normalizeDigits = (value?: string | number | null): string =>
+  String(value || "").replace(/\D/g, "");
+
+const normalizePhone = (value?: string | number | null): string => {
+  const digits = normalizeDigits(value);
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
+    return `55${digits}`;
+  }
+  return digits;
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "Bom dia";
+  if (hour >= 12 && hour < 18) return "Boa tarde";
+  if (hour >= 18 && hour < 24) return "Boa noite";
+  return "Boa madrugada";
+};
+
+const getFlowVariables = async ({
+  ticket,
+  companyId,
+  numberClient
+}: {
+  ticket: Ticket | null;
+  companyId: number;
+  numberClient: string;
+}): Promise<Record<string, any>> => {
+  let loadedTicket: any = ticket;
+
+  if (ticket?.id) {
+    loadedTicket = await Ticket.findOne({
+      where: { id: ticket.id, companyId },
+      include: [
+        { model: Contact, as: "contact" },
+        { model: User, as: "user" },
+        { model: Queue, as: "queue" },
+        { model: Whatsapp, as: "whatsapp" },
+        { model: Tag, as: "tags", through: { attributes: [] } },
+        { model: CrmLead, as: "crmLead", include: [{ model: PipelineStage, as: "stage" }, { model: Pipeline, as: "pipeline" }, { model: User, as: "owner" }] }
+      ]
+    });
+  }
+
+  const contact = loadedTicket?.contact || await Contact.findOne({
+    where: { companyId, number: numberClient }
+  });
+
+  const lead =
+    loadedTicket?.crmLead ||
+    (contact?.id
+      ? await CrmLead.findOne({
+        where: { companyId, contactId: contact.id },
+        include: [{ model: PipelineStage, as: "stage" }, { model: Pipeline, as: "pipeline" }, { model: User, as: "owner" }]
+      })
+      : null);
+
+  const dataWebhook = loadedTicket?.dataWebhook || {};
+  const webhookVariables = dataWebhook?.variables || {};
+  const now = new Date();
+
+  return {
+    ...webhookVariables,
+    firstName: contact?.name?.split(" ")[0] || "",
+    name: contact?.name || "",
+    userName: loadedTicket?.user?.name || "",
+    ms: getGreeting(),
+    protocol: loadedTicket?.uuid || "",
+    date: now.toLocaleDateString("pt-BR"),
+    hour: now.toLocaleTimeString("pt-BR"),
+    ticket_id: loadedTicket?.id || "",
+    contact_id: contact?.id || "",
+    lead_id: lead?.id || "",
+    status: loadedTicket?.status || "",
+    queue: loadedTicket?.queue?.name || "",
+    connection: loadedTicket?.whatsapp?.name || "",
+    contact_phone: contact?.number || numberClient || "",
+    contact_email: contact?.email || "",
+    lead_status: lead?.leadStatus || lead?.status || "",
+    lead_score: lead?.score ?? "",
+    lead_temperature: lead?.temperature || "",
+    lead_source: lead?.source || "",
+    lead_campaign: lead?.campaign || "",
+    responsavel: lead?.owner?.name || loadedTicket?.user?.name || "",
+    funil_de_vendas: lead?.pipeline?.name || "",
+    estagio_funil: lead?.stage?.name || "",
+    tag: loadedTicket?.tags?.map((tag: any) => tag.name).join(", ") || "",
+    kanban_stage: lead?.stage?.name || "",
+    produto: lead?.product || ""
+  };
+};
+
+const resolveFlowValue = (rawValue: any, variables: Record<string, any>) => {
+  if (rawValue === null || rawValue === undefined) return rawValue;
+  if (typeof rawValue !== "string") return rawValue;
+
+  return rawValue.replace(/{{\s*([^{}\s]+)\s*}}/g, (_match, key) =>
+    variables[key] === undefined || variables[key] === null ? "" : String(variables[key])
+  );
+};
+
+const compactPayload = (payload: Record<string, any>) =>
+  Object.entries(payload).reduce((acc, [key, value]) => {
+    if (value !== undefined && value !== null && String(value) !== "") {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
+const syncLeadCustomFieldsFromFlow = async ({
+  leadId,
+  companyId,
+  customFields
+}: {
+  leadId: number;
+  companyId: number;
+  customFields?: Record<string, any>;
+}) => {
+  if (!customFields || typeof customFields !== "object") return;
+
+  const fields = await CompanyLeadFieldSetting.findAll({
+    where: { companyId, isCustom: true, active: true }
+  });
+  const fieldsByKey = new Map(fields.map(field => [field.fieldKey, field]));
+
+  await Promise.all(Object.entries(customFields).map(async ([fieldKey, rawValue]) => {
+    const field = fieldsByKey.get(fieldKey);
+    if (!field) return;
+
+    await CrmLeadCustomFieldValue.upsert({
+      companyId,
+      leadId,
+      fieldId: field.id,
+      value: rawValue === null || rawValue === undefined ? "" : String(rawValue)
+    });
+  }));
+};
+
+const setNextByHandle = (
+  connects: IConnections[],
+  nodeId: string,
+  handle: string
+): string | null => {
+  const connection =
+    connects.find(conn => conn.source === nodeId && conn.sourceHandle === handle) ||
+    connects.find(conn => conn.source === nodeId);
+
+  return connection?.target || null;
+};
+
+const allowedLeadUpdateFields = new Set([
+  "name",
+  "email",
+  "phone",
+  "birthDate",
+  "clientSince",
+  "expirationDate",
+  "acquisitionDate",
+  "document",
+  "companyName",
+  "position",
+  "decisionMakerName",
+  "decisionMakerPhone",
+  "cnpj",
+  "address",
+  "product",
+  "paymentType",
+  "purchaseType",
+  "purchaseValue",
+  "gmn",
+  "website",
+  "instagram",
+  "linkedin",
+  "source",
+  "campaign",
+  "medium",
+  "status",
+  "leadStatus",
+  "score",
+  "temperature",
+  "ownerUserId",
+  "notes",
+  "lastActivityAt",
+  "contactId",
+  "primaryTicketId",
+  "pipelineId",
+  "stageId",
+  "tags",
+  "cardColor"
+]);
+
+const pickAllowedLeadFields = (fields: Record<string, any>) =>
+  Object.entries(fields || {}).reduce((acc, [key, value]) => {
+    if (allowedLeadUpdateFields.has(key)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
 
 export const ActionsWebhookService = async (
   whatsappId: number,
@@ -1910,6 +2114,239 @@ export const ActionsWebhookService = async (
       }
 
       // Nó: Transferir para Fila
+      if (nodeSelected.type === "crmLead") {
+        if (!ticket && idTicket) {
+          ticket = await Ticket.findOne({
+            where: { id: idTicket, companyId },
+            include: [{ model: Contact, as: "contact" }]
+          });
+        }
+
+        const nodeData = nodeSelected.data?.data || nodeSelected.data || {};
+        const fields = nodeData.fields || {};
+        const customFields = nodeData.customFields || {};
+        const mode = nodeData.mode || "create";
+        let outputHandle = "success";
+
+        try {
+          const variables = await getFlowVariables({ ticket, companyId, numberClient });
+          const resolvedFields = Object.entries(fields).reduce((acc, [key, value]) => {
+            acc[key] = resolveFlowValue(value, variables);
+            return acc;
+          }, {} as Record<string, any>);
+          const resolvedCustomFields = Object.entries(customFields).reduce((acc, [key, value]) => {
+            acc[key] = resolveFlowValue(value, variables);
+            return acc;
+          }, {} as Record<string, any>);
+
+          const payload = pickAllowedLeadFields(compactPayload({
+            name: resolvedFields.name || ticket?.contact?.name || variables.name,
+            companyName: resolvedFields.companyName,
+            email: resolvedFields.email || ticket?.contact?.email,
+            phone: normalizePhone(resolvedFields.phone || ticket?.contact?.number || numberClient),
+            document: resolvedFields.document,
+            source: resolvedFields.source,
+            campaign: resolvedFields.campaign,
+            temperature: resolvedFields.temperature,
+            score: resolvedFields.score !== undefined && resolvedFields.score !== "" ? Number(resolvedFields.score) : undefined,
+            ownerUserId: resolvedFields.ownerUserId ? Number(resolvedFields.ownerUserId) : undefined,
+            pipelineId: resolvedFields.pipelineId ? Number(resolvedFields.pipelineId) : undefined,
+            stageId: resolvedFields.stageId ? Number(resolvedFields.stageId) : undefined,
+            notes: resolvedFields.notes,
+            contactId: ticket?.contactId,
+            primaryTicketId: ticket?.id,
+            companyId
+          }));
+
+          let lead: CrmLead | null = null;
+
+          if (mode === "update") {
+            lead = await CrmLead.findOne({
+              where: ticket?.contactId
+                ? { companyId, contactId: ticket.contactId }
+                : { companyId, phone: payload.phone }
+            });
+
+            if (!lead) {
+              outputHandle = "warning";
+              await recordFlowNode(nodeSelected, "warning", "Lead vinculado ao contato nao encontrado");
+            } else {
+              lead = await UpdateCrmLeadService({
+                id: lead.id,
+                companyId,
+                ...payload
+              } as any);
+            }
+          } else {
+            const leadLookup: any[] = [];
+            if (ticket?.contactId) {
+              leadLookup.push({ contactId: ticket.contactId });
+            }
+            if (payload.email) {
+              leadLookup.push({ email: payload.email });
+            }
+            if (payload.phone) {
+              leadLookup.push({ phone: payload.phone });
+            }
+
+            lead = await CrmLead.findOne({
+              where: leadLookup.length > 0
+                ? { companyId, [Op.or]: leadLookup }
+                : { companyId, id: 0 }
+            });
+
+            if (lead) {
+              lead = await UpdateCrmLeadService({
+                id: lead.id,
+                companyId,
+                ...payload
+              } as any);
+            } else {
+              lead = await CreateCrmLeadService({
+                ...payload,
+                companyId
+              } as any);
+            }
+          }
+
+          if (lead) {
+            await syncLeadCustomFieldsFromFlow({
+              leadId: lead.id,
+              companyId,
+              customFields: resolvedCustomFields
+            });
+
+            if (ticket && ticket.crmLeadId !== lead.id) {
+              await ticket.update({ crmLeadId: lead.id });
+            }
+          }
+        } catch (error: any) {
+          outputHandle = "error";
+          await recordFlowNode(nodeSelected, "error", error?.message || "Erro ao criar/atualizar lead");
+          logger.error(`[FlowBuilder crmLead] ${error?.message || error}`);
+        }
+
+        const target = setNextByHandle(connects, nodeSelected.id, outputHandle);
+        if (target) {
+          next = target;
+          noAlterNext = true;
+        }
+      }
+
+      if (nodeSelected.type === "contactFields") {
+        if (!ticket && idTicket) {
+          ticket = await Ticket.findOne({
+            where: { id: idTicket, companyId },
+            include: [{ model: Contact, as: "contact" }]
+          });
+        }
+
+        const nodeData = nodeSelected.data?.data || nodeSelected.data || {};
+        const fieldRows = Array.isArray(nodeData.fields) ? nodeData.fields : [];
+        let outputHandle = "success";
+
+        try {
+          if (!ticket?.contactId) {
+            throw new Error("Contato do ticket nao encontrado");
+          }
+
+          const variables = await getFlowVariables({ ticket, companyId, numberClient });
+          const contactUpdates: Record<string, any> = {};
+          const leadUpdates: Record<string, any> = {};
+          const customLeadUpdates: Record<string, any> = {};
+          const contactCustomUpdates: Record<string, any> = {};
+
+          fieldRows.forEach((row: any) => {
+            if (!row?.fieldKey) return;
+            const value = resolveFlowValue(row.value, variables);
+
+            if (row.fieldKey.startsWith("customFields.")) {
+              customLeadUpdates[row.fieldKey.replace("customFields.", "")] = value;
+            } else if (["name", "email", "number", "cpfCnpj", "address", "info"].includes(row.fieldKey)) {
+              contactUpdates[row.fieldKey] = row.fieldKey === "number" ? normalizePhone(value) : value;
+            } else if (row.fieldKey.startsWith("contactCustom.")) {
+              contactCustomUpdates[row.fieldKey.replace("contactCustom.", "")] = value;
+            } else {
+              leadUpdates[row.fieldKey] = value;
+            }
+          });
+
+          if (Object.keys(contactUpdates).length > 0) {
+            await Contact.update(contactUpdates, {
+              where: { id: ticket.contactId, companyId }
+            });
+          }
+
+          await Promise.all(Object.entries(contactCustomUpdates).map(async ([name, value]) => {
+            const fieldValue = value === null || value === undefined ? "" : String(value);
+            const existing = await ContactCustomField.findOne({
+              where: { contactId: ticket.contactId, name }
+            });
+
+            if (existing) {
+              await existing.update({ value: fieldValue });
+            } else {
+              await ContactCustomField.create({
+                contactId: ticket.contactId,
+                name,
+                value: fieldValue
+              } as any);
+            }
+          }));
+
+          let lead = await CrmLead.findOne({
+            where: { companyId, contactId: ticket.contactId }
+          });
+
+          if (lead && Object.keys(leadUpdates).length > 0) {
+            const normalizedLeadUpdates = pickAllowedLeadFields({
+              ...leadUpdates,
+              score: leadUpdates.score !== undefined && leadUpdates.score !== "" ? Number(leadUpdates.score) : leadUpdates.score,
+              ownerUserId: leadUpdates.ownerUserId ? Number(leadUpdates.ownerUserId) : leadUpdates.ownerUserId,
+              pipelineId: leadUpdates.pipelineId ? Number(leadUpdates.pipelineId) : leadUpdates.pipelineId,
+              stageId: leadUpdates.stageId ? Number(leadUpdates.stageId) : leadUpdates.stageId
+            });
+
+            lead = await UpdateCrmLeadService({
+              id: lead.id,
+              companyId,
+              ...normalizedLeadUpdates
+            } as any);
+          }
+
+          if (lead && Object.keys(customLeadUpdates).length > 0) {
+            await syncLeadCustomFieldsFromFlow({
+              leadId: lead.id,
+              companyId,
+              customFields: customLeadUpdates
+            });
+          }
+
+          if (!lead && (Object.keys(leadUpdates).length > 0 || Object.keys(customLeadUpdates).length > 0)) {
+            outputHandle = "error";
+            await recordFlowNode(nodeSelected, "error", "Lead vinculado ao contato nao encontrado");
+          }
+
+          if (ticket) {
+            const ticketUpdated = await ShowTicketService(ticket.id, companyId);
+            io.of(String(companyId)).emit(`company-${companyId}-ticket`, {
+              action: "update",
+              ticket: ticketUpdated
+            });
+          }
+        } catch (error: any) {
+          outputHandle = "error";
+          await recordFlowNode(nodeSelected, "error", error?.message || "Erro ao atualizar campos do contato");
+          logger.error(`[FlowBuilder contactFields] ${error?.message || error}`);
+        }
+
+        const target = setNextByHandle(connects, nodeSelected.id, outputHandle);
+        if (target) {
+          next = target;
+          noAlterNext = true;
+        }
+      }
+
       if (nodeSelected.type === "transferQueue") {
         // Garantir que o ticket existe
         if (!ticket && idTicket) {
@@ -2280,7 +2717,15 @@ export const ActionsWebhookService = async (
             where: { id: idTicket, companyId },
             include: [
               { model: Tag, as: "tags", attributes: ["name"], through: { attributes: [] } },
-              { model: CrmLead, as: "crmLead", include: [{ model: PipelineStage, as: "stage", attributes: ["name"] }] }
+              {
+                model: CrmLead,
+                as: "crmLead",
+                include: [
+                  { model: PipelineStage, as: "stage", attributes: ["name"] },
+                  { model: Pipeline, as: "pipeline", attributes: ["name"] },
+                  { model: User, as: "owner", attributes: ["name"] }
+                ]
+              }
             ]
           });
         } else if (ticket && idTicket && (!ticket.tags || !ticket.crmLead)) {
@@ -2289,7 +2734,15 @@ export const ActionsWebhookService = async (
             where: { id: ticket.id, companyId },
             include: [
               { model: Tag, as: "tags", attributes: ["name"], through: { attributes: [] } },
-              { model: CrmLead, as: "crmLead", include: [{ model: PipelineStage, as: "stage", attributes: ["name"] }] }
+              {
+                model: CrmLead,
+                as: "crmLead",
+                include: [
+                  { model: PipelineStage, as: "stage", attributes: ["name"] },
+                  { model: Pipeline, as: "pipeline", attributes: ["name"] },
+                  { model: User, as: "owner", attributes: ["name"] }
+                ]
+              }
             ]
           });
         }
@@ -2312,6 +2765,18 @@ export const ActionsWebhookService = async (
           userName: ticket?.user?.name || "",
           queue: ticket?.queue?.name || "",
           connection: ticket?.whatsapp?.name || "",
+          contact_id: ticket?.contactId || "",
+          lead_id: (ticket?.crmLead as any)?.id || ticket?.crmLeadId || "",
+          contact_phone: ticket?.contact?.number || "",
+          contact_email: ticket?.contact?.email || "",
+          lead_status: (ticket?.crmLead as any)?.leadStatus || (ticket?.crmLead as any)?.status || "",
+          lead_score: (ticket?.crmLead as any)?.score ?? "",
+          lead_temperature: (ticket?.crmLead as any)?.temperature || "",
+          lead_source: (ticket?.crmLead as any)?.source || "",
+          lead_campaign: (ticket?.crmLead as any)?.campaign || "",
+          responsavel: (ticket?.crmLead as any)?.owner?.name || ticket?.user?.name || "",
+          funil_de_vendas: (ticket?.crmLead as any)?.pipeline?.name || "",
+          estagio_funil: (ticket?.crmLead as any)?.stage?.name || "",
           ticket_id: ticket?.id || "",
           status: ticket?.status || "",
           tag: ticket?.tags?.map((t: any) => t.name).join(", ") || "",
