@@ -23,6 +23,7 @@ import { getTypeMessage, isValidMsg } from "../services/WbotServices/wbotMessage
 import { addLogs } from "../helpers/addLogs";
 import NodeCache from 'node-cache';
 import { Store } from "./store";
+import { handleCompanionSyncFallback } from "../services/WbotServices/handleCompanionSyncFallback";
 import { loadBaileys } from "../utils/loadBaileys";
 
 const msgRetryCounterCache = new NodeCache({
@@ -40,6 +41,33 @@ const msgCache = new NodeCache({
 
 const loggerBaileys = MAIN_LOGGER.child({});
 loggerBaileys.level = "error";
+
+// Creates a per-session pino wrapper that intercepts "error in handling message"
+// for companion sync pkmsg failures and triggers the application-level fallback.
+function makeSessionLogger(whatsappId: number, companyId: number): any {
+  const base = MAIN_LOGGER.child({});
+  base.level = "error";
+  return new Proxy(base, {
+    get(target: any, prop: string) {
+      if (prop === "error") {
+        return (data: any, msg?: string, ...rest: any[]) => {
+          target.error(data, msg, ...rest);
+          if (
+            msg === "error in handling message" &&
+            typeof data?.node === "string" &&
+            data.node.includes("peer_recipient_pn=")
+          ) {
+            handleCompanionSyncFallback(data.node, whatsappId, companyId).catch(
+              (err: any) => logger.warn(`[CompanionSync Fallback] ${err?.message}`)
+            );
+          }
+        };
+      }
+      const val = target[prop];
+      return typeof val === "function" ? val.bind(target) : val;
+    }
+  });
+}
 
 type Session = WASocket & {
   id?: number;
@@ -195,7 +223,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> 
 
         wsocket = makeWASocket({
           version,
-          logger: loggerBaileys,
+          logger: makeSessionLogger(id, companyId),
           printQRInTerminal: false,
           // auth: state as AuthenticationState,
           auth: {
