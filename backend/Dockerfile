@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package.json package-lock.json* ./
 COPY patches ./patches
+COPY scripts ./scripts
 
 # Instalar TODAS as dependências
 RUN npm install --legacy-peer-deps
