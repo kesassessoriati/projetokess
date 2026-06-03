@@ -1,14 +1,28 @@
 #!/usr/bin/env node
-// Adds isLidCompanionSync to the directChatDecryptionTarget computation in
-// @whiskeysockets/baileys (InfiniteAPI). Without this, pkmsg companion sync
-// messages from the phone's LID are decrypted using the contact's phone number
-// as the Signal session key, causing decryption failure and messages not
-// being stored in the CRM.
+// Applies the companion sync routing fix to @whiskeysockets/baileys (InfiniteAPI).
+//
+// Problem: When the phone sends a message to a contact, WhatsApp syncs a copy to
+// the CRM as a companion device. The sync stanza has:
+//   from='<phone_lid>@lid'  recipient='<crm_lid>@lid'  peer_recipient_pn='<contact>@s.whatsapp.net'
+//
+// The original code throws:
+//   Boom('receipient present, but msg not from me')
+// because `from` is the phone's LID (not isMe/isMeLid of the CRM).
+//
+// Fix: detect the companion sync via peer_recipient_pn + recipient-is-me, then:
+//   - set fromMe = true
+//   - set chatId = peer_recipient_pn  (so the message appears under the correct contact)
+//
+// Note: decryption JID is already set correctly to `author` (the phone's LID) in InfiniteAPI
+// at commit e89a3df4, so no separate decryption fix is needed.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 
-const TARGET = path.join(__dirname, '..', 'node_modules', '@whiskeysockets', 'baileys', 'lib', 'Utils', 'decode-wa-message.js');
+const TARGET = path.join(
+  __dirname, '..', 'node_modules', '@whiskeysockets', 'baileys',
+  'lib', 'Utils', 'decode-wa-message.js'
+);
 
 if (!fs.existsSync(TARGET)) {
   console.log('[fix-baileys-lid-decrypt] File not found, skipping:', TARGET);
@@ -17,47 +31,47 @@ if (!fs.existsSync(TARGET)) {
 
 let content = fs.readFileSync(TARGET, 'utf8');
 
-if (content.includes('isLidCompanionSync')) {
-  console.log('[fix-baileys-lid-decrypt] Already patched, skipping.');
+if (content.includes('isMeRecipient')) {
+  console.log('[fix-baileys-lid-decrypt] Routing fix already present, skipping.');
   process.exit(0);
 }
 
-// Pattern to find: the directChatDecryptionTarget block (20-space indent, 24-space continuation)
-const OLD_TARGET = `                    const directChatDecryptionTarget = (isOwnCompanionDeviceSync ||
-                        isDirectFromMeCompanionSync ||
-                        isIncomingCompanionDirectMessage)
-                        ? normalizedAuthor`;
+// Pattern: the block that throws when from is not the CRM itself.
+// Matches the compiled output of both e89a3df4 and d72aaad (same source, same compiled output).
+const PATTERN = /( +)if \(!isMe\(from\) && !isMeLid\(from\)\) \{\n\s+throw new Boom\('receipient present, but msg not from me'[^)]*\)\n\s+\}\n(\s+)if \(isMe\(from\) \|\| isMeLid\(from\)\) \{\n\s+fromMe = true\n\s+\}\n\s+chatId = recipient/;
 
-const NEW_TARGET = `                    const isLidCompanionSync = !isJidGroup(fullMessage.key.remoteJid) &&
-                        recipientIsMe &&
-                        isLidUser(author) &&
-                        fullMessage.key.fromMe;
-                    const directChatDecryptionTarget = (isOwnCompanionDeviceSync ||
-                        isDirectFromMeCompanionSync ||
-                        isIncomingCompanionDirectMessage ||
-                        isLidCompanionSync)
-                        ? normalizedAuthor`;
-
-if (content.includes(OLD_TARGET)) {
-  content = content.replace(OLD_TARGET, NEW_TARGET);
-  fs.writeFileSync(TARGET, content, 'utf8');
-  console.log('[fix-baileys-lid-decrypt] Patch applied: isLidCompanionSync added to directChatDecryptionTarget.');
-  process.exit(0);
-}
-
-// Fallback: regex-based match for different indentation
-const PATTERN = /( +)const directChatDecryptionTarget = \(isOwnCompanionDeviceSync \|\|\n\s+isDirectFromMeCompanionSync \|\|\n\s+isIncomingCompanionDirectMessage\)\n\s+\? normalizedAuthor/;
 const match = PATTERN.exec(content);
 if (match) {
-  const indent = match[1];
-  const inner = indent + '    ';
-  const oldStr = match[0];
-  const newStr = `${indent}const isLidCompanionSync = !isJidGroup(fullMessage.key.remoteJid) &&\n${inner}recipientIsMe &&\n${inner}isLidUser(author) &&\n${inner}fullMessage.key.fromMe;\n${indent}const directChatDecryptionTarget = (isOwnCompanionDeviceSync ||\n${inner}isDirectFromMeCompanionSync ||\n${inner}isIncomingCompanionDirectMessage ||\n${inner}isLidCompanionSync)\n${inner}? normalizedAuthor`;
-  content = content.replace(oldStr, newStr);
+  const indent = match[1];    // leading spaces of the outer if
+  const inner  = match[2];    // spaces for inner block
+
+  const OLD = match[0];
+  const NEW = `${indent}// Companion sync: phone sent to contact, CRM receives a copy.
+${indent}// peer_recipient_pn is present only in these sync stanzas.
+${indent}const normalizeJid = (jid) => jid?.replace(/:\\d+@/, '@');
+${indent}const isMeRecipient = !!(stanza.attrs.peer_recipient_pn) && (
+${inner}  areJidsSameUser(recipient, meId) ||
+${inner}  areJidsSameUser(recipient, meLid || '') ||
+${inner}  areJidsSameUser(normalizeJid(recipient), meId) ||
+${inner}  areJidsSameUser(normalizeJid(recipient), meLid || '') ||
+${inner}  isLidUser(from)
+${indent});
+${indent}if (!isMe(from) && !isMeLid(from) && !isMeRecipient) {
+${inner}  throw new Boom('receipient present, but msg not from me', { data: stanza })
+${indent}}
+${indent}fromMe = true;
+${indent}if (!isMe(from) && !isMeLid(from) && isMeRecipient) {
+${inner}  // Phone→contact sync copy: chatId must be the contact, not the CRM's LID.
+${inner}  chatId = stanza.attrs.peer_recipient_pn;
+${indent}} else {
+${inner}  chatId = recipient;
+${indent}}`;
+
+  content = content.replace(OLD, NEW);
   fs.writeFileSync(TARGET, content, 'utf8');
-  console.log('[fix-baileys-lid-decrypt] Patch applied (regex fallback): isLidCompanionSync added.');
+  console.log('[fix-baileys-lid-decrypt] Routing fix applied: isMeRecipient companion sync handler.');
   process.exit(0);
 }
 
-console.error('[fix-baileys-lid-decrypt] Pattern not found — file structure may have changed. Skipping.');
+console.error('[fix-baileys-lid-decrypt] Pattern not found — code structure may have changed. Manual review needed.');
 process.exit(0);

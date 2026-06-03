@@ -15,20 +15,6 @@ COPY package.json package-lock.json* ./
 COPY patches ./patches
 COPY scripts ./scripts
 
-# Remove stale @whiskeysockets/baileys lockfile entry so npm fetches latest InfiniteAPI master.
-# The lockfile may pin an old commit (rc.13/d72aaad) while package.json points to master (rc.9+).
-RUN node -e "\
-  const fs=require('fs'); \
-  try { \
-    const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8')); \
-    if(lock.packages && lock.packages['node_modules/@whiskeysockets/baileys']){ \
-      delete lock.packages['node_modules/@whiskeysockets/baileys']; \
-      fs.writeFileSync('package-lock.json',JSON.stringify(lock)); \
-      console.log('[build] Removed stale baileys lockfile entry — npm will fetch latest master'); \
-    } \
-  } catch(e){} \
-" 2>/dev/null || true
-
 # Instalar TODAS as dependências
 RUN npm install --legacy-peer-deps
 
