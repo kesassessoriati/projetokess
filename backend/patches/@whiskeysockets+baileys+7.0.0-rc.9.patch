@@ -156,7 +156,7 @@ index 47b0ff6..e1d0949 100644
              logger.debug({ sender, senderAlt }, 'Stored LID mapping from envelope');
          }
          catch (error) {
-@@ -132,8 +136,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -132,15 +136,33 @@ export function decodeMessageNode(stanza, meId, meLid) {
      const participant = stanza.attrs.participant;
      const recipient = stanza.attrs.recipient;
      const addressingContext = extractAddressingContext(stanza);
@@ -172,7 +172,31 @@ index 47b0ff6..e1d0949 100644
 +    const isMeLid = (jid) => areJidsSameUser(jid, meLid) || areJidsSameUser(normalizeCompanionJid(jid), meLid);
      if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
          if (recipient && !isJidMetaAI(recipient)) {
-             if (!isMe(from) && !isMeLid(from)) {
+-            if (!isMe(from) && !isMeLid(from)) {
++            // Detect phone→CRM own-device sync: from=phone_lid, recipient=crm_lid, peer_recipient_pn=contact
++            // peer_recipient_pn is only present in companion sync messages, not in regular inbound
++            const isMeRecipient = !!(stanza.attrs.peer_recipient_pn) && (
++                areJidsSameUser(recipient, meId) ||
++                areJidsSameUser(recipient, meLid || '') ||
++                areJidsSameUser(normalizeCompanionJid(recipient), meId) ||
++                areJidsSameUser(normalizeCompanionJid(recipient), meLid || '')
++            );
++            if (!isMe(from) && !isMeLid(from) && !isMeRecipient) {
+                 throw new Boom('receipient present, but msg not from me', { data: stanza });
+             }
+-            if (isMe(from) || isMeLid(from)) {
+-                fromMe = true;
+-            }
+-            chatId = recipient;
++            fromMe = true;
++            if (!isMe(from) && !isMeLid(from) && isMeRecipient) {
++                // Phone sent msg to contact; this node is a sync copy to CRM device.
++                // chatId must be the actual contact (peer_recipient_pn), not the CRM device LID.
++                chatId = jidNormalizedUser(stanza.attrs.peer_recipient_pn) || recipient;
++            } else {
++                chatId = recipient;
++            }
+         }
 @@ -188,9 +198,14 @@ export function decodeMessageNode(stanza, meId, meLid) {
          throw new Boom('Unknown message type', { data: stanza });
      }
