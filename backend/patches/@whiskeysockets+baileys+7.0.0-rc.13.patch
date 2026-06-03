@@ -1,7 +1,7 @@
 diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 --- a/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
 +++ b/node_modules/@whiskeysockets/baileys/lib/Utils/decode-wa-message.js
-@@ -158,12 +158,25 @@ export function decodeMessageNode(stanza, meId, meLid) {
+@@ -158,12 +158,24 @@ export function decodeMessageNode(stanza, meId, meLid) {
      const isMe = (jid) => areJidsSameUser(jid, meId);
      const isMeLid = (jid) => areJidsSameUser(jid, meLid);
      if (isPnUser(from) || isLidUser(from) || isHostedLidUser(from) || isHostedPnUser(from)) {
