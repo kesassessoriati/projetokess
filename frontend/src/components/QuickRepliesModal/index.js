@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Chip,
@@ -20,6 +20,8 @@ import SendIcon from "@material-ui/icons/Send";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import CreateIcon from "@material-ui/icons/Create";
 import FolderOpenIcon from "@material-ui/icons/FolderOpen";
+import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
+import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 
@@ -71,20 +73,53 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 14,
     flexShrink: 0
   },
+  filterNav: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
+    minWidth: 0
+  },
   filterRow: {
     display: "flex",
-    gap: theme.spacing(1),
+    gap: theme.spacing(0.75),
     flexWrap: "nowrap",
     overflowX: "auto",
+    flex: 1,
     flexShrink: 0,
-    paddingBottom: theme.spacing(0.5),
-    "&::-webkit-scrollbar": { height: 4 },
-    "&::-webkit-scrollbar-track": { background: "transparent" },
-    "&::-webkit-scrollbar-thumb": { background: "#dbe4ee", borderRadius: 4 }
+    paddingBottom: theme.spacing(0.75),
+    scrollbarWidth: "auto",
+    scrollbarColor: "#6b7280 #e5e7eb",
+    "&::-webkit-scrollbar": { height: 8 },
+    "&::-webkit-scrollbar-track": { background: "#e5e7eb", borderRadius: 999 },
+    "&::-webkit-scrollbar-thumb": { background: "#6b7280", borderRadius: 999 },
+    "&::-webkit-scrollbar-thumb:hover": { background: "#374151" }
   },
   filterChip: {
     borderRadius: 999,
-    fontWeight: 600
+    fontWeight: 600,
+    height: 26,
+    fontSize: "0.72rem",
+    maxWidth: 100,
+    "& .MuiChip-label": {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      paddingLeft: 8,
+      paddingRight: 8
+    }
+  },
+  filterArrowBtn: {
+    width: 26,
+    height: 26,
+    padding: 3,
+    backgroundColor: "#f1f5f9",
+    border: "1px solid #dbe4ee",
+    borderRadius: 6,
+    flexShrink: 0,
+    "&:hover": {
+      backgroundColor: "#e2e8f0"
+    }
   },
   sectionsWrap: {
     flex: 1,
@@ -123,48 +158,58 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 700
   },
   replyList: {
-    padding: theme.spacing(1.25),
+    padding: theme.spacing(1),
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1)
+    gap: theme.spacing(0.75)
   },
   replyCard: {
-    borderRadius: 16,
+    borderRadius: 10,
     border: "1px solid #dbe4ee",
     backgroundColor: "#fff",
-    padding: theme.spacing(1.25),
-    transition: "all 0.2s ease",
+    padding: theme.spacing(0.75),
+    transition: "all 0.15s ease",
     cursor: "pointer",
+    overflow: "hidden",
     "&:hover": {
       borderColor: theme.palette.primary.main,
-      boxShadow: "0 8px 24px rgba(37, 99, 235, 0.12)"
+      boxShadow: "0 4px 12px rgba(37, 99, 235, 0.12)"
     }
   },
   replyTop: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(0.75)
+    gap: theme.spacing(0.75),
+    marginBottom: theme.spacing(0.5)
   },
   shortcutChip: {
     borderRadius: 999,
     backgroundColor: "rgba(16,185,129,0.12)",
     color: "#047857",
-    fontWeight: 700
+    fontWeight: 700,
+    maxWidth: 150,
+    "& .MuiChip-label": {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
   },
   preview: {
     color: "#475569",
-    fontSize: "0.84rem",
-    lineHeight: 1.45,
-    whiteSpace: "pre-wrap",
+    fontSize: "0.78rem",
+    lineHeight: 1.35,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
     wordBreak: "break-word"
   },
   footer: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1)
+    justifyContent: "flex-start",
+    gap: theme.spacing(0.75),
+    marginTop: theme.spacing(0.5)
   },
   emptyState: {
     minHeight: 160,
@@ -197,6 +242,24 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
   const [sendingId, setSendingId] = useState(null);
 
   const isSidebar = variant === "sidebar";
+  const tabsRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = () => {
+    const el = tabsRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
+
+  const handleScrollLeft = () => {
+    tabsRef.current?.scrollBy({ left: -160, behavior: "smooth" });
+  };
+
+  const handleScrollRight = () => {
+    tabsRef.current?.scrollBy({ left: 160, behavior: "smooth" });
+  };
 
   const fetchData = async () => {
     try {
@@ -233,6 +296,10 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
       setSelectedGroupId(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    requestAnimationFrame(updateScrollState);
+  }, [groups]);
 
   const filteredReplies = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -339,31 +406,47 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
           }}
         />
 
-        <div className={classes.filterRow}>
-          <Chip
-            label="Tudo"
-            clickable
-            color={selectedGroupId === null ? "primary" : "default"}
-            onClick={() => setSelectedGroupId(null)}
-            className={classes.filterChip}
-          />
-          <Chip
-            label="Sem pipeline"
-            clickable
-            color={String(selectedGroupId) === UNGROUPED_ID ? "primary" : "default"}
-            onClick={() => setSelectedGroupId(UNGROUPED_ID)}
-            className={classes.filterChip}
-          />
-          {groups.map((group) => (
+        <div className={classes.filterNav}>
+          {canScrollLeft && (
+            <IconButton size="small" className={classes.filterArrowBtn} onClick={handleScrollLeft}>
+              <ChevronLeftIcon style={{ fontSize: 14 }} />
+            </IconButton>
+          )}
+          <div
+            className={classes.filterRow}
+            ref={tabsRef}
+            onScroll={updateScrollState}
+          >
             <Chip
-              key={group.id}
-              label={group.name}
+              label="Tudo"
               clickable
-              color={String(selectedGroupId) === String(group.id) ? "primary" : "default"}
-              onClick={() => setSelectedGroupId(group.id)}
+              color={selectedGroupId === null ? "primary" : "default"}
+              onClick={() => setSelectedGroupId(null)}
               className={classes.filterChip}
             />
-          ))}
+            <Chip
+              label="Sem pipeline"
+              clickable
+              color={String(selectedGroupId) === UNGROUPED_ID ? "primary" : "default"}
+              onClick={() => setSelectedGroupId(UNGROUPED_ID)}
+              className={classes.filterChip}
+            />
+            {groups.map((group) => (
+              <Chip
+                key={group.id}
+                label={group.name}
+                clickable
+                color={String(selectedGroupId) === String(group.id) ? "primary" : "default"}
+                onClick={() => setSelectedGroupId(group.id)}
+                className={classes.filterChip}
+              />
+            ))}
+          </div>
+          {canScrollRight && (
+            <IconButton size="small" className={classes.filterArrowBtn} onClick={handleScrollRight}>
+              <ChevronRightIcon style={{ fontSize: 14 }} />
+            </IconButton>
+          )}
         </div>
 
         <div className={classes.sectionsWrap}>
@@ -434,7 +517,7 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
                       </Typography>
 
                       <div className={classes.footer}>
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography variant="caption" color="textSecondary" noWrap>
                           {reply.mediaSource === "library"
                             ? "Biblioteca integrada"
                             : reply.mediaUrl
@@ -442,9 +525,6 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
                               : reply.interactiveType && reply.interactiveType !== "text"
                                 ? "Recurso premium"
                                 : "Texto puro"}
-                        </Typography>
-                        <Typography variant="caption" color="primary">
-                          Clique para enviar
                         </Typography>
                       </div>
                     </div>
