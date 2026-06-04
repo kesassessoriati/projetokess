@@ -47,6 +47,17 @@ loggerBaileys.level = "error";
 function makeSessionLogger(whatsappId: number, companyId: number): any {
   const base = MAIN_LOGGER.child({});
   base.level = "error";
+
+  const extractNodeAttr = (nodeStr: string, attr: string): string | null => {
+    const m = nodeStr.match(new RegExp(`${attr}='([^']+)'`));
+    return m ? m[1] : null;
+  };
+
+  const maskId = (id: string | null): string => {
+    if (!id || id.length < 6) return "***";
+    return `${id.slice(0, 6)}***`;
+  };
+
   return new Proxy(base, {
     get(target: any, prop: string) {
       if (prop === "error") {
@@ -57,9 +68,44 @@ function makeSessionLogger(whatsappId: number, companyId: number): any {
             typeof data?.node === "string" &&
             data.node.includes("peer_recipient_pn=")
           ) {
+            // 1. Create placeholder in DB
             handleCompanionSyncFallback(data.node, whatsappId, companyId).catch(
               (err: any) => logger.warn(`[CompanionSync Fallback] ${err?.message}`)
             );
+
+            // 2. Request real content from phone via PDO.
+            // Baileys only calls requestPlaceholderResend when the CIPHERTEXT path is reached
+            // gracefully. When an exception propagates to the outer catch (error in handling message),
+            // that path is skipped. We call it here explicitly to ensure the phone is asked to resend.
+            // requestPlaceholderResend has a 2s delay + deduplication cache, so double-calling is safe.
+            const msgId = extractNodeAttr(data.node, "id");
+            const peerPn = extractNodeAttr(data.node, "peer_recipient_pn");
+            if (msgId && peerPn) {
+              const sessionIndex = sessions.findIndex(s => s.id === whatsappId);
+              if (sessionIndex >= 0) {
+                const session = sessions[sessionIndex];
+                if (typeof (session as any)?.requestPlaceholderResend === "function") {
+                  const msgKey = { remoteJid: peerPn, fromMe: true as const, id: msgId };
+                  (session as any).requestPlaceholderResend(msgKey).then(() => {
+                    logger.info(
+                      `[CompanionSync Fallback] PDO resend requested: companyId=${companyId} msgId=${maskId(msgId)}`
+                    );
+                  }).catch((pdoErr: any) =>
+                    logger.warn(
+                      `[CompanionSync Fallback] PDO resend failed: companyId=${companyId} err=${pdoErr?.message}`
+                    )
+                  );
+                } else {
+                  logger.warn(
+                    `[CompanionSync Fallback] requestPlaceholderResend not available on session: companyId=${companyId} whatsappId=${whatsappId}`
+                  );
+                }
+              } else {
+                logger.warn(
+                  `[CompanionSync Fallback] Session not found for PDO resend: companyId=${companyId} whatsappId=${whatsappId}`
+                );
+              }
+            }
           }
         };
       }

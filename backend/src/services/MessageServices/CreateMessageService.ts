@@ -102,11 +102,21 @@ const CreateMessageService = async ({
   });
 
   if (existingMessage) {
-    // Companion sync retry: placeholder criado pelo fallback + conteúdo real chegou via pkmsg
+    const isPlaceholder = isCompanionSyncPlaceholder(existingMessage);
+    const incomingBodyLen = messageData.body?.length ?? 0;
+    const incomingIsReal = messageData.body ? !isPlaceholderBody(messageData.body) : false;
+    logger.info(
+      `[CompanionSync Recovery][create.existing] companyId=${companyId} ` +
+      `existingId=${existingMessage.id} ticketId=${existingMessage.ticketId} ` +
+      `isPlaceholder=${isPlaceholder} incomingBodyLen=${incomingBodyLen} incomingIsReal=${incomingIsReal} ` +
+      `mediaType=${messageData.mediaType || "none"}`
+    );
+
+    // Companion sync retry: placeholder criado pelo fallback + conteúdo real chegou via pkmsg/PDO
     if (
-      isCompanionSyncPlaceholder(existingMessage) &&
+      isPlaceholder &&
       messageData.body &&
-      !isPlaceholderBody(messageData.body)
+      incomingIsReal
     ) {
       const incomingDataJson = (messageData as any).dataJson;
       await existingMessage.update({
@@ -151,11 +161,16 @@ const CreateMessageService = async ({
       });
 
       logger.info(
-        `[CompanionSync] Placeholder upgraded with real content: companyId=${companyId} ticketId=${existingMessage.ticketId}`
+        `[CompanionSync Recovery][placeholder.updated] companyId=${companyId} ticketId=${existingMessage.ticketId} ` +
+        `newBodyLen=${messageData.body?.length ?? 0} mediaType=${messageData.mediaType || "none"}`
       );
       return existingMessage;
     }
 
+    logger.info(
+      `[CompanionSync Recovery][placeholder.not_updated] companyId=${companyId} ` +
+      `reason=${!isPlaceholder ? "not-a-placeholder" : !messageData.body ? "no-body" : !incomingIsReal ? "body-is-placeholder" : "unknown"}`
+    );
     logOwnDeviceSyncDiag("CreateMessageService.dedupe-existing", companyId, {
       wid: maskDiagValue(messageData.wid),
       messageId: existingMessage.id,

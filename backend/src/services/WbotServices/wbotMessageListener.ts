@@ -6819,6 +6819,9 @@ const processRecoveredMessageUpdate = async (
   });
 
   if (messageExists) {
+    logger.info(
+      `[CompanionSync Recovery][update.enter] companyId=${companyId} fromMe=${recoveredMessage.key.fromMe} wid=***${String(recoveredMessage.key.id || "").slice(-6)}`
+    );
     // Companion sync: se o placeholder existe e chegou conteúdo real via messages.update, atualizar.
     if (recoveredMessage.key.fromMe) {
       try {
@@ -6829,9 +6832,19 @@ const processRecoveredMessageUpdate = async (
         let existingMeta: any = {};
         try { existingMeta = JSON.parse(existingMsg?.dataJson || "{}"); } catch { /* ignore */ }
 
+        const msgContent = recoveredMessage?.message;
+        const msgContentType = msgContent ? Object.keys(msgContent).find(k => k !== "messageContextInfo") : undefined;
+
+        logger.info(
+          `[CompanionSync Recovery][update.dedupe] companyId=${companyId} ` +
+          `existingIsCompanionFallback=${existingMeta?.companionSyncFallback === true} ` +
+          `contentType=${msgContentType || "none"} ` +
+          `decision=${existingMeta?.companionSyncFallback === true ? "update-placeholder" : "drop-duplicate"}`
+        );
+
         if (existingMeta?.companionSyncFallback === true) {
           logger.info(
-            `[CompanionSync] messages.update recovery for placeholder: companyId=${companyId}`
+            `[CompanionSync Recovery][update.enter] messages.update recovery for placeholder: companyId=${companyId}`
           );
           if (REDIS_URI_MSG_CONN !== "") {
             await BullQueues.add(
@@ -6845,7 +6858,7 @@ const processRecoveredMessageUpdate = async (
           return true;
         }
       } catch (csErr: any) {
-        logger.warn(`[CompanionSync] Failed to process messages.update recovery: ${csErr?.message}`);
+        logger.warn(`[CompanionSync Recovery][update.error] companyId=${companyId} err=${csErr?.message}`);
       }
     }
     return false;
@@ -7326,8 +7339,8 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           await verifyRecentCampaign(message, companyId);
           await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
         } else {
-          // Companion sync retry: pkmsg do celular chegou com conteúdo real após placeholder criado.
-          // Só tenta para mensagens fromMe (companion sync é sempre fromMe).
+          // Companion sync retry: PDO-recovered message arrived with real content after placeholder was created.
+          // Only attempt for fromMe messages (companion sync is always fromMe).
           if (message?.key?.fromMe) {
             try {
               const existingMsg = await Message.findOne({
@@ -7337,9 +7350,20 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
               let existingMeta: any = {};
               try { existingMeta = JSON.parse(existingMsg?.dataJson || "{}"); } catch { /* ignore */ }
 
+              const msgContent = message?.message;
+              const msgContentType = msgContent ? Object.keys(msgContent).find(k => k !== "messageContextInfo") : undefined;
+              const hasRealContent = !!(msgContentType && msgContent?.[msgContentType as keyof typeof msgContent]);
+
+              logger.info(
+                `[CompanionSync Recovery][upsert.dedupe] companyId=${companyId} ` +
+                `existingFound=${!!existingMsg} existingIsCompanionFallback=${existingMeta?.companionSyncFallback === true} ` +
+                `incomingHasRealContent=${hasRealContent} contentType=${msgContentType || "none"} ` +
+                `decision=${existingMeta?.companionSyncFallback === true && hasRealContent ? "update-placeholder" : "drop-duplicate"}`
+              );
+
               if (existingMeta?.companionSyncFallback === true) {
                 logger.info(
-                  `[CompanionSync] Retry pkmsg received for placeholder: companyId=${companyId}`
+                  `[CompanionSync Recovery][upsert.enter] Retry pkmsg/PDO received for placeholder: companyId=${companyId} hasRealContent=${hasRealContent}`
                 );
                 if (REDIS_URI_MSG_CONN !== "") {
                   const queueJobId = `${wbot.id}-handleMessage-${message.key.id}-${Date.now()}`;
@@ -7353,8 +7377,12 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
                 }
               }
             } catch (csErr: any) {
-              logger.warn(`[CompanionSync] Failed to check retry placeholder: ${csErr?.message}`);
+              logger.warn(`[CompanionSync Recovery][upsert.error] companyId=${companyId} err=${csErr?.message}`);
             }
+          } else {
+            logger.info(
+              `[CompanionSync Recovery][upsert.dedupe] companyId=${companyId} fromMe=false decision=drop-duplicate`
+            );
           }
         }
 
