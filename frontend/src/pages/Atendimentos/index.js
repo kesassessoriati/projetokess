@@ -130,6 +130,7 @@ import {
 	isGroupConversation,
 	isPrivateConversation,
 } from "../../utils/conversationType";
+import resolveMessageVariables from "../../utils/resolveMessageVariables";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -2234,8 +2235,12 @@ const Atendimentos = () => {
 				? `*${senderLabel}:*\n${rawMessage}`
 				: rawMessage;
 
+			// Resolve {{variables}} before optimistic render so the body matches
+			// what the backend will echo via socket (avoiding duplicate bubbles).
+			const resolvedBody = resolveMessageVariables(messageBody, ticketSnapshot);
+
 			const payload = {
-				body: messageBody,
+				body: resolvedBody,
 				isPrivate: privateMessageSnapshot ? "true" : "false"
 			};
 
@@ -2250,7 +2255,7 @@ const Atendimentos = () => {
 				id: optimisticId,
 				wid: optimisticId,
 				ticketId: ticketSnapshot.id,
-				body: messageBody,
+				body: resolvedBody,
 				fromMe: true,
 				fromAgent: false,
 				ack: 0,
