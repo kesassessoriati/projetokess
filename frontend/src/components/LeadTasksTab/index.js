@@ -22,7 +22,6 @@ import AddIcon from "@material-ui/icons/Add";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
 import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
 import { toast } from "react-toastify";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import api from "../../services/api";
@@ -227,7 +226,7 @@ const LeadTasksTab = ({ leadId, op }) => {
         <Box>
             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                 <Typography variant="subtitle1" style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                    <CheckBoxOutlineBlankIcon fontSize="small" /> Tarefas vinculadas ao Lead
+                    Tarefas vinculadas ao Lead
                 </Typography>
                 <Button
                     variant="contained"

@@ -27,9 +27,11 @@ import LinkIcon from "@material-ui/icons/Link";
 import CloseIcon from "@material-ui/icons/Close";
 import AddCircleOutlineIcon from "@material-ui/icons/AddCircleOutline";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import AssignmentIcon from "@material-ui/icons/Assignment";
 import { TagsContainer } from "../TagsContainer";
 import { TagsKanbanContainer } from "../TagsKanbanContainer";
 import LeadTasksTab from "../LeadTasksTab";
+import UniversalLeadModal from "../UniversalLeadModal";
 import { ContactNotes } from "../ContactNotes";
 import PrivateNoteInput from "../PrivateNoteInput";
 import api from "../../services/api";
@@ -163,6 +165,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const [activeToggleLoading, setActiveToggleLoading] = useState(false);
   const [n8nPauseLoading, setN8nPauseLoading] = useState(false);
   const [aiDisableLoading, setAiDisableLoading] = useState(false);
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [extraInfoFields, setExtraInfoFields] = useState([]);
   const [extraInfoSaving, setExtraInfoSaving] = useState(false);
   const [fileVisibleCount, setFileVisibleCount] = useState(ITEMS_PER_BATCH);
@@ -1031,6 +1034,7 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   if (!ticket || !ticket.id) return null;
 
   return (
+    <>
     <Drawer
       anchor="right"
       open={open}
@@ -1324,6 +1328,30 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
         </Box>
 
         <Box className={classes.section}>
+          <Tooltip title={!resolvedLeadId ? "Nenhum lead vinculado a este contato" : ""}>
+            <span style={{ display: "block" }}>
+              <Button
+                variant="contained"
+                fullWidth
+                startIcon={<AssignmentIcon />}
+                disabled={!resolvedLeadId}
+                onClick={() => setLeadModalOpen(true)}
+                style={{
+                  backgroundColor: resolvedLeadId ? "#2563eb" : undefined,
+                  color: resolvedLeadId ? "#fff" : undefined,
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  boxShadow: "none",
+                }}
+              >
+                Abrir Card do Lead
+              </Button>
+            </span>
+          </Tooltip>
+        </Box>
+
+        <Box className={classes.section}>
           <Typography className={classes.sectionTitle}>Mídias, links e docs</Typography>
           <Tabs
             value={activeTab}
@@ -1353,6 +1381,15 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
         </Box>
       </Box>
     </Drawer>
+    {resolvedLeadId && (
+      <UniversalLeadModal
+        open={leadModalOpen}
+        onClose={() => setLeadModalOpen(false)}
+        leadId={resolvedLeadId}
+        onSuccess={() => setLeadModalOpen(false)}
+      />
+    )}
+    </>
   );
 };
 
