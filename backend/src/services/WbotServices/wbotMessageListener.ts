@@ -6819,6 +6819,35 @@ const processRecoveredMessageUpdate = async (
   });
 
   if (messageExists) {
+    // Companion sync: se o placeholder existe e chegou conteúdo real via messages.update, atualizar.
+    if (recoveredMessage.key.fromMe) {
+      try {
+        const existingMsg = await Message.findOne({
+          where: { wid: recoveredMessage.key.id, companyId },
+          attributes: ["id", "dataJson"]
+        });
+        let existingMeta: any = {};
+        try { existingMeta = JSON.parse(existingMsg?.dataJson || "{}"); } catch { /* ignore */ }
+
+        if (existingMeta?.companionSyncFallback === true) {
+          logger.info(
+            `[CompanionSync] messages.update recovery for placeholder: companyId=${companyId}`
+          );
+          if (REDIS_URI_MSG_CONN !== "") {
+            await BullQueues.add(
+              `${process.env.DB_NAME}-handleMessage`,
+              { message: recoveredMessage, wbot: wbot.id, companyId },
+              { priority: 1, jobId: `${wbot.id}-handleMessageUpdate-${recoveredMessage.key.id}-${Date.now()}` }
+            );
+          } else {
+            await handleMessage(recoveredMessage, wbot, companyId);
+          }
+          return true;
+        }
+      } catch (csErr: any) {
+        logger.warn(`[CompanionSync] Failed to process messages.update recovery: ${csErr?.message}`);
+      }
+    }
     return false;
   }
 
@@ -7296,6 +7325,37 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
           await verifyGroupCampaignAutoResponse(message, companyId, wbot);
           await verifyRecentCampaign(message, companyId);
           await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
+        } else {
+          // Companion sync retry: pkmsg do celular chegou com conteúdo real após placeholder criado.
+          // Só tenta para mensagens fromMe (companion sync é sempre fromMe).
+          if (message?.key?.fromMe) {
+            try {
+              const existingMsg = await Message.findOne({
+                where: { wid: message.key.id!, companyId },
+                attributes: ["id", "dataJson"]
+              });
+              let existingMeta: any = {};
+              try { existingMeta = JSON.parse(existingMsg?.dataJson || "{}"); } catch { /* ignore */ }
+
+              if (existingMeta?.companionSyncFallback === true) {
+                logger.info(
+                  `[CompanionSync] Retry pkmsg received for placeholder: companyId=${companyId}`
+                );
+                if (REDIS_URI_MSG_CONN !== "") {
+                  const queueJobId = `${wbot.id}-handleMessage-${message.key.id}-${Date.now()}`;
+                  await BullQueues.add(
+                    `${process.env.DB_NAME}-handleMessage`,
+                    { message, wbot: wbot.id, companyId },
+                    { priority: 1, jobId: queueJobId }
+                  );
+                } else {
+                  await handleMessage(message, wbot, companyId);
+                }
+              }
+            } catch (csErr: any) {
+              logger.warn(`[CompanionSync] Failed to check retry placeholder: ${csErr?.message}`);
+            }
+          }
         }
 
         if (message.key.remoteJid?.endsWith("@g.us")) {

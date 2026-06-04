@@ -72,6 +72,23 @@ const logOwnDeviceSyncDiag = (
   );
 };
 
+const COMPANION_FALLBACK_BODIES = [
+  "enviada pelo celular",
+  "aguardando sincronização"
+];
+
+const isCompanionSyncPlaceholder = (msg: Message): boolean => {
+  try {
+    const meta = JSON.parse(msg.dataJson || "{}");
+    return meta?.companionSyncFallback === true;
+  } catch {
+    return false;
+  }
+};
+
+const isPlaceholderBody = (body: string): boolean =>
+  COMPANION_FALLBACK_BODIES.some(token => body?.includes(token));
+
 const CreateMessageService = async ({
   messageData,
   companyId,
@@ -85,6 +102,60 @@ const CreateMessageService = async ({
   });
 
   if (existingMessage) {
+    // Companion sync retry: placeholder criado pelo fallback + conteúdo real chegou via pkmsg
+    if (
+      isCompanionSyncPlaceholder(existingMessage) &&
+      messageData.body &&
+      !isPlaceholderBody(messageData.body)
+    ) {
+      const incomingDataJson = (messageData as any).dataJson;
+      await existingMessage.update({
+        body: messageData.body,
+        mediaType: messageData.mediaType || existingMessage.mediaType,
+        ...(messageData.mediaUrl ? { mediaUrl: messageData.mediaUrl } : {}),
+        ...(incomingDataJson ? { dataJson: incomingDataJson } : {}),
+        ack: messageData.ack || existingMessage.ack
+      });
+
+      await existingMessage.reload({
+        include: [
+          "contact",
+          {
+            model: Ticket,
+            as: "ticket",
+            include: [
+              {
+                model: Contact,
+                attributes: [
+                  "id", "name", "number", "email", "profilePicUrl",
+                  "acceptAudioMessage", "active", "urlPicture", "companyId"
+                ],
+                include: ["extraInfo", "tags"]
+              },
+              { model: Queue, attributes: ["id", "name", "color"] },
+              { model: Whatsapp, attributes: ["id", "name", "groupAsTicket"] },
+              { model: User, attributes: ["id", "name"] },
+              { model: Tag, as: "tags", attributes: ["id", "name", "color"] }
+            ]
+          },
+          { model: Message, as: "quotedMsg", include: ["contact"] }
+        ]
+      });
+
+      const io = getIO();
+      io.of(String(companyId)).emit(`company-${companyId}-appMessage`, {
+        action: "update",
+        message: existingMessage,
+        ticket: existingMessage.ticket,
+        contact: existingMessage.ticket?.contact
+      });
+
+      logger.info(
+        `[CompanionSync] Placeholder upgraded with real content: companyId=${companyId} ticketId=${existingMessage.ticketId}`
+      );
+      return existingMessage;
+    }
+
     logOwnDeviceSyncDiag("CreateMessageService.dedupe-existing", companyId, {
       wid: maskDiagValue(messageData.wid),
       messageId: existingMessage.id,
@@ -92,7 +163,6 @@ const CreateMessageService = async ({
       contactId: existingMessage.contactId,
       fromMe: existingMessage.fromMe
     });
-    console.log("Mensagem já existe. Ignorando criação.");
     return existingMessage;
   }
 

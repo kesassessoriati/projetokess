@@ -12,20 +12,25 @@ const extractAttr = (nodeStr: string, attr: string): string | null => {
   return m ? m[1] : null;
 };
 
+const maskPhone = (phone: string): string => {
+  if (!phone || phone.length < 6) return "***";
+  return `${phone.slice(0, 4)}***${phone.slice(-2)}`;
+};
+
 const buildPlaceholderBody = (nodeStr: string): string => {
   const msgType = extractAttr(nodeStr, "type");
   if (msgType === "media") {
     const mediaType = extractAttr(nodeStr, "mediatype");
     switch (mediaType) {
-      case "image":     return "📷 [Imagem enviada pelo celular — conteúdo indisponível]";
-      case "video":     return "🎥 [Vídeo enviado pelo celular — conteúdo indisponível]";
-      case "audio":     return "🎵 [Áudio enviado pelo celular — conteúdo indisponível]";
-      case "document":  return "📄 [Documento enviado pelo celular — conteúdo indisponível]";
-      case "sticker":   return "🎭 [Sticker enviado pelo celular — conteúdo indisponível]";
-      default:          return "📎 [Mídia enviada pelo celular — conteúdo indisponível]";
+      case "image":    return "📷 Imagem enviada pelo celular — aguardando sincronização";
+      case "video":    return "🎥 Vídeo enviado pelo celular — aguardando sincronização";
+      case "audio":    return "🎵 Áudio enviado pelo celular — aguardando sincronização";
+      case "document": return "📄 Documento enviado pelo celular — aguardando sincronização";
+      case "sticker":  return "🎭 Sticker enviado pelo celular — aguardando sincronização";
+      default:         return "📎 Mídia enviada pelo celular — aguardando sincronização";
     }
   }
-  return "💬 [Mensagem enviada pelo celular — conteúdo indisponível]";
+  return "💬 Mensagem enviada pelo celular — aguardando sincronização";
 };
 
 export async function handleCompanionSyncFallback(
@@ -43,7 +48,7 @@ export async function handleCompanionSyncFallback(
     try {
       const existing = await Message.findOne({ where: { wid: msgId, companyId } });
       if (existing) {
-        logger.info(`[CompanionSync Fallback] msg ${msgId} already registered, skipping`);
+        logger.info(`[CompanionSync Fallback] Duplicate placeholder skipped: companyId=${companyId}`);
         return;
       }
 
@@ -53,7 +58,9 @@ export async function handleCompanionSyncFallback(
         where: { number: contactNumber, companyId }
       });
       if (!contact) {
-        logger.info(`[CompanionSync Fallback] No contact for ${contactNumber}, skipping`);
+        logger.info(
+          `[CompanionSync Fallback] No contact for ${maskPhone(contactNumber)} (companyId=${companyId}), skipping`
+        );
         return;
       }
 
@@ -69,7 +76,8 @@ export async function handleCompanionSyncFallback(
 
       const body = buildPlaceholderBody(nodeStr);
       const msgType = extractAttr(nodeStr, "type");
-      const mediaType = msgType === "media" ? (extractAttr(nodeStr, "mediatype") || "chat") : "chat";
+      const mediaType =
+        msgType === "media" ? (extractAttr(nodeStr, "mediatype") || "chat") : "chat";
 
       const messageData = {
         wid: msgId,
@@ -80,12 +88,13 @@ export async function handleCompanionSyncFallback(
         read: true,
         mediaType,
         ack: 2,
-        companyId
+        companyId,
+        dataJson: JSON.stringify({ companionSyncFallback: true, peerRecipientPn: contactNumber })
       };
 
       await CreateMessageService({ messageData, companyId });
       logger.info(
-        `[CompanionSync Fallback] Placeholder created: msg=${msgId} type=${msgType}/${mediaType} contact=${contactNumber} ticket=${ticket.id}`
+        `[CompanionSync Fallback] Placeholder created: companyId=${companyId} ticketId=${ticket.id} mediaType=${mediaType}`
       );
     } catch (err: any) {
       logger.warn(`[CompanionSync Fallback] Error: ${err?.message}`);
