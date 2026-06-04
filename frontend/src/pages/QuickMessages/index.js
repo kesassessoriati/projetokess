@@ -169,23 +169,25 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(1.5),
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1.25),
+    gap: theme.spacing(1),
     overflowY: "auto",
     background: "linear-gradient(180deg, rgba(248,250,252,0.35), rgba(255,255,255,0.92))",
     scrollbarGutter: "stable"
   },
   card: {
-    borderRadius: 18,
-    padding: theme.spacing(1.5),
+    borderRadius: 12,
+    padding: theme.spacing(1),
     border: "1px solid #dbe4ee",
     backgroundColor: "#fff",
-    boxShadow: "0 10px 24px rgba(15,23,42,0.06)"
+    boxShadow: "0 2px 8px rgba(15,23,42,0.05)",
+    overflow: "hidden"
   },
   cardTop: {
     display: "flex",
-    alignItems: "flex-start",
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(1)
+    alignItems: "center",
+    gap: theme.spacing(0.75),
+    marginBottom: theme.spacing(0.5),
+    minWidth: 0
   },
   shortcutChip: {
     backgroundColor: "rgba(16, 185, 129, 0.12)",
@@ -193,19 +195,30 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 700,
     borderRadius: 999
   },
+  cardMediaChip: {
+    maxWidth: 130,
+    "& .MuiChip-label": {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  },
   cardMessage: {
     color: "#475569",
-    lineHeight: 1.5,
-    minHeight: 42,
-    whiteSpace: "pre-wrap",
+    fontSize: "0.78rem",
+    lineHeight: 1.4,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
     wordBreak: "break-word"
   },
   cardFooter: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1)
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(0.5)
   },
   emptyColumn: {
     borderRadius: 18,
@@ -665,25 +678,29 @@ const QuickMessages = () => {
                                         <div ref={replyDragProvided.innerRef} {...replyDragProvided.draggableProps} {...replyDragProvided.dragHandleProps}>
                                           <Paper className={classes.card} elevation={0}>
                                             <div className={classes.cardTop}>
-                                              <Avatar style={{ width: 36, height: 36, background: "#dbeafe", color: "#1d4ed8" }}>
-                                                <FlashOnIcon fontSize="small" />
-                                              </Avatar>
                                               <Box flex={1} minWidth={0}>
-                                                <Box display="flex" alignItems="center" style={{ gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                                                <Box display="flex" alignItems="center" style={{ gap: 6, marginBottom: 4, flexWrap: "wrap", minWidth: 0 }}>
                                                   <Chip label={`/${reply.shortcut}`} size="small" className={classes.shortcutChip} />
-                                                  {reply.mediaUrl && <Chip size="small" icon={<AttachFileIcon />} label={reply.mediaName || "Mídia"} />}
+                                                  {reply.mediaUrl && (
+                                                    <Chip
+                                                      size="small"
+                                                      icon={<AttachFileIcon style={{ fontSize: 12 }} />}
+                                                      label={reply.mediaName || "Mídia"}
+                                                      className={classes.cardMediaChip}
+                                                    />
+                                                  )}
                                                 </Box>
-                                                <Typography className={classes.cardMessage}>
+                                                <Typography variant="body2" className={classes.cardMessage}>
                                                   {reply.message || "Sem texto. Esta resposta envia apenas a mídia vinculada."}
                                                 </Typography>
                                               </Box>
                                             </div>
 
                                             <div className={classes.cardFooter}>
-                                              <Typography variant="caption" color="textSecondary">
+                                              <Typography variant="caption" color="textSecondary" noWrap style={{ flex: 1, minWidth: 0 }}>
                                                 {reply.mediaSource === "library" ? "Biblioteca integrada" : reply.mediaUrl ? "Upload vinculado" : "Texto puro"}
                                               </Typography>
-                                              <Box display="flex" alignItems="center">
+                                              <Box display="flex" alignItems="center" style={{ flexShrink: 0 }}>
                                                 <Tooltip title="Editar resposta">
                                                   <IconButton
                                                     size="small"
