@@ -22,8 +22,10 @@ import CreateIcon from "@material-ui/icons/Create";
 import FolderOpenIcon from "@material-ui/icons/FolderOpen";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
+import AddIcon from "@material-ui/icons/Add";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import ReplyModal from "../../pages/QuickMessages/ReplyModal";
 
 const useStyles = makeStyles((theme) => ({
   dialogPaper: {
@@ -241,6 +243,9 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
   const [loading, setLoading] = useState(false);
   const [sendingId, setSendingId] = useState(null);
 
+  const [replyModalOpen, setReplyModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+
   const isSidebar = variant === "sidebar";
   const tabsRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -375,6 +380,18 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
           Texto e mídia prontos para envio em um clique.
         </Typography>
       </Box>
+      <Tooltip title="Nova resposta rápida">
+        <IconButton
+          size="small"
+          style={{ color: "#fff" }}
+          onClick={() => {
+            setEditTarget(null);
+            setReplyModalOpen(true);
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+      </Tooltip>
       <IconButton onClick={onClose} style={{ color: "#fff" }} size="small">
         <CloseIcon />
       </IconButton>
@@ -498,12 +515,13 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
                               <AttachFileIcon fontSize="small" color="action" style={{ marginRight: 8 }} />
                             </Tooltip>
                           )}
-                          <Tooltip title="Revisar antes de enviar">
+                          <Tooltip title="Editar resposta rápida">
                             <IconButton
                               size="small"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                handleSelectReply(reply, false);
+                                setEditTarget(reply);
+                                setReplyModalOpen(true);
                               }}
                             >
                               <CreateIcon fontSize="small" />
@@ -541,24 +559,43 @@ const QuickRepliesModal = ({ open, onClose, onSelect, variant = "dialog" }) => {
     return null;
   }
 
+  const defaultGroupIdForModal = editTarget
+    ? (editTarget.groupId || "")
+    : (selectedGroupId && selectedGroupId !== UNGROUPED_ID ? String(selectedGroupId) : "");
+
+  const replyModalProps = {
+    open: replyModalOpen,
+    onClose: () => { setReplyModalOpen(false); setEditTarget(null); },
+    reply: editTarget,
+    groups,
+    defaultGroupId: defaultGroupIdForModal,
+    onSaved: () => { fetchData(); setReplyModalOpen(false); setEditTarget(null); }
+  };
+
   if (isSidebar) {
     return (
-      <div className={classes.sidebar}>
-        {headerContent}
-        {bodyContent}
-      </div>
+      <>
+        <div className={classes.sidebar}>
+          {headerContent}
+          {bodyContent}
+        </div>
+        <ReplyModal {...replyModalProps} />
+      </>
     );
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" classes={{ paper: classes.dialogPaper }}>
-      <DialogTitle disableTypography style={{ padding: 0 }}>
-        {headerContent}
-      </DialogTitle>
-      <DialogContent dividers style={{ padding: 0, flex: 1, minHeight: 0, overflow: "hidden" }}>
-        {bodyContent}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" classes={{ paper: classes.dialogPaper }}>
+        <DialogTitle disableTypography style={{ padding: 0 }}>
+          {headerContent}
+        </DialogTitle>
+        <DialogContent dividers style={{ padding: 0, flex: 1, minHeight: 0, overflow: "hidden" }}>
+          {bodyContent}
+        </DialogContent>
+      </Dialog>
+      <ReplyModal {...replyModalProps} />
+    </>
   );
 };
 
