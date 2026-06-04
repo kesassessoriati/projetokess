@@ -108,7 +108,7 @@ const REPLY_VARIABLES = [
   { token: "{{number}}", label: "Número" },
   { token: "{{email}}", label: "E-mail" },
   { token: "{{date}}", label: "Data" },
-  { token: "{{time}}", label: "Hora" },
+  { token: "{{hour}}", label: "Hora" },
 ];
 
 const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved }) => {
