@@ -2181,6 +2181,9 @@ const Atendimentos = () => {
 	};
 
 	const handleTicketClick = async (ticket) => {
+		if (selectedTicketRef.current?.id === ticket.id) {
+			return;
+		}
 		setSelectedTicket(ticket);
 		selectedTicketRef.current = ticket;
 		setMessages([]);
