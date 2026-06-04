@@ -101,8 +101,19 @@ const getMediaIcon = (mimeType = "") => {
   }
 };
 
+const REPLY_VARIABLES = [
+  { token: "{{ms}}", label: "Saudação" },
+  { token: "{{firstName}}", label: "Primeiro nome" },
+  { token: "{{name}}", label: "Nome completo" },
+  { token: "{{number}}", label: "Número" },
+  { token: "{{email}}", label: "E-mail" },
+  { token: "{{date}}", label: "Data" },
+  { token: "{{time}}", label: "Hora" },
+];
+
 const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved }) => {
   const fileInputRef = useRef(null);
+  const messageRef = useRef(null);
   const [shortcut, setShortcut] = useState("");
   const [message, setMessage] = useState("");
   const [groupId, setGroupId] = useState("");
@@ -265,6 +276,23 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
     }
   };
 
+  const insertVariable = (token) => {
+    const textarea = messageRef.current;
+    if (!textarea) {
+      setMessage((prev) => `${prev || ""}${token}`);
+      return;
+    }
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const nextValue = message.substring(0, start) + token + message.substring(end);
+    setMessage(nextValue);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const cursorPosition = start + token.length;
+      textarea.setSelectionRange(cursorPosition, cursorPosition);
+    });
+  };
+
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -302,8 +330,39 @@ const ReplyModal = ({ open, onClose, reply, groups, defaultGroupId = "", onSaved
                 rows={6}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                helperText="Variáveis dinâmicas suportadas: {firstName}, {name}, {date}, {time}"
+                inputRef={messageRef}
               />
+
+              <Box mt={1} mb={1}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
+                  <Typography style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                    Variáveis dinâmicas
+                  </Typography>
+                  <Typography style={{ fontSize: 11, color: "#64748b" }}>
+                    Clique para inserir
+                  </Typography>
+                </Box>
+                <Box display="flex" flexWrap="wrap" style={{ gap: 6 }}>
+                  {REPLY_VARIABLES.map((item) => (
+                    <Chip
+                      key={item.token}
+                      label={item.label}
+                      size="small"
+                      clickable
+                      onClick={() => insertVariable(item.token)}
+                      style={{
+                        backgroundColor: "#e0f2fe",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        border: "1px solid #bae6fd",
+                      }}
+                    />
+                  ))}
+                </Box>
+                <Typography style={{ fontSize: 11, color: "#15803d", marginTop: 6, padding: "6px 10px", backgroundColor: "#f0fdf4", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+                  Use <strong>{"{{firstName}}"}</strong>, <strong>{"{{name}}"}</strong>, <strong>{"{{ms}}"}</strong> para personalizar cada mensagem automaticamente.
+                </Typography>
+              </Box>
 
               <Box mt={2}>
                 <FormControl variant="outlined" fullWidth style={{ marginBottom: 12 }}>
