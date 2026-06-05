@@ -4,6 +4,7 @@ import QueueIntegrations from "../../models/QueueIntegrations";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import logger from "../../utils/logger";
+import CheckAiBlockService from "../TicketServices/CheckAiBlockService";
 
 // ─── Tipos de eventos disponíveis ───────────────────────────────────────────
 
@@ -125,6 +126,19 @@ const resolveMessageIntegrations = async (
 
     if (isWebhookSuppressed) {
       return [];
+    }
+
+    // Verifica bloqueio de IA por contato (Ações da IA no Kanban)
+    const contactId = Number((data as any)?.ticket?.contactId);
+    if (contactId) {
+      const aiBlock = await CheckAiBlockService(contactId, companyId);
+      if (aiBlock.blocked) {
+        logger.info(
+          `[WebhookDispatch] MESSAGE_RECEIVED bloqueado por IA companyId=${companyId} ` +
+          `ticketId=${ticketId} contactId=${contactId} reason=${aiBlock.reason}`
+        );
+        return [];
+      }
     }
   }
 
