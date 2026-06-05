@@ -67,6 +67,31 @@ const FOLLOW_UP_TARGET_OPTIONS = [
   { value: "hybrid", label: "Etiquetas ou etapa do funil", icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
+const TRIGGER_TYPE_OPTIONS = [
+  { value: "message_sent", label: "Sem responder (após mensagem enviada)", description: "Inicia quando a empresa envia uma mensagem e o lead não responde dentro do prazo de cada etapa." },
+  { value: "no_reply", label: "Sem responder por X tempo", description: "Inicia quando o lead não responde por um período configurado após qualquer mensagem." },
+  { value: "time_in_crm_stage", label: "Tempo em coluna do CRM", description: "Inicia quando um lead permanece em uma etapa do funil por mais tempo que o configurado." },
+  { value: "tag_added", label: "Tag adicionada", description: "Inicia automaticamente quando uma tag específica é adicionada ao contato ou ticket." },
+  { value: "stage_change", label: "Mudança de etapa", description: "Inicia quando o lead muda para uma etapa específica do funil." },
+  { value: "unread_after_hours", label: "Não lida após X horas", description: "Inicia quando um ticket permanece não lido por mais tempo que o configurado." },
+];
+
+const STEP_TYPE_OPTIONS = [
+  { value: "send_message", label: "Enviar Mensagem" },
+  { value: "wait", label: "Aguardar" },
+  { value: "move_crm", label: "Mover no CRM" },
+  { value: "add_tag", label: "Adicionar Tag" },
+  { value: "condition", label: "Condição" },
+  { value: "webhook", label: "Webhook" },
+];
+
+const REPLY_ACTION_OPTIONS = [
+  { value: "none", label: "Nenhuma ação" },
+  { value: "activate_ai", label: "Ativar Agente de IA" },
+  { value: "move_crm", label: "Mover no CRM" },
+  { value: "add_tag", label: "Adicionar Tag" },
+];
+
 const useStyles = makeStyles((theme) => ({
   root: {
     padding: theme.spacing(3),
@@ -395,6 +420,8 @@ const emptyStage = () => ({
   buttons: [],
   useAiRewrite: false,
   isActive: true,
+  stepType: "send_message",
+  stepConfig: {},
 });
 
 const normalizeFollowUpStage = (stage = {}, order = 1) => ({
@@ -411,6 +438,8 @@ const normalizeFollowUpStage = (stage = {}, order = 1) => ({
   mediaCaption: stage.mediaCaption || "",
   buttons: Array.isArray(stage.buttons) ? stage.buttons : [],
   useAiRewrite: !!stage.useAiRewrite,
+  stepType: STEP_TYPE_OPTIONS.some((opt) => opt.value === stage.stepType) ? stage.stepType : "send_message",
+  stepConfig: (typeof stage.stepConfig === "object" && stage.stepConfig !== null) ? stage.stepConfig : {},
 });
 
 const normalizeFollowUpStages = (stages = []) => {
@@ -454,6 +483,13 @@ const emptyForm = (boards = []) => {
     successKeywords: ["sim", "quero", "proposta", "orcamento", "agendar"],
     stopKeywords: ["pare", "cancelar", "sem interesse"],
     stages: buildStarterStages(),
+    // Trigger
+    triggerType: "message_sent",
+    triggerConfig: {},
+    // Reply behaviour
+    stopOnReply: true,
+    actionOnReply: "none",
+    replyActionConfig: {},
   };
 };
 
@@ -770,6 +806,11 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
         successKeywords: Array.isArray(campaign.successKeywords) ? campaign.successKeywords : [],
         stopKeywords: Array.isArray(campaign.stopKeywords) ? campaign.stopKeywords : [],
         stages: normalizeFollowUpStages(campaign.stages),
+        triggerType: campaign.triggerType || "message_sent",
+        triggerConfig: (typeof campaign.triggerConfig === "object" && campaign.triggerConfig !== null) ? campaign.triggerConfig : {},
+        stopOnReply: campaign.stopOnReply !== false,
+        actionOnReply: campaign.actionOnReply || "none",
+        replyActionConfig: (typeof campaign.replyActionConfig === "object" && campaign.replyActionConfig !== null) ? campaign.replyActionConfig : {},
       });
     } else {
       setForm(emptyForm(boards));
@@ -910,6 +951,11 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       stopKeywords: form.stopKeywords,
       stages: normalizeFollowUpStages(form.stages),
       boardColumn: selectedBoardColumns.includes(form.boardColumn) ? form.boardColumn : selectedBoardColumns[0],
+      triggerType: form.triggerType || "message_sent",
+      triggerConfig: form.triggerConfig || {},
+      stopOnReply: form.stopOnReply !== false,
+      actionOnReply: form.actionOnReply || "none",
+      replyActionConfig: form.replyActionConfig || {},
     });
   };
 
@@ -1019,16 +1065,193 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Disparador"
-                value={FOLLOW_UP_TRIGGER_LABEL}
-                variant="outlined"
-                size="small"
-                fullWidth
-                disabled
-                helperText="O follow-up inicia quando a empresa envia uma mensagem registrada no ticket."
-              />
+              <FormControl variant="outlined" size="small" fullWidth>
+                <InputLabel>Gatilho</InputLabel>
+                <Select
+                  value={form.triggerType || "message_sent"}
+                  onChange={(e) => {
+                    setField("triggerType", e.target.value);
+                    setField("triggerConfig", {});
+                  }}
+                  label="Gatilho"
+                >
+                  {TRIGGER_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {(() => {
+                const selected = TRIGGER_TYPE_OPTIONS.find((opt) => opt.value === form.triggerType);
+                return selected ? (
+                  <Typography variant="caption" color="textSecondary" style={{ marginTop: 4, display: "block" }}>
+                    {selected.description}
+                  </Typography>
+                ) : null;
+              })()}
             </Grid>
+
+            {/* Trigger config: no_reply */}
+            {form.triggerType === "no_reply" && (
+              <Grid item xs={12}>
+                <Box display="flex" gridGap={12} flexWrap="wrap" alignItems="flex-end">
+                  <TextField
+                    label="Tempo sem resposta"
+                    type="number"
+                    size="small"
+                    variant="outlined"
+                    style={{ width: 160 }}
+                    inputProps={{ min: 1 }}
+                    value={form.triggerConfig?.delayValue || 1}
+                    onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayValue: Number(e.target.value) })}
+                  />
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 130 }}>
+                    <InputLabel>Unidade</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.delayUnit || "hours"}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayUnit: e.target.value })}
+                      label="Unidade"
+                    >
+                      <MenuItem value="minutes">Minutos</MenuItem>
+                      <MenuItem value="hours">Horas</MenuItem>
+                      <MenuItem value="days">Dias</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+            )}
+
+            {/* Trigger config: time_in_crm_stage */}
+            {form.triggerType === "time_in_crm_stage" && (
+              <Grid item xs={12}>
+                <Box display="flex" gridGap={12} flexWrap="wrap" alignItems="flex-end">
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }}>
+                    <InputLabel>Funil</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.pipelineId || ""}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, pipelineId: e.target.value, stageId: "" })}
+                      label="Funil"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {pipelines.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }} disabled={!form.triggerConfig?.pipelineId}>
+                    <InputLabel>Etapa</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.stageId || ""}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, stageId: e.target.value })}
+                      label="Etapa"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {(pipelines.find((p) => String(p.id) === String(form.triggerConfig?.pipelineId))?.stages || [])
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label="Tempo mínimo na etapa"
+                    type="number"
+                    size="small"
+                    variant="outlined"
+                    style={{ width: 180 }}
+                    inputProps={{ min: 1 }}
+                    value={form.triggerConfig?.delayValue || 1}
+                    onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayValue: Number(e.target.value) })}
+                  />
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 130 }}>
+                    <InputLabel>Unidade</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.delayUnit || "hours"}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayUnit: e.target.value })}
+                      label="Unidade"
+                    >
+                      <MenuItem value="minutes">Minutos</MenuItem>
+                      <MenuItem value="hours">Horas</MenuItem>
+                      <MenuItem value="days">Dias</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+            )}
+
+            {/* Trigger config: tag_added */}
+            {form.triggerType === "tag_added" && (
+              <Grid item xs={12}>
+                <FormControl variant="outlined" size="small" style={{ minWidth: 260 }}>
+                  <InputLabel>Tag disparadora</InputLabel>
+                  <Select
+                    value={form.triggerConfig?.tagId || ""}
+                    onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, tagId: e.target.value })}
+                    label="Tag disparadora"
+                  >
+                    <MenuItem value="">Selecione uma tag</MenuItem>
+                    {tags.map((tag) => <MenuItem key={tag.id} value={tag.id}>{tag.name}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
+            {/* Trigger config: stage_change */}
+            {form.triggerType === "stage_change" && (
+              <Grid item xs={12}>
+                <Box display="flex" gridGap={12} flexWrap="wrap" alignItems="flex-end">
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }}>
+                    <InputLabel>Funil</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.pipelineId || ""}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, pipelineId: e.target.value, stageId: "" })}
+                      label="Funil"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {pipelines.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }} disabled={!form.triggerConfig?.pipelineId}>
+                    <InputLabel>Etapa destino</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.stageId || ""}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, stageId: e.target.value })}
+                      label="Etapa destino"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {(pipelines.find((p) => String(p.id) === String(form.triggerConfig?.pipelineId))?.stages || [])
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+            )}
+
+            {/* Trigger config: unread_after_hours */}
+            {form.triggerType === "unread_after_hours" && (
+              <Grid item xs={12}>
+                <Box display="flex" gridGap={12} flexWrap="wrap" alignItems="flex-end">
+                  <TextField
+                    label="Não lida por mais de"
+                    type="number"
+                    size="small"
+                    variant="outlined"
+                    style={{ width: 180 }}
+                    inputProps={{ min: 1 }}
+                    value={form.triggerConfig?.delayValue || 2}
+                    onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayValue: Number(e.target.value) })}
+                  />
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 130 }}>
+                    <InputLabel>Unidade</InputLabel>
+                    <Select
+                      value={form.triggerConfig?.delayUnit || "hours"}
+                      onChange={(e) => setField("triggerConfig", { ...form.triggerConfig, delayUnit: e.target.value })}
+                      label="Unidade"
+                    >
+                      <MenuItem value="minutes">Minutos</MenuItem>
+                      <MenuItem value="hours">Horas</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+            )}
+
             <Grid item xs={12} md={3}>
               <FormControlLabel
                 control={
@@ -1254,154 +1477,514 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
           {form.stages.map((stage, idx) => (
             <Box key={idx} className={classes.stageRow}>
               <Box className={classes.stageHeader}>
-                <Typography variant="subtitle2">Estágio {idx + 1}</Typography>
-                <IconButton size="small" onClick={() => removeStage(idx)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <Typography variant="subtitle2">
+                  PASSO {idx + 1}
+                  {stage.title ? ` — ${stage.title}` : ""}
+                </Typography>
+                <Box display="flex" alignItems="center" gridGap={4}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={stage.isActive}
+                        onChange={(e) => updateStage(idx, "isActive", e.target.checked)}
+                        color="primary"
+                        size="small"
+                      />
+                    }
+                    label={<Typography variant="caption">Ativo</Typography>}
+                  />
+                  <IconButton size="small" onClick={() => removeStage(idx)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
               </Box>
 
-              <Box display="flex" gap={2} flexWrap="wrap" mb={1}>
+              {/* Step type selector */}
+              <Box display="flex" gridGap={12} flexWrap="wrap" mb={1} alignItems="flex-end">
+                <FormControl variant="outlined" size="small" style={{ minWidth: 180 }}>
+                  <InputLabel>Tipo de passo</InputLabel>
+                  <Select
+                    value={stage.stepType || "send_message"}
+                    onChange={(e) => updateStage(idx, "stepType", e.target.value)}
+                    label="Tipo de passo"
+                  >
+                    {STEP_TYPE_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Delay is shown for all steps */}
                 <TextField
-                  label="Atraso (minutos)"
+                  label="Aguardar antes (min)"
                   type="number"
                   value={stage.delayMinutes}
                   onChange={(e) => updateStage(idx, "delayMinutes", Number(e.target.value))}
                   variant="outlined"
                   size="small"
-                  style={{ width: 150 }}
-                  inputProps={{ min: 1 }}
+                  style={{ width: 165 }}
+                  inputProps={{ min: 0 }}
+                  helperText="0 = imediato"
                 />
 
-                <FormControl variant="outlined" size="small" style={{ minWidth: 150 }}>
-                  <InputLabel>Tipo</InputLabel>
-                  <Select
-                    value={stage.messageType || "text"}
-                    onChange={(e) => updateStage(idx, "messageType", e.target.value)}
-                    label="Tipo"
-                  >
-                    <MenuItem value="text">Texto</MenuItem>
-                    <MenuItem value="media">Mídia/Mixed</MenuItem>
-                    <MenuItem value="image">Imagem</MenuItem>
-                    <MenuItem value="video">Vídeo</MenuItem>
-                    <MenuItem value="audio">Áudio</MenuItem>
-                    <MenuItem value="document">Documento</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={stage.isActive}
-                      onChange={(e) => updateStage(idx, "isActive", e.target.checked)}
-                      color="primary"
-                      size="small"
-                    />
-                  }
-                  label="Ativo"
-                />
+                {/* Message type selector — only for send_message */}
+                {stage.stepType === "send_message" && (
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 145 }}>
+                    <InputLabel>Formato</InputLabel>
+                    <Select
+                      value={stage.messageType || "text"}
+                      onChange={(e) => updateStage(idx, "messageType", e.target.value)}
+                      label="Formato"
+                    >
+                      <MenuItem value="text">Texto</MenuItem>
+                      <MenuItem value="image">Imagem</MenuItem>
+                      <MenuItem value="video">Vídeo</MenuItem>
+                      <MenuItem value="audio">Áudio</MenuItem>
+                      <MenuItem value="document">Documento</MenuItem>
+                      <MenuItem value="media">Mídia Misto</MenuItem>
+                      <MenuItem value="buttons">Botões</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
               </Box>
 
-              {["text", "buttons"].includes(stage.messageType) && (
-                <TextField
-                  label="Mensagem"
-                  value={stage.message}
-                  onChange={(e) => updateStage(idx, "message", e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={3}
-                  variant="outlined"
-                  size="small"
-                  helperText="Tipos de mídia e botões estão temporariamente desativados neste release."
-                />
-              )}
-
-              {["media", "mixed", "image", "video", "audio", "document"].includes(stage.messageType) && (
-                <Box mt={2} mb={2} p={2} border="1px dashed #ccc" borderRadius={4}>
-                  <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Anexo de Mídia</Typography>
-                  <Box display="flex" gap={2} alignItems="center">
-                    <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
-                      Selecionar do Mídia Drive
-                    </Button>
-                    {uploadingStageIndex === idx && <CircularProgress size={18} />}
-                  </Box>
-                  {stage.mediaUrl && (
-                    <Box mt={2} mb={2}>
-                      <Typography variant="caption" color="primary">Arquivo: {stage.mediaUrl.split("-").pop()}</Typography>
-                      {stage.messageType === "image" && (
-                        <Box mt={1}>
-                          <img
-                            src={
-                              stage.mediaUrl?.startsWith("http")
-                                ? stage.mediaUrl
-                                : `${(process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "")}/public/company${companyId}/${String(stage.mediaUrl || "").replace(/^\/+/, "")}`
-                            }
-                            alt="preview"
-                            style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }}
+              {/* ---- send_message content ---- */}
+              {stage.stepType === "send_message" && (
+                <>
+                  {["text", "buttons"].includes(stage.messageType) && (
+                    <>
+                      <TextField
+                        label="Mensagem"
+                        value={stage.message}
+                        onChange={(e) => updateStage(idx, "message", e.target.value)}
+                        fullWidth
+                        multiline
+                        rows={3}
+                        variant="outlined"
+                        size="small"
+                      />
+                      <Box className={classes.chipFieldWrap} mt={1}>
+                        {["{{nome}}", "{{primeiro_nome}}", "{{telefone}}", "{{empresa}}", "{{data}}", "{{hora}}", "{{descadastro}}", "{{csat}}"].map((v) => (
+                          <Chip
+                            key={v}
+                            size="small"
+                            label={v}
+                            clickable
+                            style={{ fontSize: 11 }}
+                            onClick={() => updateStage(idx, "message", (stage.message || "") + v)}
                           />
+                        ))}
+                      </Box>
+                    </>
+                  )}
+
+                  {["media", "mixed", "image", "video", "document"].includes(stage.messageType) && (
+                    <Box mt={2} mb={1} p={2} border="1px dashed #ccc" borderRadius={4}>
+                      <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Anexo de Mídia</Typography>
+                      <Box display="flex" gap={2} alignItems="center">
+                        <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
+                          Selecionar do Mídia Drive
+                        </Button>
+                        {uploadingStageIndex === idx && <CircularProgress size={18} />}
+                      </Box>
+                      {stage.mediaUrl && (
+                        <Box mt={2} mb={2}>
+                          <Typography variant="caption" color="primary">Arquivo: {stage.mediaUrl.split("-").pop()}</Typography>
+                          {stage.messageType === "image" && (
+                            <Box mt={1}>
+                              <img
+                                src={
+                                  stage.mediaUrl?.startsWith("http")
+                                    ? stage.mediaUrl
+                                    : `${(process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "")}/public/company${companyId}/${String(stage.mediaUrl || "").replace(/^\/+/, "")}`
+                                }
+                                alt="preview"
+                                style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8 }}
+                              />
+                            </Box>
+                          )}
                         </Box>
+                      )}
+                      <TextField
+                        label="Legenda (opcional)"
+                        value={stage.mediaCaption || ""}
+                        onChange={(e) => updateStage(idx, "mediaCaption", e.target.value)}
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  )}
+
+                  {stage.messageType === "audio" && (
+                    <Box mt={2} mb={1} p={2} border="1px dashed #ccc" borderRadius={4}>
+                      <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Áudio</Typography>
+                      <Box display="flex" gridGap={8} mb={2}>
+                        <Button
+                          size="small"
+                          variant={stage.stepConfig?.audioType === "recorded" ? "contained" : "outlined"}
+                          onClick={() => updateStage(idx, "stepConfig", { ...stage.stepConfig, audioType: "recorded" })}
+                        >
+                          Gravar áudio na hora
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={!stage.stepConfig?.audioType || stage.stepConfig?.audioType === "saved" ? "contained" : "outlined"}
+                          onClick={() => updateStage(idx, "stepConfig", { ...stage.stepConfig, audioType: "saved" })}
+                        >
+                          Usar áudio salvo
+                        </Button>
+                      </Box>
+                      {stage.stepConfig?.audioType === "recorded" && (
+                        <Typography variant="caption" color="textSecondary">
+                          A gravação será realizada no momento do envio. Certifique-se de que o dispositivo tem microfone disponível.
+                        </Typography>
+                      )}
+                      {(!stage.stepConfig?.audioType || stage.stepConfig?.audioType === "saved") && (
+                        <>
+                          <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
+                            Selecionar do Mídia Drive
+                          </Button>
+                          {stage.mediaUrl && (
+                            <Typography variant="caption" color="primary" style={{ display: "block", marginTop: 8 }}>
+                              Arquivo: {stage.mediaUrl.split("-").pop()}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="textSecondary" style={{ display: "block", marginTop: 4 }}>
+                            O contato recebe como mensagem de áudio — não como anexo.
+                          </Typography>
+                        </>
                       )}
                     </Box>
                   )}
-                  <Box mt={2}>
-                    <TextField
-                      label="Legenda (opcional)"
-                      value={stage.mediaCaption || ""}
-                      onChange={(e) => updateStage(idx, "mediaCaption", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="outlined"
+
+                  {stage.messageType === "buttons" && (
+                    <Box mt={1}>
+                      <Typography variant="caption" color="textSecondary">Botões (máx. 4)</Typography>
+                      {(stage.buttons || []).map((btn, btnIdx) => (
+                        <Box key={btnIdx} display="flex" gap={1} alignItems="center" mt={1}>
+                          <TextField
+                            label="Texto"
+                            value={btn.displayText}
+                            onChange={(e) => updateButton(idx, btnIdx, "displayText", e.target.value)}
+                            size="small"
+                            variant="outlined"
+                            style={{ flex: 2 }}
+                          />
+                          <FormControl variant="outlined" size="small" style={{ minWidth: 100 }}>
+                            <InputLabel>Tipo</InputLabel>
+                            <Select
+                              value={btn.type}
+                              onChange={(e) => updateButton(idx, btnIdx, "type", e.target.value)}
+                              label="Tipo"
+                            >
+                              <MenuItem value="reply">Resposta</MenuItem>
+                              <MenuItem value="url">URL</MenuItem>
+                              <MenuItem value="call">Ligar</MenuItem>
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label={btn.type === "url" ? "URL" : btn.type === "call" ? "Número" : "ID"}
+                            value={btn.value}
+                            onChange={(e) => updateButton(idx, btnIdx, "value", e.target.value)}
+                            size="small"
+                            variant="outlined"
+                            style={{ flex: 2 }}
+                          />
+                          <IconButton size="small" onClick={() => removeButton(idx, btnIdx)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ))}
+                      {(stage.buttons || []).length < 4 && (
+                        <Button size="small" startIcon={<AddIcon />} onClick={() => addButton(idx)} style={{ marginTop: 4 }}>
+                          Botão
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+
+                  <Box mt={1}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={!!stage.useAiRewrite}
+                          onChange={(e) => updateStage(idx, "useAiRewrite", e.target.checked)}
+                          color="primary"
+                          size="small"
+                          disabled={!form.aiEnabled}
+                        />
+                      }
+                      label={<Typography variant="caption">Reescrever com IA</Typography>}
                     />
                   </Box>
+                </>
+              )}
+
+              {/* ---- wait: just delay, no extra content ---- */}
+              {stage.stepType === "wait" && (
+                <Typography variant="caption" color="textSecondary">
+                  Pausa de {stage.delayMinutes} minuto(s) antes do próximo passo, sem enviar mensagem.
+                </Typography>
+              )}
+
+              {/* ---- move_crm ---- */}
+              {stage.stepType === "move_crm" && (
+                <Box display="flex" gridGap={12} flexWrap="wrap" alignItems="flex-end" mt={1}>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }}>
+                    <InputLabel>Funil</InputLabel>
+                    <Select
+                      value={stage.stepConfig?.pipelineId || ""}
+                      onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, pipelineId: e.target.value, stageId: "" })}
+                      label="Funil"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {pipelines.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 200 }} disabled={!stage.stepConfig?.pipelineId}>
+                    <InputLabel>Etapa destino</InputLabel>
+                    <Select
+                      value={stage.stepConfig?.stageId || ""}
+                      onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, stageId: e.target.value })}
+                      label="Etapa destino"
+                    >
+                      <MenuItem value="">Selecione</MenuItem>
+                      {(pipelines.find((p) => String(p.id) === String(stage.stepConfig?.pipelineId))?.stages || [])
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
                 </Box>
               )}
 
-              {stage.messageType === "buttons" && (
+              {/* ---- add_tag ---- */}
+              {stage.stepType === "add_tag" && (
                 <Box mt={1}>
-                  <Typography variant="caption" color="textSecondary">Botões (máx. 4)</Typography>
-                  {(stage.buttons || []).map((btn, btnIdx) => (
-                    <Box key={btnIdx} display="flex" gap={1} alignItems="center" mt={1}>
-                      <TextField
-                        label="Texto"
-                        value={btn.displayText}
-                        onChange={(e) => updateButton(idx, btnIdx, "displayText", e.target.value)}
-                        size="small"
-                        variant="outlined"
-                        style={{ flex: 2 }}
-                      />
-                      <FormControl variant="outlined" size="small" style={{ minWidth: 100 }}>
-                        <InputLabel>Tipo</InputLabel>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 260 }}>
+                    <InputLabel>Tag a adicionar</InputLabel>
+                    <Select
+                      value={stage.stepConfig?.tagId || ""}
+                      onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, tagId: e.target.value })}
+                      label="Tag a adicionar"
+                    >
+                      <MenuItem value="">Selecione uma tag</MenuItem>
+                      {tags.map((tag) => <MenuItem key={tag.id} value={tag.id}>{tag.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
+
+              {/* ---- condition ---- */}
+              {stage.stepType === "condition" && (
+                <Box mt={1} p={1.5} border="1px solid #e5e7eb" borderRadius={6}>
+                  <Typography variant="caption" color="textSecondary" style={{ display: "block", marginBottom: 8 }}>
+                    Condição — define se os próximos passos devem continuar
+                  </Typography>
+                  <FormControl variant="outlined" size="small" style={{ minWidth: 260 }}>
+                    <InputLabel>Tipo de condição</InputLabel>
+                    <Select
+                      value={stage.stepConfig?.conditionType || "has_replied"}
+                      onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, conditionType: e.target.value })}
+                      label="Tipo de condição"
+                    >
+                      <MenuItem value="has_replied">Se respondeu</MenuItem>
+                      <MenuItem value="has_not_replied">Se não respondeu</MenuItem>
+                      <MenuItem value="has_tag">Se possui tag</MenuItem>
+                      <MenuItem value="is_in_stage">Se está em etapa</MenuItem>
+                    </Select>
+                  </FormControl>
+                  {stage.stepConfig?.conditionType === "has_tag" && (
+                    <Box mt={1}>
+                      <FormControl variant="outlined" size="small" style={{ minWidth: 220 }}>
+                        <InputLabel>Tag</InputLabel>
                         <Select
-                          value={btn.type}
-                          onChange={(e) => updateButton(idx, btnIdx, "type", e.target.value)}
-                          label="Tipo"
+                          value={stage.stepConfig?.tagId || ""}
+                          onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, tagId: e.target.value })}
+                          label="Tag"
                         >
-                          <MenuItem value="reply">Resposta</MenuItem>
-                          <MenuItem value="url">URL</MenuItem>
-                          <MenuItem value="call">Ligar</MenuItem>
+                          <MenuItem value="">Selecione</MenuItem>
+                          {tags.map((tag) => <MenuItem key={tag.id} value={tag.id}>{tag.name}</MenuItem>)}
                         </Select>
                       </FormControl>
-                      <TextField
-                        label={btn.type === "url" ? "URL" : btn.type === "call" ? "Número" : "ID"}
-                        value={btn.value}
-                        onChange={(e) => updateButton(idx, btnIdx, "value", e.target.value)}
-                        size="small"
-                        variant="outlined"
-                        style={{ flex: 2 }}
-                      />
-                      <IconButton size="small" onClick={() => removeButton(idx, btnIdx)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
                     </Box>
-                  ))}
-                  {(stage.buttons || []).length < 4 && (
-                    <Button size="small" startIcon={<AddIcon />} onClick={() => addButton(idx)} style={{ marginTop: 4 }}>
-                      Botão
-                    </Button>
                   )}
+                  {stage.stepConfig?.conditionType === "is_in_stage" && (
+                    <Box display="flex" gridGap={8} mt={1} flexWrap="wrap">
+                      <FormControl variant="outlined" size="small" style={{ minWidth: 180 }}>
+                        <InputLabel>Funil</InputLabel>
+                        <Select
+                          value={stage.stepConfig?.pipelineId || ""}
+                          onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, pipelineId: e.target.value, stageId: "" })}
+                          label="Funil"
+                        >
+                          <MenuItem value="">Selecione</MenuItem>
+                          {pipelines.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                      <FormControl variant="outlined" size="small" style={{ minWidth: 180 }} disabled={!stage.stepConfig?.pipelineId}>
+                        <InputLabel>Etapa</InputLabel>
+                        <Select
+                          value={stage.stepConfig?.stageId || ""}
+                          onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, stageId: e.target.value })}
+                          label="Etapa"
+                        >
+                          <MenuItem value="">Selecione</MenuItem>
+                          {(pipelines.find((p) => String(p.id) === String(stage.stepConfig?.pipelineId))?.stages || [])
+                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            .map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* ---- webhook ---- */}
+              {stage.stepType === "webhook" && (
+                <Box mt={1} display="flex" flexDirection="column" gridGap={10}>
+                  <Box display="flex" gridGap={8} flexWrap="wrap">
+                    <FormControl variant="outlined" size="small" style={{ width: 110 }}>
+                      <InputLabel>Método</InputLabel>
+                      <Select
+                        value={stage.stepConfig?.method || "POST"}
+                        onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, method: e.target.value })}
+                        label="Método"
+                      >
+                        <MenuItem value="POST">POST</MenuItem>
+                        <MenuItem value="GET">GET</MenuItem>
+                        <MenuItem value="PUT">PUT</MenuItem>
+                        <MenuItem value="PATCH">PATCH</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="URL do webhook"
+                      size="small"
+                      variant="outlined"
+                      style={{ flex: 1, minWidth: 260 }}
+                      value={stage.stepConfig?.url || ""}
+                      onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, url: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </Box>
+                  <TextField
+                    label="Body/Payload (JSON com variáveis)"
+                    size="small"
+                    variant="outlined"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={stage.stepConfig?.body || ""}
+                    onChange={(e) => updateStage(idx, "stepConfig", { ...stage.stepConfig, body: e.target.value })}
+                    placeholder={'{"nome": "{{nome}}", "telefone": "{{telefone}}"}'}
+                    helperText="Variáveis disponíveis: {{nome}}, {{telefone}}, {{empresa}}"
+                  />
                 </Box>
               )}
             </Box>
           ))}
+          {/* ===== Quando a pessoa responder ===== */}
+          <Divider style={{ margin: "8px 0" }} />
+          <Box className={classes.sectionCard}>
+            <Typography variant="subtitle1" style={{ fontWeight: 700, marginBottom: 12 }}>
+              Quando a pessoa responder
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.stopOnReply !== false}
+                      onChange={(e) => setField("stopOnReply", e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label="Parar follow-up ao responder"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  Encerra a sequência automaticamente quando o lead responde.
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel>Ação após resposta</InputLabel>
+                  <Select
+                    value={form.actionOnReply || "none"}
+                    onChange={(e) => {
+                      setField("actionOnReply", e.target.value);
+                      setField("replyActionConfig", {});
+                    }}
+                    label="Ação após resposta"
+                  >
+                    {REPLY_ACTION_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Reply action: move_crm */}
+              {form.actionOnReply === "move_crm" && (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <FormControl variant="outlined" size="small" fullWidth>
+                      <InputLabel>Funil (após resposta)</InputLabel>
+                      <Select
+                        value={form.replyActionConfig?.pipelineId || ""}
+                        onChange={(e) => setField("replyActionConfig", { ...form.replyActionConfig, pipelineId: e.target.value, stageId: "" })}
+                        label="Funil (após resposta)"
+                      >
+                        <MenuItem value="">Selecione</MenuItem>
+                        {pipelines.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl variant="outlined" size="small" fullWidth disabled={!form.replyActionConfig?.pipelineId}>
+                      <InputLabel>Etapa destino (após resposta)</InputLabel>
+                      <Select
+                        value={form.replyActionConfig?.stageId || ""}
+                        onChange={(e) => setField("replyActionConfig", { ...form.replyActionConfig, stageId: e.target.value })}
+                        label="Etapa destino (após resposta)"
+                      >
+                        <MenuItem value="">Selecione</MenuItem>
+                        {(pipelines.find((p) => String(p.id) === String(form.replyActionConfig?.pipelineId))?.stages || [])
+                          .sort((a, b) => (a.order || 0) - (b.order || 0))
+                          .map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </>
+              )}
+
+              {/* Reply action: add_tag */}
+              {form.actionOnReply === "add_tag" && (
+                <Grid item xs={12} md={6}>
+                  <FormControl variant="outlined" size="small" fullWidth>
+                    <InputLabel>Tag a adicionar (após resposta)</InputLabel>
+                    <Select
+                      value={form.replyActionConfig?.tagId || ""}
+                      onChange={(e) => setField("replyActionConfig", { ...form.replyActionConfig, tagId: e.target.value })}
+                      label="Tag a adicionar (após resposta)"
+                    >
+                      <MenuItem value="">Selecione uma tag</MenuItem>
+                      {tags.map((tag) => <MenuItem key={tag.id} value={tag.id}>{tag.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              {/* Reply action: activate_ai */}
+              {form.actionOnReply === "activate_ai" && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">
+                    Ao responder, o agente de IA associado ao canal será ativado automaticamente para dar continuidade à conversa.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+
         </Box>
       </DialogContent>
       <DialogActions>
