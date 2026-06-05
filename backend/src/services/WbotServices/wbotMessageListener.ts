@@ -121,6 +121,7 @@ import FlowExecution from "../../models/FlowExecution";
 import { handleOpenAi } from "../IntegrationsServices/OpenAiService";
 import { IOpenAi } from "../../@types/openai";
 import { handleAiReminderReply } from "../AiExternalAgentServices/AiExternalJourneyService";
+import CheckAiBlockService from "../TicketServices/CheckAiBlockService";
 
 const os = require("os");
 
@@ -4829,6 +4830,18 @@ export const handleMessageIntegration = async (
   const msgType = getTypeMessage(msg);
 
   if (queueIntegration.type === "n8n" || queueIntegration.type === "webhook") {
+    const contactIdForBlock = ticket?.contact?.id || (ticket as any)?.contactId;
+    if (contactIdForBlock) {
+      const blockCheck = await CheckAiBlockService(contactIdForBlock, companyId);
+      if (blockCheck.blocked) {
+        logger.info(
+          `[AI Actions] webhook skipped companyId=${companyId} ticketId=${ticket?.id} ` +
+          `contactId=${contactIdForBlock} integrationId=${queueIntegration.id} reason=${blockCheck.reason}`
+        );
+        return;
+      }
+    }
+
     if (queueIntegration?.urlN8N) {
       const options = {
         method: "POST",
