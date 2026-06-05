@@ -86,10 +86,10 @@ const STEP_TYPE_OPTIONS = [
 ];
 
 const REPLY_ACTION_OPTIONS = [
-  { value: "none", label: "Nenhuma ação" },
-  { value: "activate_ai", label: "Ativar Agente de IA" },
-  { value: "move_crm", label: "Mover no CRM" },
-  { value: "add_tag", label: "Adicionar Tag" },
+  { value: "none", label: "Nenhuma ação", disabled: false },
+  { value: "activate_ai", label: "Ativar Agente de IA — em breve", disabled: true },
+  { value: "move_crm", label: "Mover no CRM", disabled: false },
+  { value: "add_tag", label: "Adicionar Tag", disabled: false },
 ];
 
 const useStyles = makeStyles((theme) => ({
@@ -1619,27 +1619,29 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                   {stage.messageType === "audio" && (
                     <Box mt={2} mb={1} p={2} border="1px dashed #ccc" borderRadius={4}>
                       <Typography variant="subtitle2" style={{ marginBottom: 8 }}>Áudio</Typography>
-                      <Box display="flex" gridGap={8} mb={2}>
+                      <Box display="flex" gridGap={8} mb={1} flexWrap="wrap">
+                        <Tooltip title="Gravação de áudio na hora ainda está em desenvolvimento. Use áudio salvo nesta versão.">
+                          <span>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled
+                            >
+                              Gravar áudio na hora
+                            </Button>
+                          </span>
+                        </Tooltip>
                         <Button
                           size="small"
-                          variant={stage.stepConfig?.audioType === "recorded" ? "contained" : "outlined"}
-                          onClick={() => updateStage(idx, "stepConfig", { ...stage.stepConfig, audioType: "recorded" })}
-                        >
-                          Gravar áudio na hora
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={!stage.stepConfig?.audioType || stage.stepConfig?.audioType === "saved" ? "contained" : "outlined"}
+                          variant="contained"
                           onClick={() => updateStage(idx, "stepConfig", { ...stage.stepConfig, audioType: "saved" })}
                         >
                           Usar áudio salvo
                         </Button>
                       </Box>
-                      {stage.stepConfig?.audioType === "recorded" && (
-                        <Typography variant="caption" color="textSecondary">
-                          A gravação será realizada no momento do envio. Certifique-se de que o dispositivo tem microfone disponível.
-                        </Typography>
-                      )}
+                      <Typography variant="caption" style={{ color: "#b45309", display: "block", marginBottom: 8 }}>
+                        Gravação na hora está em desenvolvimento. Selecione um arquivo de áudio pelo Mídia Drive.
+                      </Typography>
                       {(!stage.stepConfig?.audioType || stage.stepConfig?.audioType === "saved") && (
                         <>
                           <Button variant="outlined" size="small" onClick={() => setMediaDriveStageIndex(idx)}>
@@ -1917,7 +1919,9 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                     label="Ação após resposta"
                   >
                     {REPLY_ACTION_OPTIONS.map((opt) => (
-                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                      <MenuItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+                        {opt.label}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -1974,11 +1978,11 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                 </Grid>
               )}
 
-              {/* Reply action: activate_ai */}
+              {/* Reply action: activate_ai — stub, not yet functional */}
               {form.actionOnReply === "activate_ai" && (
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="textSecondary">
-                    Ao responder, o agente de IA associado ao canal será ativado automaticamente para dar continuidade à conversa.
+                  <Typography variant="caption" style={{ color: "#b45309", display: "block" }}>
+                    Em desenvolvimento: esta opção pode ser salva, mas a ativação automática do agente de IA ainda não está disponível em produção nesta versão.
                   </Typography>
                 </Grid>
               )}
