@@ -4,6 +4,8 @@ import EventBus from "../../libs/EventBus";
 import Automation from "../../models/Automation";
 import AutomationAction from "../../models/AutomationAction";
 import AutomationExecution from "../../models/AutomationExecution";
+import Opportunity from "../../models/Opportunity";
+import Contact from "../../models/Contact";
 import {
   processAutomationForContact,
   resolveOpportunityAutomationContext
@@ -16,7 +18,7 @@ class StageAutomationService {
 
     EventBus.subscribe("OPPORTUNITY_MOVED", async (data: any) => {
       try {
-        const { opportunityId, toStageId, companyId, movedBy } = data.payload || data;
+        const { opportunityId, toStageId, fromStageId, companyId, movedBy } = data.payload || data;
 
         logger.info(`[StageAutomationService] Evento OPPORTUNITY_MOVED recebido para oportunidade ${opportunityId}, etapa destino ${toStageId}, empresa ${companyId}, movido por: ${movedBy || "não informado"}`);
 
@@ -40,6 +42,37 @@ class StageAutomationService {
           if (recentMovements.length > 2) {
             logger.warn(`[StageAutomationService] Bloqueando loop de automação para oportunidade ${opportunityId}. Detectadas ${recentMovements.length} movimentações rápidas por AUTOMATION em 30 segundos.`);
             return;
+          }
+        }
+
+        // Ao sair de uma etapa com bloqueio de IA, limpar o bloqueio automaticamente
+        // Executa ANTES de qualquer automação da nova etapa para não colidir
+        if (fromStageId && Number(fromStageId) !== Number(toStageId)) {
+          try {
+            const opp = await Opportunity.findOne({
+              where: { id: opportunityId, companyId },
+              attributes: ["id", "contactId"]
+            });
+            if (opp?.contactId) {
+              const c = await Contact.findOne({
+                where: { id: opp.contactId, companyId },
+                attributes: ["id", "aiBlockMode", "aiBlockedByStageId"]
+              });
+              if (
+                c &&
+                c.aiBlockMode === "disabled_in_stage" &&
+                c.aiBlockedByStageId &&
+                Number(c.aiBlockedByStageId) === Number(fromStageId)
+              ) {
+                await c.update({ aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null });
+                logger.info(
+                  `[StageAutomation] AI block limpo automaticamente ao sair da etapa ${fromStageId} ` +
+                  `para ${toStageId} — contact=${c.id} opportunityId=${opportunityId}`
+                );
+              }
+            }
+          } catch (clearErr: any) {
+            logger.warn(`[StageAutomation] Falha ao limpar AI block na saída da etapa: ${clearErr.message}`);
           }
         }
 

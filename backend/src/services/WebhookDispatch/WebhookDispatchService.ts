@@ -129,15 +129,18 @@ const resolveMessageIntegrations = async (
     }
 
     // Verifica bloqueio de IA por contato (Ações da IA no Kanban)
-    const contactId = Number((data as any)?.ticket?.contactId);
-    if (contactId) {
-      const aiBlock = await CheckAiBlockService(contactId, companyId);
-      if (aiBlock.blocked) {
-        logger.info(
-          `[WebhookDispatch] MESSAGE_RECEIVED bloqueado por IA companyId=${companyId} ` +
-          `ticketId=${ticketId} contactId=${contactId} reason=${aiBlock.reason}`
-        );
-        return [];
+    // Aplica somente para MESSAGE_RECEIVED — não bloqueia notificações de mensagem enviada
+    if (eventType === "MESSAGE_RECEIVED") {
+      const contactId = Number((data as any)?.ticket?.contactId);
+      if (contactId) {
+        const aiBlock = await CheckAiBlockService(contactId, companyId);
+        if (aiBlock.blocked) {
+          logger.info(
+            `[WebhookDispatch] ${eventType} bloqueado por IA companyId=${companyId} ` +
+            `ticketId=${ticketId} contactId=${contactId} reason=${aiBlock.reason}`
+          );
+          return [];
+        }
       }
     }
   }

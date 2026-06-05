@@ -45,6 +45,10 @@ import VisibilityIcon from "@material-ui/icons/Visibility";
 import FileCopyIcon from "@material-ui/icons/FileCopy";
 import DeleteSweepIcon from "@material-ui/icons/DeleteSweep";
 import WarningIcon from "@material-ui/icons/Warning";
+import BlockIcon from "@material-ui/icons/Block";
+import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import PauseIcon from "@material-ui/icons/Pause";
+import TimerIcon from "@material-ui/icons/Timer";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -693,6 +697,12 @@ const Prompts = () => {
   const [ragContent, setRagContent] = useState("");
   const [ragFile, setRagFile] = useState(null);
   const [ragQuery, setRagQuery] = useState("");
+  const [aiActionsLoading, setAiActionsLoading] = useState(false);
+  const [aiActionsStatus, setAiActionsStatus] = useState(null);
+  const [aiBlockedContacts, setAiBlockedContacts] = useState([]);
+  const [aiActionsFilter, setAiActionsFilter] = useState({ search: "", blockMode: "" });
+  const [pauseUntilDialog, setPauseUntilDialog] = useState({ open: false, contactId: null, contactName: "" });
+  const [pauseUntilDate, setPauseUntilDate] = useState("");
   const [ragResults, setRagResults] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({
     title: "",
@@ -867,6 +877,60 @@ const Prompts = () => {
     setChatMemoryFilters(nextFilters);
     setChatMemoryPage(1);
     loadChatMemory(1, nextFilters);
+  };
+
+  const loadAiActions = async () => {
+    setAiActionsLoading(true);
+    try {
+      const [statusRes, contactsRes] = await Promise.all([
+        api.get("/ai-actions/status"),
+        api.get("/ai-actions/blocked-contacts"),
+      ]);
+      setAiActionsStatus(statusRes.data);
+      setAiBlockedContacts(contactsRes.data || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setAiActionsLoading(false);
+    }
+  };
+
+  const handleAiPauseContact = async (contactId) => {
+    try {
+      await api.post(`/ai-actions/contacts/${contactId}/pause`);
+      toast.success("IA pausada manualmente.");
+      loadAiActions();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleAiResumeContact = async (contactId) => {
+    try {
+      await api.post(`/ai-actions/contacts/${contactId}/resume`);
+      toast.success("IA reativada.");
+      loadAiActions();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleAiPauseUntilConfirm = async () => {
+    if (!pauseUntilDate) {
+      toast.error("Informe a data/hora de reativação.");
+      return;
+    }
+    try {
+      await api.post(`/ai-actions/contacts/${pauseUntilDialog.contactId}/pause-until`, {
+        pauseUntil: new Date(pauseUntilDate).toISOString(),
+      });
+      toast.success("IA pausada até " + new Date(pauseUntilDate).toLocaleString("pt-BR"));
+      setPauseUntilDialog({ open: false, contactId: null, contactName: "" });
+      setPauseUntilDate("");
+      loadAiActions();
+    } catch (err) {
+      toastError(err);
+    }
   };
 
   const handleShowChatMemory = async (memoryId) => {
@@ -1421,6 +1485,7 @@ const Prompts = () => {
 
   const externalSecondaryMenuItems = [
     { key: "chatMemory", label: "Chat Memory", icon: <MemoryIcon /> },
+    { key: "ai_actions", label: "Ações da IA", icon: <BlockIcon /> },
   ];
 
   const externalStats = {
@@ -2559,6 +2624,223 @@ const Prompts = () => {
     );
   };
 
+  const renderAiActions = () => {
+    const blockModeLabel = {
+      disabled_in_stage: "Etapa do funil",
+      manual: "Manual",
+      manual_until: "Manual com prazo",
+      pause_until: "Por tempo",
+    };
+    const blockModeColor = {
+      disabled_in_stage: "#f59e0b",
+      manual: "#ef4444",
+      manual_until: "#8b5cf6",
+      pause_until: "#3b82f6",
+    };
+
+    const filtered = aiBlockedContacts.filter((c) => {
+      const q = aiActionsFilter.search.toLowerCase();
+      const matchSearch = !q || c.contactName?.toLowerCase().includes(q) || c.contactNumber?.includes(q);
+      const matchMode = !aiActionsFilter.blockMode || c.aiBlockMode === aiActionsFilter.blockMode;
+      return matchSearch && matchMode;
+    });
+
+    return (
+      <Box style={{ padding: "24px" }}>
+        {/* Summary cards */}
+        <Box style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
+          {[
+            { label: "IA bloqueada", value: aiActionsStatus?.totalBlocked ?? "—", color: "#ef4444", icon: <BlockIcon style={{ fontSize: 20 }} /> },
+            { label: "Por etapa", value: aiActionsStatus?.byMode?.disabled_in_stage ?? "—", color: "#f59e0b", icon: <PauseIcon style={{ fontSize: 20 }} /> },
+            { label: "Manual", value: (aiActionsStatus?.byMode?.manual ?? 0) + (aiActionsStatus?.byMode?.manual_until ?? 0), color: "#8b5cf6", icon: <BlockIcon style={{ fontSize: 20 }} /> },
+            { label: "Por tempo", value: aiActionsStatus?.byMode?.pause_until ?? "—", color: "#3b82f6", icon: <TimerIcon style={{ fontSize: 20 }} /> },
+          ].map((card) => (
+            <Box key={card.label} style={{
+              flex: "1 1 150px", minWidth: 140, background: "#fff", borderRadius: 12,
+              border: `1px solid ${card.color}22`, padding: "16px 20px",
+              display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <Box style={{ color: card.color }}>{card.icon}</Box>
+              <Box>
+                <Typography style={{ fontSize: 22, fontWeight: 700, color: card.color, lineHeight: 1.2 }}>
+                  {aiActionsLoading ? "…" : card.value}
+                </Typography>
+                <Typography style={{ fontSize: 12, color: "#888" }}>{card.label}</Typography>
+              </Box>
+            </Box>
+          ))}
+          <Box style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
+            <button
+              type="button"
+              onClick={loadAiActions}
+              disabled={aiActionsLoading}
+              style={{
+                background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8,
+                padding: "8px 16px", cursor: "pointer", fontSize: 13, color: "#334155",
+              }}
+            >
+              {aiActionsLoading ? "Carregando…" : "Atualizar"}
+            </button>
+          </Box>
+        </Box>
+
+        {/* Filters */}
+        <Box style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+          <TextField
+            size="small"
+            variant="outlined"
+            placeholder="Buscar contato..."
+            value={aiActionsFilter.search}
+            onChange={(e) => setAiActionsFilter((p) => ({ ...p, search: e.target.value }))}
+            style={{ flex: 1, maxWidth: 280 }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><SearchIcon style={{ fontSize: 18, color: "#999" }} /></InputAdornment>
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            value={aiActionsFilter.blockMode}
+            onChange={(e) => setAiActionsFilter((p) => ({ ...p, blockMode: e.target.value }))}
+            style={{ minWidth: 160 }}
+          >
+            <MenuItem value="">Todos os modos</MenuItem>
+            <MenuItem value="disabled_in_stage">Etapa do funil</MenuItem>
+            <MenuItem value="manual">Manual</MenuItem>
+            <MenuItem value="manual_until">Manual com prazo</MenuItem>
+            <MenuItem value="pause_until">Por tempo</MenuItem>
+          </TextField>
+          <Typography style={{ fontSize: 13, color: "#888" }}>
+            {filtered.length} contato{filtered.length !== 1 ? "s" : ""}
+          </Typography>
+        </Box>
+
+        {/* Contacts table */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          {/* Table header */}
+          <Box style={{
+            display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 1.5fr 1fr",
+            padding: "10px 16px", background: "#f8fafc",
+            borderBottom: "1px solid #e2e8f0",
+          }}>
+            {["Contato", "Modo", "Etapa / Prazo", "Ticket", "Ações"].map((h) => (
+              <Typography key={h} style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {h}
+              </Typography>
+            ))}
+          </Box>
+
+          {aiActionsLoading ? (
+            <Box style={{ display: "flex", justifyContent: "center", padding: 40 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : filtered.length === 0 ? (
+            <Box style={{ textAlign: "center", padding: "48px 16px", color: "#94a3b8" }}>
+              <BlockIcon style={{ fontSize: 40, marginBottom: 8, opacity: 0.4 }} />
+              <Typography style={{ fontSize: 14 }}>Nenhum contato com IA bloqueada</Typography>
+            </Box>
+          ) : (
+            filtered.map((c) => (
+              <Box key={c.contactId} style={{
+                display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 1.5fr 1fr",
+                padding: "12px 16px", borderBottom: "1px solid #f1f5f9", alignItems: "center",
+              }}>
+                <Box>
+                  <Typography style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>{c.contactName || "—"}</Typography>
+                  <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{c.contactNumber}</Typography>
+                </Box>
+                <Box>
+                  <Chip
+                    size="small"
+                    label={blockModeLabel[c.aiBlockMode] || c.aiBlockMode}
+                    style={{
+                      background: (blockModeColor[c.aiBlockMode] || "#6b7280") + "22",
+                      color: blockModeColor[c.aiBlockMode] || "#6b7280",
+                      fontWeight: 600, fontSize: 11,
+                    }}
+                  />
+                </Box>
+                <Box>
+                  {c.aiBlockMode === "disabled_in_stage" && c.stageName ? (
+                    <Typography style={{ fontSize: 12, color: "#f59e0b" }}>{c.stageName}</Typography>
+                  ) : c.aiBlockMode === "manual_until" && c.aiBlockedUntil ? (
+                    <Typography style={{ fontSize: 12, color: "#8b5cf6" }}>
+                      até {new Date(c.aiBlockedUntil).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </Typography>
+                  ) : c.aiBlockMode === "pause_until" && c.aiBlockedUntil ? (
+                    <Typography style={{ fontSize: 12, color: "#3b82f6" }}>
+                      até {new Date(c.aiBlockedUntil).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </Typography>
+                  ) : (
+                    <Typography style={{ fontSize: 12, color: "#94a3b8" }}>—</Typography>
+                  )}
+                </Box>
+                <Box>
+                  {c.ticketId ? (
+                    <Typography style={{ fontSize: 12, color: "#3b82f6" }}>
+                      #{c.ticketId} <span style={{ color: "#94a3b8" }}>({c.ticketStatus})</span>
+                    </Typography>
+                  ) : (
+                    <Typography style={{ fontSize: 12, color: "#94a3b8" }}>—</Typography>
+                  )}
+                </Box>
+                <Box style={{ display: "flex", gap: 6 }}>
+                  <Tooltip title="Reativar IA">
+                    <IconButton size="small" onClick={() => handleAiResumeContact(c.contactId)}
+                      style={{ color: "#22c55e", background: "#dcfce722" }}>
+                      <PlayArrowIcon style={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Pausar manualmente">
+                    <IconButton size="small" onClick={() => handleAiPauseContact(c.contactId)}
+                      style={{ color: "#ef4444", background: "#fee2e222" }}>
+                      <PauseIcon style={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Pausar por tempo">
+                    <IconButton size="small"
+                      onClick={() => { setPauseUntilDialog({ open: true, contactId: c.contactId, contactName: c.contactName }); setPauseUntilDate(""); }}
+                      style={{ color: "#8b5cf6", background: "#ede9fe22" }}>
+                      <TimerIcon style={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+            ))
+          )}
+        </Box>
+
+        {/* Pause until dialog */}
+        <Dialog open={pauseUntilDialog.open} onClose={() => setPauseUntilDialog({ open: false, contactId: null, contactName: "" })}>
+          <DialogTitle>Pausar IA por tempo — {pauseUntilDialog.contactName}</DialogTitle>
+          <DialogContent>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              A IA ficará pausada até a data/hora informada. Após esse prazo, será reativada automaticamente na próxima mensagem.
+            </Typography>
+            <TextField
+              label="Reativar em"
+              type="datetime-local"
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={pauseUntilDate}
+              onChange={(e) => setPauseUntilDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ min: new Date(Date.now() + 60000).toISOString().slice(0, 16) }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPauseUntilDialog({ open: false, contactId: null, contactName: "" })}>Cancelar</Button>
+            <Button onClick={handleAiPauseUntilConfirm} variant="contained" color="primary" disabled={!pauseUntilDate}>
+              Confirmar pausa
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  };
+
   const renderExternalSection = () => {
     if (externalSection === "dashboard") return renderExternalDashboard();
     if (externalSection === "prompt") return renderExternalPrompt();
@@ -2570,6 +2852,7 @@ const Prompts = () => {
     if (externalSection === "followups") return renderFollowUps();
     if (externalSection === "rag") return renderRag();
     if (externalSection === "chatMemory") return renderChatMemory();
+    if (externalSection === "ai_actions") return renderAiActions();
     return null;
   };
 
@@ -2620,6 +2903,9 @@ const Prompts = () => {
   useEffect(() => {
     if (activeAgentTab === "external" && externalSection === "chatMemory") {
       loadChatMemory(1);
+    }
+    if (activeAgentTab === "external" && externalSection === "ai_actions") {
+      loadAiActions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab, externalSection]);

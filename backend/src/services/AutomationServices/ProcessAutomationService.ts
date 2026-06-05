@@ -61,8 +61,8 @@ const INSTANT_ACTIONS = new Set([
   "transfer_user",
   "close_ticket",
   "create_task",
-  "create_note",
-  "ai_actions"
+  "create_note"
+  // ai_actions removido: suporta delay configurado no UI
 ]);
 
 // Buscar configurações de disparo da empresa
@@ -921,6 +921,24 @@ const executeActionAiActions = async (
 
     if (aiAction === "disable_in_stage") {
       const targetStageId = stageId ? Number(stageId) : null;
+
+      // Guard: verificar se a oportunidade ainda está na etapa esperada (protege jobs atrasados)
+      if (targetStageId && _opportunityId) {
+        const Opportunity = (await import("../../models/Opportunity")).default;
+        const opp = await Opportunity.findOne({
+          where: { id: _opportunityId, companyId: _companyId },
+          attributes: ["id", "stageId"]
+        });
+        if (opp && Number(opp.stageId) !== targetStageId) {
+          logger.info(
+            `[AI Actions] disable_in_stage ignorado — oportunidade ${_opportunityId} saiu da etapa ${targetStageId} ` +
+            `(etapa atual: ${opp.stageId}) antes do delay expirar`,
+            { opportunityId: _opportunityId, contactId: contact.id, expectedStageId: targetStageId, currentStageId: opp.stageId, companyId: _companyId }
+          );
+          return { success: false, message: `AI_DELAYED_ACTION_SKIPPED_STAGE_CHANGED` };
+        }
+      }
+
       await contact.update({ aiBlockedUntil: null, aiBlockMode: "disabled_in_stage", aiBlockedByStageId: targetStageId });
 
       logger.info(`[AI Actions] disable_in_stage contact=${contact.id} stageId=${targetStageId} reason="${reason || ""}"`);
