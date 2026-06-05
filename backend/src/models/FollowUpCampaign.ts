@@ -101,6 +101,28 @@ class FollowUpCampaign extends Model<FollowUpCampaign> {
   @Column(DataType.JSON)
   stopKeywords: string[];
 
+  // Trigger: when to start the follow-up sequence
+  @Default("message_sent")
+  @Column(DataType.STRING(30))
+  triggerType: string; // message_sent | no_reply | time_in_crm_stage | tag_added | stage_change | unread_after_hours
+
+  @Default({})
+  @Column(DataType.JSON)
+  triggerConfig: object; // shape varies per triggerType
+
+  // Reply behaviour
+  @Default(true)
+  @Column
+  stopOnReply: boolean;
+
+  @Default("none")
+  @Column(DataType.STRING(30))
+  actionOnReply: string; // none | activate_ai | move_crm | add_tag
+
+  @Default({})
+  @Column(DataType.JSON)
+  replyActionConfig: object; // { pipelineId, stageId } | { tagId } | {}
+
   @CreatedAt
   createdAt: Date;
 

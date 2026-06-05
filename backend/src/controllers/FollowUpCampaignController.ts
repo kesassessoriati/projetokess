@@ -45,6 +45,13 @@ const serializeCampaign = (campaign: FollowUpCampaign) => {
   payload.successKeywords = Array.isArray(payload.successKeywords) ? payload.successKeywords : [];
   payload.stopKeywords = Array.isArray(payload.stopKeywords) ? payload.stopKeywords : [];
   payload.targetMode = payload.targetMode || FOLLOW_UP_TARGET_MODES.all;
+  payload.triggerType = payload.triggerType || "message_sent";
+  payload.triggerConfig = typeof payload.triggerConfig === "object" && payload.triggerConfig !== null
+    ? payload.triggerConfig : {};
+  payload.stopOnReply = payload.stopOnReply !== false;
+  payload.actionOnReply = payload.actionOnReply || "none";
+  payload.replyActionConfig = typeof payload.replyActionConfig === "object" && payload.replyActionConfig !== null
+    ? payload.replyActionConfig : {};
   payload.stages = Array.isArray(payload.stages)
     ? payload.stages
       .slice()
@@ -200,6 +207,10 @@ const getBoardById = async (companyId: number, boardId?: number | string | null)
 
 const normalizePhone = (value: string) => String(value || "").replace(/\D/g, "");
 
+const VALID_STEP_TYPES = ["send_message", "wait", "move_crm", "add_tag", "condition", "webhook"];
+const VALID_TRIGGER_TYPES = ["message_sent", "no_reply", "time_in_crm_stage", "tag_added", "stage_change", "unread_after_hours"];
+const VALID_REPLY_ACTIONS = ["none", "activate_ai", "move_crm", "add_tag"];
+
 const normalizeFollowUpStageInput = (stage: any, index: number) => ({
   order: Number(stage?.order) > 0 ? Number(stage.order) : index + 1,
   delayMinutes: Number(stage?.delayMinutes) > 0 ? Number(stage.delayMinutes) : 60,
@@ -213,6 +224,8 @@ const normalizeFollowUpStageInput = (stage: any, index: number) => ({
   buttons: Array.isArray(stage?.buttons) ? stage.buttons : [],
   useAiRewrite: Boolean(stage?.useAiRewrite),
   isActive: stage?.isActive !== undefined ? stage.isActive : true,
+  stepType: VALID_STEP_TYPES.includes(stage?.stepType) ? stage.stepType : "send_message",
+  stepConfig: typeof stage?.stepConfig === "object" && stage.stepConfig !== null ? stage.stepConfig : {},
 });
 
 const normalizeFollowUpStagesInput = (stages: any): any[] =>
@@ -303,7 +316,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     aiEnabled,
     recoveryInstruction,
     successKeywords,
-    stopKeywords
+    stopKeywords,
+    triggerType,
+    triggerConfig,
+    stopOnReply,
+    actionOnReply,
+    replyActionConfig,
   } = req.body;
 
   try {
@@ -330,6 +348,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       recoveryInstruction: String(recoveryInstruction || "").trim() || null,
       successKeywords: normalizeKeywords(successKeywords),
       stopKeywords: normalizeKeywords(stopKeywords),
+      triggerType: VALID_TRIGGER_TYPES.includes(triggerType) ? triggerType : "message_sent",
+      triggerConfig: typeof triggerConfig === "object" && triggerConfig !== null ? triggerConfig : {},
+      stopOnReply: stopOnReply !== undefined ? Boolean(stopOnReply) : true,
+      actionOnReply: VALID_REPLY_ACTIONS.includes(actionOnReply) ? actionOnReply : "none",
+      replyActionConfig: typeof replyActionConfig === "object" && replyActionConfig !== null ? replyActionConfig : {},
     });
 
     if (normalizedStages.length) {
@@ -348,6 +371,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           buttons: s.buttons,
           useAiRewrite: s.useAiRewrite,
           isActive: s.isActive,
+          stepType: s.stepType,
+          stepConfig: s.stepConfig,
         }))
       );
     }
@@ -390,7 +415,12 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     aiEnabled,
     recoveryInstruction,
     successKeywords,
-    stopKeywords
+    stopKeywords,
+    triggerType,
+    triggerConfig,
+    stopOnReply,
+    actionOnReply,
+    replyActionConfig,
   } = req.body;
 
   const campaign = await FollowUpCampaign.findOne({ where: { id, companyId } });
@@ -433,6 +463,19 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         successKeywords !== undefined ? normalizeKeywords(successKeywords) : campaign.successKeywords,
       stopKeywords:
         stopKeywords !== undefined ? normalizeKeywords(stopKeywords) : campaign.stopKeywords,
+      triggerType: triggerType !== undefined
+        ? (VALID_TRIGGER_TYPES.includes(triggerType) ? triggerType : "message_sent")
+        : campaign.triggerType,
+      triggerConfig: triggerConfig !== undefined
+        ? (typeof triggerConfig === "object" && triggerConfig !== null ? triggerConfig : {})
+        : campaign.triggerConfig,
+      stopOnReply: stopOnReply !== undefined ? Boolean(stopOnReply) : campaign.stopOnReply,
+      actionOnReply: actionOnReply !== undefined
+        ? (VALID_REPLY_ACTIONS.includes(actionOnReply) ? actionOnReply : "none")
+        : campaign.actionOnReply,
+      replyActionConfig: replyActionConfig !== undefined
+        ? (typeof replyActionConfig === "object" && replyActionConfig !== null ? replyActionConfig : {})
+        : campaign.replyActionConfig,
     });
 
     if (Array.isArray(stages)) {
@@ -453,6 +496,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
             buttons: s.buttons,
             useAiRewrite: s.useAiRewrite,
             isActive: s.isActive,
+            stepType: s.stepType,
+            stepConfig: s.stepConfig,
           }))
         );
       }

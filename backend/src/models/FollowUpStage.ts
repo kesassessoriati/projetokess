@@ -73,6 +73,15 @@ class FollowUpStage extends Model<FollowUpStage> {
   @Column
   isActive: boolean;
 
+  // Step type: determines what this stage does
+  @Default("send_message")
+  @Column(DataType.STRING(20))
+  stepType: string; // send_message | wait | move_crm | add_tag | condition | webhook
+
+  @Default({})
+  @Column(DataType.JSON)
+  stepConfig: object; // shape varies per stepType
+
   @CreatedAt
   createdAt: Date;
 
