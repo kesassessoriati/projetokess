@@ -43,6 +43,22 @@ import { FOLLOW_UP_TARGET_MODES } from "./followUpDefaults";
 const SUCCESSFUL_LOG_STATUSES = new Set(["sent", "responded"]);
 const RESPONDABLE_LOG_STATUSES = new Set(["sent", "failed", "skipped"]);
 
+/**
+ * Detects numbers that are not valid individual WhatsApp phone numbers.
+ * Matches the same isLidNumber logic used in CreateOrUpdateContactService
+ * to avoid constructing JIDs that trigger ghost contact/ticket creation.
+ */
+function isInvalidFollowUpNumber(number: string): boolean {
+  if (!number) return true;
+  if (number.startsWith("temp-") || number.startsWith("lid-")) return true;
+  const digits = number.replace(/\D/g, "");
+  if (!digits) return true;
+  // Group/LID pattern: starts with 120 + at least 15 digits, or more than 15 digits
+  if (digits.startsWith("120") && digits.length >= 15) return true;
+  if (digits.length > 15) return true;
+  return false;
+}
+
 const executeFollowUpCampaigns = async () => {
   try {
     const campaigns = await FollowUpCampaign.findAll({
@@ -130,7 +146,28 @@ async function processContact(campaign, stages, ticket) {
   const contact = ticket.contact;
   if (!contact) return;
 
+  // ── Ticket resolution guard ─────────────────────────────────────────────
+  // Skip group tickets: sending to a group JID as @s.whatsapp.net creates
+  // a ghost contact (temp-*) and a phantom ticket in the waiting queue.
+  if (ticket.isGroup || contact.isGroup) {
+    console.log(
+      `[FollowUp Runtime][ticket.resolve] SKIP campaignId=${campaign.id} ticketId=${ticket.id} contactId=${contact.id} companyId=${campaign.companyId} reason=group_ticket`
+    );
+    return;
+  }
+
   const contactNumber = contact.number;
+
+  // Skip contacts whose number would be misidentified as LID/temp by the
+  // WhatsApp listener (same isLidNumber rule used in CreateOrUpdateContactService).
+  if (isInvalidFollowUpNumber(contactNumber)) {
+    console.log(
+      `[FollowUp Runtime][ticket.resolve] SKIP campaignId=${campaign.id} ticketId=${ticket.id} contactId=${contact.id} companyId=${campaign.companyId} reason=invalid_number`
+    );
+    return;
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   const recentMessages = await Message.findAll({
     where: { ticketId: ticket.id },
     order: [["createdAt", "DESC"]],
@@ -334,6 +371,9 @@ async function processContact(campaign, stages, ticket) {
       status = "skipped";
     } else {
       const jid = `${contactNumber}@s.whatsapp.net`;
+      console.log(
+        `[FollowUp Runtime][ticket.resolve] SEND campaignId=${campaign.id} stageId=${nextStage.id} ticketId=${ticket.id} contactId=${contact.id} whatsappId=${campaign.whatsappId || "auto"} companyId=${campaign.companyId} decision=reuse jid_suffix=${jid.slice(-10)}`
+      );
       const result = await sendFollowUpStageMessage({
         wbot,
         jid,
