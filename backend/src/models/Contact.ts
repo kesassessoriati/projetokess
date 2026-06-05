@@ -194,6 +194,18 @@ class Contact extends Model<Contact> {
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
 
+  @AllowNull(true)
+  @Column(DataType.DATE)
+  aiBlockedUntil: Date | null;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(50))
+  aiBlockMode: string | null;
+
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  aiBlockedByStageId: number | null;
+
   // Hooks para debug do campo LID
   @BeforeCreate
   static logBeforeCreate(instance: Contact) {

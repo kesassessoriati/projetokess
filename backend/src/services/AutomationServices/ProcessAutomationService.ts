@@ -61,7 +61,8 @@ const INSTANT_ACTIONS = new Set([
   "transfer_user",
   "close_ticket",
   "create_task",
-  "create_note"
+  "create_note",
+  "ai_actions"
 ]);
 
 // Buscar configurações de disparo da empresa
@@ -879,6 +880,67 @@ const executeActionCallTask = async (
   }
 };
 
+// Executar ação de bloqueio/controle de IA
+const executeActionAiActions = async (
+  action: AutomationAction,
+  contact: Contact | null,
+  _ticket: Ticket | null,
+  _companyId: number,
+  _opportunityId?: number
+): Promise<{ success: boolean; message: string }> => {
+  if (!contact) {
+    return { success: false, message: "Contato não encontrado para aplicar ação de IA." };
+  }
+
+  const { aiAction, duration, unit, reason, stageId } = action.actionConfig || {};
+
+  try {
+    if (aiAction === "pause_for") {
+      const rawDuration = parseInt(String(duration || "24"), 10);
+      const safeUnit = unit === "days" ? "days" : unit === "minutes" ? "minutes" : "hours";
+      const minutes =
+        safeUnit === "days"
+          ? rawDuration * 24 * 60
+          : safeUnit === "minutes"
+          ? rawDuration
+          : rawDuration * 60;
+
+      if (minutes <= 0) {
+        return { success: false, message: "Duração de pausa inválida (deve ser > 0)." };
+      }
+
+      const blockedUntil = moment().add(minutes, "minutes").toDate();
+      await contact.update({ aiBlockedUntil: blockedUntil, aiBlockMode: "pause_until", aiBlockedByStageId: null });
+
+      logger.info(
+        `[AI Actions] pause_for contact=${contact.id} until=${blockedUntil.toISOString()} ` +
+        `duration=${rawDuration}${safeUnit} reason="${reason || ""}"`
+      );
+      return { success: true, message: `IA pausada por ${rawDuration} ${safeUnit} (até ${blockedUntil.toISOString()})` };
+    }
+
+    if (aiAction === "disable_in_stage") {
+      const targetStageId = stageId ? Number(stageId) : null;
+      await contact.update({ aiBlockedUntil: null, aiBlockMode: "disabled_in_stage", aiBlockedByStageId: targetStageId });
+
+      logger.info(`[AI Actions] disable_in_stage contact=${contact.id} stageId=${targetStageId} reason="${reason || ""}"`);
+      return { success: true, message: `IA desativada enquanto lead estiver na etapa (stageId=${targetStageId})` };
+    }
+
+    if (aiAction === "enable_ai") {
+      await contact.update({ aiBlockedUntil: null, aiBlockMode: null, aiBlockedByStageId: null });
+
+      logger.info(`[AI Actions] enable_ai contact=${contact.id} reason="${reason || ""}"`);
+      return { success: true, message: "IA reativada" };
+    }
+
+    return { success: false, message: `Ação de IA desconhecida: ${aiAction}` };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao executar ai_actions: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
 // Executar uma ação específica
 export const executeAction = async (
   action: AutomationAction,
@@ -910,6 +972,8 @@ export const executeAction = async (
       return executeActionMoveLead(action, contact, ticket, companyId, opportunityId);
     case "call_task":
       return executeActionCallTask(action, contact, ticket, companyId, opportunityId);
+    case "ai_actions":
+      return executeActionAiActions(action, contact, ticket, companyId, opportunityId);
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:

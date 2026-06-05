@@ -55,6 +55,7 @@ import {
   PlayArrow as PlayArrowIcon,
   CheckCircle as CheckCircleIcon,
   ErrorOutline as ErrorOutlineIcon,
+  SmartToy as SmartToyIcon,
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -2993,6 +2994,7 @@ const ACTION_TYPE_LABELS = {
   add_tag: "Aplicar Etiqueta",
   move_lead: "Mover de Etapa",
   call_task: "Tarefa de Ligação",
+  ai_actions: "Ações da IA",
   remove_tag: "Remover Etiqueta",
   transfer_queue: "Transferir Fila",
   transfer_user: "Transferir Atendente",
@@ -3073,6 +3075,13 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
           toast.error("Por favor, informe o título da tarefa de ligação.");
           return;
         }
+        if (act.actionType === "ai_actions") {
+          const dur = parseInt(act.actionConfig?.duration, 10);
+          if (act.actionConfig?.aiAction === "pause_for" && (!dur || dur <= 0)) {
+            toast.error("Configure uma duração válida para a pausa da IA.");
+            return;
+          }
+        }
       }
     }
 
@@ -3102,6 +3111,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     else if (type === "add_tag") config = { tagId: "" };
     else if (type === "move_lead") config = { destinationStageId: "" };
     else if (type === "call_task") config = { title: "", description: "", priority: "high", listId: "" };
+    else if (type === "ai_actions") config = { aiAction: "pause_for", duration: 24, unit: "hours", reason: "" };
 
     const newAction = {
       actionType: type,
@@ -3270,8 +3280,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             <Button size="small" variant="outlined" startIcon={<TimelineIcon fontSize="small" />} onClick={() => handleAddAction("move_lead")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Mover de Etapa
             </Button>
-            <Button size="small" variant="outlined" startIcon={<CallIcon fontSize="small" />} onClick={() => handleAddAction("call_task")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
-              Tarefa de Ligação
+            <Button size="small" variant="outlined" startIcon={<SmartToyIcon fontSize="small" />} onClick={() => handleAddAction("ai_actions")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Ações da IA
             </Button>
           </Box>
 
@@ -3293,6 +3303,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                       {action.actionType === "add_tag" && "Aplicar Etiqueta"}
                       {action.actionType === "move_lead" && "Mover de Etapa"}
                       {action.actionType === "call_task" && "Tarefa de Ligação"}
+                      {action.actionType === "ai_actions" && "Ações da IA"}
                     </Typography>
                   </Box>
                   <Box display="flex" style={{ gap: 4 }}>
@@ -3524,6 +3535,64 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                             value={action.actionConfig?.description || ""}
                             onChange={(e) => handleUpdateAction(index, "description", e.target.value)}
                             placeholder="Ex: Oferecer desconto especial de 10%..."
+                            fullWidth
+                          />
+                        </>
+                      )}
+
+                      {action.actionType === "ai_actions" && (
+                        <>
+                          <FormControl variant="outlined" size="small" fullWidth>
+                            <InputLabel>Ação</InputLabel>
+                            <Select
+                              value={action.actionConfig?.aiAction || "pause_for"}
+                              onChange={(e) => handleUpdateAction(index, "aiAction", e.target.value)}
+                              label="Ação"
+                            >
+                              <MenuItem value="pause_for">Pausar IA por tempo determinado</MenuItem>
+                              <MenuItem value="disable_in_stage">Desativar IA enquanto estiver nesta etapa</MenuItem>
+                              <MenuItem value="enable_ai">Reativar IA</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          {action.actionConfig?.aiAction === "pause_for" && (
+                            <Grid container spacing={1}>
+                              <Grid item xs={6}>
+                                <TextField
+                                  label="Duração"
+                                  type="number"
+                                  variant="outlined"
+                                  size="small"
+                                  value={action.actionConfig?.duration ?? 24}
+                                  onChange={(e) => handleUpdateAction(index, "duration", parseInt(e.target.value, 10) || 1)}
+                                  inputProps={{ min: 1 }}
+                                  fullWidth
+                                />
+                              </Grid>
+                              <Grid item xs={6}>
+                                <FormControl variant="outlined" size="small" fullWidth>
+                                  <InputLabel>Unidade</InputLabel>
+                                  <Select
+                                    value={action.actionConfig?.unit || "hours"}
+                                    onChange={(e) => handleUpdateAction(index, "unit", e.target.value)}
+                                    label="Unidade"
+                                  >
+                                    <MenuItem value="minutes">Minutos</MenuItem>
+                                    <MenuItem value="hours">Horas</MenuItem>
+                                    <MenuItem value="days">Dias</MenuItem>
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+                            </Grid>
+                          )}
+
+                          <TextField
+                            label="Motivo / observação (opcional)"
+                            variant="outlined"
+                            size="small"
+                            value={action.actionConfig?.reason || ""}
+                            onChange={(e) => handleUpdateAction(index, "reason", e.target.value)}
+                            placeholder="Ex: Lead entrou na base de clientes"
                             fullWidth
                           />
                         </>
