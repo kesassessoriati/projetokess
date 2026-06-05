@@ -156,6 +156,7 @@ import ClearExpiredWebhookPausesService from "./services/TicketServices/ClearExp
 import { processAiExternalFollowUps } from "./services/AiExternalFollowUpServices/AiExternalFollowUpService";
 import { processAiExternalReminders } from "./services/AiExternalAgentServices/AiExternalNotificationService";
 import SyncAiExternalAppointmentsService from "./services/AiExternalAppointmentServices/SyncAiExternalAppointmentsService";
+import AutoAcceptPendingTicketsService from "./services/TicketServices/AutoAcceptPendingTicketsService";
 
 let syncingAiExternalAppointments = false;
 
@@ -246,4 +247,9 @@ cron.schedule("*/5 * * * *", async () => {
 // Process expired CRM clients every hour
 cron.schedule("0 * * * *", () => {
   ProcessExpiredCrmClientsService().catch(() => {});
+});
+
+// Auto-accept pending tickets every minute
+cron.schedule("* * * * *", () => {
+  AutoAcceptPendingTicketsService().catch(() => {});
 });

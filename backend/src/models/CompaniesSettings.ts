@@ -166,6 +166,19 @@ class CompaniesSettings extends Model<CompaniesSettings> {
   @Default(true)
   @Column
   kanbanAutomationLegacyFallbackEnabled: boolean;
+
+  // Aceite automático de tickets aguardando
+  @Default("false")
+  @Column
+  autoAcceptTicketsEnabled: string;
+
+  @Default("0")
+  @Column
+  autoAcceptTicketsMinutes: string;
+
+  @Default("keep")
+  @Column
+  autoAcceptTicketsAssignMode: string;
 }
 
 export default CompaniesSettings;
