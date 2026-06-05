@@ -867,6 +867,12 @@ const Atendimentos = () => {
 	const [assignQueueBatchSize, setAssignQueueBatchSize] = useState(10);
 	const [assignQueueUserIds, setAssignQueueUserIds] = useState([]);
 	const [assignQueueSaving, setAssignQueueSaving] = useState(false);
+	// Auto-accept modal
+	const [autoAcceptOpen, setAutoAcceptOpen] = useState(false);
+	const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
+	const [autoAcceptHours, setAutoAcceptHours] = useState(0);
+	const [autoAcceptMinutes, setAutoAcceptMinutes] = useState(0);
+	const [autoAcceptSaving, setAutoAcceptSaving] = useState(false);
 
 	const quickReplyStartIndexRef = useRef(-1);
 	const keepInputFocusRef = useRef(true);
@@ -1727,6 +1733,23 @@ const Atendimentos = () => {
 		};
 		loadAutoCloseSettings();
 
+		const loadAutoAcceptSettings = async () => {
+			try {
+				const [enabledRes, minutesRes] = await Promise.all([
+					api.get("/companySettingOne", { params: { column: "autoAcceptTicketsEnabled" } }),
+					api.get("/companySettingOne", { params: { column: "autoAcceptTicketsMinutes" } }),
+				]);
+				const enabled = enabledRes.data?.autoAcceptTicketsEnabled === "true";
+				const mins = parseInt(minutesRes.data?.autoAcceptTicketsMinutes || "0", 10);
+				if (enabled && mins > 0) {
+					setAutoAcceptEnabled(true);
+					setAutoAcceptHours(Math.floor(mins / 60));
+					setAutoAcceptMinutes(mins % 60);
+				}
+			} catch (err) {}
+		};
+		loadAutoAcceptSettings();
+
 		const assignKey = `assignQueue_${user.companyId}`;
 		try {
 			const saved = localStorage.getItem(assignKey);
@@ -2379,6 +2402,38 @@ const Atendimentos = () => {
 			toast.error("Erro ao salvar fila de atribuição");
 		} finally {
 			setAssignQueueSaving(false);
+		}
+	};
+
+	const handleSaveAutoAccept = async () => {
+		if (autoAcceptEnabled) {
+			const totalMinutes = autoAcceptHours * 60 + autoAcceptMinutes;
+			if (totalMinutes < 1) {
+				toast.error("Configure pelo menos 1 minuto para o aceite automático.");
+				return;
+			}
+		}
+		setAutoAcceptSaving(true);
+		try {
+			const totalMinutes = autoAcceptEnabled
+				? String(autoAcceptHours * 60 + autoAcceptMinutes)
+				: "0";
+			await Promise.all([
+				api.put("/companySettings/", {
+					column: "autoAcceptTicketsEnabled",
+					data: autoAcceptEnabled ? "true" : "false",
+				}),
+				api.put("/companySettings/", {
+					column: "autoAcceptTicketsMinutes",
+					data: totalMinutes,
+				}),
+			]);
+			toast.success("Aceite automático salvo");
+			setAutoAcceptOpen(false);
+		} catch (err) {
+			toast.error("Erro ao salvar configuração");
+		} finally {
+			setAutoAcceptSaving(false);
 		}
 	};
 
@@ -4596,6 +4651,16 @@ const Atendimentos = () => {
 				<Divider />
 				<MenuItem
 					onClick={() => {
+						setAutoAcceptOpen(true);
+						setOperationsMenuAnchor(null);
+					}}
+					style={{ padding: "10px 16px", gap: 12 }}
+				>
+					<CheckCircleIcon style={{ fontSize: 18, color: "#667781" }} />
+					<Typography style={{ fontSize: 14 }}>Aceitar atendimento automaticamente</Typography>
+				</MenuItem>
+				<MenuItem
+					onClick={() => {
 						setAutoCloseOpen(true);
 						setOperationsMenuAnchor(null);
 					}}
@@ -4628,6 +4693,81 @@ const Atendimentos = () => {
 					}}
 				/>
 			)}
+
+			{/* Modal: Aceitar atendimento automaticamente */}
+			<Dialog
+				open={autoAcceptOpen}
+				onClose={() => setAutoAcceptOpen(false)}
+				PaperProps={{ style: { borderRadius: 12, minWidth: 340 } }}
+			>
+				<DialogTitle style={{ paddingBottom: 4 }}>
+					<Typography style={{ fontSize: 16, fontWeight: 600 }}>Aceitar atendimento automaticamente</Typography>
+				</DialogTitle>
+				<DialogContent>
+					<Typography style={{ fontSize: 13, color: "#667781", marginBottom: 16 }}>
+						Move conversas da aba <strong>Aguardando</strong> para <strong>Atendendo</strong> automaticamente
+						após o tempo definido sem ninguém aceitar manualmente.
+					</Typography>
+					<FormControlLabel
+						control={
+							<Switch
+								checked={autoAcceptEnabled}
+								onChange={e => setAutoAcceptEnabled(e.target.checked)}
+								color="primary"
+							/>
+						}
+						label={<Typography style={{ fontSize: 14 }}>{autoAcceptEnabled ? "Ativado" : "Desativado"}</Typography>}
+						style={{ marginBottom: 16 }}
+					/>
+					{autoAcceptEnabled && (
+						<>
+							<div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 8 }}>
+								<div>
+									<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 4 }}>Horas</Typography>
+									<TextField
+										type="number"
+										variant="outlined"
+										size="small"
+										value={autoAcceptHours}
+										onChange={e => setAutoAcceptHours(Math.max(0, parseInt(e.target.value) || 0))}
+										inputProps={{ min: 0, max: 72, style: { width: 60, textAlign: "center" } }}
+									/>
+								</div>
+								<div>
+									<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 4 }}>Minutos</Typography>
+									<TextField
+										type="number"
+										variant="outlined"
+										size="small"
+										value={autoAcceptMinutes}
+										onChange={e => setAutoAcceptMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+										inputProps={{ min: 0, max: 59, style: { width: 60, textAlign: "center" } }}
+									/>
+								</div>
+							</div>
+							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 12 }}>
+								Tempo configurado: {String(autoAcceptHours).padStart(2, "0")}:{String(autoAcceptMinutes).padStart(2, "0")}
+							</Typography>
+							<Typography style={{ fontSize: 12, color: "#999" }}>
+								O responsável existente é mantido. Grupos e tickets fechados não são afetados.
+							</Typography>
+						</>
+					)}
+				</DialogContent>
+				<DialogActions style={{ padding: "8px 16px" }}>
+					<Button onClick={() => setAutoAcceptOpen(false)} style={{ color: "#667781" }}>
+						Cancelar
+					</Button>
+					<Button
+						onClick={handleSaveAutoAccept}
+						variant="contained"
+						style={{ backgroundColor: "#00a884", color: "#fff" }}
+						disabled={autoAcceptSaving}
+					>
+						{autoAcceptSaving ? <CircularProgress size={16} color="inherit" /> : "Salvar"}
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			{/* Modal: Encerrar atendimento automaticamente */}
 			<Dialog
