@@ -972,6 +972,10 @@ const LoggedInLayout = ({ children }) => {
   // Detectar se está na página atendimentomobile
   const isAtendimentosMobilePage = location.pathname.startsWith("/atendimentomobile");
 
+  // Ocultar busca do header quando está na tela de atendimentos
+  // (a busca fica dentro do painel de conversas nessa tela)
+  const isAtendimentosPage = location.pathname.startsWith("/atendimentos");
+
   // Ocultar layout completamente se estiver na página atendimentomobile
   const shouldHideLayout = isAtendimentosMobilePage;
 
@@ -1763,28 +1767,31 @@ const LoggedInLayout = ({ children }) => {
                 </Tooltip>
               )}
 
-              {/* Busca - Oculto no mobile */}
-              <div
-                className={classes.searchContainer}
-                onClick={() => setSearchModalOpen(true)}
-                style={{ cursor: "pointer" }}
-              >
-                <div className={classes.searchIcon}>
-                  <SearchIcon />
-                </div>
-                <InputBase
-                  placeholder="Buscar conversas..."
-                  classes={{
-                    root: classes.inputRoot,
-                    input: classes.inputInput,
-                  }}
-                  readOnly
+              {/* Busca - Oculto no mobile e na tela de atendimentos
+                  (na tela de atendimentos a busca fica dentro do painel de conversas) */}
+              {!isAtendimentosPage && (
+                <div
+                  className={classes.searchContainer}
+                  onClick={() => setSearchModalOpen(true)}
                   style={{ cursor: "pointer" }}
-                />
-                <Button className={classes.searchButton}>
-                  <SearchIcon style={{ fontSize: 18 }} />
-                </Button>
-              </div>
+                >
+                  <div className={classes.searchIcon}>
+                    <SearchIcon />
+                  </div>
+                  <InputBase
+                    placeholder="Buscar conversas..."
+                    classes={{
+                      root: classes.inputRoot,
+                      input: classes.inputInput,
+                    }}
+                    readOnly
+                    style={{ cursor: "pointer" }}
+                  />
+                  <Button className={classes.searchButton}>
+                    <SearchIcon style={{ fontSize: 18 }} />
+                  </Button>
+                </div>
+              )}
 
               {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
               {!isMobile && effectiveTopMenuVisible && (
