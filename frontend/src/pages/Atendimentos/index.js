@@ -11,6 +11,8 @@ import {
 	DialogActions,
 	DialogContent,
 	DialogTitle,
+	Divider,
+	FormControlLabel,
 	Grid,
 	IconButton,
 	InputAdornment,
@@ -23,6 +25,8 @@ import {
 	MenuItem,
 	Paper,
 	Popover,
+	Select,
+	Switch,
 	SvgIcon,
 	TextField,
 	Toolbar,
@@ -34,6 +38,7 @@ import {
 	Tab,
 	Badge,
 	CircularProgress,
+	Checkbox,
 } from "@material-ui/core";
 import {
 	FilterList as FilterListIcon,
@@ -83,6 +88,13 @@ import {
 	Person as PersonIcon,
 	Duo as DuoIcon,
 	PermMedia as PermMediaIcon,
+	Search as SearchIcon,
+	Group as GroupIcon,
+	CheckBox as CheckBoxIcon,
+	CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+	MarkunreadMailbox as UnreadIcon,
+	TimerOff as TimerOffIcon,
+	PlaylistAdd as AssignQueueIcon,
 } from "@material-ui/icons";
 import CallIcon from '@mui/icons-material/Call';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -131,6 +143,7 @@ import {
 	isPrivateConversation,
 } from "../../utils/conversationType";
 import resolveMessageVariables from "../../utils/resolveMessageVariables";
+import NewTicketModal from "../../components/NewTicketModal";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -256,6 +269,37 @@ const useStyles = makeStyles(theme => ({
 			marginLeft: 8,
 			flex: 1,
 		},
+	},
+
+	sidebarActionsRow: {
+		display: "flex",
+		alignItems: "center",
+		gap: 4,
+		padding: "4px 8px 6px",
+		backgroundColor: "#ffffff",
+		borderBottom: "1px solid #e9edef",
+		flexShrink: 0,
+	},
+
+	searchInputWrapper: {
+		flex: 1,
+		display: "flex",
+		alignItems: "center",
+		backgroundColor: "#f0f2f5",
+		borderRadius: 8,
+		padding: "2px 8px",
+		minWidth: 0,
+	},
+
+	selectionBar: {
+		display: "flex",
+		alignItems: "center",
+		gap: 6,
+		padding: "6px 8px",
+		backgroundColor: "#f0f2f5",
+		borderBottom: "1px solid #e9edef",
+		flexShrink: 0,
+		flexWrap: "wrap",
 	},
 
 	tabs: {
@@ -803,6 +847,26 @@ const Atendimentos = () => {
 	const [showAllTickets, setShowAllTickets] = useState(true);
 	const [selectedQuickIndex, setSelectedQuickIndex] = useState(-1);
 	const [quickReplySearchTerm, setQuickReplySearchTerm] = useState('');
+
+	// Barra de ações operacionais
+	const [onlyUnread, setOnlyUnread] = useState(false);
+	const [selectionMode, setSelectionMode] = useState(false);
+	const [selectedTicketIds, setSelectedTicketIds] = useState(new Set());
+	const [operationsMenuAnchor, setOperationsMenuAnchor] = useState(null);
+	const [newConversationOpen, setNewConversationOpen] = useState(false);
+	// Auto-close modal
+	const [autoCloseOpen, setAutoCloseOpen] = useState(false);
+	const [autoCloseEnabled, setAutoCloseEnabled] = useState(false);
+	const [autoCloseHours, setAutoCloseHours] = useState(0);
+	const [autoCloseMinutes, setAutoCloseMinutes] = useState(30);
+	const [autoCloseSaving, setAutoCloseSaving] = useState(false);
+	// Assignment queue modal
+	const [assignQueueOpen, setAssignQueueOpen] = useState(false);
+	const [assignQueueEnabled, setAssignQueueEnabled] = useState(false);
+	const [assignQueueMode, setAssignQueueMode] = useState("round_robin");
+	const [assignQueueBatchSize, setAssignQueueBatchSize] = useState(10);
+	const [assignQueueUserIds, setAssignQueueUserIds] = useState([]);
+	const [assignQueueSaving, setAssignQueueSaving] = useState(false);
 
 	const quickReplyStartIndexRef = useRef(-1);
 	const keepInputFocusRef = useRef(true);
@@ -1645,6 +1709,37 @@ const Atendimentos = () => {
 		loadFiltersData();
 	}, []);
 
+	// Carregar configurações de automação e fila de atribuição
+	useEffect(() => {
+		const loadAutoCloseSettings = async () => {
+			try {
+				const { data } = await api.get("/companySettingOne", {
+					params: { column: "hoursCloseTicketsAuto" }
+				});
+				const value = data?.hoursCloseTicketsAuto;
+				if (value && value !== "9999999999") {
+					const totalMinutes = Math.round(parseFloat(value) * 60);
+					setAutoCloseEnabled(true);
+					setAutoCloseHours(Math.floor(totalMinutes / 60));
+					setAutoCloseMinutes(totalMinutes % 60);
+				}
+			} catch (err) {}
+		};
+		loadAutoCloseSettings();
+
+		const assignKey = `assignQueue_${user.companyId}`;
+		try {
+			const saved = localStorage.getItem(assignKey);
+			if (saved) {
+				const config = JSON.parse(saved);
+				setAssignQueueEnabled(!!config.enabled);
+				setAssignQueueMode(config.mode || "round_robin");
+				setAssignQueueBatchSize(config.batchSize || 10);
+				setAssignQueueUserIds(config.userIds || []);
+			}
+		} catch {}
+	}, [user.companyId]);
+
 	// Manter refs sincronizados para uso no WebSocket (evita closure stale)
 	const tabIndexRef = useRef(tabIndex);
 	useEffect(() => {
@@ -2044,6 +2139,10 @@ const Atendimentos = () => {
 	const applyClientFilters = useCallback((tickets = []) => {
 		let filteredTickets = tickets;
 
+		if (onlyUnread) {
+			filteredTickets = filteredTickets.filter(ticket => (ticket.unreadMessages || 0) > 0);
+		}
+
 		if (selectedChannelsQuickFilter.length > 0) {
 			filteredTickets = filteredTickets.filter(ticket =>
 				ticket.channel && selectedChannelsQuickFilter.includes(ticket.channel)
@@ -2057,7 +2156,7 @@ const Atendimentos = () => {
 		}
 
 		return filteredTickets;
-	}, [selectedChannelsQuickFilter, messageDirectionFilter]);
+	}, [onlyUnread, selectedChannelsQuickFilter, messageDirectionFilter]);
 
 	const ticketBelongsToTab = useCallback((ticket, tabIdx) => {
 		const currentTab = TAB_CONFIG[tabIdx] || TAB_CONFIG[0];
@@ -2212,6 +2311,74 @@ const Atendimentos = () => {
 				loadUnreadCounts();
 			} catch (err) {
 			}
+		}
+	};
+
+	const handleBulkDelete = async () => {
+		const ids = Array.from(selectedTicketIds);
+		if (ids.length === 0) return;
+		try {
+			await Promise.all(ids.map(id => api.delete(`/tickets/${id}`)));
+			setSelectedTicketIds(new Set());
+			setSelectionMode(false);
+			if (selectedTicket && ids.includes(selectedTicket.id)) {
+				setSelectedTicket(null);
+				setMessages([]);
+			}
+			loadTickets();
+			toast.success(`${ids.length} conversa(s) excluída(s)`);
+		} catch (err) {
+			toast.error("Erro ao excluir conversas. Atualizando lista.");
+			// Limpa seleção e recarrega em qualquer caso de erro
+			// (incluindo falha parcial no Promise.all)
+			setSelectedTicketIds(new Set());
+			setSelectionMode(false);
+			loadTickets();
+		}
+	};
+
+	const handleSaveAutoClose = async () => {
+		if (autoCloseEnabled) {
+			const totalMinutes = autoCloseHours * 60 + autoCloseMinutes;
+			if (totalMinutes < 1) {
+				toast.error("Configure pelo menos 1 minuto para o encerramento automático.");
+				return;
+			}
+		}
+		setAutoCloseSaving(true);
+		try {
+			const totalHours = autoCloseEnabled
+				? String((autoCloseHours * 60 + autoCloseMinutes) / 60)
+				: "9999999999";
+			await api.put("/companySettings/", {
+				column: "hoursCloseTicketsAuto",
+				data: totalHours
+			});
+			toast.success("Encerramento automático salvo");
+			setAutoCloseOpen(false);
+		} catch (err) {
+			toast.error("Erro ao salvar configuração");
+		} finally {
+			setAutoCloseSaving(false);
+		}
+	};
+
+	const handleSaveAssignQueue = () => {
+		setAssignQueueSaving(true);
+		try {
+			const config = {
+				enabled: assignQueueEnabled,
+				mode: assignQueueMode,
+				batchSize: assignQueueBatchSize,
+				userIds: assignQueueUserIds,
+			};
+			localStorage.setItem(`assignQueue_${user.companyId}`, JSON.stringify(config));
+			toast.success("Fila de atribuição salva");
+			setAssignQueueOpen(false);
+		} catch (err) {
+			toast.error("Erro ao salvar fila de atribuição");
+		} finally {
+			setAssignQueueSaving(false);
 		}
 	};
 
@@ -3922,17 +4089,123 @@ const Atendimentos = () => {
 								<ArchiveIcon />
 							</IconButton>
 						</Tooltip>
-						<IconButton
-							size="small"
-							onClick={(e) => setFilterAnchor(e.currentTarget)}
-							style={{
-								backgroundColor: hasActiveFilters ? "#00a884" : "transparent",
-								color: hasActiveFilters ? "#ffffff" : "inherit"
-							}}
-						>
-							<FilterListIcon />
-						</IconButton>
 					</div>
+
+					{/* Barra de busca e ações */}
+					<div className={classes.sidebarActionsRow}>
+						{/* Campo de busca */}
+						<div className={classes.searchInputWrapper}>
+							<SearchIcon style={{ fontSize: 18, color: "#667781", flexShrink: 0 }} />
+							<InputBase
+								value={searchTerm}
+								onChange={e => setSearchTerm(e.target.value)}
+								placeholder="Buscar conversa..."
+								style={{ flex: 1, fontSize: 13, marginLeft: 6 }}
+								inputProps={{ "aria-label": "buscar conversa" }}
+							/>
+							{searchTerm && (
+								<IconButton size="small" onClick={() => setSearchTerm("")} style={{ padding: 2 }}>
+									<CloseIcon style={{ fontSize: 14 }} />
+								</IconButton>
+							)}
+						</div>
+
+						{/* Filtro */}
+						<Tooltip title="Filtros">
+							<IconButton
+								size="small"
+								onClick={(e) => setFilterAnchor(e.currentTarget)}
+								style={{
+									backgroundColor: hasActiveFilters ? "#00a884" : "transparent",
+									color: hasActiveFilters ? "#ffffff" : "inherit",
+									padding: 6,
+								}}
+							>
+								<FilterListIcon style={{ fontSize: 20 }} />
+							</IconButton>
+						</Tooltip>
+
+						{/* Menu três pontinhos */}
+						<Tooltip title="Mais ações">
+							<IconButton
+								size="small"
+								onClick={(e) => setOperationsMenuAnchor(e.currentTarget)}
+								style={{ padding: 6 }}
+							>
+								<MoreVertIcon style={{ fontSize: 20 }} />
+							</IconButton>
+						</Tooltip>
+
+						{/* Botão nova conversa */}
+						<Tooltip title="Nova conversa">
+							<IconButton
+								size="small"
+								onClick={() => setNewConversationOpen(true)}
+								style={{
+									backgroundColor: "#00a884",
+									color: "#ffffff",
+									borderRadius: 8,
+									padding: 6,
+									flexShrink: 0,
+								}}
+							>
+								<AddIcon style={{ fontSize: 20 }} />
+							</IconButton>
+						</Tooltip>
+					</div>
+
+					{/* Chip de filtro ativo: apenas não lidas */}
+					{onlyUnread && (
+						<div style={{ padding: "4px 8px", backgroundColor: "#ffffff", borderBottom: "1px solid #e9edef" }}>
+							<Chip
+								label="Não lidas"
+								size="small"
+								onDelete={() => setOnlyUnread(false)}
+								style={{ backgroundColor: "#e3f2fd", color: "#1565c0", fontSize: 12 }}
+							/>
+						</div>
+					)}
+
+					{/* Barra de seleção em massa */}
+					{selectionMode && (
+						<div className={classes.selectionBar}>
+							<Button
+								size="small"
+								variant="contained"
+								style={{ backgroundColor: "#f44336", color: "#fff", fontSize: 11, minWidth: 0 }}
+								onClick={() => {
+									if (window.confirm(`Excluir ${selectedTicketIds.size} conversa(s)? Esta ação não pode ser desfeita.`)) {
+										handleBulkDelete();
+									}
+								}}
+								disabled={selectedTicketIds.size === 0}
+							>
+								<DeleteIcon style={{ fontSize: 14, marginRight: 4 }} />
+								Excluir ({selectedTicketIds.size})
+							</Button>
+							<Button
+								size="small"
+								variant="outlined"
+								style={{ fontSize: 11, minWidth: 0 }}
+								onClick={() => {
+									setSelectionMode(false);
+									setSelectedTicketIds(new Set());
+								}}
+							>
+								Cancelar
+							</Button>
+							<Button
+								size="small"
+								variant="outlined"
+								style={{ fontSize: 11, minWidth: 0 }}
+								onClick={() => {
+									setSelectedTicketIds(new Set(tickets.map(t => t.id)));
+								}}
+							>
+								Todos ({tickets.length})
+							</Button>
+						</div>
+					)}
 
 					{/* Tabs */}
 					<Tabs
@@ -3991,11 +4264,33 @@ const Atendimentos = () => {
 								records.map((ticket) => (
 									<div
 										key={ticket.id}
-										className={`${classes.ticketItem} ${selectedTicket?.id === ticket.id ? "active" : ""}`}
-										style={{ contentVisibility: "auto", containIntrinsicSize: "72px" }}
-										onClick={() => handleTicketClick(ticket)}
+										className={`${classes.ticketItem} ${!selectionMode && selectedTicket?.id === ticket.id ? "active" : ""}`}
+										style={{
+											contentVisibility: "auto",
+											containIntrinsicSize: "72px",
+											backgroundColor: selectionMode && selectedTicketIds.has(ticket.id) ? "#e8f5e9" : undefined,
+										}}
+										onClick={() => {
+											if (selectionMode) {
+												setSelectedTicketIds(prev => {
+													const next = new Set(prev);
+													next.has(ticket.id) ? next.delete(ticket.id) : next.add(ticket.id);
+													return next;
+												});
+											} else {
+												handleTicketClick(ticket);
+											}
+										}}
 										onContextMenu={(e) => handleTicketContextMenu(e, ticket)}
 									>
+										{selectionMode && (
+											<div style={{ display: "flex", alignItems: "center", paddingLeft: 4, flexShrink: 0 }}>
+												{selectedTicketIds.has(ticket.id)
+													? <CheckBoxIcon style={{ color: "#00a884", fontSize: 22 }} />
+													: <CheckBoxOutlineBlankIcon style={{ color: "#999", fontSize: 22 }} />
+												}
+											</div>
+										)}
 										<Avatar
 											src={ticket.contact?.urlPicture || ticket.contact?.profilePicUrl}
 											className={classes.ticketAvatar}
@@ -4265,6 +4560,247 @@ const Atendimentos = () => {
 					</div>
 				</div>
 			</Popover>
+
+			{/* Menu de operações (⋮) */}
+			<Menu
+				anchorEl={operationsMenuAnchor}
+				open={Boolean(operationsMenuAnchor)}
+				onClose={() => setOperationsMenuAnchor(null)}
+				anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+				transformOrigin={{ vertical: "top", horizontal: "right" }}
+				PaperProps={{ style: { minWidth: 240 } }}
+			>
+				<MenuItem
+					onClick={() => {
+						setSelectionMode(true);
+						setSelectedTicketIds(new Set());
+						setOperationsMenuAnchor(null);
+					}}
+					style={{ padding: "10px 16px", gap: 12 }}
+				>
+					<DeleteIcon style={{ fontSize: 18, color: "#f44336" }} />
+					<Typography style={{ fontSize: 14 }}>Selecionar para excluir</Typography>
+				</MenuItem>
+				<MenuItem
+					onClick={() => {
+						setOnlyUnread(prev => !prev);
+						setOperationsMenuAnchor(null);
+					}}
+					style={{ padding: "10px 16px", gap: 12 }}
+				>
+					<UnreadIcon style={{ fontSize: 18, color: onlyUnread ? "#00a884" : "#667781" }} />
+					<Typography style={{ fontSize: 14 }}>
+						Apenas não lidas {onlyUnread ? "✓" : ""}
+					</Typography>
+				</MenuItem>
+				<Divider />
+				<MenuItem
+					onClick={() => {
+						setAutoCloseOpen(true);
+						setOperationsMenuAnchor(null);
+					}}
+					style={{ padding: "10px 16px", gap: 12 }}
+				>
+					<TimerOffIcon style={{ fontSize: 18, color: "#667781" }} />
+					<Typography style={{ fontSize: 14 }}>Encerrar atendimento automaticamente</Typography>
+				</MenuItem>
+				<MenuItem
+					onClick={() => {
+						setAssignQueueOpen(true);
+						setOperationsMenuAnchor(null);
+					}}
+					style={{ padding: "10px 16px", gap: 12 }}
+				>
+					<AssignQueueIcon style={{ fontSize: 18, color: "#667781" }} />
+					<Typography style={{ fontSize: 14 }}>Fila de atribuição</Typography>
+				</MenuItem>
+			</Menu>
+
+			{/* Modal: Nova conversa */}
+			{newConversationOpen && (
+				<NewTicketModal
+					modalOpen={newConversationOpen}
+					onClose={(ticket) => {
+						setNewConversationOpen(false);
+						if (ticket?.id) {
+							handleTicketClick(ticket);
+						}
+					}}
+				/>
+			)}
+
+			{/* Modal: Encerrar atendimento automaticamente */}
+			<Dialog
+				open={autoCloseOpen}
+				onClose={() => setAutoCloseOpen(false)}
+				PaperProps={{ style: { borderRadius: 12, minWidth: 340 } }}
+			>
+				<DialogTitle style={{ paddingBottom: 4 }}>
+					<Typography style={{ fontSize: 16, fontWeight: 600 }}>Encerrar atendimento automaticamente</Typography>
+				</DialogTitle>
+				<DialogContent>
+					<Typography style={{ fontSize: 13, color: "#667781", marginBottom: 16 }}>
+						Encerra o atendimento automaticamente após o tempo definido sem novas mensagens.
+						O contato será movido para "Resolvidas".
+					</Typography>
+					<FormControlLabel
+						control={
+							<Switch
+								checked={autoCloseEnabled}
+								onChange={e => setAutoCloseEnabled(e.target.checked)}
+								color="primary"
+							/>
+						}
+						label={<Typography style={{ fontSize: 14 }}>{autoCloseEnabled ? "Ativado" : "Desativado"}</Typography>}
+						style={{ marginBottom: 16 }}
+					/>
+					{autoCloseEnabled && (
+						<div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 8 }}>
+							<div>
+								<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 4 }}>Horas</Typography>
+								<TextField
+									type="number"
+									variant="outlined"
+									size="small"
+									value={autoCloseHours}
+									onChange={e => setAutoCloseHours(Math.max(0, parseInt(e.target.value) || 0))}
+									inputProps={{ min: 0, max: 72, style: { width: 60, textAlign: "center" } }}
+								/>
+							</div>
+							<div>
+								<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 4 }}>Minutos</Typography>
+								<TextField
+									type="number"
+									variant="outlined"
+									size="small"
+									value={autoCloseMinutes}
+									onChange={e => setAutoCloseMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+									inputProps={{ min: 0, max: 59, style: { width: 60, textAlign: "center" } }}
+								/>
+							</div>
+						</div>
+					)}
+					{autoCloseEnabled && (
+						<Typography style={{ fontSize: 12, color: "#667781" }}>
+							Tempo configurado: {String(autoCloseHours).padStart(2, "0")}:{String(autoCloseMinutes).padStart(2, "0")}
+						</Typography>
+					)}
+					<Typography style={{ fontSize: 12, color: "#999", marginTop: 12 }}>
+						Se a pesquisa CSAT estiver ativada, ela será enviada ao encerrar.
+					</Typography>
+				</DialogContent>
+				<DialogActions style={{ padding: "8px 16px" }}>
+					<Button onClick={() => setAutoCloseOpen(false)} style={{ color: "#667781" }}>
+						Cancelar
+					</Button>
+					<Button
+						onClick={handleSaveAutoClose}
+						variant="contained"
+						style={{ backgroundColor: "#00a884", color: "#fff" }}
+						disabled={autoCloseSaving}
+					>
+						{autoCloseSaving ? <CircularProgress size={16} color="inherit" /> : "Salvar"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Modal: Fila de atribuição */}
+			<Dialog
+				open={assignQueueOpen}
+				onClose={() => setAssignQueueOpen(false)}
+				PaperProps={{ style: { borderRadius: 12, minWidth: 360 } }}
+			>
+				<DialogTitle style={{ paddingBottom: 4 }}>
+					<Typography style={{ fontSize: 16, fontWeight: 600 }}>Fila de atribuição</Typography>
+				</DialogTitle>
+				<DialogContent>
+					<Typography style={{ fontSize: 13, color: "#667781", marginBottom: 16 }}>
+						Distribui automaticamente novos chats entre os membros selecionados da equipe.
+					</Typography>
+					<FormControlLabel
+						control={
+							<Switch
+								checked={assignQueueEnabled}
+								onChange={e => setAssignQueueEnabled(e.target.checked)}
+								color="primary"
+							/>
+						}
+						label={<Typography style={{ fontSize: 14 }}>{assignQueueEnabled ? "Ativada" : "Desativada"}</Typography>}
+						style={{ marginBottom: 16 }}
+					/>
+					{assignQueueEnabled && (
+						<>
+							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 6 }}>Modo de distribuição</Typography>
+							<Select
+								fullWidth
+								variant="outlined"
+								value={assignQueueMode}
+								onChange={e => setAssignQueueMode(e.target.value)}
+								style={{ marginBottom: 16 }}
+								inputProps={{ style: { fontSize: 13, padding: "10px 14px" } }}
+							>
+								<MenuItem value="round_robin">Alternar entre membros (1 lead por vez)</MenuItem>
+								<MenuItem value="batch">Enviar X leads antes de trocar de membro</MenuItem>
+							</Select>
+							{assignQueueMode === "batch" && (
+								<div style={{ marginBottom: 16 }}>
+									<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 4 }}>Leads por atendente (X)</Typography>
+									<TextField
+										type="number"
+										variant="outlined"
+										size="small"
+										fullWidth
+										value={assignQueueBatchSize}
+										onChange={e => setAssignQueueBatchSize(Math.max(1, parseInt(e.target.value) || 1))}
+										inputProps={{ min: 1 }}
+									/>
+								</div>
+							)}
+							<Typography style={{ fontSize: 12, color: "#667781", marginBottom: 8 }}>Membros participantes</Typography>
+							<div style={{ border: "1px solid #e9edef", borderRadius: 8, overflow: "hidden" }}>
+								{users.map(u => (
+									<div
+										key={u.id}
+										style={{
+											display: "flex",
+											alignItems: "center",
+											padding: "8px 12px",
+											cursor: "pointer",
+											borderBottom: "1px solid #f0f2f5",
+											backgroundColor: assignQueueUserIds.includes(u.id) ? "#e8f5e9" : "#fff",
+										}}
+										onClick={() => setAssignQueueUserIds(prev =>
+											prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id]
+										)}
+									>
+										{assignQueueUserIds.includes(u.id)
+											? <CheckBoxIcon style={{ color: "#00a884", fontSize: 20, marginRight: 10 }} />
+											: <CheckBoxOutlineBlankIcon style={{ color: "#ccc", fontSize: 20, marginRight: 10 }} />
+										}
+										<Typography style={{ fontSize: 13 }}>{u.name}</Typography>
+									</div>
+								))}
+							</div>
+							<Typography style={{ fontSize: 11, color: "#999", marginTop: 10 }}>
+								Reatribuição automática ocorre somente quando o contato estiver sem responsável ou resolvido.
+							</Typography>
+						</>
+					)}
+				</DialogContent>
+				<DialogActions style={{ padding: "8px 16px" }}>
+					<Button onClick={() => setAssignQueueOpen(false)} style={{ color: "#667781" }}>
+						Cancelar
+					</Button>
+					<Button
+						onClick={handleSaveAssignQueue}
+						variant="contained"
+						style={{ backgroundColor: "#00a884", color: "#fff" }}
+						disabled={assignQueueSaving}
+					>
+						{assignQueueSaving ? <CircularProgress size={16} color="inherit" /> : "Salvar"}
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			{/* Área de chat */}
 			{shouldShowChat && (
