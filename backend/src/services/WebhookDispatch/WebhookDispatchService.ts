@@ -5,6 +5,7 @@ import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import logger from "../../utils/logger";
 import CheckAiBlockService from "../TicketServices/CheckAiBlockService";
+import GetOrCreateAiExternalSettingsService from "../AiExternalSettingsServices/GetOrCreateAiExternalSettingsService";
 
 // ─── Tipos de eventos disponíveis ───────────────────────────────────────────
 
@@ -218,11 +219,22 @@ export const dispatch = async (
 
     if (subscribed.length === 0) return;
 
-    const payload = {
+    // Para eventos de mensagem, enriquecer payload com dados operacionais da IA externa
+    let ai_external_settings: Record<string, unknown> | undefined;
+    if (MESSAGE_EVENTS.has(eventType)) {
+      try {
+        ai_external_settings = await GetOrCreateAiExternalSettingsService(companyId) as any;
+      } catch (settingsErr: any) {
+        logger.warn(`[WebhookDispatch] Falha ao carregar ai_external_settings companyId=${companyId}: ${settingsErr.message}`);
+      }
+    }
+
+    const payload: Record<string, unknown> = {
       event: eventType,
       timestamp: new Date().toISOString(),
       companyId,
-      data
+      data,
+      ...(ai_external_settings ? { ai_external_settings } : {})
     };
 
     for (const integration of subscribed) {

@@ -703,6 +703,9 @@ const Prompts = () => {
   const [aiActionsFilter, setAiActionsFilter] = useState({ search: "", blockMode: "" });
   const [pauseUntilDialog, setPauseUntilDialog] = useState({ open: false, contactId: null, contactName: "" });
   const [pauseUntilDate, setPauseUntilDate] = useState("");
+  const [aiSettings, setAiSettings] = useState(null);
+  const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
+  const [aiSettingsTokenVisible, setAiSettingsTokenVisible] = useState(false);
   const [ragResults, setRagResults] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({
     title: "",
@@ -877,6 +880,27 @@ const Prompts = () => {
     setChatMemoryFilters(nextFilters);
     setChatMemoryPage(1);
     loadChatMemory(1, nextFilters);
+  };
+
+  const loadAiSettings = async (forceRefresh = false) => {
+    setAiSettingsLoading(true);
+    try {
+      const { data } = await api.get(`/ai-external/settings${forceRefresh ? "?refresh=1" : ""}`);
+      setAiSettings(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setAiSettingsLoading(false);
+    }
+  };
+
+  const handleCopyAiSetting = async (value) => {
+    try {
+      await navigator.clipboard.writeText(String(value));
+      toast.success("Copiado!");
+    } catch (_) {
+      toast.error("Erro ao copiar");
+    }
   };
 
   const loadAiActions = async () => {
@@ -1486,6 +1510,7 @@ const Prompts = () => {
   const externalSecondaryMenuItems = [
     { key: "chatMemory", label: "Chat Memory", icon: <MemoryIcon /> },
     { key: "ai_actions", label: "Ações da IA", icon: <BlockIcon /> },
+    { key: "ai_settings", label: "Ajustes", icon: <SettingsIcon /> },
   ];
 
   const externalStats = {
@@ -2624,6 +2649,161 @@ const Prompts = () => {
     );
   };
 
+  const renderAiSettings = () => {
+    const s = aiSettings;
+
+    const SettingRow = ({ label, value, id, extra, status }) => {
+      const displayValue = typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+      const isToken = label === "Token do sistema";
+      const shown = isToken ? aiSettingsTokenVisible : true;
+      return (
+        <Box style={{
+          display: "grid", gridTemplateColumns: "200px 1fr auto auto",
+          alignItems: "center", gap: 12, padding: "14px 20px",
+          borderBottom: "1px solid #f1f5f9",
+        }}>
+          <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{label}</Typography>
+          <Box>
+            <Typography style={{ fontSize: 13, fontFamily: isToken ? "monospace" : "inherit", color: "#1e293b", wordBreak: "break-all" }}>
+              {aiSettingsLoading ? "…" : (shown ? (displayValue || "—") : "••••••••••••••••••••••••••••••••")}
+            </Typography>
+            {extra && <Typography style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{extra}</Typography>}
+          </Box>
+          <Chip
+            size="small"
+            label={status || (value != null ? "OK" : "Ausente")}
+            style={{
+              fontSize: 10,
+              background: value != null ? "#dcfce7" : "#fef2f2",
+              color: value != null ? "#16a34a" : "#dc2626",
+            }}
+          />
+          <Box style={{ display: "flex", gap: 4 }}>
+            {isToken && (
+              <Tooltip title={aiSettingsTokenVisible ? "Ocultar" : "Visualizar"}>
+                <IconButton size="small" onClick={() => setAiSettingsTokenVisible(v => !v)}>
+                  <VisibilityIcon style={{ fontSize: 16, color: "#64748b" }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {value != null && (
+              <Tooltip title="Copiar">
+                <IconButton size="small" onClick={() => handleCopyAiSetting(displayValue)}>
+                  <FileCopyIcon style={{ fontSize: 16, color: "#64748b" }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        </Box>
+      );
+    };
+
+    return (
+      <Box style={{ padding: "24px" }}>
+        <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <Box>
+            <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>Ajustes da IA Externa</Typography>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+              Dados operacionais enviados automaticamente nos eventos de webhook (MESSAGE_RECEIVED / MESSAGE_SENT).
+            </Typography>
+          </Box>
+          <button
+            type="button"
+            onClick={() => loadAiSettings(true)}
+            disabled={aiSettingsLoading}
+            style={{
+              background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8,
+              padding: "8px 16px", cursor: "pointer", fontSize: 13, color: "#334155",
+            }}
+          >
+            {aiSettingsLoading ? "Carregando…" : "Atualizar / Garantir"}
+          </button>
+        </Box>
+
+        {aiSettingsLoading && !s ? (
+          <Box style={{ display: "flex", justifyContent: "center", padding: 60 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+          <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <Box style={{ padding: "10px 20px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <Box style={{ display: "grid", gridTemplateColumns: "200px 1fr auto auto" }}>
+                {["Campo", "Valor / ID", "Status", ""].map(h => (
+                  <Typography key={h} style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</Typography>
+                ))}
+              </Box>
+            </Box>
+
+            <SettingRow label="Nome da IA" value={s?.ai_name} />
+            <SettingRow label="Token do sistema" value={s?.system_token} />
+            <SettingRow
+              label="Usuário padrão"
+              value={s?.default_user ? s.default_user.name : null}
+              extra={s?.default_user ? `ID: ${s.default_user.id}` : null}
+            />
+            <SettingRow
+              label="Departamento / Fila"
+              value={s?.default_queue ? s.default_queue.name : null}
+              extra={s?.default_queue ? `queueId: ${s.default_queue.id}` : null}
+            />
+            <SettingRow
+              label="Funil padrão"
+              value={s?.default_pipeline ? s.default_pipeline.name : null}
+              extra={s?.default_pipeline ? `pipeline_id: ${s.default_pipeline.id}` : null}
+            />
+            <SettingRow
+              label="Etapa padrão"
+              value={s?.default_stage ? s.default_stage.name : null}
+              extra={s?.default_stage ? `stage_id: ${s.default_stage.id}` : null}
+            />
+            <SettingRow
+              label="Agenda padrão"
+              value={s?.default_calendar ? s.default_calendar.name : null}
+              extra={s?.default_calendar ? `agenda_id: ${s.default_calendar.id}` : null}
+            />
+            <SettingRow
+              label="Etapa Agendamento"
+              value={s?.appointment_stage ? s.appointment_stage.stage_name : null}
+              extra={s?.appointment_stage
+                ? `pipeline_id: ${s.appointment_stage.pipeline_id} — stage_id: ${s.appointment_stage.stage_id}`
+                : null}
+            />
+          </Box>
+        )}
+
+        {s && (
+          <Box style={{ marginTop: 20, background: "#f8fafc", borderRadius: 10, padding: "16px 20px", border: "1px solid #e2e8f0" }}>
+            <Typography style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>
+              PREVIEW DO PAYLOAD (ai_external_settings)
+            </Typography>
+            <Typography component="pre" style={{
+              fontSize: 11, fontFamily: "monospace", color: "#334155",
+              whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0
+            }}>
+              {JSON.stringify({
+                ai_name: s.ai_name,
+                system_token: aiSettingsTokenVisible ? s.system_token : "••••••••••••••••••••••••",
+                default_user_id: s.default_user?.id,
+                default_user_name: s.default_user?.name,
+                default_queue_id: s.default_queue?.id,
+                default_queue_name: s.default_queue?.name,
+                default_pipeline_id: s.default_pipeline?.id,
+                default_pipeline_name: s.default_pipeline?.name,
+                default_stage_id: s.default_stage?.id,
+                default_stage_name: s.default_stage?.name,
+                default_calendar_id: s.default_calendar?.id,
+                default_calendar_name: s.default_calendar?.name,
+                appointment_pipeline_id: s.appointment_stage?.pipeline_id,
+                appointment_stage_id: s.appointment_stage?.stage_id,
+                appointment_stage_name: s.appointment_stage?.stage_name,
+              }, null, 2)}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   const renderAiActions = () => {
     const blockModeLabel = {
       disabled_in_stage: "Etapa do funil",
@@ -2853,6 +3033,7 @@ const Prompts = () => {
     if (externalSection === "rag") return renderRag();
     if (externalSection === "chatMemory") return renderChatMemory();
     if (externalSection === "ai_actions") return renderAiActions();
+    if (externalSection === "ai_settings") return renderAiSettings();
     return null;
   };
 
@@ -2906,6 +3087,9 @@ const Prompts = () => {
     }
     if (activeAgentTab === "external" && externalSection === "ai_actions") {
       loadAiActions();
+    }
+    if (activeAgentTab === "external" && externalSection === "ai_settings") {
+      loadAiSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab, externalSection]);

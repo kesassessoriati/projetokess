@@ -232,7 +232,7 @@ const DocumentacaoPage = () => {
   };
 
   const handleCreateToken = async () => {
-    const label = window.prompt("Informe um nome para identificar este token", "IntegraÃ§Ã£o");
+    const label = window.prompt("Informe um nome para identificar este token", "Integração");
     if (!label) {
       return;
     }
@@ -651,7 +651,7 @@ const DocumentacaoPage = () => {
                       }}
                     >
                       <Typography variant="body2" style={{ fontFamily: "monospace" }}>
-                        {visibleTokens[key.id] ? key.token : "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"}
+                        {visibleTokens[key.id] ? key.token : "••••••••••••••••••••••••••••••••"}
                       </Typography>
                       <Box>
                         <IconButton onClick={() => toggleTokenVisibility(key.id)}>

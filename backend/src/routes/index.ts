@@ -91,6 +91,7 @@ import crmLeadRoutes from "./crmLeadRoutes";
 import crmClientRoutes from "./crmClientRoutes";
 import automationRoutes from "./automationRoutes";
 import aiActionsRoutes from "./aiActionsRoutes";
+import aiExternalSettingsRoutes from "./aiExternalSettingsRoutes";
 import financeiroFaturaRoutes from "./financeiroFaturaRoutes";
 import financeiroPagamentoRoutes from "./financeiroPagamentoRoutes";
 import paymentSettingRoutes from "./paymentSettingRoutes";
@@ -294,6 +295,7 @@ routes.use(hubMessageRoutes);
 routes.use(hubWebhookRoutes);
 routes.use(automationRoutes);
 routes.use(aiActionsRoutes);
+routes.use(aiExternalSettingsRoutes);
 
 // OAuth Facebook/Instagram
 routes.use(facebookOAuthRoutes);
