@@ -29,9 +29,12 @@ import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import Tag from "../../models/Tag";
+import ContactTag from "../../models/ContactTag";
+import TicketTag from "../../models/TicketTag";
 import CrmLead from "../../models/CrmLead";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
+import Opportunity from "../../models/Opportunity";
 import { getWbot } from "../../libs/wbot";
 import { sendFollowUpStageMessage } from "./FollowUpStageSender";
 import evaluateFollowUpContextService from "./EvaluateFollowUpContextService";
@@ -163,31 +166,167 @@ async function processContact(campaign, stages, ticket) {
     (message) => !message.fromMe && new Date(message.createdAt).getTime() > anchorAt.getTime()
   );
 
+  const shouldStop = campaign.stopOnReply !== false; // default true
+
   if (latestInboundMessage) {
-    if (!campaign.smartMode) {
-      await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
-      return;
+    if (!campaign.smartMode || !shouldStop) {
+      // Non-smart mode: always stop on reply if stopOnReply is true
+      if (shouldStop) {
+        await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
+        await executeReplyAction(campaign, ticket, contact);
+        return;
+      }
+      // stopOnReply=false: adjust anchor and continue
+      anchorAt = new Date(
+        Math.max(anchorAt.getTime(), new Date(latestInboundMessage.createdAt).getTime())
+      );
+    } else {
+      // Smart mode ON + stopOnReply ON: evaluate context before stopping
+      const decision = await evaluateFollowUpContextService({
+        campaign,
+        ticket,
+        latestInboundMessage
+      });
+
+      if (decision.shouldStop) {
+        await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
+        await executeReplyAction(campaign, ticket, contact);
+        return;
+      }
+
+      anchorAt = new Date(
+        Math.max(anchorAt.getTime(), new Date(latestInboundMessage.createdAt).getTime())
+      );
     }
-
-    const decision = await evaluateFollowUpContextService({
-      campaign,
-      ticket,
-      latestInboundMessage
-    });
-
-    if (decision.shouldStop) {
-      await markCycleAsResponded(cycleLogs, latestInboundMessage.createdAt);
-      return;
-    }
-
-    anchorAt = new Date(
-      Math.max(anchorAt.getTime(), new Date(latestInboundMessage.createdAt).getTime())
-    );
   }
 
   const elapsedMinutes = Math.floor((Date.now() - anchorAt.getTime()) / 60000);
   if (elapsedMinutes < nextStage.delayMinutes) return;
 
+  // Non-message step types: log success without sending a message
+  const stepType = (nextStage as any).stepType || "send_message";
+
+  if (stepType === "wait") {
+    await FollowUpLog.create({
+      followUpCampaignId: campaign.id,
+      stageId: nextStage.id,
+      contactNumber,
+      companyId: campaign.companyId,
+      triggerMessageId: triggerMessage.id,
+      triggeredAt: triggerAt,
+      sentAt: new Date(),
+      status: "sent",
+    });
+    return;
+  }
+
+  if (stepType === "add_tag") {
+    try {
+      const stepConfig = (nextStage as any).stepConfig || {};
+      const tagId = Number(stepConfig.tagId);
+      if (tagId && contact?.id) {
+        await ContactTag.findOrCreate({ where: { contactId: contact.id, tagId } });
+        if (ticket?.id) {
+          await TicketTag.findOrCreate({ where: { ticketId: ticket.id, tagId } });
+        }
+      }
+    } catch (err) {
+      console.error(`[FollowUpCampaign] add_tag step error stage ${nextStage.id}:`, err?.message);
+    }
+    await FollowUpLog.create({
+      followUpCampaignId: campaign.id,
+      stageId: nextStage.id,
+      contactNumber,
+      companyId: campaign.companyId,
+      triggerMessageId: triggerMessage.id,
+      triggeredAt: triggerAt,
+      sentAt: new Date(),
+      status: "sent",
+    });
+    return;
+  }
+
+  if (stepType === "move_crm") {
+    try {
+      const stepConfig = (nextStage as any).stepConfig || {};
+      const targetStageId = Number(stepConfig.stageId);
+      const targetPipelineId = Number(stepConfig.pipelineId);
+      if (targetStageId && targetPipelineId && contact?.id) {
+        const opp = await Opportunity.findOne({
+          where: { contactId: contact.id, companyId: campaign.companyId },
+          order: [["createdAt", "DESC"]],
+        });
+        if (opp) {
+          await opp.update({ stageId: targetStageId, pipelineId: targetPipelineId });
+        }
+      }
+    } catch (err) {
+      console.error(`[FollowUpCampaign] move_crm step error stage ${nextStage.id}:`, err?.message);
+    }
+    await FollowUpLog.create({
+      followUpCampaignId: campaign.id,
+      stageId: nextStage.id,
+      contactNumber,
+      companyId: campaign.companyId,
+      triggerMessageId: triggerMessage.id,
+      triggeredAt: triggerAt,
+      sentAt: new Date(),
+      status: "sent",
+    });
+    return;
+  }
+
+  if (stepType === "webhook") {
+    try {
+      const stepConfig = (nextStage as any).stepConfig || {};
+      const url = stepConfig.url;
+      const method = stepConfig.method || "POST";
+      if (url) {
+        const body = String(stepConfig.body || "{}");
+        // fire-and-forget with timeout
+        const controller = new (require("abort-controller"))();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: method !== "GET" ? body : undefined,
+          signal: controller.signal,
+        }).catch((e) => {
+          console.warn(`[FollowUpCampaign] webhook step ${nextStage.id} failed:`, e?.message);
+        }).finally(() => clearTimeout(timeout));
+      }
+    } catch (err) {
+      console.error(`[FollowUpCampaign] webhook step error stage ${nextStage.id}:`, err?.message);
+    }
+    await FollowUpLog.create({
+      followUpCampaignId: campaign.id,
+      stageId: nextStage.id,
+      contactNumber,
+      companyId: campaign.companyId,
+      triggerMessageId: triggerMessage.id,
+      triggeredAt: triggerAt,
+      sentAt: new Date(),
+      status: "sent",
+    });
+    return;
+  }
+
+  if (stepType === "condition") {
+    // Conditions are evaluated during step ordering — treat as pass-through
+    await FollowUpLog.create({
+      followUpCampaignId: campaign.id,
+      stageId: nextStage.id,
+      contactNumber,
+      companyId: campaign.companyId,
+      triggerMessageId: triggerMessage.id,
+      triggeredAt: triggerAt,
+      sentAt: new Date(),
+      status: "sent",
+    });
+    return;
+  }
+
+  // Default: send_message
   let status = "sent";
   try {
     const wbot = await resolveWbot(campaign);
@@ -303,6 +442,53 @@ function resolveAnchorAt(triggerAt, nextStageOrder, successfulCycleLogs, stageOr
   return previousStageLog?.sentAt
     ? new Date(previousStageLog.sentAt)
     : triggerAt;
+}
+
+async function executeReplyAction(campaign: any, ticket: any, contact: any) {
+  const action = campaign.actionOnReply || "none";
+  if (action === "none") return;
+
+  const config = campaign.replyActionConfig || {};
+
+  try {
+    if (action === "add_tag") {
+      const tagId = Number(config.tagId);
+      if (tagId && contact?.id) {
+        await ContactTag.findOrCreate({ where: { contactId: contact.id, tagId } });
+        if (ticket?.id) {
+          await TicketTag.findOrCreate({ where: { ticketId: ticket.id, tagId } });
+        }
+      }
+      return;
+    }
+
+    if (action === "move_crm") {
+      const targetStageId = Number(config.stageId);
+      const targetPipelineId = Number(config.pipelineId);
+      if (targetStageId && targetPipelineId && contact?.id) {
+        const opp = await Opportunity.findOne({
+          where: { contactId: contact.id, companyId: campaign.companyId },
+          order: [["createdAt", "DESC"]],
+        });
+        if (opp) {
+          await opp.update({ stageId: targetStageId, pipelineId: targetPipelineId });
+        }
+      }
+      return;
+    }
+
+    if (action === "activate_ai") {
+      // Placeholder: AI agent activation is managed by the channel binding system.
+      // A full implementation requires resolving the AI agent bound to the campaign's
+      // WhatsApp connection and scheduling it for the ticket.
+      console.log(
+        `[FollowUpCampaign] actionOnReply=activate_ai triggered for ticket ${ticket?.id} — AI agent binding not yet automated.`
+      );
+      return;
+    }
+  } catch (err) {
+    console.error(`[FollowUpCampaign] executeReplyAction(${action}) error:`, err?.message);
+  }
 }
 
 async function markCycleAsResponded(cycleLogs, respondedAt) {
