@@ -103,6 +103,26 @@ dockerhub_tag_exists() {
     [ "$http_code" = "200" ]
 }
 
+wait_for_dockerhub_tag() {
+    local repository="$1"
+    local tag="$2"
+    local max_attempts="${3:-12}"
+    local sleep_seconds="${4:-10}"
+    local attempt
+
+    for attempt in $(seq 1 "$max_attempts"); do
+        if dockerhub_tag_exists "$repository" "$tag"; then
+            echo -e "${GREEN}OK: Tag disponivel no Docker Hub: ${repository}:${tag}${NC}"
+            return 0
+        fi
+        echo -e "${YELLOW}[!] Tag ainda nao visivel na API do Docker Hub: ${repository}:${tag} (tentativa ${attempt}/${max_attempts}, aguardando ${sleep_seconds}s...)${NC}"
+        sleep "$sleep_seconds"
+    done
+
+    echo -e "${RED}ERRO: Tag ${repository}:${tag} nao ficou disponivel apos $((max_attempts * sleep_seconds))s.${NC}"
+    return 1
+}
+
 ensure_dockerhub_authenticated() {
     local docker_config="${DOCKER_CONFIG:-$HOME/.docker}"
 
@@ -280,9 +300,9 @@ echo -e "${YELLOW}[!] Publicando frontend primeiro para evitar tag de backend se
 docker push "${FRONTEND_IMAGE}:${TAG}"
 docker push "${BACKEND_IMAGE}:${TAG}"
 
-if ! dockerhub_tag_exists "$FRONTEND_REPOSITORY" "$TAG" || ! dockerhub_tag_exists "$BACKEND_REPOSITORY" "$TAG"; then
-    echo -e "${RED}ERRO: Tag ${TAG} nao ficou disponivel nos dois repositorios Docker Hub.${NC}"
-    echo -e "${RED}ERRO: Nao atualizaremos latest nem ${VERSION_FILE}. Rode novamente apos verificar o Docker Hub.${NC}"
+if ! wait_for_dockerhub_tag "$FRONTEND_REPOSITORY" "$TAG" || ! wait_for_dockerhub_tag "$BACKEND_REPOSITORY" "$TAG"; then
+    echo -e "${RED}ERRO: Tag ${TAG} nao ficou disponivel nos dois repositorios Docker Hub apos retries.${NC}"
+    echo -e "${RED}ERRO: Nao atualizaremos latest nem ${VERSION_FILE}. Verifique manualmente o Docker Hub.${NC}"
     exit 1
 fi
 
