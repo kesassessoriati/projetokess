@@ -136,6 +136,7 @@ const MetaAdsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const [active, setActive] = useState(false);
   const [pixelId, setPixelId] = useState("");
@@ -164,6 +165,7 @@ const MetaAdsPage = () => {
       }
     } catch (err) {
       console.error(err);
+      setHasError(true);
     }
   }, []);
 
@@ -286,6 +288,16 @@ const MetaAdsPage = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Box p={3}>
+        <Typography color="error">
+          Erro ao carregar configuração. Verifique o console ou tente atualizar a página.
+        </Typography>
       </Box>
     );
   }

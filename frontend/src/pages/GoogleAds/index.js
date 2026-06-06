@@ -152,6 +152,7 @@ const GoogleAdsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const [active, setActive] = useState(false);
   const [customerId, setCustomerId] = useState("");
@@ -194,6 +195,7 @@ const GoogleAdsPage = () => {
       }
     } catch (err) {
       console.error(err);
+      setHasError(true);
     }
   }, []);
 
@@ -349,6 +351,16 @@ const GoogleAdsPage = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Box p={3}>
+        <Typography color="error">
+          Erro ao carregar configuração. Verifique o console ou tente atualizar a página.
+        </Typography>
       </Box>
     );
   }

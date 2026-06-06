@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 import {
   makeStyles,
@@ -1006,6 +1006,14 @@ const LoggedInLayout = ({ children }) => {
   const [warmupModalOpen, setWarmupModalOpen] = useState(false);
   const [mobileNavMenuOpen, setMobileNavMenuOpen] = useState(false);
 
+  const mainRef = useRef(null);
+
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     if (sidebarPinned) {
       setDrawerExpanded(true);
@@ -1985,7 +1993,7 @@ const LoggedInLayout = ({ children }) => {
       />
 
       {/* Conteúdo Principal */}
-      <main className={`${classes.content} ${!isInsideTicketConversation && !isFlowBuilderPage && !isAtendimentosMobilePage ? classes.contentWithMobileNav : ""}`}>
+      <main ref={mainRef} className={`${classes.content} ${!isInsideTicketConversation && !isFlowBuilderPage && !isAtendimentosMobilePage ? classes.contentWithMobileNav : ""}`}>
         {children}
       </main>
 
