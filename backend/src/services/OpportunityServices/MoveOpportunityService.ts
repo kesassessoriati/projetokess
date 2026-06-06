@@ -184,6 +184,20 @@ const MoveOpportunityService = async ({
         metadata: { ...triggerData.metadata, event: "opportunity_moved" }
     }).catch(() => null);
 
+    // Disparo de conversões de anúncios (Meta Ads / Google Ads)
+    import("../AdTrackingServices/DispatchAdTrackingService")
+        .then(({ default: dispatchAdTracking }) => dispatchAdTracking({
+            companyId,
+            pipelineId: opportunity.pipelineId,
+            stageId: toStageId,
+            opportunityId: opportunity.id,
+            leadId: opportunity.leadId || undefined,
+            contactId: opportunity.contactId || undefined,
+            ticketId: opportunity.ticketId || undefined,
+            value: opportunity.value || undefined
+        }))
+        .catch(() => null);
+
     try {
         const { getIO } = await import("../../libs/socket");
         const io = getIO();

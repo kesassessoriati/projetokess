@@ -163,6 +163,7 @@ import sipDidRouteRoutes from "./sipDidRouteRoutes";
 import sipChannelBindingRoutes from "./sipChannelBindingRoutes";
 import sipCallLogRoutes from "./sipCallLogRoutes";
 import sipAdvancedRoutes from "./sipAdvancedRoutes";
+import adTrackingRoutes from "./adTrackingRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -363,5 +364,8 @@ routes.use(meetingRoutes);
 
 // Módulo de Propostas
 routes.use(proposalRoutes);
+
+// Ad Tracking (Meta Ads / Google Ads)
+routes.use(adTrackingRoutes);
 
 export default routes;

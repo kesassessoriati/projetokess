@@ -39,6 +39,8 @@ export const WORKSPACE_MENU_OPTIONS = [
   { key: "documentacao", label: "Documentação", group: "Ajuda" },
   { key: "integracoes", label: "Integrações", group: "Automação" },
   { key: "ferramentas", label: "Ferramentas", group: "Automação" },
+  { key: "meta-ads", label: "Meta Ads", group: "Automação" },
+  { key: "google-ads", label: "Google Ads", group: "Automação" },
   { key: "configuracoes", label: "Configurações", group: "Sistema" },
   { key: "smtp", label: "SMTP (E-mail)", group: "Sistema" },
   { key: "sip-webphone", label: "SIP / Webphone", group: "Sistema" },

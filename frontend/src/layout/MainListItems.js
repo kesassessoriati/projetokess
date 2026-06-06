@@ -58,6 +58,7 @@ import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import PermMediaIcon from "@mui/icons-material/PermMedia";
 import SimCardIcon from "@mui/icons-material/SimCard";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
+import CampaignIcon from "@mui/icons-material/Campaign";
 import UserModal from "../components/UserModal";
 
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -1109,6 +1110,51 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
           </>
         );
 
+      case "automation":
+        return (
+          <>
+            <div className={classes.submenuHeader}>
+              <Typography className={classes.submenuTitle}>
+                Automação
+              </Typography>
+            </div>
+            <div className={classes.submenuContent}>
+              {showIntegrations && planExpired && (
+                <Can
+                  role={user.profile}
+                  perform="dashboard:view"
+                  yes={() => (
+                    <ListItemLink
+                      to="/queue-integration"
+                      primary="Integrações"
+                      icon={<DeviceHubIcon />}
+                      onNavigate={handleNavigateFromSubmenu}
+                    />
+                  )}
+                />
+              )}
+              <ListItemLink
+                to="/ferramentas"
+                primary="Ferramentas"
+                icon={<BuildOutlinedIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/ad-tracking/meta"
+                primary="Meta Ads"
+                icon={<CampaignIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
+                to="/ad-tracking/google"
+                primary="Google Ads"
+                icon={<TrendingUpIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+            </div>
+          </>
+        );
+
       case "administration":
         return (
           <>
@@ -1497,6 +1543,38 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
             )}
           </ListItem>
         </Tooltip>
+
+        <Can
+          role={user.profile}
+          perform="dashboard:view"
+          yes={() => (
+            <Tooltip title={collapsed ? "Automação" : ""} placement="right">
+              <ListItem
+                button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMenuClick("automation");
+                }}
+                className={`${classes.listItem} ${activeSubmenu === "automation" ? "active" : ""}`}
+              >
+                <ListItemIcon className={classes.listItemIcon}>
+                  <Avatar className={classes.iconAvatar}>
+                    <CampaignIcon />
+                  </Avatar>
+                </ListItemIcon>
+                {!collapsed && (
+                  <ListItemText
+                    primary={
+                      <Typography className={`${classes.listItemText} ${activeSubmenu === "automation" ? "active" : ""}`}>
+                        Automação
+                      </Typography>
+                    }
+                  />
+                )}
+              </ListItem>
+            </Tooltip>
+          )}
+        />
 
         <Tooltip title={collapsed ? "Reuniões Gravadas" : ""} placement="right">
           <ListItem

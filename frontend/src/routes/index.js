@@ -111,6 +111,8 @@ import Meetings from "../pages/Meetings";
 import PropostasPage from "../pages/Propostas";
 import PropostaEditorPage from "../pages/PropostaEditor";
 import PropostaPublica from "../pages/PropostaPublica";
+import MetaAdsPage from "../pages/MetaAds";
+import GoogleAdsPage from "../pages/GoogleAds";
 
 // [DEPRECATED] Funil Legado - migrado para Board Inteligente
 // import Funil from "../pages/Funil";
@@ -336,6 +338,9 @@ const Routes = () => {
                             <Route exact path="/campaigns-config" component={CampaignsConfig} isPrivate />
                           </>
                         )}
+                        {/* Ad Tracking - Meta Ads e Google Ads */}
+                        <Route exact path="/ad-tracking/meta" component={MetaAdsPage} isPrivate />
+                        <Route exact path="/ad-tracking/google" component={GoogleAdsPage} isPrivate />
                         {/* Rotas para Links Embedded */}
                         <Route exact path="/apps-config" component={ExternalAppConfig} isPrivate />
                         <Route exact path="/apps/:appId" component={EmbeddedLink} isPrivate />
