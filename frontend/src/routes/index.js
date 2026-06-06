@@ -328,16 +328,12 @@ const Routes = () => {
                         <Route exact path="/admin/performance" component={Performance} isPrivate />
                         <Route exact path="/admin/ai-settings" component={GlobalAISettings} isPrivate adminOnly />
                         <Route exact path="/admin/api-settings" component={GlobalAPISettings} isPrivate adminOnly />
-                        {showCampaigns && (
-                          <>
-                            <Route exact path="/contact-lists" component={ContactLists} isPrivate />
-                            <Route exact path="/contact-lists/:contactListId/contacts" component={ContactListItems} isPrivate />
-                            <Route exact path="/campaigns" component={Campanhas} isPrivate />
-                            <Route exact path="/campanhas" component={Campanhas} isPrivate />
-                            <Route exact path="/campaign/:campaignId/report" component={CampaignReport} isPrivate />
-                            <Route exact path="/campaigns-config" component={CampaignsConfig} isPrivate />
-                          </>
-                        )}
+                        {showCampaigns && <Route exact path="/contact-lists" component={ContactLists} isPrivate />}
+                        {showCampaigns && <Route exact path="/contact-lists/:contactListId/contacts" component={ContactListItems} isPrivate />}
+                        {showCampaigns && <Route exact path="/campaigns" component={Campanhas} isPrivate />}
+                        {showCampaigns && <Route exact path="/campanhas" component={Campanhas} isPrivate />}
+                        {showCampaigns && <Route exact path="/campaign/:campaignId/report" component={CampaignReport} isPrivate />}
+                        {showCampaigns && <Route exact path="/campaigns-config" component={CampaignsConfig} isPrivate />}
                         {/* Ad Tracking - Meta Ads e Google Ads */}
                         <Route exact path="/ad-tracking/meta" component={MetaAdsPage} isPrivate />
                         <Route exact path="/ad-tracking/google" component={GoogleAdsPage} isPrivate />
