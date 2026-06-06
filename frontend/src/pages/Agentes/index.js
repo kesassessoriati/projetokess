@@ -659,7 +659,7 @@ const reducer = (state, action) => {
 const Prompts = () => {
   const classes = useStyles();
 
-  const [activeAgentTab, setActiveAgentTab] = useState("internal");
+  const [activeAgentTab, setActiveAgentTab] = useState("external");
   const [externalSection, setExternalSection] = useState("dashboard");
   const [prompts, dispatch] = useReducer(reducer, []);
   const [loading, setLoading] = useState(false);
@@ -3291,17 +3291,17 @@ const Prompts = () => {
       <Box className={classes.agentTabs}>
         <button
           type="button"
-          className={`${classes.agentTab} ${activeAgentTab === "internal" ? classes.agentTabActive : ""}`}
-          onClick={() => setActiveAgentTab("internal")}
-        >
-          Agente Interno
-        </button>
-        <button
-          type="button"
           className={`${classes.agentTab} ${activeAgentTab === "external" ? classes.agentTabActive : ""}`}
           onClick={() => setActiveAgentTab("external")}
         >
           Agente Externo N8N
+        </button>
+        <button
+          type="button"
+          className={`${classes.agentTab} ${activeAgentTab === "internal" ? classes.agentTabActive : ""}`}
+          onClick={() => setActiveAgentTab("internal")}
+        >
+          Agente Interno
         </button>
       </Box>
 
