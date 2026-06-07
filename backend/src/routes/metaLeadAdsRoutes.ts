@@ -17,6 +17,9 @@ metaLeadAdsRoutes.delete("/meta-lead-ads/integrations/:id", isAuth, MetaLeadAdsC
 // Histórico de leads recebidos
 metaLeadAdsRoutes.get("/meta-lead-ads/leads", isAuth, MetaLeadAdsController.listLeads);
 
+// Dados Meta de um lead CRM específico (para exibição no modal)
+metaLeadAdsRoutes.get("/meta-lead-ads/by-lead/:crmLeadId", isAuth, MetaLeadAdsController.getLeadByCrmLeadId);
+
 // Simulação de lead
 metaLeadAdsRoutes.post("/meta-lead-ads/simulate", isAuth, MetaLeadAdsController.simulateLead);
 

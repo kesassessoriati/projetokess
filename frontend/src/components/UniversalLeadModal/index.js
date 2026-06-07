@@ -215,6 +215,9 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const [activityToDelete, setActivityToDelete] = useState(null);
     const [removeFromFunnelConfirmOpen, setRemoveFromFunnelConfirmOpen] = useState(false);
     const [removingFromFunnel, setRemovingFromFunnel] = useState(false);
+    const [metaLead, setMetaLead] = useState(null);
+    const [loadingMetaLead, setLoadingMetaLead] = useState(false);
+    const [showMetaFormResponses, setShowMetaFormResponses] = useState(false);
     const syncLeadModalStateRef = useRef(syncLeadModalState);
     const leadAppointmentPhone = useMemo(() => {
         const rawPhone =
@@ -238,6 +241,8 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             setRemovingFromFunnel(false);
             setShowRecordings(false);
             setShowMeetings(false);
+            setMetaLead(null);
+            setShowMetaFormResponses(false);
         }
     }, [open]);
 
@@ -335,6 +340,18 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             fetchLeadAppointments();
         }
     }, [fetchLeadAppointments, open, tabValue]);
+
+    useEffect(() => {
+        if (!open || !resolvedLeadId) {
+            setMetaLead(null);
+            return;
+        }
+        setLoadingMetaLead(true);
+        api.get(`/meta-lead-ads/by-lead/${resolvedLeadId}`)
+            .then(({ data }) => setMetaLead(data))
+            .catch(() => setMetaLead(null))
+            .finally(() => setLoadingMetaLead(false));
+    }, [open, resolvedLeadId]);
 
     if (!op && !leadId && open && false) {
         return null; // bloqueio removido para permitir a criação de um Novo Lead
@@ -539,6 +556,80 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                         <Typography variant="body2"><strong>Risco IA:</strong> {(op && op.prediction && op.prediction.riskLevel) || "N/A"}</Typography>
                         <Typography variant="body2"><strong>Criado em:</strong> {(op && op.createdAt) ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
                     </Box>
+
+                    {loadingMetaLead && (
+                        <Box mt={2} display="flex" alignItems="center" style={{ gap: 6 }}>
+                            <CircularProgress size={14} />
+                            <Typography variant="caption" color="textSecondary">Carregando dados Meta Ads...</Typography>
+                        </Box>
+                    )}
+
+                    {metaLead && (
+                        <>
+                            <Divider style={{ marginTop: 16, marginBottom: 16 }} />
+                            <Box>
+                                <Box display="flex" alignItems="center" style={{ gap: 6, marginBottom: 8 }}>
+                                    <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600 }}>META LEAD ADS</Typography>
+                                    <Chip
+                                        label="Meta"
+                                        size="small"
+                                        style={{ backgroundColor: "#1877F2", color: "#fff", height: 18, fontSize: 10 }}
+                                    />
+                                </Box>
+                                {metaLead.integration && metaLead.integration.pageName && (
+                                    <Typography variant="body2"><strong>Página:</strong> {metaLead.integration.pageName}</Typography>
+                                )}
+                                {metaLead.integration && metaLead.integration.formName && (
+                                    <Typography variant="body2"><strong>Formulário:</strong> {metaLead.integration.formName}</Typography>
+                                )}
+                                <Typography variant="body2">
+                                    <strong>Capturado em:</strong>{" "}
+                                    {new Date(metaLead.capturedAt).toLocaleString("pt-BR")}
+                                </Typography>
+                                <Typography variant="body2">
+                                    <strong>Status Meta:</strong>{" "}
+                                    <span style={{
+                                        color: metaLead.status === "processed" ? "#10b981"
+                                            : metaLead.status === "error" ? "#ef4444"
+                                            : "#6b7280"
+                                    }}>
+                                        {metaLead.status}
+                                    </span>
+                                </Typography>
+                                {metaLead.adId && (
+                                    <Typography variant="body2" style={{ wordBreak: "break-all" }}>
+                                        <strong>Ad ID:</strong> {metaLead.adId}
+                                    </Typography>
+                                )}
+                                {metaLead.campaignId && (
+                                    <Typography variant="body2" style={{ wordBreak: "break-all" }}>
+                                        <strong>Campaign ID:</strong> {metaLead.campaignId}
+                                    </Typography>
+                                )}
+                                {metaLead.formResponses && metaLead.formResponses.length > 0 && (
+                                    <Box mt={1}>
+                                        <Button
+                                            size="small"
+                                            variant="text"
+                                            style={{ padding: 0, minWidth: 0, textTransform: "none", color: "#475569", fontSize: 12 }}
+                                            onClick={() => setShowMetaFormResponses(v => !v)}
+                                        >
+                                            {showMetaFormResponses ? "▲ Ocultar respostas" : "▼ Ver respostas do formulário"}
+                                        </Button>
+                                        {showMetaFormResponses && (
+                                            <Box mt={1} p={1.5} style={{ backgroundColor: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                                                {metaLead.formResponses.map((r, i) => (
+                                                    <Typography key={i} variant="body2" style={{ marginBottom: 2 }}>
+                                                        <strong>{r.name}:</strong> {r.value}
+                                                    </Typography>
+                                                ))}
+                                            </Box>
+                                        )}
+                                    </Box>
+                                )}
+                            </Box>
+                        </>
+                    )}
 
                     {op && op.id && (
                         <Box mt={3} display="flex" flexDirection="column" style={{ gap: 8 }}>

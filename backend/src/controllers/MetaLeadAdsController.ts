@@ -240,6 +240,54 @@ export const listLeads = async (req: Request, res: Response): Promise<Response> 
   return res.json({ count, rows });
 };
 
+// GET /meta-lead-ads/by-lead/:crmLeadId — dados Meta para um lead específico do CRM
+export const getLeadByCrmLeadId = async (req: Request, res: Response): Promise<Response> => {
+  const companyId = (req as any).user.companyId;
+  const crmLeadId = Number(req.params.crmLeadId);
+
+  if (!crmLeadId || isNaN(crmLeadId)) {
+    return res.status(400).json({ error: "crmLeadId inválido." });
+  }
+
+  const metaLead = await MetaLead.findOne({
+    where: { companyId, crmLeadId },
+    include: [{ model: MetaLeadIntegration, attributes: ["id", "pageName", "formName"] }],
+    order: [["createdAt", "DESC"]]
+  });
+
+  if (!metaLead) {
+    return res.status(404).json({ error: "Nenhum dado Meta Lead Ads encontrado para este lead." });
+  }
+
+  const rawFields: any[] = (metaLead.normalizedPayload as any)?.rawFields || [];
+  const formResponses = rawFields.map((f: any) => ({
+    name: f.name,
+    value: Array.isArray(f.values) ? f.values[0] : String(f.values ?? "")
+  }));
+
+  const integration = (metaLead as any).integration;
+
+  return res.json({
+    id: metaLead.id,
+    leadgenId: metaLead.leadgenId,
+    formId: metaLead.formId,
+    pageId: metaLead.pageId,
+    adId: metaLead.adId || null,
+    campaignId: metaLead.campaignId || null,
+    adsetId: metaLead.adsetId || null,
+    leadName: metaLead.leadName,
+    leadPhone: metaLead.leadPhone,
+    leadEmail: metaLead.leadEmail,
+    status: metaLead.status,
+    errorMessage: metaLead.status === "error" ? metaLead.errorMessage : undefined,
+    formResponses,
+    capturedAt: metaLead.createdAt,
+    integration: integration
+      ? { id: integration.id, pageName: integration.pageName, formName: integration.formName }
+      : null
+  });
+};
+
 // POST /meta-lead-ads/simulate — teste local sem chamar a Graph API
 export const simulateLead = async (req: Request, res: Response): Promise<Response> => {
   const companyId = (req as any).user.companyId;
