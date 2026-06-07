@@ -10,4 +10,9 @@ aiActionsRoutes.post("/ai-actions/contacts/:contactId/pause", isAuth, AiActionsC
 aiActionsRoutes.post("/ai-actions/contacts/:contactId/pause-until", isAuth, AiActionsController.pauseUntil);
 aiActionsRoutes.post("/ai-actions/contacts/:contactId/resume", isAuth, AiActionsController.resume);
 
+aiActionsRoutes.get("/ai-actions/company-status", isAuth, AiActionsController.companyStatus);
+aiActionsRoutes.post("/ai-actions/company/pause", isAuth, AiActionsController.companyPause);
+aiActionsRoutes.post("/ai-actions/company/disable", isAuth, AiActionsController.companyDisable);
+aiActionsRoutes.post("/ai-actions/company/resume", isAuth, AiActionsController.companyResume);
+
 export default aiActionsRoutes;

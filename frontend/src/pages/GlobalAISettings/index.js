@@ -4,12 +4,14 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   Grid,
   IconButton,
@@ -17,6 +19,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Switch,
   TextField,
   Tooltip,
   Typography
@@ -25,7 +28,10 @@ import Autocomplete from "@material-ui/lab/Autocomplete";
 import { makeStyles } from "@material-ui/core/styles";
 import SaveIcon from "@material-ui/icons/Save";
 import EditIcon from "@material-ui/icons/Edit";
+import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import LinkIcon from "@material-ui/icons/Link";
 import { toast } from "react-toastify";
+import api from "../../services/api";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import ForbiddenPage from "../../components/ForbiddenPage";
@@ -90,6 +96,13 @@ const GlobalAISettings = () => {
   const [attendanceAiFallbackModel, setAttendanceAiFallbackModel] = useState("");
   const [attendanceAiStrategy, setAttendanceAiStrategy] = useState("primary_only");
 
+  // Webhook Geral N8N
+  const [globalWebhookEnabled, setGlobalWebhookEnabled] = useState(false);
+  const [globalWebhookUrl, setGlobalWebhookUrl] = useState("");
+  const [globalWebhookEvents, setGlobalWebhookEvents] = useState(["MESSAGE_RECEIVED", "MESSAGE_SENT"]);
+  const [globalWebhookSaving, setGlobalWebhookSaving] = useState(false);
+  const [globalWebhookTesting, setGlobalWebhookTesting] = useState(false);
+
   // Modal de edição do prompt
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -97,7 +110,10 @@ const GlobalAISettings = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await getGlobalAiSettings();
+        const [data, webhookData] = await Promise.all([
+          getGlobalAiSettings(),
+          api.get("/admin/ai/global-webhook").then(r => r.data).catch(() => null),
+        ]);
         setProviders(data.providers || []);
         setPreferredProvider(data.preferredProvider || "openai");
         setCrmAiSystemPrompt(data.crmAiSystemPrompt || "");
@@ -107,6 +123,11 @@ const GlobalAISettings = () => {
         setAttendanceAiFallbackProvider(data.attendanceAiFallbackProvider || "");
         setAttendanceAiFallbackModel(data.attendanceAiFallbackModel || "");
         setAttendanceAiStrategy(data.attendanceAiStrategy || "primary_only");
+        if (webhookData) {
+          setGlobalWebhookEnabled(!!webhookData.enabled);
+          setGlobalWebhookUrl(webhookData.url || "");
+          setGlobalWebhookEvents(webhookData.events || ["MESSAGE_RECEIVED", "MESSAGE_SENT"]);
+        }
       } catch (err) {
         toastError(err);
       } finally {
@@ -165,6 +186,48 @@ const GlobalAISettings = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveGlobalWebhook = async () => {
+    setGlobalWebhookSaving(true);
+    try {
+      await api.put("/admin/ai/global-webhook", {
+        enabled: globalWebhookEnabled,
+        url: globalWebhookUrl,
+        events: globalWebhookEvents,
+      });
+      toast.success("Webhook Geral N8N salvo com sucesso.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setGlobalWebhookSaving(false);
+    }
+  };
+
+  const handleTestGlobalWebhook = async () => {
+    if (!globalWebhookUrl) {
+      toast.error("Informe a URL antes de testar.");
+      return;
+    }
+    setGlobalWebhookTesting(true);
+    try {
+      const { data } = await api.post("/admin/ai/global-webhook/test", { url: globalWebhookUrl });
+      if (data.success) {
+        toast.success(`Webhook respondeu com sucesso (status ${data.status}).`);
+      } else {
+        toast.error(`Webhook falhou: ${data.error || `status ${data.status}`}`);
+      }
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setGlobalWebhookTesting(false);
+    }
+  };
+
+  const handleToggleGlobalWebhookEvent = (event) => {
+    setGlobalWebhookEvents(prev =>
+      prev.includes(event) ? prev.filter(e => e !== event) : [...prev, event]
+    );
   };
 
   if (loading) {
@@ -400,6 +463,92 @@ const GlobalAISettings = () => {
           Salvar configuração de IA
         </Button>
       </Box>
+
+      {/* Webhook Geral N8N */}
+      <Card className={classes.card} style={{ marginTop: 24 }}>
+        <CardContent>
+          <Box display="flex" alignItems="center" style={{ gap: 10, marginBottom: 4 }}>
+            <LinkIcon style={{ color: "#2563eb" }} />
+            <Typography variant="h6" style={{ fontWeight: 700 }}>Webhook Geral N8N</Typography>
+          </Box>
+          <Typography variant="body2" color="textSecondary" style={{ marginBottom: 20 }}>
+            Recebe eventos de mensagens de <strong>todas as empresas/tenants</strong>. Ideal para manter uma única arquitetura de IA no n8n.
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={globalWebhookEnabled}
+                onChange={e => setGlobalWebhookEnabled(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Ativar Webhook Geral"
+            style={{ marginBottom: 16 }}
+          />
+
+          <TextField
+            label="URL do Webhook Geral"
+            value={globalWebhookUrl}
+            onChange={e => setGlobalWebhookUrl(e.target.value)}
+            variant="outlined"
+            fullWidth
+            placeholder="https://seu-n8n.com/webhook/ia-global"
+            disabled={!globalWebhookEnabled}
+            style={{ marginBottom: 16 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LinkIcon style={{ fontSize: 18, color: "#94a3b8" }} />
+                </InputAdornment>
+              )
+            }}
+          />
+
+          <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8, color: "#475569" }}>
+            Eventos
+          </Typography>
+          <Box style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+            {[
+              { key: "MESSAGE_RECEIVED", label: "Mensagem recebida" },
+              { key: "MESSAGE_SENT", label: "Mensagem enviada" },
+            ].map(({ key, label }) => (
+              <FormControlLabel
+                key={key}
+                control={
+                  <Checkbox
+                    checked={globalWebhookEvents.includes(key)}
+                    onChange={() => handleToggleGlobalWebhookEvent(key)}
+                    color="primary"
+                    disabled={!globalWebhookEnabled}
+                  />
+                }
+                label={label}
+              />
+            ))}
+          </Box>
+
+          <Box display="flex" style={{ gap: 12 }}>
+            <Button
+              variant="outlined"
+              startIcon={globalWebhookTesting ? <CircularProgress size={14} /> : <PlayArrowIcon />}
+              onClick={handleTestGlobalWebhook}
+              disabled={!globalWebhookUrl || globalWebhookTesting}
+            >
+              Testar Webhook
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={globalWebhookSaving ? <CircularProgress size={14} /> : <SaveIcon />}
+              onClick={handleSaveGlobalWebhook}
+              disabled={globalWebhookSaving}
+            >
+              Salvar
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Modal de edição do Prompt */}
       <Dialog open={promptModalOpen} onClose={() => setPromptModalOpen(false)} maxWidth="md" fullWidth>

@@ -6,6 +6,8 @@ import Whatsapp from "../../models/Whatsapp";
 import logger from "../../utils/logger";
 import CheckAiBlockService from "../TicketServices/CheckAiBlockService";
 import GetOrCreateAiExternalSettingsService from "../AiExternalSettingsServices/GetOrCreateAiExternalSettingsService";
+import { checkCompanyAiBlock } from "../AiActionsServices/CompanyAiBlockService";
+import { dispatchGlobalAiWebhook } from "./GlobalAiWebhookService";
 
 // ─── Tipos de eventos disponíveis ───────────────────────────────────────────
 
@@ -105,6 +107,8 @@ const MESSAGE_EVENTS = new Set<WebhookEventType>([
   "MESSAGE_SENT"
 ]);
 
+// Resolve integrações locais para eventos de mensagem.
+// NÃO verifica bloqueio por empresa aqui — isso é responsabilidade de dispatch().
 const resolveMessageIntegrations = async (
   eventType: WebhookEventType,
   companyId: number,
@@ -201,7 +205,23 @@ export const dispatch = async (
   data: Record<string, unknown>
 ): Promise<void> => {
   try {
-    const subscribed = MESSAGE_EVENTS.has(eventType)
+    const isMessageEvent = MESSAGE_EVENTS.has(eventType);
+
+    // ── Bloqueio por empresa (Pausar/Desligar IA Geral) ──────────────────────
+    // Aplica somente a eventos de mensagem e bloqueia local E global.
+    // Não afeta outros eventos (TICKET_CREATED, LEAD_UPDATED etc.).
+    if (isMessageEvent) {
+      const companyBlock = await checkCompanyAiBlock(companyId);
+      if (companyBlock.blocked) {
+        logger.info(
+          `[WebhookDispatch] ${eventType} bloqueado por empresa companyId=${companyId} reason=${companyBlock.reason}`
+        );
+        return;
+      }
+    }
+
+    // ── Resolver integrações locais ──────────────────────────────────────────
+    const subscribed = isMessageEvent
       ? await resolveMessageIntegrations(eventType, companyId, data)
       : (
           await QueueIntegrations.findAll({
@@ -217,11 +237,9 @@ export const dispatch = async (
             integration.urlN8N
         );
 
-    if (subscribed.length === 0) return;
-
-    // Para eventos de mensagem, enriquecer payload com dados operacionais da IA externa
+    // ── Enriquecer payload ────────────────────────────────────────────────────
     let ai_external_settings: Record<string, unknown> | undefined;
-    if (MESSAGE_EVENTS.has(eventType)) {
+    if (isMessageEvent) {
       try {
         ai_external_settings = await GetOrCreateAiExternalSettingsService(companyId) as any;
       } catch (settingsErr: any) {
@@ -237,6 +255,7 @@ export const dispatch = async (
       ...(ai_external_settings ? { ai_external_settings } : {})
     };
 
+    // ── Dispatch local (somente se houver integrações configuradas) ───────────
     for (const integration of subscribed) {
       axios
         .post(integration.urlN8N, payload, {
@@ -248,6 +267,15 @@ export const dispatch = async (
             `[WebhookDispatch] Falha ao enviar ${eventType} para ${integration.urlN8N}: ${err.message}`
           );
         });
+    }
+
+    // ── Dispatch global (sempre para eventos de mensagem, independente do local) ─
+    // Regra: empresa ativa → global recebe mesmo sem webhook local configurado.
+    //        empresa pausada/desligada → bloqueado acima, nunca chega aqui.
+    if (isMessageEvent) {
+      dispatchGlobalAiWebhook(eventType, companyId, payload).catch(err => {
+        logger.warn(`[WebhookDispatch] Erro no dispatch global companyId=${companyId}: ${err?.message}`);
+      });
     }
   } catch (err) {
     logger.error(`[WebhookDispatch] Erro ao buscar integrações: ${err}`);

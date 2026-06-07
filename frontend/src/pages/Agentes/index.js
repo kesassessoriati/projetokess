@@ -49,6 +49,7 @@ import WarningIcon from "@material-ui/icons/Warning";
 import BlockIcon from "@material-ui/icons/Block";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
 import PauseIcon from "@material-ui/icons/Pause";
+import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
 import TimerIcon from "@material-ui/icons/Timer";
 import AccessTimeIcon from "@material-ui/icons/AccessTime";
 import InfoOutlinedIcon from "@material-ui/icons/InfoOutlined";
@@ -1070,6 +1071,14 @@ const Prompts = () => {
   const [ragResults, setRagResults] = useState([]);
   const [businessHoursForm, setBusinessHoursForm] = useState(DEFAULT_BUSINESS_HOURS);
   const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
+  const [companyAiStatus, setCompanyAiStatus] = useState(null);
+  const [companyAiLoading, setCompanyAiLoading] = useState(false);
+  const [companyAiSaving, setCompanyAiSaving] = useState(false);
+  const [companyPauseDialog, setCompanyPauseDialog] = useState(false);
+  const [companyPauseMinutes, setCompanyPauseMinutes] = useState(30);
+  const [companyPauseReason, setCompanyPauseReason] = useState("");
+  const [companyDisableDialog, setCompanyDisableDialog] = useState(false);
+  const [companyDisableReason, setCompanyDisableReason] = useState("");
   const [appointmentForm, setAppointmentForm] = useState({
     title: "",
     leadName: "",
@@ -1502,6 +1511,61 @@ const Prompts = () => {
         [day]: { ...prev.days[day], [field]: value },
       },
     }));
+  };
+
+  const loadCompanyAiStatus = async () => {
+    setCompanyAiLoading(true);
+    try {
+      const { data } = await api.get("/ai-actions/company-status");
+      setCompanyAiStatus(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCompanyAiLoading(false);
+    }
+  };
+
+  const handleCompanyPause = async () => {
+    setCompanyAiSaving(true);
+    try {
+      await api.post("/ai-actions/company/pause", { minutes: companyPauseMinutes, reason: companyPauseReason || null });
+      toast.success("IA Geral pausada com sucesso.");
+      setCompanyPauseDialog(false);
+      setCompanyPauseReason("");
+      await loadCompanyAiStatus();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCompanyAiSaving(false);
+    }
+  };
+
+  const handleCompanyDisable = async () => {
+    setCompanyAiSaving(true);
+    try {
+      await api.post("/ai-actions/company/disable", { reason: companyDisableReason || null });
+      toast.success("IA Geral desligada.");
+      setCompanyDisableDialog(false);
+      setCompanyDisableReason("");
+      await loadCompanyAiStatus();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCompanyAiSaving(false);
+    }
+  };
+
+  const handleCompanyResume = async () => {
+    setCompanyAiSaving(true);
+    try {
+      await api.post("/ai-actions/company/resume");
+      toast.success("IA Geral reativada.");
+      await loadCompanyAiStatus();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCompanyAiSaving(false);
+    }
   };
 
   const handleSaveBusinessHours = async () => {
@@ -3239,8 +3303,192 @@ const Prompts = () => {
       return matchSearch && matchMode;
     });
 
+    const companyStatusColor = {
+      active: "#22c55e",
+      paused: "#f59e0b",
+      disabled: "#ef4444",
+    };
+    const companyStatusLabel = {
+      active: "Ativa",
+      paused: "Pausada",
+      disabled: "Desligada",
+    };
+    const csStatus = companyAiStatus?.status ?? "active";
+
     return (
       <Box style={{ padding: "24px" }}>
+        {/* Controle Geral da IA da Empresa */}
+        <Box style={{
+          background: "#fff", borderRadius: 12,
+          border: `1px solid ${(companyStatusColor[csStatus] ?? "#22c55e")}44`,
+          padding: "20px 24px", marginBottom: 24,
+        }}>
+          <Box style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <Box style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <Box style={{
+                background: `${(companyStatusColor[csStatus] ?? "#22c55e")}18`,
+                borderRadius: 10, padding: 10, display: "flex",
+              }}>
+                {csStatus === "active"
+                  ? <CheckCircleOutlineIcon style={{ color: "#22c55e", fontSize: 26 }} />
+                  : csStatus === "paused"
+                  ? <PauseIcon style={{ color: "#f59e0b", fontSize: 26 }} />
+                  : <BlockIcon style={{ color: "#ef4444", fontSize: 26 }} />}
+              </Box>
+              <Box>
+                <Typography style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                  Controle Geral da IA da Empresa
+                </Typography>
+                {companyAiLoading ? (
+                  <Typography style={{ fontSize: 12, color: "#94a3b8" }}>Carregando…</Typography>
+                ) : (
+                  <Box style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    <Box style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: companyStatusColor[csStatus] ?? "#22c55e",
+                    }} />
+                    <Typography style={{ fontSize: 13, color: companyStatusColor[csStatus] ?? "#22c55e", fontWeight: 600 }}>
+                      {companyStatusLabel[csStatus] ?? "Ativa"}
+                    </Typography>
+                    {csStatus === "paused" && companyAiStatus?.pausedUntil && (
+                      <Typography style={{ fontSize: 12, color: "#94a3b8" }}>
+                        até {new Date(companyAiStatus.pausedUntil).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                      </Typography>
+                    )}
+                    {(csStatus === "paused" || csStatus === "disabled") && companyAiStatus?.reason && (
+                      <Typography style={{ fontSize: 12, color: "#94a3b8" }}>
+                        — {companyAiStatus.reason}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Box style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {csStatus !== "paused" && csStatus !== "disabled" && (
+                <button
+                  type="button"
+                  onClick={() => { setCompanyPauseMinutes(30); setCompanyPauseReason(""); setCompanyPauseDialog(true); }}
+                  disabled={companyAiLoading || companyAiSaving}
+                  style={{
+                    background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8,
+                    padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    color: "#92400e", display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <PauseIcon style={{ fontSize: 16 }} /> Pausar IA Geral
+                </button>
+              )}
+              {csStatus !== "disabled" && (
+                <button
+                  type="button"
+                  onClick={() => { setCompanyDisableReason(""); setCompanyDisableDialog(true); }}
+                  disabled={companyAiLoading || companyAiSaving}
+                  style={{
+                    background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8,
+                    padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    color: "#991b1b", display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <BlockIcon style={{ fontSize: 16 }} /> Desligar IA Geral
+                </button>
+              )}
+              {(csStatus === "paused" || csStatus === "disabled") && (
+                <button
+                  type="button"
+                  onClick={handleCompanyResume}
+                  disabled={companyAiLoading || companyAiSaving}
+                  style={{
+                    background: "#dcfce7", border: "1px solid #86efac", borderRadius: 8,
+                    padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    color: "#166534", display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <PlayArrowIcon style={{ fontSize: 16 }} /> Reativar IA Geral
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={loadCompanyAiStatus}
+                disabled={companyAiLoading}
+                style={{
+                  background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8,
+                  padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "#475569",
+                }}
+              >
+                {companyAiLoading ? "…" : "↻"}
+              </button>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Dialog — Pausar IA Geral */}
+        <Dialog open={companyPauseDialog} onClose={() => setCompanyPauseDialog(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Pausar IA Geral</DialogTitle>
+          <DialogContent>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Nenhuma mensagem recebida será processada pela IA enquanto estiver pausada. A pausa é desfeita automaticamente ao final do prazo.
+            </Typography>
+            <TextField
+              select
+              label="Duração da pausa"
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={companyPauseMinutes}
+              onChange={(e) => setCompanyPauseMinutes(Number(e.target.value))}
+              style={{ marginBottom: 14 }}
+            >
+              <MenuItem value={15}>15 minutos</MenuItem>
+              <MenuItem value={30}>30 minutos</MenuItem>
+              <MenuItem value={60}>1 hora</MenuItem>
+              <MenuItem value={120}>2 horas</MenuItem>
+              <MenuItem value={480}>8 horas</MenuItem>
+              <MenuItem value={1440}>24 horas</MenuItem>
+            </TextField>
+            <TextField
+              label="Motivo (opcional)"
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={companyPauseReason}
+              onChange={(e) => setCompanyPauseReason(e.target.value)}
+              placeholder="Ex: manutenção, feriado..."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCompanyPauseDialog(false)} disabled={companyAiSaving}>Cancelar</Button>
+            <Button onClick={handleCompanyPause} variant="contained" color="primary" disabled={companyAiSaving}>
+              {companyAiSaving ? "Salvando…" : "Confirmar pausa"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Dialog — Desligar IA Geral */}
+        <Dialog open={companyDisableDialog} onClose={() => setCompanyDisableDialog(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Desligar IA Geral</DialogTitle>
+          <DialogContent>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              A IA ficará completamente desligada para toda a empresa até ser reativada manualmente. Use "Reativar IA Geral" para retomar.
+            </Typography>
+            <TextField
+              label="Motivo (opcional)"
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={companyDisableReason}
+              onChange={(e) => setCompanyDisableReason(e.target.value)}
+              placeholder="Ex: sem créditos, instabilidade..."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCompanyDisableDialog(false)} disabled={companyAiSaving}>Cancelar</Button>
+            <Button onClick={handleCompanyDisable} variant="contained" style={{ background: "#ef4444", color: "#fff" }} disabled={companyAiSaving}>
+              {companyAiSaving ? "Desligando…" : "Confirmar desligamento"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Summary cards */}
         <Box style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
           {[
@@ -3689,6 +3937,7 @@ const Prompts = () => {
     }
     if (activeAgentTab === "external" && externalSection === "ai_actions") {
       loadAiActions();
+      loadCompanyAiStatus();
     }
     if (activeAgentTab === "external" && externalSection === "ai_settings") {
       loadAiSettings();

@@ -3,6 +3,12 @@ import ListAiBlockedContactsService from "../services/AiActionsServices/ListAiBl
 import PauseAiForContactService from "../services/AiActionsServices/PauseAiForContactService";
 import ResumeAiForContactService from "../services/AiActionsServices/ResumeAiForContactService";
 import Contact from "../models/Contact";
+import {
+  getCompanyAiStatus,
+  pauseCompanyAiUntil,
+  disableCompanyAi,
+  resumeCompanyAi,
+} from "../services/AiActionsServices/CompanyAiBlockService";
 
 const AiActionsController = {
   async status(req: Request, res: Response): Promise<Response> {
@@ -92,7 +98,49 @@ const AiActionsController = {
     await ResumeAiForContactService(Number(contactId), companyId);
 
     return res.json({ success: true });
-  }
+  },
+
+  async companyStatus(req: Request, res: Response): Promise<Response> {
+    const companyId = Number(req.user.companyId);
+    const status = await getCompanyAiStatus(companyId);
+    return res.json(status);
+  },
+
+  async companyPause(req: Request, res: Response): Promise<Response> {
+    const companyId = Number(req.user.companyId);
+    const userId = Number(req.user.id);
+    const { minutes, pauseUntil, reason } = req.body;
+
+    let until: Date;
+    if (pauseUntil) {
+      until = new Date(pauseUntil);
+    } else {
+      const mins = Number(minutes) || 30;
+      until = new Date(Date.now() + mins * 60 * 1000);
+    }
+
+    if (isNaN(until.getTime()) || until <= new Date()) {
+      return res.status(400).json({ error: "Data/hora de pausa inválida." });
+    }
+
+    await pauseCompanyAiUntil(companyId, until, reason || null, userId);
+    return res.json({ success: true, pausedUntil: until.toISOString() });
+  },
+
+  async companyDisable(req: Request, res: Response): Promise<Response> {
+    const companyId = Number(req.user.companyId);
+    const userId = Number(req.user.id);
+    const { reason } = req.body;
+    await disableCompanyAi(companyId, reason || null, userId);
+    return res.json({ success: true });
+  },
+
+  async companyResume(req: Request, res: Response): Promise<Response> {
+    const companyId = Number(req.user.companyId);
+    const userId = Number(req.user.id);
+    await resumeCompanyAi(companyId, userId);
+    return res.json({ success: true });
+  },
 };
 
 export default AiActionsController;

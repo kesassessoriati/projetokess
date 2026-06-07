@@ -7,6 +7,11 @@ import {
   saveGlobalAISettings,
   syncProviderModels
 } from "../services/AIProviderService/AIModelCatalogService";
+import {
+  getGlobalAiWebhookSettings,
+  saveGlobalAiWebhookSettings,
+  testGlobalAiWebhook
+} from "../services/WebhookDispatch/GlobalAiWebhookService";
 
 const providers: AIProviderName[] = ["openai", "gemini", "openrouter", "groq"];
 
@@ -58,4 +63,27 @@ export const syncModels = async (req: Request, res: Response): Promise<Response>
 
   const data = await syncProviderModels(provider, req.body?.apiKey);
   return res.status(200).json(data);
+};
+
+export const showGlobalWebhook = async (req: Request, res: Response): Promise<Response> => {
+  ensureSuperAdmin(req);
+  const data = await getGlobalAiWebhookSettings();
+  return res.status(200).json(data);
+};
+
+export const updateGlobalWebhook = async (req: Request, res: Response): Promise<Response> => {
+  ensureSuperAdmin(req);
+  const { enabled, url, events } = req.body;
+  const data = await saveGlobalAiWebhookSettings({ enabled, url, events });
+  return res.status(200).json(data);
+};
+
+export const testWebhook = async (req: Request, res: Response): Promise<Response> => {
+  ensureSuperAdmin(req);
+  const { url } = req.body;
+  if (!url || typeof url !== "string") {
+    throw new AppError("URL do webhook é obrigatória.", 400);
+  }
+  const result = await testGlobalAiWebhook(url);
+  return res.status(200).json(result);
 };

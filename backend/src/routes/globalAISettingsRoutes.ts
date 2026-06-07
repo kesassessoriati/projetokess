@@ -8,4 +8,8 @@ globalAISettingsRoutes.get("/admin/ai-settings", isAuth, GlobalAISettingsControl
 globalAISettingsRoutes.put("/admin/ai-settings", isAuth, GlobalAISettingsController.update);
 globalAISettingsRoutes.post("/admin/ai-settings/:provider/sync-models", isAuth, GlobalAISettingsController.syncModels);
 
+globalAISettingsRoutes.get("/admin/ai/global-webhook", isAuth, GlobalAISettingsController.showGlobalWebhook);
+globalAISettingsRoutes.put("/admin/ai/global-webhook", isAuth, GlobalAISettingsController.updateGlobalWebhook);
+globalAISettingsRoutes.post("/admin/ai/global-webhook/test", isAuth, GlobalAISettingsController.testWebhook);
+
 export default globalAISettingsRoutes;
