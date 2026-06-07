@@ -741,6 +741,52 @@ const useStyles = makeStyles((theme) => ({
     gap: 12,
     flexWrap: "wrap",
   },
+  memorySection: {
+    padding: "24px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  memorySearchBar: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  memoryCard: {
+    backgroundColor: "#fff",
+    border: "1px solid #e0e0e0",
+    borderRadius: 8,
+    padding: "12px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  memoryCardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  memoryChip: {
+    fontSize: "0.7rem",
+    height: 20,
+    borderRadius: 4,
+  },
+  memoryContent: {
+    fontSize: "0.875rem",
+    color: "#333",
+    lineHeight: 1.5,
+  },
+  memoryMeta: {
+    fontSize: "0.75rem",
+    color: "#999",
+  },
+  memoryStateBox: {
+    backgroundColor: "#f0f7ff",
+    border: "1px solid #bbdefb",
+    borderRadius: 8,
+    padding: "12px 16px",
+  },
 }));
 
 const reducer = (state, action) => {
@@ -907,6 +953,9 @@ const Prompts = () => {
   const [internalTemplates, setInternalTemplates] = useState([]);
   const [internalTemplatesLoading, setInternalTemplatesLoading] = useState(false);
   const [selectedInitialTemplate, setSelectedInitialTemplate] = useState(null);
+  const [memoryContactId, setMemoryContactId] = useState("");
+  const [memoryData, setMemoryData] = useState(null);
+  const [memoryLoading, setMemoryLoading] = useState(false);
   const [deletingAiAppointment, setDeletingAiAppointment] = useState(null);
   const [editingReminderId, setEditingReminderId] = useState(null);
   const [deletingReminder, setDeletingReminder] = useState(null);
@@ -3266,6 +3315,34 @@ const Prompts = () => {
     };
   }, [isConnected, on, user.companyId]);
 
+  const handleLoadMemory = async () => {
+    if (!memoryContactId) return;
+    setMemoryLoading(true);
+    try {
+      const { data } = await api.get("/internal-agent/context", {
+        params: { contactId: memoryContactId }
+      });
+      setMemoryData(data);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setMemoryLoading(false);
+    }
+  };
+
+  const handleDeleteMemory = async (memoryId) => {
+    try {
+      await api.delete(`/internal-agent/memory/${memoryId}`);
+      setMemoryData(prev => prev ? {
+        ...prev,
+        memories: prev.memories.filter(m => m.id !== memoryId)
+      } : null);
+      toast.success("Memória excluída");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleOpenCreateModal = (templateKey = null) => {
     setSelectedInitialTemplate(templateKey || null);
     setSelectedPrompt(null);
@@ -3498,6 +3575,13 @@ const Prompts = () => {
           >
             Meus Agentes{prompts.length > 0 ? ` (${prompts.length})` : ""}
           </button>
+          <button
+            type="button"
+            className={`${classes.internalSubNavBtn} ${internalSection === "memoria" ? classes.internalSubNavBtnActive : ""}`}
+            onClick={() => setInternalSection("memoria")}
+          >
+            Memória
+          </button>
         </Box>
       )}
 
@@ -3603,7 +3687,7 @@ const Prompts = () => {
               </>
             )}
           </Box>
-        ) : (
+        ) : internalSection === "agentes" ? (
           <>
             <Box className={classes.myAgentsHeader}>
               <TextField
@@ -3758,7 +3842,95 @@ const Prompts = () => {
               ))
             )}
           </>
-        )}
+        ) : internalSection === "memoria" ? (
+          <Box className={classes.memorySection}>
+            <Typography variant="h6" style={{ fontWeight: 600, color: "#1a1a1a" }}>
+              Memória Contextual
+            </Typography>
+            <Typography variant="body2" style={{ color: "#666" }}>
+              Consulte e gerencie as memórias persistentes salvas pelo motor contextual do Agente Interno.
+            </Typography>
+            <Box className={classes.memorySearchBar}>
+              <TextField
+                variant="outlined"
+                size="small"
+                label="ID do Contato"
+                value={memoryContactId}
+                onChange={e => setMemoryContactId(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleLoadMemory()}
+                style={{ width: 220, backgroundColor: "#fff", borderRadius: 8 }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleLoadMemory}
+                disabled={memoryLoading || !memoryContactId}
+              >
+                {memoryLoading ? <CircularProgress size={18} /> : "Buscar"}
+              </Button>
+            </Box>
+
+            {memoryData && (
+              <>
+                {memoryData.state && (
+                  <Box className={classes.memoryStateBox}>
+                    <Typography variant="subtitle2" style={{ fontWeight: 600, marginBottom: 4 }}>
+                      Estado da Conversa
+                    </Typography>
+                    <Typography variant="body2">
+                      Status: <strong>{memoryData.state.status}</strong> &nbsp;|&nbsp;
+                      Turnos: <strong>{memoryData.state.turnCount}</strong> &nbsp;|&nbsp;
+                      Última atividade: <strong>{memoryData.state.lastActivity ? new Date(memoryData.state.lastActivity).toLocaleString("pt-BR") : "—"}</strong>
+                    </Typography>
+                  </Box>
+                )}
+
+                <Typography variant="subtitle1" style={{ fontWeight: 600, marginTop: 8 }}>
+                  Memórias salvas ({memoryData.memories?.length || 0})
+                </Typography>
+
+                {(!memoryData.memories || memoryData.memories.length === 0) ? (
+                  <Typography variant="body2" style={{ color: "#999" }}>
+                    Nenhuma memória encontrada para este contato.
+                  </Typography>
+                ) : (
+                  memoryData.memories.map(memory => (
+                    <Box key={memory.id} className={classes.memoryCard}>
+                      <Box className={classes.memoryCardHeader}>
+                        <Chip
+                          label={memory.memoryType}
+                          size="small"
+                          className={classes.memoryChip}
+                          style={{
+                            backgroundColor:
+                              memory.memoryType === "summary" ? "#e3f2fd" :
+                              memory.memoryType === "fact" ? "#e8f5e9" :
+                              memory.memoryType === "preference" ? "#fff3e0" : "#f3e5f5",
+                            color:
+                              memory.memoryType === "summary" ? "#1565c0" :
+                              memory.memoryType === "fact" ? "#2e7d32" :
+                              memory.memoryType === "preference" ? "#e65100" : "#6a1b9a"
+                          }}
+                        />
+                        <Tooltip title="Excluir memória">
+                          <IconButton size="small" onClick={() => handleDeleteMemory(memory.id)}>
+                            <DeleteOutlineIcon fontSize="small" style={{ color: "#e53935" }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Typography className={classes.memoryContent}>{memory.content}</Typography>
+                      <Typography className={classes.memoryMeta}>
+                        Relevância: {memory.relevanceScore} &nbsp;|&nbsp;
+                        Criado: {new Date(memory.createdAt).toLocaleString("pt-BR")}
+                        {memory.expiresAt && ` | Expira: ${new Date(memory.expiresAt).toLocaleDateString("pt-BR")}`}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+              </>
+            )}
+          </Box>
+        ) : null}
       </Box>
     </Box>
   );

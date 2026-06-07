@@ -964,6 +964,33 @@ export const handleOpenAi = async (
 
   const maxMessages = normalizeNumeric(openAiSettings.maxMessages, 10);
 
+  // Memória contextual — falha silenciosa para não derrubar o atendimento
+  let agentMemoryBlock = "";
+  try {
+    const { default: InternalAgentContextBuilderService } = await import("../InternalAgentServices/InternalAgentContextBuilderService");
+    const ctx = await InternalAgentContextBuilderService.buildContext({
+      companyId: ticket.companyId,
+      contactId: contact.id,
+      promptId: openAiSettings.promptId ?? undefined,
+      contactName: contact.name
+    });
+    agentMemoryBlock = ctx.memoryBlock;
+  } catch (memErr) {
+    logger.error("[InternalAgent] Falha ao carregar memória contextual:", memErr);
+  }
+
+  // Estado da conversa — fire-and-forget, não bloqueia o fluxo
+  if (openAiSettings.promptId) {
+    import("../InternalAgentServices/InternalAgentConversationStateService").then(({ default: StateService }) => {
+      StateService.getOrCreateState(
+        ticket.companyId,
+        contact.id,
+        ticket.id,
+        openAiSettings.promptId as number
+      ).then(state => StateService.incrementTurn(state.id)).catch(() => {/* silencioso */});
+    }).catch(() => {/* silencioso */});
+  }
+
   const messages = await Message.findAll({
     where: { ticketId: ticket.id },
     order: [["createdAt", "ASC"]],
@@ -1010,7 +1037,7 @@ ${buildAiToolingPromptSection({
   })}
 
 ${knowledgeBaseSection ? `${knowledgeBaseSection}\n\n` : ""}
-
+${agentMemoryBlock}
 ${isNearMaxMessages ? `
 🚨 ATENÇÃO - LIMITE DE MENSAGENS ATINGIDO:
 Você está no limite de mensagens permitido. Agora você DEVE OBRIGATORIAMENTE:
