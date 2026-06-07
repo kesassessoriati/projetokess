@@ -207,8 +207,6 @@ import AdTrackingMapping from "../models/AdTrackingMapping";
 import AdTrackingEvent from "../models/AdTrackingEvent";
 import MetaLeadIntegration from "../models/MetaLeadIntegration";
 import MetaLead from "../models/MetaLead";
-import InternalAgentConversationState from "../models/InternalAgentConversationState";
-import InternalAgentMemory from "../models/InternalAgentMemory";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -449,9 +447,7 @@ const models = [
   AdTrackingMapping,
   AdTrackingEvent,
   MetaLeadIntegration,
-  MetaLead,
-  InternalAgentConversationState,
-  InternalAgentMemory
+  MetaLead
 ];
 
 sequelize.addModels(models);
