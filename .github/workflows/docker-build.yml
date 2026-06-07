@@ -27,8 +27,8 @@ jobs:
       - name: Validate Docker Hub credentials
         run: |
           if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_PASSWORD}" ]; then
-            echo "::error::Configure os secrets/vars do repositório para Docker Hub antes de rodar este workflow."
-            echo "::error::Necessário: DOCKER_USERNAME (secret ou variable) e DOCKER_PASSWORD ou DOCKER_TOKEN (secret)."
+            echo "::error::Configure os secrets/vars do repositorio para Docker Hub antes de rodar este workflow."
+            echo "::error::Necessario: DOCKER_USERNAME (secret ou variable) e DOCKER_PASSWORD ou DOCKER_TOKEN (secret)."
             exit 1
           fi
 
@@ -41,47 +41,14 @@ jobs:
       - name: Make script executable
         run: chmod +x build_and_push.sh
 
-      # ── main: build completo com versionamento + latest (comportamento original) ──
-      - name: Run build and push script (main)
-        if: github.ref == 'refs/heads/main'
+      - name: Run build and push script
+        if: github.event_name != 'pull_request'
         run: ./build_and_push.sh
 
-      # ── feature branch: build + push com tag isolada; latest NÃO é atualizado ──
-      - name: Build and push with branch tag (feature branch)
-        if: github.ref != 'refs/heads/main' && github.event_name != 'pull_request'
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          BRANCH_SLUG=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
-          TAG="${BRANCH_SLUG}-${SHORT_SHA}"
-
-          BACKEND_IMAGE="${DOCKER_USERNAME}/atendzappy-backend"
-          FRONTEND_IMAGE="${DOCKER_USERNAME}/atendzappy-frontend"
-
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Tag de feature: ${TAG}"
-          echo "Imagens: ${BACKEND_IMAGE}:${TAG} | ${FRONTEND_IMAGE}:${TAG}"
-
-          docker build \
-            -t "${BACKEND_IMAGE}:${TAG}" \
-            -f backend/Dockerfile ./backend
-
-          docker build \
-            --build-arg REACT_APP_BACKEND_URL="${REACT_APP_BACKEND_URL:-https://apichat.kesassessoria.com}" \
-            -t "${FRONTEND_IMAGE}:${TAG}" \
-            -f frontend/Dockerfile ./frontend
-
-          docker push "${BACKEND_IMAGE}:${TAG}"
-          docker push "${FRONTEND_IMAGE}:${TAG}"
-
-          echo "::notice::Backend : ${BACKEND_IMAGE}:${TAG}"
-          echo "::notice::Frontend: ${FRONTEND_IMAGE}:${TAG}"
-          echo "::warning::Tag 'latest' NÃO foi atualizada — branch de feature isolada de produção."
-
-      # ── pull_request: apenas build local para validação, sem push ──
       - name: Build only (pull request validation)
         if: github.event_name == 'pull_request'
         run: |
-          echo "PR build — validação sem push para o registry."
+          echo "PR build - validacao sem push para o registry."
 
           docker build \
             -t atendzappy-backend:pr-${{ github.event.pull_request.number }} \
@@ -92,4 +59,4 @@ jobs:
             -t atendzappy-frontend:pr-${{ github.event.pull_request.number }} \
             -f frontend/Dockerfile ./frontend
 
-          echo "::notice::Build de PR concluído localmente. Nenhuma imagem publicada no registry."
+          echo "::notice::Build de PR concluido localmente. Nenhuma imagem publicada no registry."
