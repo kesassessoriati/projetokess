@@ -50,6 +50,9 @@ import BlockIcon from "@material-ui/icons/Block";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
 import PauseIcon from "@material-ui/icons/Pause";
 import TimerIcon from "@material-ui/icons/Timer";
+import AccessTimeIcon from "@material-ui/icons/AccessTime";
+import InfoOutlinedIcon from "@material-ui/icons/InfoOutlined";
+import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
 import PromptModal from "../../components/PromptModal";
 import { toast } from "react-toastify";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -989,6 +992,31 @@ const reducer = (state, action) => {
   }
 };
 
+const DEFAULT_BUSINESS_HOURS = {
+  timezone: "America/Sao_Paulo",
+  days: {
+    monday:    { enabled: true,  start: "08:00", end: "18:00" },
+    tuesday:   { enabled: true,  start: "08:00", end: "18:00" },
+    wednesday: { enabled: true,  start: "08:00", end: "18:00" },
+    thursday:  { enabled: true,  start: "08:00", end: "18:00" },
+    friday:    { enabled: true,  start: "08:00", end: "18:00" },
+    saturday:  { enabled: false, start: "",      end: ""      },
+    sunday:    { enabled: false, start: "",      end: ""      },
+  },
+  outOfHoursMessage: "No momento estamos fora do horário de atendimento. Nosso expediente é de segunda a sexta, das 08h às 18h. Assim que retornarmos, seguimos com seu atendimento.",
+  inHoursMessage: "",
+};
+
+const DAYS_CONFIG = [
+  { key: "monday",    label: "SEG" },
+  { key: "tuesday",   label: "TER" },
+  { key: "wednesday", label: "QUA" },
+  { key: "thursday",  label: "QUI" },
+  { key: "friday",    label: "SEX" },
+  { key: "saturday",  label: "SÁB" },
+  { key: "sunday",    label: "DOM" },
+];
+
 const Prompts = () => {
   const classes = useStyles();
 
@@ -1040,6 +1068,8 @@ const Prompts = () => {
   const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
   const [aiSettingsTokenVisible, setAiSettingsTokenVisible] = useState(false);
   const [ragResults, setRagResults] = useState([]);
+  const [businessHoursForm, setBusinessHoursForm] = useState(DEFAULT_BUSINESS_HOURS);
+  const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
   const [appointmentForm, setAppointmentForm] = useState({
     title: "",
     leadName: "",
@@ -1453,6 +1483,46 @@ const Prompts = () => {
     handleGroupNotificationChange(key, "message", `${currentText}${currentText ? " " : ""}${token}`);
   };
 
+  useEffect(() => {
+    if (externalConfig) {
+      setBusinessHoursForm(
+        externalConfig?.metadata?.businessHours
+          ? { ...DEFAULT_BUSINESS_HOURS, ...externalConfig.metadata.businessHours, days: { ...DEFAULT_BUSINESS_HOURS.days, ...externalConfig.metadata.businessHours.days } }
+          : DEFAULT_BUSINESS_HOURS
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalConfig?.id]);
+
+  const handleBusinessHoursDayChange = (day, field, value) => {
+    setBusinessHoursForm(prev => ({
+      ...prev,
+      days: {
+        ...prev.days,
+        [day]: { ...prev.days[day], [field]: value },
+      },
+    }));
+  };
+
+  const handleSaveBusinessHours = async () => {
+    setBusinessHoursSaving(true);
+    try {
+      const { data } = await api.put("/ai-agents/external/config", {
+        name: externalConfig?.name || "Agente Externo N8N",
+        metadata: {
+          ...(externalConfig?.metadata || {}),
+          businessHours: businessHoursForm,
+        },
+      });
+      setExternalConfig(data);
+      toast.success("Horário de funcionamento salvo com sucesso.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBusinessHoursSaving(false);
+    }
+  };
+
   const handleSaveExternalConfig = async () => {
     setExternalSaving(true);
     try {
@@ -1845,7 +1915,8 @@ const Prompts = () => {
     { key: "reminders", label: "Lembretes", icon: <NotificationsActiveIcon /> },
     { key: "followups", label: "Follow-up", icon: <NotificationsActiveIcon /> },
     { key: "rag", label: "Base RAG", icon: <StorageIcon /> },
-    { key: "settings", label: "Configuracoes", icon: <SettingsIcon /> },
+    { key: "settings", label: "Configurações de Mensagens", icon: <ChatBubbleOutlineIcon /> },
+    { key: "business_hours", label: "Horário de Funcionamento", icon: <AccessTimeIcon /> },
     { key: "webhooks", label: "Webhooks", icon: <LinkIcon /> },
     { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
   ];
@@ -1853,7 +1924,7 @@ const Prompts = () => {
   const externalSecondaryMenuItems = [
     { key: "chatMemory", label: "Chat Memory", icon: <MemoryIcon /> },
     { key: "ai_actions", label: "Ações da IA", icon: <BlockIcon /> },
-    { key: "ai_settings", label: "Ajustes", icon: <SettingsIcon /> },
+    { key: "ai_settings", label: "Informações", icon: <InfoOutlinedIcon /> },
   ];
 
   const externalStats = {
@@ -3045,7 +3116,7 @@ const Prompts = () => {
       <Box style={{ padding: "24px" }}>
         <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <Box>
-            <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>Ajustes da IA Externa</Typography>
+            <Typography style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>Informações da IA Externa</Typography>
             <Typography style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
               Dados operacionais enviados automaticamente nos eventos de webhook (MESSAGE_RECEIVED / MESSAGE_SENT).
             </Typography>
@@ -3364,10 +3435,179 @@ const Prompts = () => {
     );
   };
 
+  const renderBusinessHours = () => {
+    const bh = businessHoursForm;
+    const timezoneOptions = [
+      "America/Sao_Paulo", "America/Manaus", "America/Belem",
+      "America/Fortaleza", "America/Recife", "America/Noronha",
+      "America/Campo_Grande", "America/Porto_Velho", "America/Boa_Vista",
+      "America/Rio_Branco", "America/Santarem",
+    ];
+
+    return (
+      <Box style={{ padding: 24 }}>
+        {/* Header card */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+          <Box style={{ background: "#eff6ff", borderRadius: 10, padding: 10, display: "flex" }}>
+            <AccessTimeIcon style={{ color: "#2563eb", fontSize: 28 }} />
+          </Box>
+          <Box>
+            <Typography style={{ fontSize: 17, fontWeight: 700, color: "#1e293b" }}>Horário de Expediente</Typography>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+              Define quando sua equipe humana está disponível para atendimento
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Day cards */}
+        <Box style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: 12, marginBottom: 20 }}>
+          {DAYS_CONFIG.map(({ key, label }) => {
+            const day = bh.days[key] || { enabled: false, start: "", end: "" };
+            return (
+              <Box
+                key={key}
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: day.enabled ? "2px solid #22c55e" : "1px solid #e2e8f0",
+                  padding: "16px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  transition: "border-color 0.2s",
+                }}
+              >
+                <Box style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Typography style={{ fontSize: 14, fontWeight: 700, color: day.enabled ? "#15803d" : "#94a3b8" }}>
+                    {label}
+                  </Typography>
+                  <Switch
+                    size="small"
+                    checked={!!day.enabled}
+                    onChange={(e) => handleBusinessHoursDayChange(key, "enabled", e.target.checked)}
+                    color="primary"
+                  />
+                </Box>
+
+                {day.enabled ? (
+                  <>
+                    <Box>
+                      <Typography style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 3 }}>INÍCIO</Typography>
+                      <TextField
+                        type="time"
+                        size="small"
+                        variant="outlined"
+                        fullWidth
+                        value={day.start || ""}
+                        onChange={(e) => handleBusinessHoursDayChange(key, "start", e.target.value)}
+                        inputProps={{ style: { fontSize: 13, padding: "6px 8px" } }}
+                        InputProps={{ style: { borderRadius: 6 } }}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 3 }}>FIM</Typography>
+                      <TextField
+                        type="time"
+                        size="small"
+                        variant="outlined"
+                        fullWidth
+                        value={day.end || ""}
+                        onChange={(e) => handleBusinessHoursDayChange(key, "end", e.target.value)}
+                        inputProps={{ style: { fontSize: 13, padding: "6px 8px" } }}
+                        InputProps={{ style: { borderRadius: 6 } }}
+                      />
+                    </Box>
+                  </>
+                ) : (
+                  <Typography style={{ fontSize: 13, color: "#cbd5e1", textAlign: "center", padding: "8px 0" }}>—</Typography>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* Extra settings */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+          <Box>
+            <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Fuso horário</Typography>
+            <TextField
+              select
+              size="small"
+              variant="outlined"
+              value={bh.timezone || "America/Sao_Paulo"}
+              onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, timezone: e.target.value }))}
+              style={{ minWidth: 260 }}
+            >
+              {timezoneOptions.map(tz => (
+                <MenuItem key={tz} value={tz}>{tz}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box>
+            <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+              Mensagem fora do expediente
+            </Typography>
+            <TextField
+              multiline
+              rows={3}
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={bh.outOfHoursMessage || ""}
+              onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, outOfHoursMessage: e.target.value }))}
+              placeholder="Mensagem enviada quando o contato entrar fora do horário de atendimento..."
+              inputProps={{ style: { fontSize: 13 } }}
+            />
+          </Box>
+
+          <Box>
+            <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+              Mensagem dentro do expediente <Chip size="small" label="opcional" style={{ fontSize: 10, height: 18, marginLeft: 6, background: "#f1f5f9", color: "#64748b" }} />
+            </Typography>
+            <TextField
+              multiline
+              rows={2}
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={bh.inHoursMessage || ""}
+              onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, inHoursMessage: e.target.value }))}
+              placeholder="Mensagem de boas-vindas dentro do horário (opcional)..."
+              inputProps={{ style: { fontSize: 13 } }}
+            />
+          </Box>
+        </Box>
+
+        {/* Actions */}
+        <Box style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <Button
+            variant="outlined"
+            startIcon={<RestoreIcon />}
+            onClick={() => setBusinessHoursForm(DEFAULT_BUSINESS_HOURS)}
+            disabled={businessHoursSaving}
+          >
+            Restaurar padrão
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            onClick={handleSaveBusinessHours}
+            disabled={businessHoursSaving}
+          >
+            {businessHoursSaving ? "Salvando…" : "Salvar Horário"}
+          </Button>
+        </Box>
+      </Box>
+    );
+  };
+
   const renderExternalSection = () => {
     if (externalSection === "dashboard") return renderExternalDashboard();
     if (externalSection === "prompt") return renderExternalPrompt();
     if (externalSection === "settings") return renderExternalSettings();
+    if (externalSection === "business_hours") return renderBusinessHours();
     if (externalSection === "webhooks") return renderWebhooks();
     if (externalSection === "events") return renderExternalEvents();
     if (externalSection === "appointments") return renderAppointments();

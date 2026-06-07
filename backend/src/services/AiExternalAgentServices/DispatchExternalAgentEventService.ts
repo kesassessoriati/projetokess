@@ -4,6 +4,7 @@ import AiExternalAgentEvent from "../../models/AiExternalAgentEvent";
 import AiExternalPromptVersion from "../../models/AiExternalPromptVersion";
 import { findActiveWebhooksForEvent } from "./AiExternalWebhookService";
 import logger from "../../utils/logger";
+import { buildBusinessHoursPayload } from "../../utils/businessHoursUtils";
 
 interface Request {
   eventType: string;
@@ -60,12 +61,14 @@ const DispatchExternalAgentEventService = async ({
   data,
   userId
 }: Request): Promise<AiExternalAgentEvent> => {
+  const businessHours = (config.metadata as any)?.businessHours ?? null;
   const payload = {
     event: eventType,
     timestamp: new Date().toISOString(),
     companyId,
     agent: "external_n8n",
-    data
+    data,
+    business_hours: buildBusinessHoursPayload(businessHours),
   };
 
   // --- 1. Webhooks por evento cadastrados na tabela ai_external_webhooks ---
