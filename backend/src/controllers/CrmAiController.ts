@@ -338,7 +338,7 @@ export const chat = async (req: Request, res: Response): Promise<Response> => {
     }
 
     if (apiStatus === 401 || apiMessage.includes("401") || apiMessage.includes("Incorrect API key") || apiMessage.includes("invalid_api_key")) {
-      return res.status(401).json({
+      return res.status(422).json({
         error: "INVALID_KEY",
         message: "Chave de API inválida. Revise a configuração de IA da empresa."
       });

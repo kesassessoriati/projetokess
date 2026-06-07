@@ -170,10 +170,6 @@ const CreateWhatsAppService = async ({
     }
   }
 
-  if (queueIds.length > 1 && !greetingMessage) {
-    throw new AppError("ERR_WAPP_GREETING_REQUIRED");
-  }
-
   if (token !== null && token !== "") {
     const tokenSchema = Yup.object().shape({
       token: Yup.string()
