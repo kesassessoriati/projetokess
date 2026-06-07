@@ -13,6 +13,7 @@ import {
   FormControlLabel,
   Divider,
   MenuItem,
+  Menu,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -733,6 +734,162 @@ const useStyles = makeStyles((theme) => ({
     gap: 12,
     flexWrap: "wrap",
   },
+  galleryHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  galleryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: 12,
+    maxHeight: "60vh",
+    overflowY: "auto",
+    paddingRight: 4,
+    ...{
+      "&::-webkit-scrollbar": { width: 6 },
+      "&::-webkit-scrollbar-thumb": { borderRadius: 3, backgroundColor: "#ccc" },
+    },
+  },
+  galleryCard: {
+    border: "1.5px solid #e5e7eb",
+    borderRadius: 10,
+    padding: "14px 16px",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    position: "relative",
+    "&:hover": {
+      borderColor: "#1976d2",
+      boxShadow: "0 4px 14px rgba(25,118,210,0.12)",
+      transform: "translateY(-1px)",
+    },
+  },
+  galleryCardActive: {
+    borderColor: "#1f5eea",
+    backgroundColor: "#eff6ff",
+  },
+  galleryCardNiche: {
+    fontSize: "0.65rem",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.07em",
+    color: "#9ca3af",
+    marginBottom: 2,
+  },
+  galleryCardName: {
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    color: "#111827",
+  },
+  galleryCardDesc: {
+    fontSize: "0.78rem",
+    color: "#6b7280",
+    lineHeight: 1.4,
+    marginTop: 2,
+  },
+  galleryBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    fontSize: "0.6rem",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    borderRadius: 4,
+    padding: "2px 6px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+  },
+  agentCard: {
+    display: "flex",
+    alignItems: "flex-start",
+    padding: "16px",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    marginBottom: 10,
+    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+    border: "1px solid #f0f0f0",
+    transition: "all 0.2s ease",
+    gap: 12,
+    "&:hover": {
+      boxShadow: "0 3px 12px rgba(0,0,0,0.1)",
+    },
+  },
+  agentCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: "50%",
+    backgroundColor: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    "& svg": {
+      fontSize: 24,
+      color: "#1f5eea",
+    },
+  },
+  agentCardBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  agentCardRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 2,
+  },
+  agentCardName: {
+    fontSize: "1rem",
+    fontWeight: 700,
+    color: "#111827",
+  },
+  agentCardDesc: {
+    fontSize: "0.8rem",
+    color: "#6b7280",
+    marginBottom: 6,
+    lineHeight: 1.4,
+  },
+  agentCardMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: "0.75rem",
+    color: "#9ca3af",
+    flexWrap: "wrap",
+    marginBottom: 4,
+  },
+  agentCardActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
+  automationBtn: {
+    borderRadius: 8,
+    padding: "4px 10px",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    border: "1px solid #e0e0e0",
+    backgroundColor: "#fff",
+    color: "#526173",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    transition: "all 0.15s",
+    "&:hover": {
+      borderColor: "#1f5eea",
+      color: "#1f5eea",
+    },
+  },
   myAgentsHeader: {
     display: "flex",
     alignItems: "center",
@@ -956,6 +1113,9 @@ const Prompts = () => {
   const [memoryContactId, setMemoryContactId] = useState("");
   const [memoryData, setMemoryData] = useState(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [automationMenuAnchor, setAutomationMenuAnchor] = useState(null);
+  const [automationMenuPromptId, setAutomationMenuPromptId] = useState(null);
   const [deletingAiAppointment, setDeletingAiAppointment] = useState(null);
   const [editingReminderId, setEditingReminderId] = useState(null);
   const [deletingReminder, setDeletingReminder] = useState(null);
@@ -3343,6 +3503,16 @@ const Prompts = () => {
     }
   };
 
+  const handleOpenAutomationMenu = (event, promptId) => {
+    setAutomationMenuAnchor(event.currentTarget);
+    setAutomationMenuPromptId(promptId);
+  };
+
+  const handleCloseAutomationMenu = () => {
+    setAutomationMenuAnchor(null);
+    setAutomationMenuPromptId(null);
+  };
+
   const handleOpenCreateModal = (templateKey = null) => {
     setSelectedInitialTemplate(templateKey || null);
     setSelectedPrompt(null);
@@ -3430,6 +3600,11 @@ const Prompts = () => {
     prompt.queue?.name?.toLowerCase().includes(searchParam.toLowerCase())
   );
 
+  const getTemplateMeta = (prompt) => {
+    if (!prompt.templateKey || !internalTemplates.length) return null;
+    return internalTemplates.find(t => t.key === prompt.templateKey) || null;
+  };
+
   if (user.profile === "user") {
     return <ForbiddenPage />;
   }
@@ -3447,6 +3622,90 @@ const Prompts = () => {
       >
         {i18n.t("prompts.confirmationModal.deleteMessage")}
       </ConfirmationModal>
+
+      {/* Galeria de Modelos */}
+      <Dialog open={galleryOpen} onClose={() => setGalleryOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <DashboardIcon style={{ color: "#1f5eea" }} />
+            <span>Galeria de Modelos de Agentes</span>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {internalTemplatesLoading ? (
+            <Box style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            <Box className={classes.galleryGrid}>
+              {internalTemplates.map((template) => (
+                <Box
+                  key={template.key}
+                  className={`${classes.galleryCard} ${selectedInitialTemplate === template.key ? classes.galleryCardActive : ""}`}
+                  onClick={() => {
+                    setSelectedInitialTemplate(template.key);
+                    setGalleryOpen(false);
+                  }}
+                >
+                  <Typography className={classes.galleryCardNiche}>{template.niche}</Typography>
+                  <Typography className={classes.galleryCardName}>{template.name}</Typography>
+                  <Typography className={classes.galleryCardDesc}>{template.description}</Typography>
+                  {selectedInitialTemplate === template.key && (
+                    <span className={classes.galleryBadge}>Selecionado</span>
+                  )}
+                </Box>
+              ))}
+              <Box
+                className={`${classes.galleryCard} ${!selectedInitialTemplate ? classes.galleryCardActive : ""}`}
+                onClick={() => {
+                  setSelectedInitialTemplate(null);
+                  setGalleryOpen(false);
+                }}
+              >
+                <Typography className={classes.galleryCardNiche}>GERAL</Typography>
+                <Typography className={classes.galleryCardName}>Criar do Zero</Typography>
+                <Typography className={classes.galleryCardDesc}>Formulário em branco. Configure tudo manualmente.</Typography>
+                {!selectedInitialTemplate && (
+                  <span className={classes.galleryBadge}>Selecionado</span>
+                )}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGalleryOpen(false)}>Fechar</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              setGalleryOpen(false);
+              handleOpenCreateModal(selectedInitialTemplate);
+            }}
+          >
+            {selectedInitialTemplate
+              ? `Criar com: ${internalTemplates.find(t => t.key === selectedInitialTemplate)?.name || selectedInitialTemplate}`
+              : "Criar do zero"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Menu Automação */}
+      <Menu
+        anchorEl={automationMenuAnchor}
+        open={Boolean(automationMenuAnchor)}
+        onClose={handleCloseAutomationMenu}
+        getContentAnchorEl={null}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem onClick={() => { handleCloseAutomationMenu(); }}>
+          <AddIcon fontSize="small" style={{ marginRight: 8 }} /> Criar automação
+        </MenuItem>
+        <MenuItem onClick={() => { handleCloseAutomationMenu(); }}>
+          <SettingsIcon fontSize="small" style={{ marginRight: 8 }} /> Ver automações ativas
+        </MenuItem>
+      </Menu>
+
       <ConfirmationModal
         title={
           deletingAiAppointment
@@ -3638,12 +3897,23 @@ const Prompts = () => {
               </Box>
             ) : (
               <>
-                <Typography className={classes.createSectionLabel}>Template pronto</Typography>
+                <Box style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Typography className={classes.createSectionLabel}>Template pronto</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DashboardIcon />}
+                    onClick={() => setGalleryOpen(true)}
+                    style={{ borderRadius: 8, fontWeight: 700 }}
+                  >
+                    Ver galeria completa ({internalTemplates.length + 1})
+                  </Button>
+                </Box>
                 <Typography className={classes.createSectionDesc}>
                   Clique em um template para pré-configurar prompt, ferramentas e comportamento do agente.
                 </Typography>
                 <Box className={classes.internalTemplateGrid}>
-                  {internalTemplates.map((template) => (
+                  {internalTemplates.slice(0, 6).map((template) => (
                     <Box
                       key={template.key}
                       className={`${classes.internalTemplateCard} ${selectedInitialTemplate === template.key ? classes.internalTemplateCardActive : ""}`}
@@ -3676,7 +3946,7 @@ const Prompts = () => {
                   >
                     {selectedInitialTemplate
                       ? `Criar com template: ${internalTemplates.find(t => t.key === selectedInitialTemplate)?.name || selectedInitialTemplate}`
-                      : "Criar agente do zero"}
+                      : "+ Criar agente do zero"}
                   </Button>
                   {prompts.length > 0 && (
                     <Button variant="outlined" onClick={() => setInternalSection("agentes")}>
@@ -3725,121 +3995,136 @@ const Prompts = () => {
                 </Button>
               </Box>
             ) : (
-              filteredPrompts.map((prompt) => (
-                <Box key={prompt.id} className={classes.listItem}>
-                  {/* Icon */}
-                  <Box className={classes.itemIcon}>
-                    <PsychologyIcon />
-                  </Box>
+              filteredPrompts.map((prompt) => {
+                const binding = getWhatsappBinding(prompt);
+                const isActive = Boolean(binding?.isActive);
+                const templateMeta = getTemplateMeta(prompt);
+                return (
+                  <Box key={prompt.id} className={classes.agentCard}>
+                    {/* Icon */}
+                    <Box className={classes.agentCardIcon}>
+                      <PsychologyIcon />
+                    </Box>
 
-                  {/* Info */}
-                  <Box className={classes.itemInfo}>
-                    <Typography className={classes.itemName}>{prompt.name}</Typography>
-                    <Box className={classes.itemDetails}>
-                      <span>ID: {prompt.id}</span>
-                      <span>•</span>
-                      <span>{i18n.t("prompts.table.queue")}: {prompt.queue?.name || "Sem fila"}</span>
-                      <span>•</span>
-                      <span>{i18n.t("prompts.table.max_tokens")}: {prompt.maxTokens}</span>
-                      {(() => {
-                        const binding = getWhatsappBinding(prompt);
-                        return (
+                    {/* Body */}
+                    <Box className={classes.agentCardBody}>
+                      <Box className={classes.agentCardRow}>
+                        <Typography className={classes.agentCardName}>{prompt.name}</Typography>
+                        <Chip
+                          size="small"
+                          label={isActive ? "Ativo" : "Inativo"}
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.68rem",
+                            height: 22,
+                            backgroundColor: isActive ? "#dcfce7" : "#f3f4f6",
+                            color: isActive ? "#166534" : "#6b7280"
+                          }}
+                        />
+                        {templateMeta && (
                           <Chip
                             size="small"
-                            label={binding?.isActive ? "Ativo" : "Inativo"}
-                            className={classes.statusChip}
-                            style={{
-                              backgroundColor: binding?.isActive ? "#dcfce7" : "#f3f4f6",
-                              color: binding?.isActive ? "#166534" : "#6b7280"
-                            }}
+                            label={templateMeta.niche || templateMeta.name}
+                            style={{ fontWeight: 600, fontSize: "0.65rem", height: 20, backgroundColor: "#eff6ff", color: "#1f5eea" }}
                           />
-                        );
-                      })()}
+                        )}
+                      </Box>
+                      {prompt.description ? (
+                        <Typography className={classes.agentCardDesc}>{prompt.description}</Typography>
+                      ) : templateMeta?.description ? (
+                        <Typography className={classes.agentCardDesc}>{templateMeta.description}</Typography>
+                      ) : null}
+                      <Box className={classes.agentCardMeta}>
+                        <span>Fila: {prompt.queue?.name || "Sem fila"}</span>
+                        <span>•</span>
+                        <span>Tokens: {prompt.maxTokens}</span>
+                        {prompt.model && <><span>•</span><span>{prompt.model}</span></>}
+                      </Box>
+                      <Box className={classes.toolsWrapper}>
+                        {prompt.toolsEnabled?.length ? (
+                          prompt.toolsEnabled.map((toolName) => {
+                            const meta = toolMap[toolName];
+                            const isSensitive = DEFAULT_SENSITIVE_TOOLS.includes(toolName);
+                            return (
+                              <Tooltip key={`${prompt.id}-${toolName}`} title={meta?.description || toolName} arrow>
+                                <Chip
+                                  size="small"
+                                  label={meta?.title || toolName}
+                                  className={`${classes.toolChip} ${isSensitive ? classes.toolChipSensitive : classes.toolChipSafe}`}
+                                />
+                              </Tooltip>
+                            );
+                          })
+                        ) : (
+                          <Typography className={classes.toolsEmpty}>Nenhuma ferramenta habilitada</Typography>
+                        )}
+                      </Box>
                     </Box>
-                    <Box className={classes.toolsWrapper}>
-                      {prompt.toolsEnabled?.length ? (
-                        prompt.toolsEnabled.map((toolName) => {
-                          const meta = toolMap[toolName];
-                          const isSensitive = DEFAULT_SENSITIVE_TOOLS.includes(toolName);
-                          const chipClass = `${classes.toolChip} ${isSensitive ? classes.toolChipSensitive : classes.toolChipSafe}`;
 
-                          return (
-                            <Tooltip
-                              key={`${prompt.id}-${toolName}`}
-                              title={meta?.description || toolName}
-                              arrow
-                            >
-                              <Chip
-                                size="small"
-                                label={meta?.title || toolName}
-                                className={chipClass}
-                              />
-                            </Tooltip>
-                          );
-                        })
-                      ) : (
-                        <Typography className={classes.toolsEmpty}>
-                          Nenhuma ferramenta habilitada
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-
-                  {/* Actions */}
-                  <Box className={classes.itemActions}>
-                    <Tooltip title="Editar">
-                      <IconButton
-                        size="small"
-                        className={`${classes.actionButton} ${classes.editButton}`}
-                        onClick={() => handleEditPrompt(prompt)}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Duplicar">
-                      <IconButton
-                        size="small"
-                        className={`${classes.actionButton} ${classes.duplicateButton}`}
-                        onClick={() => handleDuplicatePrompt(prompt)}
-                      >
-                        <FileCopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Métricas">
-                      <IconButton
-                        size="small"
-                        className={`${classes.actionButton} ${classes.metricsButton}`}
-                        onClick={() => handleOpenMetrics(prompt)}
-                      >
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={getWhatsappBinding(prompt) ? "Ativar/Desativar" : "Configure um canal de atuação para ativar"}>
-                      <span>
-                        <Switch
+                    {/* Actions */}
+                    <Box className={classes.agentCardActions}>
+                      <Tooltip title={binding ? "Ativar/Desativar" : "Configure um canal para ativar"}>
+                        <span>
+                          <Switch
+                            size="small"
+                            color="primary"
+                            checked={isActive}
+                            onChange={() => handleTogglePrompt(prompt)}
+                            disabled={!binding?.whatsappId}
+                          />
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Configurar">
+                        <IconButton
                           size="small"
-                          color="primary"
-                          checked={Boolean(getWhatsappBinding(prompt)?.isActive)}
-                          onChange={() => handleTogglePrompt(prompt)}
-                          disabled={!getWhatsappBinding(prompt)?.whatsappId}
-                        />
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Excluir">
-                      <IconButton
-                        size="small"
-                        className={`${classes.actionButton} ${classes.deleteButton}`}
-                        onClick={() => {
-                          setSelectedPrompt(prompt);
-                          setConfirmModalOpen(true);
-                        }}
+                          className={`${classes.actionButton} ${classes.editButton}`}
+                          onClick={() => handleEditPrompt(prompt)}
+                        >
+                          <SettingsIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Métricas">
+                        <IconButton
+                          size="small"
+                          className={`${classes.actionButton} ${classes.metricsButton}`}
+                          onClick={() => handleOpenMetrics(prompt)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Duplicar">
+                        <IconButton
+                          size="small"
+                          className={`${classes.actionButton} ${classes.duplicateButton}`}
+                          onClick={() => handleDuplicatePrompt(prompt)}
+                        >
+                          <FileCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <button
+                        type="button"
+                        className={classes.automationBtn}
+                        onClick={(e) => handleOpenAutomationMenu(e, prompt.id)}
                       >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                        <LinkIcon fontSize="small" />
+                        Automação ▾
+                      </button>
+                      <Tooltip title="Excluir">
+                        <IconButton
+                          size="small"
+                          className={`${classes.actionButton} ${classes.deleteButton}`}
+                          onClick={() => {
+                            setSelectedPrompt(prompt);
+                            setConfirmModalOpen(true);
+                          }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </Box>
-                </Box>
-              ))
+                );
+              })
             )}
           </>
         ) : internalSection === "memoria" ? (

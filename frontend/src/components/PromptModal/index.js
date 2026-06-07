@@ -924,6 +924,7 @@ const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
         description: "",
         toolsEnabled: [],
         knowledgeBase: [],
+        config: {},
         channelBinding: {
             channelType: "whatsapp",
             whatsappId: "",
@@ -965,6 +966,7 @@ const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
                         aiUsageMode: data.aiUsageMode || "system",
                         toolsEnabled: data.toolsEnabled || [],
                         knowledgeBase: data.knowledgeBase || [],
+                        config: data.config || {},
                         channelBinding: {
                             channelType: "whatsapp",
                             whatsappId: whatsappBinding?.whatsappId || "",
@@ -1348,6 +1350,7 @@ const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
                                     <Tab label="Ferramentas" />
                                     <Tab label="Conhecimento" />
                                     <Tab label="Teste do agente" />
+                                    <Tab label="Instruções" />
                                 </Tabs>
 
                                 {activeTab === 0 && (
@@ -1802,6 +1805,177 @@ const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
                                                 />
                                             </div>
                                         )}
+                                        {/* Mensagens Humanizadas */}
+                                        <div className={classes.configSection} style={{ marginTop: 24 }}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <ChatIcon className={classes.sectionIcon} />
+                                                Mensagens Humanizadas
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 12 }}>
+                                                Divida respostas longas em mensagens menores para simular comportamento humano no WhatsApp.
+                                            </Typography>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={Boolean(values.config?.splitMessagesEnabled)}
+                                                        onChange={e => setFieldValue("config", { ...values.config, splitMessagesEnabled: e.target.checked })}
+                                                        color="primary"
+                                                    />
+                                                }
+                                                label="Dividir respostas longas em mensagens menores"
+                                            />
+                                            {values.config?.splitMessagesEnabled && (
+                                                <Grid container spacing={2} style={{ marginTop: 4 }}>
+                                                    <Grid item xs={6}>
+                                                        <TextField
+                                                            label="Máx. mensagens por resposta"
+                                                            type="number"
+                                                            variant="outlined"
+                                                            size="small"
+                                                            fullWidth
+                                                            value={values.config?.maxMessagesPerReply ?? 4}
+                                                            onChange={e => setFieldValue("config", { ...values.config, maxMessagesPerReply: Number(e.target.value) })}
+                                                            inputProps={{ min: 2, max: 8 }}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <TextField
+                                                            label="Máx. chars por mensagem"
+                                                            type="number"
+                                                            variant="outlined"
+                                                            size="small"
+                                                            fullWidth
+                                                            value={values.config?.maxCharsPerMessage ?? 300}
+                                                            onChange={e => setFieldValue("config", { ...values.config, maxCharsPerMessage: Number(e.target.value) })}
+                                                            inputProps={{ min: 100, max: 1000 }}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={12}>
+                                                        <FormControlLabel
+                                                            control={
+                                                                <Switch
+                                                                    checked={Boolean(values.config?.typingSimulationEnabled ?? true)}
+                                                                    onChange={e => setFieldValue("config", { ...values.config, typingSimulationEnabled: e.target.checked })}
+                                                                    color="primary"
+                                                                    size="small"
+                                                                />
+                                                            }
+                                                            label="Simular digitando entre mensagens"
+                                                        />
+                                                    </Grid>
+                                                    {values.config?.typingSimulationEnabled && (
+                                                        <>
+                                                            <Grid item xs={6}>
+                                                                <TextField
+                                                                    label="Delay mínimo (ms)"
+                                                                    type="number"
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    fullWidth
+                                                                    value={values.config?.typingDelayMinMs ?? 800}
+                                                                    onChange={e => setFieldValue("config", { ...values.config, typingDelayMinMs: Number(e.target.value) })}
+                                                                    inputProps={{ min: 200, max: 5000 }}
+                                                                />
+                                                            </Grid>
+                                                            <Grid item xs={6}>
+                                                                <TextField
+                                                                    label="Delay máximo (ms)"
+                                                                    type="number"
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    fullWidth
+                                                                    value={values.config?.typingDelayMaxMs ?? 2000}
+                                                                    onChange={e => setFieldValue("config", { ...values.config, typingDelayMaxMs: Number(e.target.value) })}
+                                                                    inputProps={{ min: 500, max: 10000 }}
+                                                                />
+                                                            </Grid>
+                                                        </>
+                                                    )}
+                                                </Grid>
+                                            )}
+                                        </div>
+
+                                        {/* Capacidades de Mídia */}
+                                        <div className={classes.configSection} style={{ marginTop: 24 }}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <ImageIcon className={classes.sectionIcon} />
+                                                Capacidades de Mídia
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 12 }}>
+                                                Configure o que este agente consegue processar e enviar como mídia.
+                                            </Typography>
+                                            <FormControlLabel
+                                                control={<Switch checked={Boolean(values.config?.audioEnabled)} onChange={e => setFieldValue("config", { ...values.config, audioEnabled: e.target.checked })} color="primary" />}
+                                                label="Entender áudios (transcrever e compreender)"
+                                            />
+                                            <br />
+                                            <FormControlLabel
+                                                control={<Switch checked={false} disabled color="primary" />}
+                                                label={<span>Arquivos e imagens <Chip size="small" label="Em breve" style={{ marginLeft: 6, fontSize: "0.65rem", height: 18 }} /></span>}
+                                            />
+                                        </div>
+
+                                        {/* Notificar Escalonamento Humano */}
+                                        <div className={classes.configSection} style={{ marginTop: 24 }}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <PeopleOutlineIcon className={classes.sectionIcon} />
+                                                Notificar Escalonamento Humano
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 12 }}>
+                                                Receba um e-mail quando um contato solicitar atendimento humano.
+                                            </Typography>
+                                            <FormControlLabel
+                                                control={<Switch checked={Boolean(values.config?.handoffNotificationEnabled)} onChange={e => setFieldValue("config", { ...values.config, handoffNotificationEnabled: e.target.checked })} color="primary" />}
+                                                label="Ativar notificação de escalonamento"
+                                            />
+                                            {values.config?.handoffNotificationEnabled && (
+                                                <TextField
+                                                    label="E-mail para notificação"
+                                                    type="email"
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                    style={{ marginTop: 8 }}
+                                                    value={values.config?.handoffNotificationEmail || ""}
+                                                    onChange={e => setFieldValue("config", { ...values.config, handoffNotificationEmail: e.target.value })}
+                                                    placeholder="email@suaempresa.com"
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Site / Ecommerce */}
+                                        <div className={classes.configSection} style={{ marginTop: 24 }}>
+                                            <Typography className={classes.sectionTitle}>
+                                                <LinkIcon className={classes.sectionIcon} />
+                                                Site / Ecommerce
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 12 }}>
+                                                Insira o link do seu site ou loja. O sistema poderá mapear produtos, categorias e páginas úteis para alimentar a base de conhecimento do agente.
+                                            </Typography>
+                                            <Box display="flex" gridGap={8} alignItems="center">
+                                                <TextField
+                                                    label="URL do site ou loja"
+                                                    variant="outlined"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={values.config?.siteUrl || ""}
+                                                    onChange={e => setFieldValue("config", { ...values.config, siteUrl: e.target.value })}
+                                                    placeholder="https://www.seusite.com.br"
+                                                />
+                                                <Button
+                                                    variant="contained"
+                                                    color="primary"
+                                                    size="small"
+                                                    disabled
+                                                    style={{ whiteSpace: "nowrap" }}
+                                                >
+                                                    Sincronizar Site
+                                                </Button>
+                                            </Box>
+                                            <Typography variant="caption" color="textSecondary" style={{ marginTop: 6, display: "block" }}>
+                                                Sincronização de e-commerce e sites — O sistema prioriza páginas de produtos, categorias e conteúdo institucional. Disponível em breve.
+                                            </Typography>
+                                        </div>
                                     </>
                                 )}
 
@@ -2199,6 +2373,76 @@ const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
                                                 </IconButton>
                                             </div>
                                         </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 7 && (
+                                    <div className={classes.configSection}>
+                                        <Typography className={classes.sectionTitle}>
+                                            <AssignmentIcon className={classes.sectionIcon} />
+                                            Configuração de Instruções
+                                        </Typography>
+                                        <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                                            Configure como o agente deve se comportar em cada situação. Clique em "Usar padrão" para preencher com o padrão do template selecionado.
+                                        </Typography>
+
+                                        {[
+                                            { key: "roleDefinition", label: "Definição de Função", placeholder: "Nome: [Nome]\nFunção: Consultor de Vendas via WhatsApp.\nObjetivo: Qualificar leads e conduzir para fechamento.", maxLen: 2500 },
+                                            { key: "companyInfo", label: "Sobre a Empresa, Produtos e Serviços", placeholder: "Empresa: [Nome da empresa]\nSegmento: [Seu segmento]\n\nProdutos/Serviços principais:\n- [Produto 1]: [Benefícios]", maxLen: 10000 },
+                                            { key: "communicationToneBlock", label: "Tom da Conversa", placeholder: "Tom de Voz: Profissional, energico e consultivo.\nPersonalidade: Especialista que entende a dor do cliente.\n\nRegras de Ouro:\n1. Use linguagem natural e fluida.", maxLen: 2500 },
+                                            { key: "knowledgeBaseGuidelines", label: "Orientações sobre a Base de Conhecimento", placeholder: "1. Prioridade Máxima: Consulte sempre a Base de Conhecimento antes de responder.\n2. Se a informação não estiver na base, admita de forma profissional.", maxLen: 2500 },
+                                            { key: "antiHallucination", label: "Prevenção de Informações Incorretas", placeholder: "CRÍTICO: Nunca invente preços, prazos ou especificações técnicas.\nPROIBIDO: Nunca diga 'Só um momento', 'Vou verificar', 'Aguarde' ou 'Já retorno'.", maxLen: 2500 },
+                                            { key: "humanHandoff", label: "Encaminhamento para Atendimento Humano", placeholder: "Acione o transbordo humano imediatamente se:\n- O cliente pedir explicitamente para falar com uma pessoa.\n- Houver negociação de preço fora das regras.\n- O cliente demonstrar irritação grave.", maxLen: 2500 },
+                                            { key: "usefulLinks", label: "Links Úteis", placeholder: "- Catálogo: https://www.suaempresa.com.br/catalogo\n- Site Oficial: https://www.suaempresa.com.br\n- Depoimentos: https://www.suaempresa.com.br/clientes", maxLen: 2500 },
+                                            { key: "conversationExamples", label: "Exemplos de Conversa", placeholder: "Cliente: Quanto custa o produto X?\nAgente: O investimento no [Produto X] é de R$ [Valor]. Posso te enviar mais detalhes?", maxLen: 5000 },
+                                            { key: "schedulingRules", label: "Regras de Agendamento", placeholder: "1. Nunca invente horário disponível sem consultar a agenda.\n2. Sempre ofereça no máximo 3 opções de horário.\n3. Confirme nome, data e horário antes de criar.", maxLen: 2500 },
+                                            { key: "crmRules", label: "Regras de CRM / Pipeline", placeholder: "1. Atualize o contato após cada interação relevante.\n2. Mova o card apenas após confirmar com o cliente.\n3. Registre anotações sobre objeções.", maxLen: 2500 },
+                                            { key: "closingRules", label: "Regras de Fechamento", placeholder: "1. Sempre ofereça um próximo passo claro.\n2. Nunca encerre sem confirmar se o cliente está satisfeito.\n3. Use urgência real quando disponível.", maxLen: 2500 },
+                                            { key: "extraInstructions", label: "Instruções Extras", placeholder: "Adicione qualquer instrução específica para este agente que não se encaixe nas seções acima.", maxLen: 2500 },
+                                        ].map(({ key, label, placeholder, maxLen }) => {
+                                            const blockValue = values.config?.instructionBlocks?.[key] || "";
+                                            return (
+                                                <Box key={key} style={{ marginBottom: 20 }}>
+                                                    <Box display="flex" alignItems="center" justifyContent="space-between" style={{ marginBottom: 4 }}>
+                                                        <Typography variant="subtitle2" style={{ fontWeight: 700 }}>
+                                                            {label}
+                                                        </Typography>
+                                                        <Button
+                                                            size="small"
+                                                            color="primary"
+                                                            onClick={() => setFieldValue("config", {
+                                                                ...values.config,
+                                                                instructionBlocks: {
+                                                                    ...(values.config?.instructionBlocks || {}),
+                                                                    [key]: placeholder
+                                                                }
+                                                            })}
+                                                            style={{ fontSize: "0.72rem" }}
+                                                        >
+                                                            Usar padrão
+                                                        </Button>
+                                                    </Box>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        size="small"
+                                                        fullWidth
+                                                        multiline
+                                                        rows={4}
+                                                        value={blockValue}
+                                                        placeholder={placeholder}
+                                                        onChange={e => setFieldValue("config", {
+                                                            ...values.config,
+                                                            instructionBlocks: {
+                                                                ...(values.config?.instructionBlocks || {}),
+                                                                [key]: e.target.value
+                                                            }
+                                                        })}
+                                                        inputProps={{ maxLength: maxLen }}
+                                                        helperText={`${blockValue.length} / ${maxLen} caracteres`}
+                                                    />
+                                                </Box>
+                                            );
+                                        })}
                                     </div>
                                 )}
 

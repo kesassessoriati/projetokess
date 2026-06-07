@@ -111,6 +111,10 @@ class Prompt extends Model<Prompt> {
   @Column({ type: DataType.JSONB, defaultValue: [] })
   knowledgeBase: any;
 
+  @AllowNull(true)
+  @Column({ type: DataType.JSONB, defaultValue: {} })
+  config: any;
+
   @CreatedAt
   createdAt: Date;
 
