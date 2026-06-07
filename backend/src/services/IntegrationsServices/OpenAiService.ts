@@ -508,17 +508,54 @@ const normalizeNumeric = (value: number | string | null | undefined, fallback = 
   return fallback;
 };
 
+const isOpenAiReasoningOrGpt5Model = (provider: string | null | undefined, model: string | null | undefined): boolean => {
+  const normalizedProvider = String(provider || "").toLowerCase();
+  const normalizedModel = String(model || "").toLowerCase();
+
+  if (normalizedProvider !== "openai") return false;
+
+  return (
+    normalizedModel.startsWith("gpt-5") ||
+    normalizedModel.startsWith("o1") ||
+    normalizedModel.startsWith("o3") ||
+    normalizedModel.startsWith("o4")
+  );
+};
+
+const buildTokenLimitParam = ({
+  provider,
+  model,
+  maxTokens
+}: {
+  provider?: string | null;
+  model?: string | null;
+  maxTokens?: number | null;
+}) => {
+  if (!maxTokens) return {};
+
+  if (isOpenAiReasoningOrGpt5Model(provider, model)) {
+    return { max_completion_tokens: maxTokens };
+  }
+
+  return { max_tokens: maxTokens };
+};
+
 const callOpenAI = async (
   openai: OpenAI,
   messagesOpenAi: any[],
   openAiSettings: IOpenAi
 ) => {
   const model = openAiSettings.model || "gpt-3.5-turbo";
+  const provider = openAiSettings.provider || "openai";
 
   const chat = await openai.chat.completions.create({
-    model: model,
+    model,
     messages: messagesOpenAi,
-    max_tokens: normalizeNumeric(openAiSettings.maxTokens, 800),
+    ...buildTokenLimitParam({
+      provider,
+      model,
+      maxTokens: normalizeNumeric(openAiSettings.maxTokens, 800)
+    }),
     temperature: normalizeNumeric(openAiSettings.temperature, 0.3)
   });
 
@@ -591,7 +628,11 @@ const runAgentPrompt = async (
   const completion = await openaiClient.chat.completions.create({
     model,
     messages,
-    max_tokens: maxTokens,
+    ...buildTokenLimitParam({
+      provider,
+      model,
+      maxTokens
+    }),
     temperature
   });
 
@@ -1079,12 +1120,18 @@ ${openAiSettings.prompt}
       if (provider !== "gemini") {
         // Chamada com tools para automações
         const filteredTools = filterOpenAiToolsByAllowed(allowedTools);
+        const model = openAiSettings.model || "gpt-4o";
+        const maxTokens = normalizeNumeric(openAiSettings.maxTokens, 800);
         const chat = await aiClient.chat.completions.create({
-          model: openAiSettings.model || "gpt-4o",
+          model,
           messages: messagesOpenAi,
           tools: filteredTools,
           tool_choice: "auto",
-          max_tokens: normalizeNumeric(openAiSettings.maxTokens, 800),
+          ...buildTokenLimitParam({
+            provider,
+            model,
+            maxTokens
+          }),
           temperature: normalizeNumeric(openAiSettings.temperature, 0.3)
         });
 
@@ -2185,9 +2232,13 @@ ${openAiSettings.prompt}
         // Se houve tool calls, fazer segunda chamada para resposta final
         if (toolCalls.length > 0) {
           const chat2 = await aiClient.chat.completions.create({
-            model: openAiSettings.model || "gpt-4o",
+            model,
             messages: messagesOpenAi,
-            max_tokens: normalizeNumeric(openAiSettings.maxTokens, 800),
+            ...buildTokenLimitParam({
+              provider,
+              model,
+              maxTokens
+            }),
             temperature: normalizeNumeric(openAiSettings.temperature, 0.3)
           });
           response = chat2.choices[0].message?.content || "";
