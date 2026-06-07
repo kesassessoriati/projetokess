@@ -164,6 +164,8 @@ import sipChannelBindingRoutes from "./sipChannelBindingRoutes";
 import sipCallLogRoutes from "./sipCallLogRoutes";
 import sipAdvancedRoutes from "./sipAdvancedRoutes";
 import adTrackingRoutes from "./adTrackingRoutes";
+import metaLeadAdsRoutes from "./metaLeadAdsRoutes";
+import internalAgentContextRoutes from "./internalAgentContextRoutes";
 import * as ProposalController from "../controllers/ProposalController";
 
 const routes = Router();
@@ -367,5 +369,11 @@ routes.use(proposalRoutes);
 
 // Ad Tracking (Meta Ads / Google Ads)
 routes.use(adTrackingRoutes);
+
+// Meta Lead Ads — captação de leads via formulários Meta/Facebook/Instagram
+routes.use(metaLeadAdsRoutes);
+
+// Agente Interno — memória e contexto contextual
+routes.use(internalAgentContextRoutes);
 
 export default routes;
