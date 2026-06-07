@@ -4,6 +4,11 @@ import {
   markLeadForAiExternalFollowUp,
   processAiExternalFollowUps
 } from "../services/AiExternalFollowUpServices/AiExternalFollowUpService";
+import {
+  getOrCreateFollowUpConfig,
+  updateFollowUpConfig,
+  DEFAULT_FOLLOW_UP_PROMPT
+} from "../services/AiExternalFollowUpServices/AiExternalFollowUpConfigService";
 
 const scope = (req: Request) => ({
   companyId: Number(req.user.companyId)
@@ -28,4 +33,42 @@ export const mark = async (req: Request, res: Response): Promise<Response> => {
 export const process = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = scope(req);
   return res.json(await processAiExternalFollowUps({ companyId }));
+};
+
+export const showConfig = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const config = await getOrCreateFollowUpConfig(companyId);
+  return res.json({
+    ...config.toJSON(),
+    defaultPrompt: DEFAULT_FOLLOW_UP_PROMPT
+  });
+};
+
+export const updateConfig = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const {
+    enabled,
+    prompt,
+    abandonmentMinutes,
+    cooldownHours,
+    maxPerRun,
+    maxPerDay,
+    minDelaySeconds,
+    maxDelaySeconds,
+    ignoreCompanyAiPaused
+  } = req.body;
+
+  const config = await updateFollowUpConfig(companyId, {
+    enabled: enabled !== undefined ? Boolean(enabled) : undefined,
+    prompt: prompt !== undefined ? (prompt || null) : undefined,
+    abandonmentMinutes: abandonmentMinutes !== undefined ? Number(abandonmentMinutes) : undefined,
+    cooldownHours: cooldownHours !== undefined ? Number(cooldownHours) : undefined,
+    maxPerRun: maxPerRun !== undefined ? Number(maxPerRun) : undefined,
+    maxPerDay: maxPerDay !== undefined ? Number(maxPerDay) : undefined,
+    minDelaySeconds: minDelaySeconds !== undefined ? Number(minDelaySeconds) : undefined,
+    maxDelaySeconds: maxDelaySeconds !== undefined ? Number(maxDelaySeconds) : undefined,
+    ignoreCompanyAiPaused: ignoreCompanyAiPaused !== undefined ? Boolean(ignoreCompanyAiPaused) : undefined
+  });
+
+  return res.json(config);
 };

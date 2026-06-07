@@ -3,10 +3,11 @@ import { Op, QueryTypes } from "sequelize";
 import AppError from "../../errors/AppError";
 import sequelize from "../../database";
 import CrmLead from "../../models/CrmLead";
-import Contact from "../../models/Contact";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import GetWhatsappWbot from "../../helpers/GetWhatsappWbot";
 import { resolveAIProviderConfig } from "../AIProviderService/AIProviderService";
+import { checkCompanyAiBlock } from "../AiActionsServices/CompanyAiBlockService";
+import { getOrCreateFollowUpConfig, DEFAULT_FOLLOW_UP_PROMPT } from "./AiExternalFollowUpConfigService";
 import logger from "../../utils/logger";
 
 export const FOLLOW_UP_STATUS = "follow_up";
@@ -57,18 +58,11 @@ const findHistoryByLead = async (lead: CrmLead): Promise<Record<string, any> | n
   if (!columns.length) return null;
 
   const lookupColumns = [
-    "access_id",
-    "accessId",
-    "accessid",
-    "session_id",
-    "sessionId",
-    "sessionid",
-    "lead_id",
-    "leadId",
-    "contact_id",
-    "contactId",
-    "phone",
-    "number"
+    "access_id", "accessId", "accessid",
+    "session_id", "sessionId", "sessionid",
+    "lead_id", "leadId",
+    "contact_id", "contactId",
+    "phone", "number"
   ].filter(column => columns.includes(column));
 
   if (!lookupColumns.length) return null;
@@ -85,7 +79,8 @@ const findHistoryByLead = async (lead: CrmLead): Promise<Record<string, any> | n
 
   if (!values.length) return null;
 
-  const orderColumn = ["updated_at", "updatedAt", "created_at", "createdAt", "id"].find(column => columns.includes(column)) || "id";
+  const orderColumn = ["updated_at", "updatedAt", "created_at", "createdAt", "id"]
+    .find(column => columns.includes(column)) || "id";
   const where = lookupColumns.map(column => `"${column}" IN (:values)`).join(" OR ");
 
   const rows = await sequelize.query(
@@ -101,33 +96,27 @@ const findHistoryByLead = async (lead: CrmLead): Promise<Record<string, any> | n
 
 const historyToContext = (history: Record<string, any> | null): string => {
   if (!history) return "";
-
   const preferred = [
-    "context",
-    "conversation_context",
-    "message",
-    "messages",
-    "history",
-    "chat_history",
-    "transcript",
-    "last_context",
-    "content"
+    "context", "conversation_context", "message", "messages",
+    "history", "chat_history", "transcript", "last_context", "content"
   ];
-
   for (const key of preferred) {
     const value = history[key];
-    if (value) {
-      return typeof value === "string" ? value : JSON.stringify(value);
-    }
+    if (value) return typeof value === "string" ? value : JSON.stringify(value);
   }
-
   return JSON.stringify(history);
 };
 
 const buildFallbackMessage = (lead: CrmLead) =>
   `Ola${lead.name ? `, ${lead.name}` : ""}! Passando para retomar nossa conversa. Posso te ajudar a dar continuidade ao atendimento ou tirar alguma duvida?`;
 
-const generateFollowUpMessage = async (lead: CrmLead, context: string): Promise<string> => {
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const generateFollowUpMessage = async (
+  lead: CrmLead,
+  context: string,
+  customPrompt?: string | null
+): Promise<string> => {
   if (!context) return buildFallbackMessage(lead);
 
   try {
@@ -139,6 +128,12 @@ const generateFollowUpMessage = async (lead: CrmLead, context: string): Promise<
 
     if (resolved.provider !== "openai") return buildFallbackMessage(lead);
 
+    const systemPrompt = (customPrompt || DEFAULT_FOLLOW_UP_PROMPT)
+      .replace(/\{\{leadName\}\}/g, lead.name || "cliente")
+      .replace(/\{\{companyName\}\}/g, String(lead.companyId))
+      .replace(/\{\{lastUserMessage\}\}/g, context.slice(0, 2000))
+      .replace(/\{\{conversationSummary\}\}/g, context.slice(0, 3000));
+
     const openai = new OpenAI({ apiKey: resolved.apiKey });
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -147,12 +142,11 @@ const generateFollowUpMessage = async (lead: CrmLead, context: string): Promise<
       messages: [
         {
           role: "system",
-          content:
-            "Voce cria mensagens curtas de follow-up por WhatsApp para recuperar conversas comerciais. Use tom humano, direto e natural. Nao invente dados. Nao mencione que leu historico ou que e IA."
+          content: "Voce cria mensagens curtas de follow-up por WhatsApp para recuperar conversas comerciais. Use tom humano, direto e natural. Nao invente dados. Nao mencione que leu historico ou que e IA."
         },
         {
           role: "user",
-          content: `Lead: ${lead.name || "cliente"}\nTelefone: ${lead.phone || ""}\nContexto recente:\n${context.slice(0, 6000)}\n\nCrie uma unica mensagem de follow-up.`
+          content: systemPrompt + `\n\nContexto recente:\n${context.slice(0, 4000)}`
         }
       ]
     });
@@ -254,12 +248,32 @@ export const markLeadForAiExternalFollowUp = async ({
 };
 
 export const processAiExternalFollowUps = async ({
-  companyId,
-  limit = 50
+  companyId
 }: {
   companyId?: number;
-  limit?: number;
 } = {}) => {
+  // Carregar config da empresa
+  let config = companyId ? await getOrCreateFollowUpConfig(companyId) : null;
+
+  // Verificar bloqueio de IA da empresa
+  if (companyId && config?.ignoreCompanyAiPaused !== false) {
+    const companyBlock = await checkCompanyAiBlock(companyId);
+    if (companyBlock.blocked) {
+      logger.info(`[AiExternalFollowUp] Processamento bloqueado por empresa companyId=${companyId} reason=${companyBlock.reason}`);
+      return {
+        processed: 0,
+        results: [],
+        blocked: true,
+        blockReason: companyBlock.reason
+      };
+    }
+  }
+
+  const maxPerRun = config?.maxPerRun ?? 30;
+  const minDelay = (config?.minDelaySeconds ?? 60) * 1000;
+  const maxDelay = (config?.maxDelaySeconds ?? 180) * 1000;
+  const customPrompt = config?.prompt || null;
+
   const where: any = {
     [Op.or]: [
       { status: FOLLOW_UP_STATUS },
@@ -270,7 +284,7 @@ export const processAiExternalFollowUps = async ({
 
   const leads = await CrmLead.findAll({
     where,
-    limit,
+    limit: maxPerRun,
     order: [["updatedAt", "ASC"]]
   });
 
@@ -291,7 +305,7 @@ export const processAiExternalFollowUps = async ({
 
       const history = await findHistoryByLead(freshLead);
       const context = historyToContext(history);
-      const message = await generateFollowUpMessage(freshLead, context);
+      const message = await generateFollowUpMessage(freshLead, context, customPrompt);
       await sendFollowUpMessage(freshLead, message);
       await freshLead.update({
         status: FOLLOW_UP_SENT_STATUS,
@@ -300,12 +314,26 @@ export const processAiExternalFollowUps = async ({
         notes: `${freshLead.notes || ""}\n\nFollow-up IA enviado em ${new Date().toISOString()}:\n${message}`.trim()
       });
 
-      results.push({ leadId: lead.id, sent: true });
+      results.push({ leadId: lead.id, leadName: freshLead.name, sent: true, message });
+
+      // Delay randomizado entre envios (exceto no último)
+      if (leads.indexOf(lead) < leads.length - 1 && minDelay > 0) {
+        const delay = minDelay + Math.random() * (maxDelay - minDelay);
+        await sleep(delay);
+      }
     } catch (error) {
       logger.warn(`[AiExternalFollowUp] Falha ao processar lead ${lead.id}: ${error}`);
-      results.push({ leadId: lead.id, sent: false, error: error instanceof Error ? error.message : String(error) });
+      results.push({
+        leadId: lead.id,
+        sent: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
-  return { processed: results.length, results };
+  const sent = results.filter(r => r.sent).length;
+  const skipped = results.filter(r => r.skipped).length;
+  const failed = results.filter(r => r.sent === false && !r.skipped).length;
+
+  return { processed: results.length, sent, skipped, failed, results };
 };

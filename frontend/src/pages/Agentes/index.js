@@ -1036,6 +1036,11 @@ const Prompts = () => {
   const [aiAppointments, setAiAppointments] = useState([]);
   const [aiReminders, setAiReminders] = useState([]);
   const [aiFollowUps, setAiFollowUps] = useState([]);
+  const [followUpConfig, setFollowUpConfig] = useState(null);
+  const [followUpConfigLoading, setFollowUpConfigLoading] = useState(false);
+  const [followUpConfigSaving, setFollowUpConfigSaving] = useState(false);
+  const [followUpProcessResult, setFollowUpProcessResult] = useState(null);
+  const [followUpProcessing, setFollowUpProcessing] = useState(false);
   const [whatsappOptions, setWhatsappOptions] = useState([]);
   const [aiWebhooks, setAiWebhooks] = useState([]);
   const [webhookForm, setWebhookForm] = useState({ name: "", url: "", eventType: "" });
@@ -1943,16 +1948,58 @@ const Prompts = () => {
     }
   };
 
-  const handleProcessAiFollowUps = async () => {
-    setExternalSaving(true);
+  const loadFollowUpConfig = async () => {
+    setFollowUpConfigLoading(true);
     try {
-      const { data } = await api.post("/ai-agents/external/follow-ups/process");
-      await loadExternalAgent();
-      toast.success(`${data?.processed || 0} follow-up(s) processado(s).`);
+      const { data } = await api.get("/ai-agents/external/follow-ups/config");
+      setFollowUpConfig(data);
     } catch (err) {
       toastError(err);
     } finally {
-      setExternalSaving(false);
+      setFollowUpConfigLoading(false);
+    }
+  };
+
+  const handleSaveFollowUpConfig = async () => {
+    if (!followUpConfig) return;
+    setFollowUpConfigSaving(true);
+    try {
+      const { data } = await api.put("/ai-agents/external/follow-ups/config", {
+        enabled: followUpConfig.enabled,
+        prompt: followUpConfig.prompt || null,
+        abandonmentMinutes: Number(followUpConfig.abandonmentMinutes),
+        cooldownHours: Number(followUpConfig.cooldownHours),
+        maxPerRun: Number(followUpConfig.maxPerRun),
+        maxPerDay: Number(followUpConfig.maxPerDay),
+        minDelaySeconds: Number(followUpConfig.minDelaySeconds),
+        maxDelaySeconds: Number(followUpConfig.maxDelaySeconds),
+        ignoreCompanyAiPaused: Boolean(followUpConfig.ignoreCompanyAiPaused),
+      });
+      setFollowUpConfig((prev) => ({ ...prev, ...data }));
+      toast.success("Configuração do follow-up salva.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setFollowUpConfigSaving(false);
+    }
+  };
+
+  const handleProcessAiFollowUps = async () => {
+    setFollowUpProcessing(true);
+    setFollowUpProcessResult(null);
+    try {
+      const { data } = await api.post("/ai-agents/external/follow-ups/process");
+      setFollowUpProcessResult(data);
+      await loadExternalAgent();
+      if (data?.blocked) {
+        toast.warning("IA da empresa está pausada/desligada. Follow-up bloqueado.");
+      } else {
+        toast.success(`${data?.sent || 0} enviado(s), ${data?.skipped || 0} ignorado(s), ${data?.failed || 0} falha(s).`);
+      }
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setFollowUpProcessing(false);
     }
   };
 
@@ -2614,52 +2661,273 @@ const Prompts = () => {
     </Box>
   );
 
-  const renderFollowUps = () => (
-    <Box className={classes.placeholderGrid}>
-      <Box className={classes.externalPanel}>
-        <Typography className={classes.panelTitle}>Follow-up automatico</Typography>
-        <Typography className={classes.panelSubtitle}>
-          Leads em Follow-up sao processados automaticamente a cada 2 horas com base no historico do N8N.
-        </Typography>
-        <Box className={classes.placeholderList}>
-          <Box className={classes.placeholderRow}>
-            <Typography>Aguardando follow-up</Typography>
-            <span className={classes.mutedPill}>{externalStats.followUps}</span>
-          </Box>
-          <Box className={classes.placeholderRow}>
-            <Typography>Follow-up enviado</Typography>
-            <span className={classes.mutedPill}>{externalStats.followUpsSent}</span>
-          </Box>
-          <Box className={classes.placeholderRow}>
-            <Typography>Status usados</Typography>
-            <span className={classes.mutedPill}>follow_up</span>
-          </Box>
-        </Box>
-        <Box className={classes.actionRow}>
-          <Button variant="contained" color="primary" disabled={externalSaving} onClick={handleProcessAiFollowUps}>
-            Processar agora
-          </Button>
-        </Box>
-      </Box>
-      <Box className={classes.externalPanel}>
-        <Typography className={classes.panelTitle}>Leads em Follow-up</Typography>
-        <Typography className={classes.panelSubtitle}>{aiFollowUps.length} registro(s).</Typography>
-        <Box className={classes.placeholderList}>
-          {aiFollowUps.length === 0 ? (
-            <Typography className={classes.toolsEmpty}>Nenhum lead em follow-up.</Typography>
-          ) : aiFollowUps.map((lead) => (
-            <Box key={lead.id} className={classes.placeholderRow}>
-              <Box>
-                <Typography className={classes.versionTitle}>{lead.name || lead.phone || `Lead ${lead.id}`}</Typography>
-                <Typography className={classes.versionMeta}>{lead.phone || "Sem telefone"} - {formatDateTime(lead.updatedAt)}</Typography>
+  const renderFollowUps = () => {
+    const cfg = followUpConfig || {};
+    const isEnabled = cfg.enabled === true;
+    const statusColor = isEnabled ? "#22c55e" : "#94a3b8";
+    const defaultPrompt = cfg.defaultPrompt || "";
+
+    return (
+      <Box style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {/* ── Status do Agente ─────────────────────────────────────── */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: `1px solid ${statusColor}44`, padding: "20px 24px" }}>
+          <Box style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <Box style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <Box style={{ background: `${statusColor}18`, borderRadius: 10, padding: 10, display: "flex" }}>
+                <NotificationsActiveIcon style={{ color: statusColor, fontSize: 26 }} />
               </Box>
-              <span className={classes.mutedPill}>{lead.status || lead.leadStatus}</span>
+              <Box>
+                <Typography style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                  Agente de Follow-up Inteligente
+                </Typography>
+                <Box style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  <Box style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor }} />
+                  <Typography style={{ fontSize: 13, color: statusColor, fontWeight: 600 }}>
+                    {isEnabled ? "Ativo" : "Inativo"}
+                  </Typography>
+                </Box>
+                <Typography style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                  Recupera leads que abandonaram a conversa ou não avançaram no funil.
+                </Typography>
+              </Box>
             </Box>
-          ))}
+            <Box style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {/* Cards de stats */}
+              {[
+                { label: "Aguardando", value: externalStats.followUps, color: "#f59e0b" },
+                { label: "Enviados", value: externalStats.followUpsSent, color: "#22c55e" },
+              ].map((s) => (
+                <Box key={s.label} style={{
+                  background: `${s.color}11`, border: `1px solid ${s.color}33`,
+                  borderRadius: 10, padding: "10px 16px", textAlign: "center", minWidth: 80
+                }}>
+                  <Typography style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</Typography>
+                  <Typography style={{ fontSize: 11, color: "#64748b" }}>{s.label}</Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
+          {/* Toggle ativo/inativo */}
+          <Box style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
+            <Switch
+              size="small"
+              checked={isEnabled}
+              onChange={(e) => setFollowUpConfig((p) => ({ ...p, enabled: e.target.checked }))}
+              color="primary"
+            />
+            <Typography style={{ fontSize: 13, color: "#475569" }}>
+              {isEnabled ? "Agente ativo — processará follow-ups conforme configuração" : "Agente inativo — nenhum follow-up será enviado automaticamente"}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* ── Resultado da última execução ─────────────────────────── */}
+        {followUpProcessResult && (
+          <Box style={{
+            background: followUpProcessResult.blocked ? "#fef3c7" : "#f0fdf4",
+            border: `1px solid ${followUpProcessResult.blocked ? "#fcd34d" : "#bbf7d0"}`,
+            borderRadius: 12, padding: "16px 20px"
+          }}>
+            <Typography style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", marginBottom: 8 }}>
+              Resultado da última execução
+            </Typography>
+            {followUpProcessResult.blocked ? (
+              <Typography style={{ fontSize: 13, color: "#92400e" }}>
+                IA da empresa está pausada/desligada ({followUpProcessResult.blockReason}). Nenhum follow-up enviado.
+              </Typography>
+            ) : (
+              <Box style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {[
+                  { label: "Total processado", v: followUpProcessResult.processed, c: "#64748b" },
+                  { label: "Enviados", v: followUpProcessResult.sent, c: "#22c55e" },
+                  { label: "Ignorados", v: followUpProcessResult.skipped, c: "#f59e0b" },
+                  { label: "Falhas", v: followUpProcessResult.failed, c: "#ef4444" },
+                ].map((s) => (
+                  <Box key={s.label} style={{ textAlign: "center" }}>
+                    <Typography style={{ fontSize: 20, fontWeight: 700, color: s.c }}>{s.v ?? 0}</Typography>
+                    <Typography style={{ fontSize: 11, color: "#64748b" }}>{s.label}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
+
+        <Box style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+          {/* ── Prompt do Follow-up ──────────────────────────────────── */}
+          <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px" }}>
+            <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>
+              Prompt do Follow-up
+            </Typography>
+            <Typography style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+              Variáveis: {"{{leadName}}"} {"{{companyName}}"} {"{{lastUserMessage}}"} {"{{conversationSummary}}"}
+            </Typography>
+            <TextField
+              multiline
+              minRows={10}
+              fullWidth
+              variant="outlined"
+              size="small"
+              placeholder={defaultPrompt || "Deixe vazio para usar o prompt padrão do sistema."}
+              value={cfg.prompt || ""}
+              onChange={(e) => setFollowUpConfig((p) => ({ ...p, prompt: e.target.value }))}
+            />
+            {cfg.prompt && (
+              <button
+                type="button"
+                onClick={() => setFollowUpConfig((p) => ({ ...p, prompt: "" }))}
+                style={{ marginTop: 6, fontSize: 12, color: "#94a3b8", background: "none", border: "none", cursor: "pointer" }}
+              >
+                Limpar e usar prompt padrão
+              </button>
+            )}
+          </Box>
+
+          {/* ── Regras de Detecção + Envio ───────────────────────────── */}
+          <Box style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px" }}>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>
+                Regras de Detecção
+              </Typography>
+              <Box style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { label: "Abandono após (minutos)", key: "abandonmentMinutes", min: 10 },
+                  { label: "Cooldown entre envios (horas)", key: "cooldownHours", min: 1 },
+                  { label: "Máx. por execução", key: "maxPerRun", min: 1 },
+                  { label: "Máx. por dia", key: "maxPerDay", min: 1 },
+                ].map(({ label, key, min }) => (
+                  <Box key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <Typography style={{ fontSize: 13, color: "#475569", flex: 1 }}>{label}</Typography>
+                    <TextField
+                      type="number"
+                      size="small"
+                      variant="outlined"
+                      value={cfg[key] ?? ""}
+                      onChange={(e) => setFollowUpConfig((p) => ({ ...p, [key]: e.target.value }))}
+                      inputProps={{ min, style: { width: 80, textAlign: "right" } }}
+                      style={{ width: 100 }}
+                    />
+                  </Box>
+                ))}
+                <Box style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Typography style={{ fontSize: 13, color: "#475569" }}>Respeitar pausa/desligamento da IA</Typography>
+                  <Switch
+                    size="small"
+                    checked={cfg.ignoreCompanyAiPaused !== false}
+                    onChange={(e) => setFollowUpConfig((p) => ({ ...p, ignoreCompanyAiPaused: e.target.checked }))}
+                    color="primary"
+                  />
+                </Box>
+              </Box>
+            </Box>
+
+            <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px" }}>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>
+                Regras de Envio
+              </Typography>
+              <Box style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { label: "Delay mínimo entre envios (seg)", key: "minDelaySeconds", min: 0 },
+                  { label: "Delay máximo entre envios (seg)", key: "maxDelaySeconds", min: 0 },
+                ].map(({ label, key, min }) => (
+                  <Box key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <Typography style={{ fontSize: 13, color: "#475569", flex: 1 }}>{label}</Typography>
+                    <TextField
+                      type="number"
+                      size="small"
+                      variant="outlined"
+                      value={cfg[key] ?? ""}
+                      onChange={(e) => setFollowUpConfig((p) => ({ ...p, [key]: e.target.value }))}
+                      inputProps={{ min, style: { width: 80, textAlign: "right" } }}
+                      style={{ width: 100 }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* ── Botões salvar / processar ─────────────────────────────── */}
+        <Box style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleSaveFollowUpConfig}
+            disabled={followUpConfigSaving || followUpConfigLoading}
+            style={{
+              background: "#1e293b", color: "#fff", border: "none", borderRadius: 8,
+              padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer"
+            }}
+          >
+            {followUpConfigSaving ? "Salvando…" : "Salvar configuração"}
+          </button>
+          <button
+            type="button"
+            onClick={handleProcessAiFollowUps}
+            disabled={followUpProcessing}
+            style={{
+              background: "#2563eb", color: "#fff", border: "none", borderRadius: 8,
+              padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6
+            }}
+          >
+            <PlayArrowIcon style={{ fontSize: 18 }} />
+            {followUpProcessing ? "Processando…" : "Processar follow-ups agora"}
+          </button>
+        </Box>
+
+        {/* ── Leads em Follow-up ───────────────────────────────────── */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <Box style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Leads em Follow-up</Typography>
+              <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{aiFollowUps.length} registro(s)</Typography>
+            </Box>
+          </Box>
+          {aiFollowUps.length === 0 ? (
+            <Box style={{ textAlign: "center", padding: "48px 16px", color: "#94a3b8" }}>
+              <NotificationsActiveIcon style={{ fontSize: 36, opacity: 0.3, marginBottom: 8 }} />
+              <Typography style={{ fontSize: 13 }}>Nenhum lead aguardando follow-up</Typography>
+            </Box>
+          ) : (
+            aiFollowUps.map((lead) => {
+              const isSent = lead.status === "follow_up_enviado" || lead.leadStatus === "follow_up_enviado";
+              return (
+                <Box key={lead.id} style={{
+                  display: "grid", gridTemplateColumns: "2fr 1fr 1fr",
+                  padding: "12px 20px", borderBottom: "1px solid #f8fafc", alignItems: "center"
+                }}>
+                  <Box>
+                    <Typography style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
+                      {lead.name || `Lead ${lead.id}`}
+                    </Typography>
+                    <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{lead.phone || "Sem telefone"}</Typography>
+                  </Box>
+                  <Box>
+                    <Box style={{
+                      display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                      borderRadius: 99, fontSize: 11, fontWeight: 600,
+                      background: isSent ? "#dcfce7" : "#fef9c3",
+                      color: isSent ? "#166534" : "#854d0e",
+                      border: `1px solid ${isSent ? "#bbf7d0" : "#fde68a"}`,
+                    }}>
+                      {isSent ? "Enviado" : "Aguardando"}
+                    </Box>
+                  </Box>
+                  <Typography style={{ fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
+                    {formatDateTime(lead.updatedAt)}
+                  </Typography>
+                </Box>
+              );
+            })
+          )}
         </Box>
       </Box>
-    </Box>
-  );
+    );
+  };
 
   const renderRag = () => (
     <Box className={classes.placeholderGrid}>
@@ -3941,6 +4209,9 @@ const Prompts = () => {
     }
     if (activeAgentTab === "external" && externalSection === "ai_settings") {
       loadAiSettings();
+    }
+    if (activeAgentTab === "external" && externalSection === "followups") {
+      loadFollowUpConfig();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab, externalSection]);
