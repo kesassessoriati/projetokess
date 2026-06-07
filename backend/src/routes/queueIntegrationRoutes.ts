@@ -15,6 +15,8 @@ queueIntegrationRoutes.put("/queueIntegration/:integrationId", isAuth, QueueInte
 
 queueIntegrationRoutes.delete("/queueIntegration/:integrationId", isAuth, QueueIntegrationController.remove);
 
+queueIntegrationRoutes.patch("/queueIntegration/:integrationId/toggle-active", isAuth, QueueIntegrationController.toggleActive);
+
 queueIntegrationRoutes.post("/queueIntegration/testsession", isAuth, QueueIntegrationController.testSession);
 
 export default queueIntegrationRoutes;

@@ -14,7 +14,8 @@ import {
   Typography,
   IconButton,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Switch
 } from "@material-ui/core";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
@@ -419,6 +420,18 @@ const QueueIntegration = () => {
     setPageNumber(1);
   };
 
+  const handleToggleActive = async (integration) => {
+    try {
+      const { data } = await api.patch(`/queueIntegration/${integration.id}/toggle-active`);
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === integration.id ? { ...i, active: data.active } : i))
+      );
+      toast.success(data.active ? "Webhook ativado com sucesso." : "Webhook desativado com sucesso.");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);
   };
@@ -557,21 +570,64 @@ const QueueIntegration = () => {
                 renderData={() => (
                   <>
                     {queueIntegrations.map((integration) => (
-                      <Box key={integration.id} className={classes.card}>
+                      <Box
+                        key={integration.id}
+                        className={classes.card}
+                        style={
+                          WEBHOOK_TYPES.includes(integration.type) && integration.active === false
+                            ? { opacity: 0.6 }
+                            : undefined
+                        }
+                      >
                         <img
                           src={getIntegrationLogo(integration.type)}
                           alt={getIntegrationTypeLabel(integration.type)}
                           className={classes.logo}
                         />
                         <Box className={classes.cardInfo}>
-                          <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
-                            {integration.name}
-                          </Typography>
+                          <Box style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                              {integration.name}
+                            </Typography>
+                            {WEBHOOK_TYPES.includes(integration.type) && (
+                              <Box
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  padding: "1px 8px",
+                                  borderRadius: 99,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  background: integration.active === false ? "#f3f4f6" : "#dcfce7",
+                                  color: integration.active === false ? "#6b7280" : "#166534",
+                                  border: `1px solid ${integration.active === false ? "#e5e7eb" : "#bbf7d0"}`,
+                                }}
+                              >
+                                {integration.active === false ? "Inativo" : "Ativo"}
+                              </Box>
+                            )}
+                          </Box>
                           <Typography variant="body2" color="textSecondary">
                             Tipo: {getIntegrationTypeLabel(integration.type)}
                           </Typography>
                         </Box>
                         <Box className={classes.cardActions}>
+                          {WEBHOOK_TYPES.includes(integration.type) && (
+                            <Tooltip
+                              title={
+                                integration.active === false
+                                  ? "Ativar webhook"
+                                  : "Desativar webhook"
+                              }
+                            >
+                              <Switch
+                                size="small"
+                                checked={integration.active !== false}
+                                onChange={() => handleToggleActive(integration)}
+                                color="primary"
+                              />
+                            </Tooltip>
+                          )}
                           <Tooltip title="Editar">
                             <IconButton
                               className={`${classes.actionButton} ${classes.editButton}`}

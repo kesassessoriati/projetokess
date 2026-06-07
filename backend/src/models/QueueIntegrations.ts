@@ -89,6 +89,10 @@ class QueueIntegrations extends Model<QueueIntegrations> {
     @Default([])
     @Column(DataType.JSON)
     webhookEvents: string[];
+
+    @Default(true)
+    @Column(DataType.BOOLEAN)
+    active: boolean;
 }
 
 export default QueueIntegrations;

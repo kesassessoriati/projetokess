@@ -174,7 +174,8 @@ const resolveMessageIntegrations = async (
     where: {
       id: whatsapp.messageIntegrationId,
       companyId,
-      type: { [Op.in]: ["n8n", "webhook"] }
+      type: { [Op.in]: ["n8n", "webhook"] },
+      active: true
     }
   });
 
@@ -227,7 +228,8 @@ export const dispatch = async (
           await QueueIntegrations.findAll({
             where: {
               companyId,
-              type: { [Op.in]: ["n8n", "webhook"] }
+              type: { [Op.in]: ["n8n", "webhook"] },
+              active: true
             }
           })
         ).filter(

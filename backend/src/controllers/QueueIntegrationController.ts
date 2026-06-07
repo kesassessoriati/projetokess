@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
+import QueueIntegrations from "../models/QueueIntegrations";
 import CreateQueueIntegrationService from "../services/QueueIntegrationServices/CreateQueueIntegrationService";
 import DeleteQueueIntegrationService from "../services/QueueIntegrationServices/DeleteQueueIntegrationService";
 import ListQueueIntegrationService from "../services/QueueIntegrationServices/ListQueueIntegrationService";
@@ -112,6 +113,31 @@ export const remove = async (
     });
 
   return res.status(200).send();
+};
+
+export const toggleActive = async (req: Request, res: Response): Promise<Response> => {
+  const { integrationId } = req.params;
+  const { companyId } = req.user;
+
+  const integration = await QueueIntegrations.findOne({
+    where: { id: integrationId, companyId }
+  });
+
+  if (!integration) {
+    return res.status(404).json({ error: "Integração não encontrada." });
+  }
+
+  const newActive = !integration.active;
+  await integration.update({ active: newActive });
+
+  const io = getIO();
+  io.of(String(companyId))
+    .emit(`company-${companyId}-queueIntegration`, {
+      action: "update",
+      queueIntegration: integration
+    });
+
+  return res.status(200).json({ id: integration.id, active: newActive });
 };
 
 export const testSession = async (req: Request, res: Response): Promise<Response> => {
