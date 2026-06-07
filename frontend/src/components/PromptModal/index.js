@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo, useRef, useCallback } from "react";
 import * as Yup from "yup";
-import { Formik, Form, Field } from "formik";
+import { Formik, Form, Field, useFormikContext } from "formik";
 import { toast } from "react-toastify";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -705,7 +705,22 @@ const buildPromptFromTemplate = (template, values = {}, toolsEnabled = []) => {
     return `${filledPrompt.trim()}\n\n${buildToolsPromptBlock(toolsEnabled)}`;
 };
 
-const PromptModal = ({ open, onClose, promptId }) => {
+const TemplateAutoApplier = ({ templateKey, templates, onApply }) => {
+    const { values, setFieldValue } = useFormikContext();
+    const applied = useRef(false);
+    useEffect(() => {
+        if (applied.current || !templateKey || !templates.length) return;
+        const tpl = templates.find(t => t.key === templateKey);
+        if (tpl) {
+            applied.current = true;
+            onApply(tpl, values, setFieldValue);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [templates, templateKey]);
+    return null;
+};
+
+const PromptModal = ({ open, onClose, promptId, initialTemplateKey }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
     const [selectedVoice, setSelectedVoice] = useState("texto");
@@ -1310,6 +1325,13 @@ const PromptModal = ({ open, onClose, promptId }) => {
                     >
                         {({ touched, errors, isSubmitting, values, setFieldValue, submitForm }) => (
                             <Form style={{ width: "100%" }}>
+                                {initialTemplateKey && !promptId && (
+                                    <TemplateAutoApplier
+                                        templateKey={initialTemplateKey}
+                                        templates={aiTemplates}
+                                        onApply={handleApplyTemplate}
+                                    />
+                                )}
                                 <Tabs
                                     value={activeTab}
                                     onChange={handleTabChange}
