@@ -1006,6 +1006,10 @@ const DEFAULT_BUSINESS_HOURS = {
   },
   outOfHoursMessage: "No momento estamos fora do horário de atendimento. Nosso expediente é de segunda a sexta, das 08h às 18h. Assim que retornarmos, seguimos com seu atendimento.",
   inHoursMessage: "",
+  lunchBreak: { enabled: false, start: "12:00", end: "14:00" },
+  slotDurationMinutes: 60,
+  minAdvanceHours: 0,
+  futureDaysLimit: 7,
 };
 
 const DAYS_CONFIG = [
@@ -1079,6 +1083,8 @@ const Prompts = () => {
   const [ragResults, setRagResults] = useState([]);
   const [businessHoursForm, setBusinessHoursForm] = useState(DEFAULT_BUSINESS_HOURS);
   const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
+  const [calendarApiTestLoading, setCalendarApiTestLoading] = useState(false);
+  const [calendarApiTestResult, setCalendarApiTestResult] = useState(null);
   const [companyAiStatus, setCompanyAiStatus] = useState(null);
   const [companyAiLoading, setCompanyAiLoading] = useState(false);
   const [companyAiSaving, setCompanyAiSaving] = useState(false);
@@ -1504,7 +1510,15 @@ const Prompts = () => {
     if (externalConfig) {
       setBusinessHoursForm(
         externalConfig?.metadata?.businessHours
-          ? { ...DEFAULT_BUSINESS_HOURS, ...externalConfig.metadata.businessHours, days: { ...DEFAULT_BUSINESS_HOURS.days, ...externalConfig.metadata.businessHours.days } }
+          ? {
+              ...DEFAULT_BUSINESS_HOURS,
+              ...externalConfig.metadata.businessHours,
+              days: { ...DEFAULT_BUSINESS_HOURS.days, ...externalConfig.metadata.businessHours.days },
+              lunchBreak: externalConfig.metadata.businessHours.lunchBreak || DEFAULT_BUSINESS_HOURS.lunchBreak,
+              slotDurationMinutes: externalConfig.metadata.businessHours.slotDurationMinutes ?? DEFAULT_BUSINESS_HOURS.slotDurationMinutes,
+              minAdvanceHours: externalConfig.metadata.businessHours.minAdvanceHours ?? DEFAULT_BUSINESS_HOURS.minAdvanceHours,
+              futureDaysLimit: externalConfig.metadata.businessHours.futureDaysLimit ?? DEFAULT_BUSINESS_HOURS.futureDaysLimit,
+            }
           : DEFAULT_BUSINESS_HOURS
       );
     }
@@ -4267,8 +4281,120 @@ const Prompts = () => {
           </Box>
         </Box>
 
+        {/* Lunch break */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 20 }}>
+          <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Pausa para Almoço</Typography>
+          <Box style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!(bh.lunchBreak && bh.lunchBreak.enabled)}
+                  onChange={(e) => setBusinessHoursForm(prev => ({
+                    ...prev,
+                    lunchBreak: { ...(prev.lunchBreak || { start: "12:00", end: "14:00" }), enabled: e.target.checked }
+                  }))}
+                  color="primary"
+                  size="small"
+                />
+              }
+              label={<Typography style={{ fontSize: 13, color: "#475569" }}>Ativar pausa</Typography>}
+            />
+            {bh.lunchBreak && bh.lunchBreak.enabled && (
+              <>
+                <Box>
+                  <Typography style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 3 }}>INÍCIO</Typography>
+                  <TextField
+                    type="time"
+                    size="small"
+                    variant="outlined"
+                    value={bh.lunchBreak.start || "12:00"}
+                    onChange={(e) => setBusinessHoursForm(prev => ({
+                      ...prev,
+                      lunchBreak: { ...(prev.lunchBreak || { enabled: true, end: "14:00" }), start: e.target.value }
+                    }))}
+                    inputProps={{ style: { fontSize: 13, padding: "6px 8px" } }}
+                    InputProps={{ style: { borderRadius: 6 } }}
+                  />
+                </Box>
+                <Box>
+                  <Typography style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 3 }}>FIM</Typography>
+                  <TextField
+                    type="time"
+                    size="small"
+                    variant="outlined"
+                    value={bh.lunchBreak.end || "14:00"}
+                    onChange={(e) => setBusinessHoursForm(prev => ({
+                      ...prev,
+                      lunchBreak: { ...(prev.lunchBreak || { enabled: true, start: "12:00" }), end: e.target.value }
+                    }))}
+                    inputProps={{ style: { fontSize: 13, padding: "6px 8px" } }}
+                    InputProps={{ style: { borderRadius: 6 } }}
+                  />
+                </Box>
+              </>
+            )}
+          </Box>
+        </Box>
+
+        {/* Calendar / Slots config */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 20 }}>
+          <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Configuração de Agenda</Typography>
+          <Box style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <Box style={{ minWidth: 200 }}>
+              <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Duração do slot</Typography>
+              <TextField
+                select
+                size="small"
+                variant="outlined"
+                value={bh.slotDurationMinutes || 60}
+                onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, slotDurationMinutes: Number(e.target.value) }))}
+                style={{ minWidth: 180 }}
+              >
+                <MenuItem value={30}>30 minutos</MenuItem>
+                <MenuItem value={45}>45 minutos</MenuItem>
+                <MenuItem value={60}>60 minutos</MenuItem>
+                <MenuItem value={90}>90 minutos</MenuItem>
+                <MenuItem value={120}>120 minutos</MenuItem>
+              </TextField>
+            </Box>
+            <Box style={{ minWidth: 220 }}>
+              <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Antecedência mínima</Typography>
+              <TextField
+                select
+                size="small"
+                variant="outlined"
+                value={bh.minAdvanceHours ?? 0}
+                onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, minAdvanceHours: Number(e.target.value) }))}
+                style={{ minWidth: 200 }}
+              >
+                <MenuItem value={0}>Sem antecedência</MenuItem>
+                <MenuItem value={1}>1 hora</MenuItem>
+                <MenuItem value={2}>2 horas</MenuItem>
+                <MenuItem value={4}>4 horas</MenuItem>
+                <MenuItem value={24}>24 horas</MenuItem>
+              </TextField>
+            </Box>
+            <Box style={{ minWidth: 200 }}>
+              <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Dias futuros disponíveis</Typography>
+              <TextField
+                select
+                size="small"
+                variant="outlined"
+                value={bh.futureDaysLimit || 7}
+                onChange={(e) => setBusinessHoursForm(prev => ({ ...prev, futureDaysLimit: Number(e.target.value) }))}
+                style={{ minWidth: 180 }}
+              >
+                <MenuItem value={7}>7 dias</MenuItem>
+                <MenuItem value={15}>15 dias</MenuItem>
+                <MenuItem value={30}>30 dias</MenuItem>
+                <MenuItem value={60}>60 dias</MenuItem>
+              </TextField>
+            </Box>
+          </Box>
+        </Box>
+
         {/* Actions */}
-        <Box style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+        <Box style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginBottom: 24 }}>
           <Button
             variant="outlined"
             startIcon={<RestoreIcon />}
@@ -4286,6 +4412,145 @@ const Prompts = () => {
           >
             {businessHoursSaving ? "Salvando…" : "Salvar Horário"}
           </Button>
+        </Box>
+
+        {/* Calendar API for Agent/N8N */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px", marginBottom: 8 }}>
+          <Box style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <Box style={{ background: "#eff6ff", borderRadius: 8, padding: 8, display: "flex" }}>
+              <LinkIcon style={{ color: "#2563eb", fontSize: 20 }} />
+            </Box>
+            <Box>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>API de Calendário para Agente / N8N</Typography>
+              <Typography style={{ fontSize: 12, color: "#64748b" }}>
+                Use este endpoint para consultar horários disponíveis e compromissos via N8N ou qualquer automação.
+              </Typography>
+            </Box>
+          </Box>
+
+          {(() => {
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+            const rawToken = aiSettings?.system_token || "";
+            const maskedToken = rawToken.length > 6
+              ? "••••••••••••••••••••••••••••••" + rawToken.slice(-6)
+              : rawToken;
+            const endpoint = `${backendUrl}/api/external/calendar/context?days=${bh.futureDaysLimit || 7}&include_slots=true&include_appointments=true`;
+            const curlCmd = `curl -s "${endpoint}" \\\n  -H "Authorization: Bearer ${maskedToken}"`;
+
+            const handleCopy = (text) => {
+              navigator.clipboard.writeText(text).then(() => toast.success("Copiado!")).catch(() => toast.error("Falha ao copiar"));
+            };
+
+            const handleCopyEndpoint = () => handleCopy(`${backendUrl}/api/external/calendar/context?days=${bh.futureDaysLimit || 7}&include_slots=true&include_appointments=true`);
+            const handleCopyCurl = () => handleCopy(`curl -s "${endpoint}" \\\n  -H "Authorization: Bearer ${rawToken}"`);
+
+            const handleTestCalendar = async () => {
+              if (!rawToken) {
+                toast.error("Token do sistema não encontrado. Vá em Informações da IA para garantir o token.");
+                return;
+              }
+              setCalendarApiTestLoading(true);
+              setCalendarApiTestResult(null);
+              try {
+                const { data } = await api.get(`/api/external/calendar/context?days=${bh.futureDaysLimit || 7}&include_slots=true&include_appointments=true`, {
+                  headers: { Authorization: `Bearer ${rawToken}` },
+                  baseURL: backendUrl,
+                });
+                setCalendarApiTestResult({ ok: true, data });
+              } catch (err) {
+                setCalendarApiTestResult({ ok: false, error: err?.response?.data || err?.message || String(err) });
+              } finally {
+                setCalendarApiTestLoading(false);
+              }
+            };
+
+            return (
+              <Box>
+                {/* Endpoint row */}
+                <Box style={{ marginBottom: 12 }}>
+                  <Typography style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                    Endpoint
+                  </Typography>
+                  <Box style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Box style={{ flex: 1, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 12px" }}>
+                      <Typography style={{ fontSize: 12, fontFamily: "monospace", color: "#334155", wordBreak: "break-all" }}>
+                        GET {endpoint}
+                      </Typography>
+                    </Box>
+                    <Tooltip title="Copiar endpoint">
+                      <IconButton size="small" onClick={handleCopyEndpoint}>
+                        <FileCopyIcon style={{ fontSize: 16, color: "#64748b" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+
+                {/* Header row */}
+                <Box style={{ marginBottom: 12 }}>
+                  <Typography style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                    Header de autenticação
+                  </Typography>
+                  <Box style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 12px" }}>
+                    <Typography style={{ fontSize: 12, fontFamily: "monospace", color: "#334155" }}>
+                      Authorization: Bearer {maskedToken || "(token não encontrado — vá em Informações da IA)"}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* cURL row */}
+                <Box style={{ marginBottom: 16 }}>
+                  <Typography style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                    cURL
+                  </Typography>
+                  <Box style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <Box style={{ flex: 1, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 12px" }}>
+                      <Typography component="pre" style={{ fontSize: 12, fontFamily: "monospace", color: "#334155", margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                        {curlCmd}
+                      </Typography>
+                    </Box>
+                    <Tooltip title="Copiar cURL">
+                      <IconButton size="small" onClick={handleCopyCurl} style={{ marginTop: 4 }}>
+                        <FileCopyIcon style={{ fontSize: 16, color: "#64748b" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+
+                {/* Test button */}
+                <Box style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={handleTestCalendar}
+                    disabled={calendarApiTestLoading || !rawToken}
+                  >
+                    {calendarApiTestLoading ? "Consultando…" : "Testar consulta"}
+                  </Button>
+                  {calendarApiTestResult && (
+                    <Chip
+                      size="small"
+                      label={calendarApiTestResult.ok ? "Sucesso" : "Erro"}
+                      style={{
+                        background: calendarApiTestResult.ok ? "#dcfce7" : "#fef2f2",
+                        color: calendarApiTestResult.ok ? "#16a34a" : "#dc2626",
+                        fontSize: 11,
+                      }}
+                    />
+                  )}
+                </Box>
+
+                {/* Test result */}
+                {calendarApiTestResult && (
+                  <Box style={{ marginTop: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 16px", maxHeight: 320, overflowY: "auto" }}>
+                    <Typography component="pre" style={{ fontSize: 11, fontFamily: "monospace", color: "#334155", margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                      {JSON.stringify(calendarApiTestResult.data || calendarApiTestResult.error, null, 2)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            );
+          })()}
         </Box>
       </Box>
     );
