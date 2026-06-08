@@ -3,11 +3,13 @@ import { Op, QueryTypes } from "sequelize";
 import AppError from "../../errors/AppError";
 import sequelize from "../../database";
 import CrmLead from "../../models/CrmLead";
+import AiExternalFollowUpLog from "../../models/AiExternalFollowUpLog";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import GetWhatsappWbot from "../../helpers/GetWhatsappWbot";
 import { resolveAIProviderConfig } from "../AIProviderService/AIProviderService";
 import { checkCompanyAiBlock } from "../AiActionsServices/CompanyAiBlockService";
 import { getOrCreateFollowUpConfig, DEFAULT_FOLLOW_UP_PROMPT } from "./AiExternalFollowUpConfigService";
+import { detectAbandonedConversations } from "./DetectAbandonedConversationsService";
 import logger from "../../utils/logger";
 
 export const FOLLOW_UP_STATUS = "follow_up";
@@ -252,57 +254,127 @@ export const processAiExternalFollowUps = async ({
 }: {
   companyId?: number;
 } = {}) => {
-  // Carregar config da empresa
-  let config = companyId ? await getOrCreateFollowUpConfig(companyId) : null;
+  if (!companyId) return { processed: 0, sent: 0, skipped: 0, failed: 0, results: [] };
 
-  // Verificar bloqueio de IA da empresa
-  if (companyId && config?.ignoreCompanyAiPaused !== false) {
+  const config = await getOrCreateFollowUpConfig(companyId);
+
+  if (!config.enabled) {
+    logger.info(`[AiExternalFollowUp] Agente desativado companyId=${companyId}`);
+    return { processed: 0, sent: 0, skipped: 0, failed: 0, results: [], disabled: true };
+  }
+
+  if (config.ignoreCompanyAiPaused !== false) {
     const companyBlock = await checkCompanyAiBlock(companyId);
     if (companyBlock.blocked) {
-      logger.info(`[AiExternalFollowUp] Processamento bloqueado por empresa companyId=${companyId} reason=${companyBlock.reason}`);
-      return {
-        processed: 0,
-        results: [],
-        blocked: true,
-        blockReason: companyBlock.reason
-      };
+      logger.info(`[AiExternalFollowUp] Bloqueado companyId=${companyId} reason=${companyBlock.reason}`);
+      await AiExternalFollowUpLog.create({
+        companyId,
+        status: "skipped",
+        reason: `company_ai_${companyBlock.reason}`,
+        metadata: { blockedAt: new Date() }
+      } as any);
+      return { processed: 0, sent: 0, skipped: 0, failed: 0, results: [], blocked: true, blockReason: companyBlock.reason };
     }
   }
 
-  const maxPerRun = config?.maxPerRun ?? 30;
-  const minDelay = (config?.minDelaySeconds ?? 60) * 1000;
-  const maxDelay = (config?.maxDelaySeconds ?? 180) * 1000;
-  const customPrompt = config?.prompt || null;
+  const maxPerRun = config.maxPerRun ?? 30;
+  const minDelay = (config.minDelaySeconds ?? 60) * 1000;
+  const maxDelay = (config.maxDelaySeconds ?? 180) * 1000;
+  const customPrompt = config.prompt || null;
 
+  // Fase 1: Detectar candidatos no Chat Memory
+  const abandoned = await detectAbandonedConversations({
+    companyId,
+    abandonmentMinutes: config.abandonmentMinutes,
+    lookbackHours: config.lookbackHours,
+    cooldownHours: config.cooldownHours,
+    ignoreResolvedTickets: config.ignoreResolvedTickets,
+    ignoreClosedTickets: config.ignoreClosedTickets,
+    maxCandidates: maxPerRun
+  });
+
+  // Fase 2: Leads CRM marcados como follow_up (retrocompatibilidade)
   const where: any = {
+    companyId,
     [Op.or]: [
       { status: FOLLOW_UP_STATUS },
       { leadStatus: FOLLOW_UP_STATUS }
     ]
   };
-  if (companyId) where.companyId = companyId;
-
-  const leads = await CrmLead.findAll({
-    where,
-    limit: maxPerRun,
-    order: [["updatedAt", "ASC"]]
-  });
+  const crmLeads = await CrmLead.findAll({ where, limit: maxPerRun, order: [["updatedAt", "ASC"]] });
 
   const results: Array<Record<string, any>> = [];
+  let totalProcessed = 0;
 
-  for (const lead of leads) {
+  // Processar candidatos do Chat Memory
+  for (const candidate of abandoned) {
+    if (totalProcessed >= maxPerRun) break;
+
+    const log = await AiExternalFollowUpLog.create({
+      companyId,
+      contactId: candidate.contactId,
+      ticketId: candidate.ticketId,
+      sessionId: candidate.sessionId,
+      status: "processing",
+      detectedIntent: candidate.detectedIntent,
+      lastUserMessage: candidate.lastUserMessage.slice(0, 2000),
+      lastAgentMessage: candidate.lastAgentMessage.slice(0, 2000),
+      conversationSummary: candidate.conversationSummary.slice(0, 3000)
+    } as any);
+
     try {
-      const freshLead = await CrmLead.findOne({ where: { id: lead.id, companyId: lead.companyId } });
-      if (!freshLead) continue;
+      const lead = candidate.contactId
+        ? await CrmLead.findOne({ where: { contactId: candidate.contactId, companyId } })
+        : null;
 
-      if (
-        ADVANCED_STATUSES.has(freshLead.status) ||
-        ADVANCED_STATUSES.has(freshLead.leadStatus)
-      ) {
-        results.push({ leadId: lead.id, skipped: true, reason: "advanced_or_sent" });
-        continue;
+      const fakeLead = { id: lead?.id || 0, name: lead?.name || null, phone: lead?.phone || null, companyId } as any;
+      const message = await generateFollowUpMessage(fakeLead, candidate.conversationSummary, customPrompt);
+
+      if (lead && lead.phone) {
+        await sendFollowUpMessage(lead as CrmLead, message);
+        await lead.update({
+          status: FOLLOW_UP_SENT_STATUS,
+          leadStatus: FOLLOW_UP_SENT_STATUS,
+          lastActivityAt: new Date(),
+          notes: `${lead.notes || ""}\n\nFollow-up IA em ${new Date().toISOString()}:\n${message}`.trim()
+        });
       }
 
+      await log.update({ status: "sent", generatedMessage: message, sentAt: new Date() });
+      results.push({ logId: log.id, contactId: candidate.contactId, sent: true, message });
+      logger.info(`[AiExternalFollowUp] lead_move_success logId=${log.id} companyId=${companyId}`);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      await log.update({ status: "failed", errorMessage: errMsg });
+      logger.warn(`[AiExternalFollowUp] movement_agent_retry_failed logId=${log.id}: ${errMsg}`);
+      results.push({ logId: log.id, sent: false, error: errMsg });
+    }
+
+    totalProcessed++;
+
+    if (totalProcessed < abandoned.length + crmLeads.length && minDelay > 0) {
+      const delay = minDelay + Math.random() * (maxDelay - minDelay);
+      await sleep(delay);
+    }
+  }
+
+  // Processar leads CRM legacy
+  for (const lead of crmLeads) {
+    if (totalProcessed >= maxPerRun) break;
+
+    const freshLead = await CrmLead.findOne({ where: { id: lead.id, companyId: lead.companyId } });
+    if (!freshLead || ADVANCED_STATUSES.has(freshLead.status) || ADVANCED_STATUSES.has(freshLead.leadStatus)) {
+      results.push({ leadId: lead.id, skipped: true, reason: "advanced_or_sent" });
+      continue;
+    }
+
+    const log = await AiExternalFollowUpLog.create({
+      companyId,
+      status: "processing",
+      lastUserMessage: freshLead.notes?.slice(0, 500) || ""
+    } as any);
+
+    try {
       const history = await findHistoryByLead(freshLead);
       const context = historyToContext(history);
       const message = await generateFollowUpMessage(freshLead, context, customPrompt);
@@ -311,23 +383,23 @@ export const processAiExternalFollowUps = async ({
         status: FOLLOW_UP_SENT_STATUS,
         leadStatus: FOLLOW_UP_SENT_STATUS,
         lastActivityAt: new Date(),
-        notes: `${freshLead.notes || ""}\n\nFollow-up IA enviado em ${new Date().toISOString()}:\n${message}`.trim()
+        notes: `${freshLead.notes || ""}\n\nFollow-up IA em ${new Date().toISOString()}:\n${message}`.trim()
       });
-
-      results.push({ leadId: lead.id, leadName: freshLead.name, sent: true, message });
-
-      // Delay randomizado entre envios (exceto no último)
-      if (leads.indexOf(lead) < leads.length - 1 && minDelay > 0) {
-        const delay = minDelay + Math.random() * (maxDelay - minDelay);
-        await sleep(delay);
-      }
+      await log.update({ status: "sent", generatedMessage: message, sentAt: new Date() });
+      results.push({ logId: log.id, leadId: lead.id, leadName: freshLead.name, sent: true, message });
+      logger.info(`[AiExternalFollowUp] lead_move_success leadId=${lead.id} companyId=${companyId}`);
     } catch (error) {
-      logger.warn(`[AiExternalFollowUp] Falha ao processar lead ${lead.id}: ${error}`);
-      results.push({
-        leadId: lead.id,
-        sent: false,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      const errMsg = error instanceof Error ? error.message : String(error);
+      await log.update({ status: "failed", errorMessage: errMsg });
+      logger.warn(`[AiExternalFollowUp] lead_move_failed leadId=${lead.id}: ${errMsg}`);
+      results.push({ logId: log.id, leadId: lead.id, sent: false, error: errMsg });
+    }
+
+    totalProcessed++;
+
+    if (totalProcessed < maxPerRun && minDelay > 0) {
+      const delay = minDelay + Math.random() * (maxDelay - minDelay);
+      await sleep(delay);
     }
   }
 

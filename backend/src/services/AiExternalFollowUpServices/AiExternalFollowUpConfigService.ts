@@ -47,9 +47,19 @@ export async function updateFollowUpConfig(
     minDelaySeconds: number;
     maxDelaySeconds: number;
     ignoreCompanyAiPaused: boolean;
+    timezone: string;
+    executionTimes: string[];
+    lookbackHours: number;
+    ignoreResolvedTickets: boolean;
+    ignoreClosedTickets: boolean;
+    typingSimulationEnabled: boolean;
   }>
 ): Promise<AiExternalFollowUpConfig> {
   const config = await getOrCreateFollowUpConfig(companyId);
-  await config.update(data);
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  await config.update(clean);
   return config;
 }

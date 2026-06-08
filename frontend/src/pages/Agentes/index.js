@@ -1041,6 +1041,9 @@ const Prompts = () => {
   const [followUpConfigSaving, setFollowUpConfigSaving] = useState(false);
   const [followUpProcessResult, setFollowUpProcessResult] = useState(null);
   const [followUpProcessing, setFollowUpProcessing] = useState(false);
+  const [followUpLogs, setFollowUpLogs] = useState([]);
+  const [followUpLogsLoading, setFollowUpLogsLoading] = useState(false);
+  const [followUpRetrying, setFollowUpRetrying] = useState(null);
   const [whatsappOptions, setWhatsappOptions] = useState([]);
   const [aiWebhooks, setAiWebhooks] = useState([]);
   const [webhookForm, setWebhookForm] = useState({ name: "", url: "", eventType: "" });
@@ -1974,6 +1977,12 @@ const Prompts = () => {
         minDelaySeconds: Number(followUpConfig.minDelaySeconds),
         maxDelaySeconds: Number(followUpConfig.maxDelaySeconds),
         ignoreCompanyAiPaused: Boolean(followUpConfig.ignoreCompanyAiPaused),
+        timezone: followUpConfig.timezone || "America/Sao_Paulo",
+        executionTimes: Array.isArray(followUpConfig.executionTimes) ? followUpConfig.executionTimes : ["08:00", "12:00", "17:30"],
+        lookbackHours: Number(followUpConfig.lookbackHours),
+        ignoreResolvedTickets: Boolean(followUpConfig.ignoreResolvedTickets),
+        ignoreClosedTickets: Boolean(followUpConfig.ignoreClosedTickets),
+        typingSimulationEnabled: Boolean(followUpConfig.typingSimulationEnabled),
       });
       setFollowUpConfig((prev) => ({ ...prev, ...data }));
       toast.success("Configuração do follow-up salva.");
@@ -1981,6 +1990,31 @@ const Prompts = () => {
       toastError(err);
     } finally {
       setFollowUpConfigSaving(false);
+    }
+  };
+
+  const loadFollowUpLogs = async () => {
+    setFollowUpLogsLoading(true);
+    try {
+      const { data } = await api.get("/ai-agents/external/follow-ups/logs");
+      setFollowUpLogs(data.logs || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setFollowUpLogsLoading(false);
+    }
+  };
+
+  const handleRetryLog = async (logId) => {
+    setFollowUpRetrying(logId);
+    try {
+      await api.post(`/ai-agents/external/follow-ups/logs/${logId}/retry`);
+      toast.success("Follow-up recolocado na fila para reenvio.");
+      await loadFollowUpLogs();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setFollowUpRetrying(null);
     }
   };
 
@@ -2851,6 +2885,75 @@ const Prompts = () => {
           </Box>
         </Box>
 
+        {/* ── Horários de Processamento ─────────────────────────────── */}
+        <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 24px" }}>
+          <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>
+            Horários de Processamento
+          </Typography>
+          <Typography style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+            O agente será executado nos horários configurados. Timezone: {cfg.timezone || "America/Sao_Paulo"}
+          </Typography>
+          <Box style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            {(cfg.executionTimes || ["08:00", "12:00", "17:30"]).map((t, idx) => (
+              <Box key={idx} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "#f1f5f9", borderRadius: 8, padding: "4px 10px"
+              }}>
+                <Typography style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{t}</Typography>
+                <button
+                  type="button"
+                  onClick={() => setFollowUpConfig((p) => ({
+                    ...p,
+                    executionTimes: (p.executionTimes || []).filter((_, i) => i !== idx)
+                  }))}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, lineHeight: 1 }}
+                >×</button>
+              </Box>
+            ))}
+            <Box style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <TextField
+                type="time"
+                size="small"
+                variant="outlined"
+                id="new-exec-time"
+                inputProps={{ style: { fontSize: 13 } }}
+                style={{ width: 110 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("new-exec-time");
+                  if (el && el.value) {
+                    setFollowUpConfig((p) => ({
+                      ...p,
+                      executionTimes: [...(p.executionTimes || []), el.value].sort()
+                    }));
+                    el.value = "";
+                  }
+                }}
+                style={{
+                  background: "#2563eb", color: "#fff", border: "none", borderRadius: 6,
+                  padding: "6px 12px", fontSize: 12, cursor: "pointer"
+                }}
+              >
+                + Adicionar
+              </button>
+            </Box>
+          </Box>
+          <Box style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Typography style={{ fontSize: 13, color: "#475569" }}>Janela de busca retroativa (horas)</Typography>
+            <TextField
+              type="number"
+              size="small"
+              variant="outlined"
+              value={cfg.lookbackHours ?? 12}
+              onChange={(e) => setFollowUpConfig((p) => ({ ...p, lookbackHours: e.target.value }))}
+              inputProps={{ min: 1, style: { width: 60, textAlign: "right" } }}
+              style={{ width: 80 }}
+            />
+          </Box>
+        </Box>
+
         {/* ── Botões salvar / processar ─────────────────────────────── */}
         <Box style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button
@@ -2879,21 +2982,92 @@ const Prompts = () => {
           </button>
         </Box>
 
-        {/* ── Leads em Follow-up ───────────────────────────────────── */}
+        {/* ── Logs de Follow-up ─────────────────────────────────────── */}
         <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-          <Box style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box style={{
+            padding: "16px 20px", borderBottom: "1px solid #f1f5f9",
+            display: "flex", justifyContent: "space-between", alignItems: "center"
+          }}>
             <Box>
-              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Leads em Follow-up</Typography>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Logs de Follow-up</Typography>
+              <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{followUpLogs.length} registro(s)</Typography>
+            </Box>
+            <button
+              type="button"
+              onClick={loadFollowUpLogs}
+              disabled={followUpLogsLoading}
+              style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "4px 12px", fontSize: 12, cursor: "pointer", color: "#64748b" }}
+            >
+              {followUpLogsLoading ? "Carregando…" : "Atualizar"}
+            </button>
+          </Box>
+          {followUpLogs.length === 0 ? (
+            <Box style={{ textAlign: "center", padding: "32px 16px", color: "#94a3b8" }}>
+              <Typography style={{ fontSize: 13 }}>Nenhum log registrado ainda.</Typography>
+            </Box>
+          ) : followUpLogs.map((log) => {
+            const statusMap = {
+              sent: { label: "Enviado", bg: "#dcfce7", color: "#166534", border: "#bbf7d0" },
+              pending: { label: "Pendente", bg: "#fef9c3", color: "#854d0e", border: "#fde68a" },
+              processing: { label: "Processando", bg: "#dbeafe", color: "#1d4ed8", border: "#bfdbfe" },
+              skipped: { label: "Ignorado", bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+              failed: { label: "Falha", bg: "#fee2e2", color: "#991b1b", border: "#fecaca" },
+            };
+            const s = statusMap[log.status] || statusMap.pending;
+            return (
+              <Box key={log.id} style={{
+                display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto",
+                padding: "12px 20px", borderBottom: "1px solid #f8fafc", alignItems: "center", gap: 8
+              }}>
+                <Box>
+                  <Typography style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                    {log.sessionId ? `Sessão ${log.sessionId.slice(0, 12)}…` : log.contactId ? `Contato #${log.contactId}` : `Log #${log.id}`}
+                  </Typography>
+                  <Typography style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                    {log.detectedIntent || log.reason || "—"}
+                  </Typography>
+                  {log.generatedMessage && (
+                    <Typography style={{ fontSize: 11, color: "#475569", marginTop: 2, fontStyle: "italic" }}>
+                      "{log.generatedMessage.slice(0, 80)}…"
+                    </Typography>
+                  )}
+                </Box>
+                <Box style={{
+                  display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                  borderRadius: 99, fontSize: 11, fontWeight: 600,
+                  background: s.bg, color: s.color, border: `1px solid ${s.border}`, width: "fit-content"
+                }}>
+                  {s.label}
+                </Box>
+                <Typography style={{ fontSize: 11, color: "#94a3b8" }}>
+                  {formatDateTime(log.sentAt || log.createdAt)}
+                </Typography>
+                {(log.status === "failed" || log.status === "skipped") && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetryLog(log.id)}
+                    disabled={followUpRetrying === log.id}
+                    style={{
+                      background: "#f59e0b", color: "#fff", border: "none", borderRadius: 6,
+                      padding: "4px 10px", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap"
+                    }}
+                  >
+                    {followUpRetrying === log.id ? "…" : "Reenviar"}
+                  </button>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* ── Leads em Follow-up (CRM legacy) ─────────────────────── */}
+        {aiFollowUps.length > 0 && (
+          <Box style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <Box style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
+              <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Leads CRM em Follow-up</Typography>
               <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{aiFollowUps.length} registro(s)</Typography>
             </Box>
-          </Box>
-          {aiFollowUps.length === 0 ? (
-            <Box style={{ textAlign: "center", padding: "48px 16px", color: "#94a3b8" }}>
-              <NotificationsActiveIcon style={{ fontSize: 36, opacity: 0.3, marginBottom: 8 }} />
-              <Typography style={{ fontSize: 13 }}>Nenhum lead aguardando follow-up</Typography>
-            </Box>
-          ) : (
-            aiFollowUps.map((lead) => {
+            {aiFollowUps.map((lead) => {
               const isSent = lead.status === "follow_up_enviado" || lead.leadStatus === "follow_up_enviado";
               return (
                 <Box key={lead.id} style={{
@@ -2906,25 +3080,23 @@ const Prompts = () => {
                     </Typography>
                     <Typography style={{ fontSize: 12, color: "#94a3b8" }}>{lead.phone || "Sem telefone"}</Typography>
                   </Box>
-                  <Box>
-                    <Box style={{
-                      display: "inline-flex", alignItems: "center", padding: "2px 10px",
-                      borderRadius: 99, fontSize: 11, fontWeight: 600,
-                      background: isSent ? "#dcfce7" : "#fef9c3",
-                      color: isSent ? "#166534" : "#854d0e",
-                      border: `1px solid ${isSent ? "#bbf7d0" : "#fde68a"}`,
-                    }}>
-                      {isSent ? "Enviado" : "Aguardando"}
-                    </Box>
+                  <Box style={{
+                    display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                    borderRadius: 99, fontSize: 11, fontWeight: 600,
+                    background: isSent ? "#dcfce7" : "#fef9c3",
+                    color: isSent ? "#166534" : "#854d0e",
+                    border: `1px solid ${isSent ? "#bbf7d0" : "#fde68a"}`,
+                  }}>
+                    {isSent ? "Enviado" : "Aguardando"}
                   </Box>
                   <Typography style={{ fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
                     {formatDateTime(lead.updatedAt)}
                   </Typography>
                 </Box>
               );
-            })
-          )}
-        </Box>
+            })}
+          </Box>
+        )}
       </Box>
     );
   };
@@ -4212,6 +4384,7 @@ const Prompts = () => {
     }
     if (activeAgentTab === "external" && externalSection === "followups") {
       loadFollowUpConfig();
+      loadFollowUpLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab, externalSection]);

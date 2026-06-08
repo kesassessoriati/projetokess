@@ -187,6 +187,7 @@ import AIUsageLog from "../models/AIUsageLog";
 import PromptChannelBinding from "../models/PromptChannelBinding";
 import AiExternalAgentConfig from "../models/AiExternalAgentConfig";
 import AiExternalFollowUpConfig from "../models/AiExternalFollowUpConfig";
+import AiExternalFollowUpLog from "../models/AiExternalFollowUpLog";
 import AiExternalPromptVersion from "../models/AiExternalPromptVersion";
 import AiExternalAgentEvent from "../models/AiExternalAgentEvent";
 import AiExternalWebhook from "../models/AiExternalWebhook";
@@ -295,6 +296,7 @@ const models = [
   PromptChannelBinding,
   AiExternalAgentConfig,
   AiExternalFollowUpConfig,
+  AiExternalFollowUpLog,
   AiExternalPromptVersion,
   AiExternalAgentEvent,
   AiExternalWebhook,

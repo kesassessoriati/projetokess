@@ -64,6 +64,30 @@ class AiExternalFollowUpConfig extends Model<AiExternalFollowUpConfig> {
   @Column(DataType.BOOLEAN)
   ignoreCompanyAiPaused: boolean;
 
+  @Default("America/Sao_Paulo")
+  @Column(DataType.TEXT)
+  timezone: string;
+
+  @Default(["08:00", "12:00", "17:30"])
+  @Column(DataType.JSONB)
+  executionTimes: string[];
+
+  @Default(12)
+  @Column
+  lookbackHours: number;
+
+  @Default(true)
+  @Column(DataType.BOOLEAN)
+  ignoreResolvedTickets: boolean;
+
+  @Default(true)
+  @Column(DataType.BOOLEAN)
+  ignoreClosedTickets: boolean;
+
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  typingSimulationEnabled: boolean;
+
   @Column(DataType.JSONB)
   metadata: object;
 

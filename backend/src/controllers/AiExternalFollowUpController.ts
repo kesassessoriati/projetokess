@@ -9,6 +9,8 @@ import {
   updateFollowUpConfig,
   DEFAULT_FOLLOW_UP_PROMPT
 } from "../services/AiExternalFollowUpServices/AiExternalFollowUpConfigService";
+import { listFollowUpLogs } from "../services/AiExternalFollowUpServices/ListAiExternalFollowUpLogsService";
+import { retryFollowUpLog } from "../services/AiExternalFollowUpServices/RetryAiExternalFollowUpService";
 
 const scope = (req: Request) => ({
   companyId: Number(req.user.companyId)
@@ -55,7 +57,13 @@ export const updateConfig = async (req: Request, res: Response): Promise<Respons
     maxPerDay,
     minDelaySeconds,
     maxDelaySeconds,
-    ignoreCompanyAiPaused
+    ignoreCompanyAiPaused,
+    timezone,
+    executionTimes,
+    lookbackHours,
+    ignoreResolvedTickets,
+    ignoreClosedTickets,
+    typingSimulationEnabled
   } = req.body;
 
   const config = await updateFollowUpConfig(companyId, {
@@ -67,8 +75,26 @@ export const updateConfig = async (req: Request, res: Response): Promise<Respons
     maxPerDay: maxPerDay !== undefined ? Number(maxPerDay) : undefined,
     minDelaySeconds: minDelaySeconds !== undefined ? Number(minDelaySeconds) : undefined,
     maxDelaySeconds: maxDelaySeconds !== undefined ? Number(maxDelaySeconds) : undefined,
-    ignoreCompanyAiPaused: ignoreCompanyAiPaused !== undefined ? Boolean(ignoreCompanyAiPaused) : undefined
+    ignoreCompanyAiPaused: ignoreCompanyAiPaused !== undefined ? Boolean(ignoreCompanyAiPaused) : undefined,
+    timezone: timezone || undefined,
+    executionTimes: Array.isArray(executionTimes) ? executionTimes : undefined,
+    lookbackHours: lookbackHours !== undefined ? Number(lookbackHours) : undefined,
+    ignoreResolvedTickets: ignoreResolvedTickets !== undefined ? Boolean(ignoreResolvedTickets) : undefined,
+    ignoreClosedTickets: ignoreClosedTickets !== undefined ? Boolean(ignoreClosedTickets) : undefined,
+    typingSimulationEnabled: typingSimulationEnabled !== undefined ? Boolean(typingSimulationEnabled) : undefined
   });
 
   return res.json(config);
+};
+
+export const logs = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const { status, pageNumber } = req.query as Record<string, string>;
+  return res.json(await listFollowUpLogs({ companyId, status: status as any, pageNumber: Number(pageNumber) || 1 }));
+};
+
+export const retry = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = scope(req);
+  const logId = Number(req.params.logId);
+  return res.json(await retryFollowUpLog({ logId, companyId }));
 };
