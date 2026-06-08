@@ -788,26 +788,39 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
   const handleToggleN8nPause = async () => {
     if (!resolvedTicket?.id) return;
     setN8nPauseLoading(true);
+    const wasPaused = isN8nPaused;
+    // Atualiza otimisticamente para resposta visual imediata (sem esperar API)
+    const optimisticPausedUntil = wasPaused
+      ? null
+      : new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    setTicketDetails((prev) =>
+      prev ? { ...prev, webhookPausedUntil: optimisticPausedUntil } : prev
+    );
     try {
-      const payload = isN8nPaused
+      const payload = wasPaused
         ? { clearN8nPause: true }
         : { pauseN8nForHours: 2 };
       const { data } = await api.put(`/tickets/${resolvedTicket.id}`, payload);
+      // Sincroniza com resposta real do servidor
       setTicketDetails((prev) =>
         prev
           ? {
               ...prev,
-              webhookPausedUntil: data?.webhookPausedUntil || null,
-              webhookDisabled: Boolean(data?.webhookDisabled)
+              webhookPausedUntil:
+                data?.webhookPausedUntil !== undefined
+                  ? data.webhookPausedUntil
+                  : optimisticPausedUntil,
             }
           : prev
       );
-      if (isN8nPaused) {
-        toast.success("IA reativada nesta conversa.");
-      } else {
-        toast.success("IA pausada por 2 horas nesta conversa.");
-      }
+      toast.success(wasPaused ? "IA reativada nesta conversa." : "IA pausada por 2 horas nesta conversa.");
     } catch (err) {
+      // Reverte atualização otimista em caso de erro
+      setTicketDetails((prev) =>
+        prev
+          ? { ...prev, webhookPausedUntil: resolvedTicket.webhookPausedUntil || null }
+          : prev
+      );
       console.error("Erro ao alterar pausa N8N:", err);
       toast.error("Erro ao alterar estado da IA.");
     } finally {
@@ -1134,13 +1147,6 @@ const TicketTagsKanbanModal = ({ open, onClose, contact, ticket, onUpdate }) => 
               isN8nPaused
                 ? `Pausada até ${new Date(resolvedTicket.webhookPausedUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — clique para reativar`
                 : "Pausa a IA por 2 horas apenas nesta conversa"
-            )}
-            {renderSwitchRow(
-              "Desligar IA",
-              isAiDisabled,
-              () => handleToggleAiDisabled(),
-              aiDisableLoading,
-              "Desliga a IA nesta conversa até você reativar manualmente."
             )}
           </Box>
         )}
