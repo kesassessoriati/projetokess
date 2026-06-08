@@ -1832,12 +1832,21 @@ const Prompts = () => {
     }
   };
 
-  const handleApplyImprovedPrompt = async () => {
-    if (!promptImprovedVersion?.improvedPrompt) return;
-    setExternalPrompt(promptImprovedVersion.improvedPrompt);
-    setPromptImproveDialog(false);
-    setPromptImprovedVersion(null);
-    toast.success("Prompt melhorado aplicado. Salve para criar nova versão.");
+  const handleApplyImprovedPrompt = () => {
+    try {
+      const improved = promptImprovedVersion?.improvedPrompt;
+      if (typeof improved !== "string" || !improved.trim()) {
+        toast.error("Não foi possível aplicar a sugestão da IA. Formato inválido.");
+        return;
+      }
+      // Close dialog and clear state BEFORE setting prompt — avoids intermediate renders with partial state
+      setPromptImproveDialog(false);
+      setPromptImprovedVersion(null);
+      setExternalPrompt(improved);
+      toast.success("Prompt melhorado aplicado. Salve para criar nova versão.");
+    } catch {
+      toast.error("Erro ao aplicar sugestão. Tente novamente.");
+    }
   };
 
   const handleFetchExamples = async () => {
@@ -2381,9 +2390,6 @@ const Prompts = () => {
   );
 
   const renderExternalPrompt = () => {
-    // Load gallery on first render of this section
-    if (!promptGalleryLoaded) loadPromptGallery();
-
     const galleryPreview = promptGallery.slice(0, 8);
 
     return (
@@ -2443,7 +2449,8 @@ const Prompts = () => {
             variant="outlined"
             fullWidth
             multiline
-            minRows={16}
+            minRows={18}
+            maxRows={18}
             value={externalPrompt}
             onChange={(event) => setExternalPrompt(event.target.value)}
           />
@@ -3424,7 +3431,8 @@ const Prompts = () => {
             </Typography>
             <TextField
               multiline
-              minRows={10}
+              minRows={12}
+              maxRows={16}
               fullWidth
               variant="outlined"
               size="small"
@@ -5246,6 +5254,9 @@ const Prompts = () => {
   }, [activeAgentTab]);
 
   useEffect(() => {
+    if (activeAgentTab === "external" && externalSection === "prompt" && !promptGalleryLoaded) {
+      loadPromptGallery();
+    }
     if (activeAgentTab === "external" && externalSection === "chatMemory") {
       loadChatMemory(1);
     }
