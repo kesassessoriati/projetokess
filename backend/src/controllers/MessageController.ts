@@ -48,6 +48,7 @@ import { SendTextOfficialService } from "../services/WhatsAppOfficial/SendTextOf
 import { SendMediaOfficialService } from "../services/WhatsAppOfficial/SendMediaOfficialService";
 import MediaFile from "../models/MediaFile";
 import { sendUniversalMessage } from "../services/UniversalHttpChannel/UniversalHttpChannelService";
+import logger from "../utils/logger";
 
 type IndexQuery = {
   pageNumber: string;
@@ -890,15 +891,27 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         });
       }
     }
-    // Auto-desativar bot quando agente envia mensagem manualmente
+    // Auto-pausar bot quando agente envia mensagem manualmente
+    // Usa pausa temporária (webhookPausedUntil) em vez de desligamento permanente (webhookDisabled),
+    // para que o botão "Pausar IA" reflita corretamente e não "Desligar IA".
     if (isPrivate !== "true" && !ticket.isGroup) {
       const botUpdate: any = {};
       if (ticket.useIntegration) {
         botUpdate.useIntegration = false;
         botUpdate.integrationId = null;
       }
+      // Só aplica pausa automática se IA não estiver já desligada permanentemente
+      // e se não houver pausa ativa ainda
       if (!ticket.webhookDisabled) {
-        botUpdate.webhookDisabled = true;
+        const existingPause =
+          ticket.webhookPausedUntil &&
+          new Date(ticket.webhookPausedUntil) > new Date();
+        if (!existingPause) {
+          botUpdate.webhookPausedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000);
+          logger.info(
+            `[AI Block] pause set auto ticketId=${ticket.id} until=${botUpdate.webhookPausedUntil.toISOString()}`
+          );
+        }
       }
       if (Object.keys(botUpdate).length > 0) {
         await ticket.update(botUpdate);

@@ -129,7 +129,12 @@ const resolveMessageIntegrations = async (
           new Date(ticket.webhookPausedUntil) > new Date()
       );
 
-    if (isWebhookSuppressed) {
+    // MESSAGE_SENT nunca é suprimido pelo estado do ticket:
+    // o N8N precisa receber esse evento para detectar intervenção humana (CRM ou celular).
+    if (isWebhookSuppressed && eventType !== "MESSAGE_SENT") {
+      logger.info(
+        `[WebhookDispatch] ${eventType} suprimido por ticket companyId=${companyId} ticketId=${ticketId}`
+      );
       return [];
     }
 

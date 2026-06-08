@@ -53,8 +53,12 @@ const ListAiBlockedContactsService = async (
   const result: AiBlockedContactItem[] = [];
 
   for (const c of contacts) {
-    // Expirar automaticamente bloqueios pause_until vencidos
-    if (c.aiBlockMode === "pause_until" && c.aiBlockedUntil && new Date(c.aiBlockedUntil) < new Date()) {
+    // Expirar automaticamente bloqueios pause_until/manual_until vencidos
+    if (
+      (c.aiBlockMode === "pause_until" || c.aiBlockMode === "manual_until") &&
+      c.aiBlockedUntil &&
+      new Date(c.aiBlockedUntil) < new Date()
+    ) {
       await c.update({ aiBlockMode: null, aiBlockedUntil: null, aiBlockedByStageId: null });
       continue;
     }

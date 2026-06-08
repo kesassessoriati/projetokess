@@ -4356,12 +4356,14 @@ const Prompts = () => {
   const renderAiActions = () => {
     const blockModeLabel = {
       disabled_in_stage: "Etapa do funil",
+      disabled_manual: "Desligado manual",
       manual: "Manual",
       manual_until: "Manual com prazo",
       pause_until: "Por tempo",
     };
     const blockModeColor = {
       disabled_in_stage: "#f59e0b",
+      disabled_manual: "#ef4444",
       manual: "#ef4444",
       manual_until: "#8b5cf6",
       pause_until: "#3b82f6",

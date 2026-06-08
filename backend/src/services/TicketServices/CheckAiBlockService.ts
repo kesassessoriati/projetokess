@@ -23,13 +23,15 @@ const CheckAiBlockService = async (
 
     if (!aiBlockMode) return { blocked: false, reason: "" };
 
-    if (aiBlockMode === "pause_until") {
+    // "manual_until" é alias legado para "pause_until" (gravado por PauseAiForContactService)
+    if (aiBlockMode === "pause_until" || aiBlockMode === "manual_until") {
       if (!aiBlockedUntil) return { blocked: false, reason: "" };
       const now = new Date();
       if (aiBlockedUntil > now) {
         return { blocked: true, reason: "pause_until", blockedUntil: aiBlockedUntil };
       }
       // Block expired — auto-clear
+      logger.info(`[AI Block] expired pause cleared contactId=${contact.id}`);
       await contact.update({ aiBlockedUntil: null, aiBlockMode: null, aiBlockedByStageId: null });
       return { blocked: false, reason: "" };
     }
@@ -38,7 +40,8 @@ const CheckAiBlockService = async (
       return { blocked: true, reason: "disabled_in_stage" };
     }
 
-    if (aiBlockMode === "disabled_manual") {
+    // "manual" é alias legado para "disabled_manual"
+    if (aiBlockMode === "disabled_manual" || aiBlockMode === "manual") {
       return { blocked: true, reason: "disabled_manual" };
     }
 

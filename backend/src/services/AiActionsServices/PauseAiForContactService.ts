@@ -5,7 +5,7 @@ import logger from "../../utils/logger";
 interface PauseOptions {
   contactId: number;
   companyId: number;
-  mode: "manual" | "manual_until";
+  mode: "manual" | "manual_until" | "disabled_manual" | "pause_until";
   pauseUntil?: Date | null;
   reason?: string;
 }
@@ -21,25 +21,29 @@ const PauseAiForContactService = async (opts: PauseOptions): Promise<void> => {
     throw new Error(`Contato ${contactId} não encontrado na empresa ${companyId}`);
   }
 
-  if (mode === "manual_until") {
+  // Normaliza aliases legados: "manual_until" → "pause_until", "manual" → "disabled_manual"
+  const isPauseUntil = mode === "manual_until" || mode === "pause_until";
+  const isDisableManual = mode === "manual" || mode === "disabled_manual";
+
+  if (isPauseUntil) {
     if (!pauseUntil || new Date(pauseUntil) <= new Date()) {
       throw new Error("Data de pausa inválida ou no passado");
     }
     await contact.update({
-      aiBlockMode: "manual_until",
+      aiBlockMode: "pause_until",
       aiBlockedUntil: new Date(pauseUntil),
       aiBlockedByStageId: null
     });
     logger.info(
-      `[AiActions] pause manual_until contact=${contactId} until=${new Date(pauseUntil).toISOString()} reason="${reason || ""}"`
+      `[AI Block] pause set contactId=${contactId} until=${new Date(pauseUntil).toISOString()} reason="${reason || ""}"`
     );
-  } else {
+  } else if (isDisableManual) {
     await contact.update({
-      aiBlockMode: "manual",
+      aiBlockMode: "disabled_manual",
       aiBlockedUntil: null,
       aiBlockedByStageId: null
     });
-    logger.info(`[AiActions] pause manual contact=${contactId} reason="${reason || ""}"`);
+    logger.info(`[AI Block] manual disable set contactId=${contactId} reason="${reason || ""}"`);
   }
 };
 
