@@ -307,10 +307,8 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     gap: 8,
-    marginBottom: 16,
-    overflowX: "auto",
-    paddingBottom: 2,
-    ...theme.scrollbarStyles,
+    marginBottom: 8,
+    flexWrap: "wrap",
   },
   duplicateButton: {
     backgroundColor: "#f3e8ff",
@@ -335,11 +333,9 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     gap: 8,
-    marginTop: -8,
+    marginTop: 4,
     marginBottom: 16,
-    overflowX: "auto",
-    paddingBottom: 2,
-    ...theme.scrollbarStyles,
+    flexWrap: "wrap",
   },
   externalMenuButton: {
     minHeight: 40,
@@ -389,6 +385,128 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid #e5e7eb",
     borderRadius: 8,
     padding: 14,
+  },
+  promptGalleryRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 10,
+    marginBottom: 8,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "repeat(2, 1fr)",
+    },
+  },
+  promptTemplateCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    padding: "10px 12px",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+    "&:hover": {
+      borderColor: "#1f5eea",
+      boxShadow: "0 2px 8px rgba(31,94,234,0.12)",
+    },
+  },
+  templateCardIcon: {
+    fontSize: "1.4rem",
+    marginBottom: 4,
+  },
+  templateCardName: {
+    fontWeight: 700,
+    fontSize: "0.8rem",
+    color: "#1e293b",
+    lineHeight: 1.3,
+    marginBottom: 2,
+  },
+  templateCardDesc: {
+    fontSize: "0.7rem",
+    color: "#64748b",
+    lineHeight: 1.3,
+    marginBottom: 6,
+  },
+  templateToolBadge: {
+    display: "inline-block",
+    fontSize: "0.62rem",
+    fontWeight: 700,
+    backgroundColor: "#eff6ff",
+    color: "#1f5eea",
+    borderRadius: 4,
+    padding: "1px 5px",
+    marginRight: 3,
+    marginBottom: 3,
+  },
+  toolBlocksGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: 8,
+    marginTop: 8,
+    [theme.breakpoints.down("xs")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  toolBlockCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    padding: "8px 12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8fafc",
+  },
+  analysisPanel: {
+    marginTop: 16,
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    padding: 16,
+    backgroundColor: "#f8fafc",
+  },
+  scoreCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: "50%",
+    backgroundColor: "#1f5eea",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "column",
+    fontWeight: 800,
+    fontSize: "1.1rem",
+    flexShrink: 0,
+  },
+  analysisBullet: {
+    fontSize: "0.78rem",
+    color: "#374151",
+    marginBottom: 3,
+    paddingLeft: 12,
+    position: "relative",
+    "&::before": {
+      content: '"•"',
+      position: "absolute",
+      left: 0,
+    },
+  },
+  examplesPanel: {
+    marginTop: 12,
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: "#f8fafc",
+  },
+  exampleCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    padding: "10px 12px",
+    backgroundColor: "#fff",
+    marginBottom: 8,
+  },
+  compareGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
   },
   metricLabel: {
     color: "#64748b",
@@ -1085,6 +1203,21 @@ const Prompts = () => {
   const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
   const [calendarApiTestLoading, setCalendarApiTestLoading] = useState(false);
   const [calendarApiTestResult, setCalendarApiTestResult] = useState(null);
+  // System Prompt AI Tools
+  const [promptGallery, setPromptGallery] = useState([]);
+  const [promptGalleryLoaded, setPromptGalleryLoaded] = useState(false);
+  const [promptGalleryModalOpen, setPromptGalleryModalOpen] = useState(false);
+  const [promptTemplatePreview, setPromptTemplatePreview] = useState(null);
+  const [promptApplyDialog, setPromptApplyDialog] = useState(false);
+  const [promptToolBlocksOpen, setPromptToolBlocksOpen] = useState(false);
+  const [promptAnalysis, setPromptAnalysis] = useState(null);
+  const [promptAnalysisLoading, setPromptAnalysisLoading] = useState(false);
+  const [promptImprovedVersion, setPromptImprovedVersion] = useState(null);
+  const [promptImproveLoading, setPromptImproveLoading] = useState(false);
+  const [promptImproveDialog, setPromptImproveDialog] = useState(false);
+  const [promptExamples, setPromptExamples] = useState([]);
+  const [promptExamplesLoading, setPromptExamplesLoading] = useState(false);
+  const [promptExamplesOpen, setPromptExamplesOpen] = useState(false);
   const [companyAiStatus, setCompanyAiStatus] = useState(null);
   const [companyAiLoading, setCompanyAiLoading] = useState(false);
   const [companyAiSaving, setCompanyAiSaving] = useState(false);
@@ -1642,6 +1775,121 @@ const Prompts = () => {
     }
   };
 
+  const loadPromptGallery = async () => {
+    if (promptGalleryLoaded) return;
+    try {
+      const { data } = await api.get("/ai-agents/external/system-prompt/templates");
+      if (data?.templates) {
+        setPromptGallery(data.templates);
+        setPromptGalleryLoaded(true);
+      }
+    } catch { /* fail silently — gallery is non-critical */ }
+  };
+
+  const handleAnalyzePrompt = async () => {
+    if (!externalPrompt.trim()) return;
+    setPromptAnalysisLoading(true);
+    setPromptAnalysis(null);
+    try {
+      const { data } = await api.post("/ai-agents/external/system-prompt/analyze", {
+        prompt: externalPrompt,
+      });
+      if (data?.ok) setPromptAnalysis(data);
+    } catch (err) {
+      const msg = err?.response?.data?.error;
+      if (msg === "global_ai_provider_not_configured") {
+        toast.error("IA global não configurada. Configure no painel do Superadmin.");
+      } else {
+        toastError(err);
+      }
+    } finally {
+      setPromptAnalysisLoading(false);
+    }
+  };
+
+  const handleImprovePrompt = async () => {
+    if (!externalPrompt.trim()) return;
+    setPromptImproveLoading(true);
+    setPromptImprovedVersion(null);
+    try {
+      const { data } = await api.post("/ai-agents/external/system-prompt/improve", {
+        prompt: externalPrompt,
+        mode: "general",
+      });
+      if (data?.ok && data.improvedPrompt) {
+        setPromptImprovedVersion(data);
+        setPromptImproveDialog(true);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error;
+      if (msg === "global_ai_provider_not_configured") {
+        toast.error("IA global não configurada. Configure no painel do Superadmin.");
+      } else {
+        toastError(err);
+      }
+    } finally {
+      setPromptImproveLoading(false);
+    }
+  };
+
+  const handleApplyImprovedPrompt = async () => {
+    if (!promptImprovedVersion?.improvedPrompt) return;
+    setExternalPrompt(promptImprovedVersion.improvedPrompt);
+    setPromptImproveDialog(false);
+    setPromptImprovedVersion(null);
+    toast.success("Prompt melhorado aplicado. Salve para criar nova versão.");
+  };
+
+  const handleFetchExamples = async () => {
+    setPromptExamplesLoading(true);
+    setPromptExamples([]);
+    try {
+      const { data } = await api.post("/ai-agents/external/system-prompt/examples-from-memory", {
+        limit: 20,
+        focus: "general",
+      });
+      if (data?.ok) {
+        setPromptExamples(data.examples || []);
+        setPromptExamplesOpen(true);
+        if (!data.examples?.length) {
+          toast.info("Não há Chat Memory suficiente para gerar exemplos ainda.");
+        }
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error;
+      if (msg === "global_ai_provider_not_configured") {
+        toast.error("IA global não configurada. Configure no painel do Superadmin.");
+      } else {
+        toastError(err);
+      }
+    } finally {
+      setPromptExamplesLoading(false);
+    }
+  };
+
+  const handleAddExamplesToPrompt = () => {
+    if (!promptExamples.length) return;
+    const block = promptExamples.map(ex =>
+      `Exemplo — ${ex.title}\nCliente: "${ex.clientExample}"\nAgente: "${ex.suggestedAnswer}"`
+    ).join("\n\n");
+    setExternalPrompt(prev => prev + "\n\n# EXEMPLOS DE CONVERSA\n" + block);
+    toast.success("Exemplos adicionados ao prompt. Salve para criar nova versão.");
+    setPromptExamplesOpen(false);
+  };
+
+  const TOOL_BLOCKS = [
+    { id: "rag", label: "RAG / Base de Conhecimento", text: "\n\n# RAG / BASE DE CONHECIMENTO\nSEMPRE consulte a base de conhecimento (RAG) antes de responder sobre produtos, serviços, preços ou políticas.\nVariável disponível: {{ragContext}}\nSe a informação não estiver na base: \"Vou verificar e retorno em breve.\"" },
+    { id: "agenda", label: "Agenda / Horários Disponíveis", text: "\n\n# AGENDA\nNUNCA ofereça horário sem consultar a ferramenta de agenda.\nNUNCA confirme agendamento sem executar criar_compromisso.\nVariável de contexto de calendário: {{calendarContextUrl}}" },
+    { id: "horario", label: "Horário de Funcionamento", text: "\n\n# HORÁRIO DE FUNCIONAMENTO\nInforme o horário de funcionamento apenas com base na variável {{businessHours}}.\nNão invente horários. Se estiver fechado: \"No momento estamos fora do horário de atendimento. Posso agendar um retorno?\"" },
+    { id: "memory", label: "Chat Memory / Contexto", text: "\n\n# CHAT MEMORY\nConsulte o histórico da conversa para personalizar o atendimento.\nVariável: {{chatMemorySummary}}\nSe houver histórico anterior, faça referência de forma natural." },
+    { id: "lead", label: "Movimentação de Lead", text: "\n\n# MOVIMENTAÇÃO DE LEAD\nMova o lead de etapa conforme o progresso:\n- Demonstrou interesse → \"Qualificado\"\n- Agendamento confirmado → \"Agendado\"\n- Proposta enviada → \"Proposta\"\n- Fechou → \"Convertido\"\n- Desistiu → \"Perdido\"\nUse a ferramenta mover_lead somente quando o critério for atingido." },
+    { id: "antialucin", label: "Anti-alucinação", text: "\n\n# REGRAS ANTI-ALUCINAÇÃO\n- NUNCA invente preços, horários, nomes ou informações não confirmadas.\n- NUNCA diga que agendou sem ter executado criar_compromisso.\n- NUNCA diga que consultou RAG sem ter chamado a ferramenta.\n- Se não souber: \"Vou verificar e retorno em breve.\"" },
+    { id: "humano", label: "Atendimento Humano", text: "\n\n# TRANSFERÊNCIA PARA HUMANO\nAcione atendimento humano (pausar_ia) quando:\n- Cliente pedir explicitamente por humano.\n- Situação de emergência ou urgência.\n- Reclamação grave.\n- Negociação fora do padrão.\n- Dúvida que o agente não consegue resolver após 2 tentativas." },
+    { id: "qualif", label: "Qualificação Comercial", text: "\n\n# QUALIFICAÇÃO COMERCIAL\nColete SEMPRE:\n1. Nome completo\n2. Necessidade principal\n3. Urgência (quando precisa resolver)\n4. Orçamento disponível (se aplicável)\n5. Quem decide (o próprio ou outro)\nSomente mova para \"Qualificado\" com todos os dados coletados." },
+    { id: "followup", label: "Follow-up", text: "\n\n# FOLLOW-UP\nSe o cliente não responder em 24h, o sistema enviará follow-up automático.\nNÃO prometa retorno manual. O agente de follow-up cuidará disso automaticamente." },
+    { id: "lgpd", label: "LGPD / Dados Sensíveis", text: "\n\n# LGPD E DADOS SENSÍVEIS\nNÃO solicite CPF, RG, dados bancários ou documentos pessoais via WhatsApp.\nNão armazene dados sensíveis na conversa.\nSe necessário: \"Para sua segurança, esses dados serão coletados de forma segura pelo nosso sistema.\"" },
+  ];
+
   const handleRestoreExternalVersion = async (versionId) => {
     setExternalSaving(true);
     try {
@@ -2076,11 +2324,11 @@ const Prompts = () => {
     { key: "rag", label: "Base RAG", icon: <StorageIcon /> },
     { key: "settings", label: "Configurações de Mensagens", icon: <ChatBubbleOutlineIcon /> },
     { key: "business_hours", label: "Horário de Funcionamento", icon: <AccessTimeIcon /> },
-    { key: "webhooks", label: "Webhooks", icon: <LinkIcon /> },
-    { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
   ];
 
   const externalSecondaryMenuItems = [
+    { key: "webhooks", label: "Webhooks", icon: <LinkIcon /> },
+    { key: "events", label: "Eventos / Logs", icon: <ListAltIcon /> },
     { key: "chatMemory", label: "Chat Memory", icon: <MemoryIcon /> },
     { key: "ai_actions", label: "Ações da IA", icon: <BlockIcon /> },
     { key: "ai_settings", label: "Informações", icon: <InfoOutlinedIcon /> },
@@ -2132,110 +2380,471 @@ const Prompts = () => {
     </Box>
   );
 
-  const renderExternalPrompt = () => (
-    <Box className={classes.externalGrid}>
-      <Box className={classes.externalPanel}>
-        <Typography className={classes.panelTitle}>System Prompt</Typography>
-        <Typography className={classes.panelSubtitle}>
-          Cada salvamento cria uma nova versao e dispara o evento para o N8N.
-        </Typography>
-        <TextField
-          className={classes.promptEditor}
-          label="Prompt do agente externo"
-          variant="outlined"
-          fullWidth
-          multiline
-          minRows={16}
-          value={externalPrompt}
-          onChange={(event) => setExternalPrompt(event.target.value)}
-        />
-        <TextField
-          label="Nota da alteracao"
-          variant="outlined"
-          fullWidth
-          size="small"
-          value={externalChangeNote}
-          onChange={(event) => setExternalChangeNote(event.target.value)}
-          style={{ marginTop: 12 }}
-        />
-        <Box className={classes.actionRow}>
+  const renderExternalPrompt = () => {
+    // Load gallery on first render of this section
+    if (!promptGalleryLoaded) loadPromptGallery();
+
+    const galleryPreview = promptGallery.slice(0, 8);
+
+    return (
+    <Box>
+      {/* --- GALERIA DE PROMPTS --- */}
+      {promptGallery.length > 0 && (
+        <Box className={classes.externalPanel} style={{ marginBottom: 16 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" style={{ marginBottom: 10 }}>
+            <Box>
+              <Typography className={classes.panelTitle}>Galeria de Prompts</Typography>
+              <Typography className={classes.panelSubtitle}>
+                Escolha um modelo pronto para o seu nicho e aplique como base.
+              </Typography>
+            </Box>
+          </Box>
+          <Box className={classes.promptGalleryRow}>
+            {galleryPreview.map(tpl => (
+              <Box
+                key={tpl.id}
+                className={classes.promptTemplateCard}
+                onClick={() => { setPromptTemplatePreview(tpl); setPromptApplyDialog(true); }}
+              >
+                <div className={classes.templateCardIcon}>{tpl.icon}</div>
+                <Typography className={classes.templateCardName}>{tpl.name}</Typography>
+                <Typography className={classes.templateCardDesc}>{tpl.description}</Typography>
+                <Box>
+                  {(tpl.tools || []).slice(0, 3).map(t => (
+                    <span key={t} className={classes.templateToolBadge}>{t}</span>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+          {promptGallery.length > 8 && (
+            <Box textAlign="center" style={{ marginTop: 8 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setPromptGalleryModalOpen(true)}
+              >
+                Ver mais modelos ({promptGallery.length - 8} restantes)
+              </Button>
+            </Box>
+          )}
+        </Box>
+      )}
+
+      <Box className={classes.externalGrid}>
+        <Box className={classes.externalPanel}>
+          <Typography className={classes.panelTitle}>System Prompt</Typography>
+          <Typography className={classes.panelSubtitle}>
+            Cada salvamento cria uma nova versao e dispara o evento para o N8N.
+          </Typography>
+          <TextField
+            className={classes.promptEditor}
+            label="Prompt do agente externo"
+            variant="outlined"
+            fullWidth
+            multiline
+            minRows={16}
+            value={externalPrompt}
+            onChange={(event) => setExternalPrompt(event.target.value)}
+          />
+
+          {/* --- BLOCOS DE FERRAMENTAS --- */}
+          <Box style={{ marginTop: 12 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setPromptToolBlocksOpen(v => !v)}
+              style={{ marginBottom: 8 }}
+            >
+              {promptToolBlocksOpen ? "▲ Ocultar blocos de ferramentas" : "▼ Blocos prontos de ferramentas"}
+            </Button>
+            {promptToolBlocksOpen && (
+              <Box className={classes.toolBlocksGrid}>
+                {TOOL_BLOCKS.map(block => (
+                  <Box key={block.id} className={classes.toolBlockCard}>
+                    <Typography style={{ fontSize: "0.78rem", fontWeight: 600 }}>{block.label}</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      style={{ minWidth: 90, whiteSpace: "nowrap", marginLeft: 8 }}
+                      onClick={() => {
+                        setExternalPrompt(prev => prev + block.text);
+                        toast.success(`Bloco "${block.label}" adicionado ao prompt.`);
+                      }}
+                    >
+                      Adicionar
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          <TextField
+            label="Nota da alteracao"
+            variant="outlined"
+            fullWidth
+            size="small"
+            value={externalChangeNote}
+            onChange={(event) => setExternalChangeNote(event.target.value)}
+            style={{ marginTop: 12 }}
+          />
+          <Box className={classes.actionRow} style={{ flexWrap: "wrap", gap: 8 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<SaveIcon />}
+              disabled={externalSaving || !externalPrompt.trim()}
+              onClick={handleSaveExternalPrompt}
+            >
+              Salvar prompt
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={promptAnalysisLoading || !externalPrompt.trim()}
+              onClick={handleAnalyzePrompt}
+              startIcon={promptAnalysisLoading ? <CircularProgress size={14} /> : null}
+            >
+              {promptAnalysisLoading ? "Analisando..." : "Analisar com IA"}
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={promptImproveLoading || !externalPrompt.trim()}
+              onClick={handleImprovePrompt}
+              startIcon={promptImproveLoading ? <CircularProgress size={14} /> : null}
+            >
+              {promptImproveLoading ? "Melhorando..." : "Melhorar com IA"}
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={promptExamplesLoading}
+              onClick={handleFetchExamples}
+              startIcon={promptExamplesLoading ? <CircularProgress size={14} /> : null}
+            >
+              {promptExamplesLoading ? "Buscando..." : "Exemplos do Chat Memory"}
+            </Button>
+          </Box>
+
+          {/* --- PAINEL DE ANÁLISE --- */}
+          {promptAnalysis && (
+            <Box className={classes.analysisPanel}>
+              <Box display="flex" alignItems="flex-start" style={{ gap: 16 }}>
+                <Box
+                  className={classes.scoreCircle}
+                  style={{
+                    backgroundColor: promptAnalysis.score >= 80 ? "#16a34a" :
+                      promptAnalysis.score >= 60 ? "#d97706" : "#dc2626"
+                  }}
+                >
+                  <span style={{ fontSize: "1.1rem" }}>{promptAnalysis.score}</span>
+                  <span style={{ fontSize: "0.55rem", fontWeight: 600 }}>{promptAnalysis.grade}</span>
+                </Box>
+                <Box flex={1}>
+                  <Typography style={{ fontWeight: 700, marginBottom: 8 }}>Análise do Prompt</Typography>
+                  {promptAnalysis.strengths?.length > 0 && (
+                    <Box style={{ marginBottom: 8 }}>
+                      <Typography style={{ fontSize: "0.75rem", fontWeight: 800, color: "#16a34a", marginBottom: 3 }}>✓ PONTOS FORTES</Typography>
+                      {promptAnalysis.strengths.map((s, i) => (
+                        <Typography key={i} className={classes.analysisBullet}>{s}</Typography>
+                      ))}
+                    </Box>
+                  )}
+                  {promptAnalysis.weaknesses?.length > 0 && (
+                    <Box style={{ marginBottom: 8 }}>
+                      <Typography style={{ fontSize: "0.75rem", fontWeight: 800, color: "#dc2626", marginBottom: 3 }}>✗ PONTOS FRACOS</Typography>
+                      {promptAnalysis.weaknesses.map((s, i) => (
+                        <Typography key={i} className={classes.analysisBullet}>{s}</Typography>
+                      ))}
+                    </Box>
+                  )}
+                  {promptAnalysis.hallucinationRisks?.length > 0 && (
+                    <Box style={{ marginBottom: 8 }}>
+                      <Typography style={{ fontSize: "0.75rem", fontWeight: 800, color: "#d97706", marginBottom: 3 }}>⚠ RISCOS DE ALUCINAÇÃO</Typography>
+                      {promptAnalysis.hallucinationRisks.map((s, i) => (
+                        <Typography key={i} className={classes.analysisBullet}>{s}</Typography>
+                      ))}
+                    </Box>
+                  )}
+                  {promptAnalysis.suggestions?.length > 0 && (
+                    <Box>
+                      <Typography style={{ fontSize: "0.75rem", fontWeight: 800, color: "#1f5eea", marginBottom: 3 }}>💡 SUGESTÕES</Typography>
+                      {promptAnalysis.suggestions.map((s, i) => (
+                        <Typography key={i} className={classes.analysisBullet}>{s}</Typography>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+              <Box textAlign="right" style={{ marginTop: 8 }}>
+                <Button size="small" onClick={() => setPromptAnalysis(null)}>Fechar análise</Button>
+              </Box>
+            </Box>
+          )}
+
+          {/* --- EXEMPLOS DO CHAT MEMORY --- */}
+          {promptExamplesOpen && promptExamples.length > 0 && (
+            <Box className={classes.examplesPanel}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" style={{ marginBottom: 10 }}>
+                <Typography style={{ fontWeight: 700 }}>Exemplos de Conversa (Chat Memory)</Typography>
+                <Button size="small" onClick={() => setPromptExamplesOpen(false)}>Fechar</Button>
+              </Box>
+              {promptExamples.map((ex, i) => (
+                <Box key={i} className={classes.exampleCard}>
+                  <Typography style={{ fontWeight: 700, fontSize: "0.8rem", marginBottom: 6 }}>
+                    {ex.title}
+                  </Typography>
+                  <Typography style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: 4 }}>
+                    <strong>Cliente:</strong> {ex.clientExample}
+                  </Typography>
+                  <Typography style={{ fontSize: "0.78rem", color: "#374151" }}>
+                    <strong>Sugestão:</strong> {ex.suggestedAnswer}
+                  </Typography>
+                </Box>
+              ))}
+              <Box display="flex" style={{ gap: 8, marginTop: 8 }}>
+                <Button size="small" variant="contained" color="primary" onClick={handleAddExamplesToPrompt}>
+                  Adicionar exemplos ao prompt
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const text = promptExamples.map(ex =>
+                      `${ex.title}\nCliente: "${ex.clientExample}"\nAgente: "${ex.suggestedAnswer}"`
+                    ).join("\n\n");
+                    navigator.clipboard?.writeText(text);
+                    toast.success("Exemplos copiados.");
+                  }}
+                >
+                  Copiar exemplos
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
+
+        <Box className={classes.externalPanel}>
+          <Typography className={classes.panelTitle}>Versoes do Prompt</Typography>
+          <Typography className={classes.panelSubtitle}>
+            Restaure uma versao anterior quando precisar voltar o comportamento do agente.
+          </Typography>
+
+          <Box className={classes.versionList}>
+            {externalVersions.length === 0 ? (
+              <Typography className={classes.toolsEmpty}>Nenhuma versao salva ainda.</Typography>
+            ) : (
+              externalVersions.map((version) => (
+                <Box
+                  key={version.id}
+                  className={`${classes.versionItem} ${version.isActive ? classes.activeVersionItem : ""}`}
+                >
+                  <Box className={classes.versionHeader}>
+                    <Box>
+                      <Typography className={classes.versionTitle}>
+                        Versao {version.version} {version.isActive ? "(ativa)" : ""}
+                      </Typography>
+                      <Typography className={classes.versionMeta}>
+                        {formatDateTime(version.createdAt)}
+                      </Typography>
+                    </Box>
+                    <HistoryIcon style={{ color: version.isActive ? "#1f5eea" : "#9ca3af" }} />
+                  </Box>
+                  {version.changeNote && (
+                    <Typography className={classes.versionMeta}>
+                      {version.changeNote}
+                    </Typography>
+                  )}
+                  <Typography className={classes.versionPreview}>
+                    {(version.content || "").slice(0, 180)}
+                    {(version.content || "").length > 180 ? "..." : ""}
+                  </Typography>
+                  <Box className={classes.inlineActions}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<RestoreIcon />}
+                      disabled={externalSaving || version.isActive}
+                      onClick={() => handleRestoreExternalVersion(version.id)}
+                    >
+                      Restaurar
+                    </Button>
+                    <Tooltip title={version.isActive ? "A versao ativa nao pode ser excluida" : "Excluir versao"}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          disabled={externalSaving || version.isActive}
+                          onClick={() => handleDeleteExternalVersion(version.id)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              ))
+            )}
+          </Box>
+        </Box>
+      </Box>
+
+      {/* --- DIALOG: APLICAR TEMPLATE --- */}
+      <Dialog
+        open={promptApplyDialog}
+        onClose={() => setPromptApplyDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {promptTemplatePreview?.icon} {promptTemplatePreview?.name}
+          <Typography variant="caption" display="block" style={{ marginTop: 4 }}>
+            {promptTemplatePreview?.description}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            multiline
+            minRows={14}
+            maxRows={22}
+            fullWidth
+            variant="outlined"
+            value={promptTemplatePreview?.content || ""}
+            InputProps={{ readOnly: true }}
+            style={{ fontFamily: "monospace", fontSize: "0.78rem" }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPromptApplyDialog(false)}>Cancelar</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setExternalPrompt(prev => prev + "\n\n" + (promptTemplatePreview?.content || ""));
+              setPromptApplyDialog(false);
+              toast.success("Template inserido no final do prompt. Salve para criar nova versão.");
+            }}
+          >
+            Inserir no final
+          </Button>
           <Button
             variant="contained"
             color="primary"
-            startIcon={<SaveIcon />}
-            disabled={externalSaving || !externalPrompt.trim()}
-            onClick={handleSaveExternalPrompt}
+            onClick={() => {
+              setExternalPrompt(promptTemplatePreview?.content || "");
+              setPromptApplyDialog(false);
+              toast.success("Template aplicado. Salve para criar nova versão.");
+            }}
           >
-            Salvar prompt
+            Substituir prompt atual
           </Button>
-        </Box>
-      </Box>
+        </DialogActions>
+      </Dialog>
 
-      <Box className={classes.externalPanel}>
-        <Typography className={classes.panelTitle}>Versoes do Prompt</Typography>
-        <Typography className={classes.panelSubtitle}>
-          Restaure uma versao anterior quando precisar voltar o comportamento do agente.
-        </Typography>
-
-        <Box className={classes.versionList}>
-          {externalVersions.length === 0 ? (
-            <Typography className={classes.toolsEmpty}>Nenhuma versao salva ainda.</Typography>
-          ) : (
-            externalVersions.map((version) => (
+      {/* --- DIALOG: GALERIA COMPLETA --- */}
+      <Dialog
+        open={promptGalleryModalOpen}
+        onClose={() => setPromptGalleryModalOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Todos os modelos de prompt</DialogTitle>
+        <DialogContent>
+          <Box className={classes.promptGalleryRow} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+            {promptGallery.map(tpl => (
               <Box
-                key={version.id}
-                className={`${classes.versionItem} ${version.isActive ? classes.activeVersionItem : ""}`}
+                key={tpl.id}
+                className={classes.promptTemplateCard}
+                onClick={() => {
+                  setPromptTemplatePreview(tpl);
+                  setPromptGalleryModalOpen(false);
+                  setPromptApplyDialog(true);
+                }}
               >
-                <Box className={classes.versionHeader}>
-                  <Box>
-                    <Typography className={classes.versionTitle}>
-                      Versao {version.version} {version.isActive ? "(ativa)" : ""}
-                    </Typography>
-                    <Typography className={classes.versionMeta}>
-                      {formatDateTime(version.createdAt)}
-                    </Typography>
-                  </Box>
-                  <HistoryIcon style={{ color: version.isActive ? "#1f5eea" : "#9ca3af" }} />
-                </Box>
-                {version.changeNote && (
-                  <Typography className={classes.versionMeta}>
-                    {version.changeNote}
-                  </Typography>
-                )}
-                <Typography className={classes.versionPreview}>
-                  {(version.content || "").slice(0, 180)}
-                  {(version.content || "").length > 180 ? "..." : ""}
-                </Typography>
-                <Box className={classes.inlineActions}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<RestoreIcon />}
-                    disabled={externalSaving || version.isActive}
-                    onClick={() => handleRestoreExternalVersion(version.id)}
-                  >
-                    Restaurar
-                  </Button>
-                  <Tooltip title={version.isActive ? "A versao ativa nao pode ser excluida" : "Excluir versao"}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        color="secondary"
-                        disabled={externalSaving || version.isActive}
-                        onClick={() => handleDeleteExternalVersion(version.id)}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
+                <div className={classes.templateCardIcon}>{tpl.icon}</div>
+                <Typography className={classes.templateCardName}>{tpl.name}</Typography>
+                <Typography className={classes.templateCardDesc}>{tpl.description}</Typography>
+                <Box>
+                  {(tpl.tools || []).slice(0, 3).map(t => (
+                    <span key={t} className={classes.templateToolBadge}>{t}</span>
+                  ))}
                 </Box>
               </Box>
-            ))
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPromptGalleryModalOpen(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- DIALOG: COMPARAR PROMPT MELHORADO --- */}
+      <Dialog
+        open={promptImproveDialog}
+        onClose={() => setPromptImproveDialog(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>
+          Prompt Melhorado pela IA
+          {promptImprovedVersion?.summary && (
+            <Typography variant="caption" display="block" style={{ marginTop: 4, color: "#64748b" }}>
+              {promptImprovedVersion.summary}
+            </Typography>
           )}
-        </Box>
-      </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box className={classes.compareGrid}>
+            <Box>
+              <Typography style={{ fontWeight: 700, marginBottom: 8, color: "#64748b" }}>Prompt atual</Typography>
+              <TextField
+                multiline
+                minRows={16}
+                maxRows={28}
+                fullWidth
+                variant="outlined"
+                value={externalPrompt}
+                InputProps={{ readOnly: true }}
+                style={{ fontSize: "0.78rem" }}
+              />
+            </Box>
+            <Box>
+              <Typography style={{ fontWeight: 700, marginBottom: 8, color: "#1f5eea" }}>Prompt sugerido pela IA</Typography>
+              <TextField
+                multiline
+                minRows={16}
+                maxRows={28}
+                fullWidth
+                variant="outlined"
+                value={promptImprovedVersion?.improvedPrompt || ""}
+                InputProps={{ readOnly: true }}
+                style={{ fontSize: "0.78rem" }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPromptImproveDialog(false)}>Cancelar</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              navigator.clipboard?.writeText(promptImprovedVersion?.improvedPrompt || "");
+              toast.success("Prompt sugerido copiado.");
+            }}
+          >
+            Copiar sugestão
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleApplyImprovedPrompt}
+          >
+            Aplicar sugestão
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
-  );
+    );
+  };
 
   const renderVariableChips = (onInsert, extraVariables = []) => (
     <Box display="flex" flexWrap="wrap" style={{ gap: 6 }}>
