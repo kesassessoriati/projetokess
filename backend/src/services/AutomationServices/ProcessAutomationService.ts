@@ -910,11 +910,12 @@ const executeActionAiActions = async (
       }
 
       const blockedUntil = moment().add(minutes, "minutes").toDate();
-      await contact.update({ aiBlockedUntil: blockedUntil, aiBlockMode: "pause_until", aiBlockedByStageId: null });
+      const targetStageId = stageId ? Number(stageId) : null;
+      await contact.update({ aiBlockedUntil: blockedUntil, aiBlockMode: "pause_until", aiBlockedByStageId: targetStageId });
 
       logger.info(
         `[AI Actions] pause_for contact=${contact.id} until=${blockedUntil.toISOString()} ` +
-        `duration=${rawDuration}${safeUnit} reason="${reason || ""}"`
+        `duration=${rawDuration}${safeUnit} stageId=${targetStageId} reason="${reason || ""}"`
       );
       return { success: true, message: `IA pausada por ${rawDuration} ${safeUnit} (até ${blockedUntil.toISOString()})` };
     }
@@ -960,6 +961,26 @@ const executeActionAiActions = async (
 };
 
 // Executar uma ação específica
+const withStageAutomationAiConfig = (
+  automation: Automation,
+  action: AutomationAction
+): AutomationAction => {
+  const actionConfig = action.actionConfig || {};
+  const stageId = automation.triggerConfig?.stageId;
+
+  if (
+    automation.triggerType === "crm_stage" &&
+    action.actionType === "ai_actions" &&
+    (actionConfig.aiAction === "disable_in_stage" || actionConfig.aiAction === "pause_for") &&
+    stageId &&
+    !actionConfig.stageId
+  ) {
+    action.actionConfig = { ...actionConfig, stageId: Number(stageId) };
+  }
+
+  return action;
+};
+
 export const executeAction = async (
   action: AutomationAction,
   contact: Contact | null,
@@ -1026,7 +1047,8 @@ export const processAutomationForContact = async (
 
   let messageCount = 0;
 
-  for (const action of actions) {
+  for (const rawAction of actions) {
+    const action = withStageAutomationAiConfig(automation, rawAction);
     const isInstantAction = INSTANT_ACTIONS.has(action.actionType);
 
     if (isInstantAction) {

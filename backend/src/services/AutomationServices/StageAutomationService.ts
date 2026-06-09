@@ -45,36 +45,6 @@ class StageAutomationService {
           }
         }
 
-        // Ao sair de uma etapa com bloqueio de IA, limpar o bloqueio automaticamente
-        // Executa ANTES de qualquer automação da nova etapa para não colidir
-        if (fromStageId && Number(fromStageId) !== Number(toStageId)) {
-          try {
-            const opp = await Opportunity.findOne({
-              where: { id: opportunityId, companyId },
-              attributes: ["id", "contactId"]
-            });
-            if (opp?.contactId) {
-              const c = await Contact.findOne({
-                where: { id: opp.contactId, companyId },
-                attributes: ["id", "aiBlockMode", "aiBlockedByStageId"]
-              });
-              if (
-                c &&
-                c.aiBlockMode === "disabled_in_stage" &&
-                (!c.aiBlockedByStageId || Number(c.aiBlockedByStageId) === Number(fromStageId))
-              ) {
-                await c.update({ aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null });
-                logger.info(
-                  `[StageAutomation] AI block limpo automaticamente ao sair da etapa ${fromStageId} ` +
-                  `para ${toStageId} — contact=${c.id} opportunityId=${opportunityId}`
-                );
-              }
-            }
-          } catch (clearErr: any) {
-            logger.warn(`[StageAutomation] Falha ao limpar AI block na saída da etapa: ${clearErr.message}`);
-          }
-        }
-
         // Buscar automações ativas para o tipo "crm_stage"
         const automations = await Automation.findAll({
           where: {
@@ -89,6 +59,61 @@ class StageAutomationService {
             }
           ]
         });
+
+        // Ao sair de uma etapa com bloqueio de IA, limpar o bloqueio automaticamente
+        // Executa ANTES de qualquer automação da nova etapa para não colidir
+        if (fromStageId && Number(fromStageId) !== Number(toStageId)) {
+          try {
+            const fromStageHasAiPauseAction = automations.some(a => {
+              const config = a.triggerConfig || {};
+              if (Number(config.stageId) !== Number(fromStageId)) return false;
+
+              return (a.actions || []).some(action => {
+                const actionConfig = action.actionConfig || {};
+                return (
+                  action.actionType === "ai_actions" &&
+                  (actionConfig.aiAction === "pause_for" || actionConfig.aiAction === "disable_in_stage")
+                );
+              });
+            });
+
+            const opp = await Opportunity.findOne({
+              where: { id: opportunityId, companyId },
+              attributes: ["id", "contactId"]
+            });
+            if (opp?.contactId) {
+              const c = await Contact.findOne({
+                where: { id: opp.contactId, companyId },
+                attributes: ["id", "aiBlockMode", "aiBlockedByStageId"]
+              });
+              const shouldClearStageAiBlock =
+                c &&
+                (
+                  (
+                    c.aiBlockMode === "disabled_in_stage" &&
+                    (!c.aiBlockedByStageId || Number(c.aiBlockedByStageId) === Number(fromStageId))
+                  ) ||
+                  (
+                    c.aiBlockMode === "pause_until" &&
+                    (
+                      Number(c.aiBlockedByStageId) === Number(fromStageId) ||
+                      (!c.aiBlockedByStageId && fromStageHasAiPauseAction)
+                    )
+                  )
+                );
+
+              if (shouldClearStageAiBlock) {
+                await c.update({ aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null });
+                logger.info(
+                  `[StageAutomation] AI block limpo automaticamente ao sair da etapa ${fromStageId} ` +
+                  `para ${toStageId} — contact=${c.id} opportunityId=${opportunityId}`
+                );
+              }
+            }
+          } catch (clearErr: any) {
+            logger.warn(`[StageAutomation] Falha ao limpar AI block na saída da etapa: ${clearErr.message}`);
+          }
+        }
 
         // Filtrar a automação que corresponde à etapa específica
         const matchingAutomations = automations.filter(a => {

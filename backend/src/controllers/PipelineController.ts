@@ -320,7 +320,10 @@ export const updateStageAutomation = async (req: Request, res: Response): Promis
         if (actions && Array.isArray(actions)) {
             const actionsToCreate = actions.map((act: any, idx: number) => {
                 let actionConfig = act.actionConfig || {};
-                if (act.actionType === "ai_actions" && actionConfig.aiAction === "disable_in_stage") {
+                if (
+                    act.actionType === "ai_actions" &&
+                    (actionConfig.aiAction === "disable_in_stage" || actionConfig.aiAction === "pause_for")
+                ) {
                     actionConfig = { ...actionConfig, stageId: Number(stageId) };
                 }
                 return {
