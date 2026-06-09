@@ -221,7 +221,6 @@ export const initWASocketWhaileys = async (
             if (currentRetries >= 3) {
               await whatsappUpdate.update({ status: "DISCONNECTED", qrcode: "" });
               await DeleteBaileysService(whatsappUpdate.id);
-              await cacheLayer.delFromPattern(`sessions:${whatsapp.id}:*`);
               io.of(String(companyId)).emit(`company-${companyId}-whatsappSession`, {
                 action: "update",
                 session: whatsappUpdate

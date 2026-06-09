@@ -546,7 +546,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session | null> 
                   qrcode: ""
                 });
                 await DeleteBaileysService(whatsappUpdate.id);
-                await cacheLayer.delFromPattern(`sessions:${whatsapp.id}:*`);
                 io.of(String(companyId))
                   .emit(`company-${whatsapp.companyId}-whatsappSession`, {
                     action: "update",
