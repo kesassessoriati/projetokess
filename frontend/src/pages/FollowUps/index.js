@@ -1514,18 +1514,38 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                   </Select>
                 </FormControl>
 
-                {/* Delay is shown for all steps */}
-                <TextField
-                  label="Aguardar antes (min)"
-                  type="number"
-                  value={stage.delayMinutes}
-                  onChange={(e) => updateStage(idx, "delayMinutes", Number(e.target.value))}
-                  variant="outlined"
-                  size="small"
-                  style={{ width: 165 }}
-                  inputProps={{ min: 0 }}
-                  helperText="0 = imediato"
-                />
+                {/* Delay is shown for all steps — stored as minutes, displayed as hours + minutes */}
+                <Box display="flex" gridGap={6} alignItems="flex-start">
+                  <TextField
+                    label="Horas"
+                    type="number"
+                    value={Math.floor((stage.delayMinutes || 0) / 60)}
+                    onChange={(e) => {
+                      const h = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                      const m = (stage.delayMinutes || 0) % 60;
+                      updateStage(idx, "delayMinutes", h * 60 + m);
+                    }}
+                    variant="outlined"
+                    size="small"
+                    style={{ width: 85 }}
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    label="Minutos"
+                    type="number"
+                    value={(stage.delayMinutes || 0) % 60}
+                    onChange={(e) => {
+                      const m = Math.min(59, Math.max(0, Math.floor(Number(e.target.value) || 0)));
+                      const h = Math.floor((stage.delayMinutes || 0) / 60);
+                      updateStage(idx, "delayMinutes", h * 60 + m);
+                    }}
+                    variant="outlined"
+                    size="small"
+                    style={{ width: 95 }}
+                    inputProps={{ min: 0, max: 59 }}
+                    helperText="0h 0min = imediato"
+                  />
+                </Box>
 
                 {/* Message type selector — only for send_message */}
                 {stage.stepType === "send_message" && (
@@ -1726,7 +1746,18 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
               {/* ---- wait: just delay, no extra content ---- */}
               {stage.stepType === "wait" && (
                 <Typography variant="caption" color="textSecondary">
-                  Pausa de {stage.delayMinutes} minuto(s) antes do próximo passo, sem enviar mensagem.
+                  {(() => {
+                    const h = Math.floor((stage.delayMinutes || 0) / 60);
+                    const m = (stage.delayMinutes || 0) % 60;
+                    const label = h > 0 && m > 0
+                      ? `${h}h ${m}min`
+                      : h > 0
+                      ? `${h}h`
+                      : m > 0
+                      ? `${m}min`
+                      : "imediato";
+                    return `Pausa de ${label} antes do próximo passo, sem enviar mensagem.`;
+                  })()}
                 </Typography>
               )}
 

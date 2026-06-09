@@ -171,15 +171,10 @@ async function processContact(campaign, stages, ticket) {
   const recentMessages = await Message.findAll({
     where: { ticketId: ticket.id },
     order: [["createdAt", "DESC"]],
-    limit: 12
+    limit: 20
   });
 
-  const triggerMessage = recentMessages.find((message) => message.fromMe);
-  if (!triggerMessage) return;
-
-  const triggerAt = new Date(triggerMessage.createdAt);
-  const stageOrderMap = new Map(stages.map(stage => [stage.id, stage.order]));
-
+  // Load logs before resolving trigger — needed for follow-up echo detection.
   const logs = await FollowUpLog.findAll({
     where: {
       followUpCampaignId: campaign.id,
@@ -188,6 +183,16 @@ async function processContact(campaign, stages, ticket) {
     },
     order: [["createdAt", "ASC"]]
   });
+
+  // Resolve the effective trigger. The latest fromMe message may itself be a
+  // follow-up echo (sent by this engine), which would create a spurious new
+  // cycle and cause infinite re-sends. resolveEffectiveTrigger detects echoes
+  // and falls back to the original trigger stored in the logs.
+  const triggerMessage = await resolveEffectiveTrigger(ticket, recentMessages, logs);
+  if (!triggerMessage) return;
+
+  const triggerAt = new Date(triggerMessage.createdAt);
+  const stageOrderMap = new Map(stages.map(stage => [stage.id, stage.order]));
 
   const cycleLogs = logs.filter(log => isCurrentTriggerCycle(log, triggerMessage.id, triggerAt));
   const successfulCycleLogs = cycleLogs
@@ -442,6 +447,86 @@ function matchesCampaignTarget(campaign, ticket) {
   }
 
   return true;
+}
+
+/**
+ * How long after the last follow-up sentAt a new fromMe message is considered
+ * a legitimate re-send by a human agent (not an echo of the follow-up itself).
+ * Must be greater than the cron interval (5 min) so follow-up echoes, which
+ * arrive in the DB within seconds of being sent, are always inside the window.
+ */
+const FOLLOW_UP_ECHO_WINDOW_MS = 8 * 60 * 1000; // 8 minutes
+
+/**
+ * Resolves the true trigger message for the current follow-up cycle.
+ *
+ * Problem: after a follow-up stage sends a message, Baileys persists it as a
+ * new Message record with fromMe=true. On the next cron tick that new record
+ * becomes the "latest fromMe", creating an empty cycle where all stages look
+ * unsent, causing Stage 1 to fire again — infinitely.
+ *
+ * Fix: if the latest fromMe message is not referenced by any existing log AND
+ * was created within FOLLOW_UP_ECHO_WINDOW_MS of the last sentAt in the logs,
+ * treat it as a follow-up echo and switch to the original trigger stored in
+ * the logs. Only fall back to the latest fromMe (new cycle) when it arrives
+ * well after the last confirmed send, indicating a human agent sent it.
+ */
+async function resolveEffectiveTrigger(ticket, recentMessages, allLogs) {
+  const latestFromMe = recentMessages.find(m => m.fromMe);
+  if (!latestFromMe) return null;
+
+  // No existing logs → first-time contact, use latest fromMe normally.
+  if (!allLogs.length) return latestFromMe;
+
+  // If the latest fromMe is already the trigger of an existing log, use it
+  // directly — we're mid-cycle and cycleLogs will populate correctly.
+  const alreadyReferenced = allLogs.some(
+    l => l.triggerMessageId && Number(l.triggerMessageId) === Number(latestFromMe.id)
+  );
+  if (alreadyReferenced) return latestFromMe;
+
+  // Find the most recent sentAt across all logs for this contact+campaign.
+  const lastSentLog = allLogs
+    .filter(l => l.sentAt)
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0];
+
+  if (!lastSentLog) {
+    // No stage has been sent yet (all pending/failed) → proceed with latest fromMe.
+    return latestFromMe;
+  }
+
+  const triggerTime = new Date(latestFromMe.createdAt).getTime();
+  const lastSentTime = new Date(lastSentLog.sentAt).getTime();
+  const likelyEcho = triggerTime < lastSentTime + FOLLOW_UP_ECHO_WINDOW_MS;
+
+  if (!likelyEcho) {
+    // Message arrived well after the last follow-up send — human re-opened the
+    // conversation, start a new cycle from this message.
+    return latestFromMe;
+  }
+
+  // The latest fromMe is a follow-up echo. Recover the original trigger.
+  const latestTriggerLog = allLogs
+    .filter(l => l.triggerMessageId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  if (!latestTriggerLog) return latestFromMe;
+
+  const originalInRecent = recentMessages.find(
+    m => m.id === Number(latestTriggerLog.triggerMessageId)
+  );
+  if (originalInRecent) return originalInRecent;
+
+  // Original trigger older than our recent-messages window — load from DB.
+  try {
+    const dbMsg = await Message.findOne({
+      where: { id: Number(latestTriggerLog.triggerMessageId) },
+      attributes: ["id", "createdAt", "fromMe", "ticketId"]
+    });
+    return dbMsg || latestFromMe;
+  } catch {
+    return latestFromMe;
+  }
 }
 
 function isCurrentTriggerCycle(log, triggerMessageId, triggerAt) {
