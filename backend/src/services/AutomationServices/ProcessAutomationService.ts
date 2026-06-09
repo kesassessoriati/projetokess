@@ -61,8 +61,8 @@ const INSTANT_ACTIONS = new Set([
   "transfer_user",
   "close_ticket",
   "create_task",
-  "create_note"
-  // ai_actions removido: suporta delay configurado no UI
+  "create_note",
+  "ai_actions"
 ]);
 
 // Buscar configurações de disparo da empresa
