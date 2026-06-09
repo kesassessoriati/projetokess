@@ -61,8 +61,7 @@ class StageAutomationService {
               if (
                 c &&
                 c.aiBlockMode === "disabled_in_stage" &&
-                c.aiBlockedByStageId &&
-                Number(c.aiBlockedByStageId) === Number(fromStageId)
+                (!c.aiBlockedByStageId || Number(c.aiBlockedByStageId) === Number(fromStageId))
               ) {
                 await c.update({ aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null });
                 logger.info(

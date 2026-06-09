@@ -318,13 +318,19 @@ export const updateStageAutomation = async (req: Request, res: Response): Promis
 
         // Criar as novas ações
         if (actions && Array.isArray(actions)) {
-            const actionsToCreate = actions.map((act: any, idx: number) => ({
-                automationId: automation.id,
-                actionType: act.actionType,
-                actionConfig: act.actionConfig || {},
-                delayMinutes: Number(act.delayMinutes || 0),
-                order: act.order !== undefined ? act.order : idx
-            }));
+            const actionsToCreate = actions.map((act: any, idx: number) => {
+                let actionConfig = act.actionConfig || {};
+                if (act.actionType === "ai_actions" && actionConfig.aiAction === "disable_in_stage") {
+                    actionConfig = { ...actionConfig, stageId: Number(stageId) };
+                }
+                return {
+                    automationId: automation.id,
+                    actionType: act.actionType,
+                    actionConfig,
+                    delayMinutes: Number(act.delayMinutes || 0),
+                    order: act.order !== undefined ? act.order : idx
+                };
+            });
             await AutomationAction.bulkCreate(actionsToCreate, { transaction: t });
         }
     });
