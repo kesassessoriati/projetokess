@@ -36,6 +36,12 @@ interface Data {
   campaignType?: string;
   emailSubject?: string;
   emailBody?: string;
+  randomizedDispatch?: boolean;
+  dispatchMinDelaySeconds?: number | null;
+  dispatchMaxDelaySeconds?: number | null;
+  dailyLimit?: number | null;
+  enableTypingIndicator?: boolean;
+  typingDurationSeconds?: number;
 }
 
 const UpdateService = async (data: Data): Promise<Campaign> => {
@@ -47,7 +53,7 @@ const UpdateService = async (data: Data): Promise<Campaign> => {
     throw new AppError("ERR_NO_CAMPAIGN_FOUND", 404);
   }
 
-  if (["INATIVA", "PROGRAMADA", "CANCELADA"].indexOf(data.status) === -1) {
+  if (["INATIVA", "PROGRAMADA", "CANCELADA", "paused_daily_limit"].indexOf(data.status) === -1) {
     throw new AppError(
       "Só é permitido alterar campanha Inativa e Programada",
       400

@@ -167,6 +167,30 @@ class Campaign extends Model<Campaign> {
 
   @Column(DataType.TEXT)
   emailBody: string;
+
+  @Column(DataType.INTEGER)
+  dailyLimit: number;
+
+  @Default(0)
+  @Column(DataType.INTEGER)
+  dailySentCount: number;
+
+  @Column(DataType.DATEONLY)
+  currentBatchDate: string;
+
+  @Column(DataType.DATE)
+  nextResumeAt: Date;
+
+  @Column(DataType.INTEGER)
+  estimatedDays: number;
+
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  enableTypingIndicator: boolean;
+
+  @Default(0)
+  @Column(DataType.INTEGER)
+  typingDurationSeconds: number;
 }
 
 export default Campaign;

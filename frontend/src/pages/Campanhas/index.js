@@ -145,6 +145,7 @@ const STATUS_META = {
   PROGRAMADA: { label: "Programadas", color: "#2563eb" },
   CANCELADA: { label: "Canceladas", color: "#dc2626" },
   INATIVA: { label: "Inativas", color: "#6b7280" },
+  paused_daily_limit: { label: "Pausada por limite diário", color: "#f97316" },
 };
 
 const CAMPAIGN_KANBAN_COLUMNS = [
@@ -1335,6 +1336,7 @@ const Campaigns = () => {
       EM_ANDAMENTO: { label: "Em Andamento", color: "#ff9800", bg: "#fff3e0" },
       CANCELADA: { label: "Cancelada", color: "#d32f2f", bg: "#ffebee" },
       FINALIZADA: { label: "Finalizada", color: "#4caf50", bg: "#e8f5e9" },
+      paused_daily_limit: { label: "Pausada — limite diário", color: "#c2410c", bg: "#ffedd5" },
     };
     const c = cfg[status] || { label: status, color: "#666", bg: "#f5f5f5" };
     return <Chip label={c.label} size="small" className={classes.statusChip} style={{ backgroundColor: c.bg, color: c.color }} />;

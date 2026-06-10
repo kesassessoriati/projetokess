@@ -39,6 +39,9 @@ interface Data {
   randomizedDispatch?: boolean;
   dispatchMinDelaySeconds?: number | null;
   dispatchMaxDelaySeconds?: number | null;
+  dailyLimit?: number | null;
+  enableTypingIndicator?: boolean;
+  typingDurationSeconds?: number;
 }
 
 const CreateService = async (data: Data): Promise<Campaign> => {

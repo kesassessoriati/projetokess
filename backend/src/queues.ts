@@ -542,6 +542,18 @@ function replaceEmailVariables(text: string, variables: Record<string, string>):
 
 // ─── CAMPAIGN VERIFICATION (WhatsApp + E-mail) ──────────────────────────────
 
+function calculateNextResumeAt(scheduledAt: Date | null, startHour: string): Date {
+  const tomorrow = moment().add(1, "day");
+  if (scheduledAt) {
+    const s = moment(scheduledAt);
+    tomorrow.hours(s.hours()).minutes(s.minutes()).seconds(0).milliseconds(0);
+  } else {
+    const [h, m] = (startHour || "09:00").split(":").map(Number);
+    tomorrow.hours(h || 9).minutes(m || 0).seconds(0).milliseconds(0);
+  }
+  return tomorrow.toDate();
+}
+
 async function handleVerifyCampaigns(job) {
   if (isProcessing) {
     // logger.warn('A campaign verification process is already running.');
@@ -593,6 +605,38 @@ async function handleVerifyCampaigns(job) {
       await Promise.all(promises);
 
       logger.info('Todas as campanhas foram processadas e adicionadas à fila.');
+    }
+
+    // Retomar campanhas pausadas por limite diário
+    const pausedCampaigns: { id: number; companyId: number; campaignType: string }[] =
+      await sequelize.query(
+        `SELECT id, "companyId", "campaignType" FROM "Campaigns"
+         WHERE status = 'paused_daily_limit' AND "nextResumeAt" <= NOW()`,
+        { type: QueryTypes.SELECT }
+      );
+
+    if (pausedCampaigns.length > 0) {
+      logger.info(`[DailyLimit] Campanhas pausadas para retomada: ${pausedCampaigns.length}`);
+      const resumePromises = pausedCampaigns.map(async (campaign) => {
+        try {
+          await sequelize.query(
+            `UPDATE "Campaigns" SET status = 'EM_ANDAMENTO', "dailySentCount" = 0,
+             "currentBatchDate" = CURRENT_DATE, "nextResumeAt" = NULL
+             WHERE id = ${campaign.id}`
+          );
+          logger.info(`[DailyLimit] Campanha ${campaign.id} retomada — novo ciclo diário iniciado`);
+
+          const jobName = campaign.campaignType === "email" ? "ProcessEmailCampaign" : "ProcessCampaign";
+          return campaignQueue.add(
+            jobName,
+            { id: campaign.id, delay: 0, companyId: campaign.companyId },
+            { priority: 3, removeOnComplete: { age: 60 * 60, count: 10 }, removeOnFail: { age: 60 * 60, count: 10 } }
+          );
+        } catch (err) {
+          Sentry.captureException(err);
+        }
+      });
+      await Promise.all(resumePromises);
     }
   } catch (err) {
     Sentry.captureException(err);
@@ -933,10 +977,7 @@ async function handleProcessCampaign(job) {
         );
         const randomMaxDelay = Math.max(
           randomMinDelay,
-          Math.min(
-            60,
-            Number(campaign.dispatchMaxDelaySeconds || greaterIntervalSeconds || 60)
-          )
+          Number(campaign.dispatchMaxDelaySeconds || greaterIntervalSeconds || 60)
         );
 
         let nextDispatchAt = campaign.scheduledAt ? new Date(campaign.scheduledAt) : new Date();
@@ -944,8 +985,42 @@ async function handleProcessCampaign(job) {
         const isAllowedTime = await checkTime(campaign.companyId);
         const isAllowedWeek = await checkerWeek(campaign.companyId);
 
+        // Aplicar limite diário: filtrar contatos já enviados e limitar lote
+        const dailyLimit = Number(campaign.dailyLimit) || 0;
+        let batchContactData = contactData;
+
+        if (dailyLimit > 0) {
+          const sentShippings = await CampaignShipping.findAll({
+            where: { campaignId: campaign.id, deliveredAt: { [Op.ne]: null } },
+            attributes: ["contactId"]
+          });
+          const sentContactIds = new Set(sentShippings.map((s: any) => s.contactId));
+          const pendingContactData = contactData.filter(c => !sentContactIds.has(c.contactId));
+
+          const remainingToday = Math.max(0, dailyLimit - (Number(campaign.dailySentCount) || 0));
+          batchContactData = pendingContactData.slice(0, remainingToday);
+
+          if (pendingContactData.length > remainingToday) {
+            const nextResumeAt = calculateNextResumeAt(campaign.scheduledAt, settings.startHour || "09:00");
+            const estimated = Math.ceil(pendingContactData.length / dailyLimit);
+            await campaign.update({
+              status: "paused_daily_limit",
+              nextResumeAt,
+              estimatedDays: estimated
+            });
+            logger.info(
+              `[DailyLimit] Campanha ${campaign.id}: lote de ${batchContactData.length}/${pendingContactData.length} pendentes. Próxima retomada: ${nextResumeAt.toISOString()}`
+            );
+          }
+
+          if (batchContactData.length === 0) {
+            logger.info(`[DailyLimit] Campanha ${campaign.id}: nenhum contato elegível para hoje.`);
+            return;
+          }
+        }
+
         const queuePromises = [];
-        for (let i = 0; i < contactData.length; i++) {
+        for (let i = 0; i < batchContactData.length; i++) {
           const intervalSeconds = randomizedDispatch
             ? Math.floor(Math.random() * (randomMaxDelay - randomMinDelay + 1)) + randomMinDelay
             : (longerIntervalAfterCount > 0 && i >= longerIntervalAfterCount
@@ -954,7 +1029,7 @@ async function handleProcessCampaign(job) {
 
           nextDispatchAt = addSeconds(nextDispatchAt, intervalSeconds);
 
-          const { contactId, campaignId, variables } = contactData[i];
+          const { contactId, campaignId, variables } = batchContactData[i];
           let delay = Math.max(differenceInSeconds(nextDispatchAt, new Date()), 0) * 1000;
 
           // Se não for horário permitido, adicionamos um delay de 1 hora para reprocessar
@@ -969,7 +1044,7 @@ async function handleProcessCampaign(job) {
           );
           queuePromises.push(queuePromise);
           logger.info(
-            `Registro enviado pra fila de disparo: Campanha=${campaign.id};Contato=${contacts[i].name};delay=${delay};intervalSeconds=${intervalSeconds};randomized=${randomizedDispatch}`
+            `Registro enviado pra fila de disparo: Campanha=${campaign.id};delay=${delay};intervalSeconds=${intervalSeconds};randomized=${randomizedDispatch}`
           );
         }
         await Promise.all(queuePromises);
@@ -1118,6 +1193,18 @@ async function handleDispatchCampaign(job) {
     campaignShipping.confirmationMessage = renderedConfirmationMessage;
 
     const chatId = campaignShipping.contact.isGroup ? `${campaignShipping.number}@g.us` : `${campaignShipping.number}@s.whatsapp.net`;
+
+    // Typing indicator antes do envio
+    if (campaign.enableTypingIndicator && campaign.typingDurationSeconds > 0) {
+      try {
+        const durationMs = Math.min(campaign.typingDurationSeconds, 20) * 1000;
+        await wbot.sendPresenceUpdate("composing", chatId);
+        await new Promise(r => setTimeout(r, durationMs));
+        await wbot.sendPresenceUpdate("paused", chatId);
+      } catch (typingErr: any) {
+        logger.warn(`[Campaign] Typing indicator falhou (ignorado): ${typingErr.message}`);
+      }
+    }
 
     const emitTicketUpdate = async (ticketId: number) => {
       const refreshedTicket = await ShowTicketService(ticketId, campaign.companyId);
@@ -1304,6 +1391,7 @@ async function handleDispatchCampaign(job) {
           // }
         }
         await campaignShipping.update({ deliveredAt: moment() });
+        await Campaign.increment("dailySentCount", { by: 1, where: { id: campaign.id } });
         ticket = await emitTicketUpdate(ticket.id);
       }
     }
@@ -1365,6 +1453,7 @@ async function handleDispatchCampaign(job) {
       }
 
       await campaignShipping.update({ deliveredAt: moment() });
+      await Campaign.increment("dailySentCount", { by: 1, where: { id: campaign.id } });
 
     }
     await verifyAndFinalizeCampaign(campaign);

@@ -27,10 +27,12 @@ import toastError from "../../errors/toastError";
 import {
   Box,
   FormControl,
+  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
   Select,
+  Switch,
   Tab,
   Tabs,
   InputAdornment,
@@ -673,6 +675,12 @@ const CampaignModal = ({
     listSections: cloneListSections(LIST_TEMPLATE.sections),
     listButtonText: LIST_TEMPLATE.buttonText,
     listFooter: LIST_TEMPLATE.footer,
+    randomizedDispatch: false,
+    dispatchMinDelayMinutes: 0,
+    dispatchMaxDelayMinutes: 0,
+    dailyLimit: 0,
+    enableTypingIndicator: false,
+    typingDurationSeconds: 0,
   };
 
   const [campaign, setCampaign] = useState(initialState);
@@ -852,6 +860,12 @@ const CampaignModal = ({
           if (Array.isArray(data.buttons)) {
             prevCampaignData.buttons = cloneButtons(data.buttons);
           }
+          prevCampaignData.dispatchMinDelayMinutes = Number(data.dispatchMinDelaySeconds)
+            ? Math.round(Number(data.dispatchMinDelaySeconds) / 60)
+            : 0;
+          prevCampaignData.dispatchMaxDelayMinutes = Number(data.dispatchMaxDelaySeconds)
+            ? Math.round(Number(data.dispatchMaxDelaySeconds) / 60)
+            : 0;
           return prevCampaignData;
         });
       });
@@ -954,6 +968,14 @@ const CampaignModal = ({
           dataValues[key] = value === "" ? null : value;
         }
       });
+
+      // Cadência: converter minutos (display) → segundos (backend)
+      const minMinutes = Number(values.dispatchMinDelayMinutes) || 0;
+      const maxMinutes = Number(values.dispatchMaxDelayMinutes) || 0;
+      dataValues.dispatchMinDelaySeconds = minMinutes > 0 ? minMinutes * 60 : null;
+      dataValues.dispatchMaxDelaySeconds = maxMinutes > 0 ? maxMinutes * 60 : null;
+      delete dataValues.dispatchMinDelayMinutes;
+      delete dataValues.dispatchMaxDelayMinutes;
 
       if (campaignId) {
         await api.put(`/campaigns/${campaignId}`, dataValues);
@@ -2642,6 +2664,162 @@ const CampaignModal = ({
                               </Box>
                             </Grid>
                           )}
+
+                          {/* Seção: Cadência de disparo */}
+                          <Grid item xs={12}>
+                            <Box
+                              style={{
+                                border: "1px solid #bfdbfe",
+                                borderRadius: 8,
+                                padding: 16,
+                                backgroundColor: "#eff6ff",
+                              }}
+                            >
+                              <Typography
+                                style={{
+                                  fontWeight: 700,
+                                  marginBottom: 12,
+                                  fontSize: 13,
+                                  color: "#1e40af",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                ⏱️ Cadência de disparo
+                              </Typography>
+                              <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                  <FormControlLabel
+                                    control={
+                                      <Switch
+                                        checked={Boolean(values.randomizedDispatch)}
+                                        onChange={(e) =>
+                                          setFieldValue("randomizedDispatch", e.target.checked)
+                                        }
+                                        color="primary"
+                                        disabled={!campaignEditable}
+                                      />
+                                    }
+                                    label="Randomizar intervalo entre mensagens"
+                                  />
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <TextField
+                                    label="Intervalo mínimo (minutos)"
+                                    type="number"
+                                    value={values.dispatchMinDelayMinutes || 0}
+                                    onChange={(e) =>
+                                      setFieldValue(
+                                        "dispatchMinDelayMinutes",
+                                        Math.max(0, Number(e.target.value)),
+                                      )
+                                    }
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                    inputProps={{ min: 0, step: 1 }}
+                                  />
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <TextField
+                                    label="Intervalo máximo (minutos)"
+                                    type="number"
+                                    value={values.dispatchMaxDelayMinutes || 0}
+                                    onChange={(e) =>
+                                      setFieldValue(
+                                        "dispatchMaxDelayMinutes",
+                                        Math.max(0, Number(e.target.value)),
+                                      )
+                                    }
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                    inputProps={{ min: 0, step: 1 }}
+                                  />
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <TextField
+                                    label="Limite diário de envios"
+                                    type="number"
+                                    value={values.dailyLimit || 0}
+                                    onChange={(e) =>
+                                      setFieldValue(
+                                        "dailyLimit",
+                                        Math.max(0, Number(e.target.value)),
+                                      )
+                                    }
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    disabled={!campaignEditable}
+                                    helperText="0 = sem limite diário"
+                                    inputProps={{ min: 0, step: 1 }}
+                                  />
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <FormControlLabel
+                                    control={
+                                      <Switch
+                                        checked={Boolean(values.enableTypingIndicator)}
+                                        onChange={(e) =>
+                                          setFieldValue(
+                                            "enableTypingIndicator",
+                                            e.target.checked,
+                                          )
+                                        }
+                                        color="primary"
+                                        disabled={!campaignEditable}
+                                      />
+                                    }
+                                    label="Simular digitando antes de enviar"
+                                  />
+                                </Grid>
+                                {values.enableTypingIndicator && (
+                                  <Grid item xs={6}>
+                                    <TextField
+                                      label="Tempo digitando (segundos)"
+                                      type="number"
+                                      value={values.typingDurationSeconds || 0}
+                                      onChange={(e) =>
+                                        setFieldValue(
+                                          "typingDurationSeconds",
+                                          Math.min(20, Math.max(0, Number(e.target.value))),
+                                        )
+                                      }
+                                      variant="outlined"
+                                      size="small"
+                                      fullWidth
+                                      disabled={!campaignEditable}
+                                      helperText="Máximo: 20 segundos"
+                                      inputProps={{ min: 0, max: 20, step: 1 }}
+                                    />
+                                  </Grid>
+                                )}
+                                {Number(values.dailyLimit) > 0 && (
+                                  <Grid item xs={12}>
+                                    <Box
+                                      style={{
+                                        backgroundColor: "#dbeafe",
+                                        border: "1px solid #93c5fd",
+                                        borderRadius: 6,
+                                        padding: "8px 12px",
+                                        fontSize: 12,
+                                        color: "#1d4ed8",
+                                      }}
+                                    >
+                                      📅 Limite de{" "}
+                                      <strong>{values.dailyLimit} envios/dia</strong>. A
+                                      campanha pausa automaticamente ao atingir o limite e
+                                      retoma no dia seguinte no horário de início.
+                                    </Box>
+                                  </Grid>
+                                )}
+                              </Grid>
+                            </Box>
+                          </Grid>
 
                           {(campaign.mediaPath || attachment) && (
                             <Grid item xs={12}>
