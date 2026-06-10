@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import UserWorkspacePreference from "../models/UserWorkspacePreference";
 
+// Menus que nunca podem ser desativados — sem eles o usuario perde acesso
+// a propria tela de personalizacao e nao consegue recuperar o acesso.
+const PROTECTED_MENU_KEYS = ["configuracoes", "personalizacao-menus"];
+
 export const showMenuPreferences = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, id: userId } = req.user;
 
@@ -28,7 +32,8 @@ export const updateMenuPreferences = async (req: Request, res: Response): Promis
         companyId,
         userId: Number(userId),
         menuKey,
-        visible: Boolean(visible)
+        // Menus protegidos sao sempre forcados como true, independente do payload
+        visible: PROTECTED_MENU_KEYS.includes(menuKey) ? true : Boolean(visible)
       })
     )
   );

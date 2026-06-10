@@ -2,16 +2,19 @@ import React, { useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
   Container,
   FormControlLabel,
   Grid,
   Paper,
   Switch,
+  Tooltip,
   Typography,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import LockIcon from "@material-ui/icons/Lock";
 import { toast } from "react-toastify";
-import { WORKSPACE_MENU_OPTIONS } from "../../constants/workspaceMenuOptions";
+import { WORKSPACE_MENU_OPTIONS, PROTECTED_MENU_KEYS } from "../../constants/workspaceMenuOptions";
 import { useWorkspacePreferences } from "../../context/WorkspacePreferencesContext";
 
 const useStyles = makeStyles((theme) => ({
@@ -44,6 +47,7 @@ const useStyles = makeStyles((theme) => ({
   item: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     borderTop: "1px solid #eef2f7",
     padding: theme.spacing(0.75, 0),
   },
@@ -51,6 +55,18 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     gap: theme.spacing(1),
     marginBottom: theme.spacing(2),
+  },
+  protectedChip: {
+    height: 20,
+    fontSize: 10,
+    fontWeight: 700,
+    marginLeft: theme.spacing(0.5),
+    backgroundColor: "#f3f4f6",
+    color: "#6b7280",
+    border: "1px solid #d1d5db",
+  },
+  protectedRow: {
+    opacity: 0.75,
   },
 }));
 
@@ -75,6 +91,8 @@ const WorkspaceMenuSettings = () => {
   );
 
   const handleToggle = (key) => {
+    // Menus obrigatorios nao podem ser desativados
+    if (PROTECTED_MENU_KEYS.includes(key)) return;
     setDraft((prev) => ({
       ...prev,
       [key]: prev[key] === false,
@@ -84,7 +102,8 @@ const WorkspaceMenuSettings = () => {
   const setAll = (visible) => {
     const next = {};
     WORKSPACE_MENU_OPTIONS.forEach((option) => {
-      next[option.key] = visible;
+      // Menus protegidos sempre permanecem ativos
+      next[option.key] = PROTECTED_MENU_KEYS.includes(option.key) ? true : visible;
     });
     setDraft(next);
   };
@@ -123,20 +142,48 @@ const WorkspaceMenuSettings = () => {
           <Grid item xs={12} md={4} key={group}>
             <Paper className={classes.group}>
               <Typography className={classes.groupTitle}>{group}</Typography>
-              {options.map((option) => (
-                <div className={classes.item} key={option.key}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        color="primary"
-                        checked={draft[option.key] !== false}
-                        onChange={() => handleToggle(option.key)}
+              {options.map((option) => {
+                const isProtected = PROTECTED_MENU_KEYS.includes(option.key);
+                return (
+                  <div
+                    className={`${classes.item} ${isProtected ? classes.protectedRow : ""}`}
+                    key={option.key}
+                  >
+                    <Tooltip
+                      title={
+                        isProtected
+                          ? "Este menu e obrigatorio para que administradores consigam gerenciar os menus da empresa."
+                          : ""
+                      }
+                      placement="top"
+                    >
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            color="primary"
+                            checked={isProtected ? true : draft[option.key] !== false}
+                            onChange={() => handleToggle(option.key)}
+                            disabled={isProtected}
+                          />
+                        }
+                        label={
+                          <Box display="flex" alignItems="center">
+                            {option.label}
+                            {isProtected && (
+                              <Chip
+                                icon={<LockIcon style={{ fontSize: 10 }} />}
+                                label="Obrigatorio"
+                                size="small"
+                                className={classes.protectedChip}
+                              />
+                            )}
+                          </Box>
+                        }
                       />
-                    }
-                    label={option.label}
-                  />
-                </div>
-              ))}
+                    </Tooltip>
+                  </div>
+                );
+              })}
             </Paper>
           </Grid>
         ))}

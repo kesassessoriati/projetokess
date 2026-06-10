@@ -1,3 +1,7 @@
+// Menus que nao podem ser desativados — sem eles o usuario perde acesso
+// a propria tela de personalizacao e nao consegue reativar nada.
+export const PROTECTED_MENU_KEYS = ["configuracoes", "personalizacao-menus"];
+
 export const WORKSPACE_MENU_OPTIONS = [
   { key: "dashboard", label: "Dashboard", group: "Gestão" },
   { key: "relatorios", label: "Relatórios", group: "Gestão" },
