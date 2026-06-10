@@ -1,51 +1,13 @@
 import { Request, Response } from "express";
 import SipSetting from "../models/SipSetting";
 import AppError from "../errors/AppError";
+import {
+  ensureSipSettingDids,
+  normalizeSipDids,
+  syncSipSettingDids
+} from "../services/SyncSipSettingDidsService";
 
-const normalizeDid = (did: any) => {
-  if (!did) {
-    return null;
-  }
-
-  const number = String(did.number || did.value || "").replace(/\D/g, "");
-  if (!number) {
-    return null;
-  }
-
-  return {
-    number,
-    label: String(did.label || did.name || number).trim(),
-    default: Boolean(did.default)
-  };
-};
-
-const normalizeDids = (metadata: any = {}) => {
-  const dids = Array.isArray(metadata?.dids)
-    ? metadata.dids.map(normalizeDid).filter(Boolean)
-    : [];
-
-  const fallbackDid = normalizeDid({
-    number: metadata?.trunkDid || metadata?.did || metadata?.defaultDid,
-    label: "Principal",
-    default: true
-  });
-
-  if (!dids.length && fallbackDid) {
-    dids.push(fallbackDid);
-  }
-
-  if (!dids.length) {
-    return [];
-  }
-
-  const defaultIndex = dids.findIndex((did: any) => did.default);
-  return dids.map((did: any, index: number) => ({
-    ...did,
-    default: defaultIndex >= 0 ? index === defaultIndex : index === 0
-  }));
-};
-
-const serializeSipSetting = (record: SipSetting | null) => {
+const serializeSipSetting = async (record: SipSetting | null) => {
   if (!record) {
     return null;
   }
@@ -53,7 +15,7 @@ const serializeSipSetting = (record: SipSetting | null) => {
   const payload = record.toJSON() as any;
   delete payload.password;
   payload.metadata = payload.metadata || {};
-  payload.dids = normalizeDids(payload.metadata);
+  payload.dids = await ensureSipSettingDids(record);
   payload.websocketUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
   return payload;
 };
@@ -80,7 +42,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     where: { companyId }
   });
 
-  return res.json(serializeSipSetting(setting));
+  return res.json(await serializeSipSetting(setting));
 };
 
 export const runtime = async (req: Request, res: Response): Promise<Response> => {
@@ -96,7 +58,7 @@ export const runtime = async (req: Request, res: Response): Promise<Response> =>
 
   const payload = setting.toJSON() as any;
   payload.metadata = payload.metadata || {};
-  payload.dids = normalizeDids(payload.metadata);
+  payload.dids = await ensureSipSettingDids(setting);
   const directWsUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
   payload.websocketUrl = directWsUrl;
   payload.userUri = `sip:${payload.username}@${payload.sipDomain || payload.host}`;
@@ -138,7 +100,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   } = req.body;
 
   let setting = await SipSetting.findOne({ where: { companyId } });
-  const normalizedDids = normalizeDids(metadata);
+  const normalizedDids = normalizeSipDids(metadata);
 
   const payload = {
     label: label?.trim() || "Webphone Principal",
@@ -170,7 +132,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     });
   }
 
-  return res.status(200).json(serializeSipSetting(setting));
+  await syncSipSettingDids(setting, payload.metadata);
+
+  return res.status(200).json(await serializeSipSetting(setting));
 };
 
 export const test = async (req: Request, res: Response): Promise<Response> => {

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import SipDid from "../models/SipDid";
 import AppError from "../errors/AppError";
 
@@ -57,7 +58,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   if (req.body.number) {
     const normalized = String(req.body.number).replace(/\D/g, "");
     const existing = await SipDid.findOne({
-      where: { companyId, normalizedNumber: normalized, id: { $ne: Number(id) } }
+      where: { companyId, normalizedNumber: normalized, id: { [Op.ne]: Number(id) } }
     });
     if (existing) {
       throw new AppError("Este número já está cadastrado como DID.", 400);
