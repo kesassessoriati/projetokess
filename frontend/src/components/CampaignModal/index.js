@@ -686,8 +686,8 @@ const CampaignModal = ({
     listButtonText: LIST_TEMPLATE.buttonText,
     listFooter: LIST_TEMPLATE.footer,
     randomizedDispatch: false,
-    dispatchMinDelayMinutes: 0,
-    dispatchMaxDelayMinutes: 0,
+    dispatchMinDelaySeconds: 0,
+    dispatchMaxDelaySeconds: 0,
     dailyLimit: 0,
     enableTypingIndicator: false,
     typingDurationSeconds: 0,
@@ -872,12 +872,6 @@ const CampaignModal = ({
           if (Array.isArray(data.buttons)) {
             prevCampaignData.buttons = cloneButtons(data.buttons);
           }
-          prevCampaignData.dispatchMinDelayMinutes = Number(data.dispatchMinDelaySeconds)
-            ? Math.round(Number(data.dispatchMinDelaySeconds) / 60)
-            : 0;
-          prevCampaignData.dispatchMaxDelayMinutes = Number(data.dispatchMaxDelaySeconds)
-            ? Math.round(Number(data.dispatchMaxDelaySeconds) / 60)
-            : 0;
           return prevCampaignData;
         });
       });
@@ -1016,13 +1010,11 @@ const CampaignModal = ({
         }
       });
 
-      // Cadência: converter minutos (display) → segundos (backend)
-      const minMinutes = Number(values.dispatchMinDelayMinutes) || 0;
-      const maxMinutes = Number(values.dispatchMaxDelayMinutes) || 0;
-      dataValues.dispatchMinDelaySeconds = minMinutes > 0 ? minMinutes * 60 : null;
-      dataValues.dispatchMaxDelaySeconds = maxMinutes > 0 ? maxMinutes * 60 : null;
-      delete dataValues.dispatchMinDelayMinutes;
-      delete dataValues.dispatchMaxDelayMinutes;
+      // Cadência: salvar diretamente em segundos (sem conversão)
+      const minSec = Number(dataValues.dispatchMinDelaySeconds) || 0;
+      const maxSec = Number(dataValues.dispatchMaxDelaySeconds) || 0;
+      dataValues.dispatchMinDelaySeconds = minSec > 0 ? minSec : null;
+      dataValues.dispatchMaxDelaySeconds = maxSec > 0 ? maxSec : null;
 
       if (campaignId) {
         await api.put(`/campaigns/${campaignId}`, dataValues);
@@ -2785,12 +2777,12 @@ const CampaignModal = ({
                                 </Grid>
                                 <Grid item xs={6}>
                                   <TextField
-                                    label="Intervalo mínimo (minutos)"
+                                    label="Intervalo mínimo (segundos)"
                                     type="number"
-                                    value={values.dispatchMinDelayMinutes || 0}
+                                    value={values.dispatchMinDelaySeconds || 0}
                                     onChange={(e) =>
                                       setFieldValue(
-                                        "dispatchMinDelayMinutes",
+                                        "dispatchMinDelaySeconds",
                                         Math.max(0, Number(e.target.value)),
                                       )
                                     }
@@ -2798,26 +2790,40 @@ const CampaignModal = ({
                                     size="small"
                                     fullWidth
                                     disabled={!campaignEditable}
-                                    inputProps={{ min: 0, step: 1 }}
+                                    inputProps={{ min: 0, max: 86400, step: 1 }}
                                   />
                                 </Grid>
                                 <Grid item xs={6}>
-                                  <TextField
-                                    label="Intervalo máximo (minutos)"
-                                    type="number"
-                                    value={values.dispatchMaxDelayMinutes || 0}
-                                    onChange={(e) =>
-                                      setFieldValue(
-                                        "dispatchMaxDelayMinutes",
-                                        Math.max(0, Number(e.target.value)),
-                                      )
-                                    }
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    disabled={!campaignEditable}
-                                    inputProps={{ min: 0, step: 1 }}
-                                  />
+                                  {(() => {
+                                    const minVal = Number(values.dispatchMinDelaySeconds) || 0;
+                                    const maxVal = Number(values.dispatchMaxDelaySeconds) || 0;
+                                    const intervalError =
+                                      maxVal > 0 && minVal > 0 && maxVal < minVal;
+                                    return (
+                                      <TextField
+                                        label="Intervalo máximo (segundos)"
+                                        type="number"
+                                        value={maxVal}
+                                        onChange={(e) =>
+                                          setFieldValue(
+                                            "dispatchMaxDelaySeconds",
+                                            Math.max(0, Number(e.target.value)),
+                                          )
+                                        }
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        disabled={!campaignEditable}
+                                        error={intervalError}
+                                        helperText={
+                                          intervalError
+                                            ? "O intervalo máximo precisa ser maior ou igual ao intervalo mínimo."
+                                            : ""
+                                        }
+                                        inputProps={{ min: 0, max: 86400, step: 1 }}
+                                      />
+                                    );
+                                  })()}
                                 </Grid>
                                 <Grid item xs={6}>
                                   <TextField
@@ -2877,25 +2883,92 @@ const CampaignModal = ({
                                     />
                                   </Grid>
                                 )}
-                                {Number(values.dailyLimit) > 0 && (
-                                  <Grid item xs={12}>
-                                    <Box
-                                      style={{
-                                        backgroundColor: "#dbeafe",
-                                        border: "1px solid #93c5fd",
-                                        borderRadius: 6,
-                                        padding: "8px 12px",
-                                        fontSize: 12,
-                                        color: "#1d4ed8",
-                                      }}
-                                    >
-                                      📅 Limite de{" "}
-                                      <strong>{values.dailyLimit} envios/dia</strong>. A
-                                      campanha pausa automaticamente ao atingir o limite e
-                                      retoma no dia seguinte no horário de início.
-                                    </Box>
-                                  </Grid>
-                                )}
+                                {/* Resumo visual da cadência */}
+                                {(() => {
+                                  const selectedList = contactLists.find(
+                                    (l) => Number(l.id) === Number(values.contactListId),
+                                  );
+                                  const totalContacts = selectedList
+                                    ? Number(selectedList.contactsCount || 0)
+                                    : 0;
+                                  const dailyLimitVal = Number(values.dailyLimit) || 0;
+                                  const minSec = Number(values.dispatchMinDelaySeconds) || 0;
+                                  const maxSec = Number(values.dispatchMaxDelaySeconds) || 0;
+                                  const intervalError = maxSec > 0 && minSec > 0 && maxSec < minSec;
+
+                                  let estimatedDays = 0;
+                                  let distribution = [];
+                                  if (dailyLimitVal > 0 && totalContacts > 0) {
+                                    estimatedDays = Math.ceil(totalContacts / dailyLimitVal);
+                                    const lastDay = totalContacts % dailyLimitVal || dailyLimitVal;
+                                    distribution = [
+                                      ...Array(estimatedDays - 1).fill(dailyLimitVal),
+                                      lastDay,
+                                    ];
+                                  }
+
+                                  const showSummary =
+                                    !intervalError &&
+                                    (totalContacts > 0 || minSec > 0 || maxSec > 0 || dailyLimitVal > 0);
+
+                                  if (!showSummary) return null;
+
+                                  return (
+                                    <Grid item xs={12}>
+                                      <Box
+                                        style={{
+                                          backgroundColor: "#dbeafe",
+                                          border: "1px solid #93c5fd",
+                                          borderRadius: 6,
+                                          padding: "8px 12px",
+                                          fontSize: 12,
+                                          color: "#1d4ed8",
+                                          lineHeight: 1.8,
+                                        }}
+                                      >
+                                        {totalContacts > 0 ? (
+                                          <div>
+                                            📋 <strong>Total da lista:</strong> {totalContacts} contatos.
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            📋 Selecione uma lista com contatos para calcular a estimativa.
+                                          </div>
+                                        )}
+                                        {dailyLimitVal > 0 && totalContacts > 0 ? (
+                                          <>
+                                            <div>
+                                              📅 <strong>Limite diário:</strong> {dailyLimitVal} envios/dia.
+                                            </div>
+                                            <div>
+                                              🗓️ <strong>Estimativa:</strong> aproximadamente{" "}
+                                              {estimatedDays} dia(s) para concluir.
+                                            </div>
+                                            <div>
+                                              📊 <strong>Distribuição:</strong>{" "}
+                                              {distribution.join(" + ")}.
+                                            </div>
+                                          </>
+                                        ) : dailyLimitVal === 0 && totalContacts > 0 ? (
+                                          <div>
+                                            📅 Sem limite diário definido. A campanha tentará
+                                            processar todos os contatos conforme a cadência
+                                            configurada.
+                                          </div>
+                                        ) : null}
+                                        {(minSec > 0 || maxSec > 0) && (
+                                          <div>
+                                            ⏱️ <strong>Intervalo entre mensagens:</strong> de{" "}
+                                            {minSec} a {maxSec} segundos.
+                                          </div>
+                                        )}
+                                        {!values.randomizedDispatch && (
+                                          <div>🔀 Randomização de intervalo desativada.</div>
+                                        )}
+                                      </Box>
+                                    </Grid>
+                                  );
+                                })()}
                               </Grid>
                             </Box>
                           </Grid>
