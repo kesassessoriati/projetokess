@@ -60,6 +60,7 @@ import nodemailer from "nodemailer";
 import { syncAllChips } from "./services/ChipServices/ChipMonitoringService";
 import runTaskReminderJob from "./services/NotificationServices/TaskReminderJobService";
 import { runScheduledOfficialCampaigns } from "./services/OfficialBroadcastService/OfficialBroadcastService";
+import { generateSingleVariation } from "./services/CampaignService/GenerateVariationsService";
 
 const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
@@ -1079,13 +1080,43 @@ async function handlePrepareContact(job) {
 
     if (messages.length >= 0) {
       const radomIndex = randomValue(0, messages.length);
+      let baseMessage = messages[radomIndex] || "";
 
-      const message = getProcessedMessage(
-        messages[radomIndex] || "",
-        variables,
-        contact
-      );
+      // AI variation BEFORE rendering \u2014 placeholders preserved for the AI
+      if (
+        campaign.enableAiMessageVariation &&
+        campaign.messageType === "text" &&
+        baseMessage
+      ) {
+        // Idempotency: only call AI if no shipping record exists yet for this contact
+        const existingShipping = await CampaignShipping.findOne({
+          where: { campaignId, contactId },
+          attributes: ["id"]
+        });
 
+        if (!existingShipping) {
+          const result = await generateSingleVariation(baseMessage, campaign.companyId);
+          if (result.reason === "no_credits") {
+            logger.info(
+              `[Campaign] IA: cr\u00e9ditos insuficientes (empresa ${campaign.companyId}). ` +
+              `Campanha ${campaignId}, contato ${contactId} \u2014 mensagem original ser\u00e1 usada.`
+            );
+          } else if (result.reason === "error") {
+            logger.warn(
+              `[Campaign] IA: erro ao gerar varia\u00e7\u00e3o (empresa ${campaign.companyId}). ` +
+              `Campanha ${campaignId}, contato ${contactId} \u2014 mensagem original ser\u00e1 usada.`
+            );
+          } else if (result.reason === "ok" && result.message) {
+            baseMessage = result.message;
+          }
+        } else {
+          logger.debug(
+            `[Campaign] IA: registro existente para contato ${contactId} \u2014 varia\u00e7\u00e3o IA ignorada (idempot\u00eancia).`
+          );
+        }
+      }
+
+      const message = getProcessedMessage(baseMessage, variables, contact);
       campaignShipping.message = message === null ? "" : `\u200c ${message}`;
     }
     if (campaign.confirmation) {

@@ -410,6 +410,16 @@ const MESSAGE_FIELDS = [
   "message5",
 ];
 
+const CAMPAIGN_VARIABLES = [
+  { token: "{{ms}}", label: "Saudação" },
+  { token: "{{firstName}}", label: "Primeiro nome" },
+  { token: "{{name}}", label: "Nome completo" },
+  { token: "{{number}}", label: "Número" },
+  { token: "{{email}}", label: "E-mail" },
+  { token: "{{date}}", label: "Data" },
+  { token: "{{hour}}", label: "Hora" },
+];
+
 const BUTTONS_TEMPLATE = [
   { displayText: "Sim, quero!", type: "reply", value: "btn_sim" },
   { displayText: "Não, obrigado", type: "reply", value: "btn_nao" },
@@ -681,6 +691,7 @@ const CampaignModal = ({
     dailyLimit: 0,
     enableTypingIndicator: false,
     typingDurationSeconds: 0,
+    enableAiMessageVariation: false,
   };
 
   const [campaign, setCampaign] = useState(initialState);
@@ -697,6 +708,7 @@ const CampaignModal = ({
 
   const [emojiAnchorEl, setEmojiAnchorEl] = useState(null);
   const emojiButtonRef = useRef(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const detectMediaType = (ext = "") => {
     const normalizedExt = (ext || "").toLowerCase();
@@ -923,6 +935,41 @@ const CampaignModal = ({
     setQuickRepliesOpen(false);
   };
 
+  const handleGenerateVariations = async (values, setFieldValue) => {
+    const baseMessage = (values.message1 || "").trim();
+    if (!baseMessage) {
+      toast.warn("Escreva uma mensagem base na aba Msg. 1 antes de gerar variações.");
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const { data } = await api.post("/campaigns/ai/generate-variations", {
+        baseMessage,
+        quantity: 5,
+      });
+
+      const msgs = data.messages || [];
+      MESSAGE_FIELDS.forEach((field, idx) => {
+        if (msgs[idx]) setFieldValue(field, msgs[idx]);
+      });
+
+      toast.success(
+        `${msgs.length} variação(ões) gerada(s). Crédito consumido: ${data.creditsConsumed ?? 1}.`
+      );
+    } catch (err) {
+      if (err?.response?.status === 402) {
+        toast.error(
+          "Saldo de créditos de IA insuficiente. Adicione créditos ou desative a personalização com IA."
+        );
+      } else {
+        toastError(err);
+      }
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleSaveCampaign = async (values) => {
     const validationError = validateInteractiveCampaign(values);
     if (validationError) {
@@ -1012,6 +1059,12 @@ const CampaignModal = ({
       handleEmojiClose();
     };
 
+    const insertToken = (token) => {
+      const current = String(values[identifier] || "").trimEnd();
+      const spacer = current && !current.endsWith(" ") ? " " : "";
+      setFieldValue(identifier, `${current}${spacer}${token}`);
+    };
+
     return (
       <div className={classes.messageField}>
         <Field
@@ -1024,7 +1077,7 @@ const CampaignModal = ({
           placeholder={i18n.t("campaigns.dialog.form.messagePlaceholder")}
           multiline={true}
           variant="outlined"
-          helperText="Utilize variáveis como {nome}, {numero}, {email} ou defina variáveis personalizadas."
+          helperText="Clique nas variáveis abaixo para inserir automaticamente na mensagem."
           disabled={!campaignEditable && campaign.status !== "CANCELADA"}
           InputProps={{
             startAdornment: (
@@ -1034,11 +1087,37 @@ const CampaignModal = ({
             ),
           }}
         />
+        {/* Botões de variáveis dinâmicas */}
+        <Box display="flex" flexWrap="wrap" style={{ gap: 6, marginTop: 8, marginBottom: 4 }}>
+          {CAMPAIGN_VARIABLES.map((v) => (
+            <Box
+              key={v.token}
+              component="button"
+              type="button"
+              onClick={() => insertToken(v.token)}
+              disabled={!campaignEditable && campaign.status !== "CANCELADA"}
+              style={{
+                background: "#111827",
+                color: "#f1f5f9",
+                border: "none",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+                letterSpacing: 0.2,
+                opacity: (!campaignEditable && campaign.status !== "CANCELADA") ? 0.5 : 1,
+              }}
+            >
+              {v.label}
+            </Box>
+          ))}
+        </Box>
         <Box
           display="flex"
           alignItems="center"
           justifyContent="space-between"
-          mt={1}
+          mt={0.5}
         >
           <Button
             size="small"
@@ -2817,6 +2896,105 @@ const CampaignModal = ({
                                     </Box>
                                   </Grid>
                                 )}
+                              </Grid>
+                            </Box>
+                          </Grid>
+
+                          {/* Seção: Inteligência Artificial */}
+                          <Grid item xs={12}>
+                            <Box
+                              style={{
+                                border: "1px solid #e9d5ff",
+                                borderRadius: 8,
+                                padding: 16,
+                                backgroundColor: "#faf5ff",
+                              }}
+                            >
+                              <Typography
+                                style={{
+                                  fontWeight: 700,
+                                  marginBottom: 12,
+                                  fontSize: 13,
+                                  color: "#6d28d9",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                🤖 Inteligência Artificial
+                              </Typography>
+                              <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                  <Box
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#7c3aed",
+                                      backgroundColor: "#ede9fe",
+                                      borderRadius: 6,
+                                      padding: "6px 10px",
+                                      marginBottom: 8,
+                                    }}
+                                  >
+                                    Cada ação de IA consome <strong>1 crédito</strong> do plano.
+                                    A geração de variações usa 1 crédito por clique.
+                                    A personalização no envio usa 1 crédito por mensagem enviada.
+                                    Se os créditos acabarem, a campanha continuará com a mensagem original, sem personalização por IA.
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <Button
+                                    variant="contained"
+                                    disabled={aiGenerating || (!campaignEditable && campaign.status !== "CANCELADA")}
+                                    onClick={() => handleGenerateVariations(values, setFieldValue)}
+                                    style={{
+                                      background: aiGenerating ? "#9ca3af" : "#6d28d9",
+                                      color: "white",
+                                      textTransform: "none",
+                                      fontWeight: 600,
+                                      fontSize: 13,
+                                      borderRadius: 8,
+                                      boxShadow: "none",
+                                    }}
+                                  >
+                                    {aiGenerating ? "Gerando mensagens..." : "✨ Gerar variações com IA"}
+                                  </Button>
+                                  <Typography
+                                    style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}
+                                  >
+                                    Escreva a mensagem base na aba Msg. 1, depois clique para
+                                    gerar 5 variações que preencherão Msg. 1–5.
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <FormControlLabel
+                                    control={
+                                      <Switch
+                                        checked={Boolean(values.enableAiMessageVariation)}
+                                        onChange={(e) =>
+                                          setFieldValue(
+                                            "enableAiMessageVariation",
+                                            e.target.checked,
+                                          )
+                                        }
+                                        color="primary"
+                                        disabled={!campaignEditable && campaign.status !== "CANCELADA"}
+                                        style={{ color: "#6d28d9" }}
+                                      />
+                                    }
+                                    label={
+                                      <Typography style={{ fontSize: 13, fontWeight: 600 }}>
+                                        Personalização inteligente no envio
+                                      </Typography>
+                                    }
+                                  />
+                                  <Typography
+                                    style={{ fontSize: 11, color: "#64748b", marginLeft: 44 }}
+                                  >
+                                    A IA adapta levemente cada mensagem antes do envio para tornar
+                                    a comunicação mais natural. Consome 1 crédito por mensagem enviada.
+                                    Se os créditos acabarem, a campanha continuará com a mensagem original, sem personalização por IA.
+                                  </Typography>
+                                </Grid>
                               </Grid>
                             </Box>
                           </Grid>

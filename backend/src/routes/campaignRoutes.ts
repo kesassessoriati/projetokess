@@ -2,12 +2,16 @@ import express from "express";
 import isAuth from "../middleware/isAuth";
 
 import * as CampaignController from "../controllers/CampaignController";
+import * as CampaignAIController from "../controllers/CampaignAIController";
 import multer from "multer";
 import uploadConfig from "../config/upload";
 
 const upload = multer(uploadConfig);
 
 const routes = express.Router();
+
+routes.post("/campaigns/ai/generate-variations", isAuth, CampaignAIController.generateVariations);
+routes.get("/campaigns/ai/credit-status", isAuth, CampaignAIController.getCreditStatus);
 
 routes.get("/campaigns/list", isAuth, CampaignController.findList);
 routes.get("/campaigns/analytics/overview", isAuth, CampaignController.analyticsOverview);

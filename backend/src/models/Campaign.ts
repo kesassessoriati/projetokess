@@ -191,6 +191,10 @@ class Campaign extends Model<Campaign> {
   @Default(0)
   @Column(DataType.INTEGER)
   typingDurationSeconds: number;
+
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  enableAiMessageVariation: boolean;
 }
 
 export default Campaign;

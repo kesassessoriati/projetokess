@@ -42,6 +42,7 @@ interface Data {
   dailyLimit?: number | null;
   enableTypingIndicator?: boolean;
   typingDurationSeconds?: number;
+  enableAiMessageVariation?: boolean;
 }
 
 const UpdateService = async (data: Data): Promise<Campaign> => {
