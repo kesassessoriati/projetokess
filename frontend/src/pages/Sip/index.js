@@ -1,11 +1,13 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
   CircularProgress,
   Container,
+  Divider,
   FormControlLabel,
   Grid,
+  MenuItem,
   Paper,
   Switch,
   TextField,
@@ -18,16 +20,64 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+const WEBPHONE_DEFAULTS = {
+  host: "sip.wapainel.com.br",
+  port: 443,
+  websocketProtocol: "wss",
+  wsPath: "/ws",
+  sipDomain: "sip.wapainel.com.br",
+  displayName: "AtendZappy",
+  stunServer: "stun:stun.l.google.com:19302",
+};
+
+const PROVIDER_PRESETS = {
+  brfone: {
+    label: "BR Fone / SobreIP",
+    host: "voz.sobreip.com.br",
+    port: 5060,
+    transport: "udp",
+    domain: "voz.sobreip.com.br",
+  },
+  sipserver: {
+    label: "SIPServer",
+    host: "sip1.sipserver.com.br",
+    port: 5060,
+    transport: "udp",
+    domain: "sip1.sipserver.com.br",
+  },
+  zentrunk: {
+    label: "Zentrunk",
+    host: "",
+    port: 5060,
+    transport: "udp",
+    domain: "",
+  },
+  twilio: {
+    label: "Twilio SIP",
+    host: "",
+    port: 5060,
+    transport: "tls",
+    domain: "",
+  },
+  custom: {
+    label: "Outro / Personalizado",
+    host: "",
+    port: 5060,
+    transport: "udp",
+    domain: "",
+  },
+};
+
 const useStyles = makeStyles((theme) => ({
   root: {
     padding: theme.spacing(3),
   },
   paper: {
-    borderRadius: 20,
+    borderRadius: 16,
     padding: theme.spacing(4),
     border: "1px solid #dbe7df",
     boxShadow: "0 24px 40px rgba(15, 23, 42, 0.06)",
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%)",
+    background: "#fafafa",
   },
   header: {
     display: "flex",
@@ -38,17 +88,67 @@ const useStyles = makeStyles((theme) => ({
   iconWrap: {
     width: 46,
     height: 46,
-    borderRadius: 14,
+    borderRadius: 8,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
+    background: "#111827",
     color: "#fff",
   },
   description: {
-    color: "#64748b",
+    color: "#52627a",
     marginBottom: theme.spacing(3),
-    maxWidth: 780,
+    maxWidth: 880,
+  },
+  section: {
+    border: "1px solid #dbe7df",
+    borderRadius: 8,
+    padding: theme.spacing(2),
+    backgroundColor: "#fff",
+    marginBottom: theme.spacing(2),
+  },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    [theme.breakpoints.down("sm")]: {
+      flexDirection: "column",
+    },
+  },
+  sectionTitle: {
+    fontWeight: 900,
+    color: "#111827",
+  },
+  sectionText: {
+    color: "#52627a",
+    marginTop: 4,
+  },
+  statusGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: theme.spacing(1),
+    [theme.breakpoints.down("sm")]: {
+      gridTemplateColumns: "1fr",
+    },
+  },
+  statusItem: {
+    border: "1px solid #dbe7df",
+    borderRadius: 8,
+    padding: theme.spacing(1.5),
+    backgroundColor: "#f8fbf9",
+  },
+  statusLabel: {
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+  },
+  statusValue: {
+    color: "#111827",
+    fontWeight: 900,
+    marginTop: 4,
   },
   buttonRow: {
     display: "flex",
@@ -62,21 +162,21 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   saveBtn: {
-    borderRadius: 12,
+    borderRadius: 8,
     textTransform: "none",
     fontWeight: 800,
     minWidth: 220,
     height: 44,
     boxShadow: "none",
-    background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+    background: "#16a34a",
     color: "#fff",
     "&:hover": {
       boxShadow: "none",
-      background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
+      background: "#15803d",
     },
   },
   testBtn: {
-    borderRadius: 12,
+    borderRadius: 8,
     textTransform: "none",
     fontWeight: 700,
     height: 44,
@@ -95,32 +195,66 @@ const useStyles = makeStyles((theme) => ({
       gridTemplateColumns: "1fr",
     },
   },
-  didBox: {
-    border: "1px solid #dbe7df",
-    borderRadius: 12,
-    padding: theme.spacing(2),
-    backgroundColor: "#fff",
-  },
 }));
 
 const initialState = {
   label: "",
-  host: "",
-  port: 7443,
-  websocketProtocol: "wss",
-  wsPath: "",
-  sipDomain: "",
+  host: WEBPHONE_DEFAULTS.host,
+  port: WEBPHONE_DEFAULTS.port,
+  websocketProtocol: WEBPHONE_DEFAULTS.websocketProtocol,
+  wsPath: WEBPHONE_DEFAULTS.wsPath,
+  sipDomain: WEBPHONE_DEFAULTS.sipDomain,
   username: "",
   authUser: "",
   password: "",
-  displayName: "",
+  displayName: WEBPHONE_DEFAULTS.displayName,
   outboundProxy: "",
-  stunServer: "",
+  stunServer: WEBPHONE_DEFAULTS.stunServer,
   registerOnStartup: true,
   enabled: false,
   metadata: {
     dids: [],
+    providerConfig: {
+      type: "brfone",
+      name: PROVIDER_PRESETS.brfone.label,
+      host: PROVIDER_PRESETS.brfone.host,
+      port: PROVIDER_PRESETS.brfone.port,
+      transport: PROVIDER_PRESETS.brfone.transport,
+      domain: PROVIDER_PRESETS.brfone.domain,
+      username: "",
+      authUser: "",
+      mainDid: "",
+    },
+    routeConfig: {
+      inboundTargetType: "user",
+      outboundMode: "defaultDid",
+    },
   },
+};
+
+const getProviderConfig = (metadata = {}) => {
+  if (metadata.providerConfig && typeof metadata.providerConfig === "object") {
+    return metadata.providerConfig;
+  }
+
+  if (metadata.provider && typeof metadata.provider === "object") {
+    return metadata.provider;
+  }
+
+  const providerType = typeof metadata.provider === "string" ? metadata.provider : "custom";
+  const preset = PROVIDER_PRESETS[providerType] || PROVIDER_PRESETS.custom;
+
+  return {
+    type: providerType,
+    name: preset.label,
+    host: metadata.trunkHost || preset.host,
+    port: metadata.trunkPort || preset.port,
+    transport: metadata.transport || preset.transport,
+    domain: metadata.trunkHost || preset.domain,
+    username: "",
+    authUser: "",
+    mainDid: metadata.trunkDid || metadata.defaultDid || "",
+  };
 };
 
 const Sip = () => {
@@ -140,12 +274,26 @@ const Sip = () => {
       try {
         const { data } = await api.get("/sip-settings");
         if (mounted && data) {
+          const metadata = data.metadata || {};
+          const providerConfig = getProviderConfig(metadata);
           setSettings((previous) => ({
             ...previous,
             ...data,
+            host: data.host || WEBPHONE_DEFAULTS.host,
+            port: data.port || WEBPHONE_DEFAULTS.port,
+            websocketProtocol: data.websocketProtocol || WEBPHONE_DEFAULTS.websocketProtocol,
+            wsPath: data.wsPath || WEBPHONE_DEFAULTS.wsPath,
+            sipDomain: data.sipDomain || WEBPHONE_DEFAULTS.sipDomain,
+            displayName: data.displayName || WEBPHONE_DEFAULTS.displayName,
+            stunServer: data.stunServer || WEBPHONE_DEFAULTS.stunServer,
             metadata: {
-              ...(data.metadata || {}),
-              dids: Array.isArray(data.dids) ? data.dids : data.metadata?.dids || [],
+              ...(metadata || {}),
+              providerConfig,
+              routeConfig: {
+                ...(previous.metadata.routeConfig || {}),
+                ...(metadata.routeConfig || {}),
+              },
+              dids: Array.isArray(data.dids) ? data.dids : metadata?.dids || [],
             },
             password: "",
           }));
@@ -166,13 +314,21 @@ const Sip = () => {
     };
   }, []);
 
+  const dids = Array.isArray(settings.metadata?.dids) ? settings.metadata.dids : [];
+  const providerConfig = getProviderConfig(settings.metadata || {});
+  const routeConfig = settings.metadata?.routeConfig || initialState.metadata.routeConfig;
+
+  const defaultDid = useMemo(() => (
+    dids.find((did) => did.default) || dids[0] || null
+  ), [dids]);
+
   if (user?.profile !== "admin" && user?.profile !== "super") {
     return (
       <Container maxWidth="sm" className={classes.root}>
         <Paper className={classes.paper}>
           <Box className={classes.unauthorized}>
             <Typography variant="h6" style={{ fontWeight: 800, marginBottom: 8 }}>
-              Configuração restrita
+              Configuracao restrita
             </Typography>
             <Typography variant="body2" color="textSecondary">
               Apenas administradores podem configurar o SIP da empresa.
@@ -183,6 +339,47 @@ const Sip = () => {
     );
   }
 
+  const updateMetadata = (patch) => {
+    setSettings((previous) => ({
+      ...previous,
+      metadata: {
+        ...(previous.metadata || {}),
+        ...patch,
+      },
+    }));
+  };
+
+  const updateProvider = (patch) => {
+    updateMetadata({
+      providerConfig: {
+        ...providerConfig,
+        ...patch,
+      },
+    });
+  };
+
+  const updateRoute = (patch) => {
+    updateMetadata({
+      routeConfig: {
+        ...routeConfig,
+        ...patch,
+      },
+    });
+  };
+
+  const handleProviderTypeChange = (event) => {
+    const type = event.target.value;
+    const preset = PROVIDER_PRESETS[type] || PROVIDER_PRESETS.custom;
+    updateProvider({
+      type,
+      name: preset.label,
+      host: preset.host || providerConfig.host || "",
+      port: preset.port,
+      transport: preset.transport,
+      domain: preset.domain || providerConfig.domain || "",
+    });
+  };
+
   const handleChange = (event) => {
     const { name, value, checked, type } = event.target;
     setSettings((previous) => ({
@@ -191,16 +388,8 @@ const Sip = () => {
     }));
   };
 
-  const dids = Array.isArray(settings.metadata?.dids) ? settings.metadata.dids : [];
-
   const setDids = (nextDids) => {
-    setSettings((previous) => ({
-      ...previous,
-      metadata: {
-        ...(previous.metadata || {}),
-        dids: nextDids,
-      },
-    }));
+    updateMetadata({ dids: nextDids });
   };
 
   const handleAddDid = () => {
@@ -237,13 +426,52 @@ const Sip = () => {
     setDids(dids.map((did) => ({ ...did, default: did.number === number })));
   };
 
+  const buildPayload = () => {
+    const mainDid = String(providerConfig.mainDid || "").replace(/\D/g, "");
+    const nextDids = dids.length || !mainDid
+      ? dids
+      : [{ label: providerConfig.name || mainDid, number: mainDid, default: true }];
+
+    return {
+      ...settings,
+      host: settings.host || WEBPHONE_DEFAULTS.host,
+      port: Number(settings.port) || WEBPHONE_DEFAULTS.port,
+      websocketProtocol: settings.websocketProtocol || WEBPHONE_DEFAULTS.websocketProtocol,
+      wsPath: settings.wsPath || WEBPHONE_DEFAULTS.wsPath,
+      sipDomain: settings.sipDomain || WEBPHONE_DEFAULTS.sipDomain,
+      authUser: settings.authUser || settings.username,
+      metadata: {
+        ...(settings.metadata || {}),
+        providerConfig: {
+          ...providerConfig,
+          mainDid,
+          username: providerConfig.username || settings.username,
+          authUser: providerConfig.authUser || providerConfig.username || settings.authUser || settings.username,
+        },
+        routeConfig,
+        dids: nextDids,
+      },
+    };
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
     try {
-      await api.post("/sip-settings", settings);
-      toast.success("Configuração SIP salva com sucesso.");
-      setSettings((previous) => ({ ...previous, password: "" }));
+      const payload = buildPayload();
+      await api.post("/sip-settings", payload);
+      toast.success("Configuracao SIP salva com sucesso.");
+      setSettings((previous) => ({
+        ...previous,
+        metadata: {
+          ...(previous.metadata || {}),
+          providerConfig: {
+            ...providerConfig,
+            password: "",
+          },
+        },
+        password: "",
+      }));
     } catch (error) {
       toastError(error);
     } finally {
@@ -254,8 +482,8 @@ const Sip = () => {
   const handleTest = async () => {
     setTesting(true);
     try {
-      const { data } = await api.post("/sip-settings/test", settings);
-      toast.success(data?.message || "Configuração validada.");
+      const { data } = await api.post("/sip-settings/test", buildPayload());
+      toast.success(data?.message || "Configuracao validada.");
     } catch (error) {
       toastError(error);
     } finally {
@@ -280,154 +508,269 @@ const Sip = () => {
           </div>
           <div>
             <Typography variant="h5" style={{ fontWeight: 900 }}>
-              Configuração SIP do Webphone
+              SIP / Webphone
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Administra o registro do softphone embutido usado pela equipe.
+              Configure o provedor da empresa e mantenha o Webphone conectado ao servidor SIP do WA Painel.
             </Typography>
           </div>
         </div>
 
         <Typography variant="body2" className={classes.description}>
-          Essa configuração alimenta o Webphone do Kanban, o mini-webphone dentro do lead e as sequências
-          automatizadas de ligação. Apenas administradores conseguem alterar esse cadastro.
+          O Webphone conecta no servidor SIP do WA Painel. O provedor SIP e usado pelo Asterisk para realizar e receber chamadas.
         </Typography>
 
         <form onSubmit={handleSave}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Nome da conexão" name="label" variant="outlined" value={settings.label} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Host SIP" name="host" variant="outlined" value={settings.host} onChange={handleChange} required />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField fullWidth label="Porta" name="port" type="number" variant="outlined" value={settings.port} onChange={handleChange} required />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField fullWidth label="WS/WSS" name="websocketProtocol" variant="outlined" value={settings.websocketProtocol} onChange={handleChange} />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Caminho WebSocket" name="wsPath" placeholder="/ws" variant="outlined" value={settings.wsPath} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Domínio SIP" name="sipDomain" variant="outlined" value={settings.sipDomain} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Display Name" name="displayName" variant="outlined" value={settings.displayName} onChange={handleChange} />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Usuário / Ramal" name="username" variant="outlined" value={settings.username} onChange={handleChange} required />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Authorization User" name="authUser" variant="outlined" value={settings.authUser} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Senha"
-                name="password"
-                type="password"
-                variant="outlined"
-                placeholder="Deixe em branco para manter"
-                value={settings.password}
-                onChange={handleChange}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Outbound Proxy" name="outboundProxy" variant="outlined" value={settings.outboundProxy} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="STUN Server" name="stunServer" variant="outlined" value={settings.stunServer} onChange={handleChange} />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box className={classes.didBox}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: 12 }}>
-                  DIDs / Numeros de saida
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Provedor SIP da empresa
                 </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  Dados recebidos da operadora, como BR Fone, SIPServer, Zentrunk ou Twilio SIP.
+                </Typography>
+              </div>
+            </div>
 
-                {dids.map((did) => (
-                  <div className={classes.didRow} key={did.number}>
-                    <TextField
-                      label="Nome"
-                      variant="outlined"
-                      size="small"
-                      value={did.label || ""}
-                      onChange={(event) =>
-                        setDids(dids.map((item) => item.number === did.number ? { ...item, label: event.target.value } : item))
-                      }
-                    />
-                    <TextField
-                      label="Numero DID"
-                      variant="outlined"
-                      size="small"
-                      value={did.number}
-                      onChange={(event) => {
-                        const nextNumber = event.target.value.replace(/\D/g, "");
-                        setDids(dids.map((item) => item.number === did.number ? { ...item, number: nextNumber } : item));
-                      }}
-                    />
-                    <Button
-                      variant={did.default ? "contained" : "outlined"}
-                      color="primary"
-                      onClick={() => handleDefaultDid(did.number)}
-                    >
-                      {did.default ? "Padrao" : "Usar padrao"}
-                    </Button>
-                    <Button variant="outlined" color="secondary" onClick={() => handleRemoveDid(did.number)}>
-                      Remover
-                    </Button>
-                  </div>
-                ))}
-
-                <div className={classes.didRow}>
-                  <TextField
-                    label="Nome do DID"
-                    variant="outlined"
-                    size="small"
-                    value={newDid.label}
-                    onChange={(event) => setNewDid((previous) => ({ ...previous, label: event.target.value }))}
-                  />
-                  <TextField
-                    label="Numero DID"
-                    variant="outlined"
-                    size="small"
-                    value={newDid.number}
-                    onChange={(event) => setNewDid((previous) => ({ ...previous, number: event.target.value }))}
-                    placeholder="Ex: 1231970516"
-                  />
-                  <Button variant="outlined" color="primary" onClick={handleAddDid}>
-                    Adicionar DID
-                  </Button>
-                </div>
-              </Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Nome da conexao" name="label" variant="outlined" value={settings.label} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select fullWidth label="Tipo de provedor" variant="outlined" value={providerConfig.type || "custom"} onChange={handleProviderTypeChange}>
+                  {Object.entries(PROVIDER_PRESETS).map(([value, preset]) => (
+                    <MenuItem key={value} value={value}>{preset.label}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="DID principal" variant="outlined" value={providerConfig.mainDid || ""} onChange={(event) => updateProvider({ mainDid: event.target.value.replace(/\D/g, "") })} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Host do provedor" variant="outlined" value={providerConfig.host || ""} onChange={(event) => updateProvider({ host: event.target.value })} required />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField fullWidth label="Porta SIP" type="number" variant="outlined" value={providerConfig.port || 5060} onChange={(event) => updateProvider({ port: Number(event.target.value) || 0 })} />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth label="Transporte" variant="outlined" value={providerConfig.transport || "udp"} onChange={(event) => updateProvider({ transport: event.target.value })}>
+                  <MenuItem value="udp">UDP</MenuItem>
+                  <MenuItem value="tcp">TCP</MenuItem>
+                  <MenuItem value="tls">TLS</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Dominio do provedor" variant="outlined" value={providerConfig.domain || ""} onChange={(event) => updateProvider({ domain: event.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Usuario SIP" variant="outlined" value={providerConfig.username || ""} onChange={(event) => updateProvider({ username: event.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Authorization User" variant="outlined" value={providerConfig.authUser || ""} onChange={(event) => updateProvider({ authUser: event.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Senha SIP" type="password" variant="outlined" placeholder="Deixe em branco para manter" value={providerConfig.password || ""} onChange={(event) => updateProvider({ password: event.target.value })} />
+              </Grid>
             </Grid>
+          </Box>
 
-            <Grid item xs={12}>
-              <Box display="flex" flexWrap="wrap" gridGap={16}>
-                <FormControlLabel
-                  control={<Switch color="primary" checked={settings.enabled} onChange={handleChange} name="enabled" />}
-                  label="Habilitar Webphone SIP"
-                />
-                <FormControlLabel
-                  control={<Switch color="primary" checked={settings.registerOnStartup} onChange={handleChange} name="registerOnStartup" />}
-                  label="Registrar automaticamente ao entrar"
-                />
-              </Box>
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Servidor Webphone
+                </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  O navegador registra no Asterisk do WA Painel. Estes campos ficam prontos para o SaaS multiempresa.
+                </Typography>
+              </div>
+            </div>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Host WSS" name="host" variant="outlined" value={settings.host} onChange={handleChange} required />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField fullWidth label="Porta WSS" name="port" type="number" variant="outlined" value={settings.port} onChange={handleChange} required />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth label="Protocolo" name="websocketProtocol" variant="outlined" value={settings.websocketProtocol} onChange={handleChange}>
+                  <MenuItem value="wss">WSS</MenuItem>
+                  <MenuItem value="ws">WS</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Caminho WebSocket" name="wsPath" placeholder="/ws" variant="outlined" value={settings.wsPath} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Dominio SIP interno" name="sipDomain" variant="outlined" value={settings.sipDomain} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="Display Name" name="displayName" variant="outlined" value={settings.displayName} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth label="STUN Server" name="stunServer" variant="outlined" value={settings.stunServer} onChange={handleChange} />
+              </Grid>
             </Grid>
-          </Grid>
+          </Box>
+
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Numeros / DIDs
+                </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  Os DIDs ficam vinculados a empresa e sao sincronizados para a tabela de roteamento.
+                </Typography>
+              </div>
+            </div>
+
+            {dids.map((did) => (
+              <div className={classes.didRow} key={did.number}>
+                <TextField
+                  label="Nome do DID"
+                  variant="outlined"
+                  size="small"
+                  value={did.label || ""}
+                  onChange={(event) =>
+                    setDids(dids.map((item) => item.number === did.number ? { ...item, label: event.target.value } : item))
+                  }
+                />
+                <TextField
+                  label="Numero DID"
+                  variant="outlined"
+                  size="small"
+                  value={did.number}
+                  onChange={(event) => {
+                    const nextNumber = event.target.value.replace(/\D/g, "");
+                    setDids(dids.map((item) => item.number === did.number ? { ...item, number: nextNumber } : item));
+                  }}
+                />
+                <Button variant={did.default ? "contained" : "outlined"} color="primary" onClick={() => handleDefaultDid(did.number)}>
+                  {did.default ? "Padrao" : "Usar padrao"}
+                </Button>
+                <Button variant="outlined" color="secondary" onClick={() => handleRemoveDid(did.number)}>
+                  Remover
+                </Button>
+              </div>
+            ))}
+
+            <div className={classes.didRow}>
+              <TextField label="Nome do DID" variant="outlined" size="small" value={newDid.label} onChange={(event) => setNewDid((previous) => ({ ...previous, label: event.target.value }))} />
+              <TextField label="Numero DID" variant="outlined" size="small" value={newDid.number} onChange={(event) => setNewDid((previous) => ({ ...previous, number: event.target.value }))} placeholder="Ex: 1231970516" />
+              <Button variant="outlined" color="primary" onClick={handleAddDid}>
+                Adicionar DID
+              </Button>
+            </div>
+          </Box>
+
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Ramais da equipe
+                </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  O ramal visual pode repetir em empresas diferentes; o isolamento interno usa companyId.
+                </Typography>
+              </div>
+            </div>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <TextField fullWidth label="Ramal do usuario" name="username" variant="outlined" value={settings.username} onChange={handleChange} required />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField fullWidth label="Auth User do ramal" name="authUser" variant="outlined" value={settings.authUser} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField fullWidth label="Senha do ramal" name="password" type="password" variant="outlined" placeholder="Deixe em branco para manter" value={settings.password} onChange={handleChange} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField fullWidth label="DID padrao do ramal" variant="outlined" value={defaultDid?.number || providerConfig.mainDid || ""} disabled />
+              </Grid>
+              <Grid item xs={12}>
+                <Box display="flex" flexWrap="wrap" gridGap={16}>
+                  <FormControlLabel control={<Switch color="primary" checked={settings.enabled} onChange={handleChange} name="enabled" />} label="Habilitar Webphone SIP" />
+                  <FormControlLabel control={<Switch color="primary" checked={settings.registerOnStartup} onChange={handleChange} name="registerOnStartup" />} label="Registrar automaticamente ao entrar" />
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Rotas
+                </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  Preparacao para o Asterisk rotear entrada e saida por empresa sem expor dialplan ao usuario.
+                </Typography>
+              </div>
+            </div>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField select fullWidth label="Entrada: quando receber chamada no DID" variant="outlined" value={routeConfig.inboundTargetType || "user"} onChange={(event) => updateRoute({ inboundTargetType: event.target.value })}>
+                  <MenuItem value="user">Tocar para usuario</MenuItem>
+                  <MenuItem value="queue">Tocar para fila/equipe</MenuItem>
+                  <MenuItem value="extension">Tocar para ramal</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField select fullWidth label="Saida: chamadas saintes" variant="outlined" value={routeConfig.outboundMode || "defaultDid"} onChange={(event) => updateRoute({ outboundMode: event.target.value })}>
+                  <MenuItem value="defaultDid">Usar DID padrao</MenuItem>
+                  <MenuItem value="localDdd">Preferir DID por DDD</MenuItem>
+                  <MenuItem value="userBinding">Usar DID vinculado ao usuario</MenuItem>
+                </TextField>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box className={classes.section}>
+            <div className={classes.sectionHeader}>
+              <div>
+                <Typography variant="subtitle1" className={classes.sectionTitle}>
+                  Status / Testes
+                </Typography>
+                <Typography variant="body2" className={classes.sectionText}>
+                  Esta etapa prepara os dados. A geracao/reload do Asterisk sera feita em fase controlada.
+                </Typography>
+              </div>
+            </div>
+
+            <div className={classes.statusGrid}>
+              <div className={classes.statusItem}>
+                <div className={classes.statusLabel}>Configuracao</div>
+                <div className={classes.statusValue}>{settings.enabled ? "Salva e ativa" : "Desativada"}</div>
+              </div>
+              <div className={classes.statusItem}>
+                <div className={classes.statusLabel}>DID cadastrado</div>
+                <div className={classes.statusValue}>{defaultDid?.number || "Pendente"}</div>
+              </div>
+              <div className={classes.statusItem}>
+                <div className={classes.statusLabel}>Webphone</div>
+                <div className={classes.statusValue}>{settings.host ? "Pronto para runtime" : "Pendente"}</div>
+              </div>
+              <div className={classes.statusItem}>
+                <div className={classes.statusLabel}>Asterisk</div>
+                <div className={classes.statusValue}>Aguardando geracao</div>
+              </div>
+            </div>
+          </Box>
+
+          <Divider />
 
           <div className={classes.buttonRow}>
             <Button variant="outlined" className={classes.testBtn} onClick={handleTest} disabled={saving || testing}>
-              {testing ? <CircularProgress size={18} /> : "Validar configuração"}
+              {testing ? <CircularProgress size={18} /> : "Validar configuracao"}
             </Button>
 
             <Button type="submit" className={classes.saveBtn} disabled={saving || testing}>
-              {saving ? <CircularProgress size={18} style={{ color: "#fff" }} /> : "Salvar conexão SIP"}
+              {saving ? <CircularProgress size={18} style={{ color: "#fff" }} /> : "Salvar conexao SIP"}
             </Button>
           </div>
         </form>

@@ -7,6 +7,42 @@ import {
   syncSipSettingDids
 } from "../services/SyncSipSettingDidsService";
 
+const DEFAULT_WEBPHONE_HOST = process.env.SIP_WEBPHONE_HOST || "sip.wapainel.com.br";
+const DEFAULT_WEBPHONE_PORT = Number(process.env.SIP_WEBPHONE_PORT || 443);
+const DEFAULT_WEBPHONE_PROTOCOL = process.env.SIP_WEBPHONE_PROTOCOL || "wss";
+const DEFAULT_WEBPHONE_WS_PATH = process.env.SIP_WEBPHONE_WS_PATH || "/ws";
+const DEFAULT_INTERNAL_SIP_DOMAIN = process.env.SIP_INTERNAL_DOMAIN || DEFAULT_WEBPHONE_HOST;
+
+const getProviderMetadata = (metadata: any = {}) => {
+  if (metadata?.providerConfig && typeof metadata.providerConfig === "object") {
+    return metadata.providerConfig;
+  }
+
+  if (metadata?.provider && typeof metadata.provider === "object") {
+    return metadata.provider;
+  }
+
+  return {};
+};
+
+const sanitizeMetadata = (metadata: any = {}) => {
+  const providerConfig = { ...getProviderMetadata(metadata) };
+  delete providerConfig.password;
+  delete providerConfig.providerPassword;
+
+  const nextMetadata = {
+    ...metadata,
+    providerConfig
+  };
+
+  if (nextMetadata.provider && typeof nextMetadata.provider === "object") {
+    delete nextMetadata.provider.password;
+    delete nextMetadata.provider.providerPassword;
+  }
+
+  return nextMetadata;
+};
+
 const serializeSipSetting = async (record: SipSetting | null) => {
   if (!record) {
     return null;
@@ -14,7 +50,7 @@ const serializeSipSetting = async (record: SipSetting | null) => {
 
   const payload = record.toJSON() as any;
   delete payload.password;
-  payload.metadata = payload.metadata || {};
+  payload.metadata = sanitizeMetadata(payload.metadata || {});
   payload.dids = await ensureSipSettingDids(record);
   payload.websocketUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
   return payload;
@@ -57,11 +93,13 @@ export const runtime = async (req: Request, res: Response): Promise<Response> =>
   }
 
   const payload = setting.toJSON() as any;
-  payload.metadata = payload.metadata || {};
+  payload.metadata = sanitizeMetadata(payload.metadata || {});
   payload.dids = await ensureSipSettingDids(setting);
   const directWsUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
   payload.websocketUrl = directWsUrl;
   payload.userUri = `sip:${payload.username}@${payload.sipDomain || payload.host}`;
+  payload.defaultDid = (payload.dids.find((did: any) => did.default) || payload.dids[0] || null)?.number || null;
+  payload.availableDids = payload.dids.map((did: any) => did.number);
 
   // Se o servidor SIP usa WS simples (porta 80 / ws://), fornece a URL do proxy
   // interno do backend (wss://) para evitar bloqueio de mixed content no navegador.
@@ -101,14 +139,36 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   let setting = await SipSetting.findOne({ where: { companyId } });
   const normalizedDids = normalizeSipDids(metadata);
+  const previousMetadata = (setting?.metadata || {}) as any;
+  const incomingProviderConfig = { ...getProviderMetadata(metadata) };
+  const previousProviderConfig = { ...getProviderMetadata(previousMetadata) };
+  const providerPassword =
+    incomingProviderConfig.password ||
+    incomingProviderConfig.providerPassword ||
+    previousProviderConfig.password ||
+    previousProviderConfig.providerPassword ||
+    null;
+
+  delete incomingProviderConfig.providerPassword;
+  if (providerPassword) {
+    incomingProviderConfig.password = String(providerPassword).trim();
+  } else {
+    delete incomingProviderConfig.password;
+  }
+
+  const nextMetadata = {
+    ...(metadata || {}),
+    providerConfig: incomingProviderConfig,
+    dids: normalizedDids
+  };
 
   const payload = {
     label: label?.trim() || "Webphone Principal",
-    host: host?.trim(),
-    port: Number(port),
-    websocketProtocol: websocketProtocol || "wss",
-    wsPath: wsPath?.trim() || "",
-    sipDomain: sipDomain?.trim() || host?.trim(),
+    host: host?.trim() || DEFAULT_WEBPHONE_HOST,
+    port: Number(port) || DEFAULT_WEBPHONE_PORT,
+    websocketProtocol: websocketProtocol || DEFAULT_WEBPHONE_PROTOCOL,
+    wsPath: wsPath?.trim() || DEFAULT_WEBPHONE_WS_PATH,
+    sipDomain: sipDomain?.trim() || DEFAULT_INTERNAL_SIP_DOMAIN,
     username: username?.trim(),
     authUser: authUser?.trim() || username?.trim(),
     password: password ? String(password).trim() : undefined,
@@ -117,10 +177,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     stunServer: stunServer?.trim() || null,
     registerOnStartup: registerOnStartup !== false,
     enabled: Boolean(enabled),
-    metadata: {
-      ...(metadata || {}),
-      dids: normalizedDids
-    }
+    metadata: nextMetadata
   };
 
   if (setting) {
