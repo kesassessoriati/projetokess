@@ -232,13 +232,40 @@ const initialState = {
   },
 };
 
-const getProviderConfig = (metadata = {}) => {
+const isProviderLikeHost = (value, providerConfig = {}, metadata = {}) => {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  if (!normalizedValue) return false;
+
+  return [
+    providerConfig.host,
+    providerConfig.domain,
+    providerConfig.trunkHost,
+    metadata.trunkHost,
+    metadata.providerHost,
+    metadata.providerDomain,
+  ]
+    .map((item) => String(item || "").trim().toLowerCase())
+    .filter(Boolean)
+    .includes(normalizedValue);
+};
+
+const getProviderConfig = (metadata = {}, record = {}) => {
   if (metadata.providerConfig && typeof metadata.providerConfig === "object") {
-    return metadata.providerConfig;
+    return {
+      ...metadata.providerConfig,
+      username: metadata.providerConfig.username || metadata.providerUsername || record.username || "",
+      authUser: metadata.providerConfig.authUser || metadata.providerAuthUser || record.authUser || record.username || "",
+      mainDid: metadata.providerConfig.mainDid || metadata.trunkDid || record?.dids?.[0]?.number || "",
+    };
   }
 
   if (metadata.provider && typeof metadata.provider === "object") {
-    return metadata.provider;
+    return {
+      ...metadata.provider,
+      username: metadata.provider.username || record.username || "",
+      authUser: metadata.provider.authUser || record.authUser || record.username || "",
+      mainDid: metadata.provider.mainDid || metadata.trunkDid || record?.dids?.[0]?.number || "",
+    };
   }
 
   const providerType = typeof metadata.provider === "string" ? metadata.provider : "custom";
@@ -247,13 +274,13 @@ const getProviderConfig = (metadata = {}) => {
   return {
     type: providerType,
     name: preset.label,
-    host: metadata.trunkHost || preset.host,
+    host: metadata.trunkHost || metadata.providerHost || (record.host !== WEBPHONE_DEFAULTS.host ? record.host : "") || preset.host,
     port: metadata.trunkPort || preset.port,
     transport: metadata.transport || preset.transport,
-    domain: metadata.trunkHost || preset.domain,
-    username: "",
-    authUser: "",
-    mainDid: metadata.trunkDid || metadata.defaultDid || "",
+    domain: metadata.providerDomain || metadata.trunkHost || (record.sipDomain !== WEBPHONE_DEFAULTS.sipDomain ? record.sipDomain : "") || preset.domain,
+    username: metadata.providerUsername || record.username || "",
+    authUser: metadata.providerAuthUser || record.authUser || record.username || "",
+    mainDid: metadata.trunkDid || metadata.defaultDid || record?.dids?.[0]?.number || "",
   };
 };
 
@@ -275,15 +302,21 @@ const Sip = () => {
         const { data } = await api.get("/sip-settings");
         if (mounted && data) {
           const metadata = data.metadata || {};
-          const providerConfig = getProviderConfig(metadata);
+          const providerConfig = getProviderConfig(metadata, data);
+          const webphoneHost = isProviderLikeHost(data.host, providerConfig, metadata)
+            ? WEBPHONE_DEFAULTS.host
+            : data.host || WEBPHONE_DEFAULTS.host;
+          const webphoneDomain = isProviderLikeHost(data.sipDomain, providerConfig, metadata)
+            ? WEBPHONE_DEFAULTS.sipDomain
+            : data.sipDomain || WEBPHONE_DEFAULTS.sipDomain;
           setSettings((previous) => ({
             ...previous,
             ...data,
-            host: data.host || WEBPHONE_DEFAULTS.host,
+            host: webphoneHost,
             port: data.port || WEBPHONE_DEFAULTS.port,
             websocketProtocol: data.websocketProtocol || WEBPHONE_DEFAULTS.websocketProtocol,
             wsPath: data.wsPath || WEBPHONE_DEFAULTS.wsPath,
-            sipDomain: data.sipDomain || WEBPHONE_DEFAULTS.sipDomain,
+            sipDomain: webphoneDomain,
             displayName: data.displayName || WEBPHONE_DEFAULTS.displayName,
             stunServer: data.stunServer || WEBPHONE_DEFAULTS.stunServer,
             metadata: {
@@ -434,11 +467,11 @@ const Sip = () => {
 
     return {
       ...settings,
-      host: settings.host || WEBPHONE_DEFAULTS.host,
-      port: Number(settings.port) || WEBPHONE_DEFAULTS.port,
-      websocketProtocol: settings.websocketProtocol || WEBPHONE_DEFAULTS.websocketProtocol,
-      wsPath: settings.wsPath || WEBPHONE_DEFAULTS.wsPath,
-      sipDomain: settings.sipDomain || WEBPHONE_DEFAULTS.sipDomain,
+      host: WEBPHONE_DEFAULTS.host,
+      port: WEBPHONE_DEFAULTS.port,
+      websocketProtocol: WEBPHONE_DEFAULTS.websocketProtocol,
+      wsPath: WEBPHONE_DEFAULTS.wsPath,
+      sipDomain: WEBPHONE_DEFAULTS.sipDomain,
       authUser: settings.authUser || settings.username,
       metadata: {
         ...(settings.metadata || {}),
@@ -589,22 +622,22 @@ const Sip = () => {
 
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
-                <TextField fullWidth label="Host WSS" name="host" variant="outlined" value={settings.host} onChange={handleChange} required />
+                <TextField fullWidth label="Host SIP/Webphone" name="host" variant="outlined" value={settings.host} onChange={handleChange} required InputProps={{ readOnly: true }} />
               </Grid>
               <Grid item xs={12} md={2}>
-                <TextField fullWidth label="Porta WSS" name="port" type="number" variant="outlined" value={settings.port} onChange={handleChange} required />
+                <TextField fullWidth label="Porta WSS" name="port" type="number" variant="outlined" value={settings.port} onChange={handleChange} required InputProps={{ readOnly: true }} />
               </Grid>
               <Grid item xs={12} md={2}>
-                <TextField select fullWidth label="Protocolo" name="websocketProtocol" variant="outlined" value={settings.websocketProtocol} onChange={handleChange}>
+                <TextField select fullWidth label="Protocolo" name="websocketProtocol" variant="outlined" value={settings.websocketProtocol} onChange={handleChange} disabled>
                   <MenuItem value="wss">WSS</MenuItem>
                   <MenuItem value="ws">WS</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField fullWidth label="Caminho WebSocket" name="wsPath" placeholder="/ws" variant="outlined" value={settings.wsPath} onChange={handleChange} />
+                <TextField fullWidth label="Caminho WebSocket" name="wsPath" placeholder="/ws" variant="outlined" value={settings.wsPath} onChange={handleChange} InputProps={{ readOnly: true }} />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField fullWidth label="Dominio SIP interno" name="sipDomain" variant="outlined" value={settings.sipDomain} onChange={handleChange} />
+                <TextField fullWidth label="Dominio SIP interno" name="sipDomain" variant="outlined" value={settings.sipDomain} onChange={handleChange} InputProps={{ readOnly: true }} />
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField fullWidth label="Display Name" name="displayName" variant="outlined" value={settings.displayName} onChange={handleChange} />

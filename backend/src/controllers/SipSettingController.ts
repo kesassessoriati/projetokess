@@ -11,7 +11,7 @@ const DEFAULT_WEBPHONE_HOST = process.env.SIP_WEBPHONE_HOST || "sip.wapainel.com
 const DEFAULT_WEBPHONE_PORT = Number(process.env.SIP_WEBPHONE_PORT || 443);
 const DEFAULT_WEBPHONE_PROTOCOL = process.env.SIP_WEBPHONE_PROTOCOL || "wss";
 const DEFAULT_WEBPHONE_WS_PATH = process.env.SIP_WEBPHONE_WS_PATH || "/ws";
-const DEFAULT_INTERNAL_SIP_DOMAIN = process.env.SIP_INTERNAL_DOMAIN || DEFAULT_WEBPHONE_HOST;
+const DEFAULT_WEBPHONE_DOMAIN = process.env.SIP_WEBPHONE_DOMAIN || "sip.wapainel.com.br";
 
 const getProviderMetadata = (metadata: any = {}) => {
   if (metadata?.providerConfig && typeof metadata.providerConfig === "object") {
@@ -25,23 +25,121 @@ const getProviderMetadata = (metadata: any = {}) => {
   return {};
 };
 
-const sanitizeMetadata = (metadata: any = {}) => {
-  const providerConfig = { ...getProviderMetadata(metadata) };
-  delete providerConfig.password;
-  delete providerConfig.providerPassword;
-
-  const nextMetadata = {
-    ...metadata,
-    providerConfig
-  };
-
-  if (nextMetadata.provider && typeof nextMetadata.provider === "object") {
-    delete nextMetadata.provider.password;
-    delete nextMetadata.provider.providerPassword;
+const stripSensitiveKeys = (value: any): any => {
+  if (Array.isArray(value)) {
+    return value.map(stripSensitiveKeys);
   }
 
-  return nextMetadata;
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.entries(value).reduce((acc, [key, entry]) => {
+    if (/password|providerPassword|secret/i.test(key)) {
+      return acc;
+    }
+
+    return {
+      ...acc,
+      [key]: stripSensitiveKeys(entry)
+    };
+  }, {} as any);
 };
+
+const firstDidNumber = (dids: any[] = []) => {
+  const did = dids.find(item => item?.default) || dids[0] || null;
+  return did?.number || null;
+};
+
+const isProviderLikeHost = (value: any, metadata: any = {}, providerConfig: any = {}) => {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  if (!normalizedValue) {
+    return false;
+  }
+
+  const candidates = [
+    providerConfig.host,
+    providerConfig.domain,
+    providerConfig.trunkHost,
+    metadata.trunkHost,
+    metadata.providerHost,
+    metadata.providerDomain
+  ]
+    .map(item => String(item || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  return candidates.includes(normalizedValue);
+};
+
+const hydrateProviderConfig = (payload: any = {}, dids: any[] = []) => {
+  const metadata = payload.metadata || {};
+  const existingProviderConfig = getProviderMetadata(metadata);
+  const providerType =
+    existingProviderConfig.type ||
+    (typeof metadata.provider === "string" ? metadata.provider : null) ||
+    metadata.providerType ||
+    "custom";
+  const defaultDid = firstDidNumber(dids) || metadata.trunkDid || metadata.defaultDid || null;
+  const legacyHost =
+    existingProviderConfig.host ||
+    existingProviderConfig.trunkHost ||
+    metadata.trunkHost ||
+    metadata.providerHost ||
+    (payload.host && payload.host !== DEFAULT_WEBPHONE_HOST ? payload.host : null);
+  const legacyDomain =
+    existingProviderConfig.domain ||
+    metadata.providerDomain ||
+    metadata.trunkHost ||
+    (payload.sipDomain && payload.sipDomain !== DEFAULT_WEBPHONE_DOMAIN ? payload.sipDomain : null) ||
+    legacyHost;
+
+  return stripSensitiveKeys({
+    type: providerType,
+    ...existingProviderConfig,
+    host: legacyHost || existingProviderConfig.host || "",
+    domain: legacyDomain || existingProviderConfig.domain || legacyHost || "",
+    username: existingProviderConfig.username || metadata.providerUsername || payload.username || "",
+    authUser:
+      existingProviderConfig.authUser ||
+      metadata.providerAuthUser ||
+      payload.authUser ||
+      payload.username ||
+      "",
+    mainDid: existingProviderConfig.mainDid || metadata.trunkDid || defaultDid || "",
+    trunkHost: existingProviderConfig.trunkHost || metadata.trunkHost || legacyHost || "",
+    transport: existingProviderConfig.transport || metadata.transport || "udp"
+  });
+};
+
+const getWebphoneRuntimeConfig = (payload: any, providerConfig: any = {}) => {
+  const metadata = payload.metadata || {};
+  const host = isProviderLikeHost(payload.host, metadata, providerConfig)
+    ? DEFAULT_WEBPHONE_HOST
+    : payload.host || DEFAULT_WEBPHONE_HOST;
+  const sipDomain = isProviderLikeHost(payload.sipDomain, metadata, providerConfig)
+    ? DEFAULT_WEBPHONE_DOMAIN
+    : payload.sipDomain || DEFAULT_WEBPHONE_DOMAIN;
+
+  return {
+    host,
+    port: Number(payload.port) || DEFAULT_WEBPHONE_PORT,
+    websocketProtocol: payload.websocketProtocol || DEFAULT_WEBPHONE_PROTOCOL,
+    wsPath: payload.wsPath || DEFAULT_WEBPHONE_WS_PATH,
+    sipDomain
+  };
+};
+
+const buildWebsocketUrl = (webphoneConfig: any) => {
+  const portSuffix = Number(webphoneConfig.port) === 443 ? "" : `:${webphoneConfig.port}`;
+  return `${webphoneConfig.websocketProtocol}://${webphoneConfig.host}${portSuffix}${webphoneConfig.wsPath || ""}`;
+};
+
+const sanitizeMetadata = (metadata: any = {}, payload: any = {}, dids: any[] = []) => (
+  stripSensitiveKeys({
+    ...metadata,
+    providerConfig: hydrateProviderConfig({ ...payload, metadata }, dids)
+  })
+);
 
 const serializeSipSetting = async (record: SipSetting | null) => {
   if (!record) {
@@ -50,9 +148,11 @@ const serializeSipSetting = async (record: SipSetting | null) => {
 
   const payload = record.toJSON() as any;
   delete payload.password;
-  payload.metadata = sanitizeMetadata(payload.metadata || {});
   payload.dids = await ensureSipSettingDids(record);
-  payload.websocketUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
+  payload.metadata = sanitizeMetadata(payload.metadata || {}, payload, payload.dids);
+  const webphoneConfig = getWebphoneRuntimeConfig(payload, payload.metadata.providerConfig);
+  Object.assign(payload, webphoneConfig);
+  payload.websocketUrl = buildWebsocketUrl(webphoneConfig);
   return payload;
 };
 
@@ -93,17 +193,19 @@ export const runtime = async (req: Request, res: Response): Promise<Response> =>
   }
 
   const payload = setting.toJSON() as any;
-  payload.metadata = sanitizeMetadata(payload.metadata || {});
   payload.dids = await ensureSipSettingDids(setting);
-  const directWsUrl = `${payload.websocketProtocol || "wss"}://${payload.host}:${payload.port}${payload.wsPath || ""}`;
+  payload.metadata = sanitizeMetadata(payload.metadata || {}, payload, payload.dids);
+  const webphoneConfig = getWebphoneRuntimeConfig(payload, payload.metadata.providerConfig);
+  Object.assign(payload, webphoneConfig);
+  const directWsUrl = buildWebsocketUrl(webphoneConfig);
   payload.websocketUrl = directWsUrl;
-  payload.userUri = `sip:${payload.username}@${payload.sipDomain || payload.host}`;
+  payload.userUri = `sip:${payload.username}@${webphoneConfig.sipDomain}`;
   payload.defaultDid = (payload.dids.find((did: any) => did.default) || payload.dids[0] || null)?.number || null;
   payload.availableDids = payload.dids.map((did: any) => did.number);
 
   // Se o servidor SIP usa WS simples (porta 80 / ws://), fornece a URL do proxy
   // interno do backend (wss://) para evitar bloqueio de mixed content no navegador.
-  const sipUsesPlainWs = (payload.websocketProtocol || "wss") === "ws";
+  const sipUsesPlainWs = webphoneConfig.websocketProtocol === "ws";
   if (sipUsesPlainWs) {
     const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "");
     const proxyBase = backendUrl.startsWith("http://")
@@ -168,7 +270,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     port: Number(port) || DEFAULT_WEBPHONE_PORT,
     websocketProtocol: websocketProtocol || DEFAULT_WEBPHONE_PROTOCOL,
     wsPath: wsPath?.trim() || DEFAULT_WEBPHONE_WS_PATH,
-    sipDomain: sipDomain?.trim() || DEFAULT_INTERNAL_SIP_DOMAIN,
+    sipDomain: sipDomain?.trim() || DEFAULT_WEBPHONE_DOMAIN,
     username: username?.trim(),
     authUser: authUser?.trim() || username?.trim(),
     password: password ? String(password).trim() : undefined,
