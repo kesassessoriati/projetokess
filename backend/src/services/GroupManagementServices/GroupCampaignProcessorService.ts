@@ -1,6 +1,7 @@
 import path from "path";
 import moment from "moment";
 import { Op } from "sequelize";
+import logger from "../../utils/logger";
 import GroupCampaign from "../../models/GroupCampaign";
 import GroupCampaignTarget from "../../models/GroupCampaignTarget";
 import GroupCampaignLog from "../../models/GroupCampaignLog";
@@ -54,6 +55,18 @@ const buildMentionsPayload = async (campaign: GroupCampaign, provider: any, grou
     return { mentions, mentionText };
   }
 
+  // ghost: participants in mention metadata only — text stays clean, no @names appended
+  if (campaign.mentionsMode === "ghost") {
+    const metadata = await provider.getGroupMetadata(groupJid);
+    const mentions = (metadata?.participants || [])
+      .map((p: any) => p.id)
+      .filter(Boolean);
+    logger.info(
+      `[GroupCampaign] ghost mention companyId=${campaign.companyId} campaignId=${campaign.id} groupJid=${groupJid} participants=${mentions.length}`
+    );
+    return { mentions, mentionText: "" };
+  }
+
   if (campaign.mentionsMode === "segmented") {
     const segmented = Array.isArray(campaign.segmentedMentions) ? campaign.segmentedMentions : [];
     const mentions = segmented.filter(Boolean).map((m: string) => (m.includes("@") ? m : `${m}@s.whatsapp.net`));
@@ -72,6 +85,15 @@ const sendToTarget = async (campaign: GroupCampaign, target: GroupCampaignTarget
   if (connection.status !== "CONNECTED" && connection.status !== "qrcode") throw new Error("Conexão da campanha está desconectada.");
 
   const isWhatsMeow = connection.provider === "whatsmeow";
+
+  // Ghost mention requires native Baileys/Whaileys mentions support
+  if (campaign.mentionsMode === "ghost" && isWhatsMeow) {
+    logger.warn(
+      `[GroupCampaign] ghost mention unsupported provider=${connection.provider} companyId=${campaign.companyId} campaignId=${campaign.id} groupJid=${target.groupJid}`
+    );
+    throw new Error("Provider não suporta menção fantasma. Configure a conexão com Baileys ou Whaileys para usar este recurso.");
+  }
+
   const wbot = isWhatsMeow ? null : getWbot(connection.id);
   const provider = ProviderFactory.createProvider(connection, wbot, campaign.companyId);
   const groupJid = target.groupJid;

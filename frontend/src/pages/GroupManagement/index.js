@@ -4832,7 +4832,13 @@ export default function GroupManagement() {
                       >
                         <MenuItem value="none">Nao mencionar</MenuItem>
                         <MenuItem value="all">Mencionar todos</MenuItem>
+                        <MenuItem value="ghost">Menção fantasma</MenuItem>
                       </Select>
+                      {campaignForm.mentionsMode === "ghost" && (
+                        <Typography variant="caption" style={{ color: "#4b5563", marginTop: 4, display: "block" }}>
+                          Notifica os membros sem exibir os nomes no texto da mensagem.
+                        </Typography>
+                      )}
                     </FormControl>
 
                     <FormControl variant="outlined" size="small">
