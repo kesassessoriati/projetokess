@@ -27,6 +27,7 @@ import CompaniesSettings from "./CompaniesSettings";
 import Invoices from "./Invoices";
 import CompanyPaymentSetting from "./CompanyPaymentSetting";
 import PromptChannelBinding from "./PromptChannelBinding";
+import CompanyWorkspaceMenuPreference from "./CompanyWorkspaceMenuPreference";
 
 @Table
 class Company extends Model<Company> {
@@ -212,6 +213,13 @@ class Company extends Model<Company> {
     hooks: true
   })
   paymentSettings: CompanyPaymentSetting[];
+
+  @HasMany(() => CompanyWorkspaceMenuPreference, {
+    onUpdate: "CASCADE",
+    onDelete: "CASCADE",
+    hooks: true
+  })
+  workspaceMenuPreferences: CompanyWorkspaceMenuPreference[];
 }
 
 export default Company;

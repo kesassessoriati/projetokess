@@ -72,7 +72,7 @@ const useStyles = makeStyles((theme) => ({
 
 const WorkspaceMenuSettings = () => {
   const classes = useStyles();
-  const { preferences, savePreferences } = useWorkspacePreferences();
+  const { preferences, menuOptions, savePreferences } = useWorkspacePreferences();
   const [draft, setDraft] = useState(preferences);
   const [saving, setSaving] = useState(false);
 
@@ -80,19 +80,44 @@ const WorkspaceMenuSettings = () => {
     setDraft(preferences);
   }, [preferences]);
 
+  const workspaceOptions = useMemo(() => {
+    if (Array.isArray(menuOptions) && menuOptions.length) {
+      return menuOptions.map((option) => ({
+        ...option,
+        key: option.menuKey || option.key,
+        protected: Boolean(option.protected),
+      }));
+    }
+
+    return WORKSPACE_MENU_OPTIONS.map((option) => ({
+      ...option,
+      menuKey: option.key,
+      protected: PROTECTED_MENU_KEYS.includes(option.key),
+    }));
+  }, [menuOptions]);
+
+  const isProtectedMenu = (optionOrKey) => {
+    const key = typeof optionOrKey === "string" ? optionOrKey : optionOrKey?.key;
+    const option = typeof optionOrKey === "string"
+      ? workspaceOptions.find((item) => item.key === key)
+      : optionOrKey;
+
+    return Boolean(option?.protected) || PROTECTED_MENU_KEYS.includes(key);
+  };
+
   const groupedOptions = useMemo(
     () =>
-      WORKSPACE_MENU_OPTIONS.reduce((acc, option) => {
+      workspaceOptions.reduce((acc, option) => {
         acc[option.group] = acc[option.group] || [];
         acc[option.group].push(option);
         return acc;
       }, {}),
-    []
+    [workspaceOptions]
   );
 
   const handleToggle = (key) => {
     // Menus obrigatorios nao podem ser desativados
-    if (PROTECTED_MENU_KEYS.includes(key)) return;
+    if (isProtectedMenu(key)) return;
     setDraft((prev) => ({
       ...prev,
       [key]: prev[key] === false,
@@ -101,9 +126,9 @@ const WorkspaceMenuSettings = () => {
 
   const setAll = (visible) => {
     const next = {};
-    WORKSPACE_MENU_OPTIONS.forEach((option) => {
+    workspaceOptions.forEach((option) => {
       // Menus protegidos sempre permanecem ativos
-      next[option.key] = PROTECTED_MENU_KEYS.includes(option.key) ? true : visible;
+      next[option.key] = isProtectedMenu(option) ? true : visible;
     });
     setDraft(next);
   };
@@ -143,7 +168,7 @@ const WorkspaceMenuSettings = () => {
             <Paper className={classes.group}>
               <Typography className={classes.groupTitle}>{group}</Typography>
               {options.map((option) => {
-                const isProtected = PROTECTED_MENU_KEYS.includes(option.key);
+                const isProtected = isProtectedMenu(option);
                 return (
                   <div
                     className={`${classes.item} ${isProtected ? classes.protectedRow : ""}`}

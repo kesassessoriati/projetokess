@@ -199,6 +199,7 @@ import CallSequenceTarget from "../models/CallSequenceTarget";
 import Meeting from "../models/Meeting";
 import Proposal from "../models/Proposal";
 import UserWorkspacePreference from "../models/UserWorkspacePreference";
+import CompanyWorkspaceMenuPreference from "../models/CompanyWorkspaceMenuPreference";
 import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
 import CrmLeadCustomFieldValue from "../models/CrmLeadCustomFieldValue";
 import InternalSyncPeer from "../models/InternalSyncPeer";
@@ -442,6 +443,7 @@ const models = [
   Meeting,
   Proposal,
   UserWorkspacePreference,
+  CompanyWorkspaceMenuPreference,
   CompanyLeadFieldSetting,
   CrmLeadCustomFieldValue,
   InternalSyncPeer,

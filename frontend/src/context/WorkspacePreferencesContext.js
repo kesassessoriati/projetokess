@@ -4,6 +4,7 @@ import { AuthContext } from "./Auth/AuthContext";
 
 const WorkspacePreferencesContext = createContext({
   preferences: {},
+  menuOptions: [],
   loading: false,
   isMenuVisible: () => true,
   savePreferences: async () => {},
@@ -12,6 +13,7 @@ const WorkspacePreferencesContext = createContext({
 export const WorkspacePreferencesProvider = ({ children }) => {
   const { isAuth } = useContext(AuthContext);
   const [preferences, setPreferences] = useState({});
+  const [menuOptions, setMenuOptions] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const loadPreferences = useCallback(async () => {
@@ -19,8 +21,10 @@ export const WorkspacePreferencesProvider = ({ children }) => {
       setLoading(true);
       const { data } = await api.get("/workspace/menu-preferences");
       setPreferences(data?.menus || {});
+      setMenuOptions(Array.isArray(data?.options) ? data.options : []);
     } catch (err) {
       setPreferences({});
+      setMenuOptions([]);
     } finally {
       setLoading(false);
     }
@@ -31,6 +35,7 @@ export const WorkspacePreferencesProvider = ({ children }) => {
       loadPreferences();
     } else {
       setPreferences({});
+      setMenuOptions([]);
     }
   }, [isAuth, loadPreferences]);
 
@@ -46,12 +51,13 @@ export const WorkspacePreferencesProvider = ({ children }) => {
     setPreferences(menus || {});
     const { data } = await api.put("/workspace/menu-preferences", { menus });
     setPreferences(data?.menus || {});
+    setMenuOptions(Array.isArray(data?.options) ? data.options : []);
     return data?.menus || {};
   }, []);
 
   const value = useMemo(
-    () => ({ preferences, loading, isMenuVisible, savePreferences, reloadPreferences: loadPreferences }),
-    [preferences, loading, isMenuVisible, savePreferences, loadPreferences]
+    () => ({ preferences, menuOptions, loading, isMenuVisible, savePreferences, reloadPreferences: loadPreferences }),
+    [preferences, menuOptions, loading, isMenuVisible, savePreferences, loadPreferences]
   );
 
   return (
