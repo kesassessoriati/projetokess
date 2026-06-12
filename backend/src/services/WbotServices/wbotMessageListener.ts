@@ -5758,11 +5758,24 @@ const handleMessage = async (
     }
 
     // Dispara evento MESSAGE_RECEIVED para webhooks configurados.
-    // Suprimido se o agente ativou "Desabilitar chatbot" (pause por 1 hora, por ticket).
+    // O status do ticket (pending/open), fila e atendente NÃO bloqueiam o disparo.
+    // Pré-check barato apenas dos bloqueios explícitos por ticket (Pausar/Desligar IA)
+    // para evitar leitura de mídia à toa — a decisão final (incluindo bloqueio por
+    // contato/empresa) é do WebhookDispatchService, que também loga o motivo.
     const _webhookSuppressed =
       !!ticket.webhookDisabled ||
       (!!ticket.webhookPausedUntil &&
         new Date(ticket.webhookPausedUntil) > new Date());
+    if (!msg.key.fromMe && !ticket.isGroup && _webhookSuppressed) {
+      logger.info(
+        `[WebhookDispatch] MESSAGE_RECEIVED suprimido no listener companyId=${companyId} ` +
+          `ticketId=${ticket.id} contactId=${ticket.contactId} ticketStatus=${ticket.status} ` +
+          `reason=${ticket.webhookDisabled ? "webhook_disabled" : "webhook_paused_until"}` +
+          (ticket.webhookPausedUntil
+            ? ` until=${new Date(ticket.webhookPausedUntil).toISOString()}`
+            : "")
+      );
+    }
     if (!msg.key.fromMe && !ticket.isGroup && !_webhookSuppressed) {
       // Inclui base64 da mídia no payload quando houver arquivo de mídia
       let _mediaBase64: string | undefined;

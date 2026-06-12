@@ -107,13 +107,27 @@ const MESSAGE_EVENTS = new Set<WebhookEventType>([
   "MESSAGE_SENT"
 ]);
 
-// Resolve integrações locais para eventos de mensagem.
-// NÃO verifica bloqueio por empresa aqui — isso é responsabilidade de dispatch().
-const resolveMessageIntegrations = async (
-  eventType: WebhookEventType,
+// ─── Supressão de MESSAGE_RECEIVED ───────────────────────────────────────────
+// O status do ticket (pending/open/group), userId e queueId NUNCA bloqueiam o
+// disparo. Só bloqueiam mecanismos explícitos:
+//   - ticket.webhookDisabled        → "Desligar IA" na conversa
+//   - ticket.webhookPausedUntil > agora → "Pausar IA" / pausa automática por
+//     intervenção de agente (MessageController)
+//   - bloqueio de IA por contato    → Ações da IA / automação de etapa do funil
+// A decisão vale para integrações locais E para o webhook global de IA, em
+// todos os canais (Baileys e Official).
+// MESSAGE_SENT nunca é suprimido pelo estado do ticket/contato: o N8N precisa
+// desse evento para detectar intervenção humana (CRM ou celular).
+interface SuppressionResult {
+  blocked: boolean;
+  reason?: string;
+  until?: Date | null;
+}
+
+const checkMessageReceivedSuppression = async (
   companyId: number,
   data: Record<string, unknown>
-): Promise<QueueIntegrations[]> => {
+): Promise<SuppressionResult> => {
   const ticketId = Number((data as any)?.ticket?.id);
 
   if (ticketId) {
@@ -122,39 +136,45 @@ const resolveMessageIntegrations = async (
       attributes: ["id", "webhookPausedUntil", "webhookDisabled"]
     });
 
-    const isWebhookSuppressed =
-      Boolean(ticket?.webhookDisabled) ||
-      Boolean(
-        ticket?.webhookPausedUntil &&
-          new Date(ticket.webhookPausedUntil) > new Date()
-      );
-
-    // MESSAGE_SENT nunca é suprimido pelo estado do ticket:
-    // o N8N precisa receber esse evento para detectar intervenção humana (CRM ou celular).
-    if (isWebhookSuppressed && eventType !== "MESSAGE_SENT") {
-      logger.info(
-        `[WebhookDispatch] ${eventType} suprimido por ticket companyId=${companyId} ticketId=${ticketId}`
-      );
-      return [];
+    if (ticket?.webhookDisabled) {
+      return { blocked: true, reason: "webhook_disabled" };
     }
 
-    // Verifica bloqueio de IA por contato (Ações da IA no Kanban)
-    // Aplica somente para MESSAGE_RECEIVED — não bloqueia notificações de mensagem enviada
-    if (eventType === "MESSAGE_RECEIVED") {
-      const contactId = Number((data as any)?.ticket?.contactId);
-      if (contactId) {
-        const aiBlock = await CheckAiBlockService(contactId, companyId);
-        if (aiBlock.blocked) {
-          logger.info(
-            `[WebhookDispatch] ${eventType} bloqueado por IA companyId=${companyId} ` +
-            `ticketId=${ticketId} contactId=${contactId} reason=${aiBlock.reason}`
-          );
-          return [];
-        }
-      }
+    if (
+      ticket?.webhookPausedUntil &&
+      new Date(ticket.webhookPausedUntil) > new Date()
+    ) {
+      return {
+        blocked: true,
+        reason: "webhook_paused_until",
+        until: ticket.webhookPausedUntil
+      };
     }
   }
 
+  const contactId = Number((data as any)?.ticket?.contactId);
+  if (contactId) {
+    const aiBlock = await CheckAiBlockService(contactId, companyId);
+    if (aiBlock.blocked) {
+      return {
+        blocked: true,
+        reason: `ai_${aiBlock.reason}`,
+        until: aiBlock.blockedUntil
+      };
+    }
+  }
+
+  return { blocked: false };
+};
+
+// Resolve integrações locais para eventos de mensagem.
+// NÃO verifica bloqueio por empresa/ticket/contato aqui — isso é
+// responsabilidade de dispatch().
+const resolveMessageIntegrations = async (
+  eventType: WebhookEventType,
+  companyId: number,
+  data: Record<string, unknown>
+): Promise<QueueIntegrations[]> => {
   const whatsappId = Number(
     (data as any)?.whatsapp?.id ?? (data as any)?.ticket?.whatsappId
   );
@@ -224,6 +244,28 @@ export const dispatch = async (
         );
         return;
       }
+    }
+
+    // ── Supressão por ticket/contato (somente MESSAGE_RECEIVED) ──────────────
+    // Status do ticket, fila e atendente NÃO bloqueiam. Bloqueia local E global.
+    if (eventType === "MESSAGE_RECEIVED") {
+      const t = ((data as any)?.ticket ?? {}) as Record<string, unknown>;
+      const suppression = await checkMessageReceivedSuppression(companyId, data);
+      if (suppression.blocked) {
+        logger.info(
+          `[WebhookDispatch] MESSAGE_RECEIVED bloqueado companyId=${companyId} ` +
+            `ticketId=${t.id} contactId=${t.contactId} reason=${suppression.reason}` +
+            (suppression.until
+              ? ` until=${new Date(suppression.until).toISOString()}`
+              : "")
+        );
+        return;
+      }
+      logger.info(
+        `[WebhookDispatch] MESSAGE_RECEIVED elegível companyId=${companyId} ` +
+          `ticketId=${t.id} contactId=${t.contactId} ticketStatus=${t.status} ` +
+          `queueId=${t.queueId} userId=${t.userId}`
+      );
     }
 
     // ── Resolver integrações locais ──────────────────────────────────────────
