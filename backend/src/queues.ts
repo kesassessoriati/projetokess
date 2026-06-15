@@ -54,6 +54,7 @@ import runAutomationJob, {
 import runScheduledDispatchers from "./services/ScheduledDispatcherService/DispatchSchedulerService";
 import startDispatchProcessor from "./services/ScheduledDispatcherService/DispatchProcessorService";
 import { runCleanLidContacts } from "./services/ContactServices/CleanLidContactsRunner";
+import { runCompanionTextPlaceholderSweep } from "./services/MessageServices/CreateMessageService";
 import { GetSmtpSettingByCompany } from "./helpers/GetSmtpSettingByCompany";
 import { createTransporter } from "./services/SmtpServices/smtpService";
 import nodemailer from "nodemailer";
@@ -2320,6 +2321,18 @@ export async function startQueueProcess() {
   });
   officialDispatchJob.start();
   logger.info("[Official Dispatch Job] Iniciado - a cada 1 minuto");
+
+  // Companion text placeholder sweep - relabela placeholders de texto presos
+  // (sem evento gatilho no ticket) - a cada 1 minuto
+  const companionSweepJob = new CronJob('*/1 * * * *', async () => {
+    try {
+      await runCompanionTextPlaceholderSweep();
+    } catch (error) {
+      logger.error(`[CompanionSync TimeoutSweep] Erro: ${error}`);
+    }
+  });
+  companionSweepJob.start();
+  logger.info("[CompanionSync TimeoutSweep] Iniciado - a cada 1 minuto");
 
   const cleanContactsJob = new CronJob('0 7,19 * * *', async () => {
     try {

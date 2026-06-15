@@ -204,6 +204,77 @@ const relabelStuckTextPlaceholders = async (
   }
 };
 
+// Parte B: sweep periódico leve (cron 1 min) para cobrir o placeholder isolado/trailing
+// que nunca recebe um evento gatilho no ticket. Cross-empresa: roda sem contexto de
+// tenant, e cada update/emit usa o companyId da própria linha (multiempresa preservado).
+const COMPANION_SWEEP_LIMIT = 200;
+
+export const runCompanionTextPlaceholderSweep = async (): Promise<{ found: number; updated: number }> => {
+  const startedAt = Date.now();
+  const cutoff = new Date(
+    Date.now() - COMPANION_TEXT_PLACEHOLDER_TIMEOUT_MINUTES * 60 * 1000
+  );
+
+  logger.info(
+    `[CompanionSync TimeoutSweep] started limit=${COMPANION_SWEEP_LIMIT} ` +
+    `olderThanMinutes=${COMPANION_TEXT_PLACEHOLDER_TIMEOUT_MINUTES}`
+  );
+
+  const candidates = await Message.findAll({
+    where: {
+      fromMe: true,
+      mediaType: "chat",
+      createdAt: { [Op.lte]: cutoff },
+      body: { [Op.like]: "%aguardando sincroniza%" }
+    },
+    order: [["createdAt", "ASC"]],
+    limit: COMPANION_SWEEP_LIMIT
+  });
+
+  let updated = 0;
+  for (const ph of candidates) {
+    const meta = parseMeta(ph);
+    if (meta.companionSyncFallback !== true) continue;
+    if (meta.companionSyncFallbackTimedOut === true) continue;
+
+    const ageMinutes = Math.round(
+      (Date.now() - new Date(ph.createdAt).getTime()) / 60000
+    );
+
+    await ph.update({
+      body: COMPANION_RELABEL_TEXT,
+      dataJson: JSON.stringify({
+        ...meta,
+        companionSyncFallbackTimedOut: true,
+        realTextUnavailable: true,
+        timeoutReason: "pdo_text_content_not_returned"
+      })
+    });
+    updated += 1;
+
+    logger.info(
+      `[CompanionSync Timeout] text placeholder expired without real content ` +
+      `companyId=${ph.companyId} ticketId=${ph.ticketId} messageId=${ph.id} ` +
+      `wid=${maskDiagValue(ph.wid)} ageMinutes=${ageMinutes} mediaType=chat ` +
+      `reason=pdo_text_content_not_returned`
+    );
+
+    try {
+      await emitMessageUpdate(ph.id, ph.companyId);
+    } catch (err: any) {
+      logger.warn(`[CompanionSync Timeout] socket emit (sweep) falhou: ${err?.message}`);
+    }
+  }
+
+  logger.info(
+    `[CompanionSync TimeoutSweep] completed found=${candidates.length} updated=${updated} ` +
+    `durationMs=${Date.now() - startedAt} limit=${COMPANION_SWEEP_LIMIT} ` +
+    `olderThanMinutes=${COMPANION_TEXT_PLACEHOLDER_TIMEOUT_MINUTES}`
+  );
+
+  return { found: candidates.length, updated };
+};
+
 // Parte C: reconciliação defensiva por janela. Se um dia chegar o texto real com
 // wid DIFERENTE, casa com 1 placeholder compatível (conservador) em vez de duplicar.
 // Retorna a mensagem reconciliada ou null (segue criação normal).
@@ -490,10 +561,13 @@ const CreateMessageService = async ({
     }
   }
 
-  // Parte A+B: ao chegar nova mensagem no ticket, relabela placeholders de texto
-  // presos há mais de N min (conteúdo real nunca chegou). Oportunista e leve.
+  // Parte A: ao chegar nova mensagem no ticket (inclusive um novo placeholder),
+  // relabela placeholders de texto presos há mais de N min. O guard de placeholder
+  // foi removido: relabelStuckTextPlaceholders já protege a mensagem recém-criada
+  // via excludeMessageId + filtro de idade (>= N min), então enviar outro texto pelo
+  // celular agora limpa os placeholders anteriores.
   try {
-    if (message?.ticketId && !isCompanionSyncPlaceholder(message)) {
+    if (message?.ticketId) {
       await relabelStuckTextPlaceholders(companyId, message.ticketId, message.id);
     }
   } catch (err: any) {
