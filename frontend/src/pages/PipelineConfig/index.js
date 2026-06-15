@@ -106,6 +106,9 @@ const PipelineConfig = () => {
     const [editingStage, setEditingStage] = useState(null);
     const [stageConfirmModalOpen, setStageConfirmModalOpen] = useState(false);
     const [stageToDelete, setStageToDelete] = useState(null);
+    const [moveStageDialogOpen, setMoveStageDialogOpen] = useState(false);
+    const [stageDeleteCounts, setStageDeleteCounts] = useState({ opportunities: 0, leads: 0 });
+    const [targetStageId, setTargetStageId] = useState("");
 
     const [stageForm, setStageForm] = useState({ name: "", color: "#764ba2", slaDays: 2, probability: 50, linkedStatus: "" });
     const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
@@ -232,22 +235,76 @@ const PipelineConfig = () => {
         setStageConfirmModalOpen(true);
     };
 
+    const refreshStagesAfterDelete = (deletedStageId) => {
+        const updatedStages = selectedPipeline.stages.filter(s => s.id !== deletedStageId);
+        const reorderedStages = updatedStages.map((stage, index) => ({ ...stage, order: index }));
+        setSelectedPipeline({ ...selectedPipeline, stages: reorderedStages });
+        setPipelines(pipelines.map(p => p.id === selectedPipeline.id ? { ...p, stages: reorderedStages } : p));
+    };
+
     const handleConfirmDeleteStage = async () => {
         if (!stageToDelete) return;
         try {
             await api.delete(`/pipelines/stages/${stageToDelete.id}`);
             toast.success("Estágio excluído com sucesso!");
-
-            const updatedStages = selectedPipeline.stages.filter(s => s.id !== stageToDelete.id);
-            const reorderedStages = updatedStages.map((stage, index) => ({ ...stage, order: index }));
-
-            setSelectedPipeline({ ...selectedPipeline, stages: reorderedStages });
-            setPipelines(pipelines.map(p => p.id === selectedPipeline.id ? { ...p, stages: reorderedStages } : p));
-        } catch (err) {
-            toast.error(err.response?.data?.error || "Erro ao excluir estágio.");
-        } finally {
+            refreshStagesAfterDelete(stageToDelete.id);
             setStageConfirmModalOpen(false);
             setStageToDelete(null);
+        } catch (err) {
+            const data = err.response?.data;
+
+            // Estágio já não existe → atualizar tela
+            if (err.response?.status === 404) {
+                toast.info("Este estágio já não existe. A tela foi atualizada.");
+                setStageConfirmModalOpen(false);
+                setStageToDelete(null);
+                fetchPipelines();
+                return;
+            }
+
+            // Há contatos vinculados → abrir fluxo de mover para outro estágio
+            if (data?.requiresTargetStage) {
+                setStageDeleteCounts(data.counts || { opportunities: 0, leads: 0 });
+                setTargetStageId("");
+                setStageConfirmModalOpen(false);
+                setMoveStageDialogOpen(true);
+                return;
+            }
+
+            toast.error(data?.error || "Erro ao excluir estágio.");
+            setStageConfirmModalOpen(false);
+            setStageToDelete(null);
+        }
+    };
+
+    const handleCloseMoveStageDialog = () => {
+        setMoveStageDialogOpen(false);
+        setStageToDelete(null);
+        setTargetStageId("");
+    };
+
+    const handleConfirmMoveAndDelete = async () => {
+        if (!stageToDelete) return;
+        if (!targetStageId) {
+            toast.warning("Escolha um estágio de destino.");
+            return;
+        }
+        try {
+            await api.delete(`/pipelines/stages/${stageToDelete.id}`, {
+                data: { targetStageId }
+            });
+            toast.success("Estágio excluído e registros movidos com sucesso.");
+            refreshStagesAfterDelete(stageToDelete.id);
+            handleCloseMoveStageDialog();
+        } catch (err) {
+            const data = err.response?.data;
+            if (err.response?.status === 404) {
+                toast.info("Este estágio já não existe. A tela foi atualizada.");
+                handleCloseMoveStageDialog();
+                fetchPipelines();
+                return;
+            }
+            toast.error(data?.error || "Erro ao mover e excluir estágio.");
         }
     };
 
@@ -470,8 +527,49 @@ const PipelineConfig = () => {
                 onConfirm={handleConfirmDeleteStage}
             >
                 Tem certeza que deseja excluir o estágio <b>{stageToDelete?.name}</b>? Esta ação não pode ser desfeita.<br /><br />
-                <b>Atenção:</b> Você não poderá excluir se houver contatos vinculados a este estágio.
+                <b>Atenção:</b> Se houver oportunidades ou leads vinculados, você poderá escolher para qual estágio movê-los antes da exclusão.
             </ConfirmationModal>
+
+            <Dialog open={moveStageDialogOpen} onClose={handleCloseMoveStageDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Mover registros antes de excluir</DialogTitle>
+                <DialogContent dividers>
+                    <Typography gutterBottom>
+                        O estágio <b>{stageToDelete?.name}</b> possui:
+                    </Typography>
+                    <ul>
+                        <li>{stageDeleteCounts.opportunities} oportunidade(s)</li>
+                        <li>{stageDeleteCounts.leads} lead(s)</li>
+                    </ul>
+                    <Typography gutterBottom>
+                        Escolha para qual estágio deseja mover esses registros antes de excluir.
+                    </Typography>
+                    <FormControl fullWidth variant="outlined" margin="normal">
+                        <InputLabel>Estágio de destino</InputLabel>
+                        <Select
+                            value={targetStageId}
+                            onChange={(e) => setTargetStageId(e.target.value)}
+                            label="Estágio de destino"
+                        >
+                            {(selectedPipeline?.stages || [])
+                                .filter(s => s.id !== stageToDelete?.id)
+                                .map(s => (
+                                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                                ))}
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseMoveStageDialog}>Cancelar</Button>
+                    <Button
+                        color="secondary"
+                        variant="contained"
+                        onClick={handleConfirmMoveAndDelete}
+                        disabled={!targetStageId}
+                    >
+                        Mover e excluir
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>{editingStage?.id ? "Editar Estágio" : "Novo Estágio"}</DialogTitle>

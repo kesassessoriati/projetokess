@@ -162,6 +162,7 @@ export const updateStage = async (req: Request, res: Response): Promise<Response
 export const deleteStage = async (req: Request, res: Response): Promise<Response> => {
     const { stageId } = req.params;
     const { companyId } = req.user;
+    const { targetStageId } = req.body || {};
 
     const stage = await PipelineStage.findOne({ where: { id: stageId, companyId } });
     if (!stage) return res.status(404).json({ error: "Stage not found" });
@@ -172,25 +173,66 @@ export const deleteStage = async (req: Request, res: Response): Promise<Response
     const opCount = await Opportunity.count({ where: { stageId, companyId } });
     const leadCount = await CrmLead.count({ where: { stageId, companyId } });
 
-    if (opCount > 0 || leadCount > 0) {
-        return res.status(400).json({ error: "Não é possível excluir este estágio pois existem contatos vinculados a ele. Mova-os para outro estágio primeiro." });
+    const hasLinkedItems = opCount > 0 || leadCount > 0;
+
+    // Há itens vinculados e nenhum destino informado → exige escolha de destino
+    if (hasLinkedItems && !targetStageId) {
+        return res.status(400).json({
+            error: "Este estágio possui oportunidades/leads vinculados. Escolha um estágio de destino para movê-los antes de excluir.",
+            requiresTargetStage: true,
+            counts: { opportunities: opCount, leads: leadCount }
+        });
     }
 
-    const pipelineId = stage.pipelineId;
-    await stage.destroy();
-
-    const remainingStages = await PipelineStage.findAll({
-        where: { pipelineId, companyId },
-        order: [["order", "ASC"]]
-    });
-
-    for (let i = 0; i < remainingStages.length; i++) {
-        if (remainingStages[i].order !== i) {
-            await remainingStages[i].update({ order: i });
+    // Validação do estágio de destino (quando informado): mesma empresa, mesmo funil e diferente do atual
+    let destStage: PipelineStage | null = null;
+    if (targetStageId) {
+        if (Number(targetStageId) === Number(stageId)) {
+            return res.status(400).json({ error: "Estágio de destino inválido." });
+        }
+        destStage = await PipelineStage.findOne({ where: { id: targetStageId, companyId } });
+        if (!destStage || Number(destStage.pipelineId) !== Number(stage.pipelineId)) {
+            return res.status(400).json({ error: "Estágio de destino inválido." });
         }
     }
 
-    return res.status(200).json({ message: "Stage deleted successfully" });
+    const sequelize = (await import("../database")).default;
+    const pipelineId = stage.pipelineId;
+
+    await sequelize.transaction(async (t) => {
+        // Mover registros vinculados para o estágio de destino (nunca apagar via cascade)
+        if (destStage) {
+            await Opportunity.update(
+                { stageId: destStage.id },
+                { where: { stageId, companyId }, transaction: t }
+            );
+            await CrmLead.update(
+                { stageId: destStage.id },
+                { where: { stageId, companyId }, transaction: t }
+            );
+        }
+
+        await stage.destroy({ transaction: t });
+
+        const remainingStages = await PipelineStage.findAll({
+            where: { pipelineId, companyId },
+            order: [["order", "ASC"]],
+            transaction: t
+        });
+
+        for (let i = 0; i < remainingStages.length; i++) {
+            if (remainingStages[i].order !== i) {
+                await remainingStages[i].update({ order: i }, { transaction: t });
+            }
+        }
+    });
+
+    return res.status(200).json({
+        message: "Stage deleted successfully",
+        movedOpportunities: destStage ? opCount : 0,
+        movedLeads: destStage ? leadCount : 0,
+        targetStageId: destStage ? destStage.id : null
+    });
 };
 
 export const remove = async (req: Request, res: Response): Promise<Response> => {
