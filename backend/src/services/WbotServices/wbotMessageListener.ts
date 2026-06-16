@@ -1190,30 +1190,20 @@ const verifyContact = async (
   });
 
   // Fire-and-forget identity enrichment for contacts with generic names or no local picture.
-  // EnsureWhatsAppContactNameService: lookups WhatsApp store/Baileys cache, downloads profile pic
-  // locally, links lead → contact name, emits socket update.
-  // Rate-limited by Redis (once per 24h per contact) to avoid excessive API calls.
+  // EnsureWhatsAppContactNameService manages its own Redis rate-limit (adaptive TTL:
+  // 1h on cache miss, 24h when name/pic was successfully resolved).
   if (!contact.isGroup) {
     const rawUrlPicture = (contact as any).getDataValue?.("urlPicture");
     const hasLocalPicture = rawUrlPicture && rawUrlPicture !== "nopicture.png";
     const nameIsGeneric = isGenericContactName(contact.name, contact.number, contact.lid);
 
     if (nameIsGeneric || !hasLocalPicture) {
-      const cacheKey = `contact:${contact.id}:identity-checked`;
-      cacheLayer.get(cacheKey).then(alreadyChecked => {
-        if (alreadyChecked) return;
-        return cacheLayer.set(cacheKey, "1", "EX", 86400).then(() => {
-          logger.info(
-            `[Contact Identity Fallback] triggered companyId=${companyId} contactId=${contact.id} ` +
-            `reason=${nameIsGeneric ? "generic-name" : "no-local-picture"}`
-          );
-          return EnsureWhatsAppContactNameService({ contact, whatsappId: wbot.id, wbot });
-        });
-      }).catch(err =>
-        logger.warn(
-          `[Contact Identity Fallback] companyId=${companyId} contactId=${contact.id} err=${err?.message}`
-        )
-      );
+      EnsureWhatsAppContactNameService({ contact, whatsappId: wbot.id, wbot })
+        .catch(err =>
+          logger.warn(
+            `[Contact Identity Fallback] companyId=${companyId} contactId=${contact.id} err=${err?.message}`
+          )
+        );
     }
   }
 

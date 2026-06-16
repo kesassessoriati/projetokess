@@ -177,3 +177,29 @@ export const getBrazilianPhoneVariants = (number: string): string[] => {
 
 	return Array.from(variants).filter(v => v.length >= 10 && v.length <= 13);
 };
+
+/**
+ * Formata um número de telefone como nome de fallback legível.
+ * Prioridade: "+55 (81) 98765-4321" para números BR, "+<digits>" caso contrário.
+ * O resultado é reconhecido como genérico por isGenericContactName (regex de phone),
+ * portanto pode ser sobrescrito ao chegar um pushName ou nome do lead.
+ */
+export const formatPhoneFallback = (number?: string | null): string => {
+	if (!number) return "";
+	const digits = number.replace(/\D/g, "");
+	if (!digits || digits.length < 7) return digits || "";
+
+	// Número brasileiro: 55 + DDD(2) + assinante(8 ou 9) = 12 ou 13 dígitos
+	if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+		const ddd = digits.slice(2, 4);
+		const local = digits.slice(4);
+		if (local.length === 9) {
+			return `+55 (${ddd}) ${local.slice(0, 5)}-${local.slice(5)}`;
+		}
+		if (local.length === 8) {
+			return `+55 (${ddd}) ${local.slice(0, 4)}-${local.slice(4)}`;
+		}
+	}
+
+	return `+${digits}`;
+};

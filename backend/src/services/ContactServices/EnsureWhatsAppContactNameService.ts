@@ -9,6 +9,7 @@ import logger from "../../utils/logger";
 import fs from "fs";
 import path, { join } from "path";
 import axios from "axios";
+import cacheLayer from "../../libs/cache";
 import {
   getBrazilianPhoneVariants,
   sanitizeRemoteJid,
@@ -144,12 +145,20 @@ const downloadProfileImage = async ({
   }
 };
 
+const CACHE_TTL_HIT = 86400;  // 24h quando algo foi atualizado
+const CACHE_TTL_MISS = 3600;  // 1h quando o lookup não encontrou nada
+
 const EnsureWhatsAppContactNameService = async ({
   contact,
   whatsappId,
   wbot
 }: Params): Promise<Contact> => {
   if (!contact || contact.isGroup) return contact;
+
+  // Rate-limit: 24h se a última verificação atualizou algo, 1h se não encontrou nada
+  const cacheKey = `contact:${contact.id}:identity-checked`;
+  const alreadyChecked = await cacheLayer.get(cacheKey);
+  if (alreadyChecked) return contact;
 
   const resolvedName = await lookupWhatsAppContactName({
     whatsappId: whatsappId || contact.whatsappId,
@@ -215,6 +224,10 @@ const EnsureWhatsAppContactNameService = async ({
     });
     logger.info(`Updated contact ${contact.id} from WhatsApp profile cache`);
   }
+
+  // TTL adaptativo: 24h se algo foi resolvido (nome ou foto), 1h se lookup falhou
+  const ttl = (changed || identityChanged) ? CACHE_TTL_HIT : CACHE_TTL_MISS;
+  await cacheLayer.set(cacheKey, "1", "EX", ttl);
 
   return contact;
 };

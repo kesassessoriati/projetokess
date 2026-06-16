@@ -2,7 +2,7 @@ import { Op } from "sequelize";
 
 import Contact from "../../models/Contact";
 import CrmLead from "../../models/CrmLead";
-import { getBrazilianPhoneVariants } from "../../helpers/normalizeContactNumber";
+import { getBrazilianPhoneVariants, formatPhoneFallback } from "../../helpers/normalizeContactNumber";
 import logger from "../../utils/logger";
 
 interface Params {
@@ -123,7 +123,8 @@ const ContactIdentityResolverService = async ({
     leadName ||
     (!isGenericContactName(cleanPushName, contact.number, contact.lid)
       ? cleanPushName
-      : "");
+      : "") ||
+    formatPhoneFallback(contact.number);
 
   if (currentNameIsGeneric && nextName && nextName !== contact.name) {
     updates.name = nextName;

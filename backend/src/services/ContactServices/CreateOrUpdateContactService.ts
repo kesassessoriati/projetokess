@@ -17,6 +17,7 @@ import ContactIdentityResolverService, {
 } from "./ContactIdentityResolverService";
 import {
   buildRemoteJidFromNumber,
+  formatPhoneFallback,
   normalizePhoneNumber,
   resolveContactNumber,
   sanitizeRemoteJid,
@@ -117,6 +118,9 @@ const downloadProfileImage = async ({
 };
 
 const DEFAULT_FALLBACK_NAME = "Contato sem nome";
+
+const buildFallbackName = (number?: string | null): string =>
+  formatPhoneFallback(number) || DEFAULT_FALLBACK_NAME;
 
 const sanitizeName = (value?: string | null): string => (value || "").trim();
 
@@ -558,7 +562,7 @@ const CreateOrUpdateContactService = async ({
       // Salva o LID original para referência futura
       const lidToSave = isLidJid ? remoteJidDigits : lid;
 
-      const initialName = hasBestIncomingName ? bestIncomingName : DEFAULT_FALLBACK_NAME;
+      const initialName = hasBestIncomingName ? bestIncomingName : buildFallbackName(number);
 
       logger.info("Creating new contact:", { name: initialName, number, newRemoteJid, lid: lidToSave, addressingMode });
 
