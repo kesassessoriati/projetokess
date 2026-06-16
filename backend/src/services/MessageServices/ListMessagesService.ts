@@ -9,6 +9,14 @@ import isQueueIdHistoryBlocked from "../UserServices/isQueueIdHistoryBlocked";
 import Contact from "../../models/Contact";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
+import logger from "../../utils/logger";
+
+// Identificador de ticket pode chegar como id numerico ou uuid.
+// Precisamos rejeitar valores invalidos ANTES de consultar o banco para
+// nao deixar o Postgres tentar converter strings como "undefined" em uuid
+// (erro 22P02 -> 500). Aceita apenas uuid v1-v5 canonico.
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface Request {
   ticketId: string;
@@ -34,22 +42,38 @@ const ListMessagesService = async ({
 }: Request): Promise<Response> => {
 
 
-  if (!isNaN(Number(ticketId))) {
-    const uuid = await Ticket.findOne({
-      where: {
-        id: ticketId,
-        companyId
+  const sanitizedTicketId = String(ticketId ?? "").trim();
+  const isNumericId =
+    sanitizedTicketId !== "" && !isNaN(Number(sanitizedTicketId));
+
+  // Bloqueia undefined/null/vazio e strings que nao sao nem id numerico
+  // nem uuid valido — evita SELECT com uuid invalido (22P02 -> 500).
+  if (!isNumericId && !UUID_REGEX.test(sanitizedTicketId)) {
+    logger.warn(
+      {
+        companyId,
+        userId: user?.id,
+        param: sanitizedTicketId || "(empty)",
+        route: "GET /messages/:ticketId"
       },
-      attributes: ["uuid"]
-    });
-    ticketId = uuid.uuid;
+      "[Messages] invalid ticket identifier"
+    );
+    throw new AppError("ERR_INVALID_TICKET_IDENTIFIER", 400);
   }
+
+  // Busca por id numerico OU por uuid, conforme o formato recebido.
   const ticket = await Ticket.findOne({
     where: {
-      uuid: ticketId,
+      ...(isNumericId
+        ? { id: Number(sanitizedTicketId) }
+        : { uuid: sanitizedTicketId }),
       companyId
     }
   });
+
+  if (!ticket) {
+    throw new AppError("ERR_NO_TICKET_FOUND", 404);
+  }
 
   const ticketsFilter: any[] | null = [];
 

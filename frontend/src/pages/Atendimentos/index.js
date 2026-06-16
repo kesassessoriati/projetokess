@@ -2241,6 +2241,10 @@ const Atendimentos = () => {
 	};
 
 	const loadMessages = async (ticketId) => {
+		// Nao busca mensagens sem um identificador valido (evita /messages/undefined -> 500)
+		if (!ticketId || ticketId === "undefined" || ticketId === "null") {
+			return;
+		}
 		const requestId = ++messagesRequestRef.current;
 		try {
 			const { data } = await api.get(`/messages/${ticketId}`, {
@@ -2269,7 +2273,7 @@ const Atendimentos = () => {
 	};
 
 	const loadMoreMessages = async () => {
-		if (!selectedTicket || loadingMore || !hasMore) return;
+		if (!selectedTicket || !selectedTicket.id || loadingMore || !hasMore) return;
 
 		setLoadingMore(true);
 		const nextPage = pageNumber + 1;

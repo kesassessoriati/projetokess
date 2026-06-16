@@ -301,6 +301,10 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 	};
 
 	const loadTicketMedia = async (ticketId) => {
+		// Nao busca midias sem um identificador valido (evita /messages/undefined -> 500)
+		if (!ticketId || ticketId === "undefined" || ticketId === "null") {
+			return;
+		}
 		setMediaLoading(true);
 		try {
 			let page = 1;
