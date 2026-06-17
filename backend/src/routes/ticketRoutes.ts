@@ -35,4 +35,8 @@ ticketRoutes.post("/tickets/closeAll", isAuth, TicketController.closeAll);
 
 ticketRoutes.post("/tickets/cleanup", isAuth, TicketController.cleanupAll);
 
+// Migracao em massa de tickets presos em WhatsApp desconectado/NULL.
+ticketRoutes.post("/tickets/reassign-whatsapp/preview", isAuth, TicketController.reassignWhatsappPreview);
+ticketRoutes.post("/tickets/reassign-whatsapp", isAuth, TicketController.reassignWhatsapp);
+
 export default ticketRoutes;

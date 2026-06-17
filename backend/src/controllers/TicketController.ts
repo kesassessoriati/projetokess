@@ -12,6 +12,7 @@ import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServiceKanban";
 import CleanupCompanyTicketsService from "../services/TicketServices/CleanupCompanyTicketsService";
+import ReassignTicketsWhatsappService from "../services/TicketServices/ReassignTicketsWhatsappService";
 
 import CreateLogTicketService from "../services/TicketServices/CreateLogTicketService";
 import ShowLogTicketService from "../services/TicketServices/ShowLogTicketService";
@@ -472,6 +473,64 @@ export const closeAll = async (req: Request, res: Response): Promise<Response> =
   });
 
   return res.status(200).json();
+};
+
+const normalizeOptionalId = (value: unknown): number | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+};
+
+const normalizeSourceWhatsappId = (value: unknown): number | null | undefined => {
+  // null/"null" => tickets com whatsappId NULL; undefined => nao informado.
+  if (value === undefined) return undefined;
+  if (value === null || value === "" || value === "null") return null;
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+};
+
+export const reassignWhatsappPreview = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId, id: actorUserId } = req.user;
+  const { targetWhatsappId, sourceWhatsappId, status, ticketIds } = req.body;
+
+  const result = await ReassignTicketsWhatsappService({
+    companyId,
+    actorUserId,
+    targetWhatsappId: Number(targetWhatsappId),
+    sourceWhatsappId: normalizeSourceWhatsappId(sourceWhatsappId),
+    status,
+    ticketIds,
+    dryRun: true
+  });
+
+  return res.status(200).json(result);
+};
+
+export const reassignWhatsapp = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId, id: actorUserId } = req.user;
+  const { targetWhatsappId, sourceWhatsappId, status, ticketIds, queueId, userId } =
+    req.body;
+
+  const result = await ReassignTicketsWhatsappService({
+    companyId,
+    actorUserId,
+    targetWhatsappId: Number(targetWhatsappId),
+    sourceWhatsappId: normalizeSourceWhatsappId(sourceWhatsappId),
+    status,
+    ticketIds,
+    queueId: normalizeOptionalId(queueId),
+    userId: normalizeOptionalId(userId),
+    dryRun: false
+  });
+
+  return res.status(200).json(result);
 };
 
 export const cleanupAll = async (req: Request, res: Response): Promise<Response> => {

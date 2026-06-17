@@ -63,6 +63,7 @@ import QrcodeModal from "../../components/QrcodeModal";
 import WhatsAppModal from "../../components/WhatsAppModal";
 import EmailChannelModal from "../../components/EmailChannelModal";
 import UniversalHttpChannelModal from "../../components/UniversalHttpChannelModal";
+import ReassignWhatsappModal from "../../components/ReassignWhatsappModal";
 import usePlans from "../../hooks/usePlans";
 import formatSerializedId from "../../utils/formatSerializedId";
 import notificame_logo from "../../assets/notificame_logo.png";
@@ -441,6 +442,7 @@ const Connections = () => {
   const [fbIgModalOpen, setFbIgModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [httpModalOpen, setHttpModalOpen] = useState(false);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
   const [selectedEmailChannel, setSelectedEmailChannel] = useState(null);
   const [selectedHttpChannel, setSelectedHttpChannel] = useState(null);
   const [searchParam, setSearchParam] = useState("");
@@ -1107,6 +1109,11 @@ const Connections = () => {
         onClose={handleCloseHttpModal}
         channelId={httpModalOpen && selectedHttpChannel?.id}
       />
+      <ReassignWhatsappModal
+        open={reassignModalOpen}
+        onClose={() => setReassignModalOpen(false)}
+        whatsApps={whatsApps}
+      />
       <ChannelModal
         open={hubChannelModalOpen}
         onClose={() => setHubChannelModalOpen(false)}
@@ -1150,6 +1157,14 @@ const Connections = () => {
             onClick={restartWhatsapps}
           >
             Reiniciar
+          </Button>
+          <Button
+            variant="outlined"
+            className={classes.ghostButton}
+            startIcon={<RepeatIcon style={{ fontSize: 18 }} />}
+            onClick={() => setReassignModalOpen(true)}
+          >
+            Mover tickets
           </Button>
           <PopupState variant="popover" popupId="demo-popup-menu">
             {(popupState) => (
