@@ -10,6 +10,7 @@ import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
+import EnsureTicketHasConnectedWhatsapp from "../../helpers/EnsureTicketHasConnectedWhatsapp";
 import { verifyMessage } from "../WbotServices/wbotMessageListener";
 import { isNil } from "lodash";
 import sendFaceMessage from "../FacebookServices/sendFacebookMessage";
@@ -159,6 +160,16 @@ const UpdateTicketService = async ({
     const oldStatus = ticket?.status;
     const oldUserId = ticket.user?.id;
     const oldQueueId = ticket?.queueId;
+
+    // Ao ACEITAR/REABRIR um ticket (status -> open), garante que ele esteja
+    // vinculado a uma conexao WhatsApp CONECTADA da mesma empresa. Resolve
+    // tickets presos em conexao desconectada ou com whatsappId NULL — caso
+    // contrario o aceite quebrava silenciosamente (ShowWhatsAppService lancava
+    // em whatsappId invalido). Se nao houver conexao conectada, lanca
+    // ERR_NO_CONNECTED_WHATSAPP_AVAILABLE (409) — erro controlado, nao 500.
+    if (status === "open" && ticket.channel === "whatsapp") {
+      await EnsureTicketHasConnectedWhatsapp(ticket);
+    }
 
     const shouldClearAssignments =
       status === "closed" &&
@@ -1132,6 +1143,10 @@ const UpdateTicketService = async ({
       ticketData
     );
     Sentry.captureException(err);
+    // Propaga o erro para o controller/middleware retornar resposta adequada.
+    // Antes, o catch engolia a excecao e a funcao retornava undefined, fazendo
+    // o aceite "nao fazer nada" (200 com corpo vazio) — falha silenciosa.
+    throw err;
   }
 };
 
