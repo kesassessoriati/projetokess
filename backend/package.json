@@ -28,7 +28,7 @@
     "@socket.io/admin-ui": "0.5.1",
     "@supabase/supabase-js": "^2.33.2",
     "@types/fs-extra": "^11.0.4",
-    "@whiskeysockets/baileys": "git+https://github.com/rsalcara/InfiniteAPI.git#67a0d6c2f44a2b7650f6e091cf2bf5cec814d66b",
+    "@whiskeysockets/baileys": "git+https://github.com/williamprado/InfiniteAPI.git#3bb70d4223dbe02fa57c4d78f626a34e97f7d132",
     "agora-access-token": "^2.0.4",
     "async-mutex": "^0.5.0",
     "axios": "^1.5.0",
