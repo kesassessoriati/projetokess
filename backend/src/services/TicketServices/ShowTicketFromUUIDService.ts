@@ -7,9 +7,21 @@ import Tag from "../../models/Tag";
 import Whatsapp from "../../models/Whatsapp";
 import Company from "../../models/Company";
 import QueueIntegrations from "../../models/QueueIntegrations";
+import logger from "../../utils/logger";
+import { isValidTicketUuid } from "../../helpers/ticketIdentifier";
 
 const ShowTicketUUIDService = async (uuid: string,
   companyId: number): Promise<Ticket> => {
+  // Valida o uuid ANTES de consultar o banco. Valores como "undefined"/"null"/
+  // formato invalido geravam erro 22P02 (invalid input syntax for type uuid) -> 500.
+  if (!isValidTicketUuid(uuid)) {
+    logger.warn(
+      { companyId, param: String(uuid ?? ""), route: "GET /tickets/u/:uuid" },
+      "[Tickets] invalid ticket identifier"
+    );
+    throw new AppError("ERR_INVALID_TICKET_IDENTIFIER", 400);
+  }
+
   const ticket = await Ticket.findOne({
     where: {
       uuid,

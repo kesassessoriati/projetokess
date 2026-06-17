@@ -2054,6 +2054,10 @@ const Atendimentos = () => {
     }, [tabIndex, buildFilterParams, applyClientFilters, TAB_CONFIG]);
 
     const loadTicket = async (id) => {
+        // Nao busca ticket sem identificador valido (evita /tickets/undefined -> 400/erro)
+        if (!id || id === "undefined" || id === "null") {
+            return;
+        }
         try {
             const { data } = await api.get(`/tickets/${id}`);
             setSelectedTicket(data);

@@ -2230,6 +2230,10 @@ const Atendimentos = () => {
 	}, [tabIndex, buildFilterParams, applyClientFilters, TAB_CONFIG, fetchTicketsApi]);
 
 	const loadTicket = async (id) => {
+		// Nao busca ticket sem identificador valido (evita /tickets/undefined -> 400/erro)
+		if (!id || id === "undefined" || id === "null") {
+			return;
+		}
 		const requestId = ++ticketRequestRef.current;
 		try {
 			const { data } = await api.get(`/tickets/${id}`);

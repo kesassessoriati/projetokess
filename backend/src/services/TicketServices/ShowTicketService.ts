@@ -11,16 +11,29 @@ import QueueIntegrations from "../../models/QueueIntegrations";
 import TicketTag from "../../models/TicketTag";
 import CrmLead from "../../models/CrmLead";
 import CrmClient from "../../models/CrmClient";
+import logger from "../../utils/logger";
+import { parseTicketNumericId } from "../../helpers/ticketIdentifier";
 
 const ShowTicketService = async (
   id: string | number,
   companyId: number
 ): Promise<Ticket> => {
+  // Valida o identificador ANTES de consultar o banco. A coluna "id" e inteira;
+  // valores como "undefined"/"null"/string nao-numerica geravam erro 22P02 -> 500.
+  const numericId = parseTicketNumericId(id);
+  if (numericId === null) {
+    logger.warn(
+      { companyId, param: String(id ?? ""), route: "GET/PUT /tickets/:ticketId" },
+      "[Tickets] invalid ticket identifier"
+    );
+    throw new AppError("ERR_INVALID_TICKET_IDENTIFIER", 400);
+  }
+
   // Buscando o ticket com a inclusão do modelo do WhatsApp
   // @ts-ignore
   const ticket = await Ticket.findOne({
     where: {
-      id,
+      id: numericId,
       companyId
     },
     attributes: [
@@ -181,14 +194,14 @@ const ShowTicketService = async (
     ]
   });
 
-  // Validando se a consulta é para a empresa certa
-  if (ticket?.companyId !== companyId) {
-    throw new AppError("Não é possível consultar registros de outra empresa");
-  }
-
-  // Validando se o ticket foi encontrado
+  // Validando se o ticket foi encontrado (404 controlado para id valido inexistente).
   if (!ticket) {
     throw new AppError("ERR_NO_TICKET_FOUND", 404);
+  }
+
+  // Validando se a consulta é para a empresa certa
+  if (ticket.companyId !== companyId) {
+    throw new AppError("Não é possível consultar registros de outra empresa");
   }
 
   // Exibindo dados do WhatsApp
