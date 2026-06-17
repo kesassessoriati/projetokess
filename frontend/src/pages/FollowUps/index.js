@@ -67,14 +67,23 @@ const FOLLOW_UP_TARGET_OPTIONS = [
   { value: "hybrid", label: "Etiquetas ou etapa do funil", icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
+// Apenas "message_sent" é executado pelo motor (ExecuteFollowUpCampaignService).
+// Os demais gatilhos ainda não foram implementados no backend — ficam visíveis
+// como "(em breve)" e desabilitados para evitar configuração enganosa.
+const SUPPORTED_TRIGGER_TYPES = ["message_sent"];
+const DEFAULT_TRIGGER_TYPE = "message_sent";
+
 const TRIGGER_TYPE_OPTIONS = [
-  { value: "message_sent", label: "Sem responder (após mensagem enviada)", description: "Inicia quando a empresa envia uma mensagem e o lead não responde dentro do prazo de cada etapa." },
-  { value: "no_reply", label: "Sem responder por X tempo", description: "Inicia quando o lead não responde por um período configurado após qualquer mensagem." },
-  { value: "time_in_crm_stage", label: "Tempo em coluna do CRM", description: "Inicia quando um lead permanece em uma etapa do funil por mais tempo que o configurado." },
-  { value: "tag_added", label: "Tag adicionada", description: "Inicia automaticamente quando uma tag específica é adicionada ao contato ou ticket." },
-  { value: "stage_change", label: "Mudança de etapa", description: "Inicia quando o lead muda para uma etapa específica do funil." },
-  { value: "unread_after_hours", label: "Não lida após X horas", description: "Inicia quando um ticket permanece não lido por mais tempo que o configurado." },
+  { value: "message_sent", supported: true, label: "Sem responder (após mensagem enviada)", description: "Inicia quando a empresa envia uma mensagem e o lead não responde dentro do prazo de cada etapa." },
+  { value: "no_reply", supported: false, label: "Sem responder por X tempo (em breve)", description: "Em breve. Inicia quando o lead não responde por um período configurado após qualquer mensagem." },
+  { value: "time_in_crm_stage", supported: false, label: "Tempo em coluna do CRM (em breve)", description: "Em breve. Inicia quando um lead permanece em uma etapa do funil por mais tempo que o configurado." },
+  { value: "tag_added", supported: false, label: "Tag adicionada (em breve)", description: "Em breve. Inicia automaticamente quando uma tag específica é adicionada ao contato ou ticket." },
+  { value: "stage_change", supported: false, label: "Mudança de etapa (em breve)", description: "Em breve. Inicia quando o lead muda para uma etapa específica do funil." },
+  { value: "unread_after_hours", supported: false, label: "Não lida após X horas (em breve)", description: "Em breve. Inicia quando um ticket permanece não lido por mais tempo que o configurado." },
 ];
+
+const isSupportedTriggerType = (value) =>
+  SUPPORTED_TRIGGER_TYPES.includes(String(value || ""));
 
 const STEP_TYPE_OPTIONS = [
   { value: "send_message", label: "Enviar Mensagem" },
@@ -942,6 +951,16 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       return toast.warn("Selecione uma etapa do funil para este follow-up");
     }
 
+    // Apenas o gatilho suportado pelo motor é persistido. Gatilhos "(em breve)"
+    // (inclusive em campanhas antigas) são normalizados com aviso para evitar
+    // configuração enganosa que o backend não executa.
+    const resolvedTriggerType = isSupportedTriggerType(form.triggerType)
+      ? form.triggerType
+      : DEFAULT_TRIGGER_TYPE;
+    if (resolvedTriggerType !== form.triggerType) {
+      toast.info('Gatilho ajustado para "Sem responder (após mensagem enviada)", o único disponível no momento.');
+    }
+
     onSave({
       ...form,
       tagIds: normalizeIdArray(form.tagIds),
@@ -951,8 +970,8 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
       stopKeywords: form.stopKeywords,
       stages: normalizeFollowUpStages(form.stages),
       boardColumn: selectedBoardColumns.includes(form.boardColumn) ? form.boardColumn : selectedBoardColumns[0],
-      triggerType: form.triggerType || "message_sent",
-      triggerConfig: form.triggerConfig || {},
+      triggerType: resolvedTriggerType,
+      triggerConfig: resolvedTriggerType === DEFAULT_TRIGGER_TYPE ? {} : (form.triggerConfig || {}),
       stopOnReply: form.stopOnReply !== false,
       actionOnReply: form.actionOnReply || "none",
       replyActionConfig: form.replyActionConfig || {},
@@ -1076,7 +1095,7 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                   label="Gatilho"
                 >
                   {TRIGGER_TYPE_OPTIONS.map((opt) => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    <MenuItem key={opt.value} value={opt.value} disabled={!opt.supported}>{opt.label}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1088,6 +1107,12 @@ const FollowUpModal = ({ open, onClose, onSave, campaign, whatsApps, boards, com
                   </Typography>
                 ) : null;
               })()}
+              {!isSupportedTriggerType(form.triggerType) && (
+                <Typography variant="caption" style={{ marginTop: 4, display: "block", color: "#b45309" }}>
+                  Este gatilho ainda não é executado pelo sistema. Ao salvar, a campanha
+                  usará "Sem responder (após mensagem enviada)".
+                </Typography>
+              )}
             </Grid>
 
             {/* Trigger config: no_reply */}

@@ -209,6 +209,12 @@ const normalizePhone = (value: string) => String(value || "").replace(/\D/g, "")
 
 const VALID_STEP_TYPES = ["send_message", "wait", "move_crm", "add_tag", "condition", "webhook"];
 const VALID_TRIGGER_TYPES = ["message_sent", "no_reply", "time_in_crm_stage", "tag_added", "stage_change", "unread_after_hours"];
+// Apenas estes gatilhos sao realmente executados pelo motor
+// (ExecuteFollowUpCampaignService). Qualquer outro valor e normalizado para
+// "message_sent" para nao persistir configuracao que o backend nao executa.
+const ENGINE_SUPPORTED_TRIGGER_TYPES = ["message_sent"];
+const normalizeTriggerType = (value?: string | null) =>
+  ENGINE_SUPPORTED_TRIGGER_TYPES.includes(String(value || "")) ? String(value) : "message_sent";
 const VALID_REPLY_ACTIONS = ["none", "activate_ai", "move_crm", "add_tag"];
 
 const normalizeFollowUpStageInput = (stage: any, index: number) => ({
@@ -348,7 +354,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       recoveryInstruction: String(recoveryInstruction || "").trim() || null,
       successKeywords: normalizeKeywords(successKeywords),
       stopKeywords: normalizeKeywords(stopKeywords),
-      triggerType: VALID_TRIGGER_TYPES.includes(triggerType) ? triggerType : "message_sent",
+      triggerType: normalizeTriggerType(triggerType),
       triggerConfig: typeof triggerConfig === "object" && triggerConfig !== null ? triggerConfig : {},
       stopOnReply: stopOnReply !== undefined ? Boolean(stopOnReply) : true,
       actionOnReply: VALID_REPLY_ACTIONS.includes(actionOnReply) ? actionOnReply : "none",
@@ -464,8 +470,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       stopKeywords:
         stopKeywords !== undefined ? normalizeKeywords(stopKeywords) : campaign.stopKeywords,
       triggerType: triggerType !== undefined
-        ? (VALID_TRIGGER_TYPES.includes(triggerType) ? triggerType : "message_sent")
-        : campaign.triggerType,
+        ? normalizeTriggerType(triggerType)
+        : normalizeTriggerType(campaign.triggerType),
       triggerConfig: triggerConfig !== undefined
         ? (typeof triggerConfig === "object" && triggerConfig !== null ? triggerConfig : {})
         : campaign.triggerConfig,
