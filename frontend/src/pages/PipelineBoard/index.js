@@ -22,6 +22,7 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  Checkbox,
   TextField,
   Menu,
   Tab,
@@ -3073,6 +3074,59 @@ const ACTION_TYPE_LABELS = {
   wait: "Aguardar",
 };
 
+// Fase B — condições suportadas na UI das automações por etapa.
+// Os tipos de produto/agendamento/botão ficam para fases futuras.
+const STAGE_AUTOMATION_CONDITION_OPTIONS = [
+  { value: "always", label: "Sempre executar" },
+  { value: "if_replied", label: "Se respondeu" },
+  { value: "if_not_replied", label: "Se não respondeu" },
+  { value: "has_tag", label: "Se possui etiqueta" },
+  { value: "not_has_tag", label: "Se não possui etiqueta" },
+  { value: "is_in_stage", label: "Se está em etapa" },
+  { value: "not_in_stage", label: "Se não está em etapa" },
+];
+
+const CONDITION_TYPES_WITH_TAG = ["has_tag", "not_has_tag"];
+const CONDITION_TYPES_WITH_STAGE = ["is_in_stage", "not_in_stage"];
+
+// Gera um identificador estável de ação no frontend (mantém estabilidade já a
+// partir da criação; o backend também gera caso venha vazio).
+const genActionUid = () =>
+  `act_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+// Defaults compatíveis com automações antigas (sem condition/flowControl).
+const normalizeConditionUI = (condition) => {
+  const c = condition && typeof condition === "object" ? condition : {};
+  return {
+    type: c.type || "always",
+    operator: c.operator ?? null,
+    value: c.value ?? null,
+    stopIfFalse: c.stopIfFalse === true,
+  };
+};
+
+const normalizeFlowControlUI = (flowControl) => {
+  const f = flowControl && typeof flowControl === "object" ? flowControl : {};
+  return {
+    stopAfterExecute: f.stopAfterExecute === true,
+    skipIfAlreadyExecuted: f.skipIfAlreadyExecuted !== false,
+  };
+};
+
+// Preview humano do tempo de espera (delayMinutes).
+const humanizeDelay = (minutesRaw) => {
+  const minutes = Number(minutesRaw) || 0;
+  if (minutes <= 0) return "Imediato";
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  const parts = [];
+  if (days) parts.push(`${days} dia${days > 1 ? "s" : ""}`);
+  if (hours) parts.push(`${hours}h`);
+  if (mins) parts.push(`${mins}min`);
+  return parts.join(" ");
+};
+
 const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [enabled, setEnabled] = useState(false);
   const [actions, setActions] = useState([]);
@@ -3116,6 +3170,15 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     // Validar ações antes de salvar
     if (actions && Array.isArray(actions)) {
       for (const act of actions) {
+        const cond = normalizeConditionUI(act.condition);
+        if (CONDITION_TYPES_WITH_TAG.includes(cond.type) && !cond.value) {
+          toast.error("Selecione a etiqueta da condição da ação.");
+          return;
+        }
+        if (CONDITION_TYPES_WITH_STAGE.includes(cond.type) && !cond.value) {
+          toast.error("Selecione a etapa da condição da ação.");
+          return;
+        }
         if (act.actionType === "add_tag" && !act.actionConfig?.tagId) {
           toast.error("Por favor, selecione uma etiqueta para a ação 'Aplicar Etiqueta'.");
           return;
@@ -3186,7 +3249,10 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
 
     const newAction = {
       actionType: type,
+      actionUid: genActionUid(),
       actionConfig: config,
+      condition: { type: "always", operator: null, value: null, stopIfFalse: false },
+      flowControl: { stopAfterExecute: false, skipIfAlreadyExecuted: true },
       delayMinutes: 0
     };
     setActions([...actions, newAction]);
@@ -3200,7 +3266,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     setActions(actions.map((act, idx) => {
       if (idx === index) {
         if (field === "delayMinutes") {
-          return { ...act, delayMinutes: Number(value) };
+          return { ...act, delayMinutes: Math.max(0, Number(value) || 0) };
         }
         return {
           ...act,
@@ -3211,6 +3277,27 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
         };
       }
       return act;
+    }));
+  };
+
+  const handleUpdateCondition = (index, patch) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const current = normalizeConditionUI(act.condition);
+      return { ...act, condition: { ...current, ...patch } };
+    }));
+  };
+
+  const handleChangeConditionType = (index, type) => {
+    // Ao trocar o tipo, zera o value (o significado do campo muda).
+    handleUpdateCondition(index, { type, value: null });
+  };
+
+  const handleUpdateFlowControl = (index, patch) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const current = normalizeFlowControlUI(act.flowControl);
+      return { ...act, flowControl: { ...current, ...patch } };
     }));
   };
 
@@ -3399,6 +3486,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                       variant="outlined"
                       value={action.delayMinutes || 0}
                       onChange={(e) => handleUpdateAction(index, "delayMinutes", e.target.value)}
+                      inputProps={{ min: 0 }}
+                      helperText={`0 = imediato · ${humanizeDelay(action.delayMinutes)}`}
                       fullWidth
                     />
                   </Grid>
@@ -3671,6 +3760,115 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                     </Box>
                   </Grid>
                 </Grid>
+
+                {/* Fase B — Condição e controle de fluxo da ação */}
+                <Box style={{ borderTop: "1px dashed #e5e7eb", paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280", letterSpacing: 0.3 }}>
+                    Condição
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={5}>
+                      <FormControl variant="outlined" size="small" fullWidth>
+                        <InputLabel>Quando executar</InputLabel>
+                        <Select
+                          value={normalizeConditionUI(action.condition).type}
+                          onChange={(e) => handleChangeConditionType(index, e.target.value)}
+                          label="Quando executar"
+                        >
+                          {STAGE_AUTOMATION_CONDITION_OPTIONS.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {CONDITION_TYPES_WITH_TAG.includes(normalizeConditionUI(action.condition).type) && (
+                      <Grid item xs={12} sm={7}>
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Etiqueta</InputLabel>
+                          <Select
+                            value={normalizeConditionUI(action.condition).value || ""}
+                            onChange={(e) => handleUpdateCondition(index, { value: e.target.value })}
+                            label="Etiqueta"
+                          >
+                            {tags.map((t) => (
+                              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+
+                    {CONDITION_TYPES_WITH_STAGE.includes(normalizeConditionUI(action.condition).type) && (
+                      <Grid item xs={12} sm={7}>
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Etapa</InputLabel>
+                          <Select
+                            value={normalizeConditionUI(action.condition).value || ""}
+                            onChange={(e) => handleUpdateCondition(index, { value: e.target.value })}
+                            label="Etapa"
+                          >
+                            {(stages || []).map((s) => (
+                              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+
+                  {normalizeConditionUI(action.condition).type !== "always" && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={normalizeConditionUI(action.condition).stopIfFalse}
+                          onChange={(e) => handleUpdateCondition(index, { stopIfFalse: e.target.checked })}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Parar próximas ações se esta condição falhar</Typography>
+                          <Typography variant="caption" style={{ color: "#9ca3af" }}>Se a condição não for atendida, as próximas ações desta automação não serão executadas.</Typography>
+                        </Box>
+                      }
+                    />
+                  )}
+
+                  <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280", letterSpacing: 0.3, marginTop: 4 }}>
+                    Controle de fluxo
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={normalizeFlowControlUI(action.flowControl).stopAfterExecute}
+                        onChange={(e) => handleUpdateFlowControl(index, { stopAfterExecute: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Parar automação após executar esta ação</Typography>
+                        <Typography variant="caption" style={{ color: "#9ca3af" }}>Depois que esta ação for executada, nenhuma ação posterior será executada neste ciclo.</Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={normalizeFlowControlUI(action.flowControl).skipIfAlreadyExecuted}
+                        onChange={(e) => handleUpdateFlowControl(index, { skipIfAlreadyExecuted: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Não executar novamente esta ação para o mesmo lead nesta etapa</Typography>
+                        <Typography variant="caption" style={{ color: "#9ca3af" }}>Evita disparos repetidos enquanto o lead permanecer neste ciclo da etapa.</Typography>
+                      </Box>
+                    }
+                  />
+                </Box>
               </Box>
             ))}
           </Box>
