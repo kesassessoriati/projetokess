@@ -15,6 +15,7 @@ import { getIO } from "../../libs/socket";
 import logger from "../../utils/logger";
 import moment from "moment";
 import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
+import { renderAppointmentVariables } from "../../helpers/RenderAppointmentVariables";
 import path from "path";
 import {
   evaluateCondition,
@@ -76,7 +77,8 @@ const INSTANT_ACTIONS = new Set([
   "close_ticket",
   "create_task",
   "create_note",
-  "ai_actions"
+  "ai_actions",
+  "set_lead_product"
 ]);
 
 // Buscar configurações de disparo da empresa
@@ -350,6 +352,87 @@ const calculateDelay = (settings: CampaignSettings, messageCount: number): numbe
   return settings.messageInterval;
 };
 
+// Executar ação de enviar mensagem com botões interativos.
+// Reaproveita o mesmo helper/payload do Disparo Rápido (sendButtonMessage),
+// que já possui fallback automático para texto numerado quando o canal não
+// suporta botões nativos.
+const sendAutomationButtons = async (
+  action: AutomationAction,
+  contact: Contact | null,
+  ticket: Ticket | null,
+  companyId: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    if (!contact) {
+      return { success: false, message: "Não foi possível enviar botões: oportunidade sem contato." };
+    }
+    if (!ticket) {
+      return { success: false, message: "Não foi possível enviar botões: nenhum ticket ativo para o contato." };
+    }
+
+    const { message, whatsappId, buttons } = action.actionConfig || {};
+    const buttonList = Array.isArray(buttons)
+      ? buttons.filter((b: any) => b && String(b.displayText || "").trim())
+      : [];
+
+    if (buttonList.length === 0) {
+      return { success: false, message: "Nenhum botão configurado na ação." };
+    }
+
+    if (whatsappId && Number(ticket.whatsappId) !== Number(whatsappId)) {
+      await ticket.update({ whatsappId: Number(whatsappId) });
+      await ticket.reload();
+    }
+
+    // Renderiza variáveis: agendamento (assíncrono) + contato (template)
+    const withAppointment = await renderAppointmentVariables(String(message || ""), {
+      companyId,
+      contactId: contact.id
+    });
+    const finalText = renderCampaignTemplate(withAppointment, contact) as string;
+    const renderedButtons = renderCampaignTemplate(buttonList, contact) as any[];
+
+    const { getWbot } = await import("../../libs/wbot");
+    const { sendButtonMessage } = await import("../../helpers/SendInteractiveMessage");
+    const CreateMessageService = (await import("../MessageServices/CreateMessageService")).default;
+
+    const wbot = await getWbot(ticket.whatsappId);
+    const remoteJid =
+      contact.remoteJid && contact.remoteJid.includes("@")
+        ? contact.remoteJid
+        : `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+
+    const sentMessage = await sendButtonMessage(wbot, remoteJid, finalText || "", "", renderedButtons);
+
+    if (sentMessage?.key?.id) {
+      const messageData = {
+        wid: sentMessage.key.id,
+        ticketId: ticket.id,
+        contactId: undefined,
+        body: finalText || "Mensagem com botões",
+        fromMe: true,
+        read: true,
+        mediaType: "chat",
+        quotedMsgId: null,
+        ack: 2,
+        remoteJid,
+        participant: null,
+        dataJson: JSON.stringify(sentMessage),
+        ticketTrakingId: null,
+        isForwarded: false
+      };
+      await CreateMessageService({ messageData, companyId: ticket.companyId });
+      await ticket.update({ lastMessage: finalText || "Mensagem com botões", imported: null });
+    }
+
+    logger.info(`[StageAutomation][Buttons] Botões enviados para contato ${contact.id}, ticket ${ticket.id}`);
+    return { success: true, message: "Mensagem com botões enviada com sucesso" };
+  } catch (error: any) {
+    logger.error(`[StageAutomation][Buttons] Erro ao enviar botões: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
 // Executar ação de enviar mensagem
 const executeActionSendMessage = async (
   action: AutomationAction,
@@ -373,6 +456,11 @@ const executeActionSendMessage = async (
         success: false,
         message: "Não foi possível enviar mensagem: nenhum ticket ativo encontrado/criado para o contato."
       };
+    }
+
+    // Mensagem com botões: delega ao helper compartilhado com o Disparo Rápido.
+    if (action.actionConfig?.messageType === "buttons") {
+      return sendAutomationButtons(action, contact, ticket, companyId);
     }
 
     const { message, whatsappId, quickReplyId, mediaId } = action.actionConfig || {};
@@ -428,8 +516,13 @@ const executeActionSendMessage = async (
       }
     }
 
-    // Aplica variáveis de template
-    const finalText = renderCampaignTemplate(textBody, contact) as string;
+    // Aplica variáveis de agendamento (assíncrono, só consulta se houver token)
+    // e em seguida as variáveis de contato/template.
+    const textWithAppointment = await renderAppointmentVariables(textBody, {
+      companyId,
+      contactId: contact.id
+    });
+    const finalText = renderCampaignTemplate(textWithAppointment, contact) as string;
 
     if (mediaFilePath) {
       const { getMessageOptions } = await import("../WbotServices/SendWhatsAppMedia");
@@ -974,6 +1067,75 @@ const executeActionAiActions = async (
   }
 };
 
+// Executar ação de vincular produto ao lead.
+// Fase C: grava no campo string CrmLead.product (sem pivot lead↔produto).
+const executeActionSetLeadProduct = async (
+  action: AutomationAction,
+  contact: Contact | null,
+  ticket: Ticket | null,
+  companyId: number,
+  opportunityId?: number
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const { productId, productName, replaceExisting } = action.actionConfig || {};
+
+    const CrmLead = (await import("../../models/CrmLead")).default;
+
+    // Resolver o lead a partir da oportunidade ou do contato
+    let lead: any = null;
+    if (opportunityId) {
+      const Opportunity = (await import("../../models/Opportunity")).default;
+      const opp = await Opportunity.findOne({ where: { id: opportunityId, companyId } });
+      if (opp?.leadId) {
+        lead = await CrmLead.findOne({ where: { id: opp.leadId, companyId } });
+      }
+    }
+    if (!lead && contact) {
+      lead = await CrmLead.findOne({
+        where: { contactId: contact.id, companyId },
+        order: [["updatedAt", "DESC"]]
+      });
+    }
+
+    if (!lead) {
+      return { success: false, message: "Lead não encontrado para vincular o produto." };
+    }
+
+    // Resolver nome do produto: productId (validado por empresa) tem prioridade
+    let resolvedName = "";
+    if (productId) {
+      const Produto = (await import("../../models/Produto")).default;
+      const produto = await Produto.findOne({ where: { id: Number(productId), companyId } });
+      if (!produto) {
+        return { success: false, message: "Produto não encontrado ou não pertence a esta empresa." };
+      }
+      resolvedName = String((produto as any).nome || (produto as any).name || "").trim();
+    }
+    if (!resolvedName && productName) {
+      resolvedName = String(productName).trim();
+    }
+
+    if (!resolvedName) {
+      return { success: false, message: "Informe um produto (productId ou productName) para vincular." };
+    }
+
+    // Sanitiza (remove angulares e espacos extras) e limita o tamanho
+    resolvedName = resolvedName.replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+
+    const current = String(lead.product || "").trim();
+    if (current && !replaceExisting) {
+      return { success: true, message: `Lead já possui produto ("${current}") — mantido (replaceExisting=false).` };
+    }
+
+    await lead.update({ product: resolvedName }, { hooks: false });
+
+    return { success: true, message: `Produto "${resolvedName}" vinculado ao lead.` };
+  } catch (error: any) {
+    logger.error(`[Automation] Erro ao vincular produto: ${error.message}`);
+    return { success: false, message: error.message };
+  }
+};
+
 // Executar uma ação específica
 const withStageAutomationAiConfig = (
   automation: Automation,
@@ -1027,6 +1189,8 @@ export const executeAction = async (
       return executeActionCallTask(action, contact, ticket, companyId, opportunityId);
     case "ai_actions":
       return executeActionAiActions(action, contact, ticket, companyId, opportunityId);
+    case "set_lead_product":
+      return executeActionSetLeadProduct(action, contact, ticket, companyId, opportunityId);
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:
