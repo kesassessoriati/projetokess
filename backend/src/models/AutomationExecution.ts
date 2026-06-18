@@ -50,6 +50,12 @@ class AutomationExecution extends Model<AutomationExecution> {
   ticket: Ticket;
 
   @Column
+  cycleId: string;
+
+  @Column
+  actionUid: string;
+
+  @Column
   scheduledAt: Date;
 
   @Default("scheduled")

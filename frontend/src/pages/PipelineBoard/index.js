@@ -22,6 +22,7 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  Checkbox,
   TextField,
   Menu,
   Tab,
@@ -56,6 +57,7 @@ import {
   CheckCircle as CheckCircleIcon,
   ErrorOutline as ErrorOutlineIcon,
   SmartToy as SmartToyIcon,
+  LocalOffer as LocalOfferIcon,
 } from "@mui/icons-material";
 import api from "../../services/api";
 import { toast } from "react-toastify";
@@ -3073,6 +3075,90 @@ const ACTION_TYPE_LABELS = {
   wait: "Aguardar",
 };
 
+// Fase B — condições suportadas na UI das automações por etapa.
+// Os tipos de produto/agendamento/botão ficam para fases futuras.
+const STAGE_AUTOMATION_CONDITION_OPTIONS = [
+  { value: "always", label: "Sempre executar" },
+  { value: "if_replied", label: "Se respondeu" },
+  { value: "if_not_replied", label: "Se não respondeu" },
+  { value: "has_tag", label: "Se possui etiqueta" },
+  { value: "not_has_tag", label: "Se não possui etiqueta" },
+  { value: "is_in_stage", label: "Se está em etapa" },
+  { value: "not_in_stage", label: "Se não está em etapa" },
+];
+
+const CONDITION_TYPES_WITH_TAG = ["has_tag", "not_has_tag"];
+const CONDITION_TYPES_WITH_STAGE = ["is_in_stage", "not_in_stage"];
+
+// Fase C/D — tipos de botão (mesmo padrão/payload do Disparo Rápido) e template
+// pré-preenchido para a ação "Mensagem com Botões".
+const STAGE_AUTOMATION_BUTTON_TYPES = [
+  { value: "reply", label: "↩ Resposta rápida" },
+  { value: "url", label: "🔗 Abrir URL" },
+  { value: "call", label: "📞 Ligar" },
+  { value: "copy", label: "📋 Copiar código" },
+];
+
+const STAGE_AUTOMATION_BUTTON_TEMPLATE = [
+  { displayText: "Sim, confirmo", type: "reply", value: "confirm_appointment" },
+  { displayText: "Quero remarcar", type: "reply", value: "reschedule" },
+  { displayText: "Falar com atendente", type: "reply", value: "talk_to_agent" },
+];
+
+const STAGE_AUTOMATION_BUTTONS_DEFAULT_MESSAGE =
+  "Olá {{firstName}}, você confirma seu atendimento?";
+
+// Variáveis dinâmicas de agendamento disponíveis nas mensagens da automação.
+const APPOINTMENT_VARIABLES = [
+  { token: "{{appointmentDate}}", label: "Agend. Data" },
+  { token: "{{appointmentTime}}", label: "Agend. Hora" },
+  { token: "{{appointmentDateTime}}", label: "Agend. Data/Hora" },
+  { token: "{{appointmentProfessional}}", label: "Profissional" },
+  { token: "{{appointmentService}}", label: "Serviço" },
+  { token: "{{appointmentStatus}}", label: "Status Agend." },
+  { token: "{{appointmentMeetLink}}", label: "Link Meet" },
+  { token: "{{appointmentLocation}}", label: "Local" },
+  { token: "{{appointmentNotes}}", label: "Notas" },
+];
+
+// Gera um identificador estável de ação no frontend (mantém estabilidade já a
+// partir da criação; o backend também gera caso venha vazio).
+const genActionUid = () =>
+  `act_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+// Defaults compatíveis com automações antigas (sem condition/flowControl).
+const normalizeConditionUI = (condition) => {
+  const c = condition && typeof condition === "object" ? condition : {};
+  return {
+    type: c.type || "always",
+    operator: c.operator ?? null,
+    value: c.value ?? null,
+    stopIfFalse: c.stopIfFalse === true,
+  };
+};
+
+const normalizeFlowControlUI = (flowControl) => {
+  const f = flowControl && typeof flowControl === "object" ? flowControl : {};
+  return {
+    stopAfterExecute: f.stopAfterExecute === true,
+    skipIfAlreadyExecuted: f.skipIfAlreadyExecuted !== false,
+  };
+};
+
+// Preview humano do tempo de espera (delayMinutes).
+const humanizeDelay = (minutesRaw) => {
+  const minutes = Number(minutesRaw) || 0;
+  if (minutes <= 0) return "Imediato";
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  const parts = [];
+  if (days) parts.push(`${days} dia${days > 1 ? "s" : ""}`);
+  if (hours) parts.push(`${hours}h`);
+  if (mins) parts.push(`${mins}min`);
+  return parts.join(" ");
+};
+
 const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
   const [enabled, setEnabled] = useState(false);
   const [actions, setActions] = useState([]);
@@ -3116,6 +3202,15 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     // Validar ações antes de salvar
     if (actions && Array.isArray(actions)) {
       for (const act of actions) {
+        const cond = normalizeConditionUI(act.condition);
+        if (CONDITION_TYPES_WITH_TAG.includes(cond.type) && !cond.value) {
+          toast.error("Selecione a etiqueta da condição da ação.");
+          return;
+        }
+        if (CONDITION_TYPES_WITH_STAGE.includes(cond.type) && !cond.value) {
+          toast.error("Selecione a etapa da condição da ação.");
+          return;
+        }
         if (act.actionType === "add_tag" && !act.actionConfig?.tagId) {
           toast.error("Por favor, selecione uma etiqueta para a ação 'Aplicar Etiqueta'.");
           return;
@@ -3153,6 +3248,19 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             return;
           }
         }
+        if (act.actionType === "send_message" && act.actionConfig?.messageType === "buttons") {
+          const validButtons = (act.actionConfig?.buttons || []).filter(
+            (b) => b && String(b.displayText || "").trim()
+          );
+          if (validButtons.length === 0) {
+            toast.error("Adicione ao menos um botão com texto na mensagem com botões.");
+            return;
+          }
+        }
+        if (act.actionType === "set_lead_product" && !act.actionConfig?.productName?.trim() && !act.actionConfig?.productId) {
+          toast.error("Informe o nome do produto para a ação 'Vincular Produto'.");
+          return;
+        }
       }
     }
 
@@ -3183,10 +3291,14 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     else if (type === "move_lead") config = { destinationStageId: "" };
     else if (type === "call_task") config = { title: "", description: "", priority: "high", listId: "" };
     else if (type === "ai_actions") config = { aiAction: "pause_for", duration: 24, unit: "hours", reason: "" };
+    else if (type === "set_lead_product") config = { productName: "", productId: null, replaceExisting: false };
 
     const newAction = {
       actionType: type,
+      actionUid: genActionUid(),
       actionConfig: config,
+      condition: { type: "always", operator: null, value: null, stopIfFalse: false },
+      flowControl: { stopAfterExecute: false, skipIfAlreadyExecuted: true },
       delayMinutes: 0
     };
     setActions([...actions, newAction]);
@@ -3200,7 +3312,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     setActions(actions.map((act, idx) => {
       if (idx === index) {
         if (field === "delayMinutes") {
-          return { ...act, delayMinutes: Number(value) };
+          return { ...act, delayMinutes: Math.max(0, Number(value) || 0) };
         }
         return {
           ...act,
@@ -3211,6 +3323,76 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
         };
       }
       return act;
+    }));
+  };
+
+  const handleUpdateCondition = (index, patch) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const current = normalizeConditionUI(act.condition);
+      return { ...act, condition: { ...current, ...patch } };
+    }));
+  };
+
+  const handleChangeConditionType = (index, type) => {
+    // Ao trocar o tipo, zera o value (o significado do campo muda).
+    handleUpdateCondition(index, { type, value: null });
+  };
+
+  const handleUpdateFlowControl = (index, patch) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const current = normalizeFlowControlUI(act.flowControl);
+      return { ...act, flowControl: { ...current, ...patch } };
+    }));
+  };
+
+  // ── Mensagem com botões (reaproveita payload do Disparo Rápido) ──
+  const handleChangeMessageType = (index, messageType) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const cfg = { ...(act.actionConfig || {}), messageType };
+      if (
+        messageType === "buttons" &&
+        (!Array.isArray(cfg.buttons) || cfg.buttons.length === 0)
+      ) {
+        cfg.buttons = STAGE_AUTOMATION_BUTTON_TEMPLATE.map((b) => ({ ...b }));
+        if (!String(cfg.message || "").trim()) {
+          cfg.message = STAGE_AUTOMATION_BUTTONS_DEFAULT_MESSAGE;
+        }
+      }
+      return { ...act, actionConfig: cfg };
+    }));
+  };
+
+  const handleUpdateButton = (index, btnIdx, field, value) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const buttons = Array.isArray(act.actionConfig?.buttons)
+        ? [...act.actionConfig.buttons]
+        : [];
+      buttons[btnIdx] = { ...buttons[btnIdx], [field]: value };
+      return { ...act, actionConfig: { ...act.actionConfig, buttons } };
+    }));
+  };
+
+  const handleAddButton = (index) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const buttons = Array.isArray(act.actionConfig?.buttons)
+        ? [...act.actionConfig.buttons]
+        : [];
+      if (buttons.length >= 3) return act; // limite nativo do WhatsApp
+      buttons.push({ displayText: "", type: "reply", value: "" });
+      return { ...act, actionConfig: { ...act.actionConfig, buttons } };
+    }));
+  };
+
+  const handleRemoveButton = (index, btnIdx) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const buttons = (act.actionConfig?.buttons || []).filter((_, i) => i !== btnIdx);
+      return { ...act, actionConfig: { ...act.actionConfig, buttons } };
     }));
   };
 
@@ -3354,6 +3536,9 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             <Button size="small" variant="outlined" startIcon={<SmartToyIcon fontSize="small" />} onClick={() => handleAddAction("ai_actions")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Ações da IA
             </Button>
+            <Button size="small" variant="outlined" startIcon={<LocalOfferIcon fontSize="small" />} onClick={() => handleAddAction("set_lead_product")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Vincular Produto
+            </Button>
           </Box>
 
           <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
@@ -3375,6 +3560,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                       {action.actionType === "move_lead" && "Mover de Etapa"}
                       {action.actionType === "call_task" && "Tarefa de Ligação"}
                       {action.actionType === "ai_actions" && "Ações da IA"}
+                      {action.actionType === "set_lead_product" && "Vincular Produto"}
                     </Typography>
                   </Box>
                   <Box display="flex" style={{ gap: 4 }}>
@@ -3399,6 +3585,8 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                       variant="outlined"
                       value={action.delayMinutes || 0}
                       onChange={(e) => handleUpdateAction(index, "delayMinutes", e.target.value)}
+                      inputProps={{ min: 0 }}
+                      helperText={`0 = imediato · ${humanizeDelay(action.delayMinutes)}`}
                       fullWidth
                     />
                   </Grid>
@@ -3419,7 +3607,19 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                             </Select>
                           </FormControl>
 
-                          {action.actionConfig?.quickReplyId ? (
+                          <FormControl variant="outlined" size="small" fullWidth>
+                            <InputLabel>Tipo de mensagem</InputLabel>
+                            <Select
+                              value={action.actionConfig?.messageType === "buttons" ? "buttons" : "text"}
+                              onChange={(e) => handleChangeMessageType(index, e.target.value)}
+                              label="Tipo de mensagem"
+                            >
+                              <MenuItem value="text">Texto</MenuItem>
+                              <MenuItem value="buttons">Botões</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          {action.actionConfig?.messageType !== "buttons" && (action.actionConfig?.quickReplyId ? (
                             <Box display="flex" alignItems="center" style={{ gap: 8, padding: "6px 10px", backgroundColor: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
                               <FlashOnIcon style={{ fontSize: 14, color: "#16a34a" }} />
                               <Typography variant="caption" style={{ color: "#15803d", flex: 1 }}>
@@ -3439,7 +3639,7 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                             >
                               Selecionar Resposta Rápida
                             </Button>
-                          )}
+                          ))}
 
                           <Box>
                             <Typography variant="caption" style={{ color: "#6b7280", display: "block", marginBottom: 4 }}>Variáveis:</Typography>
@@ -3454,10 +3654,22 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                                 />
                               ))}
                             </Box>
+                            <Typography variant="caption" style={{ color: "#6b7280", display: "block", margin: "6px 0 4px" }}>Agendamento:</Typography>
+                            <Box display="flex" flexWrap="wrap" style={{ gap: 4 }}>
+                              {APPOINTMENT_VARIABLES.map(v => (
+                                <Chip
+                                  key={v.token}
+                                  label={v.label}
+                                  size="small"
+                                  onClick={() => handleUpdateAction(index, "message", (action.actionConfig?.message || "") + v.token)}
+                                  style={{ cursor: "pointer", fontSize: "0.68rem", backgroundColor: "#ecfdf5", color: "#047857" }}
+                                />
+                              ))}
+                            </Box>
                           </Box>
 
                           <TextField
-                            label="Mensagem do Disparo"
+                            label={action.actionConfig?.messageType === "buttons" ? "Texto da mensagem (acima dos botões)" : "Mensagem do Disparo"}
                             multiline
                             rows={3}
                             variant="outlined"
@@ -3467,6 +3679,60 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                             placeholder={action.actionConfig?.quickReplyId ? "Texto adicional (opcional, complementa a resposta rápida)" : "Digite a mensagem ou selecione uma resposta rápida acima"}
                             fullWidth
                           />
+
+                          {action.actionConfig?.messageType === "buttons" && (
+                            <Box style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px dashed #e5e7eb", paddingTop: 10 }}>
+                              <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280" }}>
+                                Botões interativos ({(action.actionConfig?.buttons || []).length}/3)
+                              </Typography>
+                              {(action.actionConfig?.buttons || []).map((btn, btnIdx) => (
+                                <Box key={btnIdx} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                                    <Chip size="small" label={btnIdx + 1} style={{ backgroundColor: "#eef2f5", fontWeight: 700 }} />
+                                    <TextField
+                                      label="Texto do botão"
+                                      size="small"
+                                      variant="outlined"
+                                      value={btn.displayText || ""}
+                                      onChange={(e) => handleUpdateButton(index, btnIdx, "displayText", e.target.value)}
+                                      inputProps={{ maxLength: 25 }}
+                                      fullWidth
+                                    />
+                                    <IconButton size="small" style={{ color: "#dc2626" }} onClick={() => handleRemoveButton(index, btnIdx)}>
+                                      <ClearIcon fontSize="small" />
+                                    </IconButton>
+                                  </Box>
+                                  <Box display="flex" style={{ gap: 8 }}>
+                                    <FormControl variant="outlined" size="small" style={{ minWidth: 150 }}>
+                                      <InputLabel>Tipo</InputLabel>
+                                      <Select
+                                        value={btn.type || "reply"}
+                                        onChange={(e) => handleUpdateButton(index, btnIdx, "type", e.target.value)}
+                                        label="Tipo"
+                                      >
+                                        {STAGE_AUTOMATION_BUTTON_TYPES.map((opt) => (
+                                          <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
+                                    <TextField
+                                      label={btn.type === "url" ? "URL" : btn.type === "call" ? "Telefone" : btn.type === "copy" ? "Código" : "Valor/resposta"}
+                                      size="small"
+                                      variant="outlined"
+                                      value={btn.value || ""}
+                                      onChange={(e) => handleUpdateButton(index, btnIdx, "value", e.target.value)}
+                                      fullWidth
+                                    />
+                                  </Box>
+                                </Box>
+                              ))}
+                              {(action.actionConfig?.buttons || []).length < 3 && (
+                                <Button size="small" variant="outlined" onClick={() => handleAddButton(index)} style={{ borderRadius: 8, fontSize: "0.72rem", alignSelf: "flex-start" }}>
+                                  + Adicionar botão
+                                </Button>
+                              )}
+                            </Box>
+                          )}
                         </>
                       )}
 
@@ -3668,9 +3934,148 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                           />
                         </>
                       )}
+
+                      {action.actionType === "set_lead_product" && (
+                        <>
+                          <TextField
+                            label="Nome do produto"
+                            variant="outlined"
+                            size="small"
+                            value={action.actionConfig?.productName || ""}
+                            onChange={(e) => handleUpdateAction(index, "productName", e.target.value)}
+                            placeholder="Ex: Mentoria Premium"
+                            inputProps={{ maxLength: 200 }}
+                            fullWidth
+                          />
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={action.actionConfig?.replaceExisting === true}
+                                onChange={(e) => handleUpdateAction(index, "replaceExisting", e.target.checked)}
+                              />
+                            }
+                            label={
+                              <Box>
+                                <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Substituir produto existente</Typography>
+                                <Typography variant="caption" style={{ color: "#9ca3af" }}>Se desmarcado, não sobrescreve um produto já vinculado ao lead.</Typography>
+                              </Box>
+                            }
+                          />
+                        </>
+                      )}
                     </Box>
                   </Grid>
                 </Grid>
+
+                {/* Fase B — Condição e controle de fluxo da ação */}
+                <Box style={{ borderTop: "1px dashed #e5e7eb", paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280", letterSpacing: 0.3 }}>
+                    Condição
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={5}>
+                      <FormControl variant="outlined" size="small" fullWidth>
+                        <InputLabel>Quando executar</InputLabel>
+                        <Select
+                          value={normalizeConditionUI(action.condition).type}
+                          onChange={(e) => handleChangeConditionType(index, e.target.value)}
+                          label="Quando executar"
+                        >
+                          {STAGE_AUTOMATION_CONDITION_OPTIONS.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {CONDITION_TYPES_WITH_TAG.includes(normalizeConditionUI(action.condition).type) && (
+                      <Grid item xs={12} sm={7}>
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Etiqueta</InputLabel>
+                          <Select
+                            value={normalizeConditionUI(action.condition).value || ""}
+                            onChange={(e) => handleUpdateCondition(index, { value: e.target.value })}
+                            label="Etiqueta"
+                          >
+                            {tags.map((t) => (
+                              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+
+                    {CONDITION_TYPES_WITH_STAGE.includes(normalizeConditionUI(action.condition).type) && (
+                      <Grid item xs={12} sm={7}>
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>Etapa</InputLabel>
+                          <Select
+                            value={normalizeConditionUI(action.condition).value || ""}
+                            onChange={(e) => handleUpdateCondition(index, { value: e.target.value })}
+                            label="Etapa"
+                          >
+                            {(stages || []).map((s) => (
+                              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+
+                  {normalizeConditionUI(action.condition).type !== "always" && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={normalizeConditionUI(action.condition).stopIfFalse}
+                          onChange={(e) => handleUpdateCondition(index, { stopIfFalse: e.target.checked })}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Parar próximas ações se esta condição falhar</Typography>
+                          <Typography variant="caption" style={{ color: "#9ca3af" }}>Se a condição não for atendida, as próximas ações desta automação não serão executadas.</Typography>
+                        </Box>
+                      }
+                    />
+                  )}
+
+                  <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280", letterSpacing: 0.3, marginTop: 4 }}>
+                    Controle de fluxo
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={normalizeFlowControlUI(action.flowControl).stopAfterExecute}
+                        onChange={(e) => handleUpdateFlowControl(index, { stopAfterExecute: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Parar automação após executar esta ação</Typography>
+                        <Typography variant="caption" style={{ color: "#9ca3af" }}>Depois que esta ação for executada, nenhuma ação posterior será executada neste ciclo.</Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={normalizeFlowControlUI(action.flowControl).skipIfAlreadyExecuted}
+                        onChange={(e) => handleUpdateFlowControl(index, { skipIfAlreadyExecuted: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" style={{ fontSize: "0.8rem" }}>Não executar novamente esta ação para o mesmo lead nesta etapa</Typography>
+                        <Typography variant="caption" style={{ color: "#9ca3af" }}>Evita disparos repetidos enquanto o lead permanecer neste ciclo da etapa.</Typography>
+                      </Box>
+                    }
+                  />
+                </Box>
               </Box>
             ))}
           </Box>

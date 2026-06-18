@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 import CreatePipelineService from "../services/PipelineServices/CreatePipelineService";
 import ListPipelineBoardService from "../services/PipelineServices/ListPipelineBoardService";
 import GetPipelineMetricsService from "../services/PipelineServices/GetPipelineMetricsService";
@@ -371,7 +372,13 @@ export const updateStageAutomation = async (req: Request, res: Response): Promis
                 return {
                     automationId: automation.id,
                     actionType: act.actionType,
+                    // actionUid estável: preserva o vindo do frontend (round-trip) ou
+                    // gera um novo para ações realmente novas. Como o PUT recria as
+                    // ações, o round-trip do actionUid mantém a estabilidade entre saves.
+                    actionUid: act.actionUid || uuidv4(),
                     actionConfig,
+                    condition: act.condition || null,
+                    flowControl: act.flowControl || null,
                     delayMinutes: Number(act.delayMinutes || 0),
                     order: act.order !== undefined ? act.order : idx
                 };

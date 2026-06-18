@@ -30,9 +30,18 @@ class AutomationAction extends Model<AutomationAction> {
   @Column
   actionType: string;
 
+  @Column
+  actionUid: string;
+
   @Default({})
   @Column(DataTypes.JSONB)
   actionConfig: any;
+
+  @Column(DataTypes.JSONB)
+  condition: any;
+
+  @Column(DataTypes.JSONB)
+  flowControl: any;
 
   @Default(1)
   @Column

@@ -73,6 +73,7 @@ import Automation from "../models/Automation";
 import AutomationAction from "../models/AutomationAction";
 import AutomationLog from "../models/AutomationLog";
 import AutomationExecution from "../models/AutomationExecution";
+import StageAutomationExecutionLog from "../models/StageAutomationExecutionLog";
 import CrmLead from "../models/CrmLead";
 import LeadTag from "../models/LeadTag";
 import CrmClient from "../models/CrmClient";
@@ -327,6 +328,7 @@ const models = [
   AutomationAction,
   AutomationLog,
   AutomationExecution,
+  StageAutomationExecutionLog,
   CrmLead,
   LeadTag,
   CrmClient,
