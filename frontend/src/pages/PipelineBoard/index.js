@@ -643,6 +643,34 @@ const useStyles = makeStyles((theme) => ({
     textTransform: "uppercase",
     border: "1px solid transparent",
   },
+  cardTagsRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+  },
+  cardTagChip: {
+    display: "inline-block",
+    maxWidth: 96,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: "0.62rem",
+    lineHeight: 1.4,
+    fontWeight: 700,
+    padding: "1px 7px",
+    borderRadius: 8,
+    backgroundColor: "#eef2f5",
+    color: "#475569",
+    border: "1px solid #cbd5e1",
+  },
+  cardTagChipMore: {
+    backgroundColor: "#e2e8f0",
+    color: "#334155",
+    border: "1px solid #cbd5e1",
+    fontWeight: 800,
+  },
   loadMore: {
     textAlign: "center",
     padding: theme.spacing(1),
@@ -772,6 +800,49 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
           </Tooltip>
         )}
       </Box>
+
+      {Array.isArray(op.contact?.tags) && op.contact.tags.length > 0 && (
+        <Box className={classes.cardTagsRow}>
+          {op.contact.tags.slice(0, 3).map((tag) => {
+            const tagColor =
+              tag.color && /^#?[0-9a-fA-F]{3,8}$/.test(tag.color)
+                ? tag.color.startsWith("#")
+                  ? tag.color
+                  : `#${tag.color}`
+                : null;
+            return (
+              <Tooltip key={tag.id} title={tag.name || ""}>
+                <span
+                  className={classes.cardTagChip}
+                  style={
+                    tagColor
+                      ? {
+                          backgroundColor: tagColor + "1A",
+                          color: tagColor,
+                          borderColor: tagColor + "44",
+                        }
+                      : undefined
+                  }
+                >
+                  {tag.name}
+                </span>
+              </Tooltip>
+            );
+          })}
+          {op.contact.tags.length > 3 && (
+            <Tooltip
+              title={op.contact.tags
+                .slice(3)
+                .map((t) => t.name)
+                .join(", ")}
+            >
+              <span className={`${classes.cardTagChip} ${classes.cardTagChipMore}`}>
+                +{op.contact.tags.length - 3}
+              </span>
+            </Tooltip>
+          )}
+        </Box>
+      )}
 
       {op.lead && op.lead.companyName && (
         <Typography className={classes.cardMetaLine}>

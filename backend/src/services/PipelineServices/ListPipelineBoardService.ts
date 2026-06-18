@@ -3,6 +3,7 @@ import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import Opportunity from "../../models/Opportunity";
 import Contact from "../../models/Contact";
+import Tag from "../../models/Tag";
 import CrmLead from "../../models/CrmLead";
 import OpportunityPrediction from "../../models/OpportunityPrediction";
 import AppError from "../../errors/AppError";
@@ -374,7 +375,17 @@ const ListPipelineBoardService = async ({
                 as: "contact",
                 attributes: ["id", "name", "number"],
                 where: { companyId },
-                required: false
+                required: false,
+                include: [
+                    {
+                        model: Tag,
+                        as: "tags",
+                        attributes: ["id", "name", "color"],
+                        through: { attributes: [] },
+                        required: false,
+                        separate: true
+                    }
+                ]
             },
             {
                 model: CrmLead,
