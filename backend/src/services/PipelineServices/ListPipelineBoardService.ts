@@ -263,6 +263,57 @@ const buildPredictionInclude = (filter?: Request["filter"], attributes: string[]
     return predictionInclude;
 };
 
+const attachContactTags = async (opportunities: Opportunity[], companyId: number) => {
+    const contactIds = Array.from(
+        new Set(
+            opportunities
+                .map(op => Number(op.contactId || op.contact?.id))
+                .filter(contactId => Number.isFinite(contactId) && contactId > 0)
+        )
+    );
+
+    if (contactIds.length === 0) return;
+
+    const contactsWithTags = await Contact.findAll({
+        where: {
+            id: { [Op.in]: contactIds },
+            companyId
+        },
+        attributes: ["id"],
+        include: [
+            {
+                model: Tag,
+                as: "tags",
+                attributes: ["id", "name", "color"],
+                through: { attributes: [] },
+                required: false
+            }
+        ]
+    });
+
+    const tagsByContactId = new Map<number, Array<{ id: number; name: string; color: string }>>();
+    contactsWithTags.forEach(contact => {
+        const tags = ((contact as any).tags || []).map((tag: Tag) => ({
+            id: tag.id,
+            name: tag.name,
+            color: tag.color
+        }));
+        tagsByContactId.set(contact.id, tags);
+    });
+
+    opportunities.forEach(op => {
+        const contactId = Number(op.contactId || op.contact?.id);
+        if (!op.contact || !Number.isFinite(contactId)) return;
+
+        const tags = tagsByContactId.get(contactId) || [];
+        if (typeof (op.contact as any).setDataValue === "function") {
+            (op.contact as any).setDataValue("tags", tags);
+        } else {
+            (op.contact as any).tags = tags;
+        }
+    });
+};
+
 const ListPipelineBoardService = async ({
     pipelineId,
     companyId,
@@ -375,17 +426,7 @@ const ListPipelineBoardService = async ({
                 as: "contact",
                 attributes: ["id", "name", "number"],
                 where: { companyId },
-                required: false,
-                include: [
-                    {
-                        model: Tag,
-                        as: "tags",
-                        attributes: ["id", "name", "color"],
-                        through: { attributes: [] },
-                        required: false,
-                        separate: true
-                    }
-                ]
+                required: false
             },
             {
                 model: CrmLead,
@@ -427,6 +468,7 @@ const ListPipelineBoardService = async ({
 
         const hasMore = opportunities.length > effectiveLimit;
         const results = hasMore ? opportunities.slice(0, effectiveLimit) : opportunities;
+        await attachContactTags(results, companyId);
 
         let nextCursor = null;
         if (hasMore) {
