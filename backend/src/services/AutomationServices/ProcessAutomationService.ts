@@ -16,6 +16,20 @@ import logger from "../../utils/logger";
 import moment from "moment";
 import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
 import path from "path";
+import {
+  evaluateCondition,
+  normalizeCondition,
+  normalizeFlowControl,
+  getEffectiveActionUid,
+  hasExecutedInCycle,
+  recordStageAutomationLog
+} from "./AutomationConditionService";
+
+export interface AutomationCycleContext {
+  cycleId: string;
+  expectedStageId: number | null;
+  cycleStartedAt: Date;
+}
 
 interface AutomationWindowConfig {
   startHour?: string;
@@ -1025,10 +1039,16 @@ export const processAutomationForContact = async (
   automation: Automation,
   contact: Contact | null,
   ticket: Ticket | null,
-  opportunityId?: number
+  opportunityId?: number,
+  cycleContext?: AutomationCycleContext
 ): Promise<void> => {
   const companyId = automation.companyId;
   const settings = await getCampaignSettings(companyId);
+
+  // Motor condicional/anti-loop só se aplica às automações por etapa do pipeline
+  // (Fase A). Demais gatilhos (birthday/kanban_time/no_response) mantêm o
+  // comportamento legado inalterado.
+  const useCycle = !!cycleContext && automation.triggerType === "crm_stage";
 
   const actions = await AutomationAction.findAll({
     where: { automationId: automation.id },
@@ -1051,6 +1071,163 @@ export const processAutomationForContact = async (
     const action = withStageAutomationAiConfig(automation, rawAction);
     const isInstantAction = INSTANT_ACTIONS.has(action.actionType);
 
+    // =========================================================================
+    // Caminho com ciclo (automação por etapa do pipeline) — condições + flow + anti-loop
+    // =========================================================================
+    if (useCycle && cycleContext) {
+      const actionUid = getEffectiveActionUid(action);
+      const flow = normalizeFlowControl(action.flowControl);
+      const condition = normalizeCondition(action.condition);
+
+      const baseLog = {
+        companyId,
+        automationId: automation.id,
+        actionUid,
+        cycleId: cycleContext.cycleId,
+        opportunityId: opportunityId || null,
+        contactId: contact?.id || null,
+        ticketId: ticket?.id || null,
+        stageId: cycleContext.expectedStageId,
+        metadata: { actionType: action.actionType, order: action.order }
+      };
+
+      // Não repetir a mesma ação no mesmo ciclo
+      if (
+        flow.skipIfAlreadyExecuted &&
+        (await hasExecutedInCycle(companyId, cycleContext.cycleId, actionUid))
+      ) {
+        await recordStageAutomationLog({
+          ...baseLog,
+          status: "skipped",
+          reason: "Ação já executada neste ciclo de entrada na etapa."
+        });
+        continue;
+      }
+
+      if (isInstantAction) {
+        // Condição avaliada imediatamente (ação sem delay)
+        const evalRes = await evaluateCondition(action.condition, {
+          companyId,
+          opportunityId,
+          contact,
+          ticket,
+          cycleStartedAt: cycleContext.cycleStartedAt,
+          expectedStageId: cycleContext.expectedStageId
+        });
+
+        if (!evalRes.pass) {
+          await recordStageAutomationLog({
+            ...baseLog,
+            status: "skipped",
+            reason: `Condição não satisfeita: ${evalRes.reason}`
+          });
+          if (condition.stopIfFalse) {
+            await recordStageAutomationLog({
+              ...baseLog,
+              status: "stopped",
+              reason: "stopIfFalse: condição falsa encerrou o ciclo."
+            });
+            logger.info(`[StageAutomation] Ciclo ${cycleContext.cycleId} encerrado por stopIfFalse na ação ${actionUid}`);
+            break;
+          }
+          continue;
+        }
+
+        const result = await executeAction(action, contact, ticket, companyId, opportunityId);
+
+        await AutomationLog.create({
+          automationId: automation.id,
+          contactId: contact?.id || null,
+          ticketId: ticket?.id,
+          status: result.success ? "completed" : "failed",
+          executedAt: new Date(),
+          result,
+          error: result.success ? null : result.message
+        });
+
+        await recordStageAutomationLog({
+          ...baseLog,
+          status: result.success ? "executed" : "failed",
+          reason: result.message
+        });
+
+        if (!result.success) {
+          logger.warn(`[StageAutomation] Ação instantânea ${action.actionType} falhou: ${result.message}`);
+          continue;
+        }
+
+        if (flow.stopAfterExecute) {
+          await recordStageAutomationLog({
+            ...baseLog,
+            status: "stopped",
+            reason: "stopAfterExecute: ação encerrou o ciclo após executar."
+          });
+          logger.info(`[StageAutomation] Ciclo ${cycleContext.cycleId} encerrado por stopAfterExecute na ação ${actionUid}`);
+          break;
+        }
+        continue;
+      }
+
+      // Ação agendada (send_message/move_lead/call_task): condição é avaliada no
+      // momento da execução pelo job. Aqui apenas agendamos com o contexto do ciclo.
+      if (!contact && action.actionType === "send_message") {
+        logger.warn(`[StageAutomation] Ação send_message ignorada para oportunidade ${opportunityId}: sem contato associado`);
+        await recordStageAutomationLog({
+          ...baseLog,
+          status: "skipped",
+          reason: "send_message sem contato associado."
+        });
+        continue;
+      }
+
+      const anchorMomentCycle = isWithinDispatchHours(settings, automation.triggerType)
+        ? moment()
+        : moment(getNextDispatchDate(settings, automation.triggerType));
+
+      const delaySecondsCycle =
+        action.delayMinutes > 0
+          ? action.delayMinutes * 60
+          : calculateDelay(settings, messageCount);
+
+      const scheduledAtCycle = anchorMomentCycle.clone().add(delaySecondsCycle, "seconds").toDate();
+
+      const executionCycle = await AutomationExecution.create({
+        automationId: automation.id,
+        automationActionId: action.id,
+        contactId: contact?.id || null,
+        ticketId: ticket?.id,
+        cycleId: cycleContext.cycleId,
+        actionUid,
+        scheduledAt: scheduledAtCycle,
+        status: "scheduled",
+        metadata: {
+          actionType: action.actionType,
+          opportunityId: opportunityId || null,
+          cycleId: cycleContext.cycleId,
+          actionUid,
+          expectedStageId: cycleContext.expectedStageId,
+          cycleStartedAt: cycleContext.cycleStartedAt.toISOString(),
+          companyId
+        }
+      });
+
+      await AutomationLog.create({
+        automationId: automation.id,
+        contactId: contact?.id || null,
+        ticketId: ticket?.id,
+        status: "pending",
+        result: { executionId: executionCycle.id, actionType: action.actionType, cycleId: cycleContext.cycleId }
+      });
+
+      if (action.actionType === "send_message") {
+        messageCount++;
+      }
+      continue;
+    }
+
+    // =========================================================================
+    // Caminho legado (sem ciclo) — comportamento inalterado
+    // =========================================================================
     if (isInstantAction) {
       const result = await executeAction(action, contact, ticket, companyId, opportunityId);
 
@@ -1110,7 +1287,7 @@ export const processAutomationForContact = async (
     }
   }
 
-  logger.info(`[Automation] ${actions.length} ações processadas para automação ${automation.id}${contact ? `, contato ${contact.id}` : `, oportunidade ${opportunityId}`}`);
+  logger.info(`[Automation] ${actions.length} ações processadas para automação ${automation.id}${contact ? `, contato ${contact.id}` : `, oportunidade ${opportunityId}`}${useCycle ? ` (ciclo ${cycleContext?.cycleId})` : ""}`);
 };
 
 // Buscar automações por gatilho

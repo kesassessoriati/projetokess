@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import moment from "moment";
+import { v4 as uuidv4 } from "uuid";
 import EventBus from "../../libs/EventBus";
 import Automation from "../../models/Automation";
 import AutomationAction from "../../models/AutomationAction";
@@ -165,9 +166,18 @@ class StageAutomationService {
               continue;
             }
 
-            logger.info(`[StageAutomationService] Iniciando processamento de ${automation.actions?.length || 0} ações da automação ${automation.id} para oportunidade ${opportunityId}${contact ? ` / contato ${contact.id}` : " (sem contato)"}`);
-            await processAutomationForContact(automation, contact, ticket, opportunityId);
-            logger.info(`[StageAutomation] Automação de etapa ${automation.id} disparada com sucesso para oportunidade ${opportunityId}`);
+            // Cada entrada na etapa inicia um novo ciclo de execução.
+            // O cycleId isola as execuções/anti-loop deste disparo: se o lead
+            // sair e voltar, um novo ciclo permite nova execução.
+            const cycleContext = {
+              cycleId: uuidv4(),
+              expectedStageId: Number(toStageId),
+              cycleStartedAt: new Date()
+            };
+
+            logger.info(`[StageAutomationService] Iniciando processamento de ${automation.actions?.length || 0} ações da automação ${automation.id} para oportunidade ${opportunityId}${contact ? ` / contato ${contact.id}` : " (sem contato)"} (ciclo ${cycleContext.cycleId})`);
+            await processAutomationForContact(automation, contact, ticket, opportunityId, cycleContext);
+            logger.info(`[StageAutomation] Automação de etapa ${automation.id} disparada com sucesso para oportunidade ${opportunityId} (ciclo ${cycleContext.cycleId})`);
           } catch (err: any) {
             logger.error(`[StageAutomation] Erro ao disparar automação ${automation.id}: ${err.message}`);
           }

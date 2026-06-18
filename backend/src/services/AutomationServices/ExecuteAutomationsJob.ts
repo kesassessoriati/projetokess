@@ -13,6 +13,15 @@ import {
   isWithinDispatchHours,
   resolveOpportunityAutomationContext
 } from "./ProcessAutomationService";
+import {
+  evaluateCondition,
+  normalizeCondition,
+  normalizeFlowControl,
+  getEffectiveActionUid,
+  hasExecutedInCycle,
+  isCycleStopped,
+  recordStageAutomationLog
+} from "./AutomationConditionService";
 import processBirthdayAutomations from "./TriggerBirthdayService";
 import { processKanbanTimeAutomations } from "./TriggerKanbanService";
 import processNoResponseAutomations from "./TriggerNoResponseService";
@@ -82,6 +91,161 @@ export const executeScheduledAutomations = async (): Promise<void> => {
           ticket = context.ticket;
         }
 
+        // ====================================================================
+        // Caminho com ciclo (automação por etapa do pipeline) — guards + condição
+        // ====================================================================
+        const meta = (execution.metadata as any) || {};
+        const cycleId = execution.cycleId || meta.cycleId || null;
+        const isCycleExec = !!cycleId && automation?.triggerType === "crm_stage";
+
+        if (isCycleExec) {
+          const actionUid =
+            execution.actionUid || meta.actionUid || getEffectiveActionUid(action);
+          const expectedStageId =
+            meta.expectedStageId != null ? Number(meta.expectedStageId) : null;
+          const cycleStartedAt = meta.cycleStartedAt
+            ? new Date(meta.cycleStartedAt)
+            : execution.createdAt;
+
+          const baseLog = {
+            companyId,
+            automationId: execution.automationId,
+            actionUid,
+            cycleId,
+            opportunityId: opportunityId || null,
+            contactId: contact?.id || null,
+            ticketId: ticket?.id || null,
+            stageId: expectedStageId,
+            metadata: { actionType: action.actionType }
+          };
+
+          // 1) Ciclo já encerrado por ação anterior → aborta esta ação
+          if (await isCycleStopped(companyId, cycleId)) {
+            await recordStageAutomationLog({
+              ...baseLog,
+              status: "skipped",
+              reason: "Ciclo já encerrado antes desta ação."
+            });
+            await execution.update({ status: "skipped", error: "Ciclo encerrado" });
+            continue;
+          }
+
+          // 2) Ação já executada neste ciclo
+          const flow = normalizeFlowControl(action.flowControl);
+          if (
+            flow.skipIfAlreadyExecuted &&
+            (await hasExecutedInCycle(companyId, cycleId, actionUid))
+          ) {
+            await recordStageAutomationLog({
+              ...baseLog,
+              status: "skipped",
+              reason: "Ação já executada neste ciclo."
+            });
+            await execution.update({ status: "skipped", error: "Já executada no ciclo" });
+            continue;
+          }
+
+          // 3) Lead saiu da etapa antes do delay → aborta job atrasado e encerra ciclo
+          if (expectedStageId && opportunityId) {
+            const Opportunity = (await import("../../models/Opportunity")).default;
+            const opp = await Opportunity.findOne({
+              where: { id: opportunityId, companyId },
+              attributes: ["id", "stageId"]
+            });
+            if (opp && Number(opp.stageId) !== expectedStageId) {
+              await recordStageAutomationLog({
+                ...baseLog,
+                status: "stopped",
+                reason: `Lead saiu da etapa ${expectedStageId} (atual ${opp.stageId}) antes do delay.`
+              });
+              await execution.update({ status: "aborted", error: "AUTOMATION_STAGE_CHANGED" });
+              logger.info(
+                `[Automation Job] Execução ${execution.id} abortada: lead saiu da etapa esperada ${expectedStageId} (atual ${opp.stageId})`
+              );
+              continue;
+            }
+          }
+
+          // 4) Condição avaliada no momento da execução
+          const evalRes = await evaluateCondition(action.condition, {
+            companyId,
+            opportunityId,
+            contact,
+            ticket,
+            cycleStartedAt,
+            expectedStageId
+          });
+
+          if (!evalRes.pass) {
+            const condition = normalizeCondition(action.condition);
+            await recordStageAutomationLog({
+              ...baseLog,
+              status: "skipped",
+              reason: `Condição não satisfeita: ${evalRes.reason}`
+            });
+            if (condition.stopIfFalse) {
+              await recordStageAutomationLog({
+                ...baseLog,
+                status: "stopped",
+                reason: "stopIfFalse: condição falsa encerrou o ciclo."
+              });
+              logger.info(`[Automation Job] Ciclo ${cycleId} encerrado por stopIfFalse na execução ${execution.id}`);
+            }
+            await execution.update({ status: "skipped", completedAt: new Date(), error: null });
+            await AutomationLog.update(
+              { status: "skipped", executedAt: new Date(), result: { skipped: true, reason: evalRes.reason } },
+              { where: { automationId: execution.automationId, contactId: contact?.id || null, status: "pending" } }
+            );
+            continue;
+          }
+
+          // 5) Executa a ação
+          const cycleResult = await executeAction(action, contact, ticket, companyId, opportunityId);
+
+          await recordStageAutomationLog({
+            ...baseLog,
+            status: cycleResult.success ? "executed" : "failed",
+            reason: cycleResult.message
+          });
+
+          if (cycleResult.success && flow.stopAfterExecute) {
+            await recordStageAutomationLog({
+              ...baseLog,
+              status: "stopped",
+              reason: "stopAfterExecute: ação encerrou o ciclo após executar."
+            });
+            logger.info(`[Automation Job] Ciclo ${cycleId} encerrado por stopAfterExecute na execução ${execution.id}`);
+          }
+
+          await execution.update({
+            status: cycleResult.success ? "completed" : "failed",
+            completedAt: cycleResult.success ? new Date() : null,
+            error: cycleResult.success ? null : cycleResult.message
+          });
+
+          await AutomationLog.update(
+            {
+              status: cycleResult.success ? "completed" : "failed",
+              executedAt: new Date(),
+              result: cycleResult,
+              error: cycleResult.success ? null : cycleResult.message
+            },
+            {
+              where: {
+                automationId: execution.automationId,
+                contactId: contact?.id || null,
+                status: "pending"
+              }
+            }
+          );
+
+          logger.info(`[Automation Job] Execução ${execution.id} (ciclo ${cycleId}) ${cycleResult.success ? "concluída" : "falhou"}: ${cycleResult.message}`);
+          continue;
+        }
+
+        // ====================================================================
+        // Caminho legado (sem ciclo) — comportamento inalterado
+        // ====================================================================
         // Executar a ação
         const result = await executeAction(action, contact, ticket, companyId, opportunityId);
 
