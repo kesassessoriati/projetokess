@@ -118,6 +118,7 @@ const allowedLeadFieldKeys = new Set([
   "pipelineId",
   "stageId",
   "tags",
+  "contactTags",
   "cardColor"
 ]);
 

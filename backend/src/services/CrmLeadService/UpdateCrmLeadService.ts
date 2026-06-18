@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
 import syncLeadToClient from "./helpers/syncLeadToClient";
 import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
+import SyncTagsService from "../TagServices/SyncTagsService";
 import {
   resolveLeadContactId,
   resolveLeadPrimaryTicketId
@@ -53,6 +54,7 @@ interface Request {
   pipelineId?: number;
   stageId?: number;
   tags?: any[];
+  contactTags?: any[];
   cardColor?: string;
   clientSince?: Date;
   acquisitionDate?: Date;
@@ -143,6 +145,8 @@ const UpdateCrmLeadService = async ({
   }
 
   data.temperature = normalizeLeadTemperature(data.temperature);
+  const contactTags = data.contactTags;
+  delete data.contactTags;
 
   await schema.validate(data);
 
@@ -208,6 +212,14 @@ const UpdateCrmLeadService = async ({
 
   if (data.tags !== undefined) {
     await syncCrmLeadTags(lead.id, companyId, data.tags);
+  }
+
+  if (contactTags !== undefined && contactId) {
+    await SyncTagsService({
+      tags: Array.isArray(contactTags) ? contactTags : [],
+      contactId,
+      companyId
+    });
   }
 
   const shouldSyncByStatus =

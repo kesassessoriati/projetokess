@@ -48,6 +48,11 @@ const normalizeLeadForm = (lead = {}) => {
   const sourceLead = lead.lead || lead;
   const sourceContact = lead.contact || {};
   const rawDocument = sourceLead.document || sourceLead.cnpj || lead.document || lead.cnpj || "";
+  const contactTags = Array.isArray(sourceLead.contact?.tags)
+    ? sourceLead.contact.tags
+    : Array.isArray(sourceContact.tags)
+      ? sourceContact.tags
+      : [];
 
   return {
     ...defaultForm,
@@ -83,6 +88,7 @@ const normalizeLeadForm = (lead = {}) => {
     score: sourceLead.score || 0,
     status: sourceLead.status || sourceLead.leadStatus || "novo",
     tags: Array.isArray(sourceLead.tags) ? sourceLead.tags : [],
+    contactTags,
     cardColor: sourceLead.cardColor || sourceLead.card_color || "#FFFFFF",
     customFields: sourceLead.customFields || {},
     sessionid: sourceLead.sessionid || "",
@@ -206,6 +212,7 @@ const defaultForm = {
   ownerUserId: "",
   notes: "",
   tags: [],
+  contactTags: [],
   cardColor: "#FFFFFF",
   customFields: {},
 };
@@ -400,10 +407,13 @@ const LeadModal = ({
         clientSince: form.clientSince || undefined,
         acquisitionDate: form.acquisitionDate || undefined,
         expirationDate: form.expirationDate || undefined,
-        tags: form.tags && form.tags.length > 0 ? form.tags : undefined,
+        contactTags: (form.contactId || contactId)
+          ? (Array.isArray(form.contactTags) ? form.contactTags : [])
+          : undefined,
         cardColor: cardColor || form.cardColor,
         customFields: form.customFields || {},
       };
+      delete payload.tags;
       delete payload.sessionid;
 
       if (resolvedLeadId) {
@@ -935,14 +945,15 @@ const LeadModal = ({
                   getOptionLabel={(option) =>
                     option.name || option.inputValue || option
                   }
-                  value={form.tags || []}
+                  value={form.contactTags || []}
+                  disabled={!(form.contactId || contactId)}
                   onChange={(event, newValue) => {
                     const newTags = newValue.map((item) => {
                       if (typeof item === "string") return { name: item };
                       if (item.inputValue) return { name: item.inputValue };
                       return item;
                     });
-                    setForm((prev) => ({ ...prev, tags: newTags }));
+                    setForm((prev) => ({ ...prev, contactTags: newTags }));
                   }}
                   filterOptions={(options, params) => {
                     const filtered = filter(options, params);
@@ -958,14 +969,16 @@ const LeadModal = ({
                     <TextField
                       {...params}
                       variant="outlined"
-                      label={fieldLabel("tags", "Tags")}
+                      label="Tags do contato"
                       placeholder="Selecione ou adicione novas tags..."
                       className={classes.formField}
                     />
                   )}
                 />
                 <Typography className={classes.helperNote}>
-                  Tags vinculadas ao módulo de etiquetas.
+                  {(form.contactId || contactId)
+                    ? "Tags do contato usadas no card do Kanban e na conversa."
+                    : "Tags disponiveis apenas quando o lead possui contato vinculado."}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6} style={visibleGridStyle("notes")}>
