@@ -92,7 +92,7 @@ const BuildTicketCopilotContextService = async ({
   user
 }: Request): Promise<TicketCopilotContext> => {
   const ticket = await ShowTicketService(ticketId, companyId);
-  const ticketJson = ticket.toJSON ? ticket.toJSON() : ticket;
+  const ticketJson = (ticket.toJSON ? ticket.toJSON() : ticket) as any;
 
   if (!canAccessTicket(ticketJson, user)) {
     throw new AppError("Voce nao tem acesso a este atendimento.", 403);
