@@ -1021,7 +1021,10 @@ const executeActionAiActions = async (
 
       const blockedUntil = moment().add(minutes, "minutes").toDate();
       const targetStageId = stageId ? Number(stageId) : null;
-      await contact.update({ aiBlockedUntil: blockedUntil, aiBlockMode: "pause_until", aiBlockedByStageId: targetStageId });
+      await (contact as any).update(
+        { aiBlockedUntil: blockedUntil, aiBlockMode: "pause_until", aiBlockedByStageId: targetStageId },
+        { hooks: false }
+      );
 
       logger.info(
         `[AI Actions] pause_for contact=${contact.id} until=${blockedUntil.toISOString()} ` +
@@ -1050,14 +1053,20 @@ const executeActionAiActions = async (
         }
       }
 
-      await contact.update({ aiBlockedUntil: null, aiBlockMode: "disabled_in_stage", aiBlockedByStageId: targetStageId });
+      await (contact as any).update(
+        { aiBlockedUntil: null, aiBlockMode: "disabled_in_stage", aiBlockedByStageId: targetStageId },
+        { hooks: false }
+      );
 
       logger.info(`[AI Actions] disable_in_stage contact=${contact.id} stageId=${targetStageId} reason="${reason || ""}"`);
       return { success: true, message: `IA desativada enquanto lead estiver na etapa (stageId=${targetStageId})` };
     }
 
     if (aiAction === "enable_ai") {
-      await contact.update({ aiBlockedUntil: null, aiBlockMode: null, aiBlockedByStageId: null });
+      await (contact as any).update(
+        { aiBlockedUntil: null, aiBlockMode: null, aiBlockedByStageId: null },
+        { hooks: false }
+      );
 
       logger.info(`[AI Actions] enable_ai contact=${contact.id} reason="${reason || ""}"`);
       return { success: true, message: "IA reativada" };

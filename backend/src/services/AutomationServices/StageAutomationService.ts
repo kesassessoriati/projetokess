@@ -104,7 +104,10 @@ class StageAutomationService {
                 );
 
               if (shouldClearStageAiBlock) {
-                await c.update({ aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null });
+                await (c as any).update(
+                  { aiBlockMode: null, aiBlockedByStageId: null, aiBlockedUntil: null },
+                  { hooks: false }
+                );
                 logger.info(
                   `[StageAutomation] AI block limpo automaticamente ao sair da etapa ${fromStageId} ` +
                   `para ${toStageId} — contact=${c.id} opportunityId=${opportunityId}`
