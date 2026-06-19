@@ -3261,6 +3261,17 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
           toast.error("Informe o nome do produto para a ação 'Vincular Produto'.");
           return;
         }
+        if (act.actionType === "remove_tag" && !act.actionConfig?.tagId) {
+          toast.error("Selecione a etiqueta para a ação 'Remover Etiqueta'.");
+          return;
+        }
+        if (act.actionType === "send_webhook") {
+          const url = String(act.actionConfig?.url || "").trim();
+          if (!url || !/^https?:\/\//i.test(url)) {
+            toast.error("Informe uma URL http(s) válida para a ação 'Enviar Webhook'.");
+            return;
+          }
+        }
       }
     }
 
@@ -3292,6 +3303,9 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
     else if (type === "call_task") config = { title: "", description: "", priority: "high", listId: "" };
     else if (type === "ai_actions") config = { aiAction: "pause_for", duration: 24, unit: "hours", reason: "" };
     else if (type === "set_lead_product") config = { productName: "", productId: null, replaceExisting: false };
+    else if (type === "remove_tag") config = { tagId: "" };
+    else if (type === "send_webhook") config = { url: "", method: "POST" };
+    else if (type === "stop_automation") config = {};
 
     const newAction = {
       actionType: type,
@@ -3306,6 +3320,19 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
 
   const handleRemoveAction = (index) => {
     setActions(actions.filter((_, idx) => idx !== index));
+  };
+
+  // Tempo de espera em Horas + Minutos → convertido para delayMinutes.
+  const handleUpdateDelayPart = (index, part, value) => {
+    setActions(actions.map((act, idx) => {
+      if (idx !== index) return act;
+      const total = Math.max(0, Number(act.delayMinutes) || 0);
+      let hours = Math.floor(total / 60);
+      let minutes = total % 60;
+      if (part === "hours") hours = Math.max(0, parseInt(value, 10) || 0);
+      if (part === "minutes") minutes = Math.max(0, Math.min(59, parseInt(value, 10) || 0));
+      return { ...act, delayMinutes: hours * 60 + minutes };
+    }));
   };
 
   const handleUpdateAction = (index, field, value) => {
@@ -3530,6 +3557,9 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             <Button size="small" variant="outlined" startIcon={<FlashOnIcon fontSize="small" />} onClick={() => handleAddAction("add_tag")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Aplicar Etiqueta
             </Button>
+            <Button size="small" variant="outlined" startIcon={<LayersClearIcon fontSize="small" />} onClick={() => handleAddAction("remove_tag")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Remover Etiqueta
+            </Button>
             <Button size="small" variant="outlined" startIcon={<TimelineIcon fontSize="small" />} onClick={() => handleAddAction("move_lead")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Mover de Etapa
             </Button>
@@ -3538,6 +3568,12 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
             </Button>
             <Button size="small" variant="outlined" startIcon={<LocalOfferIcon fontSize="small" />} onClick={() => handleAddAction("set_lead_product")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
               Vincular Produto
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<GetAppIcon2 fontSize="small" />} onClick={() => handleAddAction("send_webhook")} style={{ borderRadius: 8, fontSize: "0.75rem" }}>
+              Enviar Webhook
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<ErrorOutlineIcon fontSize="small" />} onClick={() => handleAddAction("stop_automation")} style={{ borderRadius: 8, fontSize: "0.75rem", color: "#b91c1c", borderColor: "#fca5a5" }}>
+              Parar Automação
             </Button>
           </Box>
 
@@ -3561,6 +3597,9 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                       {action.actionType === "call_task" && "Tarefa de Ligação"}
                       {action.actionType === "ai_actions" && "Ações da IA"}
                       {action.actionType === "set_lead_product" && "Vincular Produto"}
+                      {action.actionType === "remove_tag" && "Remover Etiqueta"}
+                      {action.actionType === "send_webhook" && "Enviar Webhook"}
+                      {action.actionType === "stop_automation" && "Parar Automação"}
                     </Typography>
                   </Box>
                   <Box display="flex" style={{ gap: 4 }}>
@@ -3577,20 +3616,35 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                 </Box>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={3}>
-                    <TextField
-                      label="Aguardar (min)"
-                      type="number"
-                      size="small"
-                      variant="outlined"
-                      value={action.delayMinutes || 0}
-                      onChange={(e) => handleUpdateAction(index, "delayMinutes", e.target.value)}
-                      inputProps={{ min: 0 }}
-                      helperText={`0 = imediato · ${humanizeDelay(action.delayMinutes)}`}
-                      fullWidth
-                    />
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" style={{ color: "#6b7280", display: "block", marginBottom: 2 }}>Aguardar:</Typography>
+                    <Box display="flex" style={{ gap: 8 }}>
+                      <TextField
+                        label="Horas"
+                        type="number"
+                        size="small"
+                        variant="outlined"
+                        value={Math.floor((action.delayMinutes || 0) / 60)}
+                        onChange={(e) => handleUpdateDelayPart(index, "hours", e.target.value)}
+                        inputProps={{ min: 0 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Minutos"
+                        type="number"
+                        size="small"
+                        variant="outlined"
+                        value={(action.delayMinutes || 0) % 60}
+                        onChange={(e) => handleUpdateDelayPart(index, "minutes", e.target.value)}
+                        inputProps={{ min: 0, max: 59 }}
+                        fullWidth
+                      />
+                    </Box>
+                    <Typography variant="caption" style={{ color: "#9ca3af", display: "block", marginTop: 2 }}>
+                      0h 0min = imediato · {humanizeDelay(action.delayMinutes)}
+                    </Typography>
                   </Grid>
-                  <Grid item xs={12} sm={9}>
+                  <Grid item xs={12} sm={8}>
                     <Box display="flex" flexDirection="column" style={{ gap: 12 }}>
                       {action.actionType === "send_message" && (
                         <>
@@ -3964,6 +4018,59 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                           />
                         </>
                       )}
+
+                      {(action.actionType === "add_tag" || action.actionType === "remove_tag") && (
+                        <FormControl variant="outlined" size="small" fullWidth>
+                          <InputLabel>{action.actionType === "remove_tag" ? "Etiqueta a remover" : "Etiqueta a aplicar"}</InputLabel>
+                          <Select
+                            value={action.actionConfig?.tagId || ""}
+                            onChange={(e) => handleUpdateAction(index, "tagId", e.target.value)}
+                            label={action.actionType === "remove_tag" ? "Etiqueta a remover" : "Etiqueta a aplicar"}
+                          >
+                            {tags.map((t) => (
+                              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      )}
+
+                      {action.actionType === "send_webhook" && (
+                        <>
+                          <Box display="flex" style={{ gap: 8 }}>
+                            <FormControl variant="outlined" size="small" style={{ minWidth: 110 }}>
+                              <InputLabel>Método</InputLabel>
+                              <Select
+                                value={action.actionConfig?.method || "POST"}
+                                onChange={(e) => handleUpdateAction(index, "method", e.target.value)}
+                                label="Método"
+                              >
+                                <MenuItem value="POST">POST</MenuItem>
+                                <MenuItem value="GET">GET</MenuItem>
+                              </Select>
+                            </FormControl>
+                            <TextField
+                              label="URL do webhook"
+                              variant="outlined"
+                              size="small"
+                              value={action.actionConfig?.url || ""}
+                              onChange={(e) => handleUpdateAction(index, "url", e.target.value)}
+                              placeholder="https://..."
+                              fullWidth
+                            />
+                          </Box>
+                          <Typography variant="caption" style={{ color: "#9ca3af" }}>
+                            Enviado com dados básicos do lead/contato/oportunidade. URLs locais/privadas são bloqueadas por segurança.
+                          </Typography>
+                        </>
+                      )}
+
+                      {action.actionType === "stop_automation" && (
+                        <Box style={{ padding: "8px 10px", backgroundColor: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" }}>
+                          <Typography variant="caption" style={{ color: "#b91c1c" }}>
+                            Ao executar, encerra o ciclo: nenhuma ação posterior desta etapa será executada.
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   </Grid>
                 </Grid>
@@ -3972,6 +4079,9 @@ const StageAutomationPanel = ({ stage, whatsapps, taskBoards, stages }) => {
                 <Box style={{ borderTop: "1px dashed #e5e7eb", paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   <Typography variant="caption" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: "0.65rem", color: "#6b7280", letterSpacing: 0.3 }}>
                     Condição
+                  </Typography>
+                  <Typography variant="caption" style={{ color: "#9ca3af", marginTop: -6 }}>
+                    Esta condição define se esta ação será executada. Para uma regra com várias ações, repita a mesma condição nas ações desejadas.
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={5}>

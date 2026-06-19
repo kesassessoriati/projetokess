@@ -16,6 +16,7 @@ import logger from "../../utils/logger";
 import moment from "moment";
 import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
 import { renderAppointmentVariables } from "../../helpers/RenderAppointmentVariables";
+import { isSafeWebhookUrl } from "../../helpers/isSafeWebhookUrl";
 import path from "path";
 import {
   evaluateCondition,
@@ -78,7 +79,9 @@ const INSTANT_ACTIONS = new Set([
   "create_task",
   "create_note",
   "ai_actions",
-  "set_lead_product"
+  "set_lead_product",
+  "send_webhook",
+  "stop_automation"
 ]);
 
 // Buscar configurações de disparo da empresa
@@ -1067,6 +1070,104 @@ const executeActionAiActions = async (
   }
 };
 
+// Executar ação de enviar webhook (URL fornecida pelo usuário, com guarda SSRF).
+// Falha do webhook NÃO derruba o worker (try/catch + timeout curto).
+const executeActionSendWebhook = async (
+  action: AutomationAction,
+  contact: Contact | null,
+  ticket: Ticket | null,
+  companyId: number,
+  opportunityId?: number
+): Promise<{ success: boolean; message: string }> => {
+  let safeHost = "";
+  try {
+    const cfg = action.actionConfig || {};
+    const url = String(cfg.url || "").trim();
+    if (!url) {
+      return { success: false, message: "URL do webhook não configurada." };
+    }
+    if (!isSafeWebhookUrl(url)) {
+      return { success: false, message: "URL de webhook inválida ou bloqueada (esquema/host não permitido)." };
+    }
+    try {
+      safeHost = new URL(url).host; // logamos apenas o host, nunca a URL completa (pode conter tokens)
+    } catch {
+      safeHost = "";
+    }
+
+    const method = String(cfg.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+
+    // Enriquecer com dados básicos do lead, se houver oportunidade
+    let leadInfo: any = null;
+    if (opportunityId) {
+      const Opportunity = (await import("../../models/Opportunity")).default;
+      const CrmLead = (await import("../../models/CrmLead")).default;
+      const opp = await Opportunity.findOne({
+        where: { id: opportunityId, companyId },
+        attributes: ["id", "leadId", "stageId", "pipelineId", "value", "title"]
+      });
+      if (opp?.leadId) {
+        const lead = await CrmLead.findOne({
+          where: { id: opp.leadId, companyId },
+          attributes: ["id", "name", "phone", "companyName", "email", "status", "product"]
+        });
+        if (lead) {
+          leadInfo = {
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            companyName: lead.companyName,
+            email: lead.email,
+            status: lead.status,
+            product: lead.product
+          };
+        }
+      }
+    }
+
+    const payload = {
+      event: "STAGE_AUTOMATION",
+      companyId,
+      opportunityId: opportunityId || null,
+      ticketId: ticket?.id || null,
+      contact: contact
+        ? { id: contact.id, name: contact.name, number: contact.number, email: contact.email }
+        : null,
+      lead: leadInfo,
+      sentAt: new Date().toISOString()
+    };
+
+    const axios = (await import("axios")).default;
+    const response = await axios.request({
+      url,
+      method,
+      data: method === "POST" ? payload : undefined,
+      params: method === "GET" ? { companyId, opportunityId: opportunityId || "" } : undefined,
+      timeout: 8000,
+      maxRedirects: 2,
+      maxContentLength: 1024 * 256,
+      headers: { "Content-Type": "application/json", "User-Agent": "AtendZappy-Automation" },
+      validateStatus: () => true
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      logger.info(`[StageAutomation][Webhook] Enviado para host ${safeHost} (HTTP ${response.status})`);
+      return { success: true, message: `Webhook enviado (HTTP ${response.status}).` };
+    }
+    logger.warn(`[StageAutomation][Webhook] Host ${safeHost} respondeu HTTP ${response.status}`);
+    return { success: false, message: `Webhook respondeu HTTP ${response.status}.` };
+  } catch (error: any) {
+    // Não logar a URL (pode conter segredos); apenas host + mensagem
+    logger.error(`[StageAutomation][Webhook] Falha ao enviar para host ${safeHost || "?"}: ${error.message}`);
+    return { success: false, message: `Falha ao enviar webhook: ${error.message}` };
+  }
+};
+
+// Ação "Parar Automação": no-op que encerra o ciclo (tratada nos loops de ciclo).
+const executeActionStopAutomation = async (): Promise<{ success: boolean; message: string }> => {
+  return { success: true, message: "Automação interrompida neste ciclo." };
+};
+
 // Executar ação de vincular produto ao lead.
 // Fase C: grava no campo string CrmLead.product (sem pivot lead↔produto).
 const executeActionSetLeadProduct = async (
@@ -1191,6 +1292,10 @@ export const executeAction = async (
       return executeActionAiActions(action, contact, ticket, companyId, opportunityId);
     case "set_lead_product":
       return executeActionSetLeadProduct(action, contact, ticket, companyId, opportunityId);
+    case "send_webhook":
+      return executeActionSendWebhook(action, contact, ticket, companyId, opportunityId);
+    case "stop_automation":
+      return executeActionStopAutomation();
     case "wait":
       return { success: true, message: "Aguardando..." };
     default:
@@ -1320,13 +1425,16 @@ export const processAutomationForContact = async (
           continue;
         }
 
-        if (flow.stopAfterExecute) {
+        if (flow.stopAfterExecute || action.actionType === "stop_automation") {
           await recordStageAutomationLog({
             ...baseLog,
             status: "stopped",
-            reason: "stopAfterExecute: ação encerrou o ciclo após executar."
+            reason:
+              action.actionType === "stop_automation"
+                ? "stop_automation: ação encerrou o ciclo."
+                : "stopAfterExecute: ação encerrou o ciclo após executar."
           });
-          logger.info(`[StageAutomation] Ciclo ${cycleContext.cycleId} encerrado por stopAfterExecute na ação ${actionUid}`);
+          logger.info(`[StageAutomation] Ciclo ${cycleContext.cycleId} encerrado na ação ${actionUid}`);
           break;
         }
         continue;

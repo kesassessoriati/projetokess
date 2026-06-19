@@ -208,11 +208,14 @@ export const executeScheduledAutomations = async (): Promise<void> => {
             reason: cycleResult.message
           });
 
-          if (cycleResult.success && flow.stopAfterExecute) {
+          if (cycleResult.success && (flow.stopAfterExecute || action.actionType === "stop_automation")) {
             await recordStageAutomationLog({
               ...baseLog,
               status: "stopped",
-              reason: "stopAfterExecute: ação encerrou o ciclo após executar."
+              reason:
+                action.actionType === "stop_automation"
+                  ? "stop_automation: ação encerrou o ciclo."
+                  : "stopAfterExecute: ação encerrou o ciclo após executar."
             });
             logger.info(`[Automation Job] Ciclo ${cycleId} encerrado por stopAfterExecute na execução ${execution.id}`);
           }
