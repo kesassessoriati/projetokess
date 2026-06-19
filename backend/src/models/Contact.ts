@@ -31,6 +31,21 @@ import Whatsapp from "./Whatsapp";
 import CrmClient from "./CrmClient";
 import CrmClientContact from "./CrmClientContact";
 
+const LEAD_SYNC_RELEVANT_FIELDS = [
+  "name",
+  "number",
+  "email",
+  "cpfCnpj",
+  "profilePicUrl",
+  "companyId"
+];
+
+const serializeSyncError = (error: any) => ({
+  errorName: error?.name,
+  errorMessage: error?.message || String(error),
+  stack: error?.stack
+});
+
 @Table
 class Contact extends Model<Contact> {
   @PrimaryKey
@@ -269,6 +284,20 @@ class Contact extends Model<Contact> {
 
   @AfterUpdate
   static async syncToLead(instance: Contact) {
+    const changedFields = instance.changed();
+    const changedFieldsList = Array.isArray(changedFields)
+      ? changedFields
+      : changedFields
+        ? [String(changedFields)]
+        : [];
+    const shouldSyncToLead = changedFieldsList.some(field =>
+      LEAD_SYNC_RELEVANT_FIELDS.includes(field)
+    );
+
+    if (!shouldSyncToLead) {
+      return;
+    }
+
     // Import dinâmico para evitar circular dependency
     const { default: syncContactToLead } = await import("../services/CrmLeadService/helpers/syncContactToLead");
     
@@ -278,7 +307,12 @@ class Contact extends Model<Contact> {
         companyId: instance.companyId
       });
     } catch (error) {
-      console.error("[Contact Model] Error syncing to Lead:", error);
+      console.error("[Contact Model] Error syncing to Lead:", {
+        contactId: instance.id,
+        companyId: instance.companyId,
+        changedFields: changedFieldsList,
+        ...serializeSyncError(error)
+      });
     }
   }
 }
