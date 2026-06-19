@@ -120,6 +120,7 @@ import ConnectionIcon from "../../components/ConnectionIcon";
 import ContactModal from "../../components/ContactModal";
 import FaturaModal from "../../components/FaturaModal";
 import QuickRepliesModal from "../../components/QuickRepliesModal";
+import TicketCopilotPanel from "../../components/TicketCopilotPanel";
 import MessageInput from "../../components/MessageInput";
 import VcardPreview from "../../components/VcardPreview";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
@@ -823,6 +824,9 @@ const Atendimentos = () => {
 		if (typeof window === "undefined") return false;
 		return window.localStorage.getItem("atendimentos.quickRepliesPanel") === "true";
 	});
+	const [copilotOpen, setCopilotOpen] = useState(false);
+	const [copilotMenuAnchor, setCopilotMenuAnchor] = useState(null);
+	const [copilotRequest, setCopilotRequest] = useState(null);
 	const [inputMessage, setInputMessage] = useState("");
 	const [signMessage, setSignMessage] = useState(true);
 	const [privateMessage, setPrivateMessage] = useState(false);
@@ -930,6 +934,53 @@ const Atendimentos = () => {
 			}
 		});
 	}, [quickReplySearchTerm, resetQuickReplyState]);
+
+	const openCopilotWithRequest = useCallback((action, options = {}) => {
+		if (!selectedTicket) return;
+
+		setQuickMessagesOpen(false);
+		setCopilotOpen(true);
+		setCopilotRequest({
+			id: Date.now(),
+			action,
+			message: options.message || "",
+			draft: options.draft ?? inputMessage
+		});
+	}, [inputMessage, selectedTicket]);
+
+	const handleCopilotButtonClick = useCallback((event) => {
+		if (!selectedTicket || selectedTicket.status === "pending") return;
+
+		if (inputMessage.trim()) {
+			setCopilotMenuAnchor(event.currentTarget);
+			return;
+		}
+
+		openCopilotWithRequest("suggest_reply");
+	}, [inputMessage, openCopilotWithRequest, selectedTicket]);
+
+	const handleCloseCopilotMenu = useCallback(() => {
+		setCopilotMenuAnchor(null);
+	}, []);
+
+	const handleCopilotRewrite = useCallback((instruction) => {
+		setCopilotMenuAnchor(null);
+		openCopilotWithRequest("rewrite", {
+			message: instruction,
+			draft: inputMessage
+		});
+	}, [inputMessage, openCopilotWithRequest]);
+
+	const handleInsertCopilotText = useCallback((text) => {
+		setInputMessage(text || "");
+		resetQuickReplyState();
+		keepInputFocusRef.current = true;
+		requestAnimationFrame(() => {
+			if (inputMessageRef.current) {
+				inputMessageRef.current.focus({ preventScroll: true });
+			}
+		});
+	}, [resetQuickReplyState]);
 
 	const channelQuickOptions = [
 		{ key: "whatsapp", label: "WhatsApp", color: "#25d366", icon: <WhatsAppIcon fontSize="small" /> },
@@ -5487,11 +5538,23 @@ const Atendimentos = () => {
 										</IconButton>
 										<IconButton
 											size="small"
-											onClick={() => setQuickMessagesOpen((prev) => !prev)}
+											onClick={() => {
+												setCopilotOpen(false);
+												setQuickMessagesOpen((prev) => !prev);
+											}}
 											style={{ color: quickMessagesOpen ? '#00a884' : '#54656f' }}
 											title={quickMessagesOpen ? "Fechar painel de respostas rápidas" : "Abrir painel de respostas rápidas"}
 										>
 											<FlashOnIcon />
+										</IconButton>
+										<IconButton
+											size="small"
+											onClick={handleCopilotButtonClick}
+											disabled={!selectedTicket || selectedTicket.status === "pending"}
+											style={{ color: copilotOpen ? '#00a884' : '#54656f' }}
+											title={inputMessage.trim() ? "Melhorar texto com IA" : "Sugerir resposta com IA"}
+										>
+											<SmartToyIcon fontSize="small" />
 										</IconButton>
 										<IconButton
 											size="small"
@@ -5544,6 +5607,25 @@ const Atendimentos = () => {
 									<MenuItem onClick={handleOpenButtonModal}>
 										<MenuIcon fontSize="small" style={{ marginRight: 12, color: '#54656f' }} />
 										Botões
+									</MenuItem>
+								</Menu>
+								<Menu
+									anchorEl={copilotMenuAnchor}
+									keepMounted
+									open={Boolean(copilotMenuAnchor)}
+									onClose={handleCloseCopilotMenu}
+								>
+									<MenuItem onClick={() => handleCopilotRewrite("Corrija ortografia e gramatica, mantendo o sentido original.")}>
+										Corrigir texto
+									</MenuItem>
+									<MenuItem onClick={() => handleCopilotRewrite("Reescreva em tom profissional, claro e cordial.")}>
+										Reescrever profissional
+									</MenuItem>
+									<MenuItem onClick={() => handleCopilotRewrite("Torne o texto mais curto, mantendo a ideia principal.")}>
+										Tornar mais curto
+									</MenuItem>
+									<MenuItem onClick={() => handleCopilotRewrite("Torne o texto mais amigavel e humano, sem exageros.")}>
+										Tornar mais amigavel
 									</MenuItem>
 								</Menu>
 								<InputBase
@@ -5705,7 +5787,16 @@ const Atendimentos = () => {
 								)}
 							</div>
 								</div>
-							{!isMobile && selectedTicket && (
+							{!isMobile && selectedTicket && copilotOpen && (
+								<TicketCopilotPanel
+									open={copilotOpen}
+									onClose={() => setCopilotOpen(false)}
+									ticket={selectedTicket}
+									request={copilotRequest}
+									onInsertText={handleInsertCopilotText}
+								/>
+							)}
+							{!isMobile && selectedTicket && !copilotOpen && (
 								<QuickRepliesModal
 									open={quickMessagesOpen}
 									onClose={() => setQuickMessagesOpen(false)}
