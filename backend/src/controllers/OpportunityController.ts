@@ -90,7 +90,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
-    const { pipelineId, stageId, contactId, leadId, title, value, assignedUserId } = req.body;
+    const { pipelineId, stageId, contactId, ticketId, leadId, title, value, assignedUserId } = req.body;
 
     if (!pipelineId || !stageId) {
         throw new AppError("O estágio (stageId) e o funil (pipelineId) devem ser informados.", 400);
@@ -101,6 +101,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         pipelineId,
         stageId,
         contactId,
+        ticketId,
         leadId,
         title,
         value,

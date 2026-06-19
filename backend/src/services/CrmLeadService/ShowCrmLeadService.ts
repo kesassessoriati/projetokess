@@ -1,7 +1,9 @@
 import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
 import Contact from "../../models/Contact";
+import Opportunity from "../../models/Opportunity";
 import Tag from "../../models/Tag";
+import { Op } from "sequelize";
 import serializeCrmLead from "./helpers/serializeCrmLead";
 
 interface Request {
@@ -41,7 +43,37 @@ const ShowCrmLeadService = async ({ id, companyId }: Request): Promise<any> => {
     throw new AppError("Lead não encontrado.", 404);
   }
 
-  return serializeCrmLead(lead);
+  const serializedLead = serializeCrmLead(lead);
+
+  if (!serializedLead.pipelineId || !serializedLead.stageId) {
+    const opportunityWhere: any = {
+      companyId,
+      status: "OPEN"
+    };
+    const scope: any[] = [{ leadId: serializedLead.id }];
+
+    if (serializedLead.contactId) {
+      scope.push({ contactId: serializedLead.contactId });
+    }
+
+    opportunityWhere[Op.or] = scope;
+
+    const activeOpportunity = await Opportunity.findOne({
+      where: opportunityWhere,
+      order: [["updatedAt", "DESC"], ["id", "DESC"]],
+      attributes: ["id", "pipelineId", "stageId"]
+    });
+
+    if (activeOpportunity) {
+      return {
+        ...serializedLead,
+        pipelineId: serializedLead.pipelineId || activeOpportunity.pipelineId,
+        stageId: serializedLead.stageId || activeOpportunity.stageId
+      };
+    }
+  }
+
+  return serializedLead;
 };
 
 export default ShowCrmLeadService;
