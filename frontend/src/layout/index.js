@@ -8,7 +8,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Button,
   Avatar,
   Box,
   useTheme,
@@ -24,7 +23,6 @@ import {
   Tooltip,
   Collapse,
 } from "@material-ui/core";
-import InputBase from "@material-ui/core/InputBase";
 
 // Ícones
 import DashboardIcon from "@material-ui/icons/Dashboard";
@@ -94,7 +92,6 @@ import PlayCircleFilledIcon from "@material-ui/icons/PlayCircleFilled";
 import QueueIcon from "@material-ui/icons/Queue";
 import PhoneIcon from "@material-ui/icons/Phone";
 import LabelIcon from "@material-ui/icons/Label";
-import SearchIcon from "@material-ui/icons/Search";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 import AssignmentIcon from "@material-ui/icons/Assignment";
 import DescriptionIcon from "@material-ui/icons/Description";
@@ -106,7 +103,6 @@ import NotificationsVolume from "../components/NotificationsVolume";
 import NotificationCenter from "../components/NotificationCenter";
 import UserModal from "../components/UserModal";
 import ProductivityTimer from "./ProductivityTimer";
-import SearchTicketModal from "../components/SearchTicketModal";
 import { getBackendUrl } from "../config";
 import { i18n } from "../translate/i18n";
 import f002Image from "../assets/f002.png";
@@ -153,30 +149,12 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  secondaryBar: {
-    minHeight: "48px",
-    display: "flex",
-    alignItems: "center",
-    padding: "0 24px",
-    backgroundColor: theme.palette.secondaryBarBg || "rgba(255, 255, 255, 0.5)",
-    backdropFilter: "blur(4px)",
-    borderBottom: `1px solid ${theme.palette.secondaryBarBorder || "rgba(0, 0, 0, 0.05)"}`,
-    borderTop: `1px solid ${theme.palette.secondaryBarBorder || "rgba(0, 0, 0, 0.04)"}`,
-    overflowX: "auto",
-    overflowY: "hidden",
-    scrollbarWidth: "none",
-    "&::-webkit-scrollbar": {
-      display: "none",
-    },
-    [theme.breakpoints.down("md")]: {
-      display: "none",
-    },
-  },
   headerLeft: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
+    gap: "10px",
     flex: 1,
+    minWidth: 0,
   },
   menuButton: (props) => ({
     display: "none",
@@ -244,54 +222,41 @@ const useStyles = makeStyles((theme) => ({
       display: "none",
     },
   },
-  searchContainer: {
-    position: "relative",
-    backgroundColor: theme.palette.searchBg || theme.palette.bgSurface,
-    borderRadius: "12px",
-    border: `1px solid ${theme.palette.searchBorder || theme.palette.borderDefault}`,
-    width: "100%",
-    maxWidth: "240px",
-    transition: "all 0.2s ease",
-    "&:hover": {
-      borderColor: theme.palette.borderFocus,
-    },
-    "&:focus-within": {
-      borderColor: theme.palette.borderFocus,
-      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
-    },
-    [theme.breakpoints.down("sm")]: {
-      display: "none",
-    },
-  },
   quickNavRow: {
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    flexShrink: 0,
+    flex: 1,
+    minWidth: 0,
+    overflowX: "auto",
+    overflowY: "hidden",
+    flexWrap: "nowrap",
+    scrollbarWidth: "none",
+    "&::-webkit-scrollbar": {
+      display: "none",
+    },
     [theme.breakpoints.down("sm")]: {
       display: "none",
     },
   },
-  secondaryQuickNavRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    minWidth: "max-content",
-  },
   quickNavBtn: (props) => ({
     backgroundColor: props.primaryColor || theme.palette.quickNavBg,
     color: theme.palette.quickNavText,
-    borderRadius: "10px",
-    padding: "0 12px",
-    minWidth: "auto",
-    height: "40px",
-    fontSize: "12px",
+    borderRadius: "8px",
+    padding: "0 10px",
+    minWidth: "84px",
+    height: "34px",
+    fontSize: "11px",
     fontWeight: 600,
     textTransform: "none",
-    letterSpacing: "0.2px",
+    letterSpacing: 0,
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: "6px",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+    lineHeight: 1,
     transition: "all 0.2s ease",
     border: `1px solid ${theme.palette.type === "dark" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.08)"}`,
     cursor: "pointer",
@@ -308,13 +273,6 @@ const useStyles = makeStyles((theme) => ({
       boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
     },
   }),
-  secondaryQuickNavBtn: (props) => ({
-    backgroundColor: props.primaryColor || theme.palette.quickNavBg,
-    "&:hover": {
-      backgroundColor: props.primaryColor || theme.palette.quickNavHover,
-      filter: "brightness(0.85)",
-    },
-  }),
   mobileLogo: {
     display: "none",
     [theme.breakpoints.down("sm")]: {
@@ -327,54 +285,13 @@ const useStyles = makeStyles((theme) => ({
       },
     },
   },
-  searchIcon: {
-    padding: theme.spacing(0, 2),
-    height: "100%",
-    position: "absolute",
-    pointerEvents: "none",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: theme.palette.text.secondary,
-  },
-  searchButton: (props) => ({
-    position: "absolute",
-    right: "4px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    backgroundColor: props.primaryColor || "#3b82f6",
-    color: "#ffffff",
-    borderRadius: "8px",
-    padding: "8px",
-    minWidth: "36px",
-    height: "36px",
-    "&:hover": {
-      backgroundColor: props.primaryColor || "#2563eb",
-      filter: "brightness(0.9)",
-    },
-  }),
-  inputRoot: {
-    color: theme.palette.searchText || theme.palette.text.primary,
-    width: "100%",
-  },
-  inputInput: {
-    padding: theme.spacing(1, 5, 1, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)}px)`,
-    transition: theme.transitions.create("width"),
-    width: "100%",
-    fontSize: "14px",
-    color: theme.palette.searchText || theme.palette.text.primary,
-    "&::placeholder": {
-      color: theme.palette.text.secondary,
-      opacity: 1,
-    },
-  },
   headerRight: {
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: "8px",
     height: "100%",
+    flexShrink: 0,
   },
   iconButton: (props) => ({
     width: "40px",
@@ -972,10 +889,6 @@ const LoggedInLayout = ({ children }) => {
   // Detectar se está na página atendimentomobile
   const isAtendimentosMobilePage = location.pathname.startsWith("/atendimentomobile");
 
-  // Ocultar busca do header quando está na tela de atendimentos
-  // (a busca fica dentro do painel de conversas nessa tela)
-  const isAtendimentosPage = location.pathname.startsWith("/atendimentos");
-
   // Ocultar layout completamente se estiver na página atendimentomobile
   const shouldHideLayout = isAtendimentosMobilePage;
 
@@ -1001,7 +914,6 @@ const LoggedInLayout = ({ children }) => {
   const [profileUrl, setProfileUrl] = useState(null);
   const [volume, setVolume] = useState(localStorage.getItem("volume") || 1);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [quickSendOpen, setQuickSendOpen] = useState(false);
   const [warmupModalOpen, setWarmupModalOpen] = useState(false);
   const [mobileNavMenuOpen, setMobileNavMenuOpen] = useState(false);
@@ -1155,13 +1067,6 @@ const LoggedInLayout = ({ children }) => {
   const primaryQuickNavItems = useMemo(
     () => [
       {
-        key: "dashboard",
-        title: "Dashboard",
-        label: "Dashboard",
-        path: "/painel",
-        icon: <DashboardIcon style={{ fontSize: 17 }} />,
-      },
-      {
         key: "relatorios",
         title: "Relatórios",
         label: "Relatórios",
@@ -1176,13 +1081,6 @@ const LoggedInLayout = ({ children }) => {
         icon: <SendIcon style={{ fontSize: 17 }} />,
       },
       {
-        key: "campanhas",
-        title: "Campanhas",
-        label: "Campanhas",
-        path: "/phrase-lists",
-        icon: <CampaignOutlinedIcon style={{ fontSize: 17 }} />,
-      },
-      {
         key: "chat-interno",
         title: "Chat Interno",
         label: "Chat Interno",
@@ -1195,24 +1093,6 @@ const LoggedInLayout = ({ children }) => {
 
   const secondaryQuickNavItems = useMemo(
     () => [
-      {
-        key: "aquecimento",
-        title: "Aquecimento WhatsApp",
-        label: "Aquecimento",
-        path: "/aquecimento-whatsapp",
-        icon: (
-          <span style={{ fontSize: 15 }} role="img" aria-label="Aquecimento">
-            {String.fromCodePoint(0x1f525)}
-          </span>
-        ),
-      },
-      {
-        key: "chips",
-        title: "Gerenciar Chips (SIM Cards)",
-        label: "Chips",
-        path: "/chips",
-        icon: <SimCardIcon style={{ fontSize: 15 }} />,
-      },
       {
         key: "agente-ia",
         title: "Agente de IA",
@@ -1307,6 +1187,19 @@ const LoggedInLayout = ({ children }) => {
       { title: "Projetos", path: "/projects", icon: <FolderIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Tarefas", path: "/crm/tasks", icon: <AssignmentIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
       { title: "Departamentos", path: "/departamentos", icon: <BusinessIcon />, disabled: !planActive && location.pathname !== "/financeiro" },
+      {
+        title: "Aquecimento",
+        path: "/aquecimento-whatsapp",
+        icon: (
+          <span style={{ fontSize: 20, lineHeight: 1 }} role="img" aria-label="Aquecimento">
+            {String.fromCodePoint(0x1f525)}
+          </span>
+        ),
+        menuKey: "aquecimento",
+        disabled: !planActive && location.pathname !== "/financeiro",
+      },
+      { title: "Chips", path: "/chips", icon: <SimCardIcon />, menuKey: "chips", disabled: !planActive && location.pathname !== "/financeiro" },
+      { title: "Campanhas", path: "/phrase-lists", icon: <CampaignOutlinedIcon />, menuKey: "campanhas", disabled: !planActive && location.pathname !== "/financeiro" },
       ...(gestor_financeiro_ia ? [{
         title: "Gestor Financeiro IA",
         path: "/gestor-financas/gestor-financeiro-ia",
@@ -1757,7 +1650,7 @@ const LoggedInLayout = ({ children }) => {
                   onClick={handleToggleSidebarPin}
                   title={sidebarPinned ? "Recolher menu" : "Fixar menu aberto"}
                 >
-                  {sidebarPinned ? <CloseIcon style={{ fontSize: 22 }} /> : <MenuIcon style={{ fontSize: 22 }} />}
+                  <MenuIcon style={{ fontSize: 22 }} />
                 </IconButton>
               )}
 
@@ -1777,36 +1670,10 @@ const LoggedInLayout = ({ children }) => {
                 </Tooltip>
               )}
 
-              {/* Busca - Oculto no mobile e na tela de atendimentos
-                  (na tela de atendimentos a busca fica dentro do painel de conversas) */}
-              {!isAtendimentosPage && (
-                <div
-                  className={classes.searchContainer}
-                  onClick={() => setSearchModalOpen(true)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className={classes.searchIcon}>
-                    <SearchIcon />
-                  </div>
-                  <InputBase
-                    placeholder="Buscar conversas..."
-                    classes={{
-                      root: classes.inputRoot,
-                      input: classes.inputInput,
-                    }}
-                    readOnly
-                    style={{ cursor: "pointer" }}
-                  />
-                  <Button className={classes.searchButton}>
-                    <SearchIcon style={{ fontSize: 18 }} />
-                  </Button>
-                </div>
-              )}
-
-              {/* Dashboard e Relatórios — botões pretos compactos ao lado da busca */}
+              {/* Atalhos globais em linha única */}
               {!isMobile && effectiveTopMenuVisible && (
                 <div className={classes.quickNavRow}>
-                  {renderQuickNavItems(primaryQuickNavItems)}
+                  {renderQuickNavItems([...primaryQuickNavItems, ...secondaryQuickNavItems])}
                 </div>
               )}
 
@@ -1825,24 +1692,6 @@ const LoggedInLayout = ({ children }) => {
 
             {/* Seção Direita */}
             <div className={classes.headerRight}>
-              {/* Busca - Ícone Mobile (renderizado condicionalmente via isMobile) */}
-              {isMobile && (
-                <IconButton
-                  onClick={() => setSearchModalOpen(true)}
-                  title="Buscar"
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    backgroundColor: primaryColor,
-                    color: "#ffffff",
-                    padding: 0,
-                  }}
-                >
-                  <SearchIcon style={{ fontSize: "20px", color: "#ffffff" }} />
-                </IconButton>
-              )}
-
               {/* Botão Refresh - Oculto no mobile */}
               {!isMobile && (
                 <IconButton
@@ -1900,23 +1749,6 @@ const LoggedInLayout = ({ children }) => {
               </Avatar>
             </div>
           </Toolbar>
-          <div
-            style={{
-              overflow: "hidden",
-              maxHeight: effectiveTopMenuVisible ? "56px" : "0",
-              opacity: effectiveTopMenuVisible ? 1 : 0,
-              transition: "max-height 0.25s ease, opacity 0.2s ease",
-            }}
-          >
-            <div className={classes.secondaryBar}>
-              <div className={classes.secondaryQuickNavRow}>
-                {renderQuickNavItems(
-                  secondaryQuickNavItems,
-                  `${classes.quickNavBtn} ${classes.secondaryQuickNavBtn}`
-                )}
-              </div>
-            </div>
-          </div>
         </AppBar>
       )}
 
@@ -1973,12 +1805,6 @@ const LoggedInLayout = ({ children }) => {
           userId={user?.id}
         />
       )}
-
-      {/* Modal de Busca de Conversas */}
-      <SearchTicketModal
-        open={searchModalOpen}
-        onClose={() => setSearchModalOpen(false)}
-      />
 
       {/* ── Modal de Mensagem Rápida ─────────────────────────────── */}
       <QuickSendModal
