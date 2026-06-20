@@ -34,6 +34,7 @@ const CreateFlowBuilderService = async ({
       user_id: userId,
       company_id: companyId,
       name: name,
+      active: true
     });
 
     logger.info(`[CreateFlowBuilderService] Flow created with ID: ${flow.id}`);

@@ -265,6 +265,8 @@ const setNextByHandle = (
   return connection?.target || null;
 };
 
+const FLOWBUILDER_TRIGGER_PREFIX = "[FLOWBUILDER_TRIGGER]";
+
 const allowedLeadUpdateFields = new Set([
   "name",
   "email",
@@ -525,6 +527,22 @@ export const ActionsWebhookService = async (
         const shouldStop = await checkAndCloseTicketIfAssigned(idTicket.toString());
         if (shouldStop) {
           console.log("Fluxo encerrado pois ticket está com usuário atribuído");
+          if (executionId) {
+            await FlowExecution.update(
+              {
+                status: "stopped",
+                stoppedReason: "ticket_open_assigned_to_user"
+              },
+              { where: { id: executionId } }
+            );
+          }
+          logger.info(`${FLOWBUILDER_TRIGGER_PREFIX} flow_stopped`, {
+            companyId,
+            flowId: idFlowDb,
+            executionId,
+            ticketId: idTicket,
+            reason: "ticket_open_assigned_to_user"
+          });
           break;
         }
       }
@@ -2748,12 +2766,21 @@ export const ActionsWebhookService = async (
         }
 
         const conditionData = nodeSelected.data?.data || nodeSelected.data;
-        const key = conditionData?.key;
+        const legacyKey = conditionData?.key;
+        const legacyCondition = conditionData?.condition;
+        const legacyValue = conditionData?.value;
+        const conditionRules = Array.isArray(conditionData?.conditions) && conditionData.conditions.length > 0
+          ? conditionData.conditions
+          : legacyKey
+            ? [{ key: legacyKey, condition: legacyCondition, value: legacyValue }]
+            : [];
+        const primaryCondition = conditionRules[0] || {};
+        const key = primaryCondition.key || primaryCondition.field;
         const normalizedKey = normalizeVariableKey(key);
-        const condition = conditionData?.condition;
-        const value = conditionData?.value;
+        const condition = primaryCondition.condition || primaryCondition.operator;
+        const value = primaryCondition.value;
 
-        console.log(`Condition: Avaliando ${normalizedKey || key} ${condition} ${value}`);
+        console.log(`Condition: Avaliando node=${nodeSelected.id}`);
 
         // Obter valor da variável
         let variableValue: any = "";
@@ -2822,6 +2849,88 @@ export const ActionsWebhookService = async (
             conditionResult = String(variableValue) === String(value);
         }
 
+        const normalizeConditionOperator = (operator: any) => {
+          const normalized = String(operator || "1").toLowerCase().trim();
+          const operatorMap: Record<string, string> = {
+            "1": "equals",
+            "==": "equals",
+            "equals": "equals",
+            "equal": "equals",
+            "6": "contains",
+            "contains": "contains",
+            "contem": "contains",
+            "contém": "contains",
+            "2": "greater_than_or_equal",
+            ">=": "greater_than_or_equal",
+            "greater_than_or_equal": "greater_than_or_equal",
+            "3": "less_than_or_equal",
+            "<=": "less_than_or_equal",
+            "less_than_or_equal": "less_than_or_equal",
+            "4": "less_than",
+            "<": "less_than",
+            "less_than": "less_than",
+            "5": "greater_than",
+            ">": "greater_than",
+            "greater_than": "greater_than"
+          };
+          return operatorMap[normalized] || "equals";
+        };
+
+        const resolveRuleValue = (rawKey?: string) => {
+          const normalized = normalizeVariableKey(rawKey);
+          if (normalized && globalTicketVars[normalized] !== undefined) {
+            return globalTicketVars[normalized];
+          }
+          if (ticket?.dataWebhook?.variables) {
+            if (normalized && ticket.dataWebhook.variables[normalized] !== undefined) {
+              return ticket.dataWebhook.variables[normalized];
+            }
+            if (rawKey && ticket.dataWebhook.variables[rawKey] !== undefined) {
+              return ticket.dataWebhook.variables[rawKey];
+            }
+          }
+          return "";
+        };
+
+        const evaluateConditionRule = (rule: any) => {
+          const ruleKey = rule?.key || rule?.field;
+          const operator = normalizeConditionOperator(rule?.condition || rule?.operator);
+          const actualValue = resolveRuleValue(ruleKey);
+          const expectedValue = rule?.value;
+
+          switch (operator) {
+            case "contains":
+              return String(actualValue || "")
+                .toLowerCase()
+                .includes(String(expectedValue || "").toLowerCase());
+            case "greater_than_or_equal":
+              return parseFloat(actualValue) >= parseFloat(expectedValue);
+            case "less_than_or_equal":
+              return parseFloat(actualValue) <= parseFloat(expectedValue);
+            case "less_than":
+              return parseFloat(actualValue) < parseFloat(expectedValue);
+            case "greater_than":
+              return parseFloat(actualValue) > parseFloat(expectedValue);
+            case "equals":
+            default:
+              return String(actualValue) === String(expectedValue);
+          }
+        };
+
+        const mode = String(conditionData?.mode || "AND").toUpperCase() === "OR" ? "OR" : "AND";
+        const ruleResults = conditionRules.map((rule: any, index: number) => ({
+          index,
+          key: normalizeVariableKey(rule?.key || rule?.field),
+          operator: normalizeConditionOperator(rule?.condition || rule?.operator),
+          pass: evaluateConditionRule(rule)
+        }));
+
+        if (ruleResults.length > 0) {
+          conditionResult = mode === "OR"
+            ? ruleResults.some(rule => rule.pass)
+            : ruleResults.every(rule => rule.pass);
+        }
+
         console.log(`Condition: Resultado = ${conditionResult}`);
 
         // Encontrar a conexão correta baseada no resultado
@@ -2838,9 +2947,28 @@ export const ActionsWebhookService = async (
           }
         } else {
           // Caminho "false" (Não)
+          const failedRule = ruleResults.find(rule => !rule.pass);
+          const reason = failedRule
+            ? `condition_failed rule=${failedRule.index + 1} field=${failedRule.key || "unknown"} operator=${failedRule.operator}`
+            : "condition_failed";
+
+          logger.info(`${FLOWBUILDER_TRIGGER_PREFIX} condition_failed`, {
+            companyId,
+            flowId: idFlowDb,
+            executionId,
+            ticketId: idTicket,
+            nodeId: nodeSelected.id,
+            reason
+          });
+
+          await recordFlowNode(nodeSelected, "warning", reason);
+
           const falseConnection = resultConnect.find(item => item.sourceHandle === "false");
           if (falseConnection) {
             next = falseConnection.target;
+            noAlterNext = true;
+          } else {
+            next = "";
             noAlterNext = true;
           }
         }

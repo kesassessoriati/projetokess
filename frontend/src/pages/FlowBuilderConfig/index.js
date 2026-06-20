@@ -837,15 +837,20 @@ export const FlowBuilderConfig = () => {
     }
     if (type === "condition") {
       return setNodes((old) => {
+        const firstCondition = Array.isArray(data.conditions) && data.conditions.length > 0
+          ? data.conditions[0]
+          : data;
+
         return [
           ...old,
           {
             id: geraStringAleatoria(30),
             position: { x: posX, y: posY },
             data: withTitleData("condition", {
-              key: data.key,
-              condition: data.condition,
-              value: data.value,
+              ...data,
+              key: firstCondition.key,
+              condition: firstCondition.condition,
+              value: firstCondition.value,
             }),
             type: "condition",
           },

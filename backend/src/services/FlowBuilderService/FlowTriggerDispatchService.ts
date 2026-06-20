@@ -6,6 +6,8 @@ import Whatsapp from "../../models/Whatsapp";
 import { ActionsWebhookService } from "../WebhookService/ActionsWebhookService";
 import logger from "../../utils/logger";
 
+const LOG_PREFIX = "[FLOWBUILDER_TRIGGER]";
+
 export interface TriggerDispatchData {
   ticketId?: number;
   contactNumber?: string;
@@ -18,6 +20,52 @@ export interface TriggerDispatchData {
 
 const onlyNumbers = (value?: string): string =>
   String(value || "").replace(/\D/g, "");
+
+const safeMeta = (
+  event: string,
+  companyId: number,
+  data: TriggerDispatchData = {},
+  extra: Record<string, any> = {}
+) => {
+  const metadata = data.metadata || {};
+  return {
+    event,
+    companyId,
+    triggerType: extra.triggerType,
+    triggerKey: extra.triggerKey,
+    flowId: extra.flowId,
+    executionId: extra.executionId,
+    ticketId: data.ticketId || extra.ticketId,
+    contactId: metadata.contactId || extra.contactId,
+    leadId: metadata.leadId || extra.leadId,
+    opportunityId: metadata.opportunityId || extra.opportunityId,
+    pipelineId: metadata.pipelineId || extra.pipelineId,
+    stageId: metadata.toStageId || metadata.stageId || extra.stageId,
+    whatsappId: data.whatsappId || extra.whatsappId,
+    reason: extra.reason
+  };
+};
+
+const logInfo = (
+  event: string,
+  companyId: number,
+  data: TriggerDispatchData,
+  extra: Record<string, any> = {}
+) => logger.info(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
+
+const logWarn = (
+  event: string,
+  companyId: number,
+  data: TriggerDispatchData,
+  extra: Record<string, any> = {}
+) => logger.warn(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
+
+const logError = (
+  event: string,
+  companyId: number,
+  data: TriggerDispatchData,
+  extra: Record<string, any> = {}
+) => logger.error(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
 
 const getTriggers = (flow: FlowBuilderModel): any[] =>
   Array.isArray(flow.triggers) ? flow.triggers : [];
@@ -42,27 +90,33 @@ const matchesTriggerFilters = (
   eventType: string,
   trigger: any,
   data: TriggerDispatchData
-): boolean => {
+): { matches: boolean; reason?: string } => {
   const config = trigger.config || {};
 
   if (config.whatsappId && data.whatsappId) {
-    if (Number(config.whatsappId) !== Number(data.whatsappId)) return false;
+    if (Number(config.whatsappId) !== Number(data.whatsappId)) {
+      return { matches: false, reason: "whatsappId_mismatch" };
+    }
   }
 
   if (eventType === "message_received" && !matchesKeyword(trigger, data.message)) {
-    return false;
+    return { matches: false, reason: "keyword_mismatch" };
   }
 
   if (config.pipelineId && data.metadata?.pipelineId) {
-    if (String(config.pipelineId) !== String(data.metadata.pipelineId)) return false;
+    if (String(config.pipelineId) !== String(data.metadata.pipelineId)) {
+      return { matches: false, reason: "pipelineId_mismatch" };
+    }
   }
 
   if (config.stageId && (data.metadata?.stageId || data.metadata?.toStageId)) {
     const currentStageId = data.metadata?.toStageId || data.metadata?.stageId;
-    if (String(config.stageId) !== String(currentStageId)) return false;
+    if (String(config.stageId) !== String(currentStageId)) {
+      return { matches: false, reason: "stageId_mismatch" };
+    }
   }
 
-  return true;
+  return { matches: true };
 };
 
 /**
@@ -76,28 +130,92 @@ export const dispatchFlowTrigger = async (
   data: TriggerDispatchData
 ): Promise<boolean> => {
   try {
+    logInfo("trigger_received", companyId, data, { triggerType: eventType });
+
     const flows = await FlowBuilderModel.findAll({
-      where: { company_id: companyId, active: true }
+      where: { company_id: companyId }
+    });
+
+    const activeFlows = flows.filter(flow => flow.active === true);
+    logInfo("active_flows_loaded", companyId, data, {
+      triggerType: eventType,
+      reason: `${activeFlows.length}/${flows.length}`
     });
 
     let triggered = false;
 
     for (const flow of flows) {
+      if (flow.active !== true) {
+        logInfo("flow_skipped_inactive", companyId, data, {
+          flowId: flow.id,
+          triggerType: eventType,
+          reason: "active_not_true"
+        });
+        continue;
+      }
+
       const triggers = getTriggers(flow);
-      if (!triggers.length) continue;
+      if (!triggers.length) {
+        logInfo("trigger_type_mismatch", companyId, data, {
+          flowId: flow.id,
+          triggerType: eventType,
+          reason: "flow_without_triggers"
+        });
+        continue;
+      }
 
-      const matching = triggers.find(t =>
-        triggerMatchesEvent(t, eventType) && matchesTriggerFilters(eventType, t, data)
-      );
-      if (!matching) continue;
+      let matchedTrigger: any = null;
 
-      const ok = await _executeFlow(flow, companyId, data, matching);
+      for (const trigger of triggers) {
+        if (!triggerMatchesEvent(trigger, eventType)) {
+          logInfo("trigger_type_mismatch", companyId, data, {
+            flowId: flow.id,
+            triggerType: eventType,
+            triggerKey: trigger?.type || "unknown"
+          });
+          continue;
+        }
+
+        const filterResult = matchesTriggerFilters(eventType, trigger, data);
+        if (!filterResult.matches) {
+          logInfo("trigger_filter_failed", companyId, data, {
+            flowId: flow.id,
+            triggerType: eventType,
+            triggerKey: trigger?.type,
+            reason: filterResult.reason
+          });
+          continue;
+        }
+
+        matchedTrigger = trigger;
+        break;
+      }
+
+      if (!matchedTrigger) continue;
+
+      logInfo("flow_matched", companyId, data, {
+        flowId: flow.id,
+        triggerType: eventType,
+        triggerKey: matchedTrigger.type
+      });
+
+      const ok = await _executeFlow(flow, companyId, data, matchedTrigger);
       if (ok) triggered = true;
+    }
+
+    if (!triggered) {
+      logInfo("trigger_no_flow_dispatched", companyId, data, {
+        triggerType: eventType,
+        reason: "no_matching_active_flow"
+      });
     }
 
     return triggered;
   } catch (err) {
-    logger.error(`[FlowTrigger] dispatch error for ${eventType}: ${err?.message}`);
+    logError("dispatcher_failed", companyId, data, {
+      triggerType: eventType,
+      reason: err?.message
+    });
     return false;
   }
 };
@@ -110,14 +228,32 @@ export const executeFlowByToken = async (
   data: TriggerDispatchData
 ): Promise<{ success: boolean; flowId?: number; error?: string }> => {
   try {
-    const flows = await FlowBuilderModel.findAll({ where: { active: true } });
+    logInfo("trigger_received", 0, data, { triggerType: "http_webhook" });
+
+    const flows = await FlowBuilderModel.findAll();
 
     for (const flow of flows) {
+      if (flow.active !== true) {
+        logInfo("flow_skipped_inactive", flow.company_id, data, {
+          flowId: flow.id,
+          triggerType: "http_webhook",
+          reason: "active_not_true"
+        });
+        continue;
+      }
+
       const triggers = getTriggers(flow);
       const httpTrigger = triggers.find(
         t => t.type === "http_webhook" && t.config?.token === token
       );
-      if (!httpTrigger) continue;
+      if (!httpTrigger) {
+        logInfo("trigger_type_mismatch", flow.company_id, data, {
+          flowId: flow.id,
+          triggerType: "http_webhook",
+          reason: "token_or_trigger_not_matched"
+        });
+        continue;
+      }
 
       const whatsappId = httpTrigger.config?.whatsappId
         ? Number(httpTrigger.config.whatsappId)
@@ -133,9 +269,16 @@ export const executeFlowByToken = async (
       return { success: ok, flowId: flow.id };
     }
 
+    logInfo("trigger_no_flow_dispatched", 0, data, {
+      triggerType: "http_webhook",
+      reason: "token_not_found_or_flow_inactive"
+    });
     return { success: false, error: "Token not found or flow inactive" };
   } catch (err) {
-    logger.error(`[FlowTrigger] executeFlowByToken error: ${err?.message}`);
+    logError("dispatcher_failed", 0, data, {
+      triggerType: "http_webhook",
+      reason: err?.message
+    });
     return { success: false, error: err?.message };
   }
 };
@@ -148,16 +291,40 @@ async function _executeFlow(
 ): Promise<boolean> {
   try {
     const flowData = flow.flow as any;
-    if (!flowData?.nodes?.length) return false;
+    if (!flowData?.nodes?.length) {
+      logWarn("runner_failed", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        reason: "flow_without_nodes"
+      });
+      return false;
+    }
 
     const nodes = flowData.nodes;
     const connections = flowData.connections || [];
 
     // Find the node after the start node
     const startNode = nodes.find((n: any) => n.type === "start");
-    if (!startNode) return false;
+    if (!startNode) {
+      logWarn("runner_failed", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        reason: "start_node_not_found"
+      });
+      return false;
+    }
     const startConn = connections.find((c: any) => c.source === startNode.id);
-    if (!startConn) return false;
+    if (!startConn) {
+      logWarn("runner_failed", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        reason: "start_connection_not_found"
+      });
+      return false;
+    }
     const entryNodeId = startConn.target;
 
     // Resolve whatsappId
@@ -194,7 +361,12 @@ async function _executeFlow(
     }
 
     if (!whatsappId) {
-      logger.warn(`[FlowTrigger] No whatsappId for flow ${flow.id}, skipping`);
+      logWarn("runner_failed", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        reason: "whatsappId_not_found"
+      });
       return false;
     }
 
@@ -261,6 +433,15 @@ async function _executeFlow(
       nodesExecuted: 0
     });
 
+    logInfo("execution_created", companyId, data, {
+      flowId: flow.id,
+      executionId: execution.id,
+      ticketId,
+      triggerType: trigger.type,
+      triggerKey: trigger.type,
+      whatsappId
+    });
+
     const startedAt = Date.now();
     const mountDataContact = {
       number: contactNumber,
@@ -269,6 +450,15 @@ async function _executeFlow(
     };
 
     try {
+      logInfo("runner_started", companyId, data, {
+        flowId: flow.id,
+        executionId: execution.id,
+        ticketId,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        whatsappId
+      });
+
       await ActionsWebhookService(
         whatsappId,
         flow.id,
@@ -285,11 +475,20 @@ async function _executeFlow(
         null,
         execution.id
       );
+      await execution.reload();
       await execution.update({
-        status: "completed",
+        status: execution.status === "stopped" ? "stopped" : "completed",
         durationMs: Date.now() - startedAt
       });
-      logger.info(`[FlowTrigger] Flow ${flow.id} executed via trigger "${trigger.type}"`);
+      logInfo("runner_finished", companyId, data, {
+        flowId: flow.id,
+        executionId: execution.id,
+        ticketId,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        whatsappId,
+        reason: execution.status === "stopped" ? execution.stoppedReason : undefined
+      });
       return true;
     } catch (err) {
       await execution.update({
@@ -297,10 +496,24 @@ async function _executeFlow(
         errorMessage: err?.message,
         durationMs: Date.now() - startedAt
       });
+      logError("runner_failed", companyId, data, {
+        flowId: flow.id,
+        executionId: execution.id,
+        ticketId,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        whatsappId,
+        reason: err?.message
+      });
       return false;
     }
   } catch (err) {
-    logger.error(`[FlowTrigger] _executeFlow error flow ${flow.id}: ${err?.message}`);
+    logError("runner_failed", companyId, data, {
+      flowId: flow.id,
+      triggerType: trigger?.type,
+      triggerKey: trigger?.type,
+      reason: err?.message
+    });
     return false;
   }
 }
