@@ -54,6 +54,20 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 800,
     flex: 1
   },
+  creditsBadge: {
+    backgroundColor: "rgba(99,102,241,0.2)",
+    border: "1px solid rgba(99,102,241,0.4)",
+    color: "#c7d2fe",
+    borderRadius: 8,
+    padding: "3px 10px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    maxWidth: 120,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    flexShrink: 0
+  },
   content: {
     flex: 1,
     minHeight: 0,
@@ -181,11 +195,27 @@ const TicketCopilotPanel = ({
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [creditInfo, setCreditInfo] = useState(null);
   const lastRequestId = useRef(null);
 
   const ticketId = ticket?.id;
 
   const canRun = Boolean(open && ticketId && !loading);
+
+  const loadCredits = useCallback(async () => {
+    try {
+      const { data } = await api.get("/crm-ai/credits");
+      setCreditInfo(data);
+    } catch {
+      // silent: credit badge is informational and must not block copilot usage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadCredits();
+    }
+  }, [open, loadCredits]);
 
   const runCopilot = useCallback(async (action, options = {}) => {
     if (!ticketId || loading) return;
@@ -207,8 +237,14 @@ const TicketCopilotPanel = ({
         },
         ...prev
       ]);
+      if (data.creditInfo) setCreditInfo(data.creditInfo);
     } catch (err) {
       const errData = err?.response?.data || {};
+      if (errData?.creditInfo) {
+        setCreditInfo(errData.creditInfo);
+      } else if (err?.response?.status === 402 || errData?.error === "NO_CREDITS") {
+        loadCredits();
+      }
       const message =
         err?.response?.status === 402 || errData?.error === "NO_CREDITS"
           ? noCreditsMessage
@@ -221,7 +257,7 @@ const TicketCopilotPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [ticketId, loading]);
+  }, [ticketId, loading, loadCredits]);
 
   useEffect(() => {
     if (!open || !request?.id || request.id === lastRequestId.current) return;
@@ -246,6 +282,12 @@ const TicketCopilotPanel = ({
     return `${ticket.contact.name}${ticket.contact.number ? ` - ${ticket.contact.number}` : ""}`;
   }, [ticket]);
 
+  const creditsLabel = creditInfo
+    ? creditInfo.allowed === 0
+      ? "Ilimitado"
+      : `${creditInfo.remaining} créditos`
+    : "...";
+
   return (
     <aside className={classes.sidebar}>
       <Box className={classes.header}>
@@ -256,6 +298,7 @@ const TicketCopilotPanel = ({
             {subtitle}
           </Typography>
         </Box>
+        <span className={classes.creditsBadge}>{creditsLabel}</span>
         <IconButton size="small" onClick={onClose} style={{ color: "#fff" }}>
           <CloseIcon fontSize="small" />
         </IconButton>
