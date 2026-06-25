@@ -193,8 +193,9 @@ const createContactListFromContacts = async ({
   };
 };
 
-const reloadCampaignRecord = async (campaignId: number) => {
-  return Campaign.findByPk(campaignId, {
+const reloadCampaignRecord = async (campaignId: number, companyId: number) => {
+  return Campaign.findOne({
+    where: { id: campaignId, companyId },
     include: [
       { model: ContactList },
       { model: Whatsapp, attributes: ["id", "name"] }
@@ -1405,8 +1406,8 @@ export const createCampaign = async (
 
     let responseCampaign = campaign;
     if (sendNow) {
-      await RestartCampaignService(campaign.id);
-      responseCampaign = await reloadCampaignRecord(campaign.id);
+      await RestartCampaignService(campaign.id, companyId);
+      responseCampaign = await reloadCampaignRecord(campaign.id, companyId);
 
       io.of(String(companyId)).emit(`company-${companyId}-campaign`, {
         action: "update",

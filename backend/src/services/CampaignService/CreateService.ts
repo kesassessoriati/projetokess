@@ -5,6 +5,7 @@ import ContactList from "../../models/ContactList";
 import Whatsapp from "../../models/Whatsapp";
 import User from "../../models/User";
 import Queue from "../../models/Queue";
+import { assertCampaignRelationshipsBelongToCompany } from "./ValidateCampaignOwnershipService";
 
 interface Data {
   name: string;
@@ -46,7 +47,7 @@ interface Data {
 }
 
 const CreateService = async (data: Data): Promise<Campaign> => {
-  const { name } = data;
+  const { name, companyId } = data;
 
   const ticketnoteSchema = Yup.object().shape({
     name: Yup.string()
@@ -72,6 +73,8 @@ const CreateService = async (data: Data): Promise<Campaign> => {
   if (data.scheduledAt != null && data.scheduledAt !== "") {
     data.status = "PROGRAMADA";
   }
+
+  await assertCampaignRelationshipsBelongToCompany(data, companyId);
 
   const record = await Campaign.create(data);
 

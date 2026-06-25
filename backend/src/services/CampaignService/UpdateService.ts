@@ -1,9 +1,13 @@
 import AppError from "../../errors/AppError";
-import Campaign from "../../models/Campaign";
 import ContactList from "../../models/ContactList";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
+import Campaign from "../../models/Campaign";
+import {
+  assertCampaignBelongsToCompany,
+  assertCampaignRelationshipsBelongToCompany
+} from "./ValidateCampaignOwnershipService";
 
 interface Data {
   id: number | string;
@@ -46,20 +50,17 @@ interface Data {
 }
 
 const UpdateService = async (data: Data): Promise<Campaign> => {
-  const { id } = data;
+  const { id, companyId } = data;
+  const record = await assertCampaignBelongsToCompany(id, companyId);
 
-  const record = await Campaign.findByPk(id);
-
-  if (!record) {
-    throw new AppError("ERR_NO_CAMPAIGN_FOUND", 404);
-  }
-
-  if (["INATIVA", "PROGRAMADA", "CANCELADA", "paused_daily_limit"].indexOf(data.status) === -1) {
+  if (["INATIVA", "PROGRAMADA", "CANCELADA", "paused_daily_limit"].indexOf(record.status) === -1) {
     throw new AppError(
-      "Só é permitido alterar campanha Inativa e Programada",
+      "ERR_CAMPAIGN_UPDATE_NOT_ALLOWED",
       400
     );
   }
+
+  await assertCampaignRelationshipsBelongToCompany(data, companyId);
 
   if (
     data.scheduledAt != null &&
@@ -69,7 +70,10 @@ const UpdateService = async (data: Data): Promise<Campaign> => {
     data.status = "PROGRAMADA";
   }
 
-  await record.update(data);
+  await record.update({
+    ...data,
+    companyId
+  });
 
   await record.reload({
     include: [

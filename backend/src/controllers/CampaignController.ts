@@ -4,6 +4,7 @@ import { getIO } from "../libs/socket";
 import { head } from "lodash";
 import fs from "fs";
 import path from "path";
+import { Op } from "sequelize";
 
 import ListService from "../services/CampaignService/ListService";
 import CreateService from "../services/CampaignService/CreateService";
@@ -25,6 +26,7 @@ import ContactListItem from "../models/ContactListItem";
 import AppError from "../errors/AppError";
 import { CancelService } from "../services/CampaignService/CancelService";
 import { RestartService } from "../services/CampaignService/RestartService";
+import { assertTagBelongsToCompany } from "../services/CampaignService/ValidateCampaignOwnershipService";
 
 type IndexQuery = {
   searchParam: string;
@@ -56,8 +58,52 @@ type StoreData = {
   emailBody?: string;
 };
 
-type FindParams = {
-  companyId: string;
+const createContactListFromTag = async ({
+  tagId,
+  campaignName,
+  companyId,
+  label
+}: {
+  tagId: number;
+  campaignName: string;
+  companyId: number;
+  label: string;
+}): Promise<number> => {
+  await assertTagBelongsToCompany(tagId, companyId);
+
+  const contactTags = await ContactTag.findAll({ where: { tagId } });
+  const contactIds = contactTags.map(contactTag => contactTag.contactId);
+
+  const contacts = contactIds.length
+    ? await Contact.findAll({
+      where: {
+        id: { [Op.in]: contactIds },
+        companyId
+      }
+    })
+    : [];
+
+  const formattedDate = new Date().toISOString();
+  const contactList = await ContactList.create({
+    name: `${campaignName} | ${label}: ${tagId} - ${formattedDate}`,
+    companyId
+  });
+
+  const contactListItems = contacts.map(contact => ({
+    name: contact.name,
+    number: contact.number,
+    email: contact.email,
+    contactListId: contactList.id,
+    companyId,
+    isWhatsappValid: true,
+    isGroup: contact.isGroup
+  }));
+
+  if (contactListItems.length) {
+    await ContactListItem.bulkCreate(contactListItems);
+  }
+
+  return contactList.id;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -83,8 +129,8 @@ export const analyticsOverview = async (
     const analytics = await GetAnalyticsOverviewService(companyId);
     return res.status(200).json(analytics);
   } catch (err: any) {
-    logger.error(`[analyticsOverview] Erro companyId=${companyId}: ${err?.message || err} | stack: ${err?.stack}`);
-    return res.status(500).json({ error: err?.message || "Erro ao carregar analytics" });
+    logger.error(`[analyticsOverview] Erro companyId=${companyId}: ${err?.message || err}`);
+    return res.status(500).json({ error: "Erro ao carregar analytics" });
   }
 };
 
@@ -102,127 +148,50 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError(err.message);
   }
 
-  if (typeof data.tagListId === 'number') {
+  const tagListId = Number(data.tagListId);
+  const tagKanbanId = Number(data.tagKanbanId);
 
-    const tagId = data.tagListId;
-    const campanhaNome = data.name;
+  if (Number.isFinite(tagListId) && tagListId > 0) {
+    const contactListId = await createContactListFromTag({
+      tagId: tagListId,
+      campaignName: data.name,
+      companyId,
+      label: "TAG"
+    });
 
-    async function createContactListFromTag(tagId) {
-
-      const currentDate = new Date();
-      const formattedDate = currentDate.toISOString();
-
-      try {
-        const contactTags = await ContactTag.findAll({ where: { tagId } });
-        const contactIds = contactTags.map((contactTag) => contactTag.contactId);
-
-        const contacts = await Contact.findAll({ where: { id: contactIds } });
-
-        const randomName = `${campanhaNome} | TAG: ${tagId} - ${formattedDate}` // Implement your own function to generate a random name
-        const contactList = await ContactList.create({ name: randomName, companyId: companyId });
-
-        const { id: contactListId } = contactList;
-
-        const contactListItems = contacts.map((contact) => ({
-          name: contact.name,
-          number: contact.number,
-          email: contact.email,
-          contactListId,
-          companyId,
-          isWhatsappValid: true,
-          isGroup: contact.isGroup
-
-        }));
-
-        await ContactListItem.bulkCreate(contactListItems);
-
-        // Return the ContactList ID
-        return contactListId;
-      } catch (error) {
-        console.error('Error creating contact list:', error);
-        throw error;
-      }
-    }
-
-
-    createContactListFromTag(tagId)
-      .then(async (contactListId) => {
-        const record = await CreateService({
-          ...data,
-          companyId,
-          contactListId: contactListId,
-        });
-        const io = getIO();
-        io.of(String(companyId))
-          .emit(`company-${companyId}-campaign`, {
-            action: "create",
-            record
-          });
-        return res.status(200).json(record);
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error creating contact list' });
+    const record = await CreateService({
+      ...data,
+      companyId,
+      contactListId
+    });
+    const io = getIO();
+    io.of(String(companyId))
+      .emit(`company-${companyId}-campaign`, {
+        action: "create",
+        record
       });
+    return res.status(200).json(record);
 
-  } else if (typeof data.tagKanbanId === 'number') {
-    // **NOVO: Processar TagKanban**
-    const tagId = data.tagKanbanId;
-    const campanhaNome = data.name;
+  } else if (Number.isFinite(tagKanbanId) && tagKanbanId > 0) {
+    const contactListId = await createContactListFromTag({
+      tagId: tagKanbanId,
+      campaignName: data.name,
+      companyId,
+      label: "TAGKANBAN"
+    });
 
-    async function createContactListFromTagKanban(tagId) {
-      const currentDate = new Date();
-      const formattedDate = currentDate.toISOString();
-
-      try {
-        const contactTags = await ContactTag.findAll({ where: { tagId } });
-        const contactIds = contactTags.map((contactTag) => contactTag.contactId);
-
-        const contacts = await Contact.findAll({ where: { id: contactIds } });
-
-        const randomName = `${campanhaNome} | TAGKANBAN: ${tagId} - ${formattedDate}`;
-        const contactList = await ContactList.create({ name: randomName, companyId: companyId });
-
-        const { id: contactListId } = contactList;
-
-        const contactListItems = contacts.map((contact) => ({
-          name: contact.name,
-          number: contact.number,
-          email: contact.email,
-          contactListId,
-          companyId,
-          isWhatsappValid: true,
-          isGroup: contact.isGroup
-        }));
-
-        await ContactListItem.bulkCreate(contactListItems);
-
-        return contactListId;
-      } catch (error) {
-        console.error('Error creating contact list from kanban tag:', error);
-        throw error;
-      }
-    }
-
-    createContactListFromTagKanban(tagId)
-      .then(async (contactListId) => {
-        const record = await CreateService({
-          ...data,
-          companyId,
-          contactListId: contactListId,
-        });
-        const io = getIO();
-        io.of(String(companyId))
-          .emit(`company-${companyId}-campaign`, {
-            action: "create",
-            record
-          });
-        return res.status(200).json(record);
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error creating contact list from kanban tag' });
+    const record = await CreateService({
+      ...data,
+      companyId,
+      contactListId
+    });
+    const io = getIO();
+    io.of(String(companyId))
+      .emit(`company-${companyId}-campaign`, {
+        action: "create",
+        record
       });
+    return res.status(200).json(record);
 
   } else { // SAI DO CHECK DE TAG
 
@@ -245,8 +214,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { id } = req.params;
+  const { companyId } = req.user;
 
-  const record = await ShowService(id);
+  const record = await ShowService({ id, companyId });
 
   return res.status(200).json(record);
 };
@@ -273,7 +243,8 @@ export const update = async (
 
   const record = await UpdateService({
     ...data,
-    id
+    id,
+    companyId
   });
 
   const io = getIO();
@@ -291,8 +262,9 @@ export const cancel = async (
   res: Response
 ): Promise<Response> => {
   const { id } = req.params;
+  const { companyId } = req.user;
 
-  await CancelService(+id);
+  await CancelService(+id, companyId);
 
   return res.status(204).json({ message: "Cancelamento realizado" });
 };
@@ -302,8 +274,9 @@ export const restart = async (
   res: Response
 ): Promise<Response> => {
   const { id } = req.params;
+  const { companyId } = req.user;
 
-  await RestartService(+id);
+  await RestartService(+id, companyId);
 
   return res.status(204).json({ message: "Reinício dos disparos" });
 };
@@ -315,7 +288,7 @@ export const remove = async (
   const { id } = req.params;
   const { companyId } = req.user;
 
-  await DeleteService(id);
+  await DeleteService(id, companyId);
 
   const io = getIO();
   io.of(String(companyId))
@@ -331,8 +304,8 @@ export const findList = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const params = req.query as FindParams;
-  const records: Campaign[] = await FindService(params);
+  const { companyId } = req.user;
+  const records: Campaign[] = await FindService({ companyId });
 
   return res.status(200).json(records);
 };
@@ -342,11 +315,15 @@ export const mediaUpload = async (
   res: Response
 ): Promise<Response> => {
   const { id } = req.params;
+  const { companyId } = req.user;
   const files = req.files as Express.Multer.File[];
   const file = head(files);
 
   try {
-    const campaign = await Campaign.findByPk(id);
+    const campaign = await Campaign.findOne({ where: { id, companyId } });
+    if (!campaign || !file) {
+      throw new AppError("ERR_NO_CAMPAIGN_FOUND", 404);
+    }
     campaign.mediaPath = file.filename;
     campaign.mediaName = file.originalname;
     await campaign.save();
@@ -364,7 +341,10 @@ export const deleteMedia = async (
   const { id } = req.params;
 
   try {
-    const campaign = await Campaign.findByPk(id);
+    const campaign = await Campaign.findOne({ where: { id, companyId } });
+    if (!campaign) {
+      throw new AppError("ERR_NO_CAMPAIGN_FOUND", 404);
+    }
     const filePath = path.resolve("public", `company${companyId}`, campaign.mediaPath);
     const fileExists = fs.existsSync(filePath);
     if (fileExists) {
