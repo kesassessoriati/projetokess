@@ -167,6 +167,9 @@ const actionLabels = {
   rewrite: "Texto reescrito"
 };
 
+const noCreditsMessage =
+  "Créditos de IA esgotados para hoje. Entre em contato com o administrador ou atualize seu plano para continuar usando o Copiloto.";
+
 const TicketCopilotPanel = ({
   open,
   onClose,
@@ -205,10 +208,15 @@ const TicketCopilotPanel = ({
         ...prev
       ]);
     } catch (err) {
+      const errData = err?.response?.data || {};
       const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Nao foi possivel conectar ao servico de inteligencia.";
+        err?.response?.status === 402 || errData?.error === "NO_CREDITS"
+          ? noCreditsMessage
+          : (
+            errData?.message ||
+            errData?.error ||
+            "Nao foi possivel conectar ao servico de inteligencia."
+          );
       toast.error(message);
     } finally {
       setLoading(false);

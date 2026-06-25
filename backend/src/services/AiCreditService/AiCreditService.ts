@@ -29,9 +29,9 @@ export const getCreditInfo = async (companyId: number): Promise<CreditInfo> => {
 
   const allowed = company.plan?.aiDailyCredits ?? company.plan?.aiCredits ?? 0;
   const used = company.aiCreditsUsed ?? 0;
-  const remaining = Math.max(0, allowed - used);
+  const remaining = allowed === 0 ? 0 : Math.max(0, allowed - used);
 
-  return { allowed, used, remaining, hasCredits: remaining > 0 };
+  return { allowed, used, remaining, hasCredits: allowed === 0 || remaining > 0 };
 };
 
 export const consumeCredit = async (companyId: number): Promise<void> => {

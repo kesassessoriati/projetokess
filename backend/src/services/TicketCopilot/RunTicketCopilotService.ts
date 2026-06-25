@@ -5,6 +5,7 @@ import {
   getProviderDisplayName,
   resolveAIProviderConfig
 } from "../AIProviderService/AIProviderService";
+import { getCreditInfo, type CreditInfo } from "../AiCreditService/AiCreditService";
 import BuildTicketCopilotContextService, {
   buildCopilotContextHeader
 } from "./BuildTicketCopilotContextService";
@@ -24,6 +25,7 @@ interface Request {
 interface Response {
   action: TicketCopilotAction;
   result: string;
+  creditInfo?: CreditInfo;
   metadata: {
     provider: string;
     model?: string;
@@ -154,7 +156,7 @@ const normalizeProviderError = (err: any): { status: number; code: string; messa
     return {
       status: 402,
       code: "NO_CREDITS",
-      message: "Creditos de IA insuficientes. Contate o administrador."
+      message: "Creditos de IA esgotados para hoje. Entre em contato com o administrador ou atualize seu plano para continuar usando o Copiloto."
     };
   }
 
@@ -189,6 +191,19 @@ const normalizeProviderError = (err: any): { status: number; code: string; messa
   };
 };
 
+const assertCopilotCreditsAvailable = async (companyId: number): Promise<CreditInfo> => {
+  const creditInfo = await getCreditInfo(companyId);
+
+  if (!creditInfo.hasCredits) {
+    throw new AppError(
+      "Creditos de IA esgotados para hoje. Entre em contato com o administrador ou atualize seu plano para continuar usando o Copiloto.",
+      402
+    );
+  }
+
+  return creditInfo;
+};
+
 const RunTicketCopilotService = async ({
   ticketId,
   companyId,
@@ -219,6 +234,7 @@ const RunTicketCopilotService = async ({
   }
 
   const companyAiSettings = await getCompanyAiSettings(companyId);
+  await assertCopilotCreditsAvailable(companyId);
   const contextHeader = buildCopilotContextHeader(context);
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt({
@@ -254,14 +270,16 @@ const RunTicketCopilotService = async ({
       throw new AppError("A IA retornou uma resposta vazia.", 502);
     }
 
-    await finalizeAIUsage({
+    const creditInfo = await finalizeAIUsage({
       companyId,
       provider: resolvedConfig.provider,
       usageMode: resolvedConfig.usageMode,
       requestType: "ticket_copilot",
       model,
       status: "success",
+      forceCreditConsumption: true,
       metadata: {
+        origin: "copilot",
         action,
         ticketId: Number(context.ticket.id),
         messageCount: context.messageCount,
@@ -274,6 +292,7 @@ const RunTicketCopilotService = async ({
     return {
       action,
       result,
+      creditInfo,
       metadata: {
         provider: getProviderDisplayName(resolvedConfig.provider),
         model,
@@ -293,6 +312,7 @@ const RunTicketCopilotService = async ({
         status: "error",
         errorCode: normalized.code,
         metadata: {
+          origin: "copilot",
           action,
           ticketId: Number(context.ticket.id),
           messageCount: context.messageCount,

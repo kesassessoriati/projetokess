@@ -36,6 +36,7 @@ interface LogUsageParams {
   errorCode?: string | null;
   creditsConsumed?: number;
   metadata?: Record<string, any>;
+  forceCreditConsumption?: boolean;
 }
 
 export interface ResolvedAIConfig {
@@ -411,11 +412,12 @@ export const finalizeAIUsage = async ({
   model = null,
   status,
   errorCode = null,
-  metadata = {}
+  metadata = {},
+  forceCreditConsumption = false
 }: Omit<LogUsageParams, "creditsConsumed">) => {
   let creditsConsumed = 0;
 
-  if (status === "success" && usageMode === "system") {
+  if (status === "success" && (usageMode === "system" || forceCreditConsumption)) {
     await consumeCredit(companyId);
     creditsConsumed = 1;
   }
