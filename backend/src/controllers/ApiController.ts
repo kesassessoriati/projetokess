@@ -17,6 +17,9 @@ import { getWbot } from "../libs/wbot";
 import SendWhatsAppMessageLink from "../services/WbotServices/SendWhatsAppMessageLink";
 import SendWhatsAppMessageAPI from "../services/WbotServices/SendWhatsAppMessageAPI";
 import SendWhatsAppMediaImage from "../services/WbotServices/SendWhatsappMediaImage";
+import resolveApiWhatsappSession, {
+  ApiWhatsappSessionError
+} from "../services/WbotServices/ResolveApiWhatsappSessionService";
 import ApiUsages from "../models/ApiUsages";
 import { useDate } from "../utils/useDate";
 import moment from "moment";
@@ -277,21 +280,36 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const whatsapp = await resolveAuthorizedWhatsApp(token);
   const companyId = whatsapp.companyId;
 
-  newContact.number = newContact.number.replace(" ", "");
+  newContact.number = String(newContact.number || "").replace(/\s/g, "");
+  const normalizedBody = typeof body === "string" ? body.trim() : "";
 
   const schema = Yup.object().shape({
     number: Yup.string()
       .required()
-      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed.")
+      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed."),
+    body: Yup.string().required()
   });
 
   try {
-    await schema.validate(newContact);
+    await schema.validate({ number: newContact.number, body: normalizedBody });
   } catch (err: any) {
     throw new AppError(err.message);
   }
 
-  const wbot = await getWbot(whatsapp.id);
+  let wbot: any;
+  try {
+    wbot = resolveApiWhatsappSession(whatsapp);
+  } catch (err: any) {
+    if (err instanceof ApiWhatsappSessionError) {
+      return res.status(err.statusCode).json({
+        error: err.message,
+        message: err.publicMessage,
+        details: err.details
+      });
+    }
+
+    throw err;
+  }
 
   const convertBinToPdfIfNeeded = (
     media: Express.Multer.File
@@ -342,9 +360,9 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   // @ts-ignore: Unreachable code error
   if (sendSignature && !isNil(user)) {
-    bodyMessage = `*${user.name}:*\n${body.trim()}`
+    bodyMessage = `*${user.name}:*\n${normalizedBody}`
   } else {
-    bodyMessage = body.trim();
+    bodyMessage = normalizedBody;
   }
 
   if (noRegister) {
