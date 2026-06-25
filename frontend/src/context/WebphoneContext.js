@@ -61,6 +61,20 @@ const loadUserExtensionsFromApi = async () => {
   }
 };
 
+// Busca credenciais ICE (STUN/TURN) efêmeras no backend. Retorna null em falha
+// para que o chamador aplique fallback STUN e não quebre o webphone.
+const fetchIceServers = async () => {
+  try {
+    const { data } = await api.get("/sip/ice-servers");
+    if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+      return data.iceServers;
+    }
+  } catch (error) {
+    console.warn("[Webphone] fetchIceServers failed, usando STUN fallback", error);
+  }
+  return null;
+};
+
 const normalizeBrazilianNumber = (value = "") => {
   let number = String(value || "").replace(/\D/g, "");
 
@@ -228,6 +242,20 @@ export const WebphoneProvider = ({ children }) => {
   const tonePlayerRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const currentSipCallLogIdRef = useRef(null);
+  const iceServersRef = useRef(null);
+
+  // Resolve iceServers (STUN/TURN) com cache + fallback STUN, sem quebrar a chamada.
+  const resolveIceServers = useCallback(async (stunFallback) => {
+    const fetched = await fetchIceServers();
+    if (fetched && fetched.length) {
+      iceServersRef.current = fetched;
+      return fetched;
+    }
+    if (iceServersRef.current) {
+      return iceServersRef.current;
+    }
+    return [{ urls: stunFallback || "stun:stun.l.google.com:19302" }];
+  }, []);
 
   useEffect(() => {
     const audio = document.createElement("audio");
@@ -1088,9 +1116,11 @@ export const WebphoneProvider = ({ children }) => {
         callAnsweredRef.current = false;
 
         const destinationDomain = sipSettings?.sipDomain || sipSettings?.host;
+        const iceServers = await resolveIceServers(sipSettings?.stunServer);
         const optionsUa = {
           mediaConstraints: { audio: true, video: false },
           mediaStream,
+          pcConfig: { iceServers },
           rtcOfferConstraints: { offerToReceiveAudio: 1, offerToReceiveVideo: 0 },
           extraHeaders: selectedFromNumber ? [
             `X-AtendZappy-DID: ${effectiveFromNumber}`,
@@ -1569,9 +1599,11 @@ export const WebphoneProvider = ({ children }) => {
       }
       callMediaStreamRef.current = mediaStream;
 
+      const iceServers = await resolveIceServers();
       sessionRef.current.answer({
         mediaConstraints: { audio: true, video: false },
         mediaStream,
+        pcConfig: { iceServers },
       });
     }
   }, [requestCallMediaStream, status]);

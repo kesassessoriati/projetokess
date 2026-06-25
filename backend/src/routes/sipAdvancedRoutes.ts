@@ -5,8 +5,15 @@ import ResolveOutboundDidService from "../services/ResolveOutboundDidService";
 import ResolveInboundCallRouteService from "../services/ResolveInboundCallRouteService";
 import CreateSipCallLogService from "../services/CreateSipCallLogService";
 import UpdateSipCallStatusService from "../services/UpdateSipCallStatusService";
+import GenerateIceServersService from "../services/GenerateIceServersService";
 
 const sipAdvancedRoutes = express.Router();
+
+sipAdvancedRoutes.get("/sip/ice-servers", isAuth, requireWebphonePlan, async (req, res) => {
+  const { companyId, id } = req.user;
+  const result = GenerateIceServersService(Number(id), companyId);
+  return res.json(result);
+});
 
 sipAdvancedRoutes.post("/sip/resolve-outbound-did", isAuth, requireWebphonePlan, async (req, res) => {
   const { companyId } = req.user;
