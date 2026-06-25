@@ -656,20 +656,24 @@ async function getCampaign(id, companyId) {
       {
         model: ContactList,
         as: "contactList",
+        where: companyId ? { companyId } : undefined,
+        required: true,
         attributes: ["id", "name"],
         include: [
           {
             model: ContactListItem,
             as: "contacts",
             attributes: ["id", "name", "number", "email", "isWhatsappValid", "isGroup"],
-            where: { isWhatsappValid: true }
+            where: companyId ? { isWhatsappValid: true, companyId } : { isWhatsappValid: true }
           }
         ]
       },
       {
         model: Whatsapp,
         as: "whatsapp",
-        attributes: ["id", "name"]
+        where: companyId ? { companyId } : undefined,
+        required: false,
+        attributes: ["id", "name", "companyId"]
       },
       // {
       //   model: CampaignShipping,
@@ -684,6 +688,21 @@ async function getContact(id) {
   return await ContactListItem.findByPk(id, {
     attributes: ["id", "name", "number", "email", "isGroup"]
   });
+}
+
+async function getOwnedContact(id, companyId) {
+  return await ContactListItem.findOne({
+    where: { id, companyId },
+    attributes: ["id", "name", "number", "email", "isGroup", "companyId"]
+  });
+}
+
+function canProcessCampaign(campaign) {
+  return Boolean(
+    campaign &&
+    campaign.contactList &&
+    !["CANCELADA", "FINALIZADA"].includes(campaign.status)
+  );
 }
 
 async function getSettings(campaign): Promise<CampaignSettings> {
@@ -958,6 +977,10 @@ async function handleProcessCampaign(job) {
   try {
     const { id, companyId }: ProcessCampaignData = job.data;
     const campaign = await getCampaign(id, companyId);
+    if (!canProcessCampaign(campaign)) {
+      logger.warn(`[Campaign] Processamento ignorado: campanha indisponivel ou bloqueada. Campanha=${id};Empresa=${companyId}`);
+      return;
+    }
     const settings = await getSettings(campaign);
     if (campaign) {
       const { contacts } = campaign.contactList;
@@ -1072,7 +1095,16 @@ async function handlePrepareContact(job) {
     const { contactId, campaignId, delay, variables, companyId }: PrepareContactData =
       job.data;
     const campaign = await getCampaign(campaignId, companyId);
-    const contact = await getContact(contactId);
+    if (!canProcessCampaign(campaign)) {
+      logger.warn(`[Campaign] PrepareContact ignorado: campanha indisponivel ou bloqueada. Campanha=${campaignId};Empresa=${companyId}`);
+      return;
+    }
+
+    const contact = await getOwnedContact(contactId, campaign.companyId);
+    if (!contact) {
+      logger.warn(`[Campaign] PrepareContact ignorado: contato/lista fora da empresa. Campanha=${campaignId};Empresa=${companyId}`);
+      return;
+    }
     const campaignShipping: any = {};
     campaignShipping.number = contact.number;
     campaignShipping.contactId = contactId;
@@ -1182,6 +1214,20 @@ async function handleDispatchCampaign(job) {
     const { data } = job;
     const { campaignShippingId, campaignId, companyId }: DispatchCampaignData = data;
     const campaign = await getCampaign(campaignId, companyId);
+    if (!canProcessCampaign(campaign)) {
+      logger.warn(`[Campaign] Dispatch ignorado: campanha indisponivel ou bloqueada. Campanha=${campaignId};Empresa=${companyId}`);
+      return;
+    }
+
+    if (!campaign.whatsapp || Number(campaign.whatsapp.companyId || campaign.companyId) !== Number(campaign.companyId)) {
+      await CampaignShipping.update(
+        { failedAt: moment(), errorMessage: "INVALID_CAMPAIGN_RELATIONSHIP" },
+        { where: { id: campaignShippingId, campaignId } }
+      );
+      logger.warn(`[Campaign] Dispatch bloqueado: whatsapp invalido. Campanha=${campaignId};Empresa=${companyId}`);
+      return;
+    }
+
     const wbot = await GetWhatsappWbot(campaign.whatsapp);
 
     if (!wbot) {
@@ -1206,9 +1252,14 @@ async function handleDispatchCampaign(job) {
     const campaignShipping = await CampaignShipping.findByPk(
       campaignShippingId,
       {
-        include: [{ model: ContactListItem, as: "contact" }]
+        include: [{ model: ContactListItem, as: "contact", where: { companyId: campaign.companyId } }]
       }
     );
+
+    if (!campaignShipping || Number(campaignShipping.campaignId) !== Number(campaign.id)) {
+      logger.warn(`[Campaign] Dispatch ignorado: registro de envio invalido. Campanha=${campaignId};Empresa=${companyId}`);
+      return;
+    }
 
     const renderedButtons = renderCampaignTemplate(campaign.buttons || [], campaignShipping.contact, []);
     const renderedListSections = renderCampaignTemplate(campaign.listSections || [], campaignShipping.contact, []);

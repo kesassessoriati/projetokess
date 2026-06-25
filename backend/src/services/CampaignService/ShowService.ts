@@ -7,19 +7,30 @@ import Whatsapp from "../../models/Whatsapp";
 import User from "../../models/User";
 import Queue from "../../models/Queue";
 
-const ShowService = async (id: string | number): Promise<Campaign> => {
-  const record = await Campaign.findByPk(id, {
+type Params = {
+  id: string | number;
+  companyId: number | string;
+};
+
+const ShowService = async ({ id, companyId }: Params): Promise<Campaign> => {
+  const record = await Campaign.findOne({
+    where: { id, companyId },
     include: [
       { model: CampaignShipping },
-      { model: ContactList, include: [{ model: ContactListItem }] },
-      { model: Whatsapp, attributes: ["id", "name"] },
-      { model: User, attributes: ["id", "name"] },
-      { model: Queue, attributes: ["id", "name"] },
+      {
+        model: ContactList,
+        where: { companyId },
+        required: false,
+        include: [{ model: ContactListItem, where: { companyId }, required: false }]
+      },
+      { model: Whatsapp, where: { companyId }, required: false, attributes: ["id", "name"] },
+      { model: User, where: { companyId }, required: false, attributes: ["id", "name"] },
+      { model: Queue, where: { companyId }, required: false, attributes: ["id", "name"] },
     ]
   });
 
   if (!record) {
-    throw new AppError("ERR_NO_TICKETNOTE_FOUND", 404);
+    throw new AppError("ERR_NO_CAMPAIGN_FOUND", 404);
   }
 
   return record;
