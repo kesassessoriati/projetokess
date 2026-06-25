@@ -26,6 +26,7 @@ import {
   hasExecutedInCycle,
   recordStageAutomationLog
 } from "./AutomationConditionService";
+import { computeScheduleAnchor } from "./dispatchWindow";
 
 export interface AutomationCycleContext {
   cycleId: string;
@@ -1461,16 +1462,47 @@ export const processAutomationForContact = async (
         continue;
       }
 
-      const anchorMomentCycle = isWithinDispatchHours(settings, automation.triggerType)
-        ? moment()
-        : moment(getNextDispatchDate(settings, automation.triggerType));
-
       const delaySecondsCycle =
         action.delayMinutes > 0
           ? action.delayMinutes * 60
           : calculateDelay(settings, messageCount);
 
-      const scheduledAtCycle = anchorMomentCycle.clone().add(delaySecondsCycle, "seconds").toDate();
+      // Apenas ações customer-facing (send_message etc.) respeitam a janela de
+      // disparo comercial. Ações internas de CRM (move_lead/move_kanban/tags)
+      // ancoram sempre em agora — não devem esperar o horário comercial.
+      const {
+        anchor: anchorDateCycle,
+        respectsWindow: respectsWindowCycle,
+        deferredByWindow: deferredByWindowCycle
+      } = computeScheduleAnchor(
+        action.actionType,
+        isWithinDispatchHours(settings, automation.triggerType),
+        new Date(),
+        getNextDispatchDate(settings, automation.triggerType)
+      );
+
+      const scheduledAtCycle = moment(anchorDateCycle).add(delaySecondsCycle, "seconds").toDate();
+
+      if (deferredByWindowCycle) {
+        logger.info("[STAGE_AUTOMATION] action scheduled by dispatch window", {
+          automationId: automation.id,
+          actionType: action.actionType,
+          companyId,
+          stageId: cycleContext.expectedStageId,
+          scheduledAt: scheduledAtCycle.toISOString(),
+          delaySeconds: delaySecondsCycle,
+          reason: "outside_dispatch_window"
+        });
+      } else if (!respectsWindowCycle) {
+        logger.info("[STAGE_AUTOMATION] internal action scheduled without dispatch window", {
+          automationId: automation.id,
+          actionType: action.actionType,
+          companyId,
+          stageId: cycleContext.expectedStageId,
+          scheduledAt: scheduledAtCycle.toISOString(),
+          delaySeconds: delaySecondsCycle
+        });
+      }
 
       const executionCycle = await AutomationExecution.create({
         automationId: automation.id,
@@ -1534,16 +1566,47 @@ export const processAutomationForContact = async (
       continue;
     }
 
-    const anchorMoment = isWithinDispatchHours(settings, automation.triggerType)
-      ? moment()
-      : moment(getNextDispatchDate(settings, automation.triggerType));
-
     const delaySeconds =
       action.delayMinutes > 0
         ? action.delayMinutes * 60
         : calculateDelay(settings, messageCount);
 
-    const scheduledAt = anchorMoment.clone().add(delaySeconds, "seconds").toDate();
+    // Mesma regra do caminho com ciclo: só ações customer-facing respeitam a
+    // janela comercial; ações internas de CRM ancoram sempre em agora.
+    const {
+      anchor: anchorDateLegacy,
+      respectsWindow: respectsWindowLegacy,
+      deferredByWindow: deferredByWindowLegacy
+    } = computeScheduleAnchor(
+      action.actionType,
+      isWithinDispatchHours(settings, automation.triggerType),
+      new Date(),
+      getNextDispatchDate(settings, automation.triggerType)
+    );
+
+    const scheduledAt = moment(anchorDateLegacy).add(delaySeconds, "seconds").toDate();
+
+    const legacyStageId = (automation.triggerConfig as any)?.stageId ?? null;
+    if (deferredByWindowLegacy) {
+      logger.info("[STAGE_AUTOMATION] action scheduled by dispatch window", {
+        automationId: automation.id,
+        actionType: action.actionType,
+        companyId,
+        stageId: legacyStageId,
+        scheduledAt: scheduledAt.toISOString(),
+        delaySeconds,
+        reason: "outside_dispatch_window"
+      });
+    } else if (!respectsWindowLegacy) {
+      logger.info("[STAGE_AUTOMATION] internal action scheduled without dispatch window", {
+        automationId: automation.id,
+        actionType: action.actionType,
+        companyId,
+        stageId: legacyStageId,
+        scheduledAt: scheduledAt.toISOString(),
+        delaySeconds
+      });
+    }
 
     const execution = await AutomationExecution.create({
       automationId: automation.id,
