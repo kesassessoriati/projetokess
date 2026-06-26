@@ -12,6 +12,23 @@ jest.mock("../utils/logger", () => ({
   debug: jest.fn()
 }));
 
+// Isola a cadeia real do Wbot/Baileys durante o teste. O ProcessAutomationService
+// importa estaticamente SendWhatsAppMessage e UpdateTicketService; este último
+// arrasta GetTicketWbot/wbotMessageListener -> @whiskeysockets/baileys (ESM), que
+// o Jest nao transpila a partir de node_modules. Como nenhum dos dois e usado no
+// caminho send_message (delegado ao QuickSend engine, ja mockado), substitui-los
+// por stubs evita carregar o Baileys sem alterar comportamento de producao.
+// (jest.mock e icado acima dos imports pelo ts-jest.)
+jest.mock("../services/WbotServices/SendWhatsAppMessage", () => ({
+  __esModule: true,
+  default: jest.fn()
+}));
+
+jest.mock("../services/TicketServices/UpdateTicketService", () => ({
+  __esModule: true,
+  default: jest.fn()
+}));
+
 import { executeAction } from "../services/AutomationServices/ProcessAutomationService";
 
 describe("Pipeline automation WhatsApp send action", () => {
