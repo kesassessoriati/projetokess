@@ -11,6 +11,7 @@ import ContactTag from "../../models/ContactTag";
 import CampaignSetting from "../../models/CampaignSetting";
 import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
+import QuickSendMessageEngineService from "../QuickSendServices/QuickSendMessageEngineService";
 import { getIO } from "../../libs/socket";
 import logger from "../../utils/logger";
 import moment from "moment";
@@ -446,6 +447,31 @@ const executeActionSendMessage = async (
   opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
   try {
+    const { message, whatsappId, quickReplyId, mediaId, buttons, messageType } = action.actionConfig || {};
+
+    if (messageType === "buttons" || (!quickReplyId && !mediaId)) {
+      const result = await QuickSendMessageEngineService({
+        companyId,
+        opportunityId,
+        contact,
+        ticket,
+        whatsappId,
+        message,
+        buttons,
+        messageType: messageType === "buttons" ? "buttons" : "text",
+        renderAppointment: true
+      });
+
+      if (result.warning) {
+        return { success: false, message: result.sendError || result.warning };
+      }
+
+      logger.info(
+        `[StageAutomation][WhatsApp] Mensagem enviada pelo motor do Disparo Rapido - ticket ${result.ticket.id}`
+      );
+      return { success: true, message: "Mensagem enviada com sucesso" };
+    }
+
     if (!contact) {
       logger.warn(`[StageAutomation][WhatsApp] Oportunidade ${opportunityId} sem contato - send_message ignorada`);
       return {
@@ -462,12 +488,7 @@ const executeActionSendMessage = async (
       };
     }
 
-    // Mensagem com botões: delega ao helper compartilhado com o Disparo Rápido.
-    if (action.actionConfig?.messageType === "buttons") {
-      return sendAutomationButtons(action, contact, ticket, companyId);
-    }
-
-    const { message, whatsappId, quickReplyId, mediaId } = action.actionConfig || {};
+    // Fluxo legado para resposta rápida ou mídia: texto/botões simples usam o motor do Disparo Rápido acima.
 
     logger.info(`[StageAutomation][WhatsApp] Iniciando - contato ${contact.id}, ticket ${ticket.id}, conexão=${whatsappId || "padrão"}, quickReplyId=${quickReplyId || "—"}, mediaId=${mediaId || "—"}`);
 

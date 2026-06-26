@@ -43,6 +43,7 @@ import CreateCampaignService from "../services/CampaignService/CreateService";
 import { RestartService as RestartCampaignService } from "../services/CampaignService/RestartService";
 import { ImportContacts } from "../services/ContactListService/ImportContacts";
 import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsService";
+import QuickSendMessageEngineService from "../services/QuickSendServices/QuickSendMessageEngineService";
 
 const quickSendMutex = new Mutex();
 
@@ -379,6 +380,44 @@ export const quickSend = async (
     }
   }
 
+  const medias = req.files as Express.Multer.File[];
+  if ((!medias || medias.length === 0) && ["text", "buttons"].includes(messageType)) {
+    try {
+      const result = await QuickSendMessageEngineService({
+        companyId,
+        userId,
+        number,
+        message,
+        whatsappId,
+        leadId,
+        name,
+        queueId,
+        createIfNotExists,
+        buttons: parsedButtons,
+        messageType
+      });
+
+      return res.status(result.warning ? 206 : 200).json({
+        message: result.warning || "Mensagem enviada com sucesso!",
+        ticket: result.ticket,
+        contact: result.contact,
+        sendError: result.sendError
+      });
+    } catch (err) {
+      const statusCode = err instanceof AppError ? err.statusCode : 500;
+      logger.error(
+        { companyId, userId, errName: err.name, err: err.message },
+        "QuickSend engine error"
+      );
+      return res.status(statusCode).json({
+        error:
+          err instanceof AppError
+            ? err.message
+            : "Erro interno no servidor ao processar envio rápido."
+      });
+    }
+  }
+
   logger.info(
     { companyId, userId, number, whatsappId },
     "QuickSend request started"
@@ -680,8 +719,6 @@ export const quickSend = async (
     });
 
     // â”€â”€â”€ 5. Enviar mensagem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const medias = req.files as Express.Multer.File[];
-
     try {
       logger.info(
         { ticketId: ticket.id, hasButtons: !!parsedButtons },
