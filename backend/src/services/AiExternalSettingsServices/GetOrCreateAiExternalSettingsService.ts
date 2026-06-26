@@ -6,8 +6,15 @@ import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
 import UserSchedule from "../../models/UserSchedule";
 import CompanyApiKey from "../../models/CompanyApiKey";
+import Setting from "../../models/Setting";
 import generateApiToken from "../../utils/generateApiToken";
 import logger from "../../utils/logger";
+import {
+  CustomStage,
+  buildEmptyCustomStages,
+  parseCustomStagesSetting,
+  CUSTOM_STAGES_SETTING_KEY
+} from "./customStages";
 
 export interface AiExternalSettings {
   ai_name: string;
@@ -18,6 +25,7 @@ export interface AiExternalSettings {
   default_stage: { id: number; name: string } | null;
   default_calendar: { id: number; name: string } | null;
   appointment_stage: { pipeline_id: number; stage_id: number; stage_name: string } | null;
+  custom_stages: CustomStage[];
 }
 
 // 5-minute in-memory cache keyed by companyId
@@ -201,6 +209,20 @@ const GetOrCreateAiExternalSettingsService = async (
   }
   const default_calendar = schedule ? { id: schedule.id, name: schedule.name } : null;
 
+  // 9. Etapas personalizadas (custom_stages) — leitura defensiva do Setting.
+  // Sempre 5 slots; se ausente/corrompido, cai em 5 slots vazios.
+  let custom_stages: CustomStage[];
+  try {
+    const customStagesSetting = await Setting.findOne({
+      where: { companyId, key: CUSTOM_STAGES_SETTING_KEY },
+      attributes: ["value"]
+    });
+    custom_stages = parseCustomStagesSetting(customStagesSetting?.value);
+  } catch (e: any) {
+    logger.warn(`[AiExternalSettings] Falha ao ler custom_stages companyId=${companyId}: ${e.message}`);
+    custom_stages = buildEmptyCustomStages();
+  }
+
   const result: AiExternalSettings = {
     ai_name,
     system_token,
@@ -209,7 +231,8 @@ const GetOrCreateAiExternalSettingsService = async (
     default_pipeline: pipeline ? { id: pipeline.id, name: pipeline.name } : null,
     default_stage,
     default_calendar,
-    appointment_stage
+    appointment_stage,
+    custom_stages
   };
 
   cache.set(companyId, { data: result, expiresAt: Date.now() + 5 * 60 * 1000 });

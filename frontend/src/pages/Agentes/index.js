@@ -1198,6 +1198,11 @@ const Prompts = () => {
   const [aiSettings, setAiSettings] = useState(null);
   const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
   const [aiSettingsTokenVisible, setAiSettingsTokenVisible] = useState(false);
+  // Etapas personalizadas (custom_stages) para IA externa
+  const [aiCustomStagesDraft, setAiCustomStagesDraft] = useState(["", "", "", "", ""]);
+  const [aiPipelineStageOptions, setAiPipelineStageOptions] = useState([]);
+  const [aiPipelineStageOptionsLoaded, setAiPipelineStageOptionsLoaded] = useState(false);
+  const [aiCustomStagesSaving, setAiCustomStagesSaving] = useState(false);
   const [ragResults, setRagResults] = useState([]);
   const [businessHoursForm, setBusinessHoursForm] = useState(DEFAULT_BUSINESS_HOURS);
   const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
@@ -1422,6 +1427,54 @@ const Prompts = () => {
       setAiSettingsLoading(false);
     }
   };
+
+  // Carrega as etapas reais da empresa para o select de etapas personalizadas.
+  // Reutiliza o endpoint existente GET /pipelines (já filtrado por companyId).
+  const loadAiPipelineStageOptions = async () => {
+    try {
+      const { data } = await api.get("/pipelines");
+      const opts = [];
+      (data || []).forEach((p) => {
+        (p.stages || []).forEach((st) => {
+          opts.push({
+            stageId: st.id,
+            stageName: st.name,
+            pipelineName: p.name,
+            label: `${p.name} — ${st.name} — ID ${st.id}`,
+          });
+        });
+      });
+      setAiPipelineStageOptions(opts);
+      setAiPipelineStageOptionsLoaded(true);
+    } catch (err) {
+      // Não quebra a aba — apenas deixa o select sem opções.
+    }
+  };
+
+  const handleSaveCustomStages = async () => {
+    setAiCustomStagesSaving(true);
+    try {
+      const custom_stages = [0, 1, 2, 3, 4].map((i) => {
+        const stageId = Number(aiCustomStagesDraft[i]) || null;
+        const opt = aiPipelineStageOptions.find((o) => o.stageId === stageId);
+        return {
+          key: `stage_${i + 1}`,
+          label: `Etapa ${i + 1}`,
+          name: opt ? opt.stageName : null,
+          stage_id: opt ? opt.stageId : null,
+        };
+      });
+      const { data } = await api.put("/ai-external/settings/custom-stages", { custom_stages });
+      setAiSettings(data);
+      toast.success("Etapas personalizadas salvas!");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setAiCustomStagesSaving(false);
+    }
+  };
+
+  const handleClearCustomStages = () => setAiCustomStagesDraft(["", "", "", "", ""]);
 
   const handleCopyAiSetting = async (value) => {
     try {
@@ -4321,6 +4374,65 @@ const Prompts = () => {
         )}
 
         {s && (
+          <Box style={{ marginTop: 20, background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px" }}>
+            <Typography style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+              Etapas personalizadas para IA externa
+            </Typography>
+            <Typography style={{ fontSize: 13, color: "#64748b", marginTop: 4, marginBottom: 16 }}>
+              Selecione até 5 etapas que serão enviadas no payload dos webhooks (custom_stages) para uso em ferramentas externas, como n8n ou Make.
+            </Typography>
+
+            {[0, 1, 2, 3, 4].map((i) => {
+              const draftVal = aiCustomStagesDraft[i] ?? "";
+              const valueInOptions = aiPipelineStageOptions.some(
+                (o) => String(o.stageId) === String(draftVal)
+              );
+              return (
+                <Box key={i} style={{ display: "grid", gridTemplateColumns: "90px 1fr", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                  <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{`Etapa ${i + 1}`}</Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    value={valueInOptions ? draftVal : ""}
+                    onChange={(e) => {
+                      const next = [...aiCustomStagesDraft];
+                      next[i] = e.target.value === "" ? "" : Number(e.target.value);
+                      setAiCustomStagesDraft(next);
+                    }}
+                    style={{ fontSize: 13 }}
+                  >
+                    <MenuItem value="">— Nenhuma —</MenuItem>
+                    {aiPipelineStageOptions.map((o) => (
+                      <MenuItem key={o.stageId} value={o.stageId}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+              );
+            })}
+
+            <Box style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={aiCustomStagesSaving}
+                onClick={handleSaveCustomStages}
+              >
+                {aiCustomStagesSaving ? "Salvando…" : "Salvar etapas personalizadas"}
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={aiCustomStagesSaving}
+                onClick={handleClearCustomStages}
+              >
+                Limpar
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {s && (
           <Box style={{ marginTop: 20, background: "#f8fafc", borderRadius: 10, padding: "16px 20px", border: "1px solid #e2e8f0" }}>
             <Typography style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>
               PREVIEW DO PAYLOAD (ai_external_settings)
@@ -4345,6 +4457,7 @@ const Prompts = () => {
                 appointment_pipeline_id: s.appointment_stage?.pipeline_id,
                 appointment_stage_id: s.appointment_stage?.stage_id,
                 appointment_stage_name: s.appointment_stage?.stage_name,
+                custom_stages: s.custom_stages,
               }, null, 2)}
             </Typography>
           </Box>
@@ -5268,6 +5381,7 @@ const Prompts = () => {
     }
     if (activeAgentTab === "external" && externalSection === "ai_settings") {
       loadAiSettings();
+      if (!aiPipelineStageOptionsLoaded) loadAiPipelineStageOptions();
     }
     if (activeAgentTab === "external" && externalSection === "followups") {
       loadFollowUpConfig();
@@ -5275,6 +5389,15 @@ const Prompts = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAgentTab, externalSection]);
+
+  // Sincroniza o rascunho dos selects com o custom_stages vindo do backend.
+  useEffect(() => {
+    if (Array.isArray(aiSettings?.custom_stages)) {
+      setAiCustomStagesDraft(
+        [0, 1, 2, 3, 4].map((i) => aiSettings.custom_stages[i]?.stage_id ?? "")
+      );
+    }
+  }, [aiSettings]);
 
   useEffect(() => {
     if (!isConnected || !user.companyId) return;
