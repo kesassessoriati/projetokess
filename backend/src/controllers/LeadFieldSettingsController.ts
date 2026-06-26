@@ -1,41 +1,17 @@
 import { Request, Response } from "express";
 import AppError from "../errors/AppError";
+import {
+  defaultLeadFields,
+  requiredLeadFieldKeys
+} from "../constants/leadFieldSettings";
 import CompanyLeadFieldSetting from "../models/CompanyLeadFieldSetting";
+import {
+  LeadFieldPayload,
+  getBlockedDisabledLeadFields,
+  getLeadFieldUsage
+} from "../services/LeadFieldSettingsService";
 
-export const defaultLeadFields = [
-  { fieldKey: "status", label: "Status", fieldType: "select", group: "Dados basicos", sortOrder: 10 },
-  { fieldKey: "pipelineId", label: "Funil de Vendas", fieldType: "select", group: "Dados basicos", sortOrder: 20 },
-  { fieldKey: "stageId", label: "Estagio Funil", fieldType: "select", group: "Dados basicos", sortOrder: 30 },
-  { fieldKey: "name", label: "Nome", fieldType: "text", group: "Dados basicos", sortOrder: 40, required: true },
-  { fieldKey: "companyName", label: "Empresa", fieldType: "text", group: "Dados basicos", sortOrder: 50 },
-  { fieldKey: "document", label: "CPF / CNPJ", fieldType: "text", group: "Dados basicos", sortOrder: 60 },
-  { fieldKey: "email", label: "E-mail", fieldType: "email", group: "Dados basicos", sortOrder: 70 },
-  { fieldKey: "phone", label: "Telefone", fieldType: "text", group: "Dados basicos", sortOrder: 80 },
-  { fieldKey: "decisionMakerPhone", label: "Telefone decisor", fieldType: "text", group: "Dados basicos", sortOrder: 90 },
-  { fieldKey: "address", label: "Endereco", fieldType: "text", group: "Dados basicos", sortOrder: 100 },
-  { fieldKey: "product", label: "Produto", fieldType: "text", group: "Produto", sortOrder: 110 },
-  { fieldKey: "position", label: "Cargo", fieldType: "text", group: "Informacoes comerciais", sortOrder: 120 },
-  { fieldKey: "decisionMakerName", label: "Nome decisor", fieldType: "text", group: "Informacoes comerciais", sortOrder: 130 },
-  { fieldKey: "birthDate", label: "Data de nascimento", fieldType: "date", group: "Informacoes comerciais", sortOrder: 140 },
-  { fieldKey: "clientSince", label: "Cliente desde", fieldType: "date", group: "Informacoes comerciais", sortOrder: 150 },
-  { fieldKey: "acquisitionDate", label: "Data de aquisicao", fieldType: "date", group: "Informacoes comerciais", sortOrder: 160 },
-  { fieldKey: "expirationDate", label: "Data de vencimento", fieldType: "date", group: "Informacoes comerciais", sortOrder: 170 },
-  { fieldKey: "paymentType", label: "Tipo de pagamento", fieldType: "text", group: "Informacoes comerciais", sortOrder: 180 },
-  { fieldKey: "purchaseType", label: "Tipo de compra", fieldType: "select", group: "Informacoes comerciais", sortOrder: 190 },
-  { fieldKey: "purchaseValue", label: "Valor da venda/oportunidade", fieldType: "number", group: "Informacoes comerciais", sortOrder: 200 },
-  { fieldKey: "gmn", label: "GMN", fieldType: "text", group: "Presenca digital", sortOrder: 210 },
-  { fieldKey: "website", label: "Site", fieldType: "text", group: "Presenca digital", sortOrder: 220 },
-  { fieldKey: "instagram", label: "Instagram", fieldType: "text", group: "Presenca digital", sortOrder: 230 },
-  { fieldKey: "linkedin", label: "LinkedIn", fieldType: "text", group: "Presenca digital", sortOrder: 240 },
-  { fieldKey: "source", label: "Origem", fieldType: "text", group: "CRM", sortOrder: 250 },
-  { fieldKey: "campaign", label: "Campanha/Tag", fieldType: "text", group: "CRM", sortOrder: 260 },
-  { fieldKey: "temperature", label: "Temperatura", fieldType: "select", group: "CRM", sortOrder: 270 },
-  { fieldKey: "score", label: "Score", fieldType: "number", group: "CRM", sortOrder: 280 },
-  { fieldKey: "ownerUserId", label: "Atribuir a", fieldType: "select", group: "CRM", sortOrder: 290 },
-  { fieldKey: "tags", label: "Tags", fieldType: "tags", group: "CRM", sortOrder: 300 },
-  { fieldKey: "notes", label: "Observacoes", fieldType: "textarea", group: "CRM", sortOrder: 310 },
-  { fieldKey: "sessionid", label: "Acesso ID", fieldType: "text", group: "CRM", sortOrder: 320 }
-];
+export { defaultLeadFields } from "../constants/leadFieldSettings";
 
 const allowedCustomTypes = ["text", "textarea", "number", "date", "email", "boolean"];
 
@@ -58,11 +34,10 @@ const serializeField = (field: any) => ({
   isCustom: Boolean(field.isCustom),
   active: field.active !== false,
   sortOrder: field.sortOrder || 0,
-  required: Boolean(field.required)
+  required: requiredLeadFieldKeys.has(field.fieldKey) || Boolean(field.required)
 });
 
-export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
+const getSerializableFields = async (companyId: number) => {
   const saved = await CompanyLeadFieldSetting.findAll({
     where: { companyId },
     order: [["sortOrder", "ASC"], ["id", "ASC"]]
@@ -76,10 +51,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
       id: override?.id,
       label: override?.label || field.label,
       fieldType: override?.fieldType || field.fieldType,
-      visible: override ? override.visible : true,
+      visible: field.required ? true : override ? override.visible : true,
       isCustom: false,
       active: override ? override.active : true,
-      sortOrder: override?.sortOrder ?? field.sortOrder
+      sortOrder: override?.sortOrder ?? field.sortOrder,
+      required: field.required
     });
   });
 
@@ -87,18 +63,54 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     .filter(field => field.isCustom && field.active)
     .map(field => serializeField({ ...field.toJSON(), group: "Campos personalizados" }));
 
+  return [...standardFields, ...customFields].sort((a, b) => a.sortOrder - b.sortOrder);
+};
+
+export const index = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const fields = await getSerializableFields(companyId);
+
   return res.json({
-    fields: [...standardFields, ...customFields].sort((a, b) => a.sortOrder - b.sortOrder)
+    fields
   });
+};
+
+export const usage = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const fields = await getSerializableFields(companyId);
+  const usageInfo = await getLeadFieldUsage(companyId, fields);
+
+  return res.json({ fields: usageInfo });
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const fields = Array.isArray(req.body?.fields) ? req.body.fields : [];
   const standardFieldKeys = new Set(defaultLeadFields.map(field => field.fieldKey));
+  const normalizedFields: LeadFieldPayload[] = fields
+    .filter(field => field?.fieldKey)
+    .map(field => ({
+      ...field,
+      required: requiredLeadFieldKeys.has(field.fieldKey) || Boolean(field.required),
+      visible: requiredLeadFieldKeys.has(field.fieldKey) ? true : field.visible !== false
+    }));
+
+  const blockedFields = await getBlockedDisabledLeadFields(companyId, normalizedFields);
+  if (blockedFields.length > 0) {
+    return res.status(400).json({
+      error: "ERR_LEAD_FIELD_IN_USE",
+      message: "Alguns campos nao podem ser desativados porque possuem dados preenchidos.",
+      fields: blockedFields.map(field => ({
+        key: field.fieldKey,
+        label: field.label,
+        usageCount: field.usageCount,
+        required: field.required
+      }))
+    });
+  }
 
   await Promise.all(
-    fields
+    normalizedFields
       .filter(field => field?.fieldKey)
       .map(field => {
         const isStandardField = standardFieldKeys.has(field.fieldKey);
@@ -167,6 +179,21 @@ export const removeCustom = async (req: Request, res: Response): Promise<Respons
 
   if (!field) {
     throw new AppError("Campo personalizado nao encontrado.", 404);
+  }
+
+  const [fieldUsage] = await getLeadFieldUsage(companyId, [serializeField(field.toJSON())]);
+  if (fieldUsage?.usageCount > 0) {
+    return res.status(400).json({
+      error: "ERR_LEAD_FIELD_IN_USE",
+      message: "Este campo personalizado possui dados preenchidos e nao pode ser excluido.",
+      fields: [
+        {
+          key: fieldUsage.fieldKey,
+          label: fieldUsage.label,
+          usageCount: fieldUsage.usageCount
+        }
+      ]
+    });
   }
 
   await field.destroy();

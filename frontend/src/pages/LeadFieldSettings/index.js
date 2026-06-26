@@ -13,6 +13,7 @@ import {
   InputLabel,
   MenuItem,
   Paper,
+  Chip,
   Select,
   Switch,
   TextField,
@@ -20,7 +21,9 @@ import {
   Typography,
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import DeleteIcon from "@material-ui/icons/Delete";
+import LockIcon from "@material-ui/icons/Lock";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -49,7 +52,7 @@ const useStyles = makeStyles((theme) => ({
   },
   row: {
     display: "grid",
-    gridTemplateColumns: "70px 1fr 150px 44px",
+    gridTemplateColumns: "64px minmax(160px, 1fr) 132px 128px 40px",
     gap: theme.spacing(1),
     alignItems: "center",
     borderTop: "1px solid #eef2f7",
@@ -70,6 +73,26 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     marginBottom: theme.spacing(2),
   },
+  usageChip: {
+    justifyContent: "flex-start",
+    maxWidth: 128,
+    fontWeight: 700,
+  },
+  usageBlocked: {
+    borderColor: "#fecaca",
+    color: "#991b1b",
+    backgroundColor: "#fef2f2",
+  },
+  usageFree: {
+    borderColor: "#bbf7d0",
+    color: "#166534",
+    backgroundColor: "#f0fdf4",
+  },
+  usageRequired: {
+    borderColor: "#bfdbfe",
+    color: "#1d4ed8",
+    backgroundColor: "#eff6ff",
+  },
 }));
 
 const FIELD_TYPES = [
@@ -84,6 +107,7 @@ const FIELD_TYPES = [
 const LeadFieldSettings = () => {
   const classes = useStyles();
   const [fields, setFields] = useState([]);
+  const [fieldUsage, setFieldUsage] = useState({});
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
@@ -93,8 +117,17 @@ const LeadFieldSettings = () => {
   const loadFields = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/crm/lead-field-settings");
-      setFields(data?.fields || []);
+      const [{ data: fieldsData }, { data: usageData }] = await Promise.all([
+        api.get("/crm/lead-field-settings"),
+        api.get("/crm/lead-field-settings/usage"),
+      ]);
+      setFields(fieldsData?.fields || []);
+      setFieldUsage(
+        (usageData?.fields || []).reduce((acc, field) => {
+          acc[field.fieldKey || field.key] = field;
+          return acc;
+        }, {})
+      );
     } catch (err) {
       toastError(err);
     } finally {
@@ -118,6 +151,15 @@ const LeadFieldSettings = () => {
   );
 
   const updateField = (fieldKey, updates) => {
+    const usage = fieldUsage[fieldKey];
+    if (updates.visible === false && usage && usage.canDisable === false) {
+      const message = usage.required
+        ? "Campo obrigatorio do sistema."
+        : `Este campo possui dados preenchidos em ${usage.usageCount} lead(s) e nao pode ser desativado.`;
+      toast.warn(message);
+      return;
+    }
+
     setFields((prev) =>
       prev.map((field) => (field.fieldKey === fieldKey ? { ...field, ...updates } : field))
     );
@@ -125,10 +167,28 @@ const LeadFieldSettings = () => {
 
   const handleSave = async () => {
     try {
-      await api.put("/crm/lead-field-settings", { fields });
+      const normalizedFields = fields.map((field) => {
+        const usage = fieldUsage[field.fieldKey];
+        if (field.required || usage?.canDisable === false) {
+          return { ...field, visible: true };
+        }
+        return field;
+      });
+
+      await api.put("/crm/lead-field-settings", { fields: normalizedFields });
       toast.success("Configuracao dos campos salva.");
       loadFields();
     } catch (err) {
+      if (err.response?.data?.error === "ERR_LEAD_FIELD_IN_USE") {
+        const blockedFields = err.response?.data?.fields || [];
+        const labels = blockedFields.map((field) => `${field.label} (${field.usageCount})`).join(", ");
+        toast.error(
+          labels
+            ? `Alguns campos possuem dados preenchidos e nao podem ser desativados: ${labels}.`
+            : "Alguns campos possuem dados preenchidos e nao podem ser desativados."
+        );
+        return;
+      }
       toastError(err);
     }
   };
@@ -162,6 +222,43 @@ const LeadFieldSettings = () => {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const getUsageMeta = (field) => fieldUsage[field.fieldKey] || {
+    fieldKey: field.fieldKey,
+    usageCount: 0,
+    inUse: false,
+    canDisable: !field.required,
+    required: Boolean(field.required),
+  };
+
+  const getUsageChip = (field) => {
+    const usage = getUsageMeta(field);
+
+    if (field.required || usage.required) {
+      return {
+        label: "Obrigatorio",
+        title: "Campo obrigatorio do sistema e nao pode ser desativado.",
+        icon: <LockIcon fontSize="small" />,
+        className: classes.usageRequired,
+      };
+    }
+
+    if (usage.inUse) {
+      return {
+        label: `Em uso (${usage.usageCount})`,
+        title: `Este campo possui dados preenchidos em ${usage.usageCount} lead(s) e nao pode ser desativado.`,
+        icon: <LockIcon fontSize="small" />,
+        className: classes.usageBlocked,
+      };
+    }
+
+    return {
+      label: "Livre",
+      title: "Este campo nao possui dados preenchidos e pode ser desativado.",
+      icon: <CheckCircleIcon fontSize="small" />,
+      className: classes.usageFree,
+    };
   };
 
   return (
@@ -203,50 +300,67 @@ const LeadFieldSettings = () => {
           {Object.entries(groupedFields).map(([group, groupFields]) => (
             <Grid item xs={12} md={6} key={group}>
               <Typography className={classes.groupTitle}>{group}</Typography>
-              {groupFields.map((field) => (
-                <div className={classes.row} key={field.fieldKey}>
-                  <Switch
-                    color="primary"
-                    checked={field.visible !== false}
-                    onChange={(event) => updateField(field.fieldKey, { visible: event.target.checked })}
-                    disabled={field.required}
-                  />
-                  <TextField
-                    label="Nome exibido"
-                    variant="outlined"
-                    size="small"
-                    value={field.label}
-                    onChange={(event) => updateField(field.fieldKey, { label: event.target.value })}
-                  />
-                  <TextField
-                    select
-                    label="Tipo"
-                    variant="outlined"
-                    size="small"
-                    value={field.fieldType}
-                    onChange={(event) => updateField(field.fieldKey, { fieldType: event.target.value })}
-                    disabled={!field.isCustom}
-                  >
-                    {[...FIELD_TYPES, { value: "select", label: "Selecao" }, { value: "tags", label: "Tags" }].map((type) => (
-                      <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
-                    ))}
-                  </TextField>
-                  {field.isCustom ? (
-                    <Tooltip title="Excluir campo personalizado">
-                      <IconButton
+              {groupFields.map((field) => {
+                const usage = getUsageMeta(field);
+                const usageChip = getUsageChip(field);
+                const protectedField = field.required || usage.canDisable === false;
+
+                return (
+                  <div className={classes.row} key={field.fieldKey}>
+                    <Switch
+                      color="primary"
+                      checked={protectedField || field.visible !== false}
+                      onChange={(event) => updateField(field.fieldKey, { visible: event.target.checked })}
+                      disabled={protectedField}
+                    />
+                    <TextField
+                      label="Nome exibido"
+                      variant="outlined"
+                      size="small"
+                      value={field.label}
+                      onChange={(event) => updateField(field.fieldKey, { label: event.target.value })}
+                    />
+                    <TextField
+                      select
+                      label="Tipo"
+                      variant="outlined"
+                      size="small"
+                      value={field.fieldType}
+                      onChange={(event) => updateField(field.fieldKey, { fieldType: event.target.value })}
+                      disabled={!field.isCustom}
+                    >
+                      {[...FIELD_TYPES, { value: "select", label: "Selecao" }, { value: "tags", label: "Tags" }].map((type) => (
+                        <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Tooltip title={usageChip.title}>
+                      <Chip
                         size="small"
-                        onClick={() => setFieldToDelete(field)}
-                        disabled={deleting}
-                        style={{ color: "#b91c1c" }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                        variant="outlined"
+                        icon={usageChip.icon}
+                        label={usageChip.label}
+                        className={`${classes.usageChip} ${usageChip.className}`}
+                      />
                     </Tooltip>
-                  ) : (
-                    <Box />
-                  )}
-                </div>
-              ))}
+                    {field.isCustom ? (
+                      <Tooltip title={usage.inUse ? "Campo personalizado em uso nao pode ser excluido" : "Excluir campo personalizado"}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => setFieldToDelete(field)}
+                            disabled={deleting || usage.inUse}
+                            style={{ color: "#b91c1c" }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      <Box />
+                    )}
+                  </div>
+                );
+              })}
             </Grid>
           ))}
         </Grid>
