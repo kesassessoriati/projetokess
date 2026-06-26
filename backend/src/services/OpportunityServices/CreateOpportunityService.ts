@@ -7,6 +7,8 @@ import PipelineStage from "../../models/PipelineStage";
 import findOrCreateLeadByContact from "../CrmLeadService/helpers/findOrCreateLeadByContact";
 import logger from "../../utils/logger";
 import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchService";
+import AppError from "../../errors/AppError";
+import FindOrMergeOpportunityInPipelineService from "./FindOrMergeOpportunityInPipelineService";
 
 interface Request {
     companyId: number;
@@ -33,17 +35,64 @@ const CreateOpportunityService = async ({
 }: Request): Promise<Opportunity> => {
 
     let contact: Contact | null = null;
+    let lead: CrmLead | null = null;
+
+    const targetStage = await PipelineStage.findOne({
+        where: {
+            id: stageId,
+            companyId,
+            pipelineId
+        }
+    });
+
+    if (!targetStage) {
+        throw new AppError("Estágio selecionado não encontrado no funil informado.", 400);
+    }
 
     if (contactId) {
         contact = await Contact.findOne({
             where: { id: contactId, companyId }
         });
+        if (!contact) {
+            throw new AppError("Contato informado não encontrado para esta empresa.", 404);
+        }
         if (contact && !leadId) {
-            const lead = await findOrCreateLeadByContact({ contact, companyId });
+            lead = await findOrCreateLeadByContact({ contact, companyId });
             if (lead) {
                 leadId = lead.id;
             }
         }
+    }
+
+    if (leadId && !lead) {
+        lead = await CrmLead.findOne({
+            where: { id: leadId, companyId }
+        });
+        if (!lead) {
+            throw new AppError("Lead informado não encontrado para esta empresa.", 404);
+        }
+        if (!contactId && lead.contactId) {
+            contactId = lead.contactId;
+            contact = await Contact.findOne({
+                where: { id: lead.contactId, companyId }
+            });
+        }
+    }
+
+    const existingOpportunity = await FindOrMergeOpportunityInPipelineService({
+        companyId,
+        pipelineId,
+        stageId,
+        contactId,
+        ticketId,
+        leadId,
+        title,
+        value,
+        assignedUserId
+    });
+
+    if (existingOpportunity) {
+        return existingOpportunity;
     }
 
     const opportunity = await Opportunity.create({
@@ -60,14 +109,6 @@ const CreateOpportunityService = async ({
     });
 
     if (opportunity.leadId) {
-        const targetStage = await PipelineStage.findOne({
-            where: {
-                id: opportunity.stageId,
-                companyId,
-                pipelineId: opportunity.pipelineId
-            }
-        });
-
         const leadUpdate: Record<string, any> = {
             pipelineId: opportunity.pipelineId,
             stageId: opportunity.stageId

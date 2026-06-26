@@ -296,11 +296,8 @@ const UpdateCrmLeadService = async ({
       if (contactId) {
         oppData.contactId = contactId;
       }
-      const newOpp = await Opportunity.create(oppData);
-      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
-        action: "create",
-        opportunity: newOpp
-      });
+      const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
+      await CreateOpportunityService(oppData);
     }
   }
 

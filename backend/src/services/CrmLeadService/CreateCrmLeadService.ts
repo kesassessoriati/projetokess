@@ -11,6 +11,7 @@ import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchSe
 import CheckContactNumber from "../WbotServices/CheckNumber";
 import logger from "../../utils/logger";
 import serializeCrmLead from "./helpers/serializeCrmLead";
+import LeadTag from "../../models/LeadTag";
 
 interface Request {
   companyId: number;
@@ -186,6 +187,144 @@ const resolvePrimaryTicketId = async (
   return ticket.id;
 };
 
+const hasValue = (value: unknown): boolean =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const isEmptyValue = (value: unknown): boolean =>
+  value === null || value === undefined || String(value).trim() === "";
+
+const mergeExistingLeadTags = async (
+  leadId: number,
+  companyId: number,
+  incomingTags?: any[]
+) => {
+  if (!incomingTags || incomingTags.length === 0) return;
+
+  const existingRelations = await LeadTag.findAll({ where: { leadId } });
+  const mergedTags = [
+    ...existingRelations.map(relation => ({ id: relation.tagId })),
+    ...incomingTags
+  ];
+
+  await syncCrmLeadTags(leadId, companyId, mergedTags);
+};
+
+const ensureOpportunityForExistingLead = async (
+  lead: CrmLead,
+  data: Request
+) => {
+  if (!data.pipelineId || !data.stageId) return;
+
+  const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
+  await CreateOpportunityService({
+    companyId: data.companyId,
+    pipelineId: data.pipelineId,
+    stageId: data.stageId,
+    title: lead.name || data.name,
+    value: data.purchaseValue != null ? Number(data.purchaseValue) : Number(lead.purchaseValue || 0),
+    assignedUserId: data.ownerUserId || null,
+    leadId: lead.id,
+    contactId: lead.contactId || data.contactId || undefined,
+    ticketId: lead.primaryTicketId || data.primaryTicketId || undefined
+  } as any);
+};
+
+const mergeSafeExistingLeadData = async (
+  lead: CrmLead,
+  data: Request,
+  resolvedContactId?: number
+): Promise<CrmLead> => {
+  const updates: Record<string, any> = {};
+  const safeFields = [
+    "name",
+    "email",
+    "phone",
+    "document",
+    "companyName",
+    "position",
+    "decisionMakerName",
+    "decisionMakerPhone",
+    "cnpj",
+    "address",
+    "product",
+    "paymentType",
+    "purchaseType",
+    "gmn",
+    "website",
+    "instagram",
+    "linkedin",
+    "sessionid",
+    "source",
+    "campaign",
+    "medium",
+    "temperature",
+    "cardColor",
+    "clientSince",
+    "acquisitionDate",
+    "expirationDate"
+  ];
+
+  for (const field of safeFields) {
+    const currentValue = (lead as any)[field];
+    const incomingValue = (data as any)[field];
+    if (isEmptyValue(currentValue) && hasValue(incomingValue)) {
+      updates[field] = incomingValue;
+    }
+  }
+
+  if (resolvedContactId && !lead.contactId) {
+    updates.contactId = resolvedContactId;
+  }
+
+  if (data.primaryTicketId && !lead.primaryTicketId) {
+    updates.primaryTicketId = data.primaryTicketId;
+  }
+
+  if (data.ownerUserId && !lead.ownerUserId) {
+    updates.ownerUserId = data.ownerUserId;
+  }
+
+  if (
+    data.purchaseValue !== null &&
+    data.purchaseValue !== undefined &&
+    Number(data.purchaseValue) > 0 &&
+    (lead.purchaseValue === null || lead.purchaseValue === undefined || Number(lead.purchaseValue) === 0)
+  ) {
+    updates.purchaseValue = data.purchaseValue;
+  }
+
+  if (
+    data.score !== null &&
+    data.score !== undefined &&
+    Number(data.score) > Number(lead.score || 0)
+  ) {
+    updates.score = data.score;
+  }
+
+  if (hasValue(data.notes)) {
+    const incomingNotes = String(data.notes).trim();
+    const currentNotes = String(lead.notes || "").trim();
+    if (!currentNotes) {
+      updates.notes = incomingNotes;
+    } else if (!currentNotes.includes(incomingNotes)) {
+      updates.notes = `${currentNotes}\n${incomingNotes}`;
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await lead.update({
+      ...updates,
+      lastActivityAt: new Date()
+    });
+  }
+
+  await mergeExistingLeadTags(lead.id, data.companyId, data.tags);
+  await ensureOpportunityForExistingLead(lead, data);
+  await lead.reload();
+
+  return lead;
+};
+
 const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   const schema = Yup.object().shape({
     companyId: Yup.number().required(),
@@ -255,7 +394,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
     if (existingLead) {
       // Retorna o lead existente ao invés de bloquear
-      return existingLead;
+      return mergeSafeExistingLeadData(existingLead, data);
     }
   }
 
@@ -285,7 +424,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
     if (existingLeadByContact) {
       // Retorna o lead existente ao invés de bloquear
-      return existingLeadByContact;
+      return mergeSafeExistingLeadData(existingLeadByContact, data, contactId);
     }
   } else if (data.phone) {
     const normPhone = normalizeNumber(data.phone) || data.phone;
@@ -303,7 +442,7 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
     if (existingLeadByPhone) {
       // Retorna o lead existente ao invés de bloquear
-      return existingLeadByPhone;
+      return mergeSafeExistingLeadData(existingLeadByPhone, data);
     }
   }
 

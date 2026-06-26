@@ -3,11 +3,7 @@ import fs from "fs";
 import CreateCrmLeadService from "./CreateCrmLeadService";
 import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
-import Opportunity from "../../models/Opportunity";
-import OpportunityEvent from "../../models/OpportunityEvent";
-import PipelineStage from "../../models/PipelineStage";
 import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
-import EventBus from "../../libs/EventBus";
 import { getIO } from "../../libs/socket";
 import CompanyLeadFieldSetting from "../../models/CompanyLeadFieldSetting";
 import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
@@ -114,106 +110,20 @@ const ensureImportedLeadInPipeline = async ({
         return;
     }
 
-    const stage = await PipelineStage.findOne({
-        where: { id: stageId, pipelineId, companyId }
-    });
+    const assignedUserId = ownerUserId !== undefined ? ownerUserId || null : lead.ownerUserId || null;
 
-    if (!stage) {
-        throw new AppError("EstÃ¡gio selecionado nÃ£o encontrado no funil informado.");
-    }
-
-    const leadUpdate: Record<string, any> = {
+    await CreateOpportunityService({
+        companyId,
         pipelineId,
         stageId,
-        lastActivityAt: new Date()
-    };
+        leadId: lead.id,
+        contactId: lead.contactId || undefined,
+        title: lead.name,
+        value: value != null ? Number(value) : Number(lead.purchaseValue || 0),
+        assignedUserId
+    } as any);
 
-    if (ownerUserId !== undefined) {
-        leadUpdate.ownerUserId = ownerUserId || null;
-    }
-
-    if (stage.linkedStatus) {
-        leadUpdate.status = stage.linkedStatus;
-        leadUpdate.leadStatus = stage.linkedStatus;
-    }
-
-    await lead.update(leadUpdate);
-
-    const opportunity = await Opportunity.findOne({
-        where: {
-            companyId,
-            leadId: lead.id,
-            status: "OPEN"
-        },
-        order: [["updatedAt", "DESC"]]
-    });
-
-    const assignedUserId = ownerUserId !== undefined ? ownerUserId || null : opportunity?.assignedUserId || lead.ownerUserId || null;
-
-    if (!opportunity) {
-        await CreateOpportunityService({
-            companyId,
-            pipelineId,
-            stageId,
-            leadId: lead.id,
-            contactId: lead.contactId || undefined,
-            title: lead.name,
-            value: value != null ? Number(value) : Number(lead.purchaseValue || 0),
-            assignedUserId
-        } as any);
-    } else {
-        const changes: Record<string, { before: any; after: any }> = {};
-        const updateData: Record<string, any> = {};
-
-        if (Number(opportunity.pipelineId) !== Number(pipelineId)) {
-            changes.pipelineId = { before: opportunity.pipelineId, after: pipelineId };
-            updateData.pipelineId = pipelineId;
-        }
-
-        if (Number(opportunity.stageId) !== Number(stageId)) {
-            changes.stageId = { before: opportunity.stageId, after: stageId };
-            updateData.stageId = stageId;
-            updateData.lastMovedBy = "USER";
-        }
-
-        if (ownerUserId !== undefined && Number(opportunity.assignedUserId || 0) !== Number(assignedUserId || 0)) {
-            changes.assignedUserId = { before: opportunity.assignedUserId || null, after: assignedUserId };
-            updateData.assignedUserId = assignedUserId;
-        }
-
-        if (Object.keys(updateData).length > 0) {
-            await opportunity.update(updateData);
-
-            await OpportunityEvent.create({
-                companyId,
-                opportunityId: opportunity.id,
-                type: "UPDATED",
-                metadata: {
-                    origin: "lead_import",
-                    changes,
-                    text: `Lead importado/vinculado ao estÃ¡gio: ${stage.name}`
-                }
-            });
-
-            await EventBus.publish("OPPORTUNITY_UPDATED", {
-                opportunityId: opportunity.id,
-                pipelineId: opportunity.pipelineId,
-                stageId: opportunity.stageId,
-                changes,
-                assignedUserId: opportunity.assignedUserId,
-                status: opportunity.status,
-                value: opportunity.value,
-                updatedAt: opportunity.updatedAt,
-                version: opportunity.version
-            }, companyId);
-
-            const io = getIO();
-            io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
-                action: "update",
-                opportunity
-            });
-        }
-    }
+    await lead.update({ lastActivityAt: new Date() });
 
     const io = getIO();
     io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
