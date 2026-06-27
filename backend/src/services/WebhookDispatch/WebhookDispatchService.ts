@@ -325,6 +325,13 @@ export const dispatch = async (
       dispatchGlobalAiWebhook(eventType, companyId, payload).catch(err => {
         logger.warn(`[WebhookDispatch] Erro no dispatch global companyId=${companyId}: ${err?.message}`);
       });
+
+      // ── Webhooks por grupo (Gestão de Grupos → Webhook) ────────────────────
+      // Fire-and-forget e isolado (import dinâmico): só atua em mensagens de
+      // grupo de empresas com webhook ativo; nunca bloqueia o fluxo principal.
+      import("../GroupWebhookServices/GroupWebhookDispatchService")
+        .then(({ maybeDispatchGroupMessage }) => maybeDispatchGroupMessage(eventType, companyId, data))
+        .catch(() => undefined);
     }
   } catch (err) {
     logger.error(`[WebhookDispatch] Erro ao buscar integrações: ${err}`);

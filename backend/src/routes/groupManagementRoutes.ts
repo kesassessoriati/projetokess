@@ -1,6 +1,7 @@
 import { Router } from "express";
 import isAuth from "../middleware/isAuth";
 import * as GroupManagementController from "../controllers/GroupManagementController";
+import * as GroupWebhookController from "../controllers/GroupWebhookController";
 import multer from "multer";
 import uploadConfig from "../config/upload";
 
@@ -57,5 +58,12 @@ groupManagementRoutes.get("/group-management/campaigns/:id/report", isAuth, Grou
 groupManagementRoutes.get("/group-management/schedules", isAuth, GroupManagementController.listSchedules);
 groupManagementRoutes.get("/group-management/history", isAuth, GroupManagementController.history);
 groupManagementRoutes.get("/group-management/reports", isAuth, GroupManagementController.reports);
+
+// Group webhooks (mensagens de grupo recebidas/enviadas)
+groupManagementRoutes.get("/group-management/webhooks", isAuth, GroupWebhookController.index);
+groupManagementRoutes.post("/group-management/webhooks", isAuth, GroupWebhookController.store);
+groupManagementRoutes.put("/group-management/webhooks/:id", isAuth, GroupWebhookController.update);
+groupManagementRoutes.delete("/group-management/webhooks/:id", isAuth, GroupWebhookController.remove);
+groupManagementRoutes.post("/group-management/webhooks/:id/test", isAuth, GroupWebhookController.test);
 
 export default groupManagementRoutes;
