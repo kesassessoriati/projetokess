@@ -152,6 +152,7 @@ import GroupTemplate from "../models/GroupTemplate";
 import GroupCampaign from "../models/GroupCampaign";
 import GroupCampaignTarget from "../models/GroupCampaignTarget";
 import GroupCampaignLog from "../models/GroupCampaignLog";
+import GroupWebhookSetting from "../models/GroupWebhookSetting";
 import ButtonCampaign from "../models/ButtonCampaign";
 import ButtonCampaignShipping from "../models/ButtonCampaignShipping";
 import OfficialTemplate from "../models/OfficialTemplate";
@@ -407,6 +408,7 @@ const models = [
   GroupCampaign,
   GroupCampaignTarget,
   GroupCampaignLog,
+  GroupWebhookSetting,
   SocialBoard,
   SocialStage,
   SocialContent,

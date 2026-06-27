@@ -61,7 +61,8 @@ const TABS = [
   "Agendamentos",
   "Templates",
   "Historico",
-  "Relatorios"
+  "Relatorios",
+  "Webhook"
 ];
 
 const TAB_META = [
@@ -99,6 +100,11 @@ const TAB_META = [
     title: "Relatorios de desempenho",
     description:
       "Consolide resultados, falhas e volume de execucao em uma visao mais limpa."
+  },
+  {
+    title: "Webhook de grupos",
+    description:
+      "Envie eventos de mensagens recebidas/enviadas de grupos selecionados para uma URL externa (n8n, Make, etc.)."
   }
 ];
 
@@ -1763,6 +1769,22 @@ export default function GroupManagement() {
   const [historyLogs, setHistoryLogs] = useState([]);
   const [reports, setReports] = useState(null);
   const [campaignLogs, setCampaignLogs] = useState([]);
+  // Webhook de grupos
+  const initialWebhookForm = {
+    id: null,
+    name: "",
+    url: "",
+    secret: "",
+    enabled: true,
+    received: true,
+    sent: false,
+    selectedGroups: []
+  };
+  const [webhooks, setWebhooks] = useState([]);
+  const [webhookForm, setWebhookForm] = useState(initialWebhookForm);
+  const [webhooksLoading, setWebhooksLoading] = useState(false);
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [webhooksLoaded, setWebhooksLoaded] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupInfo, setGroupInfo] = useState(null);
@@ -1916,6 +1938,105 @@ export default function GroupManagement() {
   useEffect(() => {
     refreshAll();
   }, [refreshAll]);
+
+  const resetWebhookForm = useCallback(() => setWebhookForm(initialWebhookForm), []);
+
+  const loadWebhooks = useCallback(async () => {
+    setWebhooksLoading(true);
+    try {
+      const { data } = await api.get("/group-management/webhooks");
+      setWebhooks(Array.isArray(data?.webhooks) ? data.webhooks : []);
+      setWebhooksLoaded(true);
+    } catch (err) {
+      toast.error("Falha ao carregar webhooks de grupos.");
+    } finally {
+      setWebhooksLoading(false);
+    }
+  }, []);
+
+  const buildWebhookPayload = useCallback(() => {
+    const events = [];
+    if (webhookForm.received) events.push("group.message.received");
+    if (webhookForm.sent) events.push("group.message.sent");
+    return {
+      name: webhookForm.name,
+      url: webhookForm.url,
+      enabled: webhookForm.enabled,
+      events,
+      selectedGroups: webhookForm.selectedGroups,
+      ...(webhookForm.secret ? { secret: webhookForm.secret } : {})
+    };
+  }, [webhookForm]);
+
+  const handleSaveWebhook = useCallback(async () => {
+    if (!webhookForm.url || !/^https?:\/\//i.test(webhookForm.url)) {
+      toast.error("Informe uma URL https válida.");
+      return;
+    }
+    if (!webhookForm.received && !webhookForm.sent) {
+      toast.error("Selecione ao menos um evento.");
+      return;
+    }
+    if (!webhookForm.selectedGroups.length) {
+      toast.error("Selecione ao menos um grupo.");
+      return;
+    }
+    setWebhookSaving(true);
+    try {
+      const payload = buildWebhookPayload();
+      if (webhookForm.id) {
+        await api.put(`/group-management/webhooks/${webhookForm.id}`, payload);
+      } else {
+        await api.post("/group-management/webhooks", payload);
+      }
+      toast.success("Webhook salvo com sucesso!");
+      resetWebhookForm();
+      await loadWebhooks();
+    } catch (err) {
+      toast.error("Falha ao salvar o webhook.");
+    } finally {
+      setWebhookSaving(false);
+    }
+  }, [webhookForm, buildWebhookPayload, resetWebhookForm, loadWebhooks]);
+
+  const handleEditWebhook = useCallback((wh) => {
+    setWebhookForm({
+      id: wh.id,
+      name: wh.name || "",
+      url: wh.url || "",
+      secret: "",
+      enabled: wh.enabled !== false,
+      received: (wh.events || []).includes("group.message.received"),
+      sent: (wh.events || []).includes("group.message.sent"),
+      selectedGroups: Array.isArray(wh.selectedGroups) ? wh.selectedGroups.map(Number) : []
+    });
+  }, []);
+
+  const handleDeleteWebhook = useCallback(async (id) => {
+    try {
+      await api.delete(`/group-management/webhooks/${id}`);
+      toast.success("Webhook removido.");
+      if (webhookForm.id === id) resetWebhookForm();
+      await loadWebhooks();
+    } catch (err) {
+      toast.error("Falha ao remover o webhook.");
+    }
+  }, [webhookForm.id, resetWebhookForm, loadWebhooks]);
+
+  const handleTestWebhook = useCallback(async (id) => {
+    try {
+      const { data } = await api.post(`/group-management/webhooks/${id}/test`);
+      if (data?.success) toast.success(`Webhook testado (HTTP ${data.statusCode}).`);
+      else toast.error("Webhook respondeu com erro no teste.");
+      await loadWebhooks();
+    } catch (err) {
+      toast.error("Falha ao testar o webhook.");
+    }
+  }, [loadWebhooks]);
+
+  useEffect(() => {
+    if (tab === 7 && !webhooksLoaded) loadWebhooks();
+  }, [tab, webhooksLoaded, loadWebhooks]);
 
   useEffect(() => {
     if (!socket || !user) return undefined;
@@ -3256,7 +3377,7 @@ export default function GroupManagement() {
           </Paper>
         ) : null}
 
-        {(tab === 0 || tab === 2 || tab === 3 || tab === 4 || tab === 5 || tab === 6) ? (
+        {(tab === 0 || tab === 2 || tab === 3 || tab === 4 || tab === 5 || tab === 6 || tab === 7) ? (
           <Box className={classes.contentHeader} style={{ marginTop: 20 }}>
             <Box>
               <Typography className={classes.sectionTitle}>
@@ -5677,6 +5798,169 @@ export default function GroupManagement() {
                 "Nenhum relatorio disponivel."
               )
             : null}
+
+          {tab === 7 ? (
+            <Paper elevation={0} className={classes.collectionPanel} style={{ marginTop: 16, padding: 20 }}>
+              <Box style={{ display: "grid", gap: 14, maxWidth: 760 }}>
+                <Typography style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                  {webhookForm.id ? "Editar webhook de grupos" : "Novo webhook de grupos"}
+                </Typography>
+
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="Nome (opcional)"
+                  value={webhookForm.name}
+                  onChange={event => setWebhookForm(f => ({ ...f, name: event.target.value }))}
+                />
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="URL do webhook (https)"
+                  placeholder="https://seu-n8n.com/webhook/grupos"
+                  value={webhookForm.url}
+                  onChange={event => setWebhookForm(f => ({ ...f, url: event.target.value }))}
+                />
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  label="Secret (opcional) — assina o payload via HMAC"
+                  value={webhookForm.secret}
+                  onChange={event => setWebhookForm(f => ({ ...f, secret: event.target.value }))}
+                  helperText={webhookForm.id ? "Deixe em branco para manter o secret atual." : ""}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={webhookForm.enabled}
+                      onChange={event => setWebhookForm(f => ({ ...f, enabled: event.target.checked }))}
+                      color="primary"
+                    />
+                  }
+                  label="Integração ativa"
+                />
+
+                <Box>
+                  <Typography style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
+                    Eventos
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={webhookForm.received}
+                        onChange={event => setWebhookForm(f => ({ ...f, received: event.target.checked }))}
+                        color="primary"
+                      />
+                    }
+                    label="Mensagem recebida no grupo"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={webhookForm.sent}
+                        onChange={event => setWebhookForm(f => ({ ...f, sent: event.target.checked }))}
+                        color="primary"
+                      />
+                    }
+                    label="Mensagem enviada no grupo"
+                  />
+                </Box>
+
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel>Grupos monitorados</InputLabel>
+                  <Select
+                    multiple
+                    value={webhookForm.selectedGroups}
+                    onChange={event =>
+                      setWebhookForm(f => ({
+                        ...f,
+                        selectedGroups: (event.target.value || []).map(Number)
+                      }))
+                    }
+                    label="Grupos monitorados"
+                    renderValue={selected => (
+                      <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {(selected || []).map(id => {
+                          const g = groups.find(item => Number(item.id) === Number(id));
+                          return <Chip key={id} size="small" label={g ? g.subject || g.groupJid || g.id : id} />;
+                        })}
+                      </Box>
+                    )}
+                  >
+                    {groups.map(group => (
+                      <MenuItem key={group.id} value={group.id}>
+                        {group.subject || group.groupJid || group.id}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Box style={{ display: "flex", gap: 8 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={webhookSaving}
+                    onClick={handleSaveWebhook}
+                  >
+                    {webhookSaving ? "Salvando…" : webhookForm.id ? "Atualizar webhook" : "Salvar webhook"}
+                  </Button>
+                  {webhookForm.id ? (
+                    <Button variant="outlined" disabled={webhookSaving} onClick={resetWebhookForm}>
+                      Cancelar edição
+                    </Button>
+                  ) : null}
+                </Box>
+              </Box>
+
+              <Box style={{ marginTop: 24 }}>
+                <Typography style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 8 }}>
+                  Webhooks configurados
+                </Typography>
+                {webhooksLoading ? (
+                  <CircularProgress size={22} />
+                ) : webhooks.length === 0 ? (
+                  <Typography style={{ fontSize: 13, color: "#64748b" }}>
+                    Nenhum webhook configurado ainda.
+                  </Typography>
+                ) : (
+                  webhooks.map(wh => (
+                    <Box
+                      key={wh.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        marginBottom: 10,
+                        display: "grid",
+                        gap: 4
+                      }}
+                    >
+                      <Box style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <Typography style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                          {wh.name || "Webhook"} {wh.enabled === false ? "(inativo)" : ""}
+                        </Typography>
+                        <Box style={{ display: "flex", gap: 6 }}>
+                          <Button size="small" onClick={() => handleTestWebhook(wh.id)}>Testar</Button>
+                          <Button size="small" onClick={() => handleEditWebhook(wh)}>Editar</Button>
+                          <Button size="small" color="secondary" onClick={() => handleDeleteWebhook(wh.id)}>Remover</Button>
+                        </Box>
+                      </Box>
+                      <Typography style={{ fontSize: 12, color: "#64748b", wordBreak: "break-all" }}>{wh.url}</Typography>
+                      <Typography style={{ fontSize: 12, color: "#475569" }}>
+                        Eventos: {(wh.events || []).join(", ") || "—"} · Grupos: {(wh.selectedGroups || []).length} · {wh.hasSecret ? "Com secret" : "Sem secret"}
+                      </Typography>
+                      {wh.lastStatus ? (
+                        <Typography style={{ fontSize: 11, color: "#94a3b8" }}>
+                          Último envio: {wh.lastStatus}{wh.lastError ? ` (${wh.lastError})` : ""}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Paper>
+          ) : null}
         </Box>
       </Box>
 
