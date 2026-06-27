@@ -25,6 +25,14 @@ import DigitalPresenceLinkAdornment from "../DigitalPresenceLinkAdornment";
 
 const filter = createFilterOptions();
 
+const REQUIRED_LEAD_FIELD_KEYS = new Set([
+  "status",
+  "pipelineId",
+  "stageId",
+  "name",
+  "phone",
+]);
+
 const normalizeDigits = (value = "") => String(value || "").replace(/\D/g, "");
 
 const formatDocument = (value = "") => {
@@ -237,6 +245,8 @@ const LeadModal = ({
   const [tags, setTags] = useState([]);
   const [products, setProducts] = useState([]);
   const [leadFields, setLeadFields] = useState([]);
+  const [leadFieldsLoaded, setLeadFieldsLoaded] = useState(false);
+  const [leadFieldsError, setLeadFieldsError] = useState(false);
   const resolvedLeadId = leadId || leadData?.id || leadData?.leadId || leadData?.lead?.id || null;
   const hasInitialLeadData = Boolean(leadData);
   const leadDataKey = resolvedLeadId || [
@@ -256,13 +266,11 @@ const LeadModal = ({
           { data: pipelinesData },
           { data: tagsData },
           { data: productsData },
-          { data: leadFieldsData },
         ] = await Promise.all([
           api.get("/users/"),
           api.get("/pipelines"),
           api.get("/tags/list"),
           api.get("/produtos", { params: { limit: 100 } }),
-          api.get("/crm/lead-field-settings"),
         ]);
         setUsers(usersData.users || []);
         setPipelines(pipelinesData || []);
@@ -274,13 +282,29 @@ const LeadModal = ({
               ? productsData
               : [],
         );
-        setLeadFields(leadFieldsData?.fields || []);
       } catch (err) {
         toastError(err);
       }
     };
 
+    const fetchLeadFields = async () => {
+      setLeadFieldsLoaded(false);
+      setLeadFieldsError(false);
+
+      try {
+        const { data } = await api.get("/crm/lead-field-settings");
+        setLeadFields(data?.fields || []);
+      } catch (err) {
+        setLeadFields([]);
+        setLeadFieldsError(true);
+        toastError(err);
+      } finally {
+        setLeadFieldsLoaded(true);
+      }
+    };
+
     fetchData();
+    fetchLeadFields();
 
     if (leadData) {
       setForm(normalizeLeadForm(leadData));
@@ -359,10 +383,41 @@ const LeadModal = ({
     [leadFields]
   );
 
-  const isFieldVisible = (fieldKey) => fieldSettingsByKey[fieldKey]?.visible !== false;
+  const isFieldVisible = React.useCallback((fieldKey) => {
+    if (REQUIRED_LEAD_FIELD_KEYS.has(fieldKey)) {
+      return true;
+    }
+
+    if (!leadFieldsLoaded || leadFieldsError) {
+      return false;
+    }
+
+    const setting = fieldSettingsByKey[fieldKey];
+    if (!setting) {
+      return true;
+    }
+
+    return setting.visible !== false && setting.active !== false;
+  }, [fieldSettingsByKey, leadFieldsError, leadFieldsLoaded]);
+
   const fieldLabel = (fieldKey, fallback) => fieldSettingsByKey[fieldKey]?.label || fallback;
-  const visibleGridStyle = (fieldKey) => (isFieldVisible(fieldKey) ? undefined : { display: "none" });
   const customLeadFields = leadFields.filter((field) => field.isCustom && field.visible !== false && field.active !== false);
+
+  const LeadFieldGrid = React.useMemo(() => {
+    const LeadFieldGridComponent = ({ fieldKey, children, ...gridProps }) => {
+      if (!isFieldVisible(fieldKey)) {
+        return null;
+      }
+
+      return (
+        <Grid item {...gridProps}>
+          {children}
+        </Grid>
+      );
+    };
+
+    return LeadFieldGridComponent;
+  }, [isFieldVisible]);
 
   const handleDocumentChange = (event) => {
     const rawValue = event.target.value || "";
@@ -452,7 +507,7 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} md={4} style={visibleGridStyle("status")}>
+              <LeadFieldGrid fieldKey="status" xs={12} md={4}>
                 <TextField
                   select
                   label={fieldLabel("status", "Status")}
@@ -469,8 +524,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} md={4} style={visibleGridStyle("pipelineId")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="pipelineId" xs={12} md={4}>
                 <TextField
                   select
                   label={fieldLabel("pipelineId", "Funil de Vendas")}
@@ -488,8 +543,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} md={4} style={visibleGridStyle("stageId")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="stageId" xs={12} md={4}>
                 <TextField
                   select
                   label={fieldLabel("stageId", "Estágio Funil")}
@@ -508,8 +563,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("name")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="name" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("name", "Nome Contato")}
                   name="name"
@@ -520,8 +575,8 @@ const LeadModal = ({
                   required
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("companyName")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="companyName" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("companyName", "Empresa")}
                   name="companyName"
@@ -531,8 +586,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("document")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="document" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("document", "CPF / CNPJ")}
                   name="document"
@@ -544,8 +599,8 @@ const LeadModal = ({
                   placeholder="000.000.000-00 ou 00.000.000/0000-00"
                   inputProps={{ maxLength: 18 }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("email")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="email" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("email", "E-mail")}
                   name="email"
@@ -556,8 +611,8 @@ const LeadModal = ({
                   className={classes.formField}
                   type="email"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("phone")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="phone" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("phone", "Telefone Celular")}
                   name="phone"
@@ -567,8 +622,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("decisionMakerPhone")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="decisionMakerPhone" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("decisionMakerPhone", "Telefone decisor")}
                   name="decisionMakerPhone"
@@ -578,8 +633,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} style={visibleGridStyle("address")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="address" xs={12}>
                 <TextField
                   label={fieldLabel("address", "Endereço")}
                   name="address"
@@ -590,7 +645,7 @@ const LeadModal = ({
                   className={classes.formField}
                   placeholder="Rua, avenida, bairro, complemento..."
                 />
-              </Grid>
+              </LeadFieldGrid>
 
               {/* ── INFORMAÇÕES COMERCIAIS ── */}
               <Grid item xs={12}>
@@ -599,7 +654,7 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("position")}>
+              <LeadFieldGrid fieldKey="position" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("position", "Cargo")}
                   name="position"
@@ -609,8 +664,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("decisionMakerName")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="decisionMakerName" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("decisionMakerName", "Nome decisor")}
                   name="decisionMakerName"
@@ -620,8 +675,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("birthDate")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="birthDate" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("birthDate", "Data de nascimento")}
                   name="birthDate"
@@ -633,8 +688,8 @@ const LeadModal = ({
                   className={classes.formField}
                   InputLabelProps={{ shrink: true }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("clientSince")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="clientSince" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("clientSince", "Cliente desde")}
                   name="clientSince"
@@ -646,8 +701,8 @@ const LeadModal = ({
                   className={classes.formField}
                   InputLabelProps={{ shrink: true }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("acquisitionDate")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="acquisitionDate" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("acquisitionDate", "Data de aquisição")}
                   name="acquisitionDate"
@@ -660,8 +715,8 @@ const LeadModal = ({
                   InputLabelProps={{ shrink: true }}
                   helperText="Quando o lead adquiriu o produto/plano."
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("expirationDate")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="expirationDate" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("expirationDate", "Data de vencimento")}
                   name="expirationDate"
@@ -674,8 +729,8 @@ const LeadModal = ({
                   InputLabelProps={{ shrink: true }}
                   helperText="Ao atingir a data, o lead expira."
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("paymentType")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="paymentType" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("paymentType", "Tipo de pagamento")}
                   name="paymentType"
@@ -685,8 +740,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("purchaseType")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="purchaseType" xs={12} sm={6}>
                 <TextField
                   select
                   label={fieldLabel("purchaseType", "Tipo de compra")}
@@ -704,8 +759,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("purchaseValue")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="purchaseValue" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("purchaseValue", "Valor da venda/oportunidade")}
                   name="purchaseValue"
@@ -717,9 +772,9 @@ const LeadModal = ({
                   className={classes.formField}
                   inputProps={{ min: 0, step: "0.01" }}
                 />
-              </Grid>
+              </LeadFieldGrid>
               {/* ── PRODUTO VINCULADO ── */}
-              <Grid item xs={12} style={visibleGridStyle("product")}>
+              <LeadFieldGrid fieldKey="product" xs={12}>
                 <div className={classes.highlightedField}>
                   <Typography className={classes.highlightedLabel}>
                     Produto vinculado ao lead
@@ -771,7 +826,7 @@ const LeadModal = ({
                     )}
                   />
                 </div>
-              </Grid>
+              </LeadFieldGrid>
 
               {/* ── PRESENÇA DIGITAL ── */}
               <Grid item xs={12}>
@@ -780,7 +835,7 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <LeadFieldGrid fieldKey="gmn" xs={12} sm={3}>
                 <TextField
                   label="GMN"
                   name="gmn"
@@ -798,8 +853,8 @@ const LeadModal = ({
                     ),
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={3}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="website" xs={12} sm={3}>
                 <TextField
                   label="Site"
                   name="website"
@@ -817,8 +872,8 @@ const LeadModal = ({
                     ),
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={3}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="instagram" xs={12} sm={3}>
                 <TextField
                   label="Instagram"
                   name="instagram"
@@ -836,8 +891,8 @@ const LeadModal = ({
                     ),
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={3}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="linkedin" xs={12} sm={3}>
                 <TextField
                   label="LinkedIn"
                   name="linkedin"
@@ -855,7 +910,7 @@ const LeadModal = ({
                     ),
                   }}
                 />
-              </Grid>
+              </LeadFieldGrid>
 
               {/* ── CRM ── */}
               <Grid item xs={12}>
@@ -864,7 +919,7 @@ const LeadModal = ({
                 </Typography>
                 <Divider />
               </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("source")}>
+              <LeadFieldGrid fieldKey="source" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("source", "Origem")}
                   name="source"
@@ -874,8 +929,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("campaign")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="campaign" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("campaign", "Campanha/Tag")}
                   name="campaign"
@@ -885,8 +940,8 @@ const LeadModal = ({
                   fullWidth
                   className={classes.formField}
                 />
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("temperature")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="temperature" xs={12} sm={4}>
                 <TextField
                   select
                   label={fieldLabel("temperature", "Temperatura")}
@@ -904,8 +959,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} sm={4} style={visibleGridStyle("score")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="score" xs={12} sm={4}>
                 <TextField
                   label={fieldLabel("score", "Score")}
                   name="score"
@@ -917,8 +972,8 @@ const LeadModal = ({
                   type="number"
                   inputProps={{ min: 0 }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={8} style={visibleGridStyle("ownerUserId")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="ownerUserId" xs={12} sm={8}>
                 <TextField
                   select
                   label={fieldLabel("ownerUserId", "Atribuir a")}
@@ -936,8 +991,8 @@ const LeadModal = ({
                     </MenuItem>
                   ))}
                 </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("tags")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="tags" xs={12} sm={6}>
                 <Autocomplete
                   multiple
                   freeSolo
@@ -980,8 +1035,8 @@ const LeadModal = ({
                     ? "Tags do contato usadas no card do Kanban e na conversa."
                     : "Tags disponiveis apenas quando o lead possui contato vinculado."}
                 </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} style={visibleGridStyle("notes")}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="notes" xs={12} sm={6}>
                 <TextField
                   label={fieldLabel("notes", "Observações")}
                   name="notes"
@@ -993,8 +1048,8 @@ const LeadModal = ({
                   multiline
                   rows={3}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
+              </LeadFieldGrid>
+              <LeadFieldGrid fieldKey="sessionid" xs={12} sm={6}>
                 <TextField
                   label="Acesso ID"
                   name="sessionid"
@@ -1005,7 +1060,7 @@ const LeadModal = ({
                   InputProps={{ readOnly: true }}
                   helperText="Preenchido por automação."
                 />
-              </Grid>
+              </LeadFieldGrid>
 
               {customLeadFields.length > 0 && (
                 <>
