@@ -53,6 +53,11 @@ import Chart from "react-apexcharts";
 import api from "../../services/api";
 import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import {
+  normalizeSelectedGroups,
+  resolveGroupLabel,
+  removeGroupFromSelection
+} from "./webhookGroups";
 
 const TABS = [
   "Dashboard",
@@ -2008,7 +2013,7 @@ export default function GroupManagement() {
       enabled: wh.enabled !== false,
       received: (wh.events || []).includes("group.message.received"),
       sent: (wh.events || []).includes("group.message.sent"),
-      selectedGroups: Array.isArray(wh.selectedGroups) ? wh.selectedGroups.map(Number) : []
+      selectedGroups: normalizeSelectedGroups(wh.selectedGroups)
     });
   }, []);
 
@@ -2022,6 +2027,25 @@ export default function GroupManagement() {
       toast.error("Falha ao remover o webhook.");
     }
   }, [webhookForm.id, resetWebhookForm, loadWebhooks]);
+
+  // Remove um grupo individual de um webhook já salvo e persiste.
+  // O secret é omitido de propósito: o backend mantém o secret atual quando ausente.
+  const handleRemoveGroupFromWebhook = useCallback(async (wh, groupId) => {
+    try {
+      const nextGroups = removeGroupFromSelection(wh.selectedGroups, groupId);
+      await api.put(`/group-management/webhooks/${wh.id}`, {
+        name: wh.name,
+        url: wh.url,
+        enabled: wh.enabled,
+        events: wh.events,
+        selectedGroups: nextGroups
+      });
+      toast.success("Grupo removido do webhook");
+      await loadWebhooks();
+    } catch (err) {
+      toast.error("Falha ao remover o grupo do webhook");
+    }
+  }, [loadWebhooks]);
 
   const handleTestWebhook = useCallback(async (id) => {
     try {
@@ -5875,22 +5899,31 @@ export default function GroupManagement() {
                     onChange={event =>
                       setWebhookForm(f => ({
                         ...f,
-                        selectedGroups: (event.target.value || []).map(Number)
+                        selectedGroups: normalizeSelectedGroups(event.target.value)
                       }))
                     }
                     label="Grupos monitorados"
                     renderValue={selected => (
                       <Box style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {(selected || []).map(id => {
-                          const g = groups.find(item => Number(item.id) === Number(id));
-                          return <Chip key={id} size="small" label={g ? g.subject || g.groupJid || g.id : id} />;
-                        })}
+                        {(selected || []).map(id => (
+                          <Chip
+                            key={id}
+                            size="small"
+                            label={resolveGroupLabel(id, groups)}
+                            onDelete={() =>
+                              setWebhookForm(f => ({
+                                ...f,
+                                selectedGroups: removeGroupFromSelection(f.selectedGroups, id)
+                              }))
+                            }
+                          />
+                        ))}
                       </Box>
                     )}
                   >
                     {groups.map(group => (
-                      <MenuItem key={group.id} value={group.id}>
-                        {group.subject || group.groupJid || group.id}
+                      <MenuItem key={group.groupId} value={group.groupId}>
+                        {group.subject || group.groupJid || group.groupId}
                       </MenuItem>
                     ))}
                   </Select>
@@ -5950,6 +5983,19 @@ export default function GroupManagement() {
                       <Typography style={{ fontSize: 12, color: "#475569" }}>
                         Eventos: {(wh.events || []).join(", ") || "—"} · Grupos: {(wh.selectedGroups || []).length} · {wh.hasSecret ? "Com secret" : "Sem secret"}
                       </Typography>
+                      {Array.isArray(wh.selectedGroups) && wh.selectedGroups.length > 0 && (
+                        <Box style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                          {wh.selectedGroups.map(gid => (
+                            <Chip
+                              key={gid}
+                              size="small"
+                              variant="outlined"
+                              label={resolveGroupLabel(gid, groups)}
+                              onDelete={() => handleRemoveGroupFromWebhook(wh, gid)}
+                            />
+                          ))}
+                        </Box>
+                      )}
                       {wh.lastStatus ? (
                         <Typography style={{ fontSize: 11, color: "#94a3b8" }}>
                           Último envio: {wh.lastStatus}{wh.lastError ? ` (${wh.lastError})` : ""}
