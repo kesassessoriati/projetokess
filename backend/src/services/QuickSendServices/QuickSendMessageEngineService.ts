@@ -1,4 +1,5 @@
 // @ts-nocheck
+import path from "path";
 import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import { getWbot } from "../../libs/wbot";
@@ -8,13 +9,20 @@ import Whatsapp from "../../models/Whatsapp";
 import CompaniesSettings from "../../models/CompaniesSettings";
 import CrmLead from "../../models/CrmLead";
 import Opportunity from "../../models/Opportunity";
+import QuickReply from "../../models/QuickReply";
+import MediaFile from "../../models/MediaFile";
 import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
 import { renderAppointmentVariables } from "../../helpers/RenderAppointmentVariables";
 import {
   getBrazilianPhoneVariants,
   normalizePhoneNumber
 } from "../../helpers/normalizeContactNumber";
-import { sendButtonMessage } from "../../helpers/SendInteractiveMessage";
+import {
+  sendButtonMessage,
+  sendListMessage,
+  sendCarouselMessage
+} from "../../helpers/SendInteractiveMessage";
+import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
 import logger from "../../utils/logger";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
@@ -40,6 +48,14 @@ interface QuickSendMessageEngineRequest {
   contact?: Contact | null;
   ticket?: Ticket | null;
   renderAppointment?: boolean;
+  // Tipos adicionais reaproveitados do Disparo Rápido / Automação de etapa.
+  mediaId?: number | string | null;
+  quickReplyId?: number | string | null;
+  listSections?: any[] | null;
+  listButtonText?: string | null;
+  listFooter?: string | null;
+  carouselCards?: any[] | null;
+  poll?: { name: string; options: string[]; selectableCount?: number } | null;
 }
 
 interface QuickSendMessageEngineResponse {
@@ -396,6 +412,62 @@ const resolveTicket = async ({
   return ShowTicketService(ticket.id, companyId);
 };
 
+// Resolve a fonte de mídia para envio: biblioteca de mídia (mediaId) ou
+// resposta rápida (quickReplyId, que pode trazer texto e/ou mídia). Centraliza
+// no motor a lógica que antes ficava duplicada na automação de etapa.
+const resolveMediaSource = async ({
+  companyId,
+  mediaId,
+  quickReplyId
+}: {
+  companyId: number;
+  mediaId?: number | string | null;
+  quickReplyId?: number | string | null;
+}): Promise<{
+  mediaFilePath: string | null;
+  mediaFileName: string | null;
+  quickReplyText: string;
+}> => {
+  let mediaFilePath: string | null = null;
+  let mediaFileName: string | null = null;
+  let quickReplyText = "";
+  const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+
+  if (quickReplyId) {
+    const qr = await QuickReply.findOne({
+      where: { id: Number(quickReplyId), companyId }
+    });
+    if (qr) {
+      if (qr.message) quickReplyText = qr.message;
+      const rawMedia = qr.getDataValue("mediaUrl") as string | null;
+      if (rawMedia) {
+        const normalized = rawMedia.replace(/\\/g, "/").replace(/^\/+/, "");
+        mediaFilePath = normalized.startsWith("media-drive/")
+          ? path.join(publicFolder, `company${companyId}`, normalized)
+          : path.join(publicFolder, `company${companyId}`, "quickReply", normalized);
+        mediaFileName = qr.mediaName || path.basename(normalized);
+      }
+    } else {
+      logger.warn({ companyId, quickReplyId }, "QuickSend engine: quickReply not found");
+    }
+  }
+
+  if (mediaId && !mediaFilePath) {
+    const mf = await MediaFile.findOne({
+      where: { id: Number(mediaId), companyId }
+    });
+    if (mf) {
+      const normalizedStorage = mf.storagePath.replace(/\\/g, "/").replace(/^\/+/, "");
+      mediaFilePath = path.join(publicFolder, `company${companyId}`, normalizedStorage);
+      mediaFileName = mf.customName || mf.originalName;
+    } else {
+      logger.warn({ companyId, mediaId }, "QuickSend engine: media file not found");
+    }
+  }
+
+  return { mediaFilePath, mediaFileName, quickReplyText };
+};
+
 const sendMessage = async ({
   messageType,
   buttons,
@@ -404,7 +476,15 @@ const sendMessage = async ({
   contact,
   remoteJid,
   whatsappId,
-  userId
+  companyId,
+  userId,
+  mediaFilePath,
+  mediaFileName,
+  listSections,
+  listButtonText,
+  listFooter,
+  carouselCards,
+  poll
 }: {
   messageType: string;
   buttons?: any[] | null;
@@ -413,22 +493,19 @@ const sendMessage = async ({
   contact: Contact;
   remoteJid: string;
   whatsappId: number;
+  companyId: number;
   userId?: number | null;
+  mediaFilePath?: string | null;
+  mediaFileName?: string | null;
+  listSections?: any[] | null;
+  listButtonText?: string | null;
+  listFooter?: string | null;
+  carouselCards?: any[] | null;
+  poll?: { name: string; options: string[]; selectableCount?: number } | null;
 }) => {
-  if (messageType === "buttons") {
-    const normalizedButtons = normalizeQuickSendButtons(buttons);
-    if (!normalizedButtons.length) {
-      throw new AppError("Nenhum botão configurado na ação.", 400);
-    }
+  const wbot = getWbot(Number(whatsappId));
 
-    const sentMsg = await sendButtonMessage(
-      getWbot(Number(whatsappId)),
-      remoteJid,
-      message || "",
-      "",
-      normalizedButtons
-    );
-
+  const persist = async (sentMsg: any) => {
     if (sentMsg?.key) {
       await verifyMessage(
         sentMsg,
@@ -442,34 +519,99 @@ const sendMessage = async ({
         userId || undefined
       );
     }
+  };
 
+  // 1. Botões
+  if (messageType === "buttons") {
+    const normalizedButtons = normalizeQuickSendButtons(buttons);
+    if (!normalizedButtons.length) {
+      throw new AppError("Nenhum botão configurado na ação.", 400);
+    }
+    await persist(
+      await sendButtonMessage(wbot, remoteJid, message || "", "", normalizedButtons)
+    );
     return;
   }
 
+  // 2. Lista
+  if (messageType === "list") {
+    const sections = Array.isArray(listSections) ? listSections : [];
+    const items = sections.length ? sections : normalizeQuickSendButtons(buttons);
+    if (!items.length) {
+      throw new AppError("Configure ao menos um item da lista.", 400);
+    }
+    await persist(
+      await sendListMessage(
+        wbot,
+        remoteJid,
+        message || "",
+        listButtonText || "Ver opções",
+        items,
+        listFooter || ""
+      )
+    );
+    return;
+  }
+
+  // 3. Carrossel
+  if (messageType === "carousel") {
+    const cards = Array.isArray(carouselCards) ? carouselCards : [];
+    if (!cards.length) {
+      throw new AppError("Configure ao menos um card do carrossel.", 400);
+    }
+    await persist(await sendCarouselMessage(wbot, remoteJid, cards));
+    return;
+  }
+
+  // 4. Enquete
+  if (messageType === "poll") {
+    const pollName = String(poll?.name || message || "").trim();
+    const pollOptions = (Array.isArray(poll?.options) ? poll.options : [])
+      .map(option => String(option || "").trim())
+      .filter(Boolean);
+    if (!pollName || pollOptions.length < 2) {
+      throw new AppError("Enquete inválida: informe a pergunta e ao menos duas opções.", 400);
+    }
+    await persist(
+      await wbot.sendMessage(remoteJid, {
+        poll: {
+          name: pollName,
+          values: pollOptions,
+          selectableCount: Number(poll?.selectableCount) || 1
+        }
+      })
+    );
+    return;
+  }
+
+  // 5. Mídia (biblioteca de mídia ou resposta rápida com mídia)
+  if (mediaFilePath) {
+    const options = await getMessageOptions(
+      mediaFileName || "arquivo",
+      mediaFilePath,
+      String(companyId),
+      message || ""
+    );
+    if (!options) {
+      throw new AppError("Falha ao preparar opções de mídia.", 400);
+    }
+    await persist(await wbot.sendMessage(remoteJid, options));
+    return;
+  }
+
+  // 6. Texto puro (fallback)
   if (!message) {
     logger.debug({ ticketId: ticket.id }, "QuickSend engine: ticket created without message.");
     return;
   }
 
-  const sentMsg = await SendWhatsAppMessage({
-    body: message,
-    ticket,
-    quotedMsg: null
-  });
-
-  if (sentMsg?.key) {
-    await verifyMessage(
-      sentMsg,
+  await persist(
+    await SendWhatsAppMessage({
+      body: message,
       ticket,
-      contact,
-      undefined,
-      false,
-      false,
-      false,
-      true,
-      userId || undefined
-    );
-  }
+      quotedMsg: null
+    })
+  );
 };
 
 const QuickSendMessageEngineService = async ({
@@ -487,7 +629,14 @@ const QuickSendMessageEngineService = async ({
   messageType = "text",
   contact: initialContact = null,
   ticket: initialTicket = null,
-  renderAppointment = false
+  renderAppointment = false,
+  mediaId = null,
+  quickReplyId = null,
+  listSections = null,
+  listButtonText = null,
+  listFooter = null,
+  carouselCards = null,
+  poll = null
 }: QuickSendMessageEngineRequest): Promise<QuickSendMessageEngineResponse> => {
   const { opportunity, lead: opportunityLead } = await resolveOpportunityTarget({
     companyId,
@@ -595,17 +744,22 @@ const QuickSendMessageEngineService = async ({
     await opportunity.update({ ticketId: ticket.id });
   }
 
+  // Resolve mídia/resposta rápida da biblioteca (mediaId/quickReplyId).
+  // Quando não há texto explícito, usa o texto da resposta rápida.
+  const mediaSource = await resolveMediaSource({ companyId, mediaId, quickReplyId });
+  const effectiveMessage = String(message || mediaSource.quickReplyText || "");
+
   const templateContact = {
     name: contact.name,
     email: contact.email,
     number: contact.number
   };
   const appointmentMessage = renderAppointment
-    ? await renderAppointmentVariables(String(message || ""), {
+    ? await renderAppointmentVariables(effectiveMessage, {
         companyId,
         contactId: contact.id
       })
-    : String(message || "");
+    : effectiveMessage;
   const renderedMessage = renderCampaignTemplate(
     appointmentMessage,
     templateContact,
@@ -616,6 +770,27 @@ const QuickSendMessageEngineService = async ({
     templateContact,
     []
   ) as any[];
+  const renderedListSections = renderCampaignTemplate(
+    listSections || [],
+    templateContact,
+    []
+  ) as any[];
+  const renderedCarouselCards = renderCampaignTemplate(
+    carouselCards || [],
+    templateContact,
+    []
+  ) as any[];
+  const renderedPoll = poll
+    ? {
+        name: renderCampaignTemplate(String(poll.name || ""), templateContact, []) as string,
+        options: renderCampaignTemplate(
+          Array.isArray(poll.options) ? poll.options : [],
+          templateContact,
+          []
+        ) as string[],
+        selectableCount: poll.selectableCount
+      }
+    : null;
 
   try {
     await sendMessage({
@@ -626,7 +801,19 @@ const QuickSendMessageEngineService = async ({
       contact,
       remoteJid,
       whatsappId: whatsapp.id,
-      userId
+      companyId,
+      userId,
+      mediaFilePath: mediaSource.mediaFilePath,
+      mediaFileName: mediaSource.mediaFileName,
+      listSections: renderedListSections,
+      listButtonText: listButtonText
+        ? (renderCampaignTemplate(String(listButtonText), templateContact, []) as string)
+        : null,
+      listFooter: listFooter
+        ? (renderCampaignTemplate(String(listFooter), templateContact, []) as string)
+        : null,
+      carouselCards: renderedCarouselCards,
+      poll: renderedPoll
     });
   } catch (err: any) {
     logger.error(

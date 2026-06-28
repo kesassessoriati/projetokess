@@ -9,16 +9,12 @@ import Tag from "../../models/Tag";
 import TicketTag from "../../models/TicketTag";
 import ContactTag from "../../models/ContactTag";
 import CampaignSetting from "../../models/CampaignSetting";
-import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
 import QuickSendMessageEngineService from "../QuickSendServices/QuickSendMessageEngineService";
 import { getIO } from "../../libs/socket";
 import logger from "../../utils/logger";
 import moment from "moment";
-import renderCampaignTemplate from "../../helpers/RenderCampaignTemplate";
-import { renderAppointmentVariables } from "../../helpers/RenderAppointmentVariables";
 import { isSafeWebhookUrl } from "../../helpers/isSafeWebhookUrl";
-import path from "path";
 import {
   evaluateCondition,
   normalizeCondition,
@@ -357,88 +353,10 @@ const calculateDelay = (settings: CampaignSettings, messageCount: number): numbe
   return settings.messageInterval;
 };
 
-// Executar ação de enviar mensagem com botões interativos.
-// Reaproveita o mesmo helper/payload do Disparo Rápido (sendButtonMessage),
-// que já possui fallback automático para texto numerado quando o canal não
-// suporta botões nativos.
-const sendAutomationButtons = async (
-  action: AutomationAction,
-  contact: Contact | null,
-  ticket: Ticket | null,
-  companyId: number
-): Promise<{ success: boolean; message: string }> => {
-  try {
-    if (!contact) {
-      return { success: false, message: "Não foi possível enviar botões: oportunidade sem contato." };
-    }
-    if (!ticket) {
-      return { success: false, message: "Não foi possível enviar botões: nenhum ticket ativo para o contato." };
-    }
-
-    const { message, whatsappId, buttons } = action.actionConfig || {};
-    const buttonList = Array.isArray(buttons)
-      ? buttons.filter((b: any) => b && String(b.displayText || "").trim())
-      : [];
-
-    if (buttonList.length === 0) {
-      return { success: false, message: "Nenhum botão configurado na ação." };
-    }
-
-    if (whatsappId && Number(ticket.whatsappId) !== Number(whatsappId)) {
-      await ticket.update({ whatsappId: Number(whatsappId) });
-      await ticket.reload();
-    }
-
-    // Renderiza variáveis: agendamento (assíncrono) + contato (template)
-    const withAppointment = await renderAppointmentVariables(String(message || ""), {
-      companyId,
-      contactId: contact.id
-    });
-    const finalText = renderCampaignTemplate(withAppointment, contact) as string;
-    const renderedButtons = renderCampaignTemplate(buttonList, contact) as any[];
-
-    const { getWbot } = await import("../../libs/wbot");
-    const { sendButtonMessage } = await import("../../helpers/SendInteractiveMessage");
-    const CreateMessageService = (await import("../MessageServices/CreateMessageService")).default;
-
-    const wbot = await getWbot(ticket.whatsappId);
-    const remoteJid =
-      contact.remoteJid && contact.remoteJid.includes("@")
-        ? contact.remoteJid
-        : `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
-
-    const sentMessage = await sendButtonMessage(wbot, remoteJid, finalText || "", "", renderedButtons);
-
-    if (sentMessage?.key?.id) {
-      const messageData = {
-        wid: sentMessage.key.id,
-        ticketId: ticket.id,
-        contactId: undefined,
-        body: finalText || "Mensagem com botões",
-        fromMe: true,
-        read: true,
-        mediaType: "chat",
-        quotedMsgId: null,
-        ack: 2,
-        remoteJid,
-        participant: null,
-        dataJson: JSON.stringify(sentMessage),
-        ticketTrakingId: null,
-        isForwarded: false
-      };
-      await CreateMessageService({ messageData, companyId: ticket.companyId });
-      await ticket.update({ lastMessage: finalText || "Mensagem com botões", imported: null });
-    }
-
-    logger.info(`[StageAutomation][Buttons] Botões enviados para contato ${contact.id}, ticket ${ticket.id}`);
-    return { success: true, message: "Mensagem com botões enviada com sucesso" };
-  } catch (error: any) {
-    logger.error(`[StageAutomation][Buttons] Erro ao enviar botões: ${error.message}`);
-    return { success: false, message: error.message };
-  }
-};
-
-// Executar ação de enviar mensagem
+// Executar ação de enviar mensagem.
+// Rota única: TODO envio de WhatsApp da automação passa pelo motor do Disparo
+// Rápido (QuickSendMessageEngineService). Texto, botões, mídia, lista, carrossel,
+// enquete e resposta rápida são tratados no motor — sem fluxo legado duplicado.
 const executeActionSendMessage = async (
   action: AutomationAction,
   contact: Contact | null,
@@ -446,167 +364,59 @@ const executeActionSendMessage = async (
   companyId: number,
   opportunityId?: number
 ): Promise<{ success: boolean; message: string }> => {
+  const {
+    message,
+    whatsappId,
+    quickReplyId,
+    mediaId,
+    buttons,
+    messageType,
+    listSections,
+    listButtonText,
+    listFooter,
+    carouselCards,
+    poll
+  } = action.actionConfig || {};
+
   try {
-    const { message, whatsappId, quickReplyId, mediaId, buttons, messageType } = action.actionConfig || {};
-
-    if (messageType === "buttons" || (!quickReplyId && !mediaId)) {
-      const result = await QuickSendMessageEngineService({
-        companyId,
-        opportunityId,
-        contact,
-        ticket,
-        whatsappId,
-        message,
-        buttons,
-        messageType: messageType === "buttons" ? "buttons" : "text",
-        renderAppointment: true
-      });
-
-      if (result.warning) {
-        return { success: false, message: result.sendError || result.warning };
-      }
-
-      logger.info(
-        `[StageAutomation][WhatsApp] Mensagem enviada pelo motor do Disparo Rapido - ticket ${result.ticket.id}`
-      );
-      return { success: true, message: "Mensagem enviada com sucesso" };
-    }
-
-    if (!contact) {
-      logger.warn(`[StageAutomation][WhatsApp] Oportunidade ${opportunityId} sem contato - send_message ignorada`);
-      return {
-        success: false,
-        message: "Não foi possível enviar mensagem: oportunidade não possui contato, ticket ou telefone associado."
-      };
-    }
-
-    if (!ticket) {
-      logger.warn(`[StageAutomation][WhatsApp] Contato ${contact.id} sem ticket - send_message ignorada`);
-      return {
-        success: false,
-        message: "Não foi possível enviar mensagem: nenhum ticket ativo encontrado/criado para o contato."
-      };
-    }
-
-    // Fluxo legado para resposta rápida ou mídia: texto/botões simples usam o motor do Disparo Rápido acima.
-
-    logger.info(`[StageAutomation][WhatsApp] Iniciando - contato ${contact.id}, ticket ${ticket.id}, conexão=${whatsappId || "padrão"}, quickReplyId=${quickReplyId || "—"}, mediaId=${mediaId || "—"}`);
-
-    // Garante que o ticket usa a conexão WhatsApp configurada na ação
-    if (whatsappId && Number(ticket.whatsappId) !== Number(whatsappId)) {
-      logger.info(`[StageAutomation][WhatsApp] Atualizando conexão do ticket ${ticket.id}: ${ticket.whatsappId} → ${whatsappId}`);
-      await ticket.update({ whatsappId: Number(whatsappId) });
-      await ticket.reload();
-    }
-
-    let textBody = message || "";
-    let mediaFilePath: string | null = null;
-    let mediaFileName: string | null = null;
-
-    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
-
-    // Resolve resposta rápida (QuickReply)
-    if (quickReplyId) {
-      const QuickReply = (await import("../../models/QuickReply")).default;
-      const qr = await QuickReply.findOne({ where: { id: Number(quickReplyId), companyId } });
-      if (qr) {
-        if (!textBody && qr.message) textBody = qr.message;
-        const rawMedia = qr.getDataValue("mediaUrl") as string | null;
-        if (rawMedia) {
-          const normalized = rawMedia.replace(/\\/g, "/").replace(/^\/+/, "");
-          mediaFilePath = normalized.startsWith("media-drive/")
-            ? path.join(publicFolder, `company${companyId}`, normalized)
-            : path.join(publicFolder, `company${companyId}`, "quickReply", normalized);
-          mediaFileName = qr.mediaName || path.basename(normalized);
-          logger.info(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} com mídia: ${mediaFileName}`);
-        } else {
-          logger.info(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} apenas texto`);
-        }
-      } else {
-        logger.warn(`[StageAutomation][WhatsApp] Resposta rápida ${quickReplyId} não encontrada`);
-      }
-    }
-
-    // Resolve mídia da biblioteca (apenas se não há mídia de resposta rápida)
-    if (mediaId && !mediaFilePath) {
-      const MediaFile = (await import("../../models/MediaFile")).default;
-      const mf = await MediaFile.findOne({ where: { id: Number(mediaId), companyId } });
-      if (mf) {
-        const normalizedStorage = mf.storagePath.replace(/\\/g, "/").replace(/^\/+/, "");
-        mediaFilePath = path.join(publicFolder, `company${companyId}`, normalizedStorage);
-        mediaFileName = mf.customName || mf.originalName;
-        logger.info(`[StageAutomation][WhatsApp] Mídia biblioteca ${mediaId}: ${mediaFileName}`);
-      } else {
-        logger.warn(`[StageAutomation][WhatsApp] Mídia ${mediaId} não encontrada`);
-      }
-    }
-
-    // Aplica variáveis de agendamento (assíncrono, só consulta se houver token)
-    // e em seguida as variáveis de contato/template.
-    const textWithAppointment = await renderAppointmentVariables(textBody, {
+    const result = await QuickSendMessageEngineService({
       companyId,
-      contactId: contact.id
+      opportunityId,
+      contact,
+      ticket,
+      whatsappId,
+      message,
+      buttons,
+      mediaId,
+      quickReplyId,
+      listSections,
+      listButtonText,
+      listFooter,
+      carouselCards,
+      poll,
+      messageType: messageType || "text",
+      renderAppointment: true
     });
-    const finalText = renderCampaignTemplate(textWithAppointment, contact) as string;
 
-    if (mediaFilePath) {
-      const { getMessageOptions } = await import("../WbotServices/SendWhatsAppMedia");
-      const { getWbot } = await import("../../libs/wbot");
-      const CreateMessageService = (await import("../MessageServices/CreateMessageService")).default;
-      const mimeLookup = require("mime-types").lookup;
-
-      const wbot = await getWbot(ticket.whatsappId);
-      const options = await getMessageOptions(mediaFileName || "arquivo", mediaFilePath, String(companyId), finalText);
-
-      if (!options) {
-        return { success: false, message: "Falha ao preparar opções de mídia" };
-      }
-
-      const remoteJid =
-        contact.remoteJid && contact.remoteJid.includes("@")
-          ? contact.remoteJid
-          : `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
-
-      const sentMessage = await wbot.sendMessage(remoteJid, options);
-      logger.info(`[StageAutomation][WhatsApp] Mídia enviada: ${sentMessage?.key?.id}`);
-
-      const mimeType = mimeLookup(mediaFilePath) || "application/octet-stream";
-      const mediaType = String(mimeType).split("/")[0];
-
-      const messageData = {
-        wid: sentMessage.key.id,
-        ticketId: ticket.id,
-        contactId: undefined,
-        body: finalText || mediaFileName,
-        fromMe: true,
-        read: true,
-        mediaUrl: mediaFileName,
-        mediaType,
-        quotedMsgId: null,
-        ack: 2,
-        remoteJid,
-        participant: null,
-        dataJson: JSON.stringify(sentMessage),
-        ticketTrakingId: null,
-        isForwarded: false
-      };
-      await CreateMessageService({ messageData, companyId: ticket.companyId });
-      await ticket.update({ lastMessage: finalText || `📎 ${mediaFileName}`, imported: null });
-
-      return { success: true, message: "Mídia enviada com sucesso" };
+    if (result.warning) {
+      return { success: false, message: result.sendError || result.warning };
     }
 
-    // Envio de texto simples
-    if (!finalText) {
-      return { success: false, message: "Mensagem vazia e nenhuma mídia configurada" };
-    }
-
-    await SendWhatsAppMessage({ body: finalText, ticket });
-    logger.info(`[StageAutomation][WhatsApp] Mensagem de texto enviada com sucesso`);
+    logger.info(
+      `[StageAutomation][WhatsApp] Mensagem enviada pelo motor do Disparo Rapido - ticket ${result.ticket.id}`
+    );
     return { success: true, message: "Mensagem enviada com sucesso" };
   } catch (error: any) {
+    const errMessage = String(error?.message || "");
+    // Oportunidade/lead sem contato e sem telefone válido → erro explícito.
+    if (/Número inválido|Contato não encontrado/i.test(errMessage)) {
+      return {
+        success: false,
+        message: `Automação não enviou: oportunidade ${opportunityId} sem contato e lead sem telefone válido.`
+      };
+    }
     logger.error(`[StageAutomation][WhatsApp] Erro ao enviar: ${error.message}`);
-    return { success: false, message: error.message };
+    return { success: false, message: errMessage || "Falha ao enviar mensagem." };
   }
 };
 
