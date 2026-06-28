@@ -7,6 +7,7 @@
  */
 
 import axios from "axios";
+import AppError from "../errors/AppError";
 import logger from "../utils/logger";
 
 // ─── Tipos Públicos ────────────────────────────────────────────────────────
@@ -216,7 +217,7 @@ async function downloadMediaBuffer(url: string): Promise<Buffer | null> {
       return null;
     }
     return Buffer.from(response.data);
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`[SendInteractiveMessage] Erro ao baixar mídia: ${url}`, err);
     return null;
   }
@@ -228,12 +229,19 @@ async function downloadMediaBuffer(url: string): Promise<Buffer | null> {
  * Envia mensagem com botões de ação (URL, Call, Reply, Copy).
  * Usa InfiniteAPI: sendMessage com nativeButtons — injeta nós <biz><interactive> automaticamente.
  */
+interface SendButtonMessageOptions {
+  strictInteractive?: boolean;
+  companyId?: number;
+  whatsappId?: number;
+}
+
 export async function sendButtonMessage(
   wbot: any,
   jid: string,
   text: string,
   footer: string,
-  buttons: InteractiveButton[]
+  buttons: InteractiveButton[],
+  options: SendButtonMessageOptions = {}
 ): Promise<any> {
   try {
     // Converte para o formato nativeButtons do InfiniteAPI
@@ -260,8 +268,19 @@ export async function sendButtonMessage(
 
     logger.info(`[SendInteractiveMessage] Botões enviados para ${jid}`);
     return sentMessage;
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar botões para ${jid}:`, err);
+    logger.error("[INTERACTIVE_MESSAGE] native buttons failed", {
+      errorMessage: err?.message || String(err),
+      companyId: options.companyId,
+      whatsappId: options.whatsappId,
+      buttonsCount: Array.isArray(buttons) ? buttons.length : 0,
+      strictInteractive: options.strictInteractive === true
+    });
+
+    if (options.strictInteractive) {
+      throw new AppError("Falha ao enviar botões interativos pelo WhatsApp.", 500);
+    }
     // Fallback: envia como texto simples com botões listados
     let fallbackText = text + "\n\n";
     buttons.forEach((btn, i) => {
@@ -318,7 +337,7 @@ export async function sendListMessage(
 
     logger.info(`[SendInteractiveMessage] Lista enviada para ${jid}`);
     return sentMessage;
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`[SendInteractiveMessage] Erro ao enviar lista para ${jid}:`, err);
     // Fallback: envia opções como texto numerado
     let fallbackText = text + "\n\n";
@@ -387,7 +406,7 @@ export async function sendCarouselMessage(
 
     logger.info(`[SendInteractiveMessage] Carrossel enviado via nativeCarousel para ${jid} (${cards.length} cards)`);
     return sentMessage;
-  } catch (err) {
+  } catch (err: any) {
     logger.warn(`[SendInteractiveMessage] Falha no carrossel nativo para ${jid}, usando fallback`, err);
     // Fallback: envia cada card como mensagem de texto
     let fallbackSentMessage = null;

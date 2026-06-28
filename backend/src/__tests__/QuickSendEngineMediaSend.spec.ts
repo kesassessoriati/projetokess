@@ -121,7 +121,27 @@ describe("QuickSendMessageEngineService — roteamento de envio unificado", () =
     await QuickSendMessageEngineService(
       baseArgs({ message: "Escolha", messageType: "buttons", buttons: [{ displayText: "Sim" }] }) as any
     );
-    expect(sendButtonMessage as jest.Mock).toHaveBeenCalled();
+    expect(sendButtonMessage as jest.Mock).toHaveBeenCalledWith(
+      expect.anything(),
+      `${NUMBER}@s.whatsapp.net`,
+      "Escolha",
+      "",
+      expect.any(Array),
+      expect.objectContaining({ strictInteractive: true })
+    );
+    expect(SendWhatsAppMessage as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it("botoes em modo estrito nao caem em texto quando envio nativo falha", async () => {
+    (sendButtonMessage as jest.Mock).mockRejectedValueOnce(
+      new Error("native buttons failed")
+    );
+
+    const result = await QuickSendMessageEngineService(
+      baseArgs({ message: "Escolha", messageType: "buttons", buttons: [{ displayText: "Sim" }] }) as any
+    );
+
+    expect(result.sendError).toBe("native buttons failed");
     expect(SendWhatsAppMessage as jest.Mock).not.toHaveBeenCalled();
   });
 

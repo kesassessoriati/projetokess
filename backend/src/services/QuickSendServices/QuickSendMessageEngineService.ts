@@ -530,7 +530,11 @@ const sendMessage = async ({
       throw new AppError("Nenhum botão configurado na ação.", 400);
     }
     await persist(
-      await sendButtonMessage(wbot, remoteJid, message || "", "", normalizedButtons)
+      await sendButtonMessage(wbot, remoteJid, message || "", "", normalizedButtons, {
+        strictInteractive: true,
+        companyId,
+        whatsappId
+      })
     );
     return;
   }

@@ -1293,10 +1293,16 @@ export const processAutomationForContact = async (
         continue;
       }
 
-      const delaySecondsCycle =
-        action.delayMinutes > 0
-          ? action.delayMinutes * 60
-          : calculateDelay(settings, messageCount);
+      const isImmediateStageSend =
+        automation.triggerType === "crm_stage" &&
+        action.actionType === "send_message" &&
+        Number(action.delayMinutes || 0) === 0;
+
+      const delaySecondsCycle = isImmediateStageSend
+        ? 0
+        : action.delayMinutes > 0
+        ? action.delayMinutes * 60
+        : calculateDelay(settings, messageCount);
 
       // Apenas ações customer-facing (send_message etc.) respeitam a janela de
       // disparo comercial. Ações internas de CRM (move_lead/move_kanban/tags)
@@ -1305,12 +1311,18 @@ export const processAutomationForContact = async (
         anchor: anchorDateCycle,
         respectsWindow: respectsWindowCycle,
         deferredByWindow: deferredByWindowCycle
-      } = computeScheduleAnchor(
-        action.actionType,
-        isWithinDispatchHours(settings, automation.triggerType),
-        new Date(),
-        getNextDispatchDate(settings, automation.triggerType)
-      );
+      } = isImmediateStageSend
+        ? {
+            anchor: new Date(),
+            respectsWindow: true,
+            deferredByWindow: false
+          }
+        : computeScheduleAnchor(
+            action.actionType,
+            isWithinDispatchHours(settings, automation.triggerType),
+            new Date(),
+            getNextDispatchDate(settings, automation.triggerType)
+          );
 
       const scheduledAtCycle = moment(anchorDateCycle).add(delaySecondsCycle, "seconds").toDate();
 
@@ -1353,6 +1365,22 @@ export const processAutomationForContact = async (
           cycleStartedAt: cycleContext.cycleStartedAt.toISOString(),
           companyId
         }
+      });
+
+      logger.info("[STAGE_AUTOMATION] execution scheduled", {
+        automationId: automation.id,
+        actionId: action.id,
+        actionUid,
+        cycleId: cycleContext.cycleId,
+        opportunityId: opportunityId || null,
+        expectedStageId: cycleContext.expectedStageId,
+        actionType: action.actionType,
+        messageType: action.actionConfig?.messageType || null,
+        delayMinutes: Number(action.delayMinutes || 0),
+        scheduledAt: scheduledAtCycle.toISOString(),
+        deferredByWindow: deferredByWindowCycle,
+        immediateStageSend: isImmediateStageSend,
+        companyId
       });
 
       await AutomationLog.create({
@@ -1447,6 +1475,22 @@ export const processAutomationForContact = async (
       scheduledAt,
       status: "scheduled",
       metadata: { actionType: action.actionType, opportunityId: opportunityId || null }
+    });
+
+    logger.info("[STAGE_AUTOMATION] execution scheduled", {
+      automationId: automation.id,
+      actionId: action.id,
+      actionUid: action.actionUid || null,
+      cycleId: null,
+      opportunityId: opportunityId || null,
+      expectedStageId: legacyStageId,
+      actionType: action.actionType,
+      messageType: action.actionConfig?.messageType || null,
+      delayMinutes: Number(action.delayMinutes || 0),
+      scheduledAt: scheduledAt.toISOString(),
+      deferredByWindow: deferredByWindowLegacy,
+      immediateStageSend: false,
+      companyId
     });
 
     await AutomationLog.create({

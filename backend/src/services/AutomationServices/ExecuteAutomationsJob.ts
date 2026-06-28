@@ -54,6 +54,21 @@ export const executeScheduledAutomations = async (): Promise<void> => {
     logger.info(`[Automation Job] Processando ${executions.length} execuções agendadas`);
 
     for (const execution of executions) {
+      const executionStartedAt = Date.now();
+      let pickedLog: any = {
+        executionId: execution.id,
+        automationId: execution.automationId,
+        actionId: execution.automationActionId,
+        actionUid: execution.actionUid || null,
+        cycleId: execution.cycleId || null,
+        opportunityId: (execution.metadata as any)?.opportunityId || null,
+        expectedStageId: (execution.metadata as any)?.expectedStageId || null,
+        scheduledAt: execution.scheduledAt
+          ? new Date(execution.scheduledAt).toISOString()
+          : null,
+        companyId: null
+      };
+
       try {
         // Marcar como em execução
         await execution.update({
@@ -78,7 +93,11 @@ export const executeScheduledAutomations = async (): Promise<void> => {
           continue;
         }
 
+        pickedLog.companyId = companyId;
+
         const opportunityId = (execution.metadata as any)?.opportunityId || undefined;
+        logger.info("[AUTOMATION_EXECUTION] due execution picked", pickedLog);
+
         if (opportunityId) {
           const context = await resolveOpportunityAutomationContext({
             companyId,
@@ -226,6 +245,26 @@ export const executeScheduledAutomations = async (): Promise<void> => {
             error: cycleResult.success ? null : cycleResult.message
           });
 
+          const durationMs = Date.now() - executionStartedAt;
+          if (cycleResult.success) {
+            logger.info("[AUTOMATION_EXECUTION] execution completed", {
+              executionId: execution.id,
+              status: "completed",
+              durationMs,
+              companyId
+            });
+          } else {
+            logger.warn("[AUTOMATION_EXECUTION] execution failed", {
+              executionId: execution.id,
+              automationId: execution.automationId,
+              actionId: execution.automationActionId,
+              opportunityId: opportunityId || null,
+              errorMessage: cycleResult.message,
+              durationMs,
+              companyId
+            });
+          }
+
           await AutomationLog.update(
             {
               status: cycleResult.success ? "completed" : "failed",
@@ -259,6 +298,26 @@ export const executeScheduledAutomations = async (): Promise<void> => {
           error: result.success ? null : result.message
         });
 
+        const durationMs = Date.now() - executionStartedAt;
+        if (result.success) {
+          logger.info("[AUTOMATION_EXECUTION] execution completed", {
+            executionId: execution.id,
+            status: "completed",
+            durationMs,
+            companyId
+          });
+        } else {
+          logger.warn("[AUTOMATION_EXECUTION] execution failed", {
+            executionId: execution.id,
+            automationId: execution.automationId,
+            actionId: execution.automationActionId,
+            opportunityId: opportunityId || null,
+            errorMessage: result.message,
+            durationMs,
+            companyId
+          });
+        }
+
         // Atualizar log
         await AutomationLog.update(
           {
@@ -281,6 +340,15 @@ export const executeScheduledAutomations = async (): Promise<void> => {
         await execution.update({
           status: "failed",
           error: error.message
+        });
+        logger.warn("[AUTOMATION_EXECUTION] execution failed", {
+          executionId: execution.id,
+          automationId: execution.automationId,
+          actionId: execution.automationActionId,
+          opportunityId: pickedLog.opportunityId,
+          errorMessage: error.message,
+          durationMs: Date.now() - executionStartedAt,
+          companyId: pickedLog.companyId
         });
         logger.error(`[Automation Job] Erro na execução ${execution.id}: ${error.message}`);
       }
