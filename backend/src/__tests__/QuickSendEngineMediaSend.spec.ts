@@ -52,10 +52,18 @@ jest.mock("../models/QuickReply", () => ({ __esModule: true, default: { findOne:
 jest.mock("../models/MediaFile", () => ({ __esModule: true, default: { findOne: jest.fn() } }));
 jest.mock("../services/ContactServices/CreateOrUpdateContactService", () => ({ __esModule: true, default: jest.fn() }));
 jest.mock("../services/TicketServices/FindOrCreateTicketService", () => ({ __esModule: true, default: jest.fn() }));
-jest.mock("../services/TicketServices/ShowTicketService", () => ({ __esModule: true, default: jest.fn(async (id: number) => ({ id })) }));
+jest.mock("../services/TicketServices/ShowTicketService", () => ({
+  __esModule: true,
+  default: jest.fn(async (id: number) => ({ id, companyId: 1, update: jest.fn().mockResolvedValue(undefined) }))
+}));
 jest.mock("../services/TicketServices/UpdateTicketService", () => ({ __esModule: true, default: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("../services/MessageServices/CreateMessageService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue({ id: 1 })
+}));
 
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
+import CreateMessageService from "../services/MessageServices/CreateMessageService";
 import { verifyMessage } from "../services/WbotServices/wbotMessageListener";
 import {
   sendButtonMessage,
@@ -128,6 +136,37 @@ describe("QuickSendMessageEngineService — roteamento de envio unificado", () =
     expect(mockWbot.sendMessage).toHaveBeenCalledWith(
       `${NUMBER}@s.whatsapp.net`,
       expect.objectContaining({ image: { url: "fake" } })
+    );
+    // Persistência: mídia salva no ticket com mediaUrl/mediaType (não só mediaType)
+    expect(CreateMessageService as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 1,
+        messageData: expect.objectContaining({
+          ticketId: 7,
+          fromMe: true,
+          mediaUrl: "arquivo.jpg",
+          mediaType: "image",
+          wid: "WBOT"
+        })
+      })
+    );
+  });
+
+  it("resposta rápida (quickReplyId) com mídia persiste mediaUrl do arquivo do QR", async () => {
+    (QuickReply as any).findOne.mockResolvedValue({
+      message: "Veja o anexo",
+      mediaName: "anexo.pdf",
+      getDataValue: () => "media-drive/anexo.pdf"
+    });
+    await QuickSendMessageEngineService(baseArgs({ message: "", quickReplyId: 9 }) as any);
+    expect(CreateMessageService as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageData: expect.objectContaining({
+          mediaUrl: "anexo.pdf",
+          fromMe: true,
+          ticketId: 7
+        })
+      })
     );
   });
 

@@ -52,7 +52,15 @@ jest.mock("../models/QuickReply", () => ({ __esModule: true, default: { findOne:
 jest.mock("../models/MediaFile", () => ({ __esModule: true, default: { findOne: jest.fn() } }));
 jest.mock("../services/ContactServices/CreateOrUpdateContactService", () => ({ __esModule: true, default: jest.fn() }));
 jest.mock("../services/TicketServices/FindOrCreateTicketService", () => ({ __esModule: true, default: jest.fn() }));
-jest.mock("../services/TicketServices/ShowTicketService", () => ({ __esModule: true, default: jest.fn(async (id: number) => ({ id })) }));
+jest.mock("../services/TicketServices/ShowTicketService", () => ({
+  __esModule: true,
+  default: jest.fn(async (id: number) => ({ id, companyId: 1, update: jest.fn().mockResolvedValue(undefined) }))
+}));
+// Persistência pesada: o ramo de mídia do motor grava via CreateMessageService.
+jest.mock("../services/MessageServices/CreateMessageService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue({ id: 1 })
+}));
 // UpdateTicketService é importado tanto pelo motor quanto pelo ProcessAutomationService;
 // o mock evita carregar a cadeia real do Wbot/Baileys.
 jest.mock("../services/TicketServices/UpdateTicketService", () => ({ __esModule: true, default: jest.fn().mockResolvedValue(undefined) }));

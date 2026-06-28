@@ -23,6 +23,8 @@ import {
   sendCarouselMessage
 } from "../../helpers/SendInteractiveMessage";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
+import CreateMessageService from "../MessageServices/CreateMessageService";
+import { lookup as mimeLookup } from "mime-types";
 import logger from "../../utils/logger";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
@@ -595,7 +597,37 @@ const sendMessage = async ({
     if (!options) {
       throw new AppError("Falha ao preparar opções de mídia.", 400);
     }
-    await persist(await wbot.sendMessage(remoteJid, options));
+
+    const sentMsg = await wbot.sendMessage(remoteJid, options);
+
+    // Persistência explícita com mediaUrl: o arquivo já está local, então NÃO
+    // rebaixamos a mídia (como faria verifyMediaMessage). Espelha o padrão do
+    // SendWhatsAppMedia / fluxo legado. verifyMessage não grava mediaUrl.
+    if (sentMsg?.key) {
+      const mimeType = String(mimeLookup(mediaFilePath) || "application/octet-stream");
+      const mediaType = mimeType.split("/")[0];
+      await CreateMessageService({
+        messageData: {
+          wid: sentMsg.key.id,
+          ticketId: ticket.id,
+          contactId: undefined,
+          body: message || mediaFileName || "",
+          fromMe: true,
+          read: true,
+          mediaUrl: mediaFileName || undefined,
+          mediaType,
+          ack: 2,
+          remoteJid,
+          participant: null,
+          dataJson: JSON.stringify(sentMsg)
+        },
+        companyId
+      });
+      await ticket.update({
+        lastMessage: message || (mediaFileName ? `📎 ${mediaFileName}` : ""),
+        imported: null
+      });
+    }
     return;
   }
 
