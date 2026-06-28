@@ -112,19 +112,30 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   await Promise.all(
     normalizedFields
       .filter(field => field?.fieldKey)
-      .map(field => {
+      .map(async field => {
         const isStandardField = standardFieldKeys.has(field.fieldKey);
-
-        return CompanyLeadFieldSetting.upsert({
-          companyId,
-          fieldKey: field.fieldKey,
+        const values = {
           label: field.label || field.fieldKey,
           fieldType: field.fieldType || "text",
           visible: field.visible !== false,
           isCustom: !isStandardField && Boolean(field.isCustom),
           active: field.active !== false,
           sortOrder: Number(field.sortOrder) || 0
+        };
+
+        // Gravacao idempotente por (companyId, fieldKey): o upsert do Sequelize
+        // depende do conflict target do indice unico (company_id, field_key), que
+        // o model nao declara — sem isso ele acaba inserindo duplicatas e a
+        // leitura podia "ganhar" com visible:true. findOrCreate + update garante
+        // a atualizacao da linha existente independentemente disso.
+        const [record, created] = await CompanyLeadFieldSetting.findOrCreate({
+          where: { companyId, fieldKey: field.fieldKey },
+          defaults: { companyId, fieldKey: field.fieldKey, ...values }
         });
+
+        if (!created) {
+          await record.update(values);
+        }
       })
   );
 
