@@ -2068,10 +2068,14 @@ export const ActionsWebhookService = async (
 
               if (existingOpp) {
                 // Mover oportunidade existente para novo estágio
-                await existingOpp.update({
-                  stageId: stageId,
+                await CreateOpportunityService({
+                  companyId,
                   pipelineId: resolvedPipelineId,
-                  lastMovedBy: "AUTOMATION"
+                  stageId,
+                  contactId: ticket.contactId,
+                  ticketId: ticket.id,
+                  title: ticket.contact?.name || ticket.contact?.number || "Lead Automacao",
+                  value: 0
                 });
                 console.log(`addTagKanban (Board): Oportunidade ${existingOpp.id} movida para estágio ${stageId}`);
               } else {
@@ -2657,10 +2661,14 @@ export const ActionsWebhookService = async (
               });
 
               if (existingOpp) {
-                await existingOpp.update({
-                  stageId: stageId,
+                await CreateOpportunityService({
+                  companyId,
                   pipelineId: resolvedPipelineId,
-                  lastMovedBy: "AUTOMATION"
+                  stageId,
+                  contactId: ticket.contactId,
+                  ticketId: ticket.id,
+                  title: ticket.contact?.name || ticket.contact?.number || "Lead Automacao",
+                  value: 0
                 });
                 console.log(`KanbanStage (Board): Oportunidade ${existingOpp.id} movida para estágio ${stageId}`);
               } else {

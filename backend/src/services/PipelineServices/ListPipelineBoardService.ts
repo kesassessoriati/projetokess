@@ -9,6 +9,7 @@ import OpportunityPrediction from "../../models/OpportunityPrediction";
 import AppError from "../../errors/AppError";
 import CrmLeadCustomFieldValue from "../../models/CrmLeadCustomFieldValue";
 import sequelize from "../../database";
+import logger from "../../utils/logger";
 
 interface Request {
     pipelineId: number;
@@ -50,6 +51,7 @@ interface BoardOpportunity {
     };
     aiSuggestedStageId?: number;
     lastMovedBy: string;
+    invalidIdentity?: boolean;
     slaStatus: "NORMAL" | "EXPIRED" | "CRITICAL";
     slaDeadline: Date;
     createdAt: Date;
@@ -504,10 +506,22 @@ const ListPipelineBoardService = async ({
                     let slaStatus: "NORMAL" | "EXPIRED" | "CRITICAL" = "NORMAL";
                     const fallbackLeadValue = op.lead?.purchaseValue != null ? Number(op.lead.purchaseValue) : 0;
                     const opportunityValue = Number(op.value || 0);
+                    const invalidIdentity = !op.contact?.id && !op.lead?.contactId && !op.lead?.phone;
                     const effectiveValue =
                         opportunityValue === 0 && fallbackLeadValue > 0
                             ? fallbackLeadValue
                             : opportunityValue;
+
+                    if (invalidIdentity) {
+                        logger.warn("[KANBAN_DEDUPE] invalid opportunity identity on board", {
+                            companyId,
+                            pipelineId: pipeline.id,
+                            stageId: stage.id,
+                            opportunityId: op.id,
+                            contactId: op.contactId || null,
+                            leadId: op.leadId || null
+                        });
+                    }
 
                     if (op.slaDeadline) {
                         const deadline = new Date(op.slaDeadline);
@@ -534,6 +548,7 @@ const ListPipelineBoardService = async ({
                         lastMovedBy: op.lastMovedBy,
                         leadId: op.leadId,
                         contactId: op.contactId,
+                        invalidIdentity,
                         slaStatus,
                         slaDeadline: op.slaDeadline,
                         createdAt: op.createdAt,

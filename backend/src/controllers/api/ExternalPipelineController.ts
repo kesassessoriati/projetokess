@@ -103,7 +103,18 @@ export const showOpportunity = async (req: Request, res: Response): Promise<Resp
 // POST /api/external/opportunities
 export const createOpportunity = async (req: Request, res: Response): Promise<Response> => {
   const externalAuth = ensureExternalAuth(req);
-  const { pipelineId, stageId, title, value, contactId, leadId, assignedUserId } = req.body;
+  const {
+    pipelineId,
+    stageId,
+    title,
+    value,
+    contactId,
+    leadId,
+    assignedUserId,
+    phone,
+    number,
+    email
+  } = req.body;
 
   if (!pipelineId || !stageId || !title) {
     throw new AppError("ERR_OPPORTUNITY_FIELDS_REQUIRED", 400);
@@ -117,6 +128,9 @@ export const createOpportunity = async (req: Request, res: Response): Promise<Re
     value: value ? Number(value) : 0,
     contactId: contactId ? Number(contactId) : undefined,
     leadId: leadId ? Number(leadId) : undefined,
+    phone,
+    number,
+    email,
     assignedUserId: assignedUserId ? Number(assignedUserId) : undefined
   });
 

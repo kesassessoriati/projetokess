@@ -225,7 +225,9 @@ const ensureOpportunityForExistingLead = async (
     assignedUserId: data.ownerUserId || null,
     leadId: lead.id,
     contactId: lead.contactId || data.contactId || undefined,
-    ticketId: lead.primaryTicketId || data.primaryTicketId || undefined
+    ticketId: lead.primaryTicketId || data.primaryTicketId || undefined,
+    phone: data.phone || lead.phone || undefined,
+    email: data.email || lead.email || undefined
   } as any);
 };
 
@@ -381,6 +383,11 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   data.product = data.product?.trim();
   data.cnpj = data.document && data.document.length === 14 ? data.document : "";
   data.temperature = normalizeLeadTemperature(data.temperature);
+  const shouldCreateCard = Boolean(data.pipelineId || data.stageId);
+
+  if (shouldCreateCard && !data.contactId && !data.phone) {
+    throw new AppError("Não é permitido criar card no funil sem telefone/contato válido.", 400);
+  }
 
   await schema.validate(data);
 
@@ -495,24 +502,9 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
 
   let { pipelineId, stageId } = data;
 
-  if (!pipelineId || !stageId) {
-    const Pipeline = (await import("../../models/Pipeline")).default;
-    const PipelineStage = (await import("../../models/PipelineStage")).default;
-
-    const activePipeline = await Pipeline.findOne({
-      where: { companyId: data.companyId, isActive: true },
-      include: [{ model: PipelineStage, as: "stages" }],
-      order: [
-        ["isDefault", "DESC"],
-        ["id", "ASC"],
-        [{ model: PipelineStage, as: "stages" }, "order", "ASC"]
-      ]
-    });
-
-    if (activePipeline && activePipeline.stages && activePipeline.stages.length > 0) {
-      pipelineId = activePipeline.id;
-      stageId = activePipeline.stages[0].id;
-    }
+  if (!shouldCreateCard) {
+    pipelineId = undefined;
+    stageId = undefined;
   }
 
   // If the target stage has a linkedStatus and no explicit status was provided by caller,
@@ -565,7 +557,9 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       title: data.name,
       value: data.purchaseValue != null ? Number(data.purchaseValue) : 0,
       assignedUserId: data.ownerUserId || null,
-      leadId: lead.id
+      leadId: lead.id,
+      phone: data.phone || undefined,
+      email: data.email || undefined
     };
     // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
     if (contactId) {

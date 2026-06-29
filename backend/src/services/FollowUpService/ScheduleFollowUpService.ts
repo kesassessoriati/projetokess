@@ -209,10 +209,14 @@ class ScheduleFollowUpService {
               });
 
               if (existingOpp) {
-                await existingOpp.update({
-                  stageId: stage.id,
+                await CreateOpportunityService({
+                  companyId: ticket.companyId,
                   pipelineId: stage.pipelineId,
-                  lastMovedBy: "FOLLOW_UP"
+                  stageId: stage.id,
+                  contactId: ticket.contactId,
+                  ticketId: ticket.id,
+                  title: ticket.contact?.name || "Lead Follow-up",
+                  value: 0
                 });
                 logger.info(`Follow-up: Oportunidade ${existingOpp.id} movida para estágio ${stage.name}`);
               } else {

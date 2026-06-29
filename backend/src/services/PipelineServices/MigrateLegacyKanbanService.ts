@@ -5,6 +5,7 @@ import Ticket from "../../models/Ticket";
 import Tag from "../../models/Tag";
 import TicketTag from "../../models/TicketTag";
 import Company from "../../models/Company";
+import CreateOpportunityService from "../OpportunityServices/CreateOpportunityService";
 
 const MigrateLegacyKanbanService = async (): Promise<void> => {
     const companies = await Company.findAll();
@@ -74,7 +75,7 @@ const MigrateLegacyKanbanService = async (): Promise<void> => {
                 });
 
                 if (!existingOpp) {
-                    await Opportunity.create({
+                    await CreateOpportunityService({
                         companyId: company.id,
                         pipelineId: pipeline.id,
                         stageId: stage.id,
@@ -82,8 +83,7 @@ const MigrateLegacyKanbanService = async (): Promise<void> => {
                         ticketId: ticket.id,
                         assignedUserId: ticket.userId,
                         title: `Ticket #${ticket.id}`,
-                        value: 0,
-                        status: ticket.status === "closed" ? "WON" : "OPEN"
+                        value: 0
                     });
                 }
             }

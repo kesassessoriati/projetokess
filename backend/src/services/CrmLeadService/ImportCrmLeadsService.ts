@@ -313,6 +313,11 @@ const ImportCrmLeadsService = async ({
                 const rowScore = leadRow.score != null && leadRow.score !== "" ? Number(leadRow.score) : undefined;
                 const rowStatus = normalizeImportedStatus(leadRow.status);
 
+                if ((rowPipelineId || rowStageId) && !phone) {
+                    errors.push({ row: index + 2, error: "Não é permitido criar card no funil sem telefone/contato válido." });
+                    continue;
+                }
+
                 const lead = await CreateCrmLeadService({
                     companyId,
                     name: String(name),

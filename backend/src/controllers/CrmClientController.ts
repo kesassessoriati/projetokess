@@ -10,7 +10,6 @@ import CrmClient from "../models/CrmClient";
 import CrmLead from "../models/CrmLead";
 import CrmClientTag from "../models/CrmClientTag";
 import Tag from "../models/Tag";
-import Opportunity from "../models/Opportunity";
 import PipelineStage from "../models/PipelineStage";
 import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
 import { getIO } from "../libs/socket";
@@ -328,38 +327,23 @@ export const bulkAssignPipeline = async (
       });
     }
 
-    const opportunity = await Opportunity.findOne({
-      where: {
-        companyId,
-        leadId: lead.id
-      },
-      order: [["updatedAt", "DESC"]]
+    const opportunity = await CreateOpportunityService({
+      companyId,
+      pipelineId: normalizedPipelineId,
+      stageId: normalizedStageId,
+      leadId: lead.id,
+      contactId: lead.contactId || undefined,
+      phone: lead.phone || undefined,
+      email: lead.email || undefined,
+      title: lead.name || lead.companyName || `Lead ${lead.id}`,
+      value: lead.purchaseValue != null ? Number(lead.purchaseValue) : 0,
+      assignedUserId: targetOwnerUserId || undefined
     });
 
-    if (opportunity) {
-      await opportunity.update({
-        pipelineId: normalizedPipelineId,
-        stageId: normalizedStageId,
-        assignedUserId: targetOwnerUserId,
-        status: "OPEN"
-      });
-      const io = getIO();
-      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
-        action: "update",
-        opportunity
-      });
-      opportunitiesUpdated += 1;
-    } else {
-      await CreateOpportunityService({
-        companyId,
-        pipelineId: normalizedPipelineId,
-        stageId: normalizedStageId,
-        leadId: lead.id,
-        title: lead.name || lead.companyName || `Lead ${lead.id}`,
-        value: lead.purchaseValue != null ? Number(lead.purchaseValue) : 0,
-        assignedUserId: targetOwnerUserId || undefined
-      });
+    if (opportunity.createdAt && opportunity.updatedAt && opportunity.createdAt.getTime() === opportunity.updatedAt.getTime()) {
       opportunitiesCreated += 1;
+    } else {
+      opportunitiesUpdated += 1;
     }
   }
 

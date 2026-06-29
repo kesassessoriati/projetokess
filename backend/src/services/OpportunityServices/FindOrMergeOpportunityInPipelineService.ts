@@ -1,6 +1,5 @@
 import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
-import Contact from "../../models/Contact";
 import CrmLead from "../../models/CrmLead";
 import Opportunity from "../../models/Opportunity";
 import OpportunityEvent from "../../models/OpportunityEvent";
@@ -13,7 +12,7 @@ interface Request {
   companyId: number;
   pipelineId: number;
   stageId: number;
-  contactId?: number | null;
+  contactId: number;
   ticketId?: number | null;
   leadId?: number | null;
   title?: string | null;
@@ -26,43 +25,6 @@ const hasValue = (value: unknown): boolean =>
 
 const isEmptyValue = (value: unknown): boolean =>
   value === null || value === undefined || String(value).trim() === "";
-
-const resolveScopedLead = async (
-  companyId: number,
-  leadId?: number | null
-): Promise<CrmLead | null> => {
-  if (!leadId) return null;
-
-  const lead = await CrmLead.findOne({ where: { id: leadId, companyId } });
-  if (!lead) {
-    throw new AppError("Lead informado não encontrado para esta empresa.", 404);
-  }
-
-  return lead;
-};
-
-const resolveScopedContact = async ({
-  companyId,
-  contactId,
-  lead
-}: {
-  companyId: number;
-  contactId?: number | null;
-  lead?: CrmLead | null;
-}): Promise<Contact | null> => {
-  const resolvedContactId = contactId || lead?.contactId;
-  if (!resolvedContactId) return null;
-
-  const contact = await Contact.findOne({
-    where: { id: resolvedContactId, companyId }
-  });
-
-  if (!contact) {
-    throw new AppError("Contato informado não encontrado para esta empresa.", 404);
-  }
-
-  return contact;
-};
 
 const ensureStageBelongsToPipeline = async ({
   companyId,
@@ -84,7 +46,7 @@ const ensureStageBelongsToPipeline = async ({
   return stage;
 };
 
-const findExistingOpportunity = async ({
+const findMatchingOpenOpportunities = async ({
   companyId,
   pipelineId,
   contactId,
@@ -92,102 +54,135 @@ const findExistingOpportunity = async ({
 }: {
   companyId: number;
   pipelineId: number;
-  contactId?: number | null;
+  contactId: number;
   leadId?: number | null;
-}): Promise<Opportunity | null> => {
-  const or: Record<string, unknown>[] = [];
+}): Promise<Opportunity[]> => {
+  const or: Record<string, unknown>[] = [{ contactId }];
+  if (leadId) or.push({ leadId });
 
-  if (contactId) {
-    or.push({ contactId });
-  }
-
-  if (leadId) {
-    or.push({ leadId });
-  }
-
-  if (!or.length) return null;
-
-  return Opportunity.findOne({
+  return Opportunity.findAll({
     where: {
       companyId,
       pipelineId,
+      status: "OPEN",
       [Op.or]: or
     },
     order: [
-      ["updatedAt", "DESC"],
-      ["id", "DESC"]
+      ["createdAt", "ASC"],
+      ["id", "ASC"]
     ]
   });
 };
 
 const mergeSafeLeadFields = async ({
-  existingOpportunity,
-  incomingLead,
+  canonical,
+  incomingLeadId,
   contactId
 }: {
-  existingOpportunity: Opportunity;
-  incomingLead?: CrmLead | null;
-  contactId?: number | null;
+  canonical: Opportunity;
+  incomingLeadId?: number | null;
+  contactId: number;
 }) => {
-  const targetLeadId = existingOpportunity.leadId || incomingLead?.id;
+  const targetLeadId = canonical.leadId || incomingLeadId;
   if (!targetLeadId) return;
 
   const targetLead = await CrmLead.findOne({
-    where: { id: targetLeadId, companyId: existingOpportunity.companyId }
+    where: { id: targetLeadId, companyId: canonical.companyId }
   });
   if (!targetLead) return;
 
   const updates: Record<string, unknown> = {};
-
-  if (contactId && !targetLead.contactId) {
-    updates.contactId = contactId;
-  }
-
-  if (incomingLead && incomingLead.id !== targetLead.id) {
-    const safeFields = [
-      "name",
-      "email",
-      "phone",
-      "document",
-      "companyName",
-      "source",
-      "campaign",
-      "medium",
-      "product",
-      "notes",
-      "position",
-      "decisionMakerName",
-      "decisionMakerPhone",
-      "gmn",
-      "website",
-      "instagram",
-      "linkedin"
-    ];
-
-    for (const field of safeFields) {
-      const currentValue = (targetLead as any)[field];
-      const incomingValue = (incomingLead as any)[field];
-      if (isEmptyValue(currentValue) && hasValue(incomingValue)) {
-        updates[field] = incomingValue;
-      }
-    }
-
-    if (
-      (targetLead.purchaseValue === null ||
-        targetLead.purchaseValue === undefined ||
-        Number(targetLead.purchaseValue) === 0) &&
-      incomingLead.purchaseValue !== null &&
-      incomingLead.purchaseValue !== undefined
-    ) {
-      updates.purchaseValue = incomingLead.purchaseValue;
-    }
-  }
+  if (!targetLead.contactId) updates.contactId = contactId;
+  if (!targetLead.pipelineId) updates.pipelineId = canonical.pipelineId;
+  if (!targetLead.stageId) updates.stageId = canonical.stageId;
 
   if (Object.keys(updates).length > 0) {
     await targetLead.update({
       ...updates,
       lastActivityAt: new Date()
     });
+  }
+};
+
+const buildCanonicalUpdates = ({
+  canonical,
+  contactId,
+  leadId,
+  ticketId,
+  title,
+  value,
+  assignedUserId
+}: {
+  canonical: Opportunity;
+  contactId: number;
+  leadId?: number | null;
+  ticketId?: number | null;
+  title?: string | null;
+  value?: number | null;
+  assignedUserId?: number | null;
+}) => {
+  const updates: Record<string, unknown> = {};
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+
+  const setIfEmpty = (field: string, nextValue: unknown) => {
+    if (hasValue(nextValue) && isEmptyValue((canonical as any)[field])) {
+      updates[field] = nextValue;
+      changes[field] = { before: (canonical as any)[field], after: nextValue };
+    }
+  };
+
+  setIfEmpty("contactId", contactId);
+  setIfEmpty("leadId", leadId);
+  setIfEmpty("ticketId", ticketId);
+  setIfEmpty("title", title ? String(title).trim() : null);
+  setIfEmpty("assignedUserId", assignedUserId);
+
+  if (
+    value !== null &&
+    value !== undefined &&
+    Number(value) > 0 &&
+    (canonical.value === null ||
+      canonical.value === undefined ||
+      Number(canonical.value) === 0)
+  ) {
+    updates.value = Number(value);
+    changes.value = { before: canonical.value, after: updates.value };
+  }
+
+  return { updates, changes };
+};
+
+const emitOpportunityUpdate = async (
+  companyId: number,
+  canonical: Opportunity,
+  changes: Record<string, unknown>
+) => {
+  await EventBus.publish(
+    "OPPORTUNITY_UPDATED",
+    {
+      opportunityId: canonical.id,
+      pipelineId: canonical.pipelineId,
+      stageId: canonical.stageId,
+      changes,
+      assignedUserId: canonical.assignedUserId,
+      status: canonical.status,
+      value: canonical.value,
+      updatedAt: canonical.updatedAt,
+      version: canonical.version
+    },
+    companyId
+  );
+
+  try {
+    const io = getIO();
+    io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+      action: "update",
+      opportunity: canonical
+    });
+  } catch (err: any) {
+    logger.warn(
+      `[FindOrMergeOpportunityInPipelineService] Socket emit skipped: ${err?.message || err}`
+    );
   }
 };
 
@@ -204,121 +199,112 @@ const FindOrMergeOpportunityInPipelineService = async ({
 }: Request): Promise<Opportunity | null> => {
   await ensureStageBelongsToPipeline({ companyId, pipelineId, stageId });
 
-  const lead = await resolveScopedLead(companyId, leadId);
-  const contact = await resolveScopedContact({ companyId, contactId, lead });
-  const resolvedContactId = contact?.id || null;
-  const resolvedLeadId = lead?.id || null;
+  if (!contactId) {
+    throw new AppError("Não é permitido criar card no funil sem telefone/contato válido.", 400);
+  }
 
-  const existingOpportunity = await findExistingOpportunity({
+  const matches = await findMatchingOpenOpportunities({
     companyId,
     pipelineId,
-    contactId: resolvedContactId,
-    leadId: resolvedLeadId
+    contactId,
+    leadId
   });
 
-  if (!existingOpportunity) return null;
+  if (matches.length === 0) return null;
 
-  const updates: Record<string, unknown> = {};
-  const changes: Record<string, { before: unknown; after: unknown }> = {};
+  const canonical = matches[0];
+  const duplicates = matches.slice(1);
+  const duplicateIds = duplicates.map(opportunity => opportunity.id);
 
-  if (resolvedContactId && !existingOpportunity.contactId) {
-    updates.contactId = resolvedContactId;
-    changes.contactId = { before: existingOpportunity.contactId, after: resolvedContactId };
-  }
-
-  if (ticketId && !existingOpportunity.ticketId) {
-    updates.ticketId = ticketId;
-    changes.ticketId = { before: existingOpportunity.ticketId, after: ticketId };
-  }
-
-  if (resolvedLeadId && !existingOpportunity.leadId) {
-    updates.leadId = resolvedLeadId;
-    changes.leadId = { before: existingOpportunity.leadId, after: resolvedLeadId };
-  }
-
-  if (hasValue(title) && isEmptyValue(existingOpportunity.title)) {
-    updates.title = String(title).trim();
-    changes.title = { before: existingOpportunity.title, after: updates.title };
-  }
-
-  if (
-    value !== null &&
-    value !== undefined &&
-    Number(value) > 0 &&
-    (existingOpportunity.value === null ||
-      existingOpportunity.value === undefined ||
-      Number(existingOpportunity.value) === 0)
-  ) {
-    updates.value = Number(value);
-    changes.value = { before: existingOpportunity.value, after: updates.value };
-  }
-
-  if (assignedUserId && !existingOpportunity.assignedUserId) {
-    updates.assignedUserId = assignedUserId;
-    changes.assignedUserId = {
-      before: existingOpportunity.assignedUserId,
-      after: assignedUserId
-    };
-  }
+  const { updates, changes } = buildCanonicalUpdates({
+    canonical,
+    contactId,
+    leadId,
+    ticketId,
+    title,
+    value,
+    assignedUserId
+  });
 
   if (Object.keys(updates).length > 0) {
-    await existingOpportunity.update(updates);
+    await canonical.update(updates);
+  }
+
+  for (const duplicate of duplicates) {
+    const duplicateChanges: Record<string, unknown> = {
+      mergedIntoOpportunityId: canonical.id,
+      preservedStageId: canonical.stageId,
+      duplicateStageId: duplicate.stageId
+    };
+
+    await OpportunityEvent.create({
+      companyId,
+      opportunityId: duplicate.id,
+      type: "UPDATED",
+      metadata: {
+        origin: "dedupe_same_pipeline",
+        text: "Card duplicado no mesmo funil consolidado no card mais antigo.",
+        ...duplicateChanges
+      }
+    });
+
+    await duplicate.update({
+      status: "LOST",
+      lastMovedBy: "DEDUPE"
+    });
+
+    try {
+      const io = getIO();
+      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "delete",
+        opportunityId: duplicate.id
+      });
+      } catch (err: any) {
+        logger.warn(
+          `[FindOrMergeOpportunityInPipelineService] Duplicate socket emit skipped: ${err?.message || err}`
+        );
+    }
   }
 
   await mergeSafeLeadFields({
-    existingOpportunity,
-    incomingLead: lead,
-    contactId: resolvedContactId
+    canonical,
+    incomingLeadId: leadId,
+    contactId
   });
 
   await OpportunityEvent.create({
     companyId,
-    opportunityId: existingOpportunity.id,
+    opportunityId: canonical.id,
     type: "UPDATED",
     metadata: {
       origin: "dedupe_same_pipeline",
-      preservedStageId: existingOpportunity.stageId,
+      preservedStageId: canonical.stageId,
       attemptedStageId: stageId,
       attemptedPipelineId: pipelineId,
+      duplicateOpportunityIds: duplicateIds,
       changes,
       text:
-        "Tentativa de criar/importar card duplicado no mesmo funil foi mesclada ao card existente."
+        duplicateIds.length > 0
+          ? "Cards duplicados no mesmo funil foram consolidados no card mais antigo."
+          : "Tentativa de criar/importar card duplicado no mesmo funil foi mesclada ao card existente."
     }
   });
 
-  await EventBus.publish(
-    "OPPORTUNITY_UPDATED",
-    {
-      opportunityId: existingOpportunity.id,
-      pipelineId: existingOpportunity.pipelineId,
-      stageId: existingOpportunity.stageId,
-      changes,
-      assignedUserId: existingOpportunity.assignedUserId,
-      status: existingOpportunity.status,
-      value: existingOpportunity.value,
-      updatedAt: existingOpportunity.updatedAt,
-      version: existingOpportunity.version
-    },
-    companyId
-  );
+  await canonical.reload();
+  await emitOpportunityUpdate(companyId, canonical, changes);
 
-  try {
-    const io = getIO();
-    io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
-      action: "update",
-      opportunity: existingOpportunity
+  if (duplicateIds.length > 0) {
+    logger.info("[KANBAN_DEDUPE] duplicate opportunities merged", {
+      companyId,
+      pipelineId,
+      canonicalOpportunityId: canonical.id,
+      duplicateOpportunityIds: duplicateIds,
+      contactId,
+      leadId: leadId || canonical.leadId || null
     });
-  } catch (err) {
-    logger.warn(
-      `[FindOrMergeOpportunityInPipelineService] Socket emit skipped: ${err?.message || err}`
-    );
   }
 
-  logger.info(
-    `[FindOrMergeOpportunityInPipelineService] Duplicate card merged company=${companyId} pipeline=${pipelineId} opportunity=${existingOpportunity.id} contact=${resolvedContactId || "none"} lead=${resolvedLeadId || "none"}`
-  );
-
-  return existingOpportunity;
+  return canonical;
 };
 
 export default FindOrMergeOpportunityInPipelineService;

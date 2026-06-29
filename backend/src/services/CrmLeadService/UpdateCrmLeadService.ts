@@ -249,10 +249,8 @@ const UpdateCrmLeadService = async ({
     targetPipelineId &&
     targetStageId;
 
-  if (opp) {
+  if (opp && data.pipelineId === undefined && data.stageId === undefined) {
     const oppUpdates: any = {};
-    if (data.pipelineId !== undefined) oppUpdates.pipelineId = data.pipelineId;
-    if (data.stageId !== undefined) oppUpdates.stageId = data.stageId;
     if (data.purchaseValue !== undefined) {
       oppUpdates.value =
         data.purchaseValue === null || data.purchaseValue === undefined
@@ -290,7 +288,9 @@ const UpdateCrmLeadService = async ({
             : Number(data.purchaseValue),
         assignedUserId: data.ownerUserId || null,
         status: "OPEN",
-        leadId: lead.id
+        leadId: lead.id,
+        phone: data.phone || lead.phone || undefined,
+        email: data.email || lead.email || undefined
       };
       // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
       if (contactId) {
