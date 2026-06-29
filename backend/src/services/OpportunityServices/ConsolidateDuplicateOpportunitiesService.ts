@@ -16,6 +16,7 @@ interface ConsolidationGroup {
   identityKey: string;
   canonicalOpportunityId: number;
   duplicateOpportunityIds: number[];
+  mergedFields?: Record<number, string[]>;
 }
 
 interface Response {
@@ -30,27 +31,60 @@ const identityKeysFor = (opportunity: Opportunity): string[] => {
   return keys;
 };
 
+const hasValue = (value: unknown): boolean =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const isEmptyValue = (value: unknown): boolean =>
+  value === null || value === undefined || String(value).trim() === "";
+
 const mergeDuplicateIntoCanonical = async (
   canonical: Opportunity,
   duplicate: Opportunity
-) => {
+): Promise<string[]> => {
   const updates: Record<string, unknown> = {};
+  const mergedFields: string[] = [];
 
-  if (!canonical.contactId && duplicate.contactId) updates.contactId = duplicate.contactId;
-  if (!canonical.leadId && duplicate.leadId) updates.leadId = duplicate.leadId;
-  if (!canonical.ticketId && duplicate.ticketId) updates.ticketId = duplicate.ticketId;
-  if (!canonical.assignedUserId && duplicate.assignedUserId) {
-    updates.assignedUserId = duplicate.assignedUserId;
-  }
-  if ((!canonical.title || String(canonical.title).trim() === "") && duplicate.title) {
-    updates.title = duplicate.title;
-  }
-  if (Number(canonical.value || 0) === 0 && Number(duplicate.value || 0) > 0) {
+  const setIfEmptyFromDuplicate = (field: string) => {
+    const currentValue = (canonical as any)[field];
+    const duplicateValue = (duplicate as any)[field];
+    if (isEmptyValue(currentValue) && hasValue(duplicateValue)) {
+      updates[field] = duplicateValue;
+      mergedFields.push(field);
+    }
+  };
+
+  [
+    "contactId",
+    "leadId",
+    "ticketId",
+    "assignedUserId",
+    "title",
+    "temperature",
+    "slaDeadline",
+    "aiSuggestedStageId"
+  ].forEach(setIfEmptyFromDuplicate);
+
+  if (Number((canonical as any).value || 0) === 0 && Number((duplicate as any).value || 0) > 0) {
     updates.value = duplicate.value;
+    mergedFields.push("value");
+  }
+
+  if (Number((canonical as any).score || 0) === 0 && Number((duplicate as any).score || 0) > 0) {
+    updates.score = duplicate.score;
+    mergedFields.push("score");
   }
 
   if (Object.keys(updates).length > 0) {
     await canonical.update(updates);
+    logger.info("[KANBAN_DEDUPE] duplicate data merged into canonical", {
+      companyId: canonical.companyId,
+      pipelineId: canonical.pipelineId,
+      canonicalOpportunityId: canonical.id,
+      duplicateOpportunityId: duplicate.id,
+      mergedFields,
+      contactId: canonical.contactId || duplicate.contactId || null,
+      leadId: canonical.leadId || duplicate.leadId || null
+    });
   }
 
   await OpportunityEvent.create({
@@ -62,6 +96,7 @@ const mergeDuplicateIntoCanonical = async (
       mergedIntoOpportunityId: canonical.id,
       preservedStageId: canonical.stageId,
       duplicateStageId: duplicate.stageId,
+      mergedFields,
       text: "Card duplicado consolidado no card mais antigo."
     }
   });
@@ -70,6 +105,8 @@ const mergeDuplicateIntoCanonical = async (
     status: "LOST",
     lastMovedBy: "DEDUPE"
   });
+
+  return mergedFields;
 };
 
 const ConsolidateDuplicateOpportunitiesService = async ({
@@ -121,7 +158,7 @@ const ConsolidateDuplicateOpportunitiesService = async ({
     duplicatesToProcess.forEach(item => processedDuplicates.add(item.id));
 
     const identityKey = bucketKey.split(":").slice(2).join(":");
-    const group = {
+    const group: ConsolidationGroup = {
       companyId: canonical.companyId,
       pipelineId: canonical.pipelineId,
       identityKey,
@@ -131,9 +168,11 @@ const ConsolidateDuplicateOpportunitiesService = async ({
     groups.push(group);
 
     if (!dryRun) {
+      const mergedFieldsByDuplicate: Record<number, string[]> = {};
       for (const duplicate of duplicatesToProcess) {
-        await mergeDuplicateIntoCanonical(canonical, duplicate);
+        mergedFieldsByDuplicate[duplicate.id] = await mergeDuplicateIntoCanonical(canonical, duplicate);
       }
+      group.mergedFields = mergedFieldsByDuplicate;
       await canonical.reload();
       await OpportunityEvent.create({
         companyId: canonical.companyId,
@@ -142,6 +181,7 @@ const ConsolidateDuplicateOpportunitiesService = async ({
         metadata: {
           origin: "dedupe_same_pipeline_consolidation",
           duplicateOpportunityIds: group.duplicateOpportunityIds,
+          mergedFields: mergedFieldsByDuplicate,
           text: "Cards duplicados consolidados no card mais antigo."
         }
       });

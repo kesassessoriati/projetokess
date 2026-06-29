@@ -25,6 +25,7 @@ jest.mock("../utils/logger", () => ({
 }));
 
 import ConsolidateDuplicateOpportunitiesService from "../services/OpportunityServices/ConsolidateDuplicateOpportunitiesService";
+import logger from "../utils/logger";
 
 const buildOpportunity = (overrides: Record<string, any>) => {
   const opportunity: any = {
@@ -86,6 +87,23 @@ describe("ConsolidateDuplicateOpportunitiesService", () => {
     expect(result.groups[0].canonicalOpportunityId).toBe(1);
     expect(oldest.update).toHaveBeenCalledWith(
       expect.objectContaining({ ticketId: 9, value: 300 })
+    );
+    expect(result.groups[0].mergedFields).toEqual({ 2: ["ticketId", "value"] });
+    expect(mockOpportunityEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: 2,
+        metadata: expect.objectContaining({
+          mergedFields: ["ticketId", "value"]
+        })
+      })
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      "[KANBAN_DEDUPE] duplicate data merged into canonical",
+      expect.objectContaining({
+        canonicalOpportunityId: 1,
+        duplicateOpportunityId: 2,
+        mergedFields: ["ticketId", "value"]
+      })
     );
     expect(duplicate.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })

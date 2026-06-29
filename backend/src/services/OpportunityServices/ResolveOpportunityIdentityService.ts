@@ -24,6 +24,12 @@ interface Response {
 }
 
 const ERROR_MESSAGE = "Não é permitido criar card no funil sem telefone/contato válido.";
+const LEAD_CONTACT_MISMATCH =
+  "Identidade inconsistente: lead e contato pertencem a pessoas diferentes.";
+const TICKET_CONTACT_MISMATCH =
+  "Identidade inconsistente: ticket e contato pertencem a pessoas diferentes.";
+const TICKET_LEAD_MISMATCH =
+  "Identidade inconsistente: ticket e lead pertencem a pessoas diferentes.";
 
 export const normalizeOpportunityPhone = (value?: string | null): string | null => {
   const digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
@@ -36,6 +42,21 @@ const phoneVariants = (phone: string): string[] => {
   const variants = new Set<string>([phone]);
   if (phone.startsWith("55")) variants.add(phone.replace(/^55/, ""));
   return Array.from(variants);
+};
+
+const normalizedPhonesFor = (...values: Array<string | null | undefined>): string[] =>
+  values
+    .map(value => normalizeOpportunityPhone(value))
+    .filter((value): value is string => Boolean(value));
+
+const anyPhoneMatches = (
+  incomingPhone: string | null,
+  candidates: Array<string | null | undefined>
+): boolean => {
+  if (!incomingPhone) return true;
+  const candidatePhones = normalizedPhonesFor(...candidates);
+  if (candidatePhones.length === 0) return true;
+  return candidatePhones.includes(incomingPhone);
 };
 
 const findContactByPhone = async (
@@ -87,6 +108,8 @@ const ResolveOpportunityIdentityService = async ({
 }: Request): Promise<Response> => {
   let lead: CrmLead | null = null;
   let contact: Contact | null = null;
+  let ticket: Ticket | null = null;
+  let ticketContact: Contact | null = null;
 
   if (leadId) {
     lead = await CrmLead.findOne({ where: { id: leadId, companyId } });
@@ -98,21 +121,77 @@ const ResolveOpportunityIdentityService = async ({
     if (!contact) throw new AppError("Contato informado não encontrado para esta empresa.", 404);
   }
 
-  if (!contact && lead?.contactId) {
-    contact = await Contact.findOne({ where: { id: lead.contactId, companyId } });
+  if (ticketId) {
+    ticket = await resolveTicket(companyId, ticketId);
+    if (ticket?.contactId) {
+      ticketContact = await Contact.findOne({ where: { id: ticket.contactId, companyId } });
+      if (!ticketContact) throw new AppError(TICKET_CONTACT_MISMATCH, 400);
+    }
   }
 
-  if (!contact && ticketId) {
-    const ticket = await resolveTicket(companyId, ticketId);
-    if (ticket?.contactId) {
-      contact = await Contact.findOne({ where: { id: ticket.contactId, companyId } });
+  if (lead?.contactId && contactId && Number(lead.contactId) !== Number(contactId)) {
+    throw new AppError(LEAD_CONTACT_MISMATCH, 400);
+  }
+
+  if (ticket?.contactId && contactId && Number(ticket.contactId) !== Number(contactId)) {
+    throw new AppError(TICKET_CONTACT_MISMATCH, 400);
+  }
+
+  if (
+    ticket?.contactId &&
+    lead?.contactId &&
+    Number(ticket.contactId) !== Number(lead.contactId)
+  ) {
+    throw new AppError(TICKET_LEAD_MISMATCH, 400);
+  }
+
+  if (!contact && lead?.contactId) {
+    contact = await Contact.findOne({ where: { id: lead.contactId, companyId } });
+    if (!contact) throw new AppError(LEAD_CONTACT_MISMATCH, 400);
+  }
+
+  if (!contact && ticketContact) {
+    contact = ticketContact;
+  }
+
+  const incomingPhone =
+    normalizeOpportunityPhone(phone) || normalizeOpportunityPhone(number);
+  const contactPhone = normalizeOpportunityPhone((contact as any)?.number);
+
+  if (incomingPhone && contactPhone && incomingPhone !== contactPhone) {
+    throw new AppError(LEAD_CONTACT_MISMATCH, 400);
+  }
+
+  if (
+    incomingPhone &&
+    lead &&
+    !anyPhoneMatches(incomingPhone, [
+      lead.phone,
+      (lead as any).decisionMakerPhone
+    ])
+  ) {
+    throw new AppError(LEAD_CONTACT_MISMATCH, 400);
+  }
+
+  if (lead && contact && !lead.contactId) {
+    const leadPhones = normalizedPhonesFor(lead.phone, (lead as any).decisionMakerPhone);
+    if (leadPhones.length > 0 && contactPhone && !leadPhones.includes(contactPhone)) {
+      throw new AppError(LEAD_CONTACT_MISMATCH, 400);
+    }
+  }
+
+  if (ticketContact && lead && !lead.contactId) {
+    const leadPhones = normalizedPhonesFor(lead.phone, (lead as any).decisionMakerPhone);
+    const ticketPhone = normalizeOpportunityPhone((ticketContact as any).number);
+    if (leadPhones.length > 0 && ticketPhone && !leadPhones.includes(ticketPhone)) {
+      throw new AppError(TICKET_LEAD_MISMATCH, 400);
     }
   }
 
   const normalizedPhone =
-    normalizeOpportunityPhone(phone) ||
-    normalizeOpportunityPhone(number) ||
+    incomingPhone ||
     normalizeOpportunityPhone(lead?.phone) ||
+    normalizeOpportunityPhone((lead as any)?.decisionMakerPhone) ||
     normalizeOpportunityPhone((contact as any)?.number);
 
   if (!contact && normalizedPhone) {

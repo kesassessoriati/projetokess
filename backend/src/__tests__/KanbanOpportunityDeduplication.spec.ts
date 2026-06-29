@@ -73,6 +73,7 @@ jest.mock("../utils/logger", () => ({
 
 import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
 import FindOrMergeOpportunityInPipelineService from "../services/OpportunityServices/FindOrMergeOpportunityInPipelineService";
+import logger from "../utils/logger";
 
 const buildOpportunity = (overrides: Record<string, any> = {}) => {
   const opportunity: any = {
@@ -181,6 +182,94 @@ describe("Kanban opportunity deduplication", () => {
     expect(oldest.stageId).toBe(76);
     expect(newest.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+    );
+  });
+
+  it("merges useful duplicate data into the oldest card before marking duplicates lost", async () => {
+    const oldest = buildOpportunity({
+      id: 1,
+      pipelineId: 20,
+      stageId: 76,
+      leadId: null,
+      ticketId: null,
+      title: "",
+      value: 0,
+      assignedUserId: null,
+      score: 0,
+      createdAt: new Date("2026-01-01")
+    });
+    const duplicateA = buildOpportunity({
+      id: 2,
+      pipelineId: 20,
+      stageId: 75,
+      title: "Nome duplicata",
+      value: 200,
+      assignedUserId: 8,
+      score: 60,
+      createdAt: new Date("2026-01-02")
+    });
+    const duplicateB = buildOpportunity({
+      id: 3,
+      pipelineId: 20,
+      stageId: 80,
+      leadId: 500,
+      ticketId: 77,
+      title: "Nao sobrescrever",
+      value: 900,
+      createdAt: new Date("2026-01-03")
+    });
+    mockOpportunityFindAll.mockResolvedValue([oldest, duplicateA, duplicateB]);
+
+    const result = await FindOrMergeOpportunityInPipelineService({
+      companyId: 1,
+      pipelineId: 20,
+      stageId: 75,
+      contactId: 100,
+      title: null
+    });
+
+    expect(result).toBe(oldest);
+    expect(oldest.pipelineId).toBe(20);
+    expect(oldest.stageId).toBe(76);
+    expect(oldest.title).toBe("Nome duplicata");
+    expect(oldest.value).toBe(200);
+    expect(oldest.assignedUserId).toBe(8);
+    expect(oldest.score).toBe(60);
+    expect(oldest.leadId).toBe(500);
+    expect(oldest.ticketId).toBe(77);
+    expect(oldest.title).not.toBe("Nao sobrescrever");
+
+    const firstCanonicalMergeOrder = oldest.update.mock.invocationCallOrder[0];
+    expect(duplicateA.update.mock.invocationCallOrder[0]).toBeGreaterThan(firstCanonicalMergeOrder);
+    expect(duplicateB.update.mock.invocationCallOrder[0]).toBeGreaterThan(firstCanonicalMergeOrder);
+    expect(duplicateA.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+    );
+    expect(duplicateB.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+    );
+    expect(mockOpportunityEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: 2,
+        metadata: expect.objectContaining({
+          mergedFields: expect.objectContaining({
+            title: expect.any(Object),
+            value: expect.any(Object),
+            assignedUserId: expect.any(Object),
+            score: expect.any(Object)
+          })
+        })
+      })
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      "[KANBAN_DEDUPE] duplicate data merged into canonical",
+      expect.objectContaining({
+        companyId: 1,
+        pipelineId: 20,
+        canonicalOpportunityId: 1,
+        duplicateOpportunityId: 2,
+        mergedFields: expect.arrayContaining(["title", "value", "assignedUserId", "score"])
+      })
     );
   });
 

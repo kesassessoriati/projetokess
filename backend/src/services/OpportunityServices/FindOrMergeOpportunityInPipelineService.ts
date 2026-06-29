@@ -152,6 +152,64 @@ const buildCanonicalUpdates = ({
   return { updates, changes };
 };
 
+const buildDuplicateDataMerge = (
+  canonical: Opportunity,
+  duplicate: Opportunity
+) => {
+  const updates: Record<string, unknown> = {};
+  const changes: Record<string, { before: unknown; after: unknown; sourceOpportunityId: number }> = {};
+
+  const setIfEmptyFromDuplicate = (field: string) => {
+    const currentValue = (canonical as any)[field];
+    const duplicateValue = (duplicate as any)[field];
+    if (isEmptyValue(currentValue) && hasValue(duplicateValue)) {
+      updates[field] = duplicateValue;
+      changes[field] = {
+        before: currentValue,
+        after: duplicateValue,
+        sourceOpportunityId: duplicate.id
+      };
+    }
+  };
+
+  [
+    "contactId",
+    "leadId",
+    "ticketId",
+    "assignedUserId",
+    "title",
+    "temperature",
+    "slaDeadline",
+    "aiSuggestedStageId"
+  ].forEach(setIfEmptyFromDuplicate);
+
+  if (
+    Number((canonical as any).value || 0) === 0 &&
+    Number((duplicate as any).value || 0) > 0
+  ) {
+    updates.value = duplicate.value;
+    changes.value = {
+      before: canonical.value,
+      after: duplicate.value,
+      sourceOpportunityId: duplicate.id
+    };
+  }
+
+  if (
+    Number((canonical as any).score || 0) === 0 &&
+    Number((duplicate as any).score || 0) > 0
+  ) {
+    updates.score = duplicate.score;
+    changes.score = {
+      before: canonical.score,
+      after: duplicate.score,
+      sourceOpportunityId: duplicate.id
+    };
+  }
+
+  return { updates, changes };
+};
+
 const emitOpportunityUpdate = async (
   companyId: number,
   canonical: Opportunity,
@@ -230,11 +288,31 @@ const FindOrMergeOpportunityInPipelineService = async ({
     await canonical.update(updates);
   }
 
+  const duplicateMergeChanges: Record<string, unknown> = {};
+
   for (const duplicate of duplicates) {
+    const { updates: duplicateUpdates, changes: mergedFields } =
+      buildDuplicateDataMerge(canonical, duplicate);
+
+    if (Object.keys(duplicateUpdates).length > 0) {
+      await canonical.update(duplicateUpdates);
+      duplicateMergeChanges[duplicate.id] = mergedFields;
+      logger.info("[KANBAN_DEDUPE] duplicate data merged into canonical", {
+        companyId,
+        pipelineId,
+        canonicalOpportunityId: canonical.id,
+        duplicateOpportunityId: duplicate.id,
+        mergedFields: Object.keys(mergedFields),
+        contactId: canonical.contactId || contactId,
+        leadId: canonical.leadId || leadId || null
+      });
+    }
+
     const duplicateChanges: Record<string, unknown> = {
       mergedIntoOpportunityId: canonical.id,
       preservedStageId: canonical.stageId,
-      duplicateStageId: duplicate.stageId
+      duplicateStageId: duplicate.stageId,
+      mergedFields
     };
 
     await OpportunityEvent.create({
@@ -282,7 +360,10 @@ const FindOrMergeOpportunityInPipelineService = async ({
       attemptedStageId: stageId,
       attemptedPipelineId: pipelineId,
       duplicateOpportunityIds: duplicateIds,
-      changes,
+      changes: {
+        incoming: changes,
+        duplicates: duplicateMergeChanges
+      },
       text:
         duplicateIds.length > 0
           ? "Cards duplicados no mesmo funil foram consolidados no card mais antigo."
