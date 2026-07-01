@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import CrmLead from "../../models/CrmLead";
@@ -13,6 +13,7 @@ interface Request {
   ticketId?: number | null;
   email?: string | null;
   name?: string | null;
+  transaction?: Transaction;
 }
 
 interface Response {
@@ -23,7 +24,8 @@ interface Response {
   normalizedPhone: string;
 }
 
-const ERROR_MESSAGE = "Não é permitido criar card no funil sem telefone/contato válido.";
+const ERROR_MESSAGE =
+  "Não é permitido criar card no funil sem telefone/contato válido.";
 const LEAD_CONTACT_MISMATCH =
   "Identidade inconsistente: lead e contato pertencem a pessoas diferentes.";
 const TICKET_CONTACT_MISMATCH =
@@ -31,8 +33,12 @@ const TICKET_CONTACT_MISMATCH =
 const TICKET_LEAD_MISMATCH =
   "Identidade inconsistente: ticket e lead pertencem a pessoas diferentes.";
 
-export const normalizeOpportunityPhone = (value?: string | null): string | null => {
-  const digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
+export const normalizeOpportunityPhone = (
+  value?: string | null
+): string | null => {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .replace(/^0+/, "");
   if (!digits || digits.length < 8) return null;
   if (digits.length === 10 || digits.length === 11) return `55${digits}`;
   return digits;
@@ -44,7 +50,9 @@ const phoneVariants = (phone: string): string[] => {
   return Array.from(variants);
 };
 
-const normalizedPhonesFor = (...values: Array<string | null | undefined>): string[] =>
+const normalizedPhonesFor = (
+  ...values: Array<string | null | undefined>
+): string[] =>
   values
     .map(value => normalizeOpportunityPhone(value))
     .filter((value): value is string => Boolean(value));
@@ -61,37 +69,46 @@ const anyPhoneMatches = (
 
 const findContactByPhone = async (
   companyId: number,
-  normalizedPhone: string
+  normalizedPhone: string,
+  transaction?: Transaction
 ): Promise<Contact | null> =>
   Contact.findOne({
     where: {
       companyId,
       number: { [Op.in]: phoneVariants(normalizedPhone) }
-    }
+    },
+    transaction
   });
 
 const findLeadByPhone = async (
   companyId: number,
-  normalizedPhone: string
+  normalizedPhone: string,
+  transaction?: Transaction
 ): Promise<CrmLead | null> =>
   CrmLead.findOne({
     where: {
       companyId,
       phone: { [Op.in]: phoneVariants(normalizedPhone) }
-    }
+    },
+    transaction
   });
 
 const resolveTicket = async (
   companyId: number,
-  ticketId?: number | null
+  ticketId?: number | null,
+  transaction?: Transaction
 ): Promise<Ticket | null> => {
   if (!ticketId) return null;
   const ticket = await Ticket.findOne({
     where: { id: ticketId, companyId },
-    include: [{ model: Contact, as: "contact", required: false }]
+    include: [{ model: Contact, as: "contact", required: false }],
+    transaction
   });
   if (!ticket) {
-    throw new AppError("Ticket informado não encontrado para esta empresa.", 404);
+    throw new AppError(
+      "Ticket informado não encontrado para esta empresa.",
+      404
+    );
   }
   return ticket;
 };
@@ -104,7 +121,8 @@ const ResolveOpportunityIdentityService = async ({
   number,
   ticketId,
   email,
-  name
+  name,
+  transaction
 }: Request): Promise<Response> => {
   let lead: CrmLead | null = null;
   let contact: Contact | null = null;
@@ -112,28 +130,53 @@ const ResolveOpportunityIdentityService = async ({
   let ticketContact: Contact | null = null;
 
   if (leadId) {
-    lead = await CrmLead.findOne({ where: { id: leadId, companyId } });
-    if (!lead) throw new AppError("Lead informado não encontrado para esta empresa.", 404);
+    lead = await CrmLead.findOne({
+      where: { id: leadId, companyId },
+      transaction
+    });
+    if (!lead)
+      throw new AppError(
+        "Lead informado não encontrado para esta empresa.",
+        404
+      );
   }
 
   if (contactId) {
-    contact = await Contact.findOne({ where: { id: contactId, companyId } });
-    if (!contact) throw new AppError("Contato informado não encontrado para esta empresa.", 404);
+    contact = await Contact.findOne({
+      where: { id: contactId, companyId },
+      transaction
+    });
+    if (!contact)
+      throw new AppError(
+        "Contato informado não encontrado para esta empresa.",
+        404
+      );
   }
 
   if (ticketId) {
-    ticket = await resolveTicket(companyId, ticketId);
+    ticket = await resolveTicket(companyId, ticketId, transaction);
     if (ticket?.contactId) {
-      ticketContact = await Contact.findOne({ where: { id: ticket.contactId, companyId } });
+      ticketContact = await Contact.findOne({
+        where: { id: ticket.contactId, companyId },
+        transaction
+      });
       if (!ticketContact) throw new AppError(TICKET_CONTACT_MISMATCH, 400);
     }
   }
 
-  if (lead?.contactId && contactId && Number(lead.contactId) !== Number(contactId)) {
+  if (
+    lead?.contactId &&
+    contactId &&
+    Number(lead.contactId) !== Number(contactId)
+  ) {
     throw new AppError(LEAD_CONTACT_MISMATCH, 400);
   }
 
-  if (ticket?.contactId && contactId && Number(ticket.contactId) !== Number(contactId)) {
+  if (
+    ticket?.contactId &&
+    contactId &&
+    Number(ticket.contactId) !== Number(contactId)
+  ) {
     throw new AppError(TICKET_CONTACT_MISMATCH, 400);
   }
 
@@ -146,7 +189,10 @@ const ResolveOpportunityIdentityService = async ({
   }
 
   if (!contact && lead?.contactId) {
-    contact = await Contact.findOne({ where: { id: lead.contactId, companyId } });
+    contact = await Contact.findOne({
+      where: { id: lead.contactId, companyId },
+      transaction
+    });
     if (!contact) throw new AppError(LEAD_CONTACT_MISMATCH, 400);
   }
 
@@ -157,14 +203,21 @@ const ResolveOpportunityIdentityService = async ({
   const incomingPhone =
     normalizeOpportunityPhone(phone) || normalizeOpportunityPhone(number);
   const contactPhone = normalizeOpportunityPhone((contact as any)?.number);
+  const trustExistingLeadContact = Boolean(lead?.contactId && !contactId);
 
-  if (incomingPhone && contactPhone && incomingPhone !== contactPhone) {
+  if (
+    incomingPhone &&
+    contactPhone &&
+    incomingPhone !== contactPhone &&
+    !trustExistingLeadContact
+  ) {
     throw new AppError(LEAD_CONTACT_MISMATCH, 400);
   }
 
   if (
     incomingPhone &&
     lead &&
+    !trustExistingLeadContact &&
     !anyPhoneMatches(incomingPhone, [
       lead.phone,
       (lead as any).decisionMakerPhone
@@ -174,16 +227,32 @@ const ResolveOpportunityIdentityService = async ({
   }
 
   if (lead && contact && !lead.contactId) {
-    const leadPhones = normalizedPhonesFor(lead.phone, (lead as any).decisionMakerPhone);
-    if (leadPhones.length > 0 && contactPhone && !leadPhones.includes(contactPhone)) {
+    const leadPhones = normalizedPhonesFor(
+      lead.phone,
+      (lead as any).decisionMakerPhone
+    );
+    if (
+      leadPhones.length > 0 &&
+      contactPhone &&
+      !leadPhones.includes(contactPhone)
+    ) {
       throw new AppError(LEAD_CONTACT_MISMATCH, 400);
     }
   }
 
   if (ticketContact && lead && !lead.contactId) {
-    const leadPhones = normalizedPhonesFor(lead.phone, (lead as any).decisionMakerPhone);
-    const ticketPhone = normalizeOpportunityPhone((ticketContact as any).number);
-    if (leadPhones.length > 0 && ticketPhone && !leadPhones.includes(ticketPhone)) {
+    const leadPhones = normalizedPhonesFor(
+      lead.phone,
+      (lead as any).decisionMakerPhone
+    );
+    const ticketPhone = normalizeOpportunityPhone(
+      (ticketContact as any).number
+    );
+    if (
+      leadPhones.length > 0 &&
+      ticketPhone &&
+      !leadPhones.includes(ticketPhone)
+    ) {
       throw new AppError(TICKET_LEAD_MISMATCH, 400);
     }
   }
@@ -195,11 +264,11 @@ const ResolveOpportunityIdentityService = async ({
     normalizeOpportunityPhone((contact as any)?.number);
 
   if (!contact && normalizedPhone) {
-    contact = await findContactByPhone(companyId, normalizedPhone);
+    contact = await findContactByPhone(companyId, normalizedPhone, transaction);
   }
 
   if (!lead && normalizedPhone) {
-    lead = await findLeadByPhone(companyId, normalizedPhone);
+    lead = await findLeadByPhone(companyId, normalizedPhone, transaction);
   }
 
   if (!contact && normalizedPhone) {
@@ -215,7 +284,8 @@ const ResolveOpportunityIdentityService = async ({
         active: true,
         profilePicUrl: "",
         acceptAudioMessage: true
-      }
+      },
+      transaction
     } as any);
     contact = createdContact;
   }
@@ -228,11 +298,14 @@ const ResolveOpportunityIdentityService = async ({
   if (!finalPhone) throw new AppError(ERROR_MESSAGE, 400);
 
   if (lead && !lead.contactId) {
-    await lead.update({
-      contactId: contact.id,
-      phone: lead.phone || finalPhone,
-      lastActivityAt: new Date()
-    });
+    await lead.update(
+      {
+        contactId: contact.id,
+        phone: lead.phone || finalPhone,
+        lastActivityAt: new Date()
+      },
+      { transaction }
+    );
   }
 
   return {

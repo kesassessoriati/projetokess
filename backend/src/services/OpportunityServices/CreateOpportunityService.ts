@@ -10,6 +10,7 @@ import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchSe
 import AppError from "../../errors/AppError";
 import FindOrMergeOpportunityInPipelineService from "./FindOrMergeOpportunityInPipelineService";
 import ResolveOpportunityIdentityService from "./ResolveOpportunityIdentityService";
+import { Transaction } from "sequelize";
 
 interface Request {
   companyId: number;
@@ -24,7 +25,34 @@ interface Request {
   title: string;
   value?: number;
   assignedUserId?: number;
+  transaction?: Transaction;
 }
+
+const runAfterCommit = (
+  transaction: Transaction | undefined,
+  callback: () => Promise<void>
+) => {
+  if (transaction) {
+    transaction.afterCommit(() => {
+      callback().catch(err => {
+        logger.warn(
+          `[CreateOpportunityService] Post-commit side effect skipped: ${
+            err?.message || err
+          }`
+        );
+      });
+    });
+    return;
+  }
+
+  callback().catch(err => {
+    logger.warn(
+      `[CreateOpportunityService] Post-commit side effect skipped: ${
+        err?.message || err
+      }`
+    );
+  });
+};
 
 const CreateOpportunityService = async ({
   companyId,
@@ -38,18 +66,23 @@ const CreateOpportunityService = async ({
   email,
   title,
   value = 0,
-  assignedUserId
+  assignedUserId,
+  transaction
 }: Request): Promise<Opportunity> => {
   const targetStage = await PipelineStage.findOne({
     where: {
       id: stageId,
       companyId,
       pipelineId
-    }
+    },
+    transaction
   });
 
   if (!targetStage) {
-    throw new AppError("Estágio selecionado não encontrado no funil informado.", 400);
+    throw new AppError(
+      "Estágio selecionado não encontrado no funil informado.",
+      400
+    );
   }
 
   const identity = await ResolveOpportunityIdentityService({
@@ -60,7 +93,8 @@ const CreateOpportunityService = async ({
     number,
     email,
     name: title,
-    ticketId
+    ticketId,
+    transaction
   });
 
   let contact: Contact | null = identity.contact;
@@ -69,7 +103,7 @@ const CreateOpportunityService = async ({
   leadId = identity.leadId || leadId;
 
   if (contact && !leadId) {
-    lead = await findOrCreateLeadByContact({ contact, companyId });
+    lead = await findOrCreateLeadByContact({ contact, companyId, transaction });
     if (lead) {
       leadId = lead.id;
     }
@@ -84,25 +118,29 @@ const CreateOpportunityService = async ({
     leadId,
     title,
     value,
-    assignedUserId
+    assignedUserId,
+    transaction
   });
 
   if (existingOpportunity) {
     return existingOpportunity;
   }
 
-  const opportunity = await Opportunity.create({
-    companyId,
-    pipelineId,
-    stageId,
-    contactId,
-    ticketId,
-    leadId,
-    title,
-    value,
-    assignedUserId,
-    status: "OPEN"
-  });
+  const opportunity = await Opportunity.create(
+    {
+      companyId,
+      pipelineId,
+      stageId,
+      contactId,
+      ticketId,
+      leadId,
+      title,
+      value,
+      assignedUserId,
+      status: "OPEN"
+    },
+    { transaction }
+  );
 
   if (opportunity.leadId) {
     const leadUpdate: Record<string, any> = {
@@ -119,65 +157,73 @@ const CreateOpportunityService = async ({
       where: {
         id: opportunity.leadId,
         companyId
-      }
+      },
+      transaction
     });
   }
 
-  await OpportunityEvent.create({
-    companyId,
-    opportunityId: opportunity.id,
-    type: "CREATED",
-    metadata: {
-      initialStageId: stageId,
-      title,
-      value
-    }
-  });
-
-  await EventBus.publish(
-    "OPPORTUNITY_CREATED",
+  await OpportunityEvent.create(
     {
+      companyId,
       opportunityId: opportunity.id,
-      pipelineId: opportunity.pipelineId,
-      stageId: opportunity.stageId,
-      assignedUserId: opportunity.assignedUserId,
-      contactId: opportunity.contactId,
-      ticketId: opportunity.ticketId,
-      leadId: opportunity.leadId,
-      companyId: opportunity.companyId,
-      status: opportunity.status,
-      value: opportunity.value,
-      createdAt: opportunity.createdAt
+      type: "CREATED",
+      metadata: {
+        initialStageId: stageId,
+        title,
+        value
+      }
     },
-    opportunity.companyId
+    { transaction }
   );
 
-  dispatchFlowTrigger("opportunity_created", companyId, {
-    ticketId: opportunity.ticketId || undefined,
-    contactNumber: contact?.number || "",
-    contactName: contact?.name || title,
-    contactEmail: contact?.email || "",
-    metadata: {
-      opportunityId: opportunity.id,
-      pipelineId: opportunity.pipelineId,
-      stageId: opportunity.stageId,
-      leadId: opportunity.leadId,
-      contactId: opportunity.contactId,
-      value: opportunity.value,
-      status: opportunity.status
-    }
-  }).catch(() => null);
+  runAfterCommit(transaction, async () => {
+    await EventBus.publish(
+      "OPPORTUNITY_CREATED",
+      {
+        opportunityId: opportunity.id,
+        pipelineId: opportunity.pipelineId,
+        stageId: opportunity.stageId,
+        assignedUserId: opportunity.assignedUserId,
+        contactId: opportunity.contactId,
+        ticketId: opportunity.ticketId,
+        leadId: opportunity.leadId,
+        companyId: opportunity.companyId,
+        status: opportunity.status,
+        value: opportunity.value,
+        createdAt: opportunity.createdAt
+      },
+      opportunity.companyId
+    );
 
-  try {
-    const { getIO } = await import("../../libs/socket");
-    const io = getIO();
-    io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
-      action: "create",
-      opportunity
-    });
-  } catch (err: any) {
-    logger.warn(`[CreateOpportunityService] Socket emit skipped: ${err?.message || err}`);
-  }
+    dispatchFlowTrigger("opportunity_created", companyId, {
+      ticketId: opportunity.ticketId || undefined,
+      contactNumber: contact?.number || "",
+      contactName: contact?.name || title,
+      contactEmail: contact?.email || "",
+      metadata: {
+        opportunityId: opportunity.id,
+        pipelineId: opportunity.pipelineId,
+        stageId: opportunity.stageId,
+        leadId: opportunity.leadId,
+        contactId: opportunity.contactId,
+        value: opportunity.value,
+        status: opportunity.status
+      }
+    }).catch(() => null);
+
+    try {
+      const { getIO } = await import("../../libs/socket");
+      const io = getIO();
+      io.to(companyId.toString()).emit(`company-${companyId}-opportunity`, {
+        action: "create",
+        opportunity
+      });
+    } catch (err: any) {
+      logger.warn(
+        `[CreateOpportunityService] Socket emit skipped: ${err?.message || err}`
+      );
+    }
+  });
 
   return opportunity;
 };

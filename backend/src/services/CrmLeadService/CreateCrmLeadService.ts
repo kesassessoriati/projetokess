@@ -3,7 +3,8 @@ import AppError from "../../errors/AppError";
 import CrmLead from "../../models/CrmLead";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
+import sequelize from "../../database";
 import syncLeadToClient from "./helpers/syncLeadToClient";
 import { syncCrmLeadTags } from "./helpers/syncCrmLeadTags";
 import { dispatch as webhookDispatch } from "../WebhookDispatch/WebhookDispatchService";
@@ -82,15 +83,20 @@ const normalizeNumber = (phone?: string): string | null => {
   return digits || null;
 };
 
-const sanitizeDigits = (value?: string): string => (value || "").replace(/\D/g, "");
+const sanitizeDigits = (value?: string): string =>
+  (value || "").replace(/\D/g, "");
 const validTemperatures = ["frio", "morno", "quente"];
 
-const normalizeLeadTemperature = (value?: string | null): string | null | undefined => {
+const normalizeLeadTemperature = (
+  value?: string | null
+): string | null | undefined => {
   if (value === undefined) {
     return undefined;
   }
 
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   return validTemperatures.includes(normalized) ? normalized : null;
 };
 
@@ -165,7 +171,9 @@ const syncLeadPhoneToContact = async (
 
     return contact.id;
   } catch (err) {
-    logger.warn(`[CreateCrmLead] Não foi possível sincronizar contato para ${phone}: ${err}`);
+    logger.warn(
+      `[CreateCrmLead] Não foi possível sincronizar contato para ${phone}: ${err}`
+    );
     return undefined;
   }
 };
@@ -196,38 +204,49 @@ const isEmptyValue = (value: unknown): boolean =>
 const mergeExistingLeadTags = async (
   leadId: number,
   companyId: number,
-  incomingTags?: any[]
+  incomingTags?: any[],
+  transaction?: Transaction
 ) => {
   if (!incomingTags || incomingTags.length === 0) return;
 
-  const existingRelations = await LeadTag.findAll({ where: { leadId } });
+  const existingRelations = await LeadTag.findAll({
+    where: { leadId },
+    transaction
+  });
   const mergedTags = [
     ...existingRelations.map(relation => ({ id: relation.tagId })),
     ...incomingTags
   ];
 
-  await syncCrmLeadTags(leadId, companyId, mergedTags);
+  await syncCrmLeadTags(leadId, companyId, mergedTags, transaction);
 };
 
 const ensureOpportunityForExistingLead = async (
   lead: CrmLead,
-  data: Request
+  data: Request,
+  transaction?: Transaction
 ) => {
   if (!data.pipelineId || !data.stageId) return;
 
-  const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
+  const { default: CreateOpportunityService } = await import(
+    "../OpportunityServices/CreateOpportunityService"
+  );
   await CreateOpportunityService({
     companyId: data.companyId,
     pipelineId: data.pipelineId,
     stageId: data.stageId,
     title: lead.name || data.name,
-    value: data.purchaseValue != null ? Number(data.purchaseValue) : Number(lead.purchaseValue || 0),
+    value:
+      data.purchaseValue != null
+        ? Number(data.purchaseValue)
+        : Number(lead.purchaseValue || 0),
     assignedUserId: data.ownerUserId || null,
     leadId: lead.id,
     contactId: lead.contactId || data.contactId || undefined,
     ticketId: lead.primaryTicketId || data.primaryTicketId || undefined,
     phone: data.phone || lead.phone || undefined,
-    email: data.email || lead.email || undefined
+    email: data.email || lead.email || undefined,
+    transaction
   } as any);
 };
 
@@ -236,95 +255,107 @@ const mergeSafeExistingLeadData = async (
   data: Request,
   resolvedContactId?: number
 ): Promise<CrmLead> => {
-  const updates: Record<string, any> = {};
-  const safeFields = [
-    "name",
-    "email",
-    "phone",
-    "document",
-    "companyName",
-    "position",
-    "decisionMakerName",
-    "decisionMakerPhone",
-    "cnpj",
-    "address",
-    "product",
-    "paymentType",
-    "purchaseType",
-    "gmn",
-    "website",
-    "instagram",
-    "linkedin",
-    "sessionid",
-    "source",
-    "campaign",
-    "medium",
-    "temperature",
-    "cardColor",
-    "clientSince",
-    "acquisitionDate",
-    "expirationDate"
-  ];
+  return sequelize.transaction(async transaction => {
+    const updates: Record<string, any> = {};
+    const safeFields = [
+      "name",
+      "email",
+      "phone",
+      "document",
+      "companyName",
+      "position",
+      "decisionMakerName",
+      "decisionMakerPhone",
+      "cnpj",
+      "address",
+      "product",
+      "paymentType",
+      "purchaseType",
+      "gmn",
+      "website",
+      "instagram",
+      "linkedin",
+      "sessionid",
+      "source",
+      "campaign",
+      "medium",
+      "temperature",
+      "cardColor",
+      "clientSince",
+      "acquisitionDate",
+      "expirationDate"
+    ];
 
-  for (const field of safeFields) {
-    const currentValue = (lead as any)[field];
-    const incomingValue = (data as any)[field];
-    if (isEmptyValue(currentValue) && hasValue(incomingValue)) {
-      updates[field] = incomingValue;
+    for (const field of safeFields) {
+      const currentValue = (lead as any)[field];
+      const incomingValue = (data as any)[field];
+      if (isEmptyValue(currentValue) && hasValue(incomingValue)) {
+        updates[field] = incomingValue;
+      }
     }
-  }
 
-  if (resolvedContactId && !lead.contactId) {
-    updates.contactId = resolvedContactId;
-  }
-
-  if (data.primaryTicketId && !lead.primaryTicketId) {
-    updates.primaryTicketId = data.primaryTicketId;
-  }
-
-  if (data.ownerUserId && !lead.ownerUserId) {
-    updates.ownerUserId = data.ownerUserId;
-  }
-
-  if (
-    data.purchaseValue !== null &&
-    data.purchaseValue !== undefined &&
-    Number(data.purchaseValue) > 0 &&
-    (lead.purchaseValue === null || lead.purchaseValue === undefined || Number(lead.purchaseValue) === 0)
-  ) {
-    updates.purchaseValue = data.purchaseValue;
-  }
-
-  if (
-    data.score !== null &&
-    data.score !== undefined &&
-    Number(data.score) > Number(lead.score || 0)
-  ) {
-    updates.score = data.score;
-  }
-
-  if (hasValue(data.notes)) {
-    const incomingNotes = String(data.notes).trim();
-    const currentNotes = String(lead.notes || "").trim();
-    if (!currentNotes) {
-      updates.notes = incomingNotes;
-    } else if (!currentNotes.includes(incomingNotes)) {
-      updates.notes = `${currentNotes}\n${incomingNotes}`;
+    if (resolvedContactId && !lead.contactId) {
+      updates.contactId = resolvedContactId;
     }
-  }
 
-  if (Object.keys(updates).length > 0) {
-    await lead.update({
-      ...updates,
-      lastActivityAt: new Date()
-    });
-  }
+    if (data.primaryTicketId && !lead.primaryTicketId) {
+      updates.primaryTicketId = data.primaryTicketId;
+    }
 
-  await mergeExistingLeadTags(lead.id, data.companyId, data.tags);
-  await ensureOpportunityForExistingLead(lead, data);
-  await lead.reload();
+    if (data.ownerUserId && !lead.ownerUserId) {
+      updates.ownerUserId = data.ownerUserId;
+    }
 
-  return lead;
+    if (
+      data.purchaseValue !== null &&
+      data.purchaseValue !== undefined &&
+      Number(data.purchaseValue) > 0 &&
+      (lead.purchaseValue === null ||
+        lead.purchaseValue === undefined ||
+        Number(lead.purchaseValue) === 0)
+    ) {
+      updates.purchaseValue = data.purchaseValue;
+    }
+
+    if (
+      data.score !== null &&
+      data.score !== undefined &&
+      Number(data.score) > Number(lead.score || 0)
+    ) {
+      updates.score = data.score;
+    }
+
+    if (hasValue(data.notes)) {
+      const incomingNotes = String(data.notes).trim();
+      const currentNotes = String(lead.notes || "").trim();
+      if (!currentNotes) {
+        updates.notes = incomingNotes;
+      } else if (!currentNotes.includes(incomingNotes)) {
+        updates.notes = `${currentNotes}\n${incomingNotes}`;
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await lead.update(
+        {
+          ...updates,
+          lastActivityAt: new Date()
+        },
+        { transaction }
+      );
+    }
+
+    await mergeExistingLeadTags(
+      lead.id,
+      data.companyId,
+      data.tags,
+      transaction
+    );
+    await ensureOpportunityForExistingLead(lead, data, transaction);
+    await lead.reload({ transaction });
+
+    return lead;
+  });
 };
 
 const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
@@ -342,7 +373,11 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
         const digits = sanitizeDigits(v);
         return digits === "" ? null : digits;
       })
-      .test("document-length", "Documento deve ter 11 ou 14 dígitos.", value => !value || value.length === 11 || value.length === 14)
+      .test(
+        "document-length",
+        "Documento deve ter 11 ou 14 dígitos.",
+        value => !value || value.length === 11 || value.length === 14
+      )
       .nullable(),
     birthDate: Yup.date().nullable(),
     clientSince: Yup.date().nullable(),
@@ -354,11 +389,23 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
       .transform(v => (!v || String(v).trim() === "" ? null : String(v).trim()))
       .nullable(),
     status: Yup.string()
-      .oneOf(["novo", "contactado", "qualificado", "reuniao_agendada", "nao_qualificado", "convertido", "perdido", "follow_up", "follow_up_enviado"])
+      .oneOf([
+        "novo",
+        "contactado",
+        "qualificado",
+        "reuniao_agendada",
+        "nao_qualificado",
+        "convertido",
+        "perdido",
+        "follow_up",
+        "follow_up_enviado"
+      ])
       .default("novo"),
     leadStatus: Yup.string().default("novo").nullable(),
     score: Yup.number().min(0).default(0),
-    temperature: Yup.string().oneOf([null, "frio", "morno", "quente"]).nullable(),
+    temperature: Yup.string()
+      .oneOf([null, "frio", "morno", "quente"])
+      .nullable(),
     contactId: Yup.number().nullable(),
     primaryTicketId: Yup.number().nullable(),
     cardColor: Yup.string().nullable()
@@ -386,7 +433,10 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   const shouldCreateCard = Boolean(data.pipelineId || data.stageId);
 
   if (shouldCreateCard && !data.contactId && !data.phone) {
-    throw new AppError("Não é permitido criar card no funil sem telefone/contato válido.", 400);
+    throw new AppError(
+      "Não é permitido criar card no funil sem telefone/contato válido.",
+      400
+    );
   }
 
   await schema.validate(data);
@@ -464,16 +514,16 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   let notes = data.notes || "";
 
   // **GARANTE CAMPOS SOURCE/CAMPAIGN/MEDIUM SEJAM PREENCHIDOS**
-  if (!enrichedData.source || enrichedData.source === '') {
-    enrichedData.source = data.adMetadata?.platform || 'Facebook/Instagram Ads';
+  if (!enrichedData.source || enrichedData.source === "") {
+    enrichedData.source = data.adMetadata?.platform || "Facebook/Instagram Ads";
   }
 
-  if (!enrichedData.campaign || enrichedData.campaign === '') {
-    enrichedData.campaign = data.adMetadata?.adTitle || 'Anúncio Patrocinado';
+  if (!enrichedData.campaign || enrichedData.campaign === "") {
+    enrichedData.campaign = data.adMetadata?.adTitle || "Anúncio Patrocinado";
   }
 
-  if (!enrichedData.medium || enrichedData.medium === '') {
-    enrichedData.medium = 'paid_social';
+  if (!enrichedData.medium || enrichedData.medium === "") {
+    enrichedData.medium = "paid_social";
   }
 
   if (data.adMetadata) {
@@ -491,7 +541,8 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     }
 
     // Adiciona insights aos notes (campo existente)
-    const insights = `\n\n📊 Insights do Anúncio:\n` +
+    const insights =
+      `\n\n📊 Insights do Anúncio:\n` +
       `• Plataforma: ${data.adMetadata.platform}\n` +
       `• Título: ${data.adMetadata.adTitle}\n` +
       `• Descrição: ${data.adMetadata.adDescription}\n` +
@@ -510,62 +561,89 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
   // If the target stage has a linkedStatus and no explicit status was provided by caller,
   // use the stage's linked status so imports/automations into advanced stages are consistent.
   let resolvedStatus = enrichedData.status || "novo";
-  if (stageId && (!data.status || data.status === "novo" || data.status === "new")) {
+  if (
+    stageId &&
+    (!data.status || data.status === "novo" || data.status === "new")
+  ) {
     try {
-      const PipelineStageModel = (await import("../../models/PipelineStage")).default;
-      const targetStage = await PipelineStageModel.findOne({ where: { id: stageId } });
+      const PipelineStageModel = (await import("../../models/PipelineStage"))
+        .default;
+      const targetStage = await PipelineStageModel.findOne({
+        where: { id: stageId }
+      });
       if (targetStage?.linkedStatus) {
         resolvedStatus = targetStage.linkedStatus;
       }
-    } catch (_) { /* non-critical — fallback to "novo" */ }
+    } catch (_) {
+      /* non-critical — fallback to "novo" */
+    }
   }
 
   let meetingScheduledAt = undefined;
-  if (resolvedStatus === "reuniao_agendada" || (data.leadStatus && data.leadStatus === "reuniao_agendada")) {
+  if (
+    resolvedStatus === "reuniao_agendada" ||
+    (data.leadStatus && data.leadStatus === "reuniao_agendada")
+  ) {
     meetingScheduledAt = new Date();
   }
 
-  const lead = await CrmLead.create({
-    ...enrichedData,
-    status: resolvedStatus,
-    contactId,
-    primaryTicketId,
-    leadStatus: data.leadStatus || resolvedStatus,
-    score,
-    notes,
-    lastActivityAt: data.lastActivityAt || new Date(),
-    pipelineId,
-    stageId,
-    meetingScheduledAt
-  });
+  const lead = await sequelize.transaction(async transaction => {
+    const createdLead = await CrmLead.create(
+      {
+        ...enrichedData,
+        status: resolvedStatus,
+        contactId,
+        primaryTicketId,
+        leadStatus: data.leadStatus || resolvedStatus,
+        score,
+        notes,
+        lastActivityAt: data.lastActivityAt || new Date(),
+        pipelineId,
+        stageId,
+        meetingScheduledAt
+      },
+      { transaction }
+    );
 
-  if (data.tags && data.tags.length > 0) {
-    await syncCrmLeadTags(lead.id, data.companyId, data.tags);
-  }
+    if (data.tags && data.tags.length > 0) {
+      await syncCrmLeadTags(
+        createdLead.id,
+        data.companyId,
+        data.tags,
+        transaction
+      );
+    }
+
+    // Create Opportunity if pipeline info is given
+    if (pipelineId && stageId) {
+      const { default: CreateOpportunityService } = await import(
+        "../OpportunityServices/CreateOpportunityService"
+      );
+      const oppData: any = {
+        companyId: data.companyId,
+        pipelineId,
+        stageId,
+        title: data.name,
+        value: data.purchaseValue != null ? Number(data.purchaseValue) : 0,
+        assignedUserId: data.ownerUserId || null,
+        leadId: createdLead.id,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
+        transaction
+      };
+      // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
+      if (contactId) {
+        oppData.contactId = contactId;
+      }
+      await CreateOpportunityService(oppData);
+    }
+
+    await createdLead.reload({ transaction });
+    return createdLead;
+  });
 
   if (lead.status === "convertido" || lead.leadStatus === "convertido") {
     await syncLeadToClient(lead);
-  }
-
-  // Create Opportunity if pipeline info is given
-  if (pipelineId && stageId) {
-    const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
-    const oppData: any = {
-      companyId: data.companyId,
-      pipelineId,
-      stageId,
-      title: data.name,
-      value: data.purchaseValue != null ? Number(data.purchaseValue) : 0,
-      assignedUserId: data.ownerUserId || null,
-      leadId: lead.id,
-      phone: data.phone || undefined,
-      email: data.email || undefined
-    };
-    // Só inclui contactId se existir; evita NOT NULL violation em bancos não migrados
-    if (contactId) {
-      oppData.contactId = contactId;
-    }
-    await CreateOpportunityService(oppData);
   }
 
   const { getIO } = await import("../../libs/socket");
@@ -595,7 +673,11 @@ const CreateCrmLeadService = async (data: Request): Promise<CrmLead> => {
     contactNumber: lead.phone || "",
     contactName: lead.name || "",
     contactEmail: lead.email || "",
-    metadata: { leadId: lead.id, pipelineId: lead.pipelineId, stageId: lead.stageId }
+    metadata: {
+      leadId: lead.id,
+      pipelineId: lead.pipelineId,
+      stageId: lead.stageId
+    }
   }).catch(() => null);
 
   return lead;
