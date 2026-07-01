@@ -5,7 +5,10 @@ const mockTicketFindOne = jest.fn();
 
 jest.mock("../models/Contact", () => ({
   __esModule: true,
-  default: { findOne: mockContactFindOne, findOrCreate: mockContactFindOrCreate }
+  default: {
+    findOne: mockContactFindOne,
+    findOrCreate: mockContactFindOrCreate
+  }
 }));
 
 jest.mock("../models/CrmLead", () => ({
@@ -58,7 +61,11 @@ describe("ResolveOpportunityIdentityService", () => {
       update: jest.fn()
     };
     mockCrmLeadFindOne.mockResolvedValueOnce(lead);
-    mockContactFindOne.mockResolvedValue({ id: 12, companyId: 1, number: "5511999999999" });
+    mockContactFindOne.mockResolvedValue({
+      id: 12,
+      companyId: 1,
+      number: "5511999999999"
+    });
 
     const result = await ResolveOpportunityIdentityService({
       companyId: 1,
@@ -68,7 +75,8 @@ describe("ResolveOpportunityIdentityService", () => {
     expect(result.leadId).toBe(22);
     expect(result.contactId).toBe(12);
     expect(lead.update).toHaveBeenCalledWith(
-      expect.objectContaining({ contactId: 12 })
+      expect.objectContaining({ contactId: 12 }),
+      expect.objectContaining({ transaction: undefined })
     );
   });
 
@@ -79,12 +87,21 @@ describe("ResolveOpportunityIdentityService", () => {
       contactId: 99,
       phone: "5511888888888"
     });
-    mockContactFindOne.mockResolvedValue({ id: 12, companyId: 1, number: "5511999999999" });
+    mockContactFindOne.mockResolvedValue({
+      id: 12,
+      companyId: 1,
+      number: "5511999999999"
+    });
 
     await expect(
-      ResolveOpportunityIdentityService({ companyId: 1, leadId: 22, contactId: 12 })
+      ResolveOpportunityIdentityService({
+        companyId: 1,
+        leadId: 22,
+        contactId: 12
+      })
     ).rejects.toMatchObject({
-      message: "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
+      message:
+        "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
     });
   });
 
@@ -97,9 +114,14 @@ describe("ResolveOpportunityIdentityService", () => {
     }));
 
     await expect(
-      ResolveOpportunityIdentityService({ companyId: 1, ticketId: 7, contactId: 12 })
+      ResolveOpportunityIdentityService({
+        companyId: 1,
+        ticketId: 7,
+        contactId: 12
+      })
     ).rejects.toMatchObject({
-      message: "Identidade inconsistente: ticket e contato pertencem a pessoas diferentes."
+      message:
+        "Identidade inconsistente: ticket e contato pertencem a pessoas diferentes."
     });
   });
 
@@ -111,17 +133,30 @@ describe("ResolveOpportunityIdentityService", () => {
       contactId: 99,
       phone: "5511999999999"
     });
-    mockContactFindOne.mockResolvedValue({ id: 44, companyId: 1, number: "5511999999999" });
+    mockContactFindOne.mockResolvedValue({
+      id: 44,
+      companyId: 1,
+      number: "5511999999999"
+    });
 
     await expect(
-      ResolveOpportunityIdentityService({ companyId: 1, ticketId: 7, leadId: 22 })
+      ResolveOpportunityIdentityService({
+        companyId: 1,
+        ticketId: 7,
+        leadId: 22
+      })
     ).rejects.toMatchObject({
-      message: "Identidade inconsistente: ticket e lead pertencem a pessoas diferentes."
+      message:
+        "Identidade inconsistente: ticket e lead pertencem a pessoas diferentes."
     });
   });
 
   it("rejects phone that differs from contact number", async () => {
-    mockContactFindOne.mockResolvedValue({ id: 12, companyId: 1, number: "5511999999999" });
+    mockContactFindOne.mockResolvedValue({
+      id: 12,
+      companyId: 1,
+      number: "5511999999999"
+    });
 
     await expect(
       ResolveOpportunityIdentityService({
@@ -130,7 +165,8 @@ describe("ResolveOpportunityIdentityService", () => {
         phone: "11888888888"
       })
     ).rejects.toMatchObject({
-      message: "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
+      message:
+        "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
     });
   });
 
@@ -149,8 +185,33 @@ describe("ResolveOpportunityIdentityService", () => {
         phone: "11888888888"
       })
     ).rejects.toMatchObject({
-      message: "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
+      message:
+        "Identidade inconsistente: lead e contato pertencem a pessoas diferentes."
     });
+  });
+
+  it("keeps existing lead contact when webhook phone diverges and no contactId is explicit", async () => {
+    mockCrmLeadFindOne.mockResolvedValue({
+      id: 22,
+      companyId: 1,
+      contactId: 12,
+      phone: "5511888888888"
+    });
+    mockContactFindOne.mockResolvedValue({
+      id: 12,
+      companyId: 1,
+      number: "5511999999999"
+    });
+
+    const result = await ResolveOpportunityIdentityService({
+      companyId: 1,
+      leadId: 22,
+      phone: "5511777777777"
+    });
+
+    expect(result.leadId).toBe(22);
+    expect(result.contactId).toBe(12);
+    expect(result.normalizedPhone).toBe("5511999999999");
   });
 
   it("resolves coherent lead, contact and ticket identity", async () => {
@@ -163,7 +224,11 @@ describe("ResolveOpportunityIdentityService", () => {
     };
     mockCrmLeadFindOne.mockResolvedValue(lead);
     mockTicketFindOne.mockResolvedValue({ id: 7, companyId: 1, contactId: 12 });
-    mockContactFindOne.mockResolvedValue({ id: 12, companyId: 1, number: "5511999999999" });
+    mockContactFindOne.mockResolvedValue({
+      id: 12,
+      companyId: 1,
+      number: "5511999999999"
+    });
 
     const result = await ResolveOpportunityIdentityService({
       companyId: 1,
@@ -184,7 +249,8 @@ describe("ResolveOpportunityIdentityService", () => {
     await expect(
       ResolveOpportunityIdentityService({ companyId: 1 })
     ).rejects.toMatchObject({
-      message: "Não é permitido criar card no funil sem telefone/contato válido."
+      message:
+        "Não é permitido criar card no funil sem telefone/contato válido."
     });
   });
 });

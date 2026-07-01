@@ -1,11 +1,12 @@
 import CrmLead from "../../../models/CrmLead";
 import Contact from "../../../models/Contact";
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import { getBrazilianPhoneVariants } from "../../../helpers/normalizeContactNumber";
 
 interface Params {
   contact: Contact;
   companyId: number;
+  transaction?: Transaction;
 }
 
 const normalizeDocument = (value?: string | null): string | null => {
@@ -16,7 +17,8 @@ const normalizeDocument = (value?: string | null): string | null => {
 
 const findOrCreateLeadByContact = async ({
   contact,
-  companyId
+  companyId,
+  transaction
 }: Params): Promise<CrmLead | null> => {
   if (!contact || contact.isGroup) {
     return null;
@@ -32,7 +34,8 @@ const findOrCreateLeadByContact = async ({
     where: {
       companyId,
       contactId: contact.id
-    }
+    },
+    transaction
   });
 
   // Se não encontrou por contactId, busca por número de telefone ou documento
@@ -42,7 +45,9 @@ const findOrCreateLeadByContact = async ({
     if (normalizedPhone) {
       const phoneVariants = getBrazilianPhoneVariants(normalizedPhone);
       whereConditions.push({
-        phone: phoneVariants.length ? { [Op.in]: phoneVariants } : normalizedPhone
+        phone: phoneVariants.length
+          ? { [Op.in]: phoneVariants }
+          : normalizedPhone
       });
     }
 
@@ -55,29 +60,33 @@ const findOrCreateLeadByContact = async ({
         where: {
           companyId,
           [Op.or]: whereConditions
-        }
+        },
+        transaction
       });
 
       // Se encontrou um lead existente, vincula ao novo contato
       if (lead && lead.contactId !== contact.id) {
-        await lead.update({ contactId: contact.id });
+        await lead.update({ contactId: contact.id }, { transaction });
       }
     }
   }
 
   if (!lead) {
     // Cria um novo lead apenas se não encontrou nenhum existente
-    lead = await CrmLead.create({
-      companyId,
-      contactId: contact.id,
-      name,
-      email,
-      phone: normalizedPhone,
-      document: normalizedDocument,
-      status: "novo",
-      leadStatus: "novo",
-      lastActivityAt: new Date()
-    });
+    lead = await CrmLead.create(
+      {
+        companyId,
+        contactId: contact.id,
+        name,
+        email,
+        phone: normalizedPhone,
+        document: normalizedDocument,
+        status: "novo",
+        leadStatus: "novo",
+        lastActivityAt: new Date()
+      },
+      { transaction }
+    );
   } else {
     // Atualiza as informações do lead existente
     const updates: Partial<CrmLead> = {};
@@ -102,7 +111,7 @@ const findOrCreateLeadByContact = async ({
     updates.lastActivityAt = new Date();
 
     if (Object.keys(updates).length) {
-      await lead.update(updates);
+      await lead.update(updates, { transaction });
     }
   }
 
