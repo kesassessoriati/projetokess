@@ -168,6 +168,7 @@ const UpdateCrmLeadService = async ({
   const previousLeadStatus = lead.leadStatus;
   const previousPipelineId = lead.pipelineId;
   const previousStageId = lead.stageId;
+  const previousName = lead.name;
 
   const contactId = await resolveLeadContactId({
     companyId,
@@ -299,6 +300,21 @@ const UpdateCrmLeadService = async ({
       const { default: CreateOpportunityService } = await import("../OpportunityServices/CreateOpportunityService");
       await CreateOpportunityService(oppData);
     }
+  }
+
+  // Fase D: nome comercial do Lead propaga para TODOS os cards OPEN e para o
+  // contato (somente quando o contato não tem nome manual).
+  if (data.name !== undefined && String(data.name || "").trim() !== "") {
+    const { default: PropagateLeadNameService } = await import(
+      "../CrmSyncService/PropagateLeadNameService"
+    );
+    await PropagateLeadNameService({
+      leadId: lead.id,
+      companyId,
+      contactId: lead.contactId || contactId || null,
+      newName: String(data.name).trim(),
+      previousName
+    }).catch(() => null);
   }
 
   io.to(companyId.toString()).emit(`company-${companyId}-lead`, {

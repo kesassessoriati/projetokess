@@ -15,6 +15,7 @@ import relinkContactToExistingRecords from "./relinkContactToExistingRecords";
 import ContactIdentityResolverService, {
   isGenericContactName
 } from "./ContactIdentityResolverService";
+import { canApplyIncomingWhatsAppName } from "./contactNameRules";
 import {
   buildRemoteJidFromNumber,
   formatPhoneFallback,
@@ -211,7 +212,10 @@ const CreateOrUpdateContactService = async ({
 
       if (contact) {
         logger.info(`Found existing group contact ID: ${contact.id}`);
-        if (incomingNameIsMeaningful && sanitizedIncomingName !== contact.name) {
+        if (
+          incomingNameIsMeaningful &&
+          canApplyIncomingWhatsAppName(contact, sanitizedIncomingName, { isGroup: true })
+        ) {
           contact.name = sanitizedIncomingName;
         }
         if (profilePicUrl && profilePicUrl !== "" && !profilePicUrl.includes("nopicture.png")) {
@@ -404,8 +408,7 @@ const CreateOrUpdateContactService = async ({
 
         if (
           hasBestIncomingName &&
-          bestIncomingName !== duplicateContact.name &&
-          isGenericContactName(duplicateContact.name, duplicateContact.number, duplicateContact.lid)
+          canApplyIncomingWhatsAppName(duplicateContact, bestIncomingName)
         ) {
           duplicateContact.name = bestIncomingName;
         }
@@ -459,8 +462,7 @@ const CreateOrUpdateContactService = async ({
 
       if (
         hasBestIncomingName &&
-        bestIncomingName !== contact.name &&
-        isGenericContactName(contact.name, contact.number, contact.lid)
+        canApplyIncomingWhatsAppName(contact, bestIncomingName)
       ) {
         contact.name = bestIncomingName;
       }

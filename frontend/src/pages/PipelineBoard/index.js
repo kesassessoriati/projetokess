@@ -749,7 +749,9 @@ const IntelligentCard = ({ op, onClick, highlight }) => {
         alignItems="flex-start"
         mb={1}
       >
-        <Typography className={classes.cardTitle}>{op.title}</Typography>
+        <Typography className={classes.cardTitle}>
+          {op.lead?.name || op.title || op.contact?.name || `Oportunidade #${op.id}`}
+        </Typography>
         {op.prediction && op.prediction.riskLevel === "HIGH" && (
           <Tooltip title="Alto Risco">
             <WarningIcon style={{ fontSize: 16, color: riskColor }} />

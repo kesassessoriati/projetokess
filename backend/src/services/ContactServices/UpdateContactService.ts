@@ -134,6 +134,13 @@ const UpdateContactService = async ({
     await ContactWallet.bulkCreate(contactWallets);
   }
 
+  // Fase D: rename manual pelo CRM marca o nome como confiável — o pushName
+  // do WhatsApp nunca mais sobrescreve (ver contactNameRules).
+  const isManualRename =
+    name !== undefined &&
+    String(name || "").trim() !== "" &&
+    String(name).trim() !== contact.name;
+
   await contact.update({
     name,
     number,
@@ -146,7 +153,8 @@ const UpdateContactService = async ({
     address,
     info,
     birthday,
-    anniversary
+    anniversary,
+    ...(isManualRename ? { isManualName: true } : {})
   });
 
   await contact.reload({

@@ -56,6 +56,11 @@ class Contact extends Model<Contact> {
   @Column
   name: string;
 
+  // Nome definido manualmente pelo CRM: pushName do WhatsApp NUNCA sobrescreve.
+  @Default(false)
+  @Column
+  isManualName: boolean;
+
   @AllowNull(false)
   @Unique("contacts_company_number_unique")
   @Column
