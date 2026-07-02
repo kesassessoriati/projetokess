@@ -71,6 +71,13 @@ jest.mock("../utils/logger", () => ({
   debug: jest.fn()
 }));
 
+// Fase B: a sincronização Lead ← Opportunity é serviço central testado em
+// LeadOpportunitySync.spec — aqui isolamos para manter o foco no dedupe.
+jest.mock("../services/CrmSyncService/SyncLeadFromOpportunityService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue({ lead: null, linked: false, appliedStatus: null })
+}));
+
 import CreateOpportunityService from "../services/OpportunityServices/CreateOpportunityService";
 import FindOrMergeOpportunityInPipelineService from "../services/OpportunityServices/FindOrMergeOpportunityInPipelineService";
 import logger from "../utils/logger";
@@ -142,26 +149,41 @@ describe("Kanban opportunity deduplication", () => {
       })
     );
     expect(mockOpportunityCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ contactId: 100, pipelineId: 20, stageId: 75 })
+      expect.objectContaining({ contactId: 100, pipelineId: 20, stageId: 75 }),
+      expect.anything()
     );
     expect(result.contactId).toBe(100);
   });
 
-  it("blocks opportunity without phone or contact", async () => {
+  it("creates opportunity without phone/contact but dedupes by exact title (Fase A)", async () => {
+    // Comportamento novo: cards sem identidade são permitidos, mas passam pela
+    // cascata de dedupe — título exato entre cards sem contactId/leadId não duplica.
     mockContactFindOne.mockResolvedValue(null);
     mockCrmLeadFindOne.mockResolvedValue(null);
+    mockOpportunityFindAll.mockResolvedValue([]);
 
-    await expect(
-      CreateOpportunityService({
-        companyId: 1,
-        pipelineId: 20,
-        stageId: 75,
-        title: "Sem contato"
-      } as any)
-    ).rejects.toMatchObject({
-      message: "Não é permitido criar card no funil sem telefone/contato válido."
-    });
-    expect(mockOpportunityCreate).not.toHaveBeenCalled();
+    const result = await CreateOpportunityService({
+      companyId: 1,
+      pipelineId: 20,
+      stageId: 75,
+      title: "Sem contato"
+    } as any);
+
+    expect(mockOpportunityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Sem contato", companyId: 1 }),
+      expect.anything()
+    );
+    // A busca de dedupe por título só considera cards sem identidade
+    expect(mockOpportunityFindAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          title: "Sem contato",
+          contactId: null,
+          leadId: null
+        })
+      })
+    );
+    expect(result).toBeTruthy();
   });
 
   it("returns the oldest card in the same pipeline without changing its stage", async () => {
@@ -181,7 +203,8 @@ describe("Kanban opportunity deduplication", () => {
     expect(result).toBe(oldest);
     expect(oldest.stageId).toBe(76);
     expect(newest.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" }),
+      expect.anything()
     );
   });
 
@@ -243,10 +266,12 @@ describe("Kanban opportunity deduplication", () => {
     expect(duplicateA.update.mock.invocationCallOrder[0]).toBeGreaterThan(firstCanonicalMergeOrder);
     expect(duplicateB.update.mock.invocationCallOrder[0]).toBeGreaterThan(firstCanonicalMergeOrder);
     expect(duplicateA.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" }),
+      expect.anything()
     );
     expect(duplicateB.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" })
+      expect.objectContaining({ status: "LOST", lastMovedBy: "DEDUPE" }),
+      expect.anything()
     );
     expect(mockOpportunityEventCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -259,7 +284,8 @@ describe("Kanban opportunity deduplication", () => {
             score: expect.any(Object)
           })
         })
-      })
+      }),
+      expect.anything()
     );
     expect(logger.info).toHaveBeenCalledWith(
       "[KANBAN_DEDUPE] duplicate data merged into canonical",
@@ -301,7 +327,8 @@ describe("Kanban opportunity deduplication", () => {
     } as any);
 
     expect(mockOpportunityCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ pipelineId: 21, contactId: 100, leadId: 500 })
+      expect.objectContaining({ pipelineId: 21, contactId: 100, leadId: 500 }),
+      expect.anything()
     );
   });
 });

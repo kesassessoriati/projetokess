@@ -1,20 +1,27 @@
 import { Op, Transaction } from "sequelize";
 import AppError from "../../errors/AppError";
+import Contact from "../../models/Contact";
 import CrmLead from "../../models/CrmLead";
 import Opportunity from "../../models/Opportunity";
 import OpportunityEvent from "../../models/OpportunityEvent";
 import PipelineStage from "../../models/PipelineStage";
 import EventBus from "../../libs/EventBus";
 import { getIO } from "../../libs/socket";
+import {
+  getBrazilianPhoneVariants,
+  normalizePhoneNumber
+} from "../../helpers/normalizeContactNumber";
+import SyncLeadFromOpportunityService from "../CrmSyncService/SyncLeadFromOpportunityService";
 import logger from "../../utils/logger";
 
 interface Request {
   companyId: number;
   pipelineId: number;
   stageId: number;
-  contactId: number;
+  contactId?: number | null;
   ticketId?: number | null;
   leadId?: number | null;
+  phone?: string | null;
   title?: string | null;
   value?: number | null;
   assignedUserId?: number | null;
@@ -53,28 +60,92 @@ const ensureStageBelongsToPipeline = async ({
   return stage;
 };
 
+const resolvePhoneVariants = (phone?: string | null): string[] => {
+  const digits = String(phone || "").replace(/\D/g, "").replace(/^0+/, "");
+  if (!digits) return [];
+  const normalized = normalizePhoneNumber(digits) || digits;
+  return [...new Set(getBrazilianPhoneVariants(normalized))];
+};
+
+// Cascata de dedupe (sempre em companyId + pipelineId + status OPEN):
+//   1. contactId, quando existir;
+//   2. leadId, quando existir;
+//   3. telefone normalizado (variantes BR), quando não há contactId/leadId;
+//   4. título exato como ÚLTIMO recurso, apenas entre cards SEM identidade
+//      (contactId e leadId nulos), para não mesclar pessoas diferentes por nome.
 const findMatchingOpenOpportunities = async ({
   companyId,
   pipelineId,
   contactId,
   leadId,
+  phone,
+  title,
   transaction
 }: {
   companyId: number;
   pipelineId: number;
-  contactId: number;
+  contactId?: number | null;
   leadId?: number | null;
+  phone?: string | null;
+  title?: string | null;
   transaction?: Transaction;
 }): Promise<Opportunity[]> => {
-  const or: Record<string, unknown>[] = [{ contactId }];
+  const or: Record<string, unknown>[] = [];
+  if (contactId) or.push({ contactId });
   if (leadId) or.push({ leadId });
+
+  if (!contactId && !leadId) {
+    const phoneVariants = resolvePhoneVariants(phone);
+    if (phoneVariants.length > 0) {
+      const [phoneLeads, phoneContacts] = await Promise.all([
+        CrmLead.findAll({
+          where: { companyId, phone: { [Op.in]: phoneVariants } },
+          attributes: ["id"],
+          transaction
+        }),
+        Contact.findAll({
+          where: { companyId, number: { [Op.in]: phoneVariants } },
+          attributes: ["id"],
+          transaction
+        })
+      ]);
+
+      if (phoneLeads.length > 0) {
+        or.push({ leadId: { [Op.in]: phoneLeads.map(lead => lead.id) } });
+      }
+      if (phoneContacts.length > 0) {
+        or.push({ contactId: { [Op.in]: phoneContacts.map(c => c.id) } });
+      }
+    }
+  }
+
+  if (or.length > 0) {
+    return Opportunity.findAll({
+      where: {
+        companyId,
+        pipelineId,
+        status: "OPEN",
+        [Op.or]: or
+      },
+      order: [
+        ["createdAt", "ASC"],
+        ["id", "ASC"]
+      ],
+      transaction
+    });
+  }
+
+  const trimmedTitle = String(title || "").trim();
+  if (!trimmedTitle) return [];
 
   return Opportunity.findAll({
     where: {
       companyId,
       pipelineId,
       status: "OPEN",
-      [Op.or]: or
+      title: trimmedTitle,
+      contactId: null,
+      leadId: null
     },
     order: [
       ["createdAt", "ASC"],
@@ -84,58 +155,44 @@ const findMatchingOpenOpportunities = async ({
   });
 };
 
-const mergeSafeLeadFields = async ({
-  canonical,
-  incomingLeadId,
-  contactId,
-  transaction
-}: {
-  canonical: Opportunity;
-  incomingLeadId?: number | null;
-  contactId: number;
-  transaction?: Transaction;
-}) => {
-  const targetLeadId = canonical.leadId || incomingLeadId;
-  if (!targetLeadId) return;
-
-  const targetLead = await CrmLead.findOne({
-    where: { id: targetLeadId, companyId: canonical.companyId },
-    transaction
-  });
-  if (!targetLead) return;
-
-  const updates: Record<string, unknown> = {};
-  if (!targetLead.contactId) updates.contactId = contactId;
-  if (Number(targetLead.pipelineId) !== Number(canonical.pipelineId)) {
-    updates.pipelineId = canonical.pipelineId;
-  }
-  if (Number(targetLead.stageId) !== Number(canonical.stageId)) {
-    updates.stageId = canonical.stageId;
+// Guard de identidade: nunca mesclar cards que apontam para pessoas diferentes.
+// Divergência explícita de contactId ou leadId bloqueia; ticketId divergente só
+// bloqueia quando não conseguimos confirmar que é o mesmo contato.
+const isIdentityCompatible = (
+  candidate: Opportunity,
+  {
+    contactId,
+    leadId,
+    ticketId
+  }: { contactId?: number | null; leadId?: number | null; ticketId?: number | null }
+): boolean => {
+  if (
+    contactId &&
+    candidate.contactId &&
+    Number(candidate.contactId) !== Number(contactId)
+  ) {
+    return false;
   }
 
-  const canonicalStage = await PipelineStage.findOne({
-    where: {
-      id: canonical.stageId,
-      pipelineId: canonical.pipelineId,
-      companyId: canonical.companyId
-    },
-    transaction
-  });
-
-  if (canonicalStage?.linkedStatus) {
-    updates.status = canonicalStage.linkedStatus;
-    updates.leadStatus = canonicalStage.linkedStatus;
+  if (leadId && candidate.leadId && Number(candidate.leadId) !== Number(leadId)) {
+    return false;
   }
 
-  if (Object.keys(updates).length > 0) {
-    await targetLead.update(
-      {
-        ...updates,
-        lastActivityAt: new Date()
-      },
-      { transaction }
-    );
+  const sameContact =
+    contactId &&
+    candidate.contactId &&
+    Number(candidate.contactId) === Number(contactId);
+
+  if (
+    ticketId &&
+    candidate.ticketId &&
+    Number(candidate.ticketId) !== Number(ticketId) &&
+    !sameContact
+  ) {
+    return false;
   }
+
+  return true;
 };
 
 const buildCanonicalUpdates = ({
@@ -148,7 +205,7 @@ const buildCanonicalUpdates = ({
   assignedUserId
 }: {
   canonical: Opportunity;
-  contactId: number;
+  contactId?: number | null;
   leadId?: number | null;
   ticketId?: number | null;
   title?: string | null;
@@ -319,6 +376,7 @@ const FindOrMergeOpportunityInPipelineService = async ({
   contactId,
   ticketId,
   leadId,
+  phone,
   title,
   value,
   assignedUserId,
@@ -331,19 +389,35 @@ const FindOrMergeOpportunityInPipelineService = async ({
     transaction
   });
 
-  if (!contactId) {
-    throw new AppError(
-      "Não é permitido criar card no funil sem telefone/contato válido.",
-      400
-    );
-  }
-
-  const matches = await findMatchingOpenOpportunities({
+  const rawMatches = await findMatchingOpenOpportunities({
     companyId,
     pipelineId,
     contactId,
     leadId,
+    phone,
+    title,
     transaction
+  });
+
+  const matches = rawMatches.filter(candidate => {
+    const compatible = isIdentityCompatible(candidate, {
+      contactId,
+      leadId,
+      ticketId
+    });
+    if (!compatible) {
+      logger.info("[KANBAN_DEDUPE] candidate skipped: divergent identity", {
+        companyId,
+        pipelineId,
+        candidateOpportunityId: candidate.id,
+        candidateContactId: candidate.contactId || null,
+        candidateLeadId: candidate.leadId || null,
+        incomingContactId: contactId || null,
+        incomingLeadId: leadId || null,
+        incomingTicketId: ticketId || null
+      });
+    }
+    return compatible;
   });
 
   if (matches.length === 0) return null;
@@ -432,11 +506,13 @@ const FindOrMergeOpportunityInPipelineService = async ({
     });
   }
 
-  await mergeSafeLeadFields({
-    canonical,
-    incomingLeadId: leadId,
-    contactId,
-    transaction
+  // Sincronização central Lead ← Opportunity (Fase B): o caminho de merge
+  // também sincroniza o lead — bug confirmado na auditoria.
+  await SyncLeadFromOpportunityService({
+    opportunity: canonical,
+    companyId,
+    transaction,
+    emitSocket: true
   });
 
   await OpportunityEvent.create(

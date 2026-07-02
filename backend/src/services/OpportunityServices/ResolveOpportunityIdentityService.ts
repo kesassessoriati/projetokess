@@ -13,12 +13,19 @@ interface Request {
   ticketId?: number | null;
   email?: string | null;
   name?: string | null;
+  /**
+   * Fase A: permite criar card sem contato/telefone (ex.: formulários web e
+   * API externa só com título). A duplicação é evitada pela cascata de dedupe
+   * do FindOrMergeOpportunityInPipelineService. Fluxos de Lead continuam
+   * exigindo telefone via guards próprios.
+   */
+  allowMissingContact?: boolean;
   transaction?: Transaction;
 }
 
 interface Response {
-  contact: Contact;
-  contactId: number;
+  contact: Contact | null;
+  contactId: number | null;
   lead: CrmLead | null;
   leadId: number | null;
   normalizedPhone: string;
@@ -122,6 +129,7 @@ const ResolveOpportunityIdentityService = async ({
   ticketId,
   email,
   name,
+  allowMissingContact = false,
   transaction
 }: Request): Promise<Response> => {
   let lead: CrmLead | null = null;
@@ -291,6 +299,15 @@ const ResolveOpportunityIdentityService = async ({
   }
 
   if (!contact || !normalizeOpportunityPhone(contact.number)) {
+    if (allowMissingContact) {
+      return {
+        contact: null,
+        contactId: null,
+        lead,
+        leadId: lead?.id || null,
+        normalizedPhone: ""
+      };
+    }
     throw new AppError(ERROR_MESSAGE, 400);
   }
 

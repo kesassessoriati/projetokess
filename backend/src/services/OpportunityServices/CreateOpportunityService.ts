@@ -10,6 +10,7 @@ import { dispatchFlowTrigger } from "../FlowBuilderService/FlowTriggerDispatchSe
 import AppError from "../../errors/AppError";
 import FindOrMergeOpportunityInPipelineService from "./FindOrMergeOpportunityInPipelineService";
 import ResolveOpportunityIdentityService from "./ResolveOpportunityIdentityService";
+import SyncLeadFromOpportunityService from "../CrmSyncService/SyncLeadFromOpportunityService";
 import { Transaction } from "sequelize";
 
 interface Request {
@@ -94,12 +95,15 @@ const CreateOpportunityService = async ({
     email,
     name: title,
     ticketId,
+    // Fase A: cards sem contato são permitidos (forms web/API externa) e
+    // deduplicados pela cascata do FindOrMerge (leadId/telefone/título).
+    allowMissingContact: true,
     transaction
   });
 
   let contact: Contact | null = identity.contact;
   let lead: CrmLead | null = identity.lead;
-  contactId = identity.contactId;
+  contactId = identity.contactId || contactId;
   leadId = identity.leadId || leadId;
 
   if (contact && !leadId) {
@@ -116,6 +120,7 @@ const CreateOpportunityService = async ({
     contactId,
     ticketId,
     leadId,
+    phone: phone || number,
     title,
     value,
     assignedUserId,
@@ -142,25 +147,14 @@ const CreateOpportunityService = async ({
     { transaction }
   );
 
-  if (opportunity.leadId) {
-    const leadUpdate: Record<string, any> = {
-      pipelineId: opportunity.pipelineId,
-      stageId: opportunity.stageId
-    };
-
-    if (targetStage?.linkedStatus) {
-      leadUpdate.status = targetStage.linkedStatus;
-      leadUpdate.leadStatus = targetStage.linkedStatus;
-    }
-
-    await CrmLead.update(leadUpdate, {
-      where: {
-        id: opportunity.leadId,
-        companyId
-      },
-      transaction
-    });
-  }
+  // Sincronização central Lead ← Opportunity (Fase B): cache derivado do lead
+  // (pipelineId/stageId/status) é mantido por um único serviço.
+  await SyncLeadFromOpportunityService({
+    opportunity,
+    companyId,
+    transaction,
+    emitSocket: true
+  });
 
   await OpportunityEvent.create(
     {
