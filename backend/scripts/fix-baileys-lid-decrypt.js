@@ -25,25 +25,38 @@ const TARGET = path.join(
 );
 
 if (!fs.existsSync(TARGET)) {
-  console.log('[fix-baileys-lid-decrypt] File not found, skipping:', TARGET);
-  process.exit(0);
+  console.error('[fix-baileys-lid-decrypt] File not found:', TARGET);
+  process.exit(1);
 }
 
 let content = fs.readFileSync(TARGET, 'utf8');
 
+function validatePatched(nextContent) {
+  const hasCompanionGuard =
+    nextContent.includes('isMeRecipient') &&
+    nextContent.includes('&& !isMeRecipient') &&
+    nextContent.includes('chatId = stanza.attrs.peer_recipient_pn');
+
+  if (!hasCompanionGuard) {
+    console.error('[fix-baileys-lid-decrypt] Patch validation failed: companion sync guard not found.');
+    process.exit(1);
+  }
+}
+
 if (content.includes('isMeRecipient')) {
+  validatePatched(content);
   console.log('[fix-baileys-lid-decrypt] Routing fix already present, skipping.');
   process.exit(0);
 }
 
 // Pattern: the block that throws when from is not the CRM itself.
-// Matches the compiled output of both e89a3df4 and d72aaad (same source, same compiled output).
-const PATTERN = /( +)if \(!isMe\(from\) && !isMeLid\(from\)\) \{\n\s+throw new Boom\('receipient present, but msg not from me'[^)]*\)\n\s+\}\n(\s+)if \(isMe\(from\) \|\| isMeLid\(from\)\) \{\n\s+fromMe = true\n\s+\}\n\s+chatId = recipient/;
+// Supports older compiled output without semicolons and newer output with semicolons.
+const PATTERN = /( +)if \(!isMe\(from\) && !isMeLid\(from\)\) \{\r?\n\s+throw new Boom\('(receipient|recipient) present, but msg not from me'[^)]*\);?\r?\n\s+\}\r?\n(\s+)if \(isMe\(from\) \|\| isMeLid\(from\)\) \{\r?\n\s+fromMe = true;?\r?\n\s+\}\r?\n\s+chatId = recipient;?/;
 
 const match = PATTERN.exec(content);
 if (match) {
   const indent = match[1];    // leading spaces of the outer if
-  const inner  = match[2];    // spaces for inner block
+  const inner  = match[3];    // spaces for inner block
 
   const OLD = match[0];
   const NEW = `${indent}// Companion sync: phone sent to contact, CRM receives a copy.
@@ -68,10 +81,11 @@ ${inner}  chatId = recipient;
 ${indent}}`;
 
   content = content.replace(OLD, NEW);
+  validatePatched(content);
   fs.writeFileSync(TARGET, content, 'utf8');
   console.log('[fix-baileys-lid-decrypt] Routing fix applied: isMeRecipient companion sync handler.');
   process.exit(0);
 }
 
 console.error('[fix-baileys-lid-decrypt] Pattern not found — code structure may have changed. Manual review needed.');
-process.exit(0);
+process.exit(1);
