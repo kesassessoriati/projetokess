@@ -10,14 +10,19 @@ interface Request {
     contactId?: number;
     ticketId?: number;
     leadId?: number;
+    /** "OPEN" | "WON" | "LOST" — filtra explicitamente; "ALL"/vazio não filtra. */
+    status?: string;
 }
+
+const ALLOWED_STATUS = new Set(["OPEN", "WON", "LOST"]);
 
 const ListOpportunitiesService = async ({
     companyId,
     pipelineId,
     contactId,
     ticketId,
-    leadId
+    leadId,
+    status
 }: Request): Promise<Opportunity[]> => {
     const whereCondition: any = { companyId };
 
@@ -32,6 +37,9 @@ const ListOpportunitiesService = async ({
     }
     if (leadId) {
         whereCondition.leadId = leadId;
+    }
+    if (status && ALLOWED_STATUS.has(String(status).toUpperCase())) {
+        whereCondition.status = String(status).toUpperCase();
     }
 
     const opportunities = await Opportunity.findAll({

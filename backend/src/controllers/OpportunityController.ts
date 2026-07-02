@@ -75,14 +75,15 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-    const { pipelineId, contactId, ticketId } = req.query;
+    const { pipelineId, contactId, ticketId, status } = req.query;
     const { companyId } = req.user;
 
     const opportunities = await ListOpportunitiesService({
         companyId,
         pipelineId: pipelineId ? Number(pipelineId) : undefined,
         contactId: contactId ? Number(contactId) : undefined,
-        ticketId: ticketId ? Number(ticketId) : undefined
+        ticketId: ticketId ? Number(ticketId) : undefined,
+        status: status ? String(status) : undefined
     });
 
     return res.status(200).json(opportunities);
@@ -291,9 +292,13 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         throw new AppError("Oportunidade não encontrada", 404);
     }
 
+    const isClosingStatus = status === "WON" || status === "LOST";
+
     const updateData: any = {};
     const changes: Record<string, { before: any; after: any }> = {};
-    if (status !== undefined) {
+    // GANHO/PERDIDO é fluxo centralizado (CloseOpportunityService); demais
+    // status (ex.: reabertura para OPEN) seguem pelo update genérico.
+    if (status !== undefined && !isClosingStatus) {
         updateData.status = status;
         changes.status = { before: opportunity.status, after: status };
     }
@@ -361,56 +366,29 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         opportunity
     });
 
-    // Se a oportunidade for fechada (GANHA/PERDIDA), refita status no Lead
-    if (status !== undefined && opportunity.leadId) {
-        const CrmLead = (await import("../models/CrmLead")).default;
-        const leadStatusUpdate: any = {};
-
-        if (status === "WON") {
-            const conversionDate = new Date();
-            leadStatusUpdate.status = "convertido";
-            leadStatusUpdate.leadStatus = "convertido";
-            leadStatusUpdate.clientSince = conversionDate;
-            leadStatusUpdate.acquisitionDate = conversionDate;
-        } else if (status === "LOST") {
-            leadStatusUpdate.status = "perdido";
-            leadStatusUpdate.leadStatus = "perdido";
-        }
-
-        if (leadStatusUpdate.status) {
-            await CrmLead.update(leadStatusUpdate, { where: { id: opportunity.leadId, companyId } });
-            let updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
-            
-            if (updatedLead && leadStatusUpdate.status === "convertido") {
-                const syncLeadToClient = (await import("../services/CrmLeadService/helpers/syncLeadToClient")).default;
-                await syncLeadToClient(updatedLead);
-                updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId, companyId } });
-            }
-
-            if (updatedLead) {
-                io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
-                    action: "update",
-                    lead: updatedLead
-                });
-            }
-        }
-    }
-
-    if (status === "WON" || status === "LOST") {
-        dispatchFlowTrigger(status === "WON" ? "opportunity_won" : "opportunity_lost", companyId, {
-            ticketId: opportunity.ticketId || undefined,
-            contactNumber: contact?.number || "",
-            contactName: contact?.name || opportunity.title,
-            contactEmail: contact?.email || "",
-            metadata: {
-                opportunityId: opportunity.id,
-                pipelineId: opportunity.pipelineId,
-                stageId: opportunity.stageId,
-                leadId: opportunity.leadId,
-                contactId: opportunity.contactId,
-                value: opportunity.value,
-                status: opportunity.status
-            }
+    // Fechamento GANHO/PERDIDO centralizado (Fase C): atualiza Opportunity,
+    // sincroniza Lead, converte em Cliente (WON), dispara eventos e sockets.
+    if (isClosingStatus) {
+        const { default: CloseOpportunityService } = await import(
+            "../services/OpportunityServices/CloseOpportunityService"
+        );
+        await CloseOpportunityService({
+            opportunityId: opportunity.id,
+            companyId,
+            status: status as "WON" | "LOST",
+            userId: Number(req.user.id) || null,
+            reason: (req.body as any)?.reason || null
+        });
+        await opportunity.reload();
+    } else if (status !== undefined) {
+        // Reabertura/ajuste de status genérico: reaplica o cache do lead.
+        const { default: SyncLeadFromOpportunityService } = await import(
+            "../services/CrmSyncService/SyncLeadFromOpportunityService"
+        );
+        await SyncLeadFromOpportunityService({
+            opportunity,
+            companyId,
+            emitSocket: true
         }).catch(() => null);
     }
 

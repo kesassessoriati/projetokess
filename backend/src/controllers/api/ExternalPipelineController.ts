@@ -61,13 +61,14 @@ export const getPipelineBoard = async (req: Request, res: Response): Promise<Res
 // GET /api/external/opportunities
 export const listOpportunities = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = ensureExternalAuth(req);
-  const { pipelineId, stageId, contactId, leadId } = req.query as any;
+  const { pipelineId, stageId, contactId, leadId, status } = req.query as any;
 
   const opportunities = await ListOpportunitiesService({
     companyId,
     pipelineId: pipelineId ? Number(pipelineId) : undefined,
     contactId: contactId ? Number(contactId) : undefined,
-    leadId: leadId ? Number(leadId) : undefined
+    leadId: leadId ? Number(leadId) : undefined,
+    status: status ? String(status) : undefined
   });
 
   // Filter by stageId if provided (ListOpportunitiesService doesn't support it natively)
