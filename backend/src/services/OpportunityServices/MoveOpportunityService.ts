@@ -71,42 +71,24 @@ const MoveOpportunityService = async ({
 
         await opportunity.update(updateData);
 
-        // Auto-sync CrmLead: update stageId and optionally status from stage.linkedStatus
-        if (opportunity.leadId) {
-            const CrmLead = (await import("../../models/CrmLead")).default;
-            const leadUpdate: Record<string, any> = {
-                stageId: toStageId,
-                pipelineId: toStage?.pipelineId || opportunity.pipelineId
-            };
-
-            if (toStage?.linkedStatus) {
-                leadUpdate.status = toStage.linkedStatus;
-                leadUpdate.leadStatus = toStage.linkedStatus;
-            }
-
-            await CrmLead.update(leadUpdate, {
-                where: { id: opportunity.leadId, companyId }
+        // Sincronização central Lead ← Opportunity (Fase B). O serviço atualiza
+        // pipelineId/stageId/status do lead e emite o socket company-{id}-lead.
+        try {
+            const { default: SyncLeadFromOpportunityService } = await import(
+                "../CrmSyncService/SyncLeadFromOpportunityService"
+            );
+            const syncResult = await SyncLeadFromOpportunityService({
+                opportunity,
+                companyId,
+                emitSocket: true
             });
 
-            // Emit socket event so open LeadModal re-renders with updated status
-            try {
-                const { getIO } = await import("../../libs/socket");
-                const io = getIO();
-                let updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
-                
-                if (updatedLead && leadUpdate.status === "convertido") {
-                    const syncLeadToClient = (await import("../CrmLeadService/helpers/syncLeadToClient")).default;
-                    await syncLeadToClient(updatedLead);
-                    updatedLead = await CrmLead.findOne({ where: { id: opportunity.leadId } });
-                }
-                if (updatedLead) {
-                    io.to(companyId.toString()).emit(`company-${companyId}-lead`, {
-                        action: "update",
-                        lead: updatedLead
-                    });
-                }
-            } catch (_) { /* non-critical */ }
-        }
+            // Etapa com linkedStatus "convertido" também converte em Cliente.
+            if (syncResult.lead && syncResult.appliedStatus === "convertido") {
+                const syncLeadToClient = (await import("../CrmLeadService/helpers/syncLeadToClient")).default;
+                await syncLeadToClient(syncResult.lead);
+            }
+        } catch (_) { /* non-critical */ }
     } catch (err) {
         if (err.name === "SequelizeOptimisticLockError") {
             throw new AppError("ERR_CONCURRENT_UPDATE_DETECTED", 409);
