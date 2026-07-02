@@ -198,13 +198,63 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { leadId } = req.params;
+  const { pipelineId: contextPipelineId } = req.query;
 
   const lead = await ShowCrmLeadService({
     id: Number(leadId),
     companyId
   });
 
-  return res.json(await appendCustomFieldValues(serializeCrmLead(lead), companyId));
+  // Fase E: a Opportunity OPEN ativa é a fonte da verdade para funil/etapa.
+  // Preferência: pipeline do contexto (se enviado) → mais recentemente
+  // atualizada → id mais antigo como desempate estável. Nunca cruza companyId.
+  const activeOpportunityWhere: any = {
+    leadId: Number(leadId),
+    companyId,
+    status: "OPEN"
+  };
+  if (contextPipelineId) {
+    activeOpportunityWhere.pipelineId = Number(contextPipelineId);
+  }
+
+  let activeOpportunity = await Opportunity.findOne({
+    where: activeOpportunityWhere,
+    order: [
+      ["updatedAt", "DESC"],
+      ["id", "ASC"]
+    ]
+  });
+
+  // Contexto de pipeline sem match → cai para qualquer OPEN do lead.
+  if (!activeOpportunity && contextPipelineId) {
+    activeOpportunity = await Opportunity.findOne({
+      where: { leadId: Number(leadId), companyId, status: "OPEN" },
+      order: [
+        ["updatedAt", "DESC"],
+        ["id", "ASC"]
+      ]
+    });
+  }
+
+  const payload = await appendCustomFieldValues(serializeCrmLead(lead), companyId);
+
+  return res.json({
+    ...payload,
+    activeOpportunity: activeOpportunity
+      ? {
+          id: activeOpportunity.id,
+          pipelineId: activeOpportunity.pipelineId,
+          stageId: activeOpportunity.stageId,
+          status: activeOpportunity.status,
+          title: activeOpportunity.title,
+          value: activeOpportunity.value,
+          contactId: activeOpportunity.contactId,
+          leadId: activeOpportunity.leadId,
+          createdAt: activeOpportunity.createdAt,
+          updatedAt: activeOpportunity.updatedAt
+        }
+      : null
+  });
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {

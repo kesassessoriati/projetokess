@@ -55,6 +55,10 @@ const formatDocument = (value = "") => {
 const normalizeLeadForm = (lead = {}) => {
   const sourceLead = lead.lead || lead;
   const sourceContact = lead.contact || {};
+  // Fase E: a Opportunity OPEN ativa é a fonte da verdade para funil/etapa —
+  // o modal converge para os mesmos dados tanto pelo Kanban quanto por Leads.
+  const activeOpportunity =
+    lead.activeOpportunity || sourceLead.activeOpportunity || null;
   const rawDocument = sourceLead.document || sourceLead.cnpj || lead.document || lead.cnpj || "";
   const contactTags = Array.isArray(sourceLead.contact?.tags)
     ? sourceLead.contact.tags
@@ -95,6 +99,16 @@ const normalizeLeadForm = (lead = {}) => {
       : "",
     score: sourceLead.score || 0,
     status: sourceLead.status || sourceLead.leadStatus || "novo",
+    pipelineId:
+      (activeOpportunity && activeOpportunity.pipelineId) ||
+      sourceLead.pipelineId ||
+      lead.pipelineId ||
+      "",
+    stageId:
+      (activeOpportunity && activeOpportunity.stageId) ||
+      sourceLead.stageId ||
+      lead.stageId ||
+      "",
     tags: Array.isArray(sourceLead.tags) ? sourceLead.tags : [],
     contactTags,
     cardColor: sourceLead.cardColor || sourceLead.card_color || "#FFFFFF",

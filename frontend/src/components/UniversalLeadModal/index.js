@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, useContext } from "react";
 import {
     Dialog,
     IconButton,
@@ -43,6 +43,8 @@ import LeadMeetingsTab from "../LeadMeetingsTab";
 import WebphoneWorkspace from "../WebphoneWorkspace";
 import api from "../../services/api";
 import { useWebphone } from "../../context/WebphoneContext";
+import { useSocket } from "../../context/SocketContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
     dialogPaper: {
@@ -185,17 +187,29 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
     const classes = useStyles();
     const { meetings: canUseMeetings, webphone: canUseWebphone } = usePlanPermissions();
     const { syncLeadModalState } = useWebphone();
+    // Fase E: quando o modal abre sem Opportunity (módulo Leads), buscamos o
+    // detalhe do lead — que traz a activeOpportunity — para o cabeçalho lateral
+    // e demais campos convergirem com a entrada pelo Kanban.
+    const [leadDetail, setLeadDetail] = useState(null);
+    const activeOpportunity = (op) || leadDetail?.activeOpportunity || null;
     const opportunityValue =
         op && Number(op.value || 0) === 0 && op.lead?.purchaseValue != null
             ? Number(op.lead.purchaseValue)
-            : Number((op && op.value) || 0);
+            : Number(
+                (op && op.value) ??
+                (leadDetail?.activeOpportunity?.value ??
+                    leadDetail?.purchaseValue ??
+                    0)
+            );
     const resolvedLeadId = leadId || (op && (op.leadId || op.lead?.id)) || null;
-    const resolvedOpportunityId = (op && op.id) || null;
+    const resolvedOpportunityId =
+        (op && op.id) || leadDetail?.activeOpportunity?.id || null;
     const displayName =
         (op && op.contact && op.contact.name) ||
         (op && op.lead && op.lead.name) ||
         (op && op.title) ||
         (op && op.name) ||
+        leadDetail?.name ||
         "Novo Lead";
     const [tabValue, setTabValue] = useState(0);
     const [showRecordings, setShowRecordings] = useState(false);
@@ -263,6 +277,46 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
             syncLeadModalStateRef.current(false);
         };
     }, [open]);
+
+    // Fase E: sem Opportunity (entrada pelo módulo Leads), carrega o detalhe do
+    // lead — que traz activeOpportunity — para cabeçalho/funil/etapa convergirem.
+    const loadLeadDetail = useCallback(async () => {
+        if (!resolvedLeadId) {
+            setLeadDetail(null);
+            return;
+        }
+        try {
+            const params = op?.pipelineId ? { pipelineId: op.pipelineId } : {};
+            const { data } = await api.get(`/crm/leads/${resolvedLeadId}`, { params });
+            setLeadDetail(data);
+        } catch (_) { /* silencioso: fallback usa dados do próprio lead */ }
+    }, [resolvedLeadId, op?.pipelineId]);
+
+    useEffect(() => {
+        if (open && !op && resolvedLeadId) {
+            loadLeadDetail();
+        }
+        if (!open) {
+            setLeadDetail(null);
+        }
+    }, [open, op, resolvedLeadId, loadLeadDetail]);
+
+    // Fase E: modal aberto pelo módulo Leads recarrega activeOpportunity quando
+    // o lead é sincronizado (ex.: card movido no Kanban). Sem polling.
+    const { isReady: socketReady, on: socketOn } = useSocket();
+    const { user: authUser } = useContext(AuthContext);
+    useEffect(() => {
+        if (!open || op || !resolvedLeadId || !socketReady || !authUser?.companyId) {
+            return undefined;
+        }
+        const cleanup = socketOn(`company-${authUser.companyId}-lead`, (payload) => {
+            const changedLeadId = payload?.lead?.id || payload?.leadId;
+            if (!changedLeadId || Number(changedLeadId) === Number(resolvedLeadId)) {
+                loadLeadDetail();
+            }
+        });
+        return cleanup;
+    }, [open, op, resolvedLeadId, socketReady, socketOn, authUser?.companyId, loadLeadDetail]);
 
     useEffect(() => {
         if (op && op.lead) {
@@ -552,9 +606,9 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
 
                     <Box mt={2}>
                         <Typography variant="subtitle2" color="textSecondary" style={{ fontWeight: 600, marginBottom: 8 }}>INFORMAÇÕES ADICIONAIS</Typography>
-                        <Typography variant="body2"><strong>Status:</strong> {(op && op.status) || "Novo"}</Typography>
-                        <Typography variant="body2"><strong>Risco IA:</strong> {(op && op.prediction && op.prediction.riskLevel) || "N/A"}</Typography>
-                        <Typography variant="body2"><strong>Criado em:</strong> {(op && op.createdAt) ? new Date(op.createdAt).toLocaleDateString() : "-"}</Typography>
+                        <Typography variant="body2"><strong>Status:</strong> {(op && op.status) || activeOpportunity?.status || leadDetail?.status || leadDetail?.leadStatus || "Novo"}</Typography>
+                        <Typography variant="body2"><strong>Risco IA:</strong> {(op && op.prediction && op.prediction.riskLevel) || leadDetail?.temperature || "N/A"}</Typography>
+                        <Typography variant="body2"><strong>Criado em:</strong> {((op && op.createdAt) || leadDetail?.createdAt) ? new Date((op && op.createdAt) || leadDetail.createdAt).toLocaleDateString() : "-"}</Typography>
                     </Box>
 
                     {loadingMetaLead && (
@@ -817,15 +871,18 @@ const UniversalLeadModal = ({ open, onClose, op, leadId, onSuccess }) => {
                                 cardColor={cardColor}
                                 leadData={
                                     (op && op.lead)
-                                        ? { ...op.lead, pipelineId: op.pipelineId, stageId: op.stageId }
+                                        ? { ...op.lead, pipelineId: op.pipelineId, stageId: op.stageId, activeOpportunity }
                                         : resolvedLeadId
-                                            ? { id: resolvedLeadId, pipelineId: op?.pipelineId, stageId: op?.stageId }
+                                            ? (leadDetail
+                                                ? { ...leadDetail, activeOpportunity }
+                                                : { id: resolvedLeadId, pipelineId: op?.pipelineId, stageId: op?.stageId, activeOpportunity })
                                             : op
                                                 ? {
                                                     name: displayName,
                                                     phone: op.contact?.number || "",
                                                     pipelineId: op.pipelineId,
-                                                    stageId: op.stageId
+                                                    stageId: op.stageId,
+                                                    activeOpportunity
                                                 }
                                                 : null
                                 }
