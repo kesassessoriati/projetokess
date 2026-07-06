@@ -49,6 +49,20 @@ if (content.includes('isMeRecipient')) {
   process.exit(0);
 }
 
+// Engine 680ef3c6 (v1.9.718) traz o fix DE FÁBRICA no fonte da InfiniteAPI
+// ([InfiniteAPI:SELF-SYNC-FIX] — isRecoverableLidSelfSyncStanza roteia o
+// self-sync LID para peer_recipient_pn). Nessa engine o patch externo não é
+// necessário e o pattern do throw não casa (o bloco selfSync fica no meio).
+if (
+  content.includes('isRecoverableLidSelfSyncStanza') ||
+  content.includes('SELF-SYNC-FIX')
+) {
+  console.log(
+    '[fix-baileys-lid-decrypt] In-engine SELF-SYNC-FIX detected — external patch not needed, skipping.'
+  );
+  process.exit(0);
+}
+
 // Pattern: the block that throws when from is not the CRM itself.
 // Supports older compiled output without semicolons and newer output with semicolons.
 const PATTERN = /( +)if \(!isMe\(from\) && !isMeLid\(from\)\) \{\r?\n\s+throw new Boom\('(receipient|recipient) present, but msg not from me'[^)]*\);?\r?\n\s+\}\r?\n(\s+)if \(isMe\(from\) \|\| isMeLid\(from\)\) \{\r?\n\s+fromMe = true;?\r?\n\s+\}\r?\n\s+chatId = recipient;?/;
