@@ -1,4 +1,5 @@
 import AppError from "../../errors/AppError";
+import { safeStringify } from "./logRedaction";
 import { WebhookModel } from "../../models/Webhook";
 import { sendMessageFlow } from "../../controllers/MessageController";
 import { IConnections, INodes } from "./DispatchWebHookService";
@@ -720,7 +721,7 @@ export const ActionsWebhookService = async (
 
       if (nodeSelected.type === "openai") {
         console.log(`=== PROCESSANDO NÓ openai (AGENTE IA) ===`);
-        console.log(`OpenAI: nodeSelected.data=`, JSON.stringify(nodeSelected.data, null, 2));
+        console.log(`OpenAI: nodeSelected.data=`, safeStringify(nodeSelected.data));
 
         try {
           const cfg: any = nodeSelected.data.typebotIntegration || {};
@@ -881,7 +882,7 @@ export const ActionsWebhookService = async (
 
       if (nodeSelected.type === "directOpenai") {
         console.log(`=== PROCESSANDO NÓ directOpenai (AGENTE DIRETO) ===`);
-        console.log(`DirectOpenAI: nodeSelected.data=`, JSON.stringify(nodeSelected.data, null, 2));
+        console.log(`DirectOpenAI: nodeSelected.data=`, safeStringify(nodeSelected.data));
 
         try {
           const cfg = nodeSelected.data;
@@ -910,7 +911,7 @@ export const ActionsWebhookService = async (
             toolsEnabled: cfg.toolsEnabled || []
           };
 
-          console.log(`DirectOpenAI: Configuração montada=`, JSON.stringify(openAiSettings, null, 2));
+          console.log(`DirectOpenAI: Configuração montada=`, safeStringify(openAiSettings));
 
           // VALIDAÇÃO FINAL
           if (!openAiSettings.prompt || !openAiSettings.apiKey) {
@@ -1690,10 +1691,8 @@ export const ActionsWebhookService = async (
 
         if (!apiToken || !message || !phoneNumber) {
           console.log(`SendMessage: Dados incompletos - apiToken: ${!!apiToken}, message: ${!!message}, phoneNumber: ${phoneNumber}`);
-          return;
-        }
-
-        try {
+          // Fase 0: não abortar o fluxo inteiro — pular este nó e seguir adiante.
+        } else try {
           console.log(`SendMessage: Enviando mensagem para ${phoneNumber} via API externa`);
 
           // Buscar informações do contato e ticket para substituir variáveis
@@ -3335,7 +3334,16 @@ export const ActionsWebhookService = async (
       // Nó: JavaScript
       if (nodeSelected.type === "javascript") {
         const code = nodeSelected.data?.code || nodeSelected.data?.data?.code || "";
-        if (code.trim()) {
+        // Fase 0 (segurança): o nó JavaScript executa código arbitrário via
+        // new AsyncFunction (risco de RCE). Desabilitado por padrão — habilite
+        // deliberadamente via env FLOWBUILDER_JS_NODE_ENABLED=true.
+        const jsNodeEnabled = process.env.FLOWBUILDER_JS_NODE_ENABLED === "true";
+        if (code.trim() && !jsNodeEnabled) {
+          console.warn(
+            `[JavaScript Node] Execucao BLOQUEADA por seguranca (RCE). ` +
+            `Defina FLOWBUILDER_JS_NODE_ENABLED=true para habilitar. companyId=${companyId} flowId=${idFlowDb}`
+          );
+        } else if (code.trim()) {
           try {
             const sessionProxy = {
               getValue: async (name: string) => {
@@ -3400,138 +3408,6 @@ export const ActionsWebhookService = async (
               companyId: companyId
             }
           });
-        }
-
-        // Nó: Google Sheets
-        if (nodeSelected.type === "googleSheets") {
-          console.log("GoogleSheets: Iniciando operação");
-
-          // Garantir que o ticket existe
-          if (!ticket && idTicket) {
-            ticket = await ShowTicketService(idTicket, companyId);
-          }
-
-          if (!ticket) {
-            console.log("GoogleSheets: Ticket não encontrado");
-            break;
-          }
-
-          const sheetsConfig = nodeSelected.data?.sheetsConfig || {};
-          const operation = nodeSelected.data?.operation || "list";
-
-          // Obter conexões para caminhos de erro
-          const resultConnect = connects.filter(
-            (connect) => connect.source === nodeSelected.id && connect.sourceHandle === "error"
-          );
-
-          // Extrair variáveis do dataWebhook
-          const variables = ticket?.dataWebhook?.variables || {};
-          console.log("GoogleSheets: Variáveis disponíveis:", variables);
-
-          try {
-            // Importar serviço Google Sheets
-            const GoogleSheetsService = require("../GoogleSheetsService").default;
-            const sheetsService = new GoogleSheetsService();
-
-            let result;
-
-            switch (operation) {
-              case "list":
-                result = await sheetsService.listData(sheetsConfig, variables);
-                break;
-
-              case "add":
-                result = await sheetsService.addRow(sheetsConfig, nodeSelected.data?.rowData || {}, variables);
-                break;
-
-              case "edit":
-                result = await sheetsService.editRow(
-                  sheetsConfig,
-                  nodeSelected.data?.searchColumn || "",
-                  nodeSelected.data?.searchValue || "",
-                  nodeSelected.data?.rowData || {},
-                  variables
-                );
-                break;
-
-              case "delete":
-                result = await sheetsService.deleteRow(
-                  sheetsConfig,
-                  nodeSelected.data?.searchColumn || "",
-                  nodeSelected.data?.searchValue || "",
-                  variables
-                );
-                break;
-
-              case "search":
-                result = await sheetsService.searchData(
-                  sheetsConfig,
-                  nodeSelected.data?.searchColumn || "",
-                  nodeSelected.data?.searchValue || "",
-                  variables
-                );
-                break;
-
-              default:
-                throw new Error(`Operação "${operation}" não suportada`);
-            }
-
-            console.log("GoogleSheets: Operação executada com sucesso:", result);
-
-            // Armazenar resultado na variável de saída se especificada
-            const outputVariable = nodeSelected.data?.outputVariable;
-            if (outputVariable && ticket.dataWebhook) {
-              ticket.dataWebhook.variables[outputVariable] = JSON.stringify(result);
-              await ticket.save();
-            }
-
-            // Enviar confirmação para o WhatsApp
-            if (ticket && ticket.contact && ticket.contact.number) {
-              const confirmationMessage = `✅ Operação "${operation}" no Google Sheets executada com sucesso!`;
-              await SendMessageFlow(whatsapp, {
-                number: `${ticket.contact.number}@s.whatsapp.net`,
-                body: confirmationMessage
-              }, ticket?.id, ticket);
-            }
-
-          } catch (error) {
-            console.error("GoogleSheets: Erro na operação:", error);
-
-            // Enviar mensagem de erro para o WhatsApp
-            if (ticket && ticket.contact && ticket.contact.number) {
-              const errorMessage = `❌ Erro na operação do Google Sheets: ${error.message}`;
-              await SendMessageFlow(whatsapp, {
-                number: `${ticket.contact.number}@s.whatsapp.net`,
-                body: errorMessage
-              }, ticket?.id, ticket);
-            }
-
-            // Seguir caminho de erro se existir
-            if (resultConnect.length > 0) {
-              const nextNode = nodes.find(
-                (node) => node.id === resultConnect[0].target
-              );
-              if (nextNode) {
-                await ActionsWebhookService(
-                  whatsappId,
-                  idFlowDb,
-                  companyId,
-                  nodes,
-                  connects,
-                  nextNode.id,
-                  dataWebhook,
-                  details,
-                  hashWebhookId,
-                  pressKey,
-                  idTicket,
-                  numberPhrase,
-                  msg
-                );
-              }
-            }
-
-            break;
-          }
         }
 
         if (ticket) {
@@ -3616,6 +3492,138 @@ export const ActionsWebhookService = async (
         }
       }
 
+      // Nó: Google Sheets
+      if (nodeSelected.type === "googleSheets") {
+        console.log("GoogleSheets: Iniciando operação");
+
+        // Garantir que o ticket existe
+        if (!ticket && idTicket) {
+          ticket = await ShowTicketService(idTicket, companyId);
+        }
+
+        if (!ticket) {
+          console.log("GoogleSheets: Ticket não encontrado");
+          break;
+        }
+
+        const sheetsConfig = nodeSelected.data?.sheetsConfig || {};
+        const operation = nodeSelected.data?.operation || "list";
+
+        // Obter conexões para caminhos de erro
+        const resultConnect = connects.filter(
+          (connect) => connect.source === nodeSelected.id && connect.sourceHandle === "error"
+        );
+
+        // Extrair variáveis do dataWebhook
+        const variables = ticket?.dataWebhook?.variables || {};
+        console.log("GoogleSheets: Variáveis disponíveis:", variables);
+
+        try {
+          // Importar serviço Google Sheets
+          const GoogleSheetsService = require("../GoogleSheetsService").default;
+          const sheetsService = new GoogleSheetsService();
+
+          let result;
+
+          switch (operation) {
+            case "list":
+              result = await sheetsService.listData(sheetsConfig, variables);
+              break;
+
+            case "add":
+              result = await sheetsService.addRow(sheetsConfig, nodeSelected.data?.rowData || {}, variables);
+              break;
+
+            case "edit":
+              result = await sheetsService.editRow(
+                sheetsConfig,
+                nodeSelected.data?.searchColumn || "",
+                nodeSelected.data?.searchValue || "",
+                nodeSelected.data?.rowData || {},
+                variables
+              );
+              break;
+
+            case "delete":
+              result = await sheetsService.deleteRow(
+                sheetsConfig,
+                nodeSelected.data?.searchColumn || "",
+                nodeSelected.data?.searchValue || "",
+                variables
+              );
+              break;
+
+            case "search":
+              result = await sheetsService.searchData(
+                sheetsConfig,
+                nodeSelected.data?.searchColumn || "",
+                nodeSelected.data?.searchValue || "",
+                variables
+              );
+              break;
+
+            default:
+              throw new Error(`Operação "${operation}" não suportada`);
+          }
+
+          console.log("GoogleSheets: Operação executada com sucesso:", result);
+
+          // Armazenar resultado na variável de saída se especificada
+          const outputVariable = nodeSelected.data?.outputVariable;
+          if (outputVariable && ticket.dataWebhook) {
+            ticket.dataWebhook.variables[outputVariable] = JSON.stringify(result);
+            await ticket.save();
+          }
+
+          // Enviar confirmação para o WhatsApp
+          if (ticket && ticket.contact && ticket.contact.number) {
+            const confirmationMessage = `✅ Operação "${operation}" no Google Sheets executada com sucesso!`;
+            await SendMessageFlow(whatsapp, {
+              number: `${ticket.contact.number}@s.whatsapp.net`,
+              body: confirmationMessage
+            }, ticket?.id, ticket);
+          }
+
+        } catch (error) {
+          console.error("GoogleSheets: Erro na operação:", error);
+
+          // Enviar mensagem de erro para o WhatsApp
+          if (ticket && ticket.contact && ticket.contact.number) {
+            const errorMessage = `❌ Erro na operação do Google Sheets: ${error.message}`;
+            await SendMessageFlow(whatsapp, {
+              number: `${ticket.contact.number}@s.whatsapp.net`,
+              body: errorMessage
+            }, ticket?.id, ticket);
+          }
+
+          // Seguir caminho de erro se existir
+          if (resultConnect.length > 0) {
+            const nextNode = nodes.find(
+              (node) => node.id === resultConnect[0].target
+            );
+            if (nextNode) {
+              await ActionsWebhookService(
+                whatsappId,
+                idFlowDb,
+                companyId,
+                nodes,
+                connects,
+                nextNode.id,
+                dataWebhook,
+                details,
+                hashWebhookId,
+                pressKey,
+                idTicket,
+                numberPhrase,
+                msg
+              );
+            }
+          }
+
+          break;
+        }
+      }
+
       // Nó: Lista de Produtos
       if (nodeSelected.type === "productList") {
         console.log(`=== PROCESSANDO NÓ productList (LISTA DE PRODUTOS) ===`);
@@ -3629,10 +3637,8 @@ export const ActionsWebhookService = async (
 
         if (!ticket) {
           console.error("productList: Ticket não encontrado");
-          return;
-        }
-
-        try {
+          // Fase 0: não abortar o fluxo inteiro — pular este nó e seguir adiante.
+        } else try {
           const title = nodeSelected.data.title || "🛍️ Nossos Produtos e Serviços";
           const listType = nodeSelected.data.listType || "all";
           const selectedItems = nodeSelected.data.selectedItems || [];

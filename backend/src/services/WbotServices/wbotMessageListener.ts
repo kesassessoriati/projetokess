@@ -4227,7 +4227,7 @@ const flowbuilderIntegration = async (
           case "transfer":
             // Encontrar próxima conexão baseada na opção (X ou Y)
             const flow = await FlowBuilderModel.findOne({
-              where: { id: ticket.flowStopped }
+              where: { company_id: companyId, id: ticket.flowStopped }
             });
 
             if (flow && flow.flow) {
@@ -4267,7 +4267,7 @@ const flowbuilderIntegration = async (
           default:
             // Continuar pelo handle correspondente (próximo nó no mesmo fluxo)
             const flowContinue = await FlowBuilderModel.findOne({
-              where: { id: ticket.flowStopped }
+              where: { company_id: companyId, id: ticket.flowStopped }
             });
 
             console.log(`[WaitQuestion] Continue: flowStopped=${ticket.flowStopped}, flowFound=${!!flowContinue}`);
@@ -4441,7 +4441,7 @@ const flowbuilderIntegration = async (
     listPhrase.filter(item => campaignMatchesBody(item)).length === 0
   ) {
     const flow = await FlowBuilderModel.findOne({
-      where: {
+      where: { company_id: companyId,
         id: whatsapp.flowIdWelcome
       }
     });
@@ -4512,7 +4512,7 @@ const flowbuilderIntegration = async (
     console.log("2427", "handleMessageIntegration");
 
     const flow = await FlowBuilderModel.findOne({
-      where: {
+      where: { company_id: companyId,
         id: whatsapp.flowIdNotPhrase
       }
     });
@@ -4550,7 +4550,7 @@ const flowbuilderIntegration = async (
   if (matchingCampaigns.length !== 0) {
     const flowDispar = matchingCampaigns[0];
     const flow = await FlowBuilderModel.findOne({
-      where: {
+      where: { company_id: companyId,
         id: flowDispar.flowId
       }
     });
@@ -4647,7 +4647,7 @@ const flowbuilderIntegration = async (
       console.log(`✅ Webhook encontrado - usando flow do webhook: ${webhook.config["details"].idFlow}`);
 
       const flow = await FlowBuilderModel.findOne({
-        where: {
+        where: { company_id: companyId,
           id: webhook.config["details"].idFlow
         }
       });
@@ -4696,7 +4696,7 @@ const flowbuilderIntegration = async (
       console.log(`⚠️ Webhook não encontrado - usando flowStopped: ${ticket.flowStopped}`);
 
       const flow = await FlowBuilderModel.findOne({
-        where: {
+        where: { company_id: companyId,
           id: ticket.flowStopped
         }
       });
@@ -5037,7 +5037,7 @@ const flowBuilderQueue = async (
         console.log(`[WaitQuestion/Queue] Match encontrado: opção=${response.option}, action=${response.action}, nodeId=${response.nodeId}`);
 
         const flowWQ = await FlowBuilderModel.findOne({
-          where: { id: ticket.flowStopped }
+          where: { company_id: companyId, id: ticket.flowStopped }
         });
 
         console.log(`[WaitQuestion/Queue] flowStopped=${ticket.flowStopped}, flowFound=${!!flowWQ}`);
@@ -5094,7 +5094,7 @@ const flowBuilderQueue = async (
   }
 
   const flow = await FlowBuilderModel.findOne({
-    where: {
+    where: { company_id: companyId,
       id: ticket.flowStopped
     }
   });
@@ -5954,7 +5954,7 @@ const handleMessage = async (
     console.log("log... 4444444");
 
     const flow = await FlowBuilderModel.findOne({
-      where: {
+      where: { company_id: companyId,
         id: ticket.flowStopped
       }
     });
@@ -6455,7 +6455,7 @@ const handleMessage = async (
     ) {
       console.log("|================== CONTINUE TYPEBO ==============|");
       const flow = await FlowBuilderModel.findOne({
-        where: {
+        where: { company_id: companyId,
           id: ticket.flowStopped
         }
       });
