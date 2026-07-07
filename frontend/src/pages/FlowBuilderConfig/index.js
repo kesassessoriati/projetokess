@@ -152,6 +152,11 @@ import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
 import FlowBuilderNodeRenameModal from "../../components/FlowBuilderNodeRenameModal";
 import SaveIcon from "@mui/icons-material/Save";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import WarningIcon from "@material-ui/icons/Warning";
+import CloudUploadIcon from "@material-ui/icons/CloudUpload";
+import BlockIcon from "@material-ui/icons/Block";
+import ConfirmationModal from "../../components/ConfirmationModal";
 import ChatIcon from "@material-ui/icons/Chat";
 
 const useStyles = makeStyles((theme) => ({
@@ -302,6 +307,40 @@ const useStyles = makeStyles((theme) => ({
       transform: "translateY(0px)",
       boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
     },
+  },
+  publishBox: {
+    width: "100%",
+    marginBottom: "8px",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+    boxSizing: "border-box",
+  },
+  statusRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: 700,
+  },
+  inactiveWarning: {
+    fontSize: "11.5px",
+    color: "#92400e",
+    marginTop: "6px",
+    lineHeight: 1.35,
+  },
+  publishButton: {
+    width: "100%",
+    marginTop: "8px",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: 600,
+    textTransform: "none",
+    color: "#ffffff",
+    border: "none",
+    boxShadow: "none",
   },
   testButton: {
     width: "100%",
@@ -759,6 +798,9 @@ export const FlowBuilderConfig = () => {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [flowTriggers, setFlowTriggers] = useState([]);
+  const [flowActive, setFlowActive] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false);
   const [modalJavaScript, setModalJavaScript] = useState(null);
 
   const [nodeRenaming, setNodeRenaming] = useState(null);
@@ -1260,6 +1302,8 @@ export const FlowBuilderConfig = () => {
         try {
           const { data } = await api.get(`/flowbuilder/flow/${id}`);
 
+          setFlowActive(!!data.flow?.active);
+
           if (data.flow.flow !== null) {
             const loadedTriggers = data.flow.triggers || [];
             setFlowTriggers(loadedTriggers);
@@ -1650,6 +1694,51 @@ export const FlowBuilderConfig = () => {
     });
     await api.put(`/flowbuilder/${id}/triggers`, { triggers: flowTriggers });
     toast.success("Fluxo salvo com sucesso");
+  };
+
+  // Publicar: salva o canvas + gatilhos (mesmo padrão do "Testar Fluxo") e
+  // ativa o fluxo, garantindo que o que dispara é o que está na tela.
+  const handlePublish = async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      await saveFlow();
+      const { data } = await api.patch(`/flowbuilder/${id}/toggle-active`);
+      setFlowActive(!!data.active);
+      toast.success(
+        data.active
+          ? "Fluxo publicado. Os gatilhos agora podem ser disparados."
+          : "Fluxo desativado."
+      );
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // Desativar: apenas alterna o estado (sem salvar o canvas).
+  const handleDeactivate = async () => {
+    setConfirmDeactivateOpen(false);
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const { data } = await api.patch(`/flowbuilder/${id}/toggle-active`);
+      setFlowActive(!!data.active);
+      toast.success("Fluxo desativado. Os gatilhos não serão mais disparados.");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handlePublishClick = () => {
+    if (flowActive) {
+      setConfirmDeactivateOpen(true);
+    } else {
+      handlePublish();
+    }
   };
 
   // [TODAS AS FUNÇÕES DE EVENTOS MANTIDAS IGUAIS]
@@ -2220,7 +2309,18 @@ export const FlowBuilderConfig = () => {
         onClose={() => setTriggerModalOpen(false)}
         triggers={flowTriggers}
         onSave={handleTriggerSave}
+        flowActive={flowActive}
       />
+
+      <ConfirmationModal
+        title="Desativar fluxo?"
+        open={confirmDeactivateOpen}
+        onClose={() => setConfirmDeactivateOpen(false)}
+        onConfirm={handleDeactivate}
+      >
+        Ao desativar, os gatilhos deste fluxo deixam de ser disparados
+        automaticamente. Deseja continuar?
+      </ConfirmationModal>
 
       <FlowBuilderJavaScriptModal
         open={modalJavaScript}
@@ -2262,7 +2362,40 @@ export const FlowBuilderConfig = () => {
             >
               {testingFlow ? "Testando..." : "Testar Fluxo"}
             </Button>
-            
+
+            <div className={classes.publishBox}>
+              <div
+                className={classes.statusRow}
+                style={{ color: flowActive ? "#16a34a" : "#b45309" }}
+              >
+                {flowActive ? (
+                  <CheckCircleIcon fontSize="small" />
+                ) : (
+                  <WarningIcon fontSize="small" />
+                )}
+                <span>{flowActive ? "Fluxo ativo" : "Fluxo inativo"}</span>
+              </div>
+              {!flowActive && flowTriggers.length > 0 && (
+                <Typography className={classes.inactiveWarning}>
+                  Os gatilhos configurados não serão executados até publicar o fluxo.
+                </Typography>
+              )}
+              <Button
+                variant="contained"
+                className={classes.publishButton}
+                style={{ backgroundColor: flowActive ? "#ef4444" : "#2563eb" }}
+                startIcon={flowActive ? <BlockIcon /> : <CloudUploadIcon />}
+                onClick={handlePublishClick}
+                disabled={publishing}
+              >
+                {publishing
+                  ? "Aguarde..."
+                  : flowActive
+                    ? "Desativar fluxo"
+                    : "Publicar fluxo"}
+              </Button>
+            </div>
+
             {actionGroups.map((group) => (
               <div key={group.label} className={classes.buttonGroup}>
                 <Typography className={classes.groupLabel}>

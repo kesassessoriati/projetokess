@@ -419,7 +419,7 @@ const BACKEND_URL =
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
+const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowActive = true }) => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const [selectedCat, setSelectedCat] = useState("mensagens");
@@ -512,6 +512,26 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave }) => {
           <CloseIcon fontSize="small" />
         </IconButton>
       </div>
+
+      {/* Aviso: fluxo inativo não dispara */}
+      {!flowActive && (
+        <Box
+          mx={3}
+          mt={1.5}
+          p={1.5}
+          style={{
+            background: "#fef3c7",
+            border: "1px solid #fcd34d",
+            borderRadius: 8,
+          }}
+        >
+          <Typography variant="body2" style={{ fontSize: 12, color: "#92400e" }}>
+            Você configurou gatilhos, mas este fluxo ainda está inativo. Publique
+            o fluxo (botão "Publicar fluxo" no editor) para que ele possa disparar
+            automaticamente.
+          </Typography>
+        </Box>
+      )}
 
       {/* Active triggers chips */}
       {triggers.length > 0 && (
