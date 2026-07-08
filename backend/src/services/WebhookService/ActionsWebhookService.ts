@@ -12,6 +12,10 @@ import Contact from "../../models/Contact";
 import CreateTicketService from "../TicketServices/CreateTicketService";
 import CreateTicketServiceWebhook from "../TicketServices/CreateTicketServiceWebhook";
 import { SendMessage } from "../../helpers/SendMessage";
+import {
+  sendButtonMessage,
+  InteractiveButton
+} from "../../helpers/SendInteractiveMessage";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
@@ -645,6 +649,133 @@ export const ActionsWebhookService = async (
         //} )
         await intervalWhats("1");
       }
+
+      // Nó: Mensagem Interativa (Botões) — reaproveita o mesmo motor de envio do
+      // Disparo Rápido (helper SendInteractiveMessage.sendButtonMessage), que já
+      // injeta os nós nativos de botões via InfiniteAPI. Estrutura preparada para
+      // list/carousel/poll (envio real só de botões nesta entrega).
+      if (nodeSelected.type === "interactiveMessage") {
+        try {
+          if (!ticket && idTicket) {
+            ticket = await Ticket.findOne({
+              where: { id: idTicket, companyId },
+              include: [{ model: Contact, as: "contact" }]
+            });
+          }
+
+          const iData = nodeSelected.data || {};
+          const messageType = String(iData.messageType || "buttons");
+
+          // Substituição de variáveis: mesma lógica do nó de mensagem
+          // (variáveis do dataWebhook) + placeholders de contato via Mustache.
+          const rawText = String(iData.text || iData.label || "");
+          const webhookVars = ticket?.dataWebhook?.variables;
+          let interactiveText = webhookVars
+            ? replaceMessages(webhookVars, rawText)
+            : rawText;
+          if (ticket?.contact) {
+            interactiveText = formatBody(interactiveText, ticket.contact);
+          }
+
+          if (messageType !== "buttons") {
+            // Preparado no editor, mas ainda não executável no runtime.
+            await recordFlowNode(
+              nodeSelected,
+              "warning",
+              `Tipo "${messageType}" ainda não é executado no fluxo (somente botões).`
+            );
+            logger.warn(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_type_unsupported`, {
+              companyId,
+              flowId: idFlowDb,
+              executionId,
+              ticketId: idTicket,
+              messageType
+            });
+          } else {
+            const rawButtons = Array.isArray(iData.buttons) ? iData.buttons : [];
+            const interactiveButtons: InteractiveButton[] = rawButtons
+              .map((b: any) => ({
+                displayText: String(b?.label || b?.displayText || b?.text || "").trim(),
+                type: (["url", "call", "reply", "copy"].includes(String(b?.type))
+                  ? b.type
+                  : "reply") as InteractiveButton["type"],
+                value: String(b?.value || b?.id || "").trim()
+              }))
+              .filter((b: InteractiveButton) => b.displayText)
+              .slice(0, 3);
+
+            if (!interactiveText) {
+              throw new AppError("Mensagem interativa sem texto principal.", 400);
+            }
+            if (!interactiveButtons.length) {
+              throw new AppError("Mensagem interativa sem botões configurados.", 400);
+            }
+            if (!numberClient) {
+              throw new AppError("Mensagem interativa sem contato/ticket para envio.", 400);
+            }
+
+            const contactRemoteJid = ticket?.contact?.remoteJid;
+            const remoteJid =
+              contactRemoteJid &&
+              contactRemoteJid.endsWith("@s.whatsapp.net") &&
+              !contactRemoteJid.includes("@lid")
+                ? contactRemoteJid
+                : `${numberClient}@s.whatsapp.net`;
+
+            const wbotInteractive = getWbot(Number(whatsapp.id));
+            const sentInteractive = await sendButtonMessage(
+              wbotInteractive,
+              remoteJid,
+              interactiveText,
+              String(iData.footer || ""),
+              interactiveButtons,
+              { strictInteractive: true, companyId, whatsappId: whatsapp.id }
+            );
+
+            // Persistência para aparecer no histórico do ticket.
+            if (sentInteractive?.key && ticket) {
+              await CreateMessageService({
+                messageData: {
+                  wid: sentInteractive.key.id,
+                  ticketId: ticket.id,
+                  body: interactiveText,
+                  fromMe: true,
+                  read: true,
+                  ack: 2
+                },
+                companyId
+              }).catch(() => null);
+            }
+
+            // O nó já foi registrado como "success" na entrada do loop
+            // (recordFlowNode em l.611); aqui só emitimos o log de envio.
+            logger.info(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_sent`, {
+              companyId,
+              flowId: idFlowDb,
+              executionId,
+              ticketId: ticket?.id,
+              whatsappId: whatsapp.id,
+              messageType: "buttons",
+              buttonsCount: interactiveButtons.length
+            });
+            await intervalWhats("1");
+          }
+        } catch (err) {
+          await recordFlowNode(
+            nodeSelected,
+            "error",
+            `Falha ao enviar mensagem interativa: ${err?.message || err}`
+          );
+          logger.error(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_failed`, {
+            companyId,
+            flowId: idFlowDb,
+            executionId,
+            ticketId: idTicket,
+            reason: err?.message || String(err)
+          });
+        }
+      }
+
       console.log("273");
       if (nodeSelected.type === "typebot") {
         console.log("275");

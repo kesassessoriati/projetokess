@@ -48,6 +48,7 @@ import waitQuestionNode from "./nodes/waitQuestionNode";
 import kanbanStageNode from "./nodes/kanbanStageNode";
 import crmLeadNode from "./nodes/crmLeadNode";
 import contactFieldsNode from "./nodes/contactFieldsNode";
+import interactiveMessageNode from "./nodes/interactiveMessageNode";
 
 
 import api from "../../services/api";
@@ -108,6 +109,7 @@ import {
   DriveFileRenameOutline,
 } from "@mui/icons-material";
 import DescriptionIcon from "@mui/icons-material/Description";
+import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import RemoveEdge from "./nodes/removeEdge";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
@@ -146,6 +148,7 @@ import FlowBuilderTriggerModal from "../../components/FlowBuilderTriggerModal";
 import FlowBuilderJavaScriptModal from "../../components/FlowBuilderJavaScriptModal";
 import FlowBuilderCrmLeadModal from "../../components/FlowBuilderCrmLeadModal";
 import FlowBuilderContactFieldsModal from "../../components/FlowBuilderContactFieldsModal";
+import FlowBuilderInteractiveMessageModal from "../../components/FlowBuilderInteractiveMessageModal";
 
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
@@ -622,6 +625,7 @@ const NODE_TITLES = {
   note: "Nota",
   crmLead: "Criar / Atualizar Lead",
   contactFields: "Atualizar Campo do Contato",
+  interactiveMessage: "Mensagem Interativa",
 };
 
 
@@ -700,6 +704,7 @@ const nodeTypes = {
   javascript: withNodeTitle(javascriptNode, NODE_TITLES.javascript),
   crmLead: withNodeTitle(crmLeadNode, NODE_TITLES.crmLead),
   contactFields: withNodeTitle(contactFieldsNode, NODE_TITLES.contactFields),
+  interactiveMessage: withNodeTitle(interactiveMessageNode, NODE_TITLES.interactiveMessage),
   note: noteNode,
 };
 
@@ -795,6 +800,7 @@ export const FlowBuilderConfig = () => {
   const [modalAddKanbanStage, setModalAddKanbanStage] = useState(null);
   const [modalCrmLead, setModalCrmLead] = useState(null);
   const [modalContactFields, setModalContactFields] = useState(null);
+  const [modalInteractiveMessage, setModalInteractiveMessage] = useState(null);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [flowTriggers, setFlowTriggers] = useState([]);
@@ -1236,6 +1242,23 @@ export const FlowBuilderConfig = () => {
       setModalJavaScript(null);
     }
 
+    if (type === "interactiveMessage") {
+      return setNodes((old) => [
+        ...old,
+        {
+          id: geraStringAleatoria(30),
+          position: { x: posX, y: posY },
+          data: withTitleData("interactiveMessage", {
+            messageType: data?.messageType || "buttons",
+            text: data?.text || "",
+            buttons: Array.isArray(data?.buttons) ? data.buttons : [],
+            label: data?.label || data?.text || "Mensagem Interativa",
+          }),
+          type: "interactiveMessage",
+        },
+      ]);
+    }
+
     if (type === "note") {
       const noteId = geraStringAleatoria(30);
       setNodes((old) => [
@@ -1291,6 +1314,7 @@ export const FlowBuilderConfig = () => {
   const javascriptAdd = (data) => { addNode("javascript", data); };
   const crmLeadAdd = (data) => { addNode("crmLead", data); };
   const contactFieldsAdd = (data) => { addNode("contactFields", data); };
+  const interactiveMessageAdd = (data) => { addNode("interactiveMessage", data); };
   const noteAdd = () => { addNode("note", {}); };
 
 
@@ -1834,6 +1858,7 @@ export const FlowBuilderConfig = () => {
     if (node.type === "javascript") { setModalJavaScript("edit"); }
     if (node.type === "crmLead") { setModalCrmLead("edit"); }
     if (node.type === "contactFields") { setModalContactFields("edit"); }
+    if (node.type === "interactiveMessage") { setModalInteractiveMessage("edit"); }
     if (node.type === "note") { /* handled inline by noteNode */ }
   };
 
@@ -1916,6 +1941,7 @@ export const FlowBuilderConfig = () => {
     setModalWaitQuestion(null);
     setModalCrmLead(null);
     setModalContactFields(null);
+    setModalInteractiveMessage(null);
   };
 
   const closeRenameModal = () => {
@@ -1957,6 +1983,7 @@ export const FlowBuilderConfig = () => {
         { icon: <Videocam sx={{ color: "#ef4444", fontSize: 14 }} />, name: "Vídeo", type: "content-video" },
         { icon: <MicNone sx={{ color: "#8b5cf6", fontSize: 14 }} />, name: "Áudio", type: "content-audio" },
         { icon: <DescriptionIcon sx={{ color: "#6366f1", fontSize: 14 }} />, name: "Arquivo", type: "content-file" },
+        { icon: <SmartButtonIcon sx={{ color: "#14b8a6", fontSize: 14 }} />, name: "Botões", type: "interactiveMessage" },
       ],
     },
     {
@@ -2082,6 +2109,7 @@ export const FlowBuilderConfig = () => {
       case "javascript": setModalJavaScript("create"); break;
       case "crmLead": setModalCrmLead("create"); break;
       case "contactFields": setModalContactFields("create"); break;
+      case "interactiveMessage": setModalInteractiveMessage("create"); break;
       case "note": noteAdd(); break;
       default: break;
 
@@ -2294,6 +2322,13 @@ export const FlowBuilderConfig = () => {
         data={dataNode}
         onUpdate={updateNode}
         close={() => setModalContactFields(null)}
+      />
+      <FlowBuilderInteractiveMessageModal
+        open={modalInteractiveMessage}
+        onSave={interactiveMessageAdd}
+        data={dataNode}
+        onUpdate={updateNode}
+        close={() => setModalInteractiveMessage(null)}
       />
 
       <FlowBuilderNodeRenameModal
