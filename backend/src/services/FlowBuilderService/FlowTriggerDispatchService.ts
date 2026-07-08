@@ -31,10 +31,6 @@ const safeMeta = (
   return {
     event,
     companyId,
-    triggerType: extra.triggerType,
-    triggerKey: extra.triggerKey,
-    flowId: extra.flowId,
-    executionId: extra.executionId,
     ticketId: data.ticketId || extra.ticketId,
     contactId: metadata.contactId || extra.contactId,
     leadId: metadata.leadId || extra.leadId,
@@ -42,30 +38,50 @@ const safeMeta = (
     pipelineId: metadata.pipelineId || extra.pipelineId,
     stageId: metadata.toStageId || metadata.stageId || extra.stageId,
     whatsappId: data.whatsappId || extra.whatsappId,
-    reason: extra.reason
+    // Chaves explícitas do chamador (flowId/triggerType/reason/rawActive*…)
+    // por último para prevalecerem sobre os derivados acima.
+    ...extra
   };
 };
+
+// Serializa a metadata como key=value dentro da PRÓPRIA mensagem: o pino usa a
+// assinatura logger.info(objeto, mensagem) — a forma antiga (mensagem, objeto)
+// fazia o pino DESCARTAR a metadata e os logs chegavam sem flowId/reason.
+const formatMeta = (meta: Record<string, any>): string =>
+  Object.entries(meta)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+    .join(" ");
 
 const logInfo = (
   event: string,
   companyId: number,
   data: TriggerDispatchData,
   extra: Record<string, any> = {}
-) => logger.info(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
+) => {
+  const meta = safeMeta(event, companyId, data, extra);
+  logger.info(meta, `${LOG_PREFIX} ${event} ${formatMeta(meta)}`);
+};
 
 const logWarn = (
   event: string,
   companyId: number,
   data: TriggerDispatchData,
   extra: Record<string, any> = {}
-) => logger.warn(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
+) => {
+  const meta = safeMeta(event, companyId, data, extra);
+  logger.warn(meta, `${LOG_PREFIX} ${event} ${formatMeta(meta)}`);
+};
 
 const logError = (
   event: string,
   companyId: number,
   data: TriggerDispatchData,
   extra: Record<string, any> = {}
-) => logger.error(`${LOG_PREFIX} ${event}`, safeMeta(event, companyId, data, extra));
+) => {
+  const meta = safeMeta(event, companyId, data, extra);
+  logger.error(meta, `${LOG_PREFIX} ${event} ${formatMeta(meta)}`);
+};
 
 const getTriggers = (flow: FlowBuilderModel): any[] =>
   Array.isArray(flow.triggers) ? flow.triggers : [];
@@ -83,8 +99,21 @@ export const isActiveValue = (value: any): boolean =>
 export const isTriggerEnabled = (trigger: any): boolean =>
   trigger?.active !== false && trigger?.config?.active !== false;
 
-const triggerMatchesEvent = (trigger: any, eventType: string): boolean =>
-  String(trigger?.type || "").toLowerCase() === eventType.toLowerCase();
+// Aliases evento→gatilho. O board do Kanban dispara "opportunity_moved" ao
+// mover cards (MoveOpportunityService); o gatilho oferecido na UI é
+// "move_lead" ("Quando um lead é movimentado no Kanban"). Sem o alias, mover
+// card no board nunca casava o gatilho — só a edição do lead pelo formulário
+// (UpdateCrmLeadService) emitia "move_lead".
+const EVENT_TRIGGER_ALIASES: Record<string, string[]> = {
+  opportunity_moved: ["move_lead"]
+};
+
+const triggerMatchesEvent = (trigger: any, eventType: string): boolean => {
+  const triggerType = String(trigger?.type || "").toLowerCase();
+  const event = eventType.toLowerCase();
+  if (triggerType === event) return true;
+  return (EVENT_TRIGGER_ALIASES[event] || []).includes(triggerType);
+};
 
 // Normaliza para comparação: minúsculas, sem acentos, sem espaços nas pontas
 // ("Olá" casa com "ola").
@@ -183,9 +212,9 @@ export const dispatchFlowTrigger = async (
         logInfo("flow_skipped_inactive", companyId, data, {
           flowId: flow.id,
           triggerType: eventType,
-          reason: `flow_active_not_true value=${JSON.stringify(
-            flow.active
-          )} type=${typeof flow.active}`
+          rawActiveValue: JSON.stringify(flow.active),
+          rawActiveType: typeof flow.active,
+          reason: "flow_inactive"
         });
         continue;
       }
@@ -289,9 +318,9 @@ export const executeFlowByToken = async (
         logInfo("flow_skipped_inactive", flow.company_id, data, {
           flowId: flow.id,
           triggerType: "http_webhook",
-          reason: `flow_active_not_true value=${JSON.stringify(
-            flow.active
-          )} type=${typeof flow.active}`
+          rawActiveValue: JSON.stringify(flow.active),
+          rawActiveType: typeof flow.active,
+          reason: "flow_inactive"
         });
         continue;
       }

@@ -480,6 +480,17 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
     setSelectedQueueIds([])
   }
 
+  // Caminho legado: vincular FlowBuilder pelo canal foi descontinuado — os
+  // gatilhos agora são configurados dentro do próprio Construtor de Fluxo.
+  // A opção some do select para novas escolhas, mas conexões antigas que já
+  // têm FlowBuilder vinculado continuam exibindo o valor salvo (com aviso),
+  // sem perda de dados e sem limpar integrationId automaticamente.
+  const selectedIntegrationIsLegacyFlowbuilder = integrations.some(
+    (integration) =>
+      integration.id === selectedIntegration &&
+      integration.type === "flowbuilder"
+  );
+
   const handleChangeMessageIntegration = (e) => {
     setSelectedMessageIntegration(e.target.value || null);
   }
@@ -1240,36 +1251,72 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, channel }) => {
                       />
                     </div> */}
                     {showIntegrations && (
-                      <div className={classes.fieldWithIcon}>
-                        <IntegrationIcon className={classes.icon} />
-                        <FormControl
-                          variant="outlined"
-                          margin="dense"
-                          className={classes.FormControl}
-                          fullWidth
-                        >
-                          <InputLabel id="integrationId-selection-label">
-                            {i18n.t("queueModal.form.integrationId")}
-                          </InputLabel>
-                          <Select
-                            label={i18n.t("queueModal.form.integrationId")}
-                            name="integrationId"
-                            value={selectedIntegration || ""}
-                            onChange={handleChangeIntegration}
-                            id="integrationId"
+                      <>
+                        <div className={classes.fieldWithIcon}>
+                          <IntegrationIcon className={classes.icon} />
+                          <FormControl
                             variant="outlined"
                             margin="dense"
-                            placeholder={i18n.t("queueModal.form.integrationId")}
-                            labelId="integrationId-selection-label">
-                            <MenuItem value={null} >{"Desabilitado"}</MenuItem>
-                            {integrations.map((integration) => (
-                              <MenuItem key={integration.id} value={integration.id}>
-                                {integration.name}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </div>
+                            className={classes.FormControl}
+                            fullWidth
+                          >
+                            <InputLabel id="integrationId-selection-label">
+                              {i18n.t("queueModal.form.integrationId")}
+                            </InputLabel>
+                            <Select
+                              label={i18n.t("queueModal.form.integrationId")}
+                              name="integrationId"
+                              value={selectedIntegration || ""}
+                              onChange={handleChangeIntegration}
+                              id="integrationId"
+                              variant="outlined"
+                              margin="dense"
+                              placeholder={i18n.t("queueModal.form.integrationId")}
+                              labelId="integrationId-selection-label">
+                              <MenuItem value={null} >{"Desabilitado"}</MenuItem>
+                              {integrations
+                                .filter(
+                                  (integration) =>
+                                    integration.type !== "flowbuilder" ||
+                                    integration.id === selectedIntegration
+                                )
+                                .map((integration) => (
+                                  <MenuItem key={integration.id} value={integration.id}>
+                                    {integration.name}
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+                        </div>
+                        <div
+                          style={{
+                            margin: "0 0 8px 34px",
+                            fontSize: 12,
+                            color: "#6b7280"
+                          }}
+                        >
+                          Os gatilhos do Construtor de Fluxo agora são
+                          configurados diretamente dentro do próprio fluxo, no
+                          nó Início.
+                        </div>
+                        {selectedIntegrationIsLegacyFlowbuilder && (
+                          <div
+                            style={{
+                              margin: "0 0 8px 34px",
+                              fontSize: 12,
+                              color: "#b45309",
+                              background: "#fffbeb",
+                              border: "1px solid #fcd34d",
+                              borderRadius: 6,
+                              padding: "6px 10px"
+                            }}
+                          >
+                            Esta integração de FlowBuilder é legada. Para novos
+                            fluxos, configure os gatilhos dentro do Construtor
+                            de Fluxo.
+                          </div>
+                        )}
+                      </>
                     )}
                     <div className={classes.fieldWithIcon}>
                       <IntegrationIcon className={classes.icon} />

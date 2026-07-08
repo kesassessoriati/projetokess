@@ -4600,34 +4600,11 @@ const flowbuilderIntegration = async (
     return;
   }
 
-  // Fire message_received flow triggers when no active flow is running on this ticket
-  if (!ticket.flowWebhook) {
-    try {
-      const { dispatchFlowTrigger } = await import("../FlowBuilderService/FlowTriggerDispatchService");
-      if (ticket.isGroup || contact.isGroup) {
-        await dispatchFlowTrigger("group_event_received", ticket.companyId, {
-          ticketId: ticket.id,
-          whatsappId: whatsapp.id,
-          message: body,
-          contactNumber: contact.number,
-          contactName: contact.name,
-          metadata: {
-            groupJid: msg?.key?.remoteJid,
-            participant: msg?.key?.participant || msg?.participant,
-            fromMe: msg?.key?.fromMe
-          }
-        });
-      }
-      const triggered = await dispatchFlowTrigger("message_received", ticket.companyId, {
-        ticketId: ticket.id,
-        whatsappId: whatsapp.id,
-        message: body,
-        contactNumber: contact.number,
-        contactName: contact.name,
-      });
-      if (triggered) return; // A flow was started — stop further processing
-    } catch (_) {}
-  }
+  // T1/T2: o dispatch de "message_received" saiu daqui — agora é avaliado
+  // globalmente no handleMessage, ANTES do roteamento legado, para disparar
+  // mesmo quando o canal tem outra integração vinculada. (O dispatch de
+  // "group_event_received" que existia aqui era código morto: todos os
+  // chamadores de flowbuilderIntegration exigem !ticket.isGroup.)
 
   if (ticket.flowWebhook) {
     console.log(`🔄 FlowWebhook ativo - hashFlowId: ${ticket.hashFlowId}, flowStopped: ${ticket.flowStopped}, lastFlowId: ${ticket.lastFlowId}`);
@@ -6368,8 +6345,67 @@ const handleMessage = async (
     }
 
     console.log("log... 4444", { ticket });
+
+    // FlowBuilder — gatilhos novos (T1/T2): avaliados ANTES de qualquer
+    // roteamento legado do canal. Um gatilho configurado no Construtor de
+    // Fluxo dispara mesmo com Typebot/n8n/Dialogflow vinculados à conexão;
+    // Welcome/NotPhrase/Campaign e as integrações legadas só rodam se nenhum
+    // gatilho novo casar (precedência: novo > legado, sem disparo duplicado).
+    let flowTriggerHandled = false;
+    if (!ticket.imported && !msg.key.fromMe) {
+      const globalTriggerSkipReason = ticket.isGroup
+        ? "group_not_supported"
+        : ticket.useIntegration
+        ? "automation_blocked"
+        : ticket.flowWebhook
+        ? "existing_flow_waiting_response"
+        : ticket.status === "open" && ticket.userId
+        ? "automation_blocked"
+        : null;
+
+      if (globalTriggerSkipReason) {
+        logger.info(
+          `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_skipped_reason companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id} reason=${globalTriggerSkipReason}`
+        );
+      } else {
+        try {
+          logger.info(
+            `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_check companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id}`
+          );
+          const { dispatchFlowTrigger } = await import(
+            "../FlowBuilderService/FlowTriggerDispatchService"
+          );
+          flowTriggerHandled = await dispatchFlowTrigger(
+            "message_received",
+            ticket.companyId,
+            {
+              ticketId: ticket.id,
+              whatsappId: whatsapp.id,
+              message: getBodyMessage(msg) || "",
+              contactNumber: contact?.number,
+              contactName: contact?.name
+            }
+          );
+          logger.info(
+            `[FLOWBUILDER_TRIGGER] ${
+              flowTriggerHandled
+                ? "flowbuilder_global_trigger_matched"
+                : "flowbuilder_global_trigger_no_match"
+            } companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id}${
+              flowTriggerHandled ? "" : " reason=no_trigger_matched"
+            }`
+          );
+        } catch (err) {
+          logger.error(
+            `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_skipped_reason companyId=${companyId} ticketId=${ticket.id} reason=dispatcher_error error=${err?.message}`
+          );
+        }
+      }
+    }
+
     //integraçao na conexao
     if (
+      !flowTriggerHandled &&
       !ticket.imported &&
       !msg.key.fromMe &&
       !ticket.isGroup &&
@@ -6401,6 +6437,7 @@ const handleMessage = async (
 
     // integração flowbuilder
     if (
+      !flowTriggerHandled &&
       !ticket.imported &&
       !msg.key.fromMe &&
       !ticket.isGroup &&
@@ -6428,6 +6465,7 @@ const handleMessage = async (
 
     // FlowCampaign / FlowDefault sem integração configurada no canal
     if (
+      !flowTriggerHandled &&
       !ticket.imported &&
       !msg.key.fromMe &&
       !ticket.isGroup &&

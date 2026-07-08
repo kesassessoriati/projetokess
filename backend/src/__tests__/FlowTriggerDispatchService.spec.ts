@@ -60,6 +60,7 @@ import {
   isTriggerEnabled,
   matchesKeyword
 } from "../services/FlowBuilderService/FlowTriggerDispatchService";
+import logger from "../utils/logger";
 import { FlowBuilderModel } from "../models/FlowBuilder";
 import FlowExecution from "../models/FlowExecution";
 import Ticket from "../models/Ticket";
@@ -321,6 +322,51 @@ describe("dispatchFlowTrigger — despacho", () => {
         errorMessage: expect.stringContaining("sem atendimento vinculado")
       })
     );
+  });
+
+  it("evento opportunity_moved (mover card no board) casa gatilho move_lead — alias Kanban", async () => {
+    primeHappyPathModels();
+    (FlowBuilderModel.findAll as jest.Mock).mockResolvedValue([
+      buildFlow({ triggers: [{ type: "move_lead", config: {} }] })
+    ]);
+
+    const triggered = await dispatchFlowTrigger("opportunity_moved", COMPANY_ID, {
+      contactNumber: "557798020125",
+      contactName: "Lead QA",
+      metadata: { opportunityId: 7, leadId: 42, pipelineId: 1, toStageId: 3 }
+    });
+
+    expect(triggered).toBe(true);
+    expect(ActionsWebhookService).toHaveBeenCalledTimes(1);
+  });
+
+  it("flow_skipped_inactive loga rawActiveValue/rawActiveType na mensagem (pino: objeto primeiro)", async () => {
+    (FlowBuilderModel.findAll as jest.Mock).mockResolvedValue([
+      buildFlow({ active: false })
+    ]);
+
+    await dispatchFlowTrigger("message_received", COMPANY_ID, {
+      contactNumber: "557798020125",
+      message: "Ola"
+    });
+
+    const call = (logger.info as jest.Mock).mock.calls.find(
+      c => typeof c[1] === "string" && c[1].includes("flow_skipped_inactive")
+    );
+    expect(call).toBeDefined();
+    // 1º arg = objeto de metadata (assinatura pino), 2º arg = mensagem com key=value
+    expect(call[0]).toEqual(
+      expect.objectContaining({
+        flowId: 75,
+        companyId: COMPANY_ID,
+        rawActiveValue: "false",
+        rawActiveType: "boolean",
+        reason: "flow_inactive"
+      })
+    );
+    expect(call[1]).toContain("rawActiveValue=false");
+    expect(call[1]).toContain("rawActiveType=boolean");
+    expect(call[1]).toContain("flowId=75");
   });
 
   it("whatsappId de outra empresa no config do trigger não contamina: cai para canal padrão da empresa", async () => {
