@@ -263,6 +263,16 @@ export const dispatchFlowTrigger = async (
             flowId: flow.id,
             triggerType: eventType,
             triggerKey: trigger?.type,
+            // Diagnóstico direto do mismatch de canal: canal configurado no
+            // gatilho vs canal por onde a mensagem chegou.
+            configWhatsappId:
+              filterResult.reason === "whatsappId_mismatch"
+                ? trigger.config?.whatsappId
+                : undefined,
+            eventWhatsappId:
+              filterResult.reason === "whatsappId_mismatch"
+                ? data.whatsappId
+                : undefined,
             reason: filterResult.reason
           });
           continue;

@@ -21,7 +21,6 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import {
-  getPreferredWhatsappId,
   sortWhatsappsByUserQueues,
 } from "../../utils/whatsappQueuePreference";
 import { flowBuilderSelectMenuProps } from "../../utils/flowBuilderMenuProps";
@@ -458,9 +457,11 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowAct
       if (trigger.type === "http_webhook") {
         defaultConfig.token = genToken();
       }
-      if (trigger.fields?.some((field) => field.name === "whatsappId")) {
-        defaultConfig.whatsappId = getPreferredWhatsappId(whatsapps, user);
-      }
+      // Não pré-vincular a conexão: o campo "Conexão WhatsApp" é opcional e o
+      // padrão deve ser "Qualquer conexão" (whatsappId vazio). Semear a conexão
+      // preferida amarrava o gatilho a um canal específico — se a mensagem
+      // chegasse por outro canal, o dispatcher descartava por whatsappId_mismatch
+      // (bug do gatilho "Mensagem recebida" que nunca disparava).
       setConfig(defaultConfig);
       setEditing(null);
     }

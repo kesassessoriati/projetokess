@@ -283,6 +283,30 @@ describe("dispatchFlowTrigger — despacho", () => {
     expect(ActionsWebhookService).not.toHaveBeenCalled();
   });
 
+  it("log de whatsapp_mismatch inclui configWhatsappId e eventWhatsappId (diagnóstico Bug A)", async () => {
+    (FlowBuilderModel.findAll as jest.Mock).mockResolvedValue([
+      buildFlow({
+        triggers: [{ type: "message_received", config: { whatsappId: 99 } }]
+      })
+    ]);
+
+    await dispatchFlowTrigger("message_received", COMPANY_ID, {
+      contactNumber: "557798020125",
+      message: "Ola",
+      whatsappId: 43
+    });
+
+    const call = (logger.info as jest.Mock).mock.calls.find(
+      c => typeof c[1] === "string" && c[1].includes("trigger_skipped_whatsapp_mismatch")
+    );
+    expect(call).toBeDefined();
+    expect(call[0]).toEqual(
+      expect.objectContaining({ configWhatsappId: 99, eventWhatsappId: 43 })
+    );
+    expect(call[1]).toContain("configWhatsappId=99");
+    expect(call[1]).toContain("eventWhatsappId=43");
+  });
+
   it("fluxo de outra empresa não executa (guarda em _executeFlow)", async () => {
     primeHappyPathModels();
     (FlowBuilderModel.findAll as jest.Mock).mockResolvedValue([

@@ -383,7 +383,17 @@ const UpdateCrmLeadService = async ({
   }
 
   webhookDispatch("LEAD_UPDATED", companyId, { lead: leadPayload });
+
+  // Alinha o caminho do formulário ao do board: o dispatch pelo board
+  // (MoveOpportunityService) passa opportunity.ticketId e funciona; o caminho
+  // do formulário não passava ticketId, deixando o dispatcher resolver por
+  // telefone um ticket que estourava "outra empresa" no runner. Passar o
+  // primaryTicketId do lead (validado por empresa no _executeFlow) usa o
+  // atendimento correto de forma consistente.
+  const leadTicketId = lead.primaryTicketId || undefined;
+
   dispatchFlowTrigger("lead_updated", companyId, {
+    ticketId: leadTicketId,
     contactNumber: lead.phone || "",
     contactName: lead.name || "",
     contactEmail: lead.email || "",
@@ -404,18 +414,21 @@ const UpdateCrmLeadService = async ({
     };
 
     dispatchFlowTrigger("lead_stage_changed", companyId, {
+      ticketId: leadTicketId,
       contactNumber: lead.phone || "",
       contactName: lead.name || "",
       contactEmail: lead.email || "",
       metadata: movePayload
     }).catch(() => null);
     dispatchFlowTrigger("move_lead", companyId, {
+      ticketId: leadTicketId,
       contactNumber: lead.phone || "",
       contactName: lead.name || "",
       contactEmail: lead.email || "",
       metadata: movePayload
     }).catch(() => null);
     dispatchFlowTrigger("kanban_event", companyId, {
+      ticketId: leadTicketId,
       contactNumber: lead.phone || "",
       contactName: lead.name || "",
       contactEmail: lead.email || "",

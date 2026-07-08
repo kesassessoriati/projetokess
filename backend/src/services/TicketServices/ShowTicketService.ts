@@ -29,6 +29,18 @@ const ShowTicketService = async (
     throw new AppError("ERR_INVALID_TICKET_IDENTIFIER", 400);
   }
 
+  // Guarda multiempresa: sem companyId valido, o Sequelize descartaria o filtro
+  // `companyId: undefined` e a busca casaria o ticket apenas por id, cruzando
+  // empresas (a verificacao "outra empresa" abaixo entao dispararia de forma
+  // enganosa). Falhar explicitamente evita o vazamento e o erro confuso.
+  if (companyId === undefined || companyId === null) {
+    logger.warn(
+      { ticketId: numericId, route: "ShowTicketService" },
+      "[Tickets] missing company context"
+    );
+    throw new AppError("ERR_INVALID_COMPANY_CONTEXT", 400);
+  }
+
   // Buscando o ticket com a inclusão do modelo do WhatsApp
   // @ts-ignore
   const ticket = await Ticket.findOne({
