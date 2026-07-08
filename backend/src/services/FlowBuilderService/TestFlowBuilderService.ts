@@ -129,8 +129,24 @@ const TestFlowBuilderService = async ({
     );
   }
 
+  // Espelha o dispatcher real (FlowTriggerDispatchService): entra no nó DEPOIS
+  // do start (startConn.target), preferindo arestas cujo target ainda existe —
+  // aresta órfã de nó deletado no canvas causava dead-end silencioso.
   const startNode = nodes.find((node: any) => node.type === "start") || nodes[0];
-  const entryNodeId = startNode.id;
+  const startConns = connections.filter((c: any) => c.source === startNode.id);
+  const startConn =
+    startConns.find((c: any) =>
+      nodes.some((n: any) => String(n.id) === String(c.target))
+    ) || startConns[0];
+
+  if (!startConn) {
+    throw new AppError(
+      "O bloco de início não está conectado a nenhum outro bloco",
+      400
+    );
+  }
+
+  const entryNodeId = startConn.target;
 
   const execution = await FlowExecution.create({
     companyId,

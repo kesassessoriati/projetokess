@@ -523,6 +523,41 @@ export const ActionsWebhookService = async (
       }
     };
 
+    const nodeExists = (id: any) =>
+      id !== undefined &&
+      id !== null &&
+      id !== "" &&
+      nodes.some(node => String(node.id) === String(id));
+
+    // Arestas órfãs (target apontando para nó deletado no canvas) causavam
+    // dead-end silencioso quando eram a primeira conexão de saída do nó.
+    const pickConnection = (source: any) => {
+      const candidates = connects.filter(connect => connect.source === source);
+      return (
+        candidates.find(connect => nodeExists(connect.target)) || candidates[0]
+      );
+    };
+
+    // Fluxo terminou sem nó de espera (dead-end ou erro): libera o ticket para
+    // que novas mensagens voltem a disparar gatilhos, senão ele fica preso em
+    // flowWebhook=true e todo inbound é pulado (existing_flow_waiting_response).
+    const releaseTicketFromFlow = async (reason: string) => {
+      if (!idTicket) return;
+      try {
+        await Ticket.update(
+          { flowWebhook: false, hashFlowId: null },
+          { where: { id: idTicket, companyId } }
+        );
+        logger.info(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_released companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket} executionId=${executionId || ""} reason=${reason}`
+        );
+      } catch (error) {
+        logger.warn(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_release_failed companyId=${companyId} ticketId=${idTicket} reason=${error?.message || error}`
+        );
+      }
+    };
+
     for (var i = 0; i < lengthLoop; i++) {
       let nodeSelected: any;
       let ticketInit: Ticket;
@@ -541,13 +576,9 @@ export const ActionsWebhookService = async (
               { where: { id: executionId } }
             );
           }
-          logger.info(`${FLOWBUILDER_TRIGGER_PREFIX} flow_stopped`, {
-            companyId,
-            flowId: idFlowDb,
-            executionId,
-            ticketId: idTicket,
-            reason: "ticket_open_assigned_to_user"
-          });
+          logger.info(
+            `${FLOWBUILDER_TRIGGER_PREFIX} flow_stopped companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} reason=ticket_open_assigned_to_user`
+          );
           break;
         }
       }
@@ -585,7 +616,6 @@ export const ActionsWebhookService = async (
           nodeSelected = nodes.find(node => node.id === next);
           if (!nodeSelected) {
             console.log("ERRO: Nó menu não encontrado com next:", next);
-            break;
           }
         } else {
           console.log("UPDATE6... buscando nó com ID:", execFn);
@@ -609,10 +639,18 @@ export const ActionsWebhookService = async (
       }
 
       if (!nodeSelected) {
+        logger.warn(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_dead_end companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} executionId=${executionId || ""} reason=node_not_found next=${next} pressKey=${pressKey || ""}`
+        );
+        await releaseTicketFromFlow("node_not_found");
         break;
       }
 
       await recordFlowNode(nodeSelected);
+
+      logger.info(
+        `${FLOWBUILDER_TRIGGER_PREFIX} node_entered companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} nodeId=${nodeSelected.id} nodeType=${nodeSelected.type}`
+      );
 
       if (nodeSelected.type === "message") {
         let msg;
@@ -684,13 +722,9 @@ export const ActionsWebhookService = async (
               "warning",
               `Tipo "${messageType}" ainda não é executado no fluxo (somente botões).`
             );
-            logger.warn(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_type_unsupported`, {
-              companyId,
-              flowId: idFlowDb,
-              executionId,
-              ticketId: idTicket,
-              messageType
-            });
+            logger.warn(
+              `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_type_unsupported companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} messageType=${messageType}`
+            );
           } else {
             const rawButtons = Array.isArray(iData.buttons) ? iData.buttons : [];
             const interactiveButtons: InteractiveButton[] = rawButtons
@@ -749,15 +783,9 @@ export const ActionsWebhookService = async (
 
             // O nó já foi registrado como "success" na entrada do loop
             // (recordFlowNode em l.611); aqui só emitimos o log de envio.
-            logger.info(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_sent`, {
-              companyId,
-              flowId: idFlowDb,
-              executionId,
-              ticketId: ticket?.id,
-              whatsappId: whatsapp.id,
-              messageType: "buttons",
-              buttonsCount: interactiveButtons.length
-            });
+            logger.info(
+              `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_sent companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${ticket?.id || ""} whatsappId=${whatsapp.id} messageType=buttons buttonsCount=${interactiveButtons.length}`
+            );
             await intervalWhats("1");
           }
         } catch (err) {
@@ -766,13 +794,9 @@ export const ActionsWebhookService = async (
             "error",
             `Falha ao enviar mensagem interativa: ${err?.message || err}`
           );
-          logger.error(`${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_failed`, {
-            companyId,
-            flowId: idFlowDb,
-            executionId,
-            ticketId: idTicket,
-            reason: err?.message || String(err)
-          });
+          logger.error(
+            `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_failed companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} reason=${err?.message || String(err)}`
+          );
         }
       }
 
@@ -4039,7 +4063,7 @@ export const ActionsWebhookService = async (
         console.log(587, "ActionsWebhookService | 587");
 
         pressKey = undefined;
-        let result = connects.filter(connect => connect.source === execFn)[0];
+        let result = pickConnection(execFn);
         if (typeof result === "undefined") {
           next = "";
         } else {
@@ -4061,7 +4085,7 @@ export const ActionsWebhookService = async (
           isCondition = false;
           result = next;
         } else {
-          result = connects.filter(connect => connect.source === next)[0];
+          result = pickConnection(next);
         }
 
         if (typeof result === "undefined") {
@@ -4074,6 +4098,10 @@ export const ActionsWebhookService = async (
         console.log(619, "ActionsWebhookService");
       }
 
+      logger.info(
+        `${FLOWBUILDER_TRIGGER_PREFIX} node_next_resolved companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} nodeId=${nodeSelected.id} nodeType=${nodeSelected.type} next=${next || "none"} nextExists=${nodeExists(next)}`
+      );
+
       if (!pressKey && !isContinue) {
         const nextNode = connects.filter(
           connect => connect.source === nodeSelected.id
@@ -4084,15 +4112,20 @@ export const ActionsWebhookService = async (
         if (nextNode === 0) {
           console.log(654, "ActionsWebhookService");
 
-          await Ticket.findOne({
+          ticket = await Ticket.findOne({
             where: { id: idTicket, whatsappId, companyId: companyId }
           });
-          await ticket.update({
-            lastFlowId: nodeSelected.type === "directOpenai" ? ticket.lastFlowId : nodeSelected.id,
-            hashFlowId: null,
-            flowWebhook: false,
-            flowStopped: idFlowDb.toString()
-          });
+          if (ticket) {
+            await ticket.update({
+              lastFlowId: nodeSelected.type === "directOpenai" ? ticket.lastFlowId : nodeSelected.id,
+              hashFlowId: null,
+              flowWebhook: false,
+              flowStopped: idFlowDb.toString()
+            });
+          }
+          logger.info(
+            `${FLOWBUILDER_TRIGGER_PREFIX} flow_finished companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} executionId=${executionId || ""} lastNodeId=${nodeSelected.id} lastNodeType=${nodeSelected.type} reason=no_next_nodes`
+          );
           break;
         }
       }
@@ -4100,6 +4133,10 @@ export const ActionsWebhookService = async (
       isContinue = false;
 
       if (next === "") {
+        logger.warn(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_dead_end companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} executionId=${executionId || ""} reason=no_next_connection nodeId=${nodeSelected.id} nodeType=${nodeSelected.type}`
+        );
+        await releaseTicketFromFlow("no_next_connection");
         break;
       }
 
@@ -4163,6 +4200,23 @@ export const ActionsWebhookService = async (
     return "ds";
   } catch (error) {
     logger.error(error);
+    // Executor falhou no meio do fluxo: não deixar o ticket preso em
+    // flowWebhook=true (bloquearia todo inbound futuro do contato).
+    if (idTicket) {
+      try {
+        await Ticket.update(
+          { flowWebhook: false, hashFlowId: null },
+          { where: { id: idTicket, companyId } }
+        );
+        logger.info(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_released companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket} executionId=${executionId || ""} reason=executor_error`
+        );
+      } catch (releaseError) {
+        logger.warn(
+          `${FLOWBUILDER_TRIGGER_PREFIX} flow_release_failed companyId=${companyId} ticketId=${idTicket} reason=${releaseError?.message || releaseError}`
+        );
+      }
+    }
     if (executionId) {
       throw error;
     }

@@ -423,7 +423,13 @@ async function _executeFlow(
       });
       return false;
     }
-    const startConn = connections.find((c: any) => c.source === startNode.id);
+    // Prefere arestas cujo target ainda existe — aresta órfã (nó deletado no
+    // canvas) na primeira posição causava dead-end silencioso no executor.
+    const startConns = connections.filter((c: any) => c.source === startNode.id);
+    const startConn =
+      startConns.find((c: any) =>
+        nodes.some((n: any) => String(n.id) === String(c.target))
+      ) || startConns[0];
     if (!startConn) {
       logWarn("runner_failed", companyId, data, {
         flowId: flow.id,
