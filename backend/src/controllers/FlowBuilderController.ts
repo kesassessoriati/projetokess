@@ -310,13 +310,13 @@ export const testFlow = async (
 ): Promise<Response> => {
   try {
     const { idFlow } = req.params;
-    const { message, contactNumber, contactName } = req.body;
+    const { message, contactNumber, contactName, whatsappId } = req.body;
     const { companyId } = req.user;
     const userId = parseInt(req.user.id);
 
     // Validar idFlow
     if (!idFlow || isNaN(parseInt(idFlow))) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "ID do fluxo inválido",
         details: "O parâmetro idFlow deve ser um número válido"
       });
@@ -330,7 +330,8 @@ export const testFlow = async (
       contactNumber,
       contactName,
       companyId,
-      userId
+      userId,
+      whatsappId: whatsappId ? parseInt(whatsappId) : undefined
     });
 
     return res.status(200).json(result);

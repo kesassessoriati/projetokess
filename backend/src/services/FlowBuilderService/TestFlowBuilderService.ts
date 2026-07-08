@@ -6,6 +6,9 @@ import Whatsapp from "../../models/Whatsapp";
 import FlowExecution from "../../models/FlowExecution";
 import CreateContactService from "../ContactServices/CreateContactService";
 import { ActionsWebhookService } from "../WebhookService/ActionsWebhookService";
+import logger from "../../utils/logger";
+
+const LOG = "[FLOWBUILDER_TEST]";
 
 interface TestFlowData {
   flowId: number;
@@ -14,6 +17,7 @@ interface TestFlowData {
   contactName?: string;
   companyId: number;
   userId: number;
+  whatsappId?: number;
 }
 
 const onlyNumbers = (value: string) => String(value || "").replace(/\D/g, "");
@@ -24,10 +28,15 @@ const TestFlowBuilderService = async ({
   contactNumber,
   contactName,
   companyId,
-  userId
+  userId,
+  whatsappId
 }: TestFlowData) => {
   const startedAt = Date.now();
   const normalizedNumber = onlyNumbers(contactNumber);
+
+  logger.info(
+    `${LOG} flowbuilder_test_started companyId=${companyId} flowId=${flowId} whatsappIdRequested=${whatsappId || "auto"}`
+  );
 
   if (!normalizedNumber) {
     throw new AppError("Informe um número de contato para o teste", 400);
@@ -52,14 +61,28 @@ const TestFlowBuilderService = async ({
     throw new AppError("Fluxo não possui blocos configurados", 400);
   }
 
-  const whatsapp = await Whatsapp.findOne({
-    where: { companyId, status: "CONNECTED" },
-    order: [["updatedAt", "DESC"]]
-  });
+  // Conexão: usa a escolhida no modal (se conectada e da empresa) ou cai para
+  // qualquer conexão CONNECTED da empresa.
+  let whatsapp = null;
+  if (whatsappId) {
+    whatsapp = await Whatsapp.findOne({
+      where: { id: whatsappId, companyId, status: "CONNECTED" }
+    });
+  }
+  if (!whatsapp) {
+    whatsapp = await Whatsapp.findOne({
+      where: { companyId, status: "CONNECTED" },
+      order: [["updatedAt", "DESC"]]
+    });
+  }
 
   if (!whatsapp) {
     throw new AppError("Nenhuma conexão WhatsApp conectada encontrada para o teste", 404);
   }
+
+  logger.info(
+    `${LOG} flowbuilder_test_selected_whatsappId companyId=${companyId} flowId=${flowId} whatsappId=${whatsapp.id}`
+  );
 
   let contact = await Contact.findOne({
     where: { number: normalizedNumber, companyId }
@@ -71,6 +94,9 @@ const TestFlowBuilderService = async ({
       number: normalizedNumber,
       companyId
     });
+    logger.info(
+      `${LOG} flowbuilder_test_created_contact companyId=${companyId} contactId=${contact.id}`
+    );
   }
 
   let ticket = await Ticket.findOne({
@@ -98,6 +124,9 @@ const TestFlowBuilderService = async ({
       webhookDisabled: false,
       isActiveDemand: true
     } as any);
+    logger.info(
+      `${LOG} flowbuilder_test_created_ticket companyId=${companyId} ticketId=${ticket.id}`
+    );
   }
 
   const startNode = nodes.find((node: any) => node.type === "start") || nodes[0];
@@ -114,6 +143,10 @@ const TestFlowBuilderService = async ({
     nodesExecuted: 0,
     nodePath: []
   });
+
+  logger.info(
+    `${LOG} flowbuilder_test_runner_started companyId=${companyId} flowId=${flowId} executionId=${execution.id} ticketId=${ticket.id} whatsappId=${whatsapp.id}`
+  );
 
   try {
     await ActionsWebhookService(
@@ -143,6 +176,10 @@ const TestFlowBuilderService = async ({
       durationMs: Date.now() - startedAt
     });
 
+    logger.info(
+      `${LOG} flowbuilder_test_runner_finished companyId=${companyId} executionId=${execution.id} nodesExecuted=${execution.nodesExecuted}`
+    );
+
     return {
       success: true,
       message: "Fluxo de teste executado com sucesso",
@@ -158,6 +195,10 @@ const TestFlowBuilderService = async ({
       errorMessage: error?.message || String(error),
       durationMs: Date.now() - startedAt
     });
+
+    logger.error(
+      `${LOG} flowbuilder_test_runner_failed companyId=${companyId} executionId=${execution.id} reason=${error?.message || String(error)}`
+    );
 
     throw error;
   }

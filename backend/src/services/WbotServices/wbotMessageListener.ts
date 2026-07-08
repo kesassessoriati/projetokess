@@ -6352,25 +6352,38 @@ const handleMessage = async (
     // Welcome/NotPhrase/Campaign e as integrações legadas só rodam se nenhum
     // gatilho novo casar (precedência: novo > legado, sem disparo duplicado).
     let flowTriggerHandled = false;
-    if (!ticket.imported && !msg.key.fromMe) {
-      const globalTriggerSkipReason = ticket.isGroup
+    {
+      // Diagnóstico de disparo (QA): loga o estado de decisão de TODA mensagem
+      // que chega até aqui — inclusive as ignoradas — para o QA saber no
+      // Portainer exatamente por que um gatilho não disparou. Telefone é
+      // mascarado (só os 4 últimos dígitos) para não vazar dado sensível.
+      const numTail = String(contact?.number || "").slice(-4);
+      logger.info(
+        `[FLOWBUILDER_TRIGGER] global_check_start companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id} fromMe=${!!msg.key.fromMe} isGroup=${!!ticket.isGroup} ticketStatus=${ticket.status} hasUser=${!!ticket.userId} hasQueue=${!!ticket.queueId} flowWebhook=${!!ticket.flowWebhook} useIntegration=${!!ticket.useIntegration} imported=${!!ticket.imported} contactTail=${numTail}`
+      );
+
+      const globalTriggerSkipReason = msg.key.fromMe
+        ? "from_me"
+        : ticket.imported
+        ? "imported"
+        : ticket.isGroup
         ? "group_not_supported"
         : ticket.useIntegration
         ? "automation_blocked"
         : ticket.flowWebhook
         ? "existing_flow_waiting_response"
         : ticket.status === "open" && ticket.userId
-        ? "automation_blocked"
+        ? "ticket_has_user"
         : null;
 
       if (globalTriggerSkipReason) {
         logger.info(
-          `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_skipped_reason companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id} reason=${globalTriggerSkipReason}`
+          `[FLOWBUILDER_TRIGGER] global_check_skipped companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id} reason=${globalTriggerSkipReason}`
         );
       } else {
         try {
           logger.info(
-            `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_check companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id}`
+            `[FLOWBUILDER_TRIGGER] global_check_dispatching companyId=${companyId} ticketId=${ticket.id} whatsappId=${whatsapp.id}`
           );
           const { dispatchFlowTrigger } = await import(
             "../FlowBuilderService/FlowTriggerDispatchService"
@@ -6397,7 +6410,7 @@ const handleMessage = async (
           );
         } catch (err) {
           logger.error(
-            `[FLOWBUILDER_TRIGGER] flowbuilder_global_trigger_skipped_reason companyId=${companyId} ticketId=${ticket.id} reason=dispatcher_error error=${err?.message}`
+            `[FLOWBUILDER_TRIGGER] global_check_skipped companyId=${companyId} ticketId=${ticket.id} reason=dispatcher_error error=${err?.message}`
           );
         }
       }

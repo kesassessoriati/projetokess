@@ -149,6 +149,7 @@ import FlowBuilderJavaScriptModal from "../../components/FlowBuilderJavaScriptMo
 import FlowBuilderCrmLeadModal from "../../components/FlowBuilderCrmLeadModal";
 import FlowBuilderContactFieldsModal from "../../components/FlowBuilderContactFieldsModal";
 import FlowBuilderInteractiveMessageModal from "../../components/FlowBuilderInteractiveMessageModal";
+import FlowBuilderTestModal from "../../components/FlowBuilderTestModal";
 
 import productListNode from "./nodes/productListNode";
 import withNodeTitle from "../../components/FlowBuilderNodeWrapper";
@@ -775,6 +776,7 @@ export const FlowBuilderConfig = () => {
   });
   const [selectedExecutionId, setSelectedExecutionId] = useState(null);
   const [testingFlow, setTestingFlow] = useState(false);
+  const [testModalOpen, setTestModalOpen] = useState(false);
   const [modalAddVideo, setModalAddVideo] = useState(null);
   const [modalAddSingleBlock, setModalAddSingleBlock] = useState(null);
   const [contentModalType, setContentModalType] = useState(null);
@@ -1577,8 +1579,28 @@ export const FlowBuilderConfig = () => {
   const groupColorIndexRef = useRef(0);
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params) => {
+      const sameHandle = (e) =>
+        e.source === params.source &&
+        (e.sourceHandle || null) === (params.sourceHandle || null);
+
+      // Se este ponto de saída já está conectado, não substituir em silêncio:
+      // o runtime segue apenas a primeira conexão de cada saída, então uma nova
+      // ligação a partir do MESMO handle troca a anterior. Nós com múltiplas
+      // saídas (Menu/Condição/Randomizador) usam handles distintos e caem no
+      // caminho normal (ramais paralelos preservados).
+      const existing = edges.find(sameHandle);
+      if (existing) {
+        const ok = window.confirm(
+          "Este nó já possui uma conexão de saída por este ponto. Criar uma nova conexão substituirá a anterior. Deseja continuar?"
+        );
+        if (!ok) return;
+        setEdges((eds) => addEdge(params, eds.filter((e) => !sameHandle(e))));
+        return;
+      }
+      setEdges((eds) => addEdge(params, eds));
+    },
+    [edges, setEdges]
   );
 
   const pickGroupColor = useCallback(() => {
@@ -1766,41 +1788,23 @@ export const FlowBuilderConfig = () => {
   };
 
   // [TODAS AS FUNÇÕES DE EVENTOS MANTIDAS IGUAIS]
-  const testFlow = async () => {
+  // Abre o modal de teste (substitui os window.prompt bloqueantes).
+  const testFlow = () => {
     if (testingFlow) return;
+    setTestModalOpen(true);
+  };
 
-    const storedNumber = localStorage.getItem("flowbuilderTestContactNumber") || "";
-    const contactNumber = window.prompt(
-      "Informe o número do contato para testar o fluxo (somente números ou com DDI).",
-      storedNumber
-    );
-
-    if (!contactNumber) return;
-
-    const contactName = window.prompt(
-      "Nome do contato de teste (opcional).",
-      localStorage.getItem("flowbuilderTestContactName") || "Contato Teste"
-    );
-
-    const message = window.prompt(
-      "Mensagem/frase de teste (opcional).",
-      "teste manual"
-    );
-
+  // Executa o teste com os dados do modal, chamando o endpoint existente.
+  const runFlowTest = async ({ contactNumber, contactName, message, whatsappId }) => {
     setTestingFlow(true);
-
     try {
       await saveFlow();
-
-      localStorage.setItem("flowbuilderTestContactNumber", contactNumber);
-      if (contactName) {
-        localStorage.setItem("flowbuilderTestContactName", contactName);
-      }
 
       const { data } = await api.post(`/flowbuilder/test/${id}`, {
         contactNumber,
         contactName,
         message,
+        whatsappId,
       });
 
       const executions = await fetchFlowExecutions();
@@ -1816,9 +1820,11 @@ export const FlowBuilderConfig = () => {
       }
 
       setSelectedExecutionId(data.executionId);
+      setTestModalOpen(false);
       toast.success("Fluxo de teste executado. Log gerado para conferência.");
     } catch (error) {
       toastError(error);
+      throw error;
     } finally {
       setTestingFlow(false);
     }
@@ -2329,6 +2335,12 @@ export const FlowBuilderConfig = () => {
         data={dataNode}
         onUpdate={updateNode}
         close={() => setModalInteractiveMessage(null)}
+      />
+      <FlowBuilderTestModal
+        open={testModalOpen}
+        running={testingFlow}
+        onClose={() => setTestModalOpen(false)}
+        onRun={runFlowTest}
       />
 
       <FlowBuilderNodeRenameModal
