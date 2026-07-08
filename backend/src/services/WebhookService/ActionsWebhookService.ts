@@ -613,7 +613,15 @@ export const ActionsWebhookService = async (
       if (nodeSelected.type === "message") {
         let msg;
 
-        const webhook = ticket.dataWebhook;
+        // Garantir que o ticket existe — sem isso, fluxo iniciado por gatilho
+        // com nó "message" na entrada quebrava com TypeError em ticket null.
+        if (!ticket && idTicket) {
+          ticket = await Ticket.findOne({
+            where: { id: idTicket, companyId }
+          });
+        }
+
+        const webhook = ticket?.dataWebhook;
 
         if (webhook && webhook.hasOwnProperty("variables")) {
           msg = {

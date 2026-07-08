@@ -70,20 +70,52 @@ const logError = (
 const getTriggers = (flow: FlowBuilderModel): any[] =>
   Array.isArray(flow.triggers) ? flow.triggers : [];
 
+// A coluna FlowBuilders.active vem de baseline antiga e pode chegar como
+// boolean, inteiro (0/1) ou string ("true"/"1"/"t") dependendo do schema.
+// A UI trata qualquer valor truthy como "Ativo"; o dispatcher precisa da MESMA
+// semântica — a comparação estrita (=== true) fazia fluxos "Ativos" na tela
+// serem descartados como inativos (flow_skipped_inactive).
+export const isActiveValue = (value: any): boolean =>
+  value === true || value === 1 || value === "1" || value === "true" || value === "t";
+
+// Semântica de ativação por gatilho: ausente/undefined = ativo; somente
+// active === false (no trigger ou no config) desativa o gatilho.
+export const isTriggerEnabled = (trigger: any): boolean =>
+  trigger?.active !== false && trigger?.config?.active !== false;
+
 const triggerMatchesEvent = (trigger: any, eventType: string): boolean =>
   String(trigger?.type || "").toLowerCase() === eventType.toLowerCase();
 
-const matchesKeyword = (trigger: any, message?: string): boolean => {
-  const keyword = (trigger.config?.keyword || "").trim();
-  if (!keyword) return true;
+// Normaliza para comparação: minúsculas, sem acentos, sem espaços nas pontas
+// ("Olá" casa com "ola").
+const normalizeText = (value?: string): string =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
 
-  const msg = (message || "").toLowerCase();
-  const kw = keyword.toLowerCase();
+export const matchesKeyword = (trigger: any, message?: string): boolean => {
+  const rawKeyword = String(trigger.config?.keyword || "").trim();
+  if (!rawKeyword) return true;
+
+  const msg = normalizeText(message);
   const matchType = trigger.config?.matchType || "contains";
 
-  if (matchType === "exact") return msg === kw;
-  if (matchType === "starts") return msg.startsWith(kw);
-  return msg.includes(kw);
+  // O campo aceita lista separada por vírgula ("oi, olá, início") — casa se
+  // QUALQUER palavra-chave da lista bater.
+  const keywords = rawKeyword
+    .split(",")
+    .map(k => normalizeText(k))
+    .filter(Boolean);
+  if (!keywords.length) return true;
+
+  return keywords.some(kw => {
+    if (matchType === "exact") return msg === kw;
+    if (matchType === "starts" || matchType === "startsWith")
+      return msg.startsWith(kw);
+    return msg.includes(kw);
+  });
 };
 
 const matchesTriggerFilters = (
@@ -136,7 +168,7 @@ export const dispatchFlowTrigger = async (
       where: { company_id: companyId }
     });
 
-    const activeFlows = flows.filter(flow => flow.active === true);
+    const activeFlows = flows.filter(flow => isActiveValue(flow.active));
     logInfo("active_flows_loaded", companyId, data, {
       triggerType: eventType,
       reason: `${activeFlows.length}/${flows.length}`
@@ -145,18 +177,22 @@ export const dispatchFlowTrigger = async (
     let triggered = false;
 
     for (const flow of flows) {
-      if (flow.active !== true) {
+      if (!isActiveValue(flow.active)) {
+        // Loga valor bruto + tipo para diagnóstico definitivo de divergência
+        // entre a coluna do banco e o estado exibido na UI.
         logInfo("flow_skipped_inactive", companyId, data, {
           flowId: flow.id,
           triggerType: eventType,
-          reason: "active_not_true"
+          reason: `flow_active_not_true value=${JSON.stringify(
+            flow.active
+          )} type=${typeof flow.active}`
         });
         continue;
       }
 
       const triggers = getTriggers(flow);
       if (!triggers.length) {
-        logInfo("trigger_type_mismatch", companyId, data, {
+        logInfo("trigger_skipped_type_mismatch", companyId, data, {
           flowId: flow.id,
           triggerType: eventType,
           reason: "flow_without_triggers"
@@ -167,8 +203,18 @@ export const dispatchFlowTrigger = async (
       let matchedTrigger: any = null;
 
       for (const trigger of triggers) {
+        if (!isTriggerEnabled(trigger)) {
+          logInfo("trigger_skipped_inactive", companyId, data, {
+            flowId: flow.id,
+            triggerType: eventType,
+            triggerKey: trigger?.type || "unknown",
+            reason: "trigger_active_false"
+          });
+          continue;
+        }
+
         if (!triggerMatchesEvent(trigger, eventType)) {
-          logInfo("trigger_type_mismatch", companyId, data, {
+          logInfo("trigger_skipped_type_mismatch", companyId, data, {
             flowId: flow.id,
             triggerType: eventType,
             triggerKey: trigger?.type || "unknown"
@@ -178,7 +224,13 @@ export const dispatchFlowTrigger = async (
 
         const filterResult = matchesTriggerFilters(eventType, trigger, data);
         if (!filterResult.matches) {
-          logInfo("trigger_filter_failed", companyId, data, {
+          const skipEvent =
+            filterResult.reason === "keyword_mismatch"
+              ? "trigger_skipped_keyword_mismatch"
+              : filterResult.reason === "whatsappId_mismatch"
+              ? "trigger_skipped_whatsapp_mismatch"
+              : "trigger_skipped_filter_mismatch";
+          logInfo(skipEvent, companyId, data, {
             flowId: flow.id,
             triggerType: eventType,
             triggerKey: trigger?.type,
@@ -233,21 +285,26 @@ export const executeFlowByToken = async (
     const flows = await FlowBuilderModel.findAll();
 
     for (const flow of flows) {
-      if (flow.active !== true) {
+      if (!isActiveValue(flow.active)) {
         logInfo("flow_skipped_inactive", flow.company_id, data, {
           flowId: flow.id,
           triggerType: "http_webhook",
-          reason: "active_not_true"
+          reason: `flow_active_not_true value=${JSON.stringify(
+            flow.active
+          )} type=${typeof flow.active}`
         });
         continue;
       }
 
       const triggers = getTriggers(flow);
       const httpTrigger = triggers.find(
-        t => t.type === "http_webhook" && t.config?.token === token
+        t =>
+          t.type === "http_webhook" &&
+          t.config?.token === token &&
+          isTriggerEnabled(t)
       );
       if (!httpTrigger) {
-        logInfo("trigger_type_mismatch", flow.company_id, data, {
+        logInfo("trigger_skipped_type_mismatch", flow.company_id, data, {
           flowId: flow.id,
           triggerType: "http_webhook",
           reason: "token_or_trigger_not_matched"
@@ -290,6 +347,18 @@ async function _executeFlow(
   trigger: any
 ): Promise<boolean> {
   try {
+    // Guarda estrutural multiempresa: o fluxo só executa dentro da empresa
+    // dona do evento. Qualquer divergência é logada e abortada.
+    const flowCompanyId = Number(flow.company_id);
+    if (Number.isFinite(flowCompanyId) && flowCompanyId !== Number(companyId)) {
+      logWarn("runner_skipped_company_mismatch", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger?.type,
+        reason: `flow_company=${flowCompanyId} event_company=${companyId}`
+      });
+      return false;
+    }
+
     const flowData = flow.flow as any;
     if (!flowData?.nodes?.length) {
       logWarn("runner_failed", companyId, data, {
@@ -327,21 +396,53 @@ async function _executeFlow(
     }
     const entryNodeId = startConn.target;
 
-    // Resolve whatsappId
-    let whatsappId = data.whatsappId;
+    // Valida que o canal pertence à empresa do fluxo. Um whatsappId de outra
+    // empresa (config antiga de trigger) ou de canal deletado contaminava o
+    // ticket criado e estourava "registros de outra empresa" no executor.
+    const resolveCompanyWhatsappId = async (
+      candidate?: number | string | null
+    ): Promise<number | undefined> => {
+      const id = Number(candidate);
+      if (!Number.isFinite(id) || id <= 0) return undefined;
+      const wp = await Whatsapp.findOne({ where: { id, companyId } });
+      if (!wp) {
+        logWarn("whatsapp_not_in_company", companyId, data, {
+          flowId: flow.id,
+          triggerType: trigger?.type,
+          whatsappId: id,
+          reason: "channel_not_found_for_company"
+        });
+        return undefined;
+      }
+      return wp.id;
+    };
+
+    let whatsappId = await resolveCompanyWhatsappId(data.whatsappId);
     let ticketId = data.ticketId;
     let contactNumber = onlyNumbers(data.contactNumber);
     let contactName = data.contactName || "";
     let contactEmail = data.contactEmail || "";
 
     if (!whatsappId && trigger.config?.whatsappId) {
-      whatsappId = Number(trigger.config.whatsappId);
+      whatsappId = await resolveCompanyWhatsappId(trigger.config.whatsappId);
     }
 
-    if (!whatsappId && ticketId) {
+    if (ticketId) {
       const ticket = await Ticket.findOne({ where: { id: ticketId, companyId } });
-      if (ticket) {
-        whatsappId = ticket.whatsappId;
+      if (!ticket) {
+        // Ticket do evento não pertence à empresa do fluxo — descarta e segue
+        // pela resolução por contato, nunca por ticket alheio.
+        logWarn("ticket_not_in_company", companyId, data, {
+          flowId: flow.id,
+          triggerType: trigger?.type,
+          ticketId,
+          reason: "ticket_not_found_for_company"
+        });
+        ticketId = undefined;
+      } else {
+        if (!whatsappId) {
+          whatsappId = await resolveCompanyWhatsappId(ticket.whatsappId);
+        }
         if (!contactNumber && ticket.contactId) {
           const c = await Contact.findByPk(ticket.contactId);
           if (c) {
@@ -420,6 +521,36 @@ async function _executeFlow(
         } as any);
         ticketId = newTicket.id;
       }
+    }
+
+    // Gatilho CRM puro sem ticket e sem telefone: o executor exige um ticket
+    // (nós de mensagem/kanban/tag operam sobre ele). Sem isso o fluxo estourava
+    // ERR_INVALID_TICKET_IDENTIFIER genérico no meio da execução. Registra a
+    // execução como erro com mensagem clara e não inicia o runner.
+    if (!ticketId) {
+      await FlowExecution.create({
+        companyId,
+        flowId: flow.id,
+        ticketId: null,
+        contactNumber,
+        trigger: "trigger_engine",
+        triggerPhrase: trigger.type,
+        status: "error",
+        errorMessage:
+          "Este fluxo foi disparado por um evento sem atendimento vinculado e " +
+          "o contato não possui telefone. Nós de mensagem/WhatsApp exigem um " +
+          "ticket. Cadastre o telefone do lead/contato ou use um gatilho " +
+          "vinculado a um atendimento.",
+        nodesExecuted: 0
+      }).catch(() => null);
+      logWarn("runner_failed", companyId, data, {
+        flowId: flow.id,
+        triggerType: trigger.type,
+        triggerKey: trigger.type,
+        whatsappId,
+        reason: "crm_trigger_without_ticket_or_contact_phone"
+      });
+      return false;
     }
 
     const execution = await FlowExecution.create({

@@ -79,6 +79,14 @@ flowBuilder.patch(
   FlowBuilderController.toggleFlowActive
 );
 
+// Logs de execução — precisa vir ANTES de "/flowbuilder/:idFlow": o Express casa
+// rotas na ordem de registro e a rota genérica capturava "executions" como idFlow.
+flowBuilder.get(
+  "/flowbuilder/executions",
+  isAuth,
+  FlowBuilderController.listFlowExecutions
+);
+
 flowBuilder.get("/flowbuilder/:idFlow", isAuth, FlowBuilderController.flowOne);
 
 flowBuilder.post(
@@ -92,13 +100,6 @@ flowBuilder.post(
   "/flowbuilder/trigger",
   isAuth,
   FlowBuilderController.triggerFlowWebhook
-);
-
-// Logs de execução
-flowBuilder.get(
-  "/flowbuilder/executions",
-  isAuth,
-  FlowBuilderController.listFlowExecutions
 );
 
 // Save triggers for a flow

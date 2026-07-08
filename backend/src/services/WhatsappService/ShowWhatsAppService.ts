@@ -52,12 +52,15 @@ const ShowWhatsAppService = async (
 
   const whatsapp = await Whatsapp.findByPk(id, findOptions);
 
-  if (whatsapp?.companyId !== companyId) {
-    throw new AppError("Não é possível acessar registros de outra empresa");
-  }
-
+  // O null-check precisa vir ANTES da checagem de empresa: com whatsapp
+  // inexistente/deletado, "whatsapp?.companyId !== companyId" lançava o erro
+  // enganoso de "outra empresa" (400) em vez de 404.
   if (!whatsapp) {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
+  }
+
+  if (whatsapp.companyId !== companyId) {
+    throw new AppError("Não é possível acessar registros de outra empresa");
   }
 
   return whatsapp;
