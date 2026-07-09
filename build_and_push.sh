@@ -103,6 +103,17 @@ dockerhub_tag_exists() {
     [ "$http_code" = "200" ]
 }
 
+# Verifica direto no REGISTRY (registry-1.docker.io, autenticado): reflete o
+# push na hora. A API do hub.docker.com e eventualmente consistente e sofre
+# rate-limit — derrubou build com push ja concluido (v1.9.737: digest publicado,
+# API demorou >120s para expor a tag e o job falhou sem atualizar latest).
+registry_tag_exists() {
+    local repository="$1"
+    local tag="$2"
+
+    docker manifest inspect "${DOCKER_USER}/${repository}:${tag}" >/dev/null 2>&1
+}
+
 wait_for_dockerhub_tag() {
     local repository="$1"
     local tag="$2"
@@ -111,11 +122,15 @@ wait_for_dockerhub_tag() {
     local attempt
 
     for attempt in $(seq 1 "$max_attempts"); do
+        if registry_tag_exists "$repository" "$tag"; then
+            echo -e "${GREEN}OK: Tag confirmada no registry: ${repository}:${tag}${NC}"
+            return 0
+        fi
         if dockerhub_tag_exists "$repository" "$tag"; then
             echo -e "${GREEN}OK: Tag disponivel no Docker Hub: ${repository}:${tag}${NC}"
             return 0
         fi
-        echo -e "${YELLOW}[!] Tag ainda nao visivel na API do Docker Hub: ${repository}:${tag} (tentativa ${attempt}/${max_attempts}, aguardando ${sleep_seconds}s...)${NC}"
+        echo -e "${YELLOW}[!] Tag ainda nao visivel (registry/API): ${repository}:${tag} (tentativa ${attempt}/${max_attempts}, aguardando ${sleep_seconds}s...)${NC}"
         sleep "$sleep_seconds"
     done
 
