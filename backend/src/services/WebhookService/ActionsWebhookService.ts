@@ -726,6 +726,75 @@ export const ActionsWebhookService = async (
         await intervalWhats("1");
       }
 
+      // Nó: Caixa de Mensagem — envia o texto por uma conexão ESPECÍFICA da
+      // empresa (escolhida no editor), independente da conexão do fluxo. Uso
+      // típico: follow-up/disparo por uma instância dedicada. Destino padrão é
+      // o contato do fluxo; aceita número fixo opcional.
+      if (nodeSelected.type === "channelMessage") {
+        try {
+          const cData = nodeSelected.data || {};
+
+          if (!ticket && idTicket) {
+            ticket = await Ticket.findOne({
+              where: { id: idTicket, companyId },
+              include: [{ model: Contact, as: "contact" }]
+            });
+          }
+
+          let targetWhatsapp = whatsapp;
+          if (cData.whatsappId) {
+            const chosen = await Whatsapp.findOne({
+              where: { id: Number(cData.whatsappId), companyId }
+            });
+            if (chosen) {
+              targetWhatsapp = chosen;
+            } else {
+              logger.warn(
+                `${FLOWBUILDER_TRIGGER_PREFIX} channel_message_whatsapp_not_found companyId=${companyId} flowId=${idFlowDb} whatsappId=${cData.whatsappId} fallback=${whatsapp.id}`
+              );
+            }
+          }
+
+          const rawText = String(cData.message || cData.text || "");
+          const webhookVars = ticket?.dataWebhook?.variables;
+          let channelBody = webhookVars
+            ? replaceMessages(webhookVars, rawText)
+            : rawText;
+          if (ticket?.contact) {
+            channelBody = formatBody(channelBody, ticket.contact);
+          }
+
+          const destNumber =
+            String(cData.number || "").replace(/\D/g, "") || numberClient;
+
+          if (!channelBody) {
+            throw new AppError("Caixa de Mensagem sem texto configurado.", 400);
+          }
+          if (!destNumber) {
+            throw new AppError("Caixa de Mensagem sem destino para envio.", 400);
+          }
+
+          await SendMessage(targetWhatsapp, {
+            number: destNumber,
+            body: channelBody
+          });
+
+          logger.info(
+            `${FLOWBUILDER_TRIGGER_PREFIX} channel_message_sent companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} whatsappId=${targetWhatsapp.id} channel=${targetWhatsapp.channel || "whatsapp"}`
+          );
+          await intervalWhats("1");
+        } catch (err) {
+          await recordFlowNode(
+            nodeSelected,
+            "error",
+            `Falha ao enviar pela caixa de mensagem: ${err?.message || err}`
+          );
+          logger.error(
+            `${FLOWBUILDER_TRIGGER_PREFIX} channel_message_failed companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} reason=${err?.message || String(err)}`
+          );
+        }
+      }
+
       // Nó: Mensagem Interativa (Botões) — reaproveita o mesmo motor de envio do
       // Disparo Rápido (helper SendInteractiveMessage.sendButtonMessage), que já
       // injeta os nós nativos de botões via InfiniteAPI. Estrutura preparada para

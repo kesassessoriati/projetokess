@@ -49,6 +49,7 @@ import kanbanStageNode from "./nodes/kanbanStageNode";
 import crmLeadNode from "./nodes/crmLeadNode";
 import contactFieldsNode from "./nodes/contactFieldsNode";
 import interactiveMessageNode from "./nodes/interactiveMessageNode";
+import channelMessageNode from "./nodes/channelMessageNode";
 
 
 import api from "../../services/api";
@@ -149,6 +150,7 @@ import FlowBuilderJavaScriptModal from "../../components/FlowBuilderJavaScriptMo
 import FlowBuilderCrmLeadModal from "../../components/FlowBuilderCrmLeadModal";
 import FlowBuilderContactFieldsModal from "../../components/FlowBuilderContactFieldsModal";
 import FlowBuilderInteractiveMessageModal from "../../components/FlowBuilderInteractiveMessageModal";
+import FlowBuilderChannelMessageModal from "../../components/FlowBuilderChannelMessageModal";
 import FlowBuilderTestModal from "../../components/FlowBuilderTestModal";
 
 import productListNode from "./nodes/productListNode";
@@ -627,6 +629,7 @@ const NODE_TITLES = {
   crmLead: "Criar / Atualizar Lead",
   contactFields: "Atualizar Campo do Contato",
   interactiveMessage: "Mensagem Interativa",
+  channelMessage: "Caixa de Mensagem",
 };
 
 
@@ -706,6 +709,7 @@ const nodeTypes = {
   crmLead: withNodeTitle(crmLeadNode, NODE_TITLES.crmLead),
   contactFields: withNodeTitle(contactFieldsNode, NODE_TITLES.contactFields),
   interactiveMessage: withNodeTitle(interactiveMessageNode, NODE_TITLES.interactiveMessage),
+  channelMessage: withNodeTitle(channelMessageNode, NODE_TITLES.channelMessage),
   note: noteNode,
 };
 
@@ -803,6 +807,7 @@ export const FlowBuilderConfig = () => {
   const [modalCrmLead, setModalCrmLead] = useState(null);
   const [modalContactFields, setModalContactFields] = useState(null);
   const [modalInteractiveMessage, setModalInteractiveMessage] = useState(null);
+  const [modalChannelMessage, setModalChannelMessage] = useState(null);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [flowTriggers, setFlowTriggers] = useState([]);
@@ -1261,6 +1266,23 @@ export const FlowBuilderConfig = () => {
       ]);
     }
 
+    if (type === "channelMessage") {
+      return setNodes((old) => [
+        ...old,
+        {
+          id: geraStringAleatoria(30),
+          position: { x: posX, y: posY },
+          data: withTitleData("channelMessage", {
+            message: data?.message || "",
+            whatsappId: data?.whatsappId || "",
+            whatsappName: data?.whatsappName || "Conexão do fluxo",
+            number: data?.number || "",
+          }),
+          type: "channelMessage",
+        },
+      ]);
+    }
+
     if (type === "note") {
       const noteId = geraStringAleatoria(30);
       setNodes((old) => [
@@ -1317,6 +1339,7 @@ export const FlowBuilderConfig = () => {
   const crmLeadAdd = (data) => { addNode("crmLead", data); };
   const contactFieldsAdd = (data) => { addNode("contactFields", data); };
   const interactiveMessageAdd = (data) => { addNode("interactiveMessage", data); };
+  const channelMessageAdd = (data) => { addNode("channelMessage", data); };
   const noteAdd = () => { addNode("note", {}); };
 
 
@@ -1873,6 +1896,7 @@ export const FlowBuilderConfig = () => {
     if (node.type === "crmLead") { setModalCrmLead("edit"); }
     if (node.type === "contactFields") { setModalContactFields("edit"); }
     if (node.type === "interactiveMessage") { setModalInteractiveMessage("edit"); }
+    if (node.type === "channelMessage") { setModalChannelMessage("edit"); }
     if (node.type === "note") { /* handled inline by noteNode */ }
   };
 
@@ -1956,6 +1980,7 @@ export const FlowBuilderConfig = () => {
     setModalCrmLead(null);
     setModalContactFields(null);
     setModalInteractiveMessage(null);
+    setModalChannelMessage(null);
   };
 
   const closeRenameModal = () => {
@@ -2045,6 +2070,7 @@ export const FlowBuilderConfig = () => {
         { icon: <Receipt sx={{ color: "#10b981", fontSize: 14 }} />, name: "2ª Via Boleto", type: "asaas" },
         { icon: <Email sx={{ color: "#2563eb", fontSize: 14 }} />, name: "Enviar SMTP", type: "smtp" },
         { icon: <Send sx={{ color: "#22c55e", fontSize: 14 }} />, name: "Enviar Mensagem", type: "sendMessage" },
+        { icon: <Send sx={{ color: "#2563eb", fontSize: 14 }} />, name: "Caixa de Mensagem", type: "channelMessage" },
         { icon: <span style={{ fontSize: "14px" }}>📊</span>, name: "Google Sheets", type: "googleSheets" },
         { icon: <span style={{ fontSize: "14px" }}></span>, name: "Agente IA Direto", type: "directOpenai" },
         { icon: <Code sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "JavaScript", type: "javascript" },
@@ -2124,6 +2150,7 @@ export const FlowBuilderConfig = () => {
       case "crmLead": setModalCrmLead("create"); break;
       case "contactFields": setModalContactFields("create"); break;
       case "interactiveMessage": setModalInteractiveMessage("create"); break;
+      case "channelMessage": setModalChannelMessage("create"); break;
       case "note": noteAdd(); break;
       default: break;
 
@@ -2343,6 +2370,13 @@ export const FlowBuilderConfig = () => {
         data={dataNode}
         onUpdate={updateNode}
         close={() => setModalInteractiveMessage(null)}
+      />
+      <FlowBuilderChannelMessageModal
+        open={modalChannelMessage}
+        onSave={channelMessageAdd}
+        data={dataNode}
+        onUpdate={updateNode}
+        close={() => setModalChannelMessage(null)}
       />
       <FlowBuilderTestModal
         open={testModalOpen}

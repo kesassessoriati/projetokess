@@ -129,6 +129,10 @@ const CATEGORIES = [
     id: "kanban",
     label: "Kanban",
     emoji: "Kanban",
+    // Centralizado em Leads: "Lead movido" cobre moves do board e do
+    // formulário desde a v1.9.734. Hidden (não removida) para fluxos antigos
+    // com move_lead/kanban_event manterem labels e dispatch.
+    hidden: true,
     triggers: [
       {
         type: "move_lead",
@@ -312,8 +316,33 @@ const CATEGORIES = [
         label: "Iniciado por outra automação",
         description: "Quando esta automação é iniciada por outra automação",
       },
+      {
+        type: "scheduled",
+        label: "Agendado (cron)",
+        description:
+          "Dispara em dia/horário programado para os leads de um funil/etapa",
+      },
     ],
   },
+];
+
+// Gatilhos de movimentação: aceitam condição opcional de funil/etapa
+// (config.pipelineId/config.stageId — o dispatcher já filtra por eles).
+const STAGE_FILTER_TYPES = [
+  "lead_stage_changed",
+  "move_lead",
+  "opportunity_moved",
+  "opportunity_created",
+];
+
+const WEEKDAYS = [
+  { value: 0, label: "Dom" },
+  { value: 1, label: "Seg" },
+  { value: 2, label: "Ter" },
+  { value: 3, label: "Qua" },
+  { value: 4, label: "Qui" },
+  { value: 5, label: "Sex" },
+  { value: 6, label: "Sáb" },
 ];
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -431,6 +460,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowAct
   const [selectedType, setSelectedType] = useState(null);
   const [config, setConfig] = useState({});
   const [whatsapps, setWhatsapps] = useState([]);
+  const [pipelines, setPipelines] = useState([]);
   const [editing, setEditing] = useState(null); // trigger being edited
 
   // Load existing trigger for editing when modal opens
@@ -448,7 +478,18 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowAct
       .get("/whatsapp", { params: { session: 0 } })
       .then(({ data }) => setWhatsapps(sortWhatsappsByUserQueues(data || [], user)))
       .catch(() => {});
+    api
+      .get("/pipelines")
+      .then(({ data }) => setPipelines(Array.isArray(data) ? data : []))
+      .catch(() => setPipelines([]));
   }, [user]);
+
+  const stagesOf = (pipelineId) => {
+    const pipeline = pipelines.find((p) => String(p.id) === String(pipelineId));
+    return Array.isArray(pipeline?.stages)
+      ? [...pipeline.stages].sort((a, b) => (a.order || 0) - (b.order || 0))
+      : [];
+  };
 
   const currentCat = CATEGORIES.find((c) => c.id === selectedCat);
 
@@ -748,8 +789,193 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowAct
             </Box>
           )}
 
+          {/* Movimentação: condição opcional de funil/etapa */}
+          {STAGE_FILTER_TYPES.includes(selectedType) && (
+            <Box display="flex" flexDirection="column" style={{ gap: 10, marginBottom: 12 }}>
+              <Typography variant="caption" style={{ fontWeight: 700, color: "#374151" }}>
+                Condição de funil/etapa (opcional) — o gatilho só dispara quando
+                o lead entrar no funil/etapa selecionados
+              </Typography>
+              <Box display="flex" style={{ gap: 8 }}>
+                <FormControl size="small" variant="outlined" style={{ flex: 1 }}>
+                  <InputLabel>Funil</InputLabel>
+                  <Select
+                    label="Funil"
+                    value={config.pipelineId || ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pipelineId: e.target.value,
+                        stageId: "",
+                      })
+                    }
+                    MenuProps={flowBuilderSelectMenuProps}
+                  >
+                    <MenuItem value="">Qualquer funil</MenuItem>
+                    {pipelines.map((p) => (
+                      <MenuItem key={p.id} value={p.id}>
+                        {p.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl
+                  size="small"
+                  variant="outlined"
+                  style={{ flex: 1 }}
+                  disabled={!config.pipelineId}
+                >
+                  <InputLabel>Etapa</InputLabel>
+                  <Select
+                    label="Etapa"
+                    value={config.stageId || ""}
+                    onChange={(e) =>
+                      setConfig({ ...config, stageId: e.target.value })
+                    }
+                    MenuProps={flowBuilderSelectMenuProps}
+                  >
+                    <MenuItem value="">Qualquer etapa</MenuItem>
+                    {stagesOf(config.pipelineId).map((s) => (
+                      <MenuItem key={s.id} value={s.id}>
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+          )}
+
+          {/* scheduled: horário, recorrência e público */}
+          {selectedType === "scheduled" && (
+            <Box display="flex" flexDirection="column" style={{ gap: 10, marginBottom: 12 }}>
+              <Typography variant="caption" style={{ fontWeight: 700, color: "#374151" }}>
+                Agendamento (horário de Brasília) — dispara o fluxo para cada
+                lead do funil/etapa selecionados
+              </Typography>
+              <Box display="flex" style={{ gap: 8 }}>
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  label="Horário"
+                  type="time"
+                  value={config.time || ""}
+                  onChange={(e) => setConfig({ ...config, time: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  style={{ width: 130 }}
+                />
+                <FormControl size="small" variant="outlined" style={{ minWidth: 150 }}>
+                  <InputLabel>Recorrência</InputLabel>
+                  <Select
+                    label="Recorrência"
+                    value={config.frequency || "daily"}
+                    onChange={(e) =>
+                      setConfig({ ...config, frequency: e.target.value })
+                    }
+                    MenuProps={flowBuilderSelectMenuProps}
+                  >
+                    <MenuItem value="daily">Todos os dias</MenuItem>
+                    <MenuItem value="weekly">Dias da semana</MenuItem>
+                    <MenuItem value="once">Uma vez (data)</MenuItem>
+                  </Select>
+                </FormControl>
+                {(config.frequency || "daily") === "once" && (
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    label="Data"
+                    type="date"
+                    value={config.date || ""}
+                    onChange={(e) => setConfig({ ...config, date: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                    style={{ width: 160 }}
+                  />
+                )}
+              </Box>
+              {(config.frequency || "daily") === "weekly" && (
+                <Box display="flex" flexWrap="wrap" style={{ gap: 6 }}>
+                  {WEEKDAYS.map((d) => {
+                    const days = Array.isArray(config.daysOfWeek)
+                      ? config.daysOfWeek
+                      : [];
+                    const active = days.includes(d.value);
+                    return (
+                      <Chip
+                        key={d.value}
+                        label={d.label}
+                        size="small"
+                        color={active ? "primary" : "default"}
+                        onClick={() =>
+                          setConfig({
+                            ...config,
+                            daysOfWeek: active
+                              ? days.filter((x) => x !== d.value)
+                              : [...days, d.value],
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+              <Box display="flex" style={{ gap: 8 }}>
+                <FormControl size="small" variant="outlined" style={{ flex: 1 }}>
+                  <InputLabel>Funil (público)</InputLabel>
+                  <Select
+                    label="Funil (público)"
+                    value={config.pipelineId || ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pipelineId: e.target.value,
+                        stageId: "",
+                      })
+                    }
+                    MenuProps={flowBuilderSelectMenuProps}
+                  >
+                    <MenuItem value="">Selecione o funil</MenuItem>
+                    {pipelines.map((p) => (
+                      <MenuItem key={p.id} value={p.id}>
+                        {p.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl
+                  size="small"
+                  variant="outlined"
+                  style={{ flex: 1 }}
+                  disabled={!config.pipelineId}
+                >
+                  <InputLabel>Etapa (público)</InputLabel>
+                  <Select
+                    label="Etapa (público)"
+                    value={config.stageId || ""}
+                    onChange={(e) =>
+                      setConfig({ ...config, stageId: e.target.value })
+                    }
+                    MenuProps={flowBuilderSelectMenuProps}
+                  >
+                    <MenuItem value="">Todas as etapas do funil</MenuItem>
+                    {stagesOf(config.pipelineId).map((s) => (
+                      <MenuItem key={s.id} value={s.id}>
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Typography variant="caption" color="textSecondary" style={{ fontSize: 11 }}>
+                O fluxo executa uma vez por lead do público no horário
+                programado (limite de 500 leads por disparo). Sem funil
+                selecionado, o gatilho não dispara.
+              </Typography>
+            </Box>
+          )}
+
           {/* Internal events: whatsapp selector */}
           {[
+            "scheduled",
             "lead_created",
             "lead_updated",
             "lead_status_changed",

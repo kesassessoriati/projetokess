@@ -379,6 +379,16 @@ export const executeFlowByToken = async (
   }
 };
 
+// Execução direta de um fluxo específico (usada pelo gatilho agendado): o
+// agendamento é por fluxo, então não faz sentido passar pelo scan de eventos
+// do dispatchFlowTrigger (dois fluxos com horários diferentes casariam ambos).
+export const executeFlowForTrigger = async (
+  flow: FlowBuilderModel,
+  companyId: number,
+  data: TriggerDispatchData,
+  trigger: any
+): Promise<boolean> => _executeFlow(flow, companyId, data, trigger);
+
 async function _executeFlow(
   flow: FlowBuilderModel,
   companyId: number,

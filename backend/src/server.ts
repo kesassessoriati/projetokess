@@ -17,6 +17,7 @@ import WebhookService from "./services/PipelineServices/WebhookService";
 import AIAnalyzerService from "./services/PipelineServices/AIAnalyzerService";
 import InitPipelineTemplatesService from "./services/PipelineServices/InitPipelineTemplatesService";
 import StageAutomationService from "./services/AutomationServices/StageAutomationService";
+import startScheduledFlowTriggers from "./services/FlowBuilderService/ScheduledFlowTriggerService";
 
 const isEnabled = (value?: string): boolean =>
   ["true", "1", "yes", "on", "enabled"].includes(
@@ -73,6 +74,7 @@ if (process.env.CERTIFICADOS == "true") {
     AIAnalyzerService.init();
     StageAutomationService.init();
     InitPipelineTemplatesService();
+    startScheduledFlowTriggers();
   });
 
   process.on("uncaughtException", err => {
@@ -122,6 +124,7 @@ if (process.env.CERTIFICADOS == "true") {
     AIAnalyzerService.init();
     StageAutomationService.init();
     InitPipelineTemplatesService();
+    startScheduledFlowTriggers();
   });
 
   process.on("uncaughtException", err => {
