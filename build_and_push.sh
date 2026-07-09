@@ -10,12 +10,12 @@ set -euo pipefail
 
 ## ========================= CONFIGURACOES ========================= ##
 
-DOCKER_USER="${DOCKER_USERNAME:-williamwilmer10}"
+DOCKER_USER="${DOCKER_USERNAME:-kesassessoria}"
 BACKEND_REPOSITORY="atendzappy-backend"
 FRONTEND_REPOSITORY="atendzappy-frontend"
 BACKEND_IMAGE="${DOCKER_USER}/${BACKEND_REPOSITORY}"
 FRONTEND_IMAGE="${DOCKER_USER}/${FRONTEND_REPOSITORY}"
-MIN_VERSION="1.9.200"
+MIN_VERSION="1.0.0"
 VERSION_FILE=".docker_version"
 DOCKER_HUB_PAGE_SIZE="${DOCKER_HUB_PAGE_SIZE:-100}"
 DOCKER_HUB_MAX_PAGES="${DOCKER_HUB_MAX_PAGES:-50}"
@@ -171,10 +171,10 @@ resolve_current_version() {
         return
     fi
 
-    echo -e "${RED}ERRO: Nao foi possivel encontrar tags validas no Docker Hub para backend ou frontend.${NC}" >&2
-    echo -e "${RED}ERRO: O versionamento nao usa imagem instalada nem ${VERSION_FILE} como referencia.${NC}" >&2
-    echo -e "${RED}ERRO: Verifique conectividade, permissao no Docker Hub ou se existem tags vX.Y.Z publicadas.${NC}" >&2
-    exit 1
+    ## Bootstrap: conta/repositorio novo no Docker Hub, sem nenhuma tag publicada.
+    echo -e "${YELLOW}[!] Nenhuma tag vX.Y.Z encontrada no Docker Hub para ${DOCKER_USER}.${NC}" >&2
+    echo -e "${YELLOW}[!] Iniciando versionamento a partir de v${MIN_VERSION}.${NC}" >&2
+    echo "$MIN_VERSION"
 }
 
 ensure_tag_is_new() {

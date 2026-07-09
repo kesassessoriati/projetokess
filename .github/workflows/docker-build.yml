@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - meta-lead-ads-integration
   pull_request:
     branches:
       - main
