@@ -31,6 +31,11 @@ Thumbs.db
 # Ferramentas e propostas locais de IA
 .claude/
 .gemini/proposals/
+.ai/
+.kilo/
+n8n_*.json
+melhorias-claude.md
+.rgignore
 
 # Documentos e artefatos locais de analise/operacao
 .docker_version
