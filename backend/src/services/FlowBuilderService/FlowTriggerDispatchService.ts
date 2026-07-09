@@ -99,14 +99,13 @@ export const isActiveValue = (value: any): boolean =>
 export const isTriggerEnabled = (trigger: any): boolean =>
   trigger?.active !== false && trigger?.config?.active !== false;
 
-// Aliases evento→gatilho. O board do Kanban dispara "opportunity_moved" ao
-// mover cards (MoveOpportunityService); o gatilho oferecido na UI é
-// "move_lead" ("Quando um lead é movimentado no Kanban"). Sem o alias, mover
-// card no board nunca casava o gatilho — só a edição do lead pelo formulário
-// (UpdateCrmLeadService) emitia "move_lead".
-const EVENT_TRIGGER_ALIASES: Record<string, string[]> = {
-  opportunity_moved: ["move_lead"]
-};
+// Aliases evento→gatilho. O alias opportunity_moved→move_lead existia porque
+// o board não emitia "move_lead"; desde a v1.9.734 o MoveOpportunityService
+// dispara move_lead/lead_stage_changed diretamente — manter o alias fazia o
+// gatilho "MoveLead" casar DUAS vezes por move (execução duplicada, vista em
+// produção: executions 65/66 do flow 75). Mapa vazio mantém a infra p/ usos
+// futuros.
+const EVENT_TRIGGER_ALIASES: Record<string, string[]> = {};
 
 const triggerMatchesEvent = (trigger: any, eventType: string): boolean => {
   const triggerType = String(trigger?.type || "").toLowerCase();
