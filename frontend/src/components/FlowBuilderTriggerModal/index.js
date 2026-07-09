@@ -91,6 +91,12 @@ const CATEGORIES = [
     id: "negocios",
     label: "Negócios",
     emoji: "💼",
+    // Categoria retirada do seletor: no AtendZappy lead ↔ oportunidade ativa
+    // são 1:1 e os gatilhos de Leads cobrem os mesmos eventos ("Lead movido"
+    // dispara também nos moves do board). Fica hidden (não removida) para que
+    // fluxos antigos com gatilhos opportunity_* continuem exibindo o label
+    // correto nos chips e continuem disparando no backend.
+    hidden: true,
     triggers: [
       {
         type: "opportunity_created",
@@ -560,7 +566,7 @@ const FlowBuilderTriggerModal = ({ open, onClose, triggers = [], onSave, flowAct
       <div className={classes.layout}>
         {/* Sidebar */}
         <div className={classes.sidebar}>
-          {CATEGORIES.map((cat) => (
+          {CATEGORIES.filter((cat) => !cat.hidden).map((cat) => (
             <div
               key={cat.id}
               className={`${classes.catItem} ${

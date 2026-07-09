@@ -558,6 +558,44 @@ export const ActionsWebhookService = async (
       }
     };
 
+    const normalizeAnswer = (value: any) =>
+      String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+    // Respostas reais chegam "sujas" (assinatura de atendente tipo
+    // "fulano: 1", quebras de linha, espaços). Gera candidatos do mais
+    // completo ao mais curto para comparar com as opções configuradas.
+    const answerCandidates = (raw: any): string[] => {
+      const norm = normalizeAnswer(raw);
+      if (!norm) return [];
+      const lines = norm
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean);
+      const lastLine = lines[lines.length - 1] || norm;
+      const afterColon = lastLine.includes(":")
+        ? lastLine.split(":").pop().trim()
+        : lastLine;
+      const tokens = afterColon.split(/\s+/).filter(Boolean);
+      const lastToken = tokens[tokens.length - 1] || "";
+      return Array.from(
+        new Set([norm, lastLine, afterColon, lastToken].filter(Boolean))
+      );
+    };
+
+    const matchesAnswer = (raw: any, targets: any[]): boolean => {
+      const normalizedTargets = (targets || [])
+        .map(normalizeAnswer)
+        .filter(Boolean);
+      if (!normalizedTargets.length) return false;
+      return answerCandidates(raw).some(candidate =>
+        normalizedTargets.includes(candidate)
+      );
+    };
+
     for (var i = 0; i < lengthLoop; i++) {
       let nodeSelected: any;
       let ticketInit: Ticket;
@@ -693,6 +731,77 @@ export const ActionsWebhookService = async (
       // injeta os nós nativos de botões via InfiniteAPI. Estrutura preparada para
       // list/carousel/poll (envio real só de botões nesta entrega).
       if (nodeSelected.type === "interactiveMessage") {
+        // Saídas por botão (handles a1..aN). Com pelo menos uma conectada, o
+        // nó vira INPUT: envia os botões, pausa o fluxo e roteia a resposta
+        // do usuário para o branch do botão escolhido (mesmo modelo do menu).
+        // Sem nenhuma, mantém o comportamento legado (envia e continua pela
+        // saída padrão "a"), preservando fluxos antigos.
+        const interactiveButtonEdges = connects.filter(
+          connect =>
+            connect.source === nodeSelected.id &&
+            /^a\d+$/.test(String(connect.sourceHandle || ""))
+        );
+        const interactiveButtonsCfg = Array.isArray(nodeSelected.data?.buttons)
+          ? nodeSelected.data.buttons
+          : [];
+
+        if (pressKey && pressKey !== "999" && interactiveButtonEdges.length) {
+          // Reentrada com a resposta do usuário: NÃO reenviar os botões.
+          const matchedButtonIdx = interactiveButtonsCfg.findIndex((b: any) =>
+            matchesAnswer(pressKey, [
+              b?.label,
+              b?.displayText,
+              b?.text,
+              b?.value,
+              b?.id
+            ])
+          );
+          let routeEdge =
+            matchedButtonIdx >= 0
+              ? interactiveButtonEdges.find(
+                  connect => connect.sourceHandle === `a${matchedButtonIdx + 1}`
+                )
+              : undefined;
+          if (!routeEdge || !nodeExists(routeEdge.target)) {
+            // Fallback: saída padrão "a" (sem handle ou handle "a").
+            const fallbackEdge = connects.find(
+              connect =>
+                connect.source === nodeSelected.id &&
+                (connect.sourceHandle || "a") === "a" &&
+                nodeExists(connect.target)
+            );
+            routeEdge = routeEdge && nodeExists(routeEdge.target) ? routeEdge : fallbackEdge;
+          }
+
+          logger.info(
+            `${FLOWBUILDER_TRIGGER_PREFIX} interactive_reply_received companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} matchedButton=${matchedButtonIdx >= 0 ? matchedButtonIdx + 1 : "none"} routed=${!!routeEdge}`
+          );
+
+          if (routeEdge && nodeExists(routeEdge.target)) {
+            return await ActionsWebhookService(
+              whatsappId,
+              idFlowDb,
+              companyId,
+              nodes,
+              connects,
+              routeEdge.target,
+              dataWebhook,
+              details,
+              hashWebhookId,
+              undefined,
+              idTicket,
+              numberPhrase,
+              msg,
+              executionId
+            );
+          }
+
+          // Resposta não reconhecida e sem saída padrão: segue aguardando.
+          break;
+        }
+
+        let interactiveSendOk = false;
+
         try {
           if (!ticket && idTicket) {
             ticket = await Ticket.findOne({
@@ -786,6 +895,7 @@ export const ActionsWebhookService = async (
             logger.info(
               `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_sent companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${ticket?.id || ""} whatsappId=${whatsapp.id} messageType=buttons buttonsCount=${interactiveButtons.length}`
             );
+            interactiveSendOk = true;
             await intervalWhats("1");
           }
         } catch (err) {
@@ -797,6 +907,33 @@ export const ActionsWebhookService = async (
           logger.error(
             `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_failed companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} reason=${err?.message || String(err)}`
           );
+        }
+
+        if (interactiveButtonEdges.length) {
+          if (!interactiveSendOk) {
+            // Falhou o envio em modo input: não faz sentido aguardar resposta.
+            await releaseTicketFromFlow("interactive_send_failed");
+            break;
+          }
+          if (!ticket && idTicket) {
+            ticket = await Ticket.findOne({
+              where: { id: idTicket, companyId }
+            });
+          }
+          if (ticket) {
+            await ticket.update({
+              userId: null,
+              companyId,
+              flowWebhook: true,
+              lastFlowId: nodeSelected.id,
+              hashFlowId: hashWebhookId,
+              flowStopped: idFlowDb.toString()
+            });
+          }
+          logger.info(
+            `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_waiting companyId=${companyId} flowId=${idFlowDb} executionId=${executionId || ""} ticketId=${idTicket || ""} nodeId=${nodeSelected.id}`
+          );
+          break;
         }
       }
 
@@ -826,8 +963,10 @@ export const ActionsWebhookService = async (
         console.log("Array options:", nodeSelected.data.arrayOption);
 
         if (pressKey) {
-          const selectedOption = nodeSelected.data.arrayOption.find(
-            option => option.number == pressKey
+          // Matching tolerante: resposta pode vir com assinatura do CRM
+          // ("fulano: 1"), pelo número ou pelo texto da opção.
+          const selectedOption = nodeSelected.data.arrayOption.find(option =>
+            matchesAnswer(pressKey, [option.number, option.value])
           );
 
           if (selectedOption) {
@@ -835,13 +974,14 @@ export const ActionsWebhookService = async (
             next = selectedOption.next;
             console.log("Próximo nó definido:", next);
 
+            logger.info(
+              `${FLOWBUILDER_TRIGGER_PREFIX} menu_option_matched companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} nodeId=${nodeSelected.id} option=${selectedOption.number}`
+            );
+
             // Se next não estiver definido, usar as conexões do flow
             if (!next && connects) {
               console.log("Next undefined, buscando nas conexões...");
-              const optionIndex = nodeSelected.data.arrayOption.findIndex(
-                opt => opt.number == pressKey
-              );
-              const sourceHandle = `a${optionIndex + 1}`;
+              const sourceHandle = `a${selectedOption.number}`;
               const connection = connects.find(conn =>
                 conn.source === nodeSelected.id && conn.sourceHandle === sourceHandle
               );
@@ -852,6 +992,9 @@ export const ActionsWebhookService = async (
             }
           } else {
             console.log("Opção não encontrada para:", pressKey);
+            logger.warn(
+              `${FLOWBUILDER_TRIGGER_PREFIX} menu_option_not_matched companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} nodeId=${nodeSelected.id}`
+            );
           }
         } else {
           console.log("Nenhum pressKey fornecido");
@@ -3899,20 +4042,26 @@ export const ActionsWebhookService = async (
           const filterOne = connectStatic.filter(
             confil => confil.source === next
           );
+          // Resolve a opção pelo matching tolerante (número ou texto, com ou
+          // sem assinatura do CRM no corpo) antes de montar o sourceHandle.
+          const matchedMenuOption = (nodeSelected.data?.arrayOption || []).find(
+            option => matchesAnswer(pressKey, [option.number, option.value])
+          );
+          const menuHandleId = matchedMenuOption
+            ? `a${matchedMenuOption.number}`
+            : "a" + pressKey;
           const filterTwo = filterOne.filter(
-            filt2 => filt2.sourceHandle === "a" + pressKey
+            filt2 => filt2.sourceHandle === menuHandleId
           );
           if (filterTwo.length > 0) {
             execFn = filterTwo[0].target;
           } else {
             execFn = undefined;
           }
-          // execFn =
-          //   connectStatic
-          //     .filter(confil => confil.source === next)
-          //     .filter(filt2 => filt2.sourceHandle === "a" + pressKey)[0]?.target ??
-          //   undefined;
           if (execFn === undefined) {
+            logger.warn(
+              `${FLOWBUILDER_TRIGGER_PREFIX} menu_option_not_matched companyId=${companyId} flowId=${idFlowDb} ticketId=${idTicket || ""} nodeId=${nodeSelected.id} handleTried=${menuHandleId}`
+            );
             break;
           }
           pressKey = "999";

@@ -1339,7 +1339,13 @@ export const FlowBuilderConfig = () => {
                 : n
             );
             setNodes(applyTitlesToNodes(flowNodes));
-            setEdges(data.flow.flow.connections);
+            // type buttonedge = edge custom com lixeira no hover (removeEdge.js)
+            setEdges(
+              (data.flow.flow.connections || []).map((c) => ({
+                ...c,
+                type: "buttonedge",
+              }))
+            );
             // Extrair variáveis dos nós question
             const questionNodes = flowNodes.filter(
               (nd) => nd.type === "question"
@@ -1595,10 +1601,12 @@ export const FlowBuilderConfig = () => {
           "Este nó já possui uma conexão de saída por este ponto. Criar uma nova conexão substituirá a anterior. Deseja continuar?"
         );
         if (!ok) return;
-        setEdges((eds) => addEdge(params, eds.filter((e) => !sameHandle(e))));
+        setEdges((eds) =>
+          addEdge({ ...params, type: "buttonedge" }, eds.filter((e) => !sameHandle(e)))
+        );
         return;
       }
-      setEdges((eds) => addEdge(params, eds));
+      setEdges((eds) => addEdge({ ...params, type: "buttonedge" }, eds));
     },
     [edges, setEdges]
   );
@@ -1989,7 +1997,6 @@ export const FlowBuilderConfig = () => {
         { icon: <Videocam sx={{ color: "#ef4444", fontSize: 14 }} />, name: "Vídeo", type: "content-video" },
         { icon: <MicNone sx={{ color: "#8b5cf6", fontSize: 14 }} />, name: "Áudio", type: "content-audio" },
         { icon: <DescriptionIcon sx={{ color: "#6366f1", fontSize: 14 }} />, name: "Arquivo", type: "content-file" },
-        { icon: <SmartButtonIcon sx={{ color: "#14b8a6", fontSize: 14 }} />, name: "Botões", type: "interactiveMessage" },
       ],
     },
     {
@@ -1997,6 +2004,7 @@ export const FlowBuilderConfig = () => {
       actions: [
         { icon: <BallotIcon sx={{ color: "#f59e0b", fontSize: 14 }} />, name: "Pergunta", type: "question" },
         { icon: <DynamicFeed sx={{ color: "#8b5cf6", fontSize: 14 }} />, name: "Menu", type: "menu" },
+        { icon: <SmartButtonIcon sx={{ color: "#14b8a6", fontSize: 14 }} />, name: "Botões", type: "interactiveMessage" },
       ],
     },
     {

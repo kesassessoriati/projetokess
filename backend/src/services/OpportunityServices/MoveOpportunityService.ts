@@ -166,6 +166,19 @@ const MoveOpportunityService = async ({
         metadata: { ...triggerData.metadata, event: "opportunity_moved" }
     }).catch(() => null);
 
+    // O gatilho "Lead movido" também cobre moves feitos pelo board: o sync
+    // Lead ← Opportunity (SyncLeadFromOpportunityService) atualiza o lead sem
+    // disparar gatilhos, e a categoria "Negócios" saiu da UI de gatilhos —
+    // sem isto, mover o card só dispararia opportunity_moved (legado).
+    if (opportunity.leadId) {
+        const leadTriggerData = {
+            ...triggerData,
+            metadata: { ...triggerData.metadata, event: "lead_stage_changed" }
+        };
+        dispatchFlowTrigger("lead_stage_changed", companyId, leadTriggerData).catch(() => null);
+        dispatchFlowTrigger("move_lead", companyId, leadTriggerData).catch(() => null);
+    }
+
     // Disparo de conversões de anúncios (Meta Ads / Google Ads)
     import("../AdTrackingServices/DispatchAdTrackingService")
         .then(({ default: dispatchAdTracking }) => dispatchAdTracking({

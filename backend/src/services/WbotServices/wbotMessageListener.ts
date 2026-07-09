@@ -667,6 +667,23 @@ export const getBodyMessage = (msg: proto.IWebMessageInfo): string | null => {
       extendedTextMessage: msg?.message?.extendedTextMessage?.text,
       buttonsResponseMessage:
         msg.message?.buttonsResponseMessage?.selectedDisplayText,
+      // Clique em botão nativo (nativeButtons/InfiniteAPI): a escolha vem em
+      // paramsJson ({"id":"...","display_text":"..."}); sem isso o corpo fica
+      // vazio e o fluxo não consegue rotear a resposta.
+      interactiveResponseMessage: (() => {
+        try {
+          const paramsJson =
+            msg.message?.interactiveResponseMessage?.nativeFlowResponseMessage
+              ?.paramsJson;
+          if (paramsJson) {
+            const parsed = JSON.parse(paramsJson);
+            return parsed?.display_text || parsed?.id || undefined;
+          }
+          return msg.message?.interactiveResponseMessage?.body?.text;
+        } catch (e) {
+          return msg.message?.interactiveResponseMessage?.body?.text;
+        }
+      })(),
       listResponseMessage:
         msg.message?.listResponseMessage?.title ||
         msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId,

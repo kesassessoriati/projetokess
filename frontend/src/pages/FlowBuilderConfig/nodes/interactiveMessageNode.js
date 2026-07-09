@@ -187,6 +187,7 @@ export default memo(({ data, isConnectable, id }) => {
             <div
               key={btn.id || idx}
               style={{
+                position: "relative",
                 textAlign: "center",
                 fontSize: "12px",
                 fontWeight: 600,
@@ -198,6 +199,36 @@ export default memo(({ data, isConnectable, id }) => {
               }}
             >
               {btn.label || btn.displayText || `Botão ${idx + 1}`}
+              {/* Saída por botão (input): mesma convenção do Menu (a1..aN).
+                  Conectar qualquer uma delas faz o fluxo aguardar a escolha
+                  do usuário e seguir pela rota do botão clicado. */}
+              <Handle
+                type="source"
+                position="right"
+                id={`a${idx + 1}`}
+                style={{
+                  top: "50%",
+                  background: "linear-gradient(135deg, #14b8a6, #0d9488)",
+                  width: "14px",
+                  height: "14px",
+                  right: "-10px",
+                  cursor: "pointer",
+                  border: "3px solid #ffffff",
+                  boxShadow: "0 2px 8px rgba(20, 184, 166, 0.3)"
+                }}
+                isConnectable={isConnectable}
+              >
+                <ArrowForwardIos
+                  sx={{
+                    color: "#ffffff",
+                    width: "7px",
+                    height: "7px",
+                    marginLeft: "1.5px",
+                    marginBottom: "0.5px",
+                    pointerEvents: "none"
+                  }}
+                />
+              </Handle>
             </div>
           ))}
         </div>
