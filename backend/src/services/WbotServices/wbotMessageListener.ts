@@ -620,10 +620,13 @@ const getBodyPIX = (msg: any): string => {
         msg?.message?.interactiveMessage?.nativeFlowMessage?.buttons;
       console.log("Buttons:", buttons);
 
-      // Se buttons existe e contém o botão 'review_and_pay'
+      // Se buttons existe e contém o botão 'review_and_pay'. A comparação era
+      // uma ATRIBUIÇÃO (=), o que marcava QUALQUER mensagem com botões nativos
+      // como [PIX] (e ainda renomeava os botões) — os botões do FlowBuilder /
+      // Disparo Rápido apareciam como "[PIX]" ou sumiam do chat.
       const bodyTextWithPix =
         Array.isArray(buttons) &&
-        buttons.some(button => (button.name = "review_and_pay"));
+        buttons.some(button => button?.name === "review_and_pay");
 
       // Se o botão específico foi encontrado
       if (bodyTextWithPix) {
@@ -708,7 +711,33 @@ export const getBodyMessage = (msg: proto.IWebMessageInfo): string | null => {
       liveLocationMessage: `Latitude: ${msg.message?.liveLocationMessage?.degreesLatitude} - Longitude: ${msg.message?.liveLocationMessage?.degreesLongitude}`,
       documentMessage: msg.message?.documentMessage?.caption,
       audioMessage: "Áudio",
-      interactiveMessage: getBodyPIX(msg),
+      // Mensagem interativa (botões nativos): antes só o caso PIX era tratado
+      // e as demais viravam corpo vazio — a bolha dos botões enviados pelo
+      // FlowBuilder/Disparo Rápido não aparecia na janela de conversa. Agora o
+      // corpo persiste como texto + lista dos botões (fallback legível).
+      interactiveMessage: (() => {
+        const pixBody = getBodyPIX(msg);
+        if (pixBody) return pixBody;
+        const interactive: any = msg.message?.interactiveMessage;
+        const text =
+          interactive?.body?.text || interactive?.header?.title || "";
+        const nativeButtons =
+          interactive?.nativeFlowMessage?.buttons || [];
+        const labels = (Array.isArray(nativeButtons) ? nativeButtons : [])
+          .map((b: any) => {
+            try {
+              const params = JSON.parse(b?.buttonParamsJson || "{}");
+              return params?.display_text || "";
+            } catch (e) {
+              return "";
+            }
+          })
+          .filter(Boolean);
+        if (labels.length) {
+          return `${text}\n▸ ${labels.join("\n▸ ")}`.trim();
+        }
+        return text;
+      })(),
       listMessage:
         getBodyButton(msg) || msg.message?.listResponseMessage?.title,
       viewOnceMessage:
@@ -1788,6 +1817,10 @@ const isValidMsg = (msg: proto.IWebMessageInfo): boolean => {
       msgType === "documentMessage" ||
       msgType === "stickerMessage" ||
       msgType === "buttonsResponseMessage" ||
+      // Clique em botão nativo (nativeButtons/InfiniteAPI): sem este tipo a
+      // resposta do contato era descartada — não aparecia no chat e o fluxo
+      // aguardando o clique nunca era retomado.
+      msgType === "interactiveResponseMessage" ||
       msgType === "buttonsMessage" ||
       msgType === "messageContextInfo" ||
       msgType === "locationMessage" ||

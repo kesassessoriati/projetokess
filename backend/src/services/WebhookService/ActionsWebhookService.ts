@@ -944,19 +944,36 @@ export const ActionsWebhookService = async (
               { strictInteractive: true, companyId, whatsappId: whatsapp.id }
             );
 
-            // Persistência para aparecer no histórico do ticket.
+            // Persistência para aparecer na janela de conversa: mesmo caminho
+            // do Disparo Rápido (verifyMessage grava com o corpo extraído da
+            // mensagem real — texto + lista dos botões —, atualiza lastMessage
+            // e emite o socket). O insert manual via CreateMessageService não
+            // refletia no chat.
             if (sentInteractive?.key && ticket) {
-              await CreateMessageService({
-                messageData: {
-                  wid: sentInteractive.key.id,
-                  ticketId: ticket.id,
-                  body: interactiveText,
-                  fromMe: true,
-                  read: true,
-                  ack: 2
-                },
-                companyId
-              }).catch(() => null);
+              try {
+                // Import tardio: o listener importa este serviço — import no
+                // topo criaria dependência circular.
+                const { verifyMessage } = await import(
+                  "../WbotServices/wbotMessageListener"
+                );
+                // fromAgent=true: mesmo tratamento do Disparo Rápido — sem
+                // isso o envio é classificado como "mensagem do próprio
+                // aparelho" e não reflete corretamente no chat.
+                await verifyMessage(
+                  sentInteractive,
+                  ticket,
+                  ticket.contact,
+                  undefined,
+                  false,
+                  false,
+                  false,
+                  true
+                );
+              } catch (persistErr) {
+                logger.warn(
+                  `${FLOWBUILDER_TRIGGER_PREFIX} interactive_message_persist_failed companyId=${companyId} ticketId=${ticket.id} reason=${persistErr?.message || persistErr}`
+                );
+              }
             }
 
             // O nó já foi registrado como "success" na entrada do loop
