@@ -12,7 +12,10 @@
     "db:migrate": "npx sequelize db:migrate",
     "db:seed": "sequelize db:seed:all",
     "pretest": "NODE_ENV=test sequelize db:migrate && NODE_ENV=test sequelize db:seed:all",
-    "test": "NODE_ENV=test jest",
+    "test": "NODE_ENV=test jest --testPathIgnorePatterns=MetaMarketingContractValidation\\.spec\\.ts$",
+    "test:contract": "NODE_ENV=test jest --runInBand MetaMarketingContractValidation.spec.ts",
+    "test:contract:only": "NODE_ENV=test npx jest --runInBand --no-coverage MetaMarketingContractValidation.spec.ts",
+    "test:all": "npm test && npm run test:contract",
     "posttest": "NODE_ENV=test sequelize db:migrate:undo:all",
     "lint": "eslint src/**/*.ts"
   },

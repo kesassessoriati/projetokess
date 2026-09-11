@@ -62,6 +62,7 @@ import { syncAllChips } from "./services/ChipServices/ChipMonitoringService";
 import runTaskReminderJob from "./services/NotificationServices/TaskReminderJobService";
 import { runScheduledOfficialCampaigns } from "./services/OfficialBroadcastService/OfficialBroadcastService";
 import { generateSingleVariation } from "./services/CampaignService/GenerateVariationsService";
+import { registerMetaMarketingSyncQueue } from "./services/MetaMarketingServices/MetaMarketingSyncQueue";
 
 const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
@@ -2245,6 +2246,7 @@ async function handleProcessMeeting(job) {
 
 export async function startQueueProcess() {
   logger.info("Iniciando processamento de filas");
+  await registerMetaMarketingSyncQueue();
 
   const queueConcurrency = parseInt(process.env.QUEUE_CONCURRENCY) || 10;
   const campaignConcurrency = parseInt(process.env.CAMPAIGN_CONCURRENCY) || 20;

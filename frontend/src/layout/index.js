@@ -1214,6 +1214,7 @@ const LoggedInLayout = ({ children }) => {
           { title: "Integrações", path: "/integracao" },
           { title: "Ferramentas", path: "/ferramentas" },
           { title: "Meta Ads", path: "/ad-tracking/meta", menuKey: "meta-ads" },
+          { title: "Marketing Meta", path: "/meta-marketing", menuKey: "marketing-meta" },
           { title: "Google Ads", path: "/ad-tracking/google", menuKey: "google-ads" },
         ],
       },

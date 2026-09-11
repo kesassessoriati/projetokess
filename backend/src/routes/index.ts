@@ -84,6 +84,10 @@ import ferramentaRoutes from "./ferramentaRoutes";
 import googleCalendarRoutes from "./googleCalendarRoutes";
 import userGoogleCalendarRoutes from "./userGoogleCalendarRoutes";
 import facebookOAuthRoutes from "./facebookOAuthRoutes";
+import metaMarketingOAuthRoutes from "./metaMarketingOAuthRoutes";
+import metaMarketingDashboardRoutes from "./metaMarketingDashboardRoutes";
+import metaMarketingCampaignPilotRoutes from "./metaMarketingCampaignPilotRoutes";
+import metaMarketingOperationsRoutes from "./metaMarketingOperationsRoutes";
 import emailRoutes from "./emailRoutes";
 import tutorialVideoRoutes from "./tutorialVideoRoutes";
 import sliderHomeRoutes from "./sliderHomeRoutes";
@@ -307,6 +311,10 @@ routes.use(aiExternalSettingsRoutes);
 
 // OAuth Facebook/Instagram
 routes.use(facebookOAuthRoutes);
+routes.use(metaMarketingOAuthRoutes);
+routes.use(metaMarketingDashboardRoutes);
+routes.use(metaMarketingCampaignPilotRoutes);
+routes.use(metaMarketingOperationsRoutes);
 
 // Configurações e Analytics de Contatos
 routes.use(contactSettingsRoutes);

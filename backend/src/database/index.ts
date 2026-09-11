@@ -212,6 +212,16 @@ import AdTrackingMapping from "../models/AdTrackingMapping";
 import AdTrackingEvent from "../models/AdTrackingEvent";
 import MetaLeadIntegration from "../models/MetaLeadIntegration";
 import MetaLead from "../models/MetaLead";
+import MetaMarketingConnection from "../models/MetaMarketingConnection";
+import MetaOAuthState from "../models/MetaOAuthState";
+import MetaAdAccount from "../models/MetaAdAccount";
+import MetaMarketingUserPermission from "../models/MetaMarketingUserPermission";
+import MetaMarketingAuditLog from "../models/MetaMarketingAuditLog";
+import MetaMarketingDataDeletionRequest from "../models/MetaMarketingDataDeletionRequest";
+import MetaAdCampaign from "../models/MetaAdCampaign";
+import MetaCampaignDailyMetric from "../models/MetaCampaignDailyMetric";
+import MetaSyncRun from "../models/MetaSyncRun";
+import MetaCampaignCreationRequest from "../models/MetaCampaignCreationRequest";
 import { applyTenantIsolation } from "./tenantIsolation";
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -457,7 +467,17 @@ const models = [
   AdTrackingMapping,
   AdTrackingEvent,
   MetaLeadIntegration,
-  MetaLead
+  MetaLead,
+  MetaMarketingConnection,
+  MetaOAuthState,
+  MetaAdAccount,
+  MetaMarketingUserPermission,
+  MetaMarketingAuditLog,
+  MetaMarketingDataDeletionRequest,
+  MetaAdCampaign,
+  MetaCampaignDailyMetric,
+  MetaSyncRun,
+  MetaCampaignCreationRequest
 ];
 
 sequelize.addModels(models);

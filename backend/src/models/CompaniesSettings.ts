@@ -33,6 +33,14 @@ class CompaniesSettings extends Model<CompaniesSettings> {
   @BelongsTo(() => Company)
   company: Company;
 
+  @Default(false)
+  @Column
+  metaMarketingReadEnabled: boolean;
+
+  @Default(false)
+  @Column
+  metaMarketingWriteEnabled: boolean;
+
   @Column
   hoursCloseTicketsAuto: string;
 

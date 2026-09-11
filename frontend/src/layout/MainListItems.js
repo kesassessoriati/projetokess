@@ -1146,6 +1146,12 @@ const MainListItems = ({ collapsed, drawerClose, onSubmenuOpen, submenuOpen, onT
                 onNavigate={handleNavigateFromSubmenu}
               />
               <ListItemLink
+                to="/meta-marketing"
+                primary="Marketing Meta"
+                icon={<CampaignIcon />}
+                onNavigate={handleNavigateFromSubmenu}
+              />
+              <ListItemLink
                 to="/meta-lead-ads"
                 primary="Lead Ads"
                 icon={<CampaignIcon />}
