@@ -125,7 +125,7 @@ export const getMetaMarketingDashboard = async (filters: DashboardFilters): Prom
       companyId: filters.companyId,
       adAccountId: { [Op.in]: accountIds },
       campaignId: { [Op.in]: campaignIds },
-      statDate: { [Op.between]: [filters.periodStart, filters.periodEnd] }
+      statDate: { [Op.between]: [filters.periodStart, filters.periodEnd] } as any
     },
     attributes: ["id", "adAccountId", "campaignId", "statDate", "spend", "ctr", "cpc", "cpm", "resultValue", "impressions", "reach", "clicks", "resultActionType", "currency", "timezone", "attributionWindow", "collectedAt"],
     order: [["statDate", "ASC"], ["campaignId", "ASC"]]

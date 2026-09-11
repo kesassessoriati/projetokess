@@ -37,7 +37,8 @@ const oauthResult = (res: Response, success: boolean): Response => {
   try {
     const destination = new URL("/meta-marketing", frontendUrl);
     destination.searchParams.set("oauth", success ? "connected" : "failed");
-    return res.redirect(destination.toString());
+    res.redirect(destination.toString());
+    return res;
   } catch (_) {
     return res.status(success ? 200 : 400).json({ ok: success });
   }

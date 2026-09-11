@@ -120,7 +120,7 @@ export const listMetaMarketingConnections = async (input: {
   const accountsByConnection = accounts.reduce<Record<number, Record<string, unknown>[]>>((result, account) => {
     const connectionId = account.connectionId;
     result[connectionId] = result[connectionId] || [];
-    result[connectionId].push(account.toJSON());
+    result[connectionId].push(account.toJSON() as Record<string, unknown>);
     return result;
   }, {});
 
