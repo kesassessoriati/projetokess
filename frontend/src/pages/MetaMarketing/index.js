@@ -1,3 +1,5 @@
+/* global BigInt */
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
