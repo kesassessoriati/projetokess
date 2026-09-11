@@ -1,3 +1,5 @@
+/* global BigInt */
+
 export const asMinorUnits = (value) => {
   const raw = String(value || "").trim();
   const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
