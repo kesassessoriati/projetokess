@@ -3,7 +3,7 @@ import { QueryInterface } from "sequelize";
 module.exports = {
   up: async (queryInterface: QueryInterface) => {
     const settings = [
-      { key: "userCreation", value: "enabled" },
+      { key: "userCreation", value: "enabled", companyId: "1" },
       { key: "hoursCloseTicketsAuto", value: "9999999999", companyId: "1" },
       { key: "chatBotType", value: "text", companyId: "1" },
       { key: "acceptCallWhatsapp", value: "enabled", companyId: "1" },
@@ -20,7 +20,7 @@ module.exports = {
       { key: "enableLGPD", value: "disabled", companyId: "1" },
       { key: "requiredTag", value: "disabled", companyId: "1" },
       { key: "downloadLimit", value: "64", companyId: "1" },
-      { key: "wtV", value: "disabled" }
+      { key: "wtV", value: "disabled", companyId: "1" }
     ];
 
     for (let setting of settings) {
