@@ -1,4 +1,6 @@
 import sequelize from "../database";
+import Version from "../models/Versions";
+import { version } from "../utils/version";
 
 /**
  * Creates the disposable HML schema from the current models.
@@ -29,6 +31,10 @@ const removeForeignKeyReferences = (): void => {
 const main = async (): Promise<void> => {
   removeForeignKeyReferences();
   await sequelize.sync({ logging: false });
+  await Version.findOrCreate({
+    where: { id: 1 },
+    defaults: { id: 1, versionFrontend: version, versionBackend: version }
+  });
   await sequelize.close();
 };
 
