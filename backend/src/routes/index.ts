@@ -179,6 +179,7 @@ const routes = Router();
 // Rota pública registrada antes das rotas autenticadas para liberar links enviados a clientes.
 routes.get("/proposals/public/:slug", ProposalController.showPublic);
 routes.get("/api/proposals/public/:slug", ProposalController.showPublic);
+routes.use(metaMarketingOAuthRoutes);
 routes.use(internalMessageSyncRoutes);
 
 routes.use(userRoutes);
@@ -311,7 +312,6 @@ routes.use(aiExternalSettingsRoutes);
 
 // OAuth Facebook/Instagram
 routes.use(facebookOAuthRoutes);
-routes.use(metaMarketingOAuthRoutes);
 routes.use(metaMarketingDashboardRoutes);
 routes.use(metaMarketingCampaignPilotRoutes);
 routes.use(metaMarketingOperationsRoutes);
